@@ -3,7 +3,7 @@
 import os, signal, subprocess, sys, tempfile, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from harness import Daemon, Fail, alive, check, run_tests, wait_for
+from harness import Daemon, Fail, alive, check, resp, run_tests, wait_for
 
 EXE = os.path.abspath(os.environ.get("PLUGIN_HOSTD", "./plugin-hostd"))
 FAKE = os.path.abspath(os.environ.get("FAKE_HOST", "tests/fake-host"))
@@ -45,8 +45,8 @@ def placement_own_default_and_pool():
         check(by_inst[(2, 3)]["place"] == "pool:p" and by_inst[(0,)]["place"] == "own", "places %s" % w)
         pids = {v["pid"] for v in w.values()}
         check(len(pids) == 4 and all(alive(p) for p in pids), "four processes, all alive")
-        d.expect("add fake:x 9 pool:bad!name", "resp -501")
-        d.expect("add fake:x 9 pool:", "resp -501")
+        d.expect("add fake:x 9 pool:bad!name", resp("PLACEMENT_INVALID"))
+        d.expect("add fake:x 9 pool:", resp("PLACEMENT_INVALID"))
         d.expect("add fake:a 0", "resp -2")
         d.expect("add fake:x 10000", "resp -1")
     finally:
@@ -58,7 +58,7 @@ def lv2_prefix_is_stripped_and_missing_backend_refused():
     d = daemon(conf={"clap_host": "/nonexistent/omx-clap-host"})
     try:
         d.expect("add lv2:urn:test:one 0", "resp 0")
-        d.expect("add clap:/x.clap#id 1", "resp -502")
+        d.expect("add clap:/x.clap#id 1", resp("NO_BACKEND"))
         check(list(d.workers().values())[0]["inst"] == [0], "only the LV2 instance has a worker")
     finally:
         d.close()
@@ -282,7 +282,7 @@ def pool_in_flight_command_names_the_culprit_and_the_pool_stays_a_pool():
         make_pool(d, [20, 21, 22, 23])
         mark = d.mark()
         r = d.send("param_set 21 hang 1")
-        check(r == "resp -507", "the controller is told its command was dropped: " + r)
+        check(r == resp("VERB_DROPPED"), "the controller is told its command was dropped: " + r)
         d.wait_event("instance_verb_dropped 21 param_set 21 hang 1", since=mark)
         d.wait_event("instance_quarantined 21 ", since=mark)
         for i in (20, 22, 23):
@@ -341,12 +341,12 @@ def storm_bound_is_per_placement_and_reset_rearms_it():
         d.expect("param_set 50 gain 0.5000", "resp 0")
         for _ in range(3):
             d.expect("add fake:crash_on_add 51", "resp -102")
-        d.expect("add fake:crash_on_add 51", "resp -505")
+        d.expect("add fake:crash_on_add 51", resp("GAVE_UP"))
         d.expect("add fake:ok 52", "resp 52")
         d.expect("param_get 50 gain", "resp 0 0.5000")
         d.expect("supervisor_reset all", "resp 0")
         d.expect("add fake:crash_on_add 51", "resp -102")
-        d.expect("supervisor_reset w99", "resp -506")
+        d.expect("supervisor_reset w99", resp("NO_SUCH_WORKER"))
     finally:
         d.close()
 
@@ -364,7 +364,7 @@ def crashing_own_instance_is_given_up_alone():
         k, w = d.holder(61)
         check(w["state"] == "given-up", "the crasher's placement is given up: %s" % w)
         check(gave.startswith("supervisor_gave_up %s " % k), "the event names its worker: " + gave)
-        d.expect("param_get 61 gain", "resp -505")
+        d.expect("param_get 61 gain", resp("GAVE_UP"))
         d.expect("param_get 60 gain", "resp 0 0.5000")
         d.expect("add fake:ok 62", "resp 62")
         check(d.holder(60)[1]["state"] == "up", "the neighbour is untouched")
@@ -491,7 +491,7 @@ def the_verb_the_worker_died_on_is_dropped_and_not_replayed():
         d.expect("param_set 0 gain 0.4000", "resp 0")
         mark = d.mark()
         r = d.send("param_set 0 crashnow 1")
-        check(r == "resp -507", "the controller is told its command was dropped: " + r)
+        check(r == resp("VERB_DROPPED"), "the controller is told its command was dropped: " + r)
         d.wait_event("instance_verb_dropped 0 param_set 0 crashnow 1", since=mark)
         d.wait_event("instance_restored 0 ", since=mark)
         d.expect("param_get 0 gain", "resp 0 0.4000")
@@ -514,7 +514,7 @@ def pool_drops_the_verb_of_the_instance_it_names_and_replays_the_rest():
         make_pool(d, [70, 71, 72])
         mark = d.mark()
         r = d.send("param_set 71 crashnow 1")
-        check(r == "resp -507", "dropped: " + r)
+        check(r == resp("VERB_DROPPED"), "dropped: " + r)
         d.wait_event("instance_verb_dropped 71 param_set 71 crashnow 1", since=mark)
         d.wait_event("instance_quarantined 71 ", since=mark)
         for i in (70, 71, 72):
@@ -543,7 +543,7 @@ def policy_and_pool_config():
         d.expect("policy_set * own", "resp 0")
         d.expect("add fake:d 6", "resp 6")
         check(d.holder(6)[1]["place"] == "own", "the default follows the policy")
-        d.expect("policy_set lv2 pool:!", "resp -501")
+        d.expect("policy_set lv2 pool:!", resp("PLACEMENT_INVALID"))
         d.expect("policy_set midi own", "resp -902")
         d.expect("pool_config y 0", "resp -902")
     finally:

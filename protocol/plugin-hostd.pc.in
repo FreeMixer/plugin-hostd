@@ -1,0 +1,8 @@
+prefix=@PREFIX@
+includedir=${prefix}/include
+protocoldir=${prefix}/share/plugin-hostd
+
+Name: plugin-hostd
+Description: The protocol plugin-hostd declares: verbs, placement, error codes, events, settings
+Version: @VERSION@
+Cflags: -I${includedir}

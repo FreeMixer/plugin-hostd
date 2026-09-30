@@ -29,7 +29,9 @@ Audio never passes through the daemon: every worker is a jack client named
 as in mod\-host, and links are made in the graph.
 .PP
 It prints
+.\" BEGIN GENERATED protocol:man-ready
 .B plugin\-hostd ready!
+.\" END GENERATED protocol:man-ready
 once both ports accept. No worker exists until the first
 .BR add .
 .B quit
@@ -37,7 +39,9 @@ or SIGTERM stops every worker and the daemon.
 .SH OPTIONS
 .TP
 .BR \-p ", " \-\-socket\-port =\fIport\fR
+.\" BEGIN GENERATED protocol:man-port
 Command port (default 5555).
+.\" END GENERATED protocol:man-port
 .TP
 .BR \-f ", " \-\-feedback\-port =\fIport\fR
 Feedback port (default the command port plus one, unless
@@ -63,12 +67,15 @@ in
 or in
 .IR ~/.config/plugin\-hostd.conf ,
 one
+.\" BEGIN GENERATED protocol:man-keys
 .RI \(dq key " value" \(dq
-per line: mod_host, clap_host (the worker programs), lv2_path, state_root, ready_timeout_ms,
-rpc_timeout_ms, backoff_base_ms, backoff_max_ms, storm_deaths, storm_window_ms, suspect_window_ms, checkpoint_ms and pool_max.
+per line: mod_host, clap_host, lv2_path, state_root, ready_timeout_ms, rpc_timeout_ms, backoff_base_ms, backoff_max_ms, storm_deaths, storm_window_ms, suspect_window_ms, checkpoint_ms, idle_ms, pool_max.
+.\" END GENERATED protocol:man-keys
 .SH SEE ALSO
 .BR mod\-host (1),
 .BR omx\-clap\-host (1)
 .PP
 The protocol, the placement of an instance, the verbs the daemon adds and the events on the feedback port are
-described in the README of the source tree.
+declared in
+.I plugin\-hostd/protocol.h
+and described in the README of the source tree.
