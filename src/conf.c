@@ -40,6 +40,7 @@ void conf_defaults(conf_t *conf)
     conf->backoff_max_ms = 5000;
     conf->storm_deaths = 5;
     conf->storm_window_ms = 60000;
+    conf->suspect_window_ms = 500;
     conf->checkpoint_ms = 5000;
     conf->idle_ms = 25;
     conf->pool_max = 8;
@@ -75,6 +76,8 @@ static int set_key(conf_t *conf, const char *key, const char *value)
         conf->storm_deaths = atoi(value);
     else if (!strcmp(key, "storm_window_ms"))
         conf->storm_window_ms = atoi(value);
+    else if (!strcmp(key, "suspect_window_ms"))
+        conf->suspect_window_ms = atoi(value);
     else if (!strcmp(key, "checkpoint_ms"))
         conf->checkpoint_ms = atoi(value);
     else if (!strcmp(key, "idle_ms"))
