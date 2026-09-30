@@ -19,17 +19,21 @@
 
 /* A stereo passthrough .clap the daemon's tests break on purpose:
  *   org.plugin-hostd.test.stress        parameters
- *                                         0 crash   a write above 0.5 aborts inside process
+ *                                         0 crash   a write above 0.5 aborts inside process; with STRESS_CRASH_ONCE
+ *                                                   naming a file, only when the file is not there yet, and the
+ *                                                   crash creates it
  *                                         1 hog     microseconds spun inside every process call
- *                                         2 thread  above 0.5 starts a thread that burns a core
+ *                                         2 thread  above 0.5 starts a thread that burns a core, from the main thread
  *                                         3 level   a plain value, and the whole of the state
  *   org.plugin-hostd.test.crash_on_add  aborts when it is created */
 
+#include <fcntl.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 #include <clap/clap.h>
 
 #define ID_STRESS       "org.plugin-hostd.test.stress"
@@ -42,6 +46,7 @@ typedef struct STRESS_T {
     const clap_host_t *host;
     double value[PARAM_COUNT];
     volatile int burning;
+    volatile int want_thread;
     pthread_t thread;
     int thread_started;
 } stress_t;
@@ -166,9 +171,21 @@ static void take_events(stress_t *stress, const clap_input_events_t *in)
                 continue;
             stress->value[event->param_id] = event->value;
             if (event->param_id == 0 && event->value > 0.5)
-                abort();
+            {
+                const char *once = getenv("STRESS_CRASH_ONCE");
+
+                if (!once || access(once, F_OK) != 0)
+                {
+                    if (once)
+                        close(open(once, O_CREAT | O_WRONLY, 0644));
+                    abort();
+                }
+            }
             if (event->param_id == 2)
-                set_thread(stress, event->value > 0.5);
+            {
+                stress->want_thread = event->value > 0.5;
+                stress->host->request_callback(stress->host);
+            }
         }
     }
 }
@@ -289,9 +306,12 @@ static const void *plugin_get_extension(const clap_plugin_t *plugin, const char 
     return NULL;
 }
 
+/* the thread is started from the main thread, so it inherits the host's scheduling and not the audio thread's */
 static void plugin_on_main_thread(const clap_plugin_t *plugin)
 {
-    (void)plugin;
+    stress_t *stress = plugin->plugin_data;
+
+    set_thread(stress, stress->want_thread);
 }
 
 static uint32_t factory_get_plugin_count(const clap_plugin_factory_t *factory)
