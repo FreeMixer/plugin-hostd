@@ -23,6 +23,7 @@
 #include <sys/socket.h>
 
 #include <host-errors.h>
+#include <mod-host.h>
 #include <socket.h>
 
 #include "supervisor.h"
@@ -32,12 +33,12 @@
 
 volatile int g_quitting;
 
-/* the verbs whose first argument is an instance number: mod-host's grammar, README "<verb> <instance_number>";
- * tests/verbs_contract.sh holds this list to it */
+/* the commands of mod-host.h whose first argument is an instance number: mod-host's grammar, README
+ * "<verb> <instance_number>"; tests/verbs_contract.py holds this list to it */
 static const char *const g_instance_verbs[] = {
-    "preset_load", "preset_save", "preset_show", "bypass", "param_set", "param_get", "param_monitor",
-    "patch_set", "patch_get", "licensee", "monitor_output", "midi_learn", "midi_map", "midi_unmap",
-    "cc_map", "cc_unmap", "cc_value_set", "cv_map", "cv_unmap",
+    EFFECT_PRESET_LOAD, EFFECT_PRESET_SAVE, EFFECT_PRESET_SHOW, EFFECT_BYPASS, EFFECT_PARAM_SET, EFFECT_PARAM_GET,
+    EFFECT_PARAM_MON, EFFECT_PATCH_SET, EFFECT_PATCH_GET, EFFECT_LICENSEE, MONITOR_OUTPUT, MIDI_LEARN, MIDI_MAP,
+    MIDI_UNMAP, CC_MAP, CC_UNMAP, CC_VALUE_SET, CV_MAP, CV_UNMAP,
 };
 
 static int is_instance_verb(const char *verb)
@@ -45,7 +46,7 @@ static int is_instance_verb(const char *verb)
     size_t n;
 
     for (n = 0; n < sizeof(g_instance_verbs) / sizeof(g_instance_verbs[0]); n++)
-        if (!strcmp(verb, g_instance_verbs[n]))
+        if (verb_is(verb, g_instance_verbs[n]))
             return 1;
     return 0;
 }
@@ -81,7 +82,7 @@ static char *handle(char *line, char **tok, int ntok)
             return sup_resp(ERR_INVALID_OPERATION);
         return sup_add(tok[1], atoi(tok[2]), placement, client);
     }
-    if (!strcmp(verb, "remove"))
+    if (verb_is(verb, EFFECT_REMOVE))
     {
         if (ntok != 2)
             return sup_resp(ERR_INVALID_OPERATION);
@@ -101,14 +102,14 @@ static char *handle(char *line, char **tok, int ntok)
         return ntok == 3 ? sup_pool_config(tok[1], atoi(tok[2])) : sup_resp(ERR_INVALID_OPERATION);
     if (!strcmp(verb, PHD_VERB_WORKER_ENV))
         return ntok == 4 ? sup_worker_env(tok[1], tok[2], tok[3]) : sup_resp(ERR_INVALID_OPERATION);
-    if (!strcmp(verb, "quit"))
+    if (verb_is(verb, QUIT))
     {
         g_quitting = 1;
         return sup_resp(SUCCESS);
     }
     if (is_instance_verb(verb) && ntok > 1)
         return sup_call(atoi(tok[1]), line);
-    if ((!strcmp(verb, "connect") || !strcmp(verb, "disconnect")) && ntok == 3)
+    if ((verb_is(verb, EFFECT_CONNECT) || verb_is(verb, EFFECT_DISCONNECT)) && ntok == 3)
         return sup_connect(verb, line, tok[1], tok[2]);
     return sup_broadcast(line);
 }
@@ -129,7 +130,7 @@ void verbs_receive(msg_t *msg)
     else
     {
         reply(msg->sender_id, handle(line, tok, ntok));
-        if (ntok > 1 && (!strcmp(tok[0], "preset_load") || !strcmp(tok[0], "patch_set")))
+        if (ntok > 1 && (verb_is(tok[0], EFFECT_PRESET_LOAD) || verb_is(tok[0], EFFECT_PATCH_SET)))
             sup_after_reply(atoi(tok[1]), tok[0]);
     }
     free(copy);
