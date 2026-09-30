@@ -72,6 +72,7 @@ make test-daemon check-generated
 * Wed Sep 30 2026 Pau Aliagas <linuxnow@gmail.com> - 0.1.1-1
 - pin a plugin's binary and layout before add admits it (pin_set, pin_clear, pin_expect)
 - read every verb from its declaration
+- give a pinned LV2 plugin a worker of its own, fail an add whose pin_expect goes unanswered, announce a refused replay
 
 * Wed Sep 30 2026 Pau Aliagas <linuxnow@gmail.com> - 0.1.0-1
 - first package
