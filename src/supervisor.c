@@ -702,36 +702,52 @@ static void pend_retry(worker_t *w, int64_t now)
     }
 }
 
-/* the pin of a replayed add, checked again: a binary swapped while its worker was down is refused on respawn, the
- * refusal written with PHD_ERR_REPLAY and the pin's code, and the worker does not hold the instance until it is
- * replayed again. RPC_OK, PIN_REFUSED, or the worker's death. */
+/* a replayed add refused, by its pin or by the worker: announced with the refusal's own code, written with
+ * PHD_ERR_REPLAY and the step that refused it, and the worker does not hold the instance until it is replayed again */
+static void replay_refused(worker_t *w, instance_t *i, const char *step, int code)
+{
+    fprintf(stderr, "plugin-hostd: w%d did not replay instance %d: resp %d, its %s resp %d\n", w->k, i->id, PHD_ERR_REPLAY,
+            step, code);
+    event(PHD_EVENT_REPLAY_REFUSED_FMT, i->id, code);
+    i->unreplayed = 1;
+}
+
+/* the pin of a replayed add, checked again: a binary swapped while its worker was down is refused on respawn.
+ * RPC_OK, PIN_REFUSED, or the worker's death. */
 static int replay_pin(worker_t *w, instance_t *i)
 {
     const char *layout = NULL;
-    int code = SUCCESS, rc;
+    int code, rc;
 
     i->unreplayed = 0;
     if (!g_conf.require_pins)
         return RPC_OK;
     code = pins_check(i->fmt == FMT_CLAP, i->uri, g_conf.lv2_path, &layout);
-    if (code == SUCCESS && i->fmt == FMT_CLAP)
+    if (code != SUCCESS)
+    {
+        replay_refused(w, i, "pin", code);
+        return PIN_REFUSED;
+    }
+    if (i->fmt == FMT_CLAP)
     {
         rc = replay_line_code(w, pin_expect_line(i->id, layout), &code);
         if (rc != RPC_OK)
             return rc;
+        if (code < 0)
+        {
+            replay_refused(w, i, PHD_VERB_PIN_EXPECT, code);
+            return PIN_REFUSED;
+        }
     }
-    if (code >= 0)
-        return RPC_OK;
-    fprintf(stderr, "plugin-hostd: w%d did not replay instance %d: resp %d, its pin resp %d\n", w->k, i->id,
-            PHD_ERR_REPLAY, code);
-    i->unreplayed = 1;
-    return PIN_REFUSED;
+    return RPC_OK;
 }
 
 static void replay(worker_t *w, int64_t started)
 {
-    int n, m, any_ckpt = 0, count = 0;
-    char msg[PATH_MAX + 16];
+    int n, m, any_ckpt = 0, count = 0, code;
+    char msg[PATH_MAX + 16], add[32];
+
+    snprintf(add, sizeof(add), "%.*s", verb_len(EFFECT_ADD), EFFECT_ADD);
 
     for (n = 0; n < w->ninst; n++)
     {
@@ -747,10 +763,15 @@ static void replay(worker_t *w, int64_t started)
             on_death(w, i->id);
             return;
         }
-        if (replay_line(w, i->add_line) != RPC_OK)
+        if (replay_line_code(w, i->add_line, &code) != RPC_OK)
         {
             on_death(w, i->id);
             return;
+        }
+        if (code < 0)
+        {
+            replay_refused(w, i, add, code);
+            continue;
         }
         i->has_ckpt = ckpt_exists(i->id);
         any_ckpt |= i->has_ckpt;
