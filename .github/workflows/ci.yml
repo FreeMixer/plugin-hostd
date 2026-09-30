@@ -31,7 +31,7 @@ jobs:
       - name: Install the build tools
         run: |
           dnf install -y --setopt=install_weak_deps=False git gcc make python3 pkgconf-pkg-config clap-devel \
-            pipewire-jack-audio-connection-kit-devel pipewire pipewire-utils iproute util-linux procps-ng
+            pipewire-jack-audio-connection-kit-devel pipewire pipewire-utils iproute util-linux procps-ng diffutils python3-jsonschema
 
       - uses: actions/checkout@v4
 
@@ -40,7 +40,10 @@ jobs:
       - name: Build
         run: make
 
-      - name: Test the daemon against workers that die on cue
+      # the daemon against workers that die on cue, then the declaration: the generated files are current, the JSON
+      # satisfies its schema, a C consumer compiles against the installed header, and changing the declaration in a
+      # scratch copy moves the daemon and the docs
+      - name: Test the daemon against workers that die on cue, and the declared protocol
         run: make test
 
       # The real worker for CLAP, built from the pinned omx-clap-host.
@@ -101,13 +104,22 @@ jobs:
             rpm -qlp "$rpm"
             rpm -qp --qf '[%{FILEMODES:perms} %{FILENAMES}\n]' "$rpm" | grep -v -e '^d' -e '/\.build-id/' | cut -d' ' -f2 | sort > files.txt
             printf '%s\n' /usr/bin/plugin-hostd /usr/share/man/man1/plugin-hostd.1.gz \
-              /usr/share/doc/plugin-hostd/README.md /usr/share/licenses/plugin-hostd/COPYING | sort > expected.txt
+              /usr/share/doc/plugin-hostd/README.md /usr/share/licenses/plugin-hostd/COPYING \
+              /usr/share/plugin-hostd/protocol.json | sort > expected.txt
             diff -u expected.txt files.txt
             rpm -qp --requires "$rpm" | tee requires.txt
             grep -q 'libmod-host-protocol.so.0' requires.txt
             rpm -qp --recommends "$rpm" | tee recommends.txt
             grep -q '^mod-host' recommends.txt
             grep -q '^omx-clap-host' recommends.txt
+          done
+          # the development package: the header a consumer includes, its pkg-config file, the schema of the JSON
+          for rpm in rpms/plugin-hostd-devel-[0-9]*.noarch.rpm; do
+            rpm -qlp "$rpm"
+            rpm -qp --qf '[%{FILEMODES:perms} %{FILENAMES}\n]' "$rpm" | grep -v '^d' | cut -d' ' -f2 | sort > files.txt
+            printf '%s\n' /usr/include/plugin-hostd/protocol.h /usr/share/pkgconfig/plugin-hostd.pc \
+              /usr/share/plugin-hostd/protocol.schema.json /usr/share/licenses/plugin-hostd-devel/COPYING | sort > expected.txt
+            diff -u expected.txt files.txt
           done
           ls rpms/plugin-hostd-*.src.rpm
 
@@ -138,8 +150,9 @@ jobs:
           set -euo pipefail
           mkdir -p /tmp/clean-root/smoke
           cp -r tests /tmp/clean-root/smoke/tests
+          # the tests read the declared protocol from the installed package's JSON
           chroot /tmp/clean-root env PLUGIN_HOSTD=/usr/bin/plugin-hostd FAKE_HOST=/smoke/tests/fake-host \
-            python3 /smoke/tests/daemon_test.py
+            PLUGIN_HOSTD_PROTOCOL=/usr/share/plugin-hostd/protocol.json python3 /smoke/tests/daemon_test.py
 
       - uses: actions/upload-artifact@v4
         with:
@@ -219,7 +232,11 @@ jobs:
         run: |
           set -euo pipefail
           apt-get update -qq
-          apt-get install -y --no-install-recommends ./debs/plugin-hostd_*.deb ./dep-debs/libmod-host-protocol0_*.deb python3
+          apt-get install -y --no-install-recommends ./debs/plugin-hostd_*.deb ./debs/plugin-hostd-dev_*.deb ./dep-debs/libmod-host-protocol0_*.deb python3
+          dpkg -L plugin-hostd-dev | tee dev.txt
+          grep -qx /usr/include/plugin-hostd/protocol.h dev.txt
+          grep -qx /usr/share/pkgconfig/plugin-hostd.pc dev.txt
+          dpkg -L plugin-hostd | grep -qx /usr/share/plugin-hostd/protocol.json
           dpkg -s libmod-host-protocol0 | grep '^Status: install ok installed'
 
       - name: The daemon reports the version of its package and resolves its libraries
@@ -239,7 +256,7 @@ jobs:
           # an artifact does not keep the executable bit
           chmod +x smoke/tests/fake-host
           PLUGIN_HOSTD=/usr/bin/plugin-hostd FAKE_HOST=$PWD/smoke/tests/fake-host \
-            python3 smoke/tests/daemon_test.py
+            PLUGIN_HOSTD_PROTOCOL=/usr/share/plugin-hostd/protocol.json python3 smoke/tests/daemon_test.py
 
   # The release workflow as a tag would run it, publishing nothing: both architectures build through the
   # shared workflow and an unsigned tree is assembled. The caller grants what the called workflow may ask

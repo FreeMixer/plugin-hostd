@@ -1,0 +1,323 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/FreeMixer/plugin-hostd/protocol/plugin-hostd.schema.json",
+  "title": "The protocol surface plugin-hostd owns",
+  "description": "Generated from include/plugin-hostd/protocol.h, which is the declaration; this file says the shape of the JSON.",
+  "type": "object",
+  "properties": {
+    "protocol": {
+      "const": "plugin-hostd"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "readiness": {
+      "type": "object",
+      "properties": {
+        "daemon_line": {
+          "type": "string"
+        },
+        "worker_marker": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "daemon_line",
+        "worker_marker"
+      ],
+      "additionalProperties": false
+    },
+    "constants": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "value": {
+            "type": "integer"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "meaning": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "value",
+          "unit",
+          "meaning"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
+    "placement": {
+      "type": "object",
+      "properties": {
+        "own": {
+          "type": "string"
+        },
+        "default": {
+          "type": "string"
+        },
+        "pool_prefix": {
+          "type": "string"
+        },
+        "pool_sibling_separator": {
+          "type": "string"
+        },
+        "syntax": {
+          "type": "string"
+        },
+        "pool_name": {
+          "type": "object",
+          "properties": {
+            "pattern": {
+              "type": "string"
+            },
+            "class": {
+              "type": "string"
+            },
+            "min": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "max": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "pattern",
+            "class",
+            "min",
+            "max"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "own",
+        "default",
+        "pool_prefix",
+        "pool_sibling_separator",
+        "syntax",
+        "pool_name"
+      ],
+      "additionalProperties": false
+    },
+    "formats": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "words": {
+      "type": "object",
+      "properties": {
+        "all": {
+          "type": "string"
+        },
+        "none": {
+          "type": "string"
+        },
+        "any_format": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "all",
+        "none",
+        "any_format"
+      ],
+      "additionalProperties": false
+    },
+    "worker_states": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "meaning": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "meaning"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "macro": {
+            "type": "string"
+          },
+          "code": {
+            "type": "integer",
+            "maximum": -501,
+            "minimum": -599
+          },
+          "meaning": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "macro",
+          "code",
+          "meaning"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
+    "verbs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "arguments": {
+            "type": "string"
+          },
+          "reply": {
+            "type": "string"
+          },
+          "meaning": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "arguments",
+          "reply",
+          "meaning"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "fields": {
+            "type": "string"
+          },
+          "meaning": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "fields",
+          "meaning"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
+    "config": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string"
+              },
+              "type": {
+                "const": "string"
+              },
+              "default": {
+                "type": "string"
+              },
+              "env": {
+                "type": "string"
+              },
+              "meaning": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "key",
+              "type",
+              "default",
+              "env",
+              "meaning"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string"
+              },
+              "type": {
+                "const": "int"
+              },
+              "default": {
+                "type": "integer"
+              },
+              "unit": {
+                "type": "string"
+              },
+              "meaning": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "key",
+              "type",
+              "default",
+              "unit",
+              "meaning"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "minItems": 1
+    }
+  },
+  "required": [
+    "protocol",
+    "version",
+    "readiness",
+    "constants",
+    "placement",
+    "formats",
+    "words",
+    "worker_states",
+    "errors",
+    "verbs",
+    "events",
+    "config"
+  ],
+  "additionalProperties": false
+}

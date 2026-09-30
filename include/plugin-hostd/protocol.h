@@ -1,0 +1,245 @@
+/*
+ * This file is part of plugin-hostd.
+ *
+ * plugin-hostd is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * plugin-hostd is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with plugin-hostd.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
+ */
+
+/* The protocol surface plugin-hostd owns, declared once. The daemon compiles against this header; the tables of
+ * README.md, the key list of the man page and protocol/plugin-hostd.json are generated from it by tools/protocol-gen.c
+ * (make gen; make check-generated fails on drift). A consumer includes this header and reads nothing else, or reads the
+ * JSON when it is not C. The mod-host protocol itself, which the daemon speaks unchanged, is not declared here. */
+
+#ifndef PLUGIN_HOSTD_PROTOCOL_H
+#define PLUGIN_HOSTD_PROTOCOL_H
+
+/* bumped when a name, a code or the shape of a verb or an event changes incompatibly */
+#define PLUGIN_HOSTD_PROTOCOL_VERSION 1
+
+/* ---------------------------------------------------------------- readiness */
+
+/* the daemon prints this line once both its ports accept */
+#define PHD_READY_LINE "plugin-hostd ready!"
+/* a worker prints a line ending with this once its socket accepts */
+#define PHD_WORKER_READY_MARKER "ready!"
+
+/* ---------------------------------------------------------------- constants */
+
+/* X(name, value, unit, meaning) */
+#define PHD_DEFAULT_COMMAND_PORT 5555
+#define PHD_CONNECT_RETRY_MS     5000
+
+#define PHD_CONSTANTS(X) \
+    X(default_command_port, PHD_DEFAULT_COMMAND_PORT, "port", \
+      "the command port without -p; the feedback port is the next one, unless -n is given") \
+    X(connect_retry_ms, PHD_CONNECT_RETRY_MS, "ms", \
+      "how long the idle tick asks again for a connect a respawned worker could not make yet")
+
+/* ---------------------------------------------------------------- placement */
+
+#define PHD_PLACE_OWN           "own"
+#define PHD_PLACE_DEFAULT       "default"
+#define PHD_PLACE_POOL_PREFIX   "pool:"
+/* a full pool opens <name><separator><n>, n counting from 2 */
+#define PHD_POOL_SIBLING_SEPARATOR "#"
+
+#define PHD_POOL_NAME_MIN 1
+#define PHD_POOL_NAME_MAX 32
+/* the characters of a pool name: ranges written x-y, a '-' last or first is itself */
+#define PHD_POOL_NAME_CLASS "A-Za-z0-9_-"
+
+#define PHD_PLACEMENT_SYNTAX \
+    PHD_PLACE_OWN " | " PHD_PLACE_POOL_PREFIX "<name> | " PHD_PLACE_DEFAULT
+
+#define PHD_STR_(x) #x
+#define PHD_STR(x)  PHD_STR_(x)
+#define PHD_POOL_NAME_PATTERN \
+    "^[" PHD_POOL_NAME_CLASS "]{" PHD_STR(PHD_POOL_NAME_MIN) "," PHD_STR(PHD_POOL_NAME_MAX) "}$"
+
+/* the formats a worker holds, and the words a verb takes for "every one", "all" and "none" */
+#define PHD_FORMAT_LV2  "lv2"
+#define PHD_FORMAT_CLAP "clap"
+#define PHD_FORMAT_ANY  "*"
+#define PHD_WORD_ALL    "all"
+#define PHD_WORD_NONE   "-"
+
+/* X(id, name) in the order of the daemon's enum */
+#define PHD_FORMATS(X) X(LV2, PHD_FORMAT_LV2) X(CLAP, PHD_FORMAT_CLAP)
+
+/* X(id, name, meaning) in the order of the daemon's enum */
+#define PHD_WORKER_STATES(X) \
+    X(UP, "up", "accepting commands") \
+    X(STARTING, "starting", "spawned, not yet accepting") \
+    X(BACKOFF, "backoff", "dead, waiting to be respawned") \
+    X(GIVEN_UP, "given-up", "the storm bound is spent for its placement")
+
+/* whether name is a pool name, by PHD_POOL_NAME_CLASS and the limits above */
+static inline int phd_pool_name_valid(const char *name)
+{
+    int n = 0;
+
+    for (; name[n]; n++)
+    {
+        const char *c = PHD_POOL_NAME_CLASS;
+        int ok = 0;
+
+        for (; *c; c++)
+        {
+            if (c[1] == '-' && c[2])
+            {
+                if (name[n] >= c[0] && name[n] <= c[2])
+                    ok = 1;
+                c += 2;
+            }
+            else if (name[n] == *c)
+                ok = 1;
+        }
+        if (!ok)
+            return 0;
+    }
+    return n >= PHD_POOL_NAME_MIN && n <= PHD_POOL_NAME_MAX;
+}
+
+/* ---------------------------------------------------------------- error codes */
+
+/* the codes the supervisor adds to mod-host's, the -5xx hundred; a reply is "resp <code>" */
+#define PHD_ERR_PLACEMENT_INVALID (-501)
+#define PHD_ERR_NO_BACKEND        (-502)
+#define PHD_ERR_WORKER_SPAWN      (-503)
+#define PHD_ERR_REPLAY            (-504)
+#define PHD_ERR_GAVE_UP           (-505)
+#define PHD_ERR_NO_SUCH_WORKER    (-506)
+#define PHD_ERR_VERB_DROPPED      (-507)
+
+/* X(id, meaning) */
+#define PHD_ERRORS(X) \
+    X(PLACEMENT_INVALID, "placement invalid") \
+    X(NO_BACKEND, "no worker program for the scheme") \
+    X(WORKER_SPAWN, "the worker is not up: the spawn failed, or it is in backoff; ask again after instance_restored") \
+    X(REPLAY, "reserved: declared, and not returned by this version") \
+    X(GAVE_UP, "the storm bound is spent for that placement") \
+    X(NO_SUCH_WORKER, "no such worker") \
+    X(VERB_DROPPED, "the worker died on this very command and the daemon dropped it: it is not replayed, " \
+                    "and the instance_verb_dropped event names it")
+
+/* ---------------------------------------------------------------- verbs */
+
+#define PHD_VERB_ADD              "add"
+#define PHD_VERB_WORKER_LIST      "worker_list"
+#define PHD_VERB_INSTANCE_INFO    "instance_info"
+#define PHD_VERB_SUPERVISOR_RESET "supervisor_reset"
+#define PHD_VERB_QUARANTINE_CLEAR "quarantine_clear"
+#define PHD_VERB_POLICY_SET       "policy_set"
+#define PHD_VERB_POOL_CONFIG      "pool_config"
+#define PHD_VERB_WORKER_ENV       "worker_env"
+
+/* the verbs the daemon adds to mod-host's, or extends: X(id, name, arguments, reply, meaning) */
+#define PHD_VERBS(X) \
+    X(ADD, PHD_VERB_ADD, "<uri> <instance> [" PHD_PLACEMENT_SYNTAX "] [client_name]", "resp <instance>", \
+      "mod-host's add with a placement; a token after the instance that is not a placement is the jack client name") \
+    X(WORKER_LIST, PHD_VERB_WORKER_LIST, "", \
+      "resp <n> <worker>:<pid>:<format>:<state>:<place>:<i>,<i>,...", "the workers, one record each") \
+    X(INSTANCE_INFO, PHD_VERB_INSTANCE_INFO, "<instance>", "resp 0 <worker> <pid> <state> <crashes> <quarantined>", \
+      "where an instance lives and what it has cost") \
+    X(SUPERVISOR_RESET, PHD_VERB_SUPERVISOR_RESET, "[<worker> | " PHD_WORD_ALL "]", "resp 0", \
+      "re-arm the storm bound and the backoff of a given-up placement") \
+    X(QUARANTINE_CLEAR, PHD_VERB_QUARANTINE_CLEAR, "<instance> | " PHD_WORD_ALL, "resp 0", \
+      "let a quarantined instance go back where its placement says") \
+    X(POLICY_SET, PHD_VERB_POLICY_SET, "<" PHD_FORMAT_LV2 " | " PHD_FORMAT_CLAP " | " PHD_FORMAT_ANY "> " \
+      PHD_PLACE_OWN " | " PHD_PLACE_POOL_PREFIX "<name>", "resp 0", "the placement of an add that says default") \
+    X(POOL_CONFIG, PHD_VERB_POOL_CONFIG, "<name> <max_instances>", "resp 0", \
+      "the instances a pool holds before a sibling opens") \
+    X(WORKER_ENV, PHD_VERB_WORKER_ENV, "<" PHD_FORMAT_LV2 " | " PHD_FORMAT_CLAP " | " PHD_FORMAT_ANY "> <cpu-list|" \
+      PHD_WORD_NONE "> <nice|" PHD_WORD_NONE ">", "resp 0", \
+      "the cpu list and the nice value of the workers of a format, at spawn and on the ones running")
+
+/* ---------------------------------------------------------------- feedback events */
+
+/* one NUL-terminated line each on the feedback port; a worker is "w<k>" */
+#define PHD_EVENT_WORKER_DIED             "worker_died"
+#define PHD_EVENT_INSTANCE_VERB_DROPPED   "instance_verb_dropped"
+#define PHD_EVENT_WORKER_BACKOFF          "worker_backoff"
+#define PHD_EVENT_WORKER_RESPAWNED        "worker_respawned"
+#define PHD_EVENT_INSTANCE_RESTORED       "instance_restored"
+#define PHD_EVENT_INSTANCE_QUARANTINED    "instance_quarantined"
+#define PHD_EVENT_SUPERVISOR_GAVE_UP      "supervisor_gave_up"
+
+#define PHD_EVENT_SUSPECT_PREFIX "suspect:"
+
+/* the same line, as the daemon formats it: name and format in one literal */
+#define PHD_EVENT_WORKER_DIED_FMT           PHD_EVENT_WORKER_DIED " w%d %d %s %s"
+#define PHD_EVENT_VERB_DROPPED_FMT          PHD_EVENT_INSTANCE_VERB_DROPPED " %d %s"
+#define PHD_EVENT_VERB_DROPPED_SUSPECT_FMT  PHD_EVENT_INSTANCE_VERB_DROPPED " %d " PHD_EVENT_SUSPECT_PREFIX "%d %s"
+#define PHD_EVENT_WORKER_BACKOFF_FMT        PHD_EVENT_WORKER_BACKOFF " w%d %d"
+#define PHD_EVENT_WORKER_RESPAWNED_FMT      PHD_EVENT_WORKER_RESPAWNED " w%d %d %d %d"
+#define PHD_EVENT_INSTANCE_RESTORED_FMT     PHD_EVENT_INSTANCE_RESTORED " %d w%d"
+#define PHD_EVENT_INSTANCE_QUARANTINED_FMT  PHD_EVENT_INSTANCE_QUARANTINED " %d w%d"
+#define PHD_EVENT_SUPERVISOR_GAVE_UP_FMT    PHD_EVENT_SUPERVISOR_GAVE_UP " w%d %d %d"
+
+/* the table of the docs: X(name, fields, meaning), one row per shape of a line */
+#define PHD_EVENTS(X) \
+    X(PHD_EVENT_WORKER_DIED, "<worker> <pid> <exit:N | signal:N> <instance>,...", \
+      "a worker died; the instances it held, or - for none") \
+    X(PHD_EVENT_INSTANCE_VERB_DROPPED, "<instance> <the command as sent>", \
+      "the command a worker died on, dropped from the ledger") \
+    X(PHD_EVENT_INSTANCE_VERB_DROPPED, "<instance> " PHD_EVENT_SUSPECT_PREFIX "<ms> <the command as sent>", \
+      "the last verb a worker answered when it died inside suspect_window_ms, <ms> the age of the reply") \
+    X(PHD_EVENT_WORKER_BACKOFF, "<worker> <ms>", "the respawn waits this long") \
+    X(PHD_EVENT_WORKER_RESPAWNED, "<worker> <pid> <replayed_count> <ms>", "a worker is back and its ledger replayed") \
+    X(PHD_EVENT_INSTANCE_RESTORED, "<instance> <worker>", "an instance is back in a worker") \
+    X(PHD_EVENT_INSTANCE_QUARANTINED, "<instance> <worker>", "the culprit of a pool death, placed own until cleared") \
+    X(PHD_EVENT_SUPERVISOR_GAVE_UP, "<worker> <deaths> <window_ms>", "the storm bound is spent; respawning ends")
+
+/* ---------------------------------------------------------------- settings */
+
+#define PHD_DEFAULT_MOD_HOST          "mod-host"
+#define PHD_DEFAULT_CLAP_HOST         "omx-clap-host"
+#define PHD_DEFAULT_LV2_PATH          "/usr/lib64/lv2:/usr/lib/lv2:/usr/local/lib/lv2"
+#define PHD_DEFAULT_STATE_ROOT        "/tmp"
+#define PHD_DEFAULT_READY_TIMEOUT_MS  5000
+#define PHD_DEFAULT_RPC_TIMEOUT_MS    5000
+#define PHD_DEFAULT_BACKOFF_BASE_MS   250
+#define PHD_DEFAULT_BACKOFF_MAX_MS    5000
+#define PHD_DEFAULT_STORM_DEATHS      5
+#define PHD_DEFAULT_STORM_WINDOW_MS   60000
+#define PHD_DEFAULT_SUSPECT_WINDOW_MS 500
+#define PHD_DEFAULT_CHECKPOINT_MS     5000
+#define PHD_DEFAULT_IDLE_MS           25
+#define PHD_DEFAULT_POOL_MAX          8
+
+/* the settings file: one "key value" per line, '#' starts a comment.
+ * A string setting: X(key, size, default, env, meaning); env names the variable that stands in for the default when
+ * it is set and not empty, "" for none; size is path or pathlist, the storage class of the daemon's copy. */
+#define PHD_CONF_STRINGS(X) \
+    X(mod_host, path, PHD_DEFAULT_MOD_HOST, "", "worker for " PHD_FORMAT_LV2 " (a name on PATH or a path)") \
+    X(clap_host, path, PHD_DEFAULT_CLAP_HOST, "", "worker for " PHD_FORMAT_CLAP) \
+    X(lv2_path, pathlist, PHD_DEFAULT_LV2_PATH, "LV2_PATH", "where bundles are searched") \
+    X(state_root, path, PHD_DEFAULT_STATE_ROOT, "XDG_RUNTIME_DIR", "the daemon's checkpoints and worker logs")
+
+/* A whole-number setting: X(key, default, unit, meaning); 0 turns off where the meaning says so */
+#define PHD_CONF_INTS(X) \
+    X(ready_timeout_ms, PHD_DEFAULT_READY_TIMEOUT_MS, "ms", "a worker that does not accept in this long is a failed spawn") \
+    X(rpc_timeout_ms, PHD_DEFAULT_RPC_TIMEOUT_MS, "ms", "a worker that does not answer in this long is killed") \
+    X(backoff_base_ms, PHD_DEFAULT_BACKOFF_BASE_MS, "ms", "respawn backoff, doubling per death in the window") \
+    X(backoff_max_ms, PHD_DEFAULT_BACKOFF_MAX_MS, "ms", "the most a respawn backoff grows to") \
+    X(storm_deaths, PHD_DEFAULT_STORM_DEATHS, "deaths", "deaths inside the window that end respawning of a placement") \
+    X(storm_window_ms, PHD_DEFAULT_STORM_WINDOW_MS, "ms", "the window storm_deaths are counted in") \
+    X(suspect_window_ms, PHD_DEFAULT_SUSPECT_WINDOW_MS, "ms", \
+      "a worker that dies this soon after a reply drops the verb it answered; 0 turns it off") \
+    X(checkpoint_ms, PHD_DEFAULT_CHECKPOINT_MS, "ms", "a quiet interval with a changed ledger writes a checkpoint") \
+    X(idle_ms, PHD_DEFAULT_IDLE_MS, "ms", "the period of the idle tick: reap, respawn, checkpoint") \
+    X(pool_max, PHD_DEFAULT_POOL_MAX, "instances", "instances in a pool before a sibling opens")
+
+#endif

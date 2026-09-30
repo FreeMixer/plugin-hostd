@@ -52,7 +52,8 @@ static int is_instance_verb(const char *verb)
 
 static int is_placement(const char *token)
 {
-    return !strcmp(token, "own") || !strcmp(token, "default") || !strncmp(token, "pool:", 5);
+    return !strcmp(token, PHD_PLACE_OWN) || !strcmp(token, PHD_PLACE_DEFAULT) ||
+           !strncmp(token, PHD_PLACE_POOL_PREFIX, strlen(PHD_PLACE_POOL_PREFIX));
 }
 
 static void reply(int fd, char *text)
@@ -65,7 +66,7 @@ static char *handle(char *line, char **tok, int ntok)
 {
     const char *verb = tok[0];
 
-    if (!strcmp(verb, "add"))
+    if (!strcmp(verb, PHD_VERB_ADD))
     {
         const char *placement = NULL, *client = NULL;
         int next = 3;
@@ -86,19 +87,19 @@ static char *handle(char *line, char **tok, int ntok)
             return sup_resp(ERR_INVALID_OPERATION);
         return atoi(tok[1]) == -1 ? sup_remove_all() : sup_remove(atoi(tok[1]));
     }
-    if (!strcmp(verb, "worker_list"))
+    if (!strcmp(verb, PHD_VERB_WORKER_LIST))
         return sup_worker_list();
-    if (!strcmp(verb, "instance_info"))
+    if (!strcmp(verb, PHD_VERB_INSTANCE_INFO))
         return ntok == 2 ? sup_instance_info(atoi(tok[1])) : sup_resp(ERR_INVALID_OPERATION);
-    if (!strcmp(verb, "supervisor_reset"))
-        return sup_reset(ntok > 1 ? tok[1] : "all");
-    if (!strcmp(verb, "quarantine_clear"))
+    if (!strcmp(verb, PHD_VERB_SUPERVISOR_RESET))
+        return sup_reset(ntok > 1 ? tok[1] : PHD_WORD_ALL);
+    if (!strcmp(verb, PHD_VERB_QUARANTINE_CLEAR))
         return ntok == 2 ? sup_quarantine_clear(tok[1]) : sup_resp(ERR_INVALID_OPERATION);
-    if (!strcmp(verb, "policy_set"))
+    if (!strcmp(verb, PHD_VERB_POLICY_SET))
         return ntok == 3 ? sup_policy_set(tok[1], tok[2]) : sup_resp(ERR_INVALID_OPERATION);
-    if (!strcmp(verb, "pool_config"))
+    if (!strcmp(verb, PHD_VERB_POOL_CONFIG))
         return ntok == 3 ? sup_pool_config(tok[1], atoi(tok[2])) : sup_resp(ERR_INVALID_OPERATION);
-    if (!strcmp(verb, "worker_env"))
+    if (!strcmp(verb, PHD_VERB_WORKER_ENV))
         return ntok == 4 ? sup_worker_env(tok[1], tok[2], tok[3]) : sup_resp(ERR_INVALID_OPERATION);
     if (!strcmp(verb, "quit"))
     {

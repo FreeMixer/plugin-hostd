@@ -9,6 +9,7 @@ Source0: %{url}/archive/v%{version}/%{name}-%{version}.tar.gz
 
 BuildRequires: gcc
 BuildRequires: make
+BuildRequires: diffutils
 BuildRequires: python3
 BuildRequires: pkgconfig(mod-host-protocol)
 
@@ -22,6 +23,16 @@ worker process per plugin, or per named pool of plugins, behind it: mod-host
 for LV2 plugins and omx-clap-host for CLAP plugins. A plugin that crashes takes
 down its own worker and nothing else, and the daemon puts it back. Audio never
 passes through the daemon: every worker is a JACK client, as in mod-host.
+
+%package devel
+Summary: C header declaring the protocol of plugin-hostd
+BuildArch: noarch
+
+%description devel
+The verbs plugin-hostd adds to mod-host's protocol, its placement syntax, error codes, feedback events, settings and
+readiness line, declared once in plugin-hostd/protocol.h, which the daemon itself is compiled against. Include it from a
+controller rather than spelling the values again; pkg-config plugin-hostd gives the flags. The same declaration as JSON,
+for readers that are not C, is /usr/share/plugin-hostd/protocol.json of the plugin-hostd package.
 
 %prep
 %autosetup
@@ -41,13 +52,20 @@ sed -i 's,LDFLAGS += -s,LDFLAGS +=,g' Makefile
 # the verb table is checked against mod-host's README, which a build does not have
 %check
 
-make test-daemon
+make test-daemon check-generated
 
 %files
 %license COPYING
 %doc README.md
 %{_bindir}/plugin-hostd
 %{_mandir}/man1/plugin-hostd.1*
+%{_datadir}/plugin-hostd/protocol.json
+
+%files devel
+%license COPYING
+%{_includedir}/plugin-hostd/protocol.h
+%{_datadir}/pkgconfig/plugin-hostd.pc
+%{_datadir}/plugin-hostd/protocol.schema.json
 
 %changelog
 * Wed Sep 30 2026 Pau Aliagas <linuxnow@gmail.com> - 0.1.0-1
