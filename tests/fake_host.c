@@ -42,6 +42,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/prctl.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -75,10 +76,18 @@ static long since_start_ms(void)
     return (t.tv_sec - g_start.tv_sec) * 1000 + (t.tv_nsec - g_start.tv_nsec) / 1000000;
 }
 
+/* the crashes of this fixture are deliberate: the process is made non-dumpable first, so that they leave no
+ * core dump and no coredumpctl entry */
+static void crash(void)
+{
+    prctl(PR_SET_DUMPABLE, 0);
+    abort();
+}
+
 static void crash_alarm(int sig)
 {
     (void)sig;
-    abort();
+    crash();
 }
 
 static void term_signal(int sig)
@@ -153,7 +162,7 @@ static void receive(msg_t *msg)
         int id = atoi(tok[2]);
 
         if (strstr(tok[1], "crash_on_add"))
-            abort();
+            crash();
         if (strstr(tok[1], "refuse"))
             answer(fd, "resp -101");
         else if (id < 0 || id >= MAX_INST || g_inst[id].exists)
@@ -188,7 +197,7 @@ static void receive(msg_t *msg)
         if (!strcmp(tok[2], "hang") && strcmp(tok[3], "0"))
             sleep(60);
         if (!strcmp(tok[2], "crashnow") && atof(tok[3]) != 0.0)
-            abort();
+            crash();
         set_param(&g_inst[n], tok[2], tok[3]);
         if (!strcmp(tok[2], "crash") && atof(tok[3]) != 0.0)
         {

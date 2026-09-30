@@ -62,9 +62,15 @@ endif
 PREFIX = /usr/local
 BINDIR = $(PREFIX)/bin
 
-install: $(PROG)
+MANDIR = $(PREFIX)/share/man/man1
+
+install: $(PROG) install_man
 	install -d $(DESTDIR)$(BINDIR)
 	install -m 755 $(PROG) $(DESTDIR)$(BINDIR)
+
+install_man:
+	install -d $(DESTDIR)$(MANDIR)
+	install -m 644 doc/*.1 $(DESTDIR)$(MANDIR)
 
 # clean rule
 clean:
@@ -72,9 +78,12 @@ clean:
 
 # the daemon against workers that are not plugin hosts at all (tests/fake-host speaks the same protocol and can be
 # made to die on cue): placement, forwarding, ledger, replay, attribution, the storm bound; no jack, no plugin
-test: $(PROG) $(FAKE)
-	PLUGIN_HOSTD=./$(PROG) FAKE_HOST=./$(FAKE) python3 tests/daemon_test.py
+test: test-daemon
 	MOD_HOST_DIR=$(MOD_HOST_DIR) python3 tests/verbs_contract.py
+
+# the same without the verb table, which is read from a mod-host checkout's README
+test-daemon: $(PROG) $(FAKE)
+	PLUGIN_HOSTD=./$(PROG) FAKE_HOST=./$(FAKE) python3 tests/daemon_test.py
 
 $(FAKE): tests/fake_host.c $(PROTOCOL_LIB)
 	$(CC) $(INCS) $(CFLAGS) -Werror -o $@ $< $(PROTOCOL_LIBS) -lm

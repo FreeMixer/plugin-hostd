@@ -32,6 +32,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/prctl.h>
 #include <time.h>
 #include <unistd.h>
 #include <clap/clap.h>
@@ -50,6 +51,14 @@ typedef struct STRESS_T {
     pthread_t thread;
     int thread_started;
 } stress_t;
+
+/* the crashes of this fixture are deliberate: the process is made non-dumpable first, so that they leave no
+ * core dump and no coredumpctl entry */
+static void crash(void)
+{
+    prctl(PR_SET_DUMPABLE, 0);
+    abort();
+}
 
 static const char *const g_features[] = { CLAP_PLUGIN_FEATURE_AUDIO_EFFECT, NULL };
 static const char *const g_names[PARAM_COUNT] = { "crash", "hog", "thread", "level" };
@@ -178,7 +187,7 @@ static void take_events(stress_t *stress, const clap_input_events_t *in)
                 {
                     if (once)
                         close(open(once, O_CREAT | O_WRONLY, 0644));
-                    abort();
+                    crash();
                 }
             }
             if (event->param_id == 2)
@@ -332,7 +341,7 @@ static const clap_plugin_t *factory_create_plugin(const clap_plugin_factory_t *f
 
     (void)factory;
     if (!strcmp(plugin_id, ID_CRASH_ON_ADD))
-        abort();
+        crash();
     if (strcmp(plugin_id, ID_STRESS))
         return NULL;
 

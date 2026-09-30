@@ -7,7 +7,8 @@ MOD_HOST_DIR = os.path.abspath(os.environ.get("MOD_HOST_DIR", os.path.join(ROOT,
 FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "fake-host")))
 
 # (what is broken, file, text, replacement, the test that must go red[, "jack"]); a "jack" test runs in tests/jack_e2e.sh
-# over the real workers and is skipped when OMX_CLAP_HOST is not set
+# over the real workers and is skipped when OMX_CLAP_HOST is not set; "lv2" is a jack test that also needs mod-host and
+# an LV2 bundle (MOD_HOST, LV2_DIR, LV2_URI, LV2_BUNDLE, LV2_PARAM) and is skipped without them
 SABOTAGE = [
     ("the verb tail is not replayed", "src/supervisor.c",
      "if (replay_line(w, i->tail[m].line) != RPC_OK)", "if (0 && replay_line(w, i->tail[m].line) != RPC_OK)",
@@ -54,7 +55,7 @@ SABOTAGE = [
      "for (m = 0; m < i->nconns; m++)\n        {\n            int code;", "for (m = 0; m < 0; m++)\n        {\n            int code;",
      "audio_of_the_other_strip_never_changes_when_one_worker_is_killed", "jack"),
     ("an own lv2 worker keeps the whole bundle set", "src/supervisor.c", "    if (w->fmt != FMT_LV2 || w->pool || !uri)\n        return NULL;",
-     "    return NULL;", "lv2_own_worker_sees_one_bundle_and_replays_after_a_kill", "jack"),
+     "    return NULL;", "lv2_own_worker_sees_one_bundle_and_replays_after_a_kill", "lv2"),
     ("the checkpoint is not loaded after a real respawn", "src/supervisor.c", "    if (any_ckpt)\n", "    if (0 && any_ckpt)\n",
      "clap_own_crash_replays_bit_identically_and_the_neighbour_never_notices", "jack"),
 ]
@@ -80,6 +81,9 @@ try:
         jack = len(entry) > 5
         if jack and not os.environ.get("OMX_CLAP_HOST"):
             print("skip sabotage (no OMX_CLAP_HOST): %s" % what)
+            continue
+        if entry[5:] == ("lv2",) and not all(os.environ.get(v) for v in ("MOD_HOST", "LV2_DIR", "LV2_URI", "LV2_BUNDLE", "LV2_PARAM")):
+            print("skip sabotage (no LV2 bundle to drive mod-host with): %s" % what)
             continue
         tree = os.path.join(work, "t")
         shutil.rmtree(tree, ignore_errors=True)
