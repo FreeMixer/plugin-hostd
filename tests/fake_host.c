@@ -31,7 +31,8 @@
  *                               as a jack client does for a port it has not been told of yet
  *   list_connections            "resp 0 <a>><b> ..."
  *   pin_expect <n> <pin>        the layout pin of the next add of <n>: that add answers PHD_ERR_PIN_LAYOUT_MISMATCH
- *                               when the fake's own layout differs (FAKE_NO_PIN_EXPECT: the verb is unknown, -902)
+ *                               when the fake's own layout differs (FAKE_NO_PIN_EXPECT: the verb is unknown, -902;
+ *                               FAKE_PIN_EXPECT_HANG: it is never answered)
  *
  * Its layout is one CLAP parameter whose default is FAKE_LAYOUT_DEFAULT (0.5 without it); "fake-host -L" prints its
  * layout pin. With FAKE_LOG set, every command received is appended to that file as "<pid> <command>".
@@ -194,6 +195,8 @@ static void receive(msg_t *msg)
 
     if (verb_is(verb, PHD_VERB_PIN_EXPECT) && getenv("FAKE_NO_PIN_EXPECT"))
         answer(fd, "resp -902");
+    else if (verb_is(verb, PHD_VERB_PIN_EXPECT) && getenv("FAKE_PIN_EXPECT_HANG"))
+        sleep(60);
     else if (verb_is(verb, PHD_VERB_PIN_EXPECT) && ntok == 3 && n >= 0 && n < MAX_INST)
     {
         snprintf(g_expect[n], sizeof(g_expect[n]), "%s", tok[2]);

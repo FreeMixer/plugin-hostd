@@ -69,7 +69,7 @@ The settings live in a file, `-c`, `$PLUGIN_HOSTD_CONF` or
 | `checkpoint_ms` | 5000 ms | a quiet interval with a changed ledger writes a checkpoint |
 | `idle_ms` | 25 ms | the period of the idle tick: reap, respawn, checkpoint |
 | `pool_max` | 8 instances | instances in a pool before a sibling opens |
-| `require_pins` | 1  | 1: add admits only a plugin pin_set pinned, its files hashed before any worker sees it; 0: no pin is checked |
+| `require_pins` | 1  | 1: add admits only a plugin pin_set pinned, its files hashed before any worker sees it, and an lv2 plugin gets a worker of its own, its world the one bundle the pin holds (a default that resolves to a pool is placed own); 0: no pin is checked |
 <!-- END GENERATED protocol:config -->
 
 <!-- BEGIN GENERATED protocol:constants -->
@@ -77,6 +77,7 @@ The settings live in a file, `-c`, `$PLUGIN_HOSTD_CONF` or
 |---|---|---|
 | `default_command_port` | 5555 port | the command port without -p; the feedback port is the next one, unless -n is given |
 | `connect_retry_ms` | 5000 ms | how long the idle tick asks again for a connect a respawned worker could not make yet |
+| `line_max` | 4096 bytes | the protocol socket's buffer: the longest pin_set line the daemon takes |
 <!-- END GENERATED protocol:constants -->
 
 Placement
@@ -112,7 +113,7 @@ Verbs the daemon adds
 | `worker_env` | `<lv2 \| clap \| *> <cpu-list\|-> <nice\|->` | `resp 0` | the cpu list and the nice value of the workers of a format, at spawn and on the ones running |
 | `pin_set` | `<uri> <path>=<sha256>[,<path>=<sha256>...] <scheme>:<sha256>` | `resp 0` | the pin of one plugin: the SHA-256 of every file the host loads for it, a path relative to the bundle (the .clap's directory for a CLAP), and its layout fingerprint; it replaces an earlier pin of the uri |
 | `pin_clear` | `<uri> \| all` | `resp 0` | forget the pin of one plugin, or of every one |
-| `pin_expect` | `<instance> <scheme>:<sha256>` | `resp 0` | sent by the daemon to a clap worker just before the instance's add: the layout pin that add checks after init and before activate |
+| `pin_expect` | `<instance> <scheme>:<sha256>` | `resp 0` | sent by the daemon to a clap worker just before the instance's add: the layout pin that add checks after init and before activate; any other reply than resp 0 refuses the add with that code, and the add is never forwarded |
 
 A `<state>` is `up` (accepting commands), `starting` (spawned, not yet accepting), `backoff` (dead, waiting to be respawned), `given-up` (the storm bound is spent for its placement).
 <!-- END GENERATED protocol:verbs -->
@@ -125,13 +126,13 @@ Error codes the daemon adds to mod-host's:
 <!-- BEGIN GENERATED protocol:errors -->
 | code | name | meaning |
 |---|---|---|
-| `-501` | `PHD_ERR_PLACEMENT_INVALID` | placement invalid |
+| `-501` | `PHD_ERR_PLACEMENT_INVALID` | placement invalid: not a placement, or not valid here, as a pool:<name> for an lv2 plugin while require_pins is on |
 | `-502` | `PHD_ERR_NO_BACKEND` | no worker program for the scheme |
 | `-503` | `PHD_ERR_WORKER_SPAWN` | the worker is not up: the spawn failed, or it is in backoff; ask again after instance_restored |
-| `-504` | `PHD_ERR_REPLAY` | reserved: not returned as a reply by this version; a replayed add its pin refuses is written to stderr with it and the pin's code |
+| `-504` | `PHD_ERR_REPLAY` | the name of a refused replay, never a reply: a replayed add that its pin or the worker refuses is announced by the instance_replay_refused event with the refusal's own code, and written to stderr with this one and the step that refused it |
 | `-505` | `PHD_ERR_GAVE_UP` | the storm bound is spent for that placement |
 | `-506` | `PHD_ERR_NO_SUCH_WORKER` | no such worker |
-| `-507` | `PHD_ERR_VERB_DROPPED` | the worker died on this very command and the daemon dropped it: it is not replayed, and the instance_verb_dropped event names it |
+| `-507` | `PHD_ERR_VERB_DROPPED` | the worker died on this very command and the daemon dropped it: it is not replayed, and the instance_verb_dropped event names it; or it died on, or did not answer in rpc_timeout_ms, the pin_expect of an add, which is then never forwarded |
 | `-508` | `PHD_ERR_PIN_ABSENT` | require_pins is on and the plugin has no pin, or its layout pin is in a scheme this version does not know: add is refused and no worker sees it |
 | `-509` | `PHD_ERR_PIN_BINARY_MISMATCH` | a pinned file is missing or its SHA-256 differs, or the plugin's manifest names a file the pin does not hold: add is refused and no worker sees it |
 | `-510` | `PHD_ERR_PIN_LAYOUT_MISMATCH` | the worker found the parameter layout after init differs from the layout pin: the instance is destroyed before activate |
@@ -155,11 +156,12 @@ Events on the feedback port, one NUL-terminated line each:
 | event | fields | meaning |
 |---|---|---|
 | `worker_died` | `<worker> <pid> <exit:N \| signal:N> <instance>,...` | a worker died; the instances it held, or - for none |
-| `instance_verb_dropped` | `<instance> <the command as sent>` | the command a worker died on, dropped from the ledger |
+| `instance_verb_dropped` | `<instance> <the command as sent>` | the command a worker died on, dropped from the ledger, or the pin_expect of an add it died on |
 | `instance_verb_dropped` | `<instance> suspect:<ms> <the command as sent>` | the last verb a worker answered when it died inside suspect_window_ms, <ms> the age of the reply |
 | `worker_backoff` | `<worker> <ms>` | the respawn waits this long |
 | `worker_respawned` | `<worker> <pid> <replayed_count> <ms>` | a worker is back and its ledger replayed |
 | `instance_restored` | `<instance> <worker>` | an instance is back in a worker |
+| `instance_replay_refused` | `<instance> <code>` | a replayed add was refused, by its pin or by the worker, <code> the refusal's own: no worker holds the instance until the next replay |
 | `instance_quarantined` | `<instance> <worker>` | the culprit of a pool death, placed own until cleared |
 | `supervisor_gave_up` | `<worker> <deaths> <window_ms>` | the storm bound is spent; respawning ends |
 <!-- END GENERATED protocol:events -->
@@ -189,12 +191,24 @@ must be held by the pin. No pin, or a layout pin in a scheme this version does n
 a file missing, changed or not held answers `PHD_ERR_PIN_BINARY_MISMATCH`. For a CLAP the daemon then sends the worker
 `pin_expect <instance> <layout pin>` and the `add` unchanged, and the worker answers `PHD_ERR_PIN_LAYOUT_MISMATCH`
 when the layout after `init` is not the pinned one; a worker that refuses `pin_expect` gets no `add`, and its refusal
-is the reply. An LV2 worker gets no pin verb: its layout is its bundle's TTL, which the hash covers.
+is the reply, and one that dies on it or does not answer it is dropped with `PHD_ERR_VERB_DROPPED`, the
+`instance_verb_dropped` event naming the `pin_expect`. An LV2 worker gets no pin verb: its layout is its bundle's TTL,
+which the hash covers, in a world of that one bundle; so a pinned LV2 plugin gets a worker of its own, a `default` that
+resolves to a pool is placed `own` and an explicit `pool:<name>` answers `PHD_ERR_PLACEMENT_INVALID`.
+
+What cannot be pinned:
+
+<!-- BEGIN GENERATED protocol:pin-limits -->
+- a path holding ',', '=' or whitespace cannot be pinned: they are the separators of pin_set's words, and pin_set refuses it as a token outside its grammar.
+- a pin_set line is at most line_max, 4096 bytes, the protocol socket's buffer; a longer one is refused as outside the grammar.
+- a manifest that uses @base, or names a file of the plugin by a percent-encoded IRI, makes add answer PHD_ERR_PIN_BINARY_MISMATCH (-509): the daemon does not resolve either, so it cannot know the file the host would load.
+<!-- END GENERATED protocol:pin-limits -->
 
 Pins are the controller's policy, like `policy_set`: not in the ledger, gone with the daemon, set again by a controller
 that reconnects. A replayed `add` is checked again, so a file swapped while a worker was down is refused on respawn:
-the daemon writes `PHD_ERR_REPLAY` and the pin's code to stderr, and the worker does not hold that instance until a
-later replay passes. The hashing and the layout serialisation are `include/plugin-hostd/pin.h`, installed beside the
+the daemon emits `instance_replay_refused <instance> <code>` with the refusal's own code (the pin's, or the worker's
+when it refuses the replayed `pin_expect` or `add`), writes `PHD_ERR_REPLAY`, the step and that code to stderr, and
+the worker does not hold that instance until a later replay passes. The hashing and the layout serialisation are `include/plugin-hostd/pin.h`, installed beside the
 protocol header for the hosts that check a layout.
 
 What it keeps and replays
