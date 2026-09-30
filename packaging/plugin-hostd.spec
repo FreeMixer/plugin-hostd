@@ -64,6 +64,7 @@ make test-daemon check-generated
 %files devel
 %license COPYING
 %{_includedir}/plugin-hostd/protocol.h
+%{_includedir}/plugin-hostd/pin.h
 %{_datadir}/pkgconfig/plugin-hostd.pc
 %{_datadir}/plugin-hostd/protocol.schema.json
 

@@ -5,6 +5,7 @@ CC ?= gcc
 PROG = plugin-hostd
 VERSION = $(shell sed -n "s/^Version: *//p" packaging/plugin-hostd.spec)
 FAKE = tests/fake-host
+PIN_TEST = tests/pin-test
 
 PKG_CONFIG ?= pkg-config
 
@@ -41,7 +42,7 @@ INCS = -Iinclude $(PROTOCOL_CFLAGS)
 LDFLAGS += -Wl,--no-undefined
 
 # source and object files
-SRC = src/main.c src/conf.c src/proc.c src/supervisor.c src/verbs.c
+SRC = src/main.c src/conf.c src/proc.c src/supervisor.c src/verbs.c src/pins.c
 OBJ = $(SRC:.c=.o)
 
 # default build
@@ -56,7 +57,7 @@ $(PROTOCOL_LIB):
 endif
 
 # the declared protocol is compiled into every object
-$(OBJ): include/plugin-hostd/protocol.h
+$(OBJ): include/plugin-hostd/protocol.h include/plugin-hostd/pin.h
 
 # meta-rule to generate the object files
 %.o: %.c
@@ -83,6 +84,7 @@ install_protocol:
 	install -m 644 protocol/plugin-hostd.schema.json $(DESTDIR)$(DATADIR)/plugin-hostd/protocol.schema.json
 	install -d $(DESTDIR)$(INCLUDEDIR)/plugin-hostd
 	install -m 644 include/plugin-hostd/protocol.h $(DESTDIR)$(INCLUDEDIR)/plugin-hostd/protocol.h
+	install -m 644 include/plugin-hostd/pin.h $(DESTDIR)$(INCLUDEDIR)/plugin-hostd/pin.h
 	install -d $(DESTDIR)$(DATADIR)/pkgconfig
 	sed -e 's,@PREFIX@,$(PREFIX),g' -e 's,@VERSION@,$(VERSION),g' protocol/plugin-hostd.pc.in > $(DESTDIR)$(DATADIR)/pkgconfig/plugin-hostd.pc
 	chmod 644 $(DESTDIR)$(DATADIR)/pkgconfig/plugin-hostd.pc
@@ -93,11 +95,11 @@ install_man:
 
 # clean rule
 clean:
-	@rm -f src/*.o $(PROG) $(FAKE) $(GEN) tests/stress.clap tests/jack_levels tests/host_scenarios
+	@rm -f src/*.o $(PROG) $(FAKE) $(PIN_TEST) $(GEN) tests/stress.clap tests/jack_levels tests/host_scenarios
 
 # the daemon against workers that are not plugin hosts at all (tests/fake-host speaks the same protocol and can be
 # made to die on cue): placement, forwarding, ledger, replay, attribution, the storm bound; no jack, no plugin
-test: test-daemon check-generated check-schema test-consumer test-perturbation
+test: test-pin test-daemon check-generated check-schema test-consumer test-perturbation
 	MOD_HOST_DIR=$(MOD_HOST_DIR) python3 tests/verbs_contract.py
 
 # the same without the verb table, which is read from a mod-host checkout's README
@@ -106,6 +108,13 @@ test-daemon: $(PROG) $(FAKE)
 
 $(FAKE): tests/fake_host.c src/verbs.h $(PROTOCOL_LIB)
 	$(CC) $(INCS) $(CFLAGS) -Werror -o $@ $< $(PROTOCOL_LIBS) -lm
+
+# include/plugin-hostd/pin.h against answers it did not compute
+test-pin: $(PIN_TEST)
+	./$(PIN_TEST)
+
+$(PIN_TEST): tests/pin_test.c include/plugin-hostd/pin.h
+	$(CC) -Iinclude $(CFLAGS) -Werror -o $@ tests/pin_test.c
 
 tests/stress.clap: tests/stress_plugin.c
 	$(CC) $(CLAP_CFLAGS) $(CFLAGS) -Werror -shared -o $@ $<

@@ -1,3 +1,4 @@
 usr/include/plugin-hostd/protocol.h
+usr/include/plugin-hostd/pin.h
 usr/share/pkgconfig/plugin-hostd.pc
 usr/share/plugin-hostd/protocol.schema.json

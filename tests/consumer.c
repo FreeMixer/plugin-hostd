@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <plugin-hostd/pin.h>
 #include <plugin-hostd/protocol.h>
 
 static int failures;
@@ -52,6 +53,12 @@ int main(void)
         longest[PHD_POOL_NAME_MAX] = 'a';
         longest[PHD_POOL_NAME_MAX + 1] = '\0';
         check(!phd_pool_name_valid(longest), "a pool name one longer is refused");
+    }
+    {
+        char hex[PHD_SHA256_HEX_LEN + 1];
+
+        phd_sha256_hex("abc", 3, hex);
+        check(!strcmp(hex, "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"), "the pin header hashes");
     }
     snprintf(reply, sizeof(reply), "resp %d", PHD_ERR_GAVE_UP);
     check(!strncmp(reply, "resp -5", 7), "a reply is resp <code>");

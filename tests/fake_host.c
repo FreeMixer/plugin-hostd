@@ -30,6 +30,11 @@
  *   connect <a> <b>             with FAKE_CONNECT_AFTER_MS set, answers -205 until that long after the worker started,
  *                               as a jack client does for a port it has not been told of yet
  *   list_connections            "resp 0 <a>><b> ..."
+ *   pin_expect <n> <pin>        the layout pin of the next add of <n>: that add answers PHD_ERR_PIN_LAYOUT_MISMATCH
+ *                               when the fake's own layout differs (FAKE_NO_PIN_EXPECT: the verb is unknown, -902)
+ *
+ * Its layout is one CLAP parameter whose default is FAKE_LAYOUT_DEFAULT (0.5 without it); "fake-host -L" prints its
+ * layout pin. With FAKE_LOG set, every command received is appended to that file as "<pid> <command>".
  */
 
 #include <dirent.h>
@@ -47,6 +52,8 @@
 #include <unistd.h>
 
 #include <mod-host.h>
+#include <plugin-hostd/pin.h>
+#include <plugin-hostd/protocol.h>
 #include <socket.h>
 #include <utils.h>
 
@@ -64,6 +71,8 @@ typedef struct INST_T {
     char text[MAX_PARAMS][128];
     int count;
 } inst_t;
+
+static char g_expect[MAX_INST][PHD_SHA256_HEX_LEN + 64];
 
 static inst_t g_inst[MAX_INST];
 static char g_conns[MAX_CONNS][256];
@@ -128,6 +137,28 @@ static const char *get_param(inst_t *i, const char *name)
     return NULL;
 }
 
+/* the layout pin of this fake's one parameter, as a host computes it from clap_param_info */
+static void layout_pin(char *out, size_t size)
+{
+    const char *def = getenv("FAKE_LAYOUT_DEFAULT");
+    phd_layout_clap_param_t param = { 0, "gain", 0.0, 1.0, def ? atof(def) : 0.5, 0 };
+    char hex[PHD_SHA256_HEX_LEN + 1];
+
+    phd_layout_clap_digest(&param, 1, hex);
+    snprintf(out, size, PHD_PIN_LAYOUT_SCHEME ":%s", hex);
+}
+
+static void log_command(const char *line)
+{
+    const char *path = getenv("FAKE_LOG");
+    FILE *f;
+
+    if (!path || !(f = fopen(path, "a")))
+        return;
+    fprintf(f, "%d %s\n", (int)getpid(), line);
+    fclose(f);
+}
+
 static void state_path(char *out, size_t size, const char *dir, int n)
 {
     snprintf(out, size, "%s/effect_%d.fakestate", dir, n);
@@ -150,6 +181,7 @@ static void receive(msg_t *msg)
     int ntok = 0, fd = msg->sender_id, n, k;
     const char *verb;
 
+    log_command(line);
     for (t = strtok_r(copy, " \t\n", &save); t && ntok < 16; t = strtok_r(NULL, " \t\n", &save))
         tok[ntok++] = t;
     if (!ntok)
@@ -160,20 +192,35 @@ static void receive(msg_t *msg)
     verb = tok[0];
     n = ntok > 1 ? atoi(tok[1]) : -1;
 
-    if (verb_is(verb, EFFECT_ADD) && ntok >= 3)
+    if (verb_is(verb, PHD_VERB_PIN_EXPECT) && getenv("FAKE_NO_PIN_EXPECT"))
+        answer(fd, "resp -902");
+    else if (verb_is(verb, PHD_VERB_PIN_EXPECT) && ntok == 3 && n >= 0 && n < MAX_INST)
+    {
+        snprintf(g_expect[n], sizeof(g_expect[n]), "%s", tok[2]);
+        answer(fd, "resp 0");
+    }
+    else if (verb_is(verb, EFFECT_ADD) && ntok >= 3)
     {
         int id = atoi(tok[2]);
+        char mine[PHD_SHA256_HEX_LEN + 64];
 
+        layout_pin(mine, sizeof(mine));
         if (strstr(tok[1], "crash_on_add"))
             crash();
         if (strstr(tok[1], "refuse"))
             answer(fd, "resp -101");
+        else if (id >= 0 && id < MAX_INST && g_expect[id][0] && strcmp(g_expect[id], mine))
+        {
+            g_expect[id][0] = '\0';
+            answer(fd, "resp %d", PHD_ERR_PIN_LAYOUT_MISMATCH);
+        }
         else if (id < 0 || id >= MAX_INST || g_inst[id].exists)
             answer(fd, "resp -2");
         else
         {
             memset(&g_inst[id], 0, sizeof(inst_t));
             g_inst[id].exists = 1;
+            g_expect[id][0] = '\0';
             g_inst[id].nostate = strstr(tok[1], "nostate") != NULL;
             snprintf(g_inst[id].client, sizeof(g_inst[id].client), "%s", ntok > 3 ? tok[3] : "");
             answer(fd, "resp %d", id);
@@ -355,9 +402,17 @@ int main(int argc, char **argv)
     struct sigaction sig;
 
     clock_gettime(CLOCK_MONOTONIC, &g_start);
-    while ((opt = getopt(argc, argv, "np:f:")) != -1)
+    while ((opt = getopt(argc, argv, "np:f:L")) != -1)
         if (opt == 'p')
             port = atoi(optarg);
+        else if (opt == 'L')
+        {
+            char pin[PHD_SHA256_HEX_LEN + 64];
+
+            layout_pin(pin, sizeof(pin));
+            printf("%s\n", pin);
+            return 0;
+        }
     if (socket_start(port, 0, 4096) < 0)
         return EXIT_FAILURE;
     socket_set_receive_cb(receive);
