@@ -32,9 +32,9 @@
 #include <host-errors.h>
 #include <mod-host.h>
 #include <plugin-hostd/pin.h>
-#include <socket.h>
 
 #include "pins.h"
+#include "relay.h"
 #include "supervisor.h"
 #include "verbs.h"
 
@@ -85,6 +85,7 @@ static const struct { const char *format; int kind; int key_arg; } g_recorded[] 
     { EFFECT_PRESET_LOAD, KIND_STATE, 0 },
     { EFFECT_BYPASS, KIND_HOST, 1 },
     { EFFECT_PARAM_MON, KIND_HOST, 0 },
+    { MONITOR_OUTPUT, KIND_HOST, 2 },
     { MIDI_LEARN, KIND_HOST, 0 },
     { MIDI_MAP, KIND_HOST, 0 },
     { MIDI_UNMAP, KIND_HOST, 0 },
@@ -103,7 +104,7 @@ static void event(const char *fmt, ...)
     va_start(ap, fmt);
     vsnprintf(line, sizeof(line), fmt, ap);
     va_end(ap);
-    socket_send_feedback(line);
+    relay_event(line);
 }
 
 char *sup_resp(int code)
@@ -301,6 +302,7 @@ static worker_t *worker_new(int fmt, const char *place)
     w->k = g_next_k++;
     w->fmt = fmt;
     w->fd = -1;
+    w->fb_fd = -1;
     w->state = W_BACKOFF;
     snprintf(w->place, sizeof(w->place), "%s", place);
     w->pool = strncmp(place, PHD_PLACE_POOL_PREFIX, strlen(PHD_PLACE_POOL_PREFIX)) == 0;
@@ -354,6 +356,7 @@ static void worker_free(worker_t *w)
     unlink(path);
     if (w->fd >= 0)
         close(w->fd);
+    relay_remove(w->fb_fd);
     for (n = 0; n < w->npend; n++)
         free(w->pend[n]);
     free(w->pend);
@@ -412,20 +415,22 @@ static int worker_start(worker_t *w, const char *uri)
     world = narrow_world(w, uri);
     w->state = W_STARTING;
     rc = proc_spawn(&g_conf, bin_of(w->fmt), world ? world : (w->fmt == FMT_LV2 ? g_conf.lv2_path : NULL), &g_env[w->fmt],
-                    logfile, &w->pid, &w->port);
+                    logfile, &w->pid, &w->port, &w->fb_port);
     free(world);
     if (rc != 0)
     {
         w->pid = 0;
         return PHD_ERR_WORKER_SPAWN;
     }
-    w->fd = proc_connect(&g_conf, w->pid, w->port, logfile);
+    w->fd = proc_connect(&g_conf, w->pid, w->port, w->fb_port, logfile, &w->fb_fd);
     if (w->fd < 0)
     {
         proc_stop(w->pid);
         w->pid = 0;
         return PHD_ERR_WORKER_SPAWN;
     }
+    /* what the worker reports goes to the controller from now on, the lines of its replay among them */
+    relay_add(w->fb_fd);
     w->state = W_UP;
     return SUCCESS;
 }
@@ -554,6 +559,9 @@ static void on_death(worker_t *w, int in_flight)
         snprintf(how, sizeof(how), "signal:%d", WTERMSIG(status));
     else
         snprintf(how, sizeof(how), "exit:%d", WEXITSTATUS(status));
+    /* what it wrote before it died goes out before the news of its death */
+    relay_remove(w->fb_fd);
+    w->fb_fd = -1;
     instances_of(w, ids, sizeof(ids));
     event(PHD_EVENT_WORKER_DIED_FMT, w->k, (int)w->pid, how, ids[0] ? ids : PHD_WORD_NONE);
     if (w->fd >= 0)

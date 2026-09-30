@@ -64,6 +64,17 @@
     {"name": "LINE", "meaning": "a pin_set line is at most line_max, 4096 bytes, the protocol socket's buffer; a longer one is refused as outside the grammar"},
     {"name": "MANIFEST", "meaning": "a manifest that uses @base, or names a file of the plugin by a percent-encoded IRI, makes add answer PHD_ERR_PIN_BINARY_MISMATCH (-509): the daemon does not resolve either, so it cannot know the file the host would load"}
   ],
+  "relay": {
+    "worker_arguments": "-n -p <command port> -f <feedback port>",
+    "rules": [
+      {"name": "VERBATIM", "meaning": "every line a worker writes on its feedback port goes out on the daemon's feedback port as the worker wrote it: output_set, param_set, data_finish and the rest of mod-host's feedback, and a line the daemon does not know"},
+      {"name": "INSTANCE", "meaning": "the instance number in a relayed line is already the controller's: add hands it to the worker unchanged, so nothing in a line is rewritten"},
+      {"name": "ORDER", "meaning": "a worker's lines go out in the order it wrote them, and what a worker wrote before it died goes out before its worker_died event; an instance lives in one worker at a time, so its lines keep their order across a respawn; the lines of different workers interleave"},
+      {"name": "SUBSCRIPTION", "meaning": "monitor_output is in the ledger, one line per output, and param_monitor as it was sent; a respawn replays them after the add, so a respawned instance reports the same outputs, each once, starting again from its first value"},
+      {"name": "HANDSHAKE", "meaning": "output_data_ready names no instance and goes to every worker; each worker's data_finish is relayed"},
+      {"name": "NO_CONTROLLER", "meaning": "with no feedback port, or no controller on it, a line is dropped, as mod-host drops it; the daemon reads every worker's feedback all the time, so no worker waits on it"}
+    ]
+  },
   "config": [
     {"key": "mod_host", "type": "string", "default": "mod-host", "env": "", "meaning": "worker for lv2 (a name on PATH or a path)"},
     {"key": "clap_host", "type": "string", "default": "omx-clap-host", "env": "", "meaning": "worker for clap"},

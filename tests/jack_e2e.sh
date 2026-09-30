@@ -10,6 +10,8 @@
 # STRESS_CLAP    tests/stress.clap
 # MOD_HOST       mod-host, the LV2 worker; with LV2_DIR, LV2_URI, LV2_BUNDLE and LV2_PARAM (a stereo effect of the path, its bundle, a control) it adds the LV2 steps
 # JACK_LEVELS    tests/jack_levels
+# FAKE_COMPRESSOR_CLAP, JACK_METER_SOURCE  omx-clap-host's tests/fake_compressor.clap and tests/jack_meter_source: with
+#                both, the meters test runs, output_set through the daemon's feedback port
 
 set -u
 

@@ -23,7 +23,10 @@ for LV2 plugins and
 .BR omx\-clap\-host (1)
 for CLAP plugins, each started as
 .B \-n \-p
-.IR port .
+.I port
+.B \-f
+.IR port ,
+a feedback port of its own that the daemon reads.
 Audio never passes through the daemon: every worker is a jack client named
 .BI effect_ instance
 as in mod\-host, and links are made in the graph.
@@ -85,6 +88,22 @@ a pin_set line is at most line_max, 4096 bytes, the protocol socket's buffer; a 
 .IP \(bu 2
 a manifest that uses @base, or names a file of the plugin by a percent\-encoded IRI, makes add answer PHD_ERR_PIN_BINARY_MISMATCH (\-509): the daemon does not resolve either, so it cannot know the file the host would load.
 .\" END GENERATED protocol:man-pin-limits
+.SH WORKER FEEDBACK
+What a worker writes on its feedback port reaches the controller on the daemon's:
+.\" BEGIN GENERATED protocol:man-relay
+.IP \(bu 2
+every line a worker writes on its feedback port goes out on the daemon's feedback port as the worker wrote it: output_set, param_set, data_finish and the rest of mod\-host's feedback, and a line the daemon does not know.
+.IP \(bu 2
+the instance number in a relayed line is already the controller's: add hands it to the worker unchanged, so nothing in a line is rewritten.
+.IP \(bu 2
+a worker's lines go out in the order it wrote them, and what a worker wrote before it died goes out before its worker_died event; an instance lives in one worker at a time, so its lines keep their order across a respawn; the lines of different workers interleave.
+.IP \(bu 2
+monitor_output is in the ledger, one line per output, and param_monitor as it was sent; a respawn replays them after the add, so a respawned instance reports the same outputs, each once, starting again from its first value.
+.IP \(bu 2
+output_data_ready names no instance and goes to every worker; each worker's data_finish is relayed.
+.IP \(bu 2
+with no feedback port, or no controller on it, a line is dropped, as mod\-host drops it; the daemon reads every worker's feedback all the time, so no worker waits on it.
+.\" END GENERATED protocol:man-relay
 .SH SEE ALSO
 .BR mod\-host (1),
 .BR omx\-clap\-host (1)

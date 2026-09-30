@@ -27,6 +27,7 @@
 #include <socket.h>
 
 #include "conf.h"
+#include "relay.h"
 #include "supervisor.h"
 #include "verbs.h"
 
@@ -48,6 +49,13 @@ static void idle_cb(void)
         running = 0;
         socket_finish();
     }
+}
+
+/* the first command of a controller waits for it to open the feedback port too, as mod-host's does */
+static void receive(msg_t *msg)
+{
+    relay_await_controller(&running);
+    verbs_receive(msg);
 }
 
 static void term_signal(int sig)
@@ -128,9 +136,10 @@ int main(int argc, char **argv)
 
     signal(SIGPIPE, SIG_IGN);
     sup_init(&g_conf);
-    if (socket_start(socket_port, feedback_port, SOCKET_MSG_BUFFER_SIZE) < 0)
+    /* the feedback port is the relay's: the daemon's events and the workers' lines go out on it through one writer */
+    if (socket_start(socket_port, 0, SOCKET_MSG_BUFFER_SIZE) < 0 || relay_start(feedback_port) < 0)
         return EXIT_FAILURE;
-    socket_set_receive_cb(verbs_receive);
+    socket_set_receive_cb(receive);
     socket_set_idle_cb(idle_cb);
     socket_set_idle_interval(g_conf.idle_ms);
 
@@ -146,9 +155,13 @@ int main(int argc, char **argv)
 
     running = 1;
     while (running)
+    {
         socket_run(0);
+        relay_controller_gone();
+    }
 
     socket_finish();
     sup_finish();
+    relay_finish();
     return 0;
 }
