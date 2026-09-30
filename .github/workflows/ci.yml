@@ -117,7 +117,7 @@ jobs:
           for rpm in rpms/plugin-hostd-devel-[0-9]*.noarch.rpm; do
             rpm -qlp "$rpm"
             rpm -qp --qf '[%{FILEMODES:perms} %{FILENAMES}\n]' "$rpm" | grep -v '^d' | cut -d' ' -f2 | sort > files.txt
-            printf '%s\n' /usr/include/plugin-hostd/protocol.h /usr/share/pkgconfig/plugin-hostd.pc \
+            printf '%s\n' /usr/include/plugin-hostd/protocol.h /usr/include/plugin-hostd/pin.h /usr/share/pkgconfig/plugin-hostd.pc \
               /usr/share/plugin-hostd/protocol.schema.json /usr/share/licenses/plugin-hostd-devel/COPYING | sort > expected.txt
             diff -u expected.txt files.txt
           done
@@ -235,6 +235,7 @@ jobs:
           apt-get install -y --no-install-recommends ./debs/plugin-hostd_*.deb ./debs/plugin-hostd-dev_*.deb ./dep-debs/libmod-host-protocol0_*.deb python3
           dpkg -L plugin-hostd-dev | tee dev.txt
           grep -qx /usr/include/plugin-hostd/protocol.h dev.txt
+          grep -qx /usr/include/plugin-hostd/pin.h dev.txt
           grep -qx /usr/share/pkgconfig/plugin-hostd.pc dev.txt
           dpkg -L plugin-hostd | grep -qx /usr/share/plugin-hostd/protocol.json
           dpkg -s libmod-host-protocol0 | grep '^Status: install ok installed'
