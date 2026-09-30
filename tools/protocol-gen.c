@@ -145,7 +145,18 @@ static void json(void)
     sep = ",\n";
     PHD_PIN_LIMITS(X)
 #undef X
-    printf("\n  ],\n  \"config\": [");
+    printf("\n  ],\n  \"relay\": {\n    \"worker_arguments\": ");
+    jstr(PHD_WORKER_ARGUMENTS);
+    printf(",\n    \"rules\": [");
+    sep = "\n";
+#define X(id, meaning) \
+    printf("%s      {\"name\": \"" #id "\", \"meaning\": ", sep); \
+    jstr(meaning); \
+    printf("}"); \
+    sep = ",\n";
+    PHD_RELAY(X)
+#undef X
+    printf("\n    ]\n  },\n  \"config\": [");
     sep = "\n";
 #define X(key, size, def, env, meaning) \
     printf("%s    {\"key\": \"" #key "\", \"type\": \"string\", \"default\": ", sep); \
@@ -293,6 +304,23 @@ static void region_pin_limits(void)
 #undef X
 }
 
+static void roff_escape(const char *s);
+
+static void region_relay(void)
+{
+    printf("Every worker is started as `<program> %s`.\n\n", PHD_WORKER_ARGUMENTS);
+#define X(id, meaning) printf("- %s.\n", meaning);
+    PHD_RELAY(X)
+#undef X
+}
+
+static void region_man_relay(void)
+{
+#define X(id, meaning) printf(".IP \\(bu 2\n"); roff_escape(meaning); printf(".\n");
+    PHD_RELAY(X)
+#undef X
+}
+
 static void region_readiness(void)
 {
     printf("It prints `%s` once both ports accept.\n", PHD_READY_LINE);
@@ -355,6 +383,7 @@ static const struct {
     { "pin-limits", region_pin_limits }, { "man-pin-limits", region_man_pin_limits },
     { "readiness", region_readiness }, { "worker-ready", region_worker_ready },
     { "man-keys", region_man_keys }, { "man-ready", region_man_ready }, { "man-port", region_man_port },
+    { "relay", region_relay }, { "man-relay", region_man_relay },
 };
 
 static int splice(const char *path)
