@@ -219,6 +219,13 @@ protocol and dies, hangs or refuses on cue: placement, forwarding, the
 ledger, replay to the byte, attribution, quarantine, the storm bound,
 `worker_env`, and the verb table against mod-host's README. No jack, no plugin.
 
+The verbs are read from their declarations, never spelled: mod-host's from the
+command formats of `mod-host.h`, the daemon's own from
+`include/plugin-hostd/protocol.h`. `tests/verbs_contract.py` fails on a C string
+that starts with one, and `tests/perturbation.py` renames a verb in a scratch
+copy of each header and requires the rebuilt daemon to answer the new name and
+not the old.
+
     make test-jack OMX_CLAP_HOST=<omx-clap-host> [MOD_HOST=<mod-host> LV2_DIR=<lv2 path> LV2_URI=<a stereo effect> LV2_BUNDLE=<its bundle dir> LV2_PARAM=<a control taking 0.25>]
 
 runs `tests/jack_e2e.sh`: the real workers behind the daemon, over jack inside
