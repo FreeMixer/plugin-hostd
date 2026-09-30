@@ -128,7 +128,8 @@ static inline int phd_pool_name_valid(const char *name)
 
 /* X(id, meaning) */
 #define PHD_ERRORS(X) \
-    X(PLACEMENT_INVALID, "placement invalid") \
+    X(PLACEMENT_INVALID, "placement invalid: not a placement, or not valid here, as a " PHD_PLACE_POOL_PREFIX \
+                         "<name> for an " PHD_FORMAT_LV2 " plugin while require_pins is on") \
     X(NO_BACKEND, "no worker program for the scheme") \
     X(WORKER_SPAWN, "the worker is not up: the spawn failed, or it is in backoff; ask again after instance_restored") \
     X(REPLAY, "reserved: not returned as a reply by this version; a replayed add its pin refuses is written to " \
@@ -269,6 +270,8 @@ static inline int phd_pool_name_valid(const char *name)
     X(idle_ms, PHD_DEFAULT_IDLE_MS, "ms", "the period of the idle tick: reap, respawn, checkpoint") \
     X(pool_max, PHD_DEFAULT_POOL_MAX, "instances", "instances in a pool before a sibling opens") \
     X(require_pins, PHD_DEFAULT_REQUIRE_PINS, "", \
-      "1: add admits only a plugin pin_set pinned, its files hashed before any worker sees it; 0: no pin is checked")
+      "1: add admits only a plugin pin_set pinned, its files hashed before any worker sees it, and an " PHD_FORMAT_LV2 \
+      " plugin gets a worker of its own, its world the one bundle the pin holds (a " PHD_PLACE_DEFAULT " that resolves " \
+      "to a pool is placed " PHD_PLACE_OWN "); 0: no pin is checked")
 
 #endif

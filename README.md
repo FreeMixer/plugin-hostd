@@ -69,7 +69,7 @@ The settings live in a file, `-c`, `$PLUGIN_HOSTD_CONF` or
 | `checkpoint_ms` | 5000 ms | a quiet interval with a changed ledger writes a checkpoint |
 | `idle_ms` | 25 ms | the period of the idle tick: reap, respawn, checkpoint |
 | `pool_max` | 8 instances | instances in a pool before a sibling opens |
-| `require_pins` | 1  | 1: add admits only a plugin pin_set pinned, its files hashed before any worker sees it; 0: no pin is checked |
+| `require_pins` | 1  | 1: add admits only a plugin pin_set pinned, its files hashed before any worker sees it, and an lv2 plugin gets a worker of its own, its world the one bundle the pin holds (a default that resolves to a pool is placed own); 0: no pin is checked |
 <!-- END GENERATED protocol:config -->
 
 <!-- BEGIN GENERATED protocol:constants -->
@@ -125,7 +125,7 @@ Error codes the daemon adds to mod-host's:
 <!-- BEGIN GENERATED protocol:errors -->
 | code | name | meaning |
 |---|---|---|
-| `-501` | `PHD_ERR_PLACEMENT_INVALID` | placement invalid |
+| `-501` | `PHD_ERR_PLACEMENT_INVALID` | placement invalid: not a placement, or not valid here, as a pool:<name> for an lv2 plugin while require_pins is on |
 | `-502` | `PHD_ERR_NO_BACKEND` | no worker program for the scheme |
 | `-503` | `PHD_ERR_WORKER_SPAWN` | the worker is not up: the spawn failed, or it is in backoff; ask again after instance_restored |
 | `-504` | `PHD_ERR_REPLAY` | reserved: not returned as a reply by this version; a replayed add its pin refuses is written to stderr with it and the pin's code |
