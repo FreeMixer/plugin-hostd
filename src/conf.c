@@ -25,25 +25,17 @@
 
 void conf_defaults(conf_t *conf)
 {
-    const char *lv2 = getenv("LV2_PATH");
-    const char *runtime = getenv("XDG_RUNTIME_DIR");
+    const char *env;
 
     memset(conf, 0, sizeof(*conf));
-    snprintf(conf->mod_host, sizeof(conf->mod_host), "mod-host");
-    snprintf(conf->clap_host, sizeof(conf->clap_host), "omx-clap-host");
-    snprintf(conf->lv2_path, sizeof(conf->lv2_path), "%s",
-             lv2 && *lv2 ? lv2 : "/usr/lib64/lv2:/usr/lib/lv2:/usr/local/lib/lv2");
-    snprintf(conf->state_root, sizeof(conf->state_root), "%s", runtime && *runtime ? runtime : "/tmp");
-    conf->ready_timeout_ms = 5000;
-    conf->rpc_timeout_ms = 5000;
-    conf->backoff_base_ms = 250;
-    conf->backoff_max_ms = 5000;
-    conf->storm_deaths = 5;
-    conf->storm_window_ms = 60000;
-    conf->suspect_window_ms = 500;
-    conf->checkpoint_ms = 5000;
-    conf->idle_ms = 25;
-    conf->pool_max = 8;
+#define X(key, size, def, envname, meaning) \
+    env = *(envname) ? getenv(envname) : NULL; \
+    snprintf(conf->key, sizeof(conf->key), "%s", env && *env ? env : def);
+    PHD_CONF_STRINGS(X)
+#undef X
+#define X(key, def, unit, meaning) conf->key = def;
+    PHD_CONF_INTS(X)
+#undef X
 }
 
 static int set_string(char *dest, size_t size, const char *value)
@@ -56,37 +48,20 @@ static int set_string(char *dest, size_t size, const char *value)
 
 static int set_key(conf_t *conf, const char *key, const char *value)
 {
-    if (!strcmp(key, "mod_host"))
-        return set_string(conf->mod_host, sizeof(conf->mod_host), value);
-    if (!strcmp(key, "clap_host"))
-        return set_string(conf->clap_host, sizeof(conf->clap_host), value);
-    if (!strcmp(key, "lv2_path"))
-        return set_string(conf->lv2_path, sizeof(conf->lv2_path), value);
-    if (!strcmp(key, "state_root"))
-        return set_string(conf->state_root, sizeof(conf->state_root), value);
-    if (!strcmp(key, "ready_timeout_ms"))
-        conf->ready_timeout_ms = atoi(value);
-    else if (!strcmp(key, "rpc_timeout_ms"))
-        conf->rpc_timeout_ms = atoi(value);
-    else if (!strcmp(key, "backoff_base_ms"))
-        conf->backoff_base_ms = atoi(value);
-    else if (!strcmp(key, "backoff_max_ms"))
-        conf->backoff_max_ms = atoi(value);
-    else if (!strcmp(key, "storm_deaths"))
-        conf->storm_deaths = atoi(value);
-    else if (!strcmp(key, "storm_window_ms"))
-        conf->storm_window_ms = atoi(value);
-    else if (!strcmp(key, "suspect_window_ms"))
-        conf->suspect_window_ms = atoi(value);
-    else if (!strcmp(key, "checkpoint_ms"))
-        conf->checkpoint_ms = atoi(value);
-    else if (!strcmp(key, "idle_ms"))
-        conf->idle_ms = atoi(value);
-    else if (!strcmp(key, "pool_max"))
-        conf->pool_max = atoi(value);
-    else
-        return -1;
-    return 0;
+#define X(name, size, def, env, meaning) \
+    if (!strcmp(key, #name)) \
+        return set_string(conf->name, sizeof(conf->name), value);
+    PHD_CONF_STRINGS(X)
+#undef X
+#define X(name, def, unit, meaning) \
+    if (!strcmp(key, #name)) \
+    { \
+        conf->name = atoi(value); \
+        return 0; \
+    }
+    PHD_CONF_INTS(X)
+#undef X
+    return -1;
 }
 
 int conf_load(conf_t *conf, const char *path, int required)

@@ -1,5 +1,5 @@
 src/*.o
-plugin-hostd
+/plugin-hostd
 tests/fake-host
 tests/*.clap
 __pycache__/

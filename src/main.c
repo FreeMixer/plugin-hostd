@@ -34,7 +34,7 @@
 #define VERSION "0.1.0"
 #endif
 
-#define SOCKET_DEFAULT_PORT     5555
+#define SOCKET_DEFAULT_PORT     PHD_DEFAULT_COMMAND_PORT
 #define SOCKET_MSG_BUFFER_SIZE  4096
 
 static volatile int running;
@@ -141,7 +141,7 @@ int main(int argc, char **argv)
     sigaction(SIGTERM, &sig, NULL);
     sigaction(SIGINT, &sig, NULL);
 
-    printf("plugin-hostd ready!\n");
+    printf("%s\n", PHD_READY_LINE);
     fflush(stdout);
 
     running = 1;

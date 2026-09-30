@@ -35,7 +35,7 @@ else
    LDFLAGS += -s
 endif
 
-INCS = $(PROTOCOL_CFLAGS)
+INCS = -Iinclude $(PROTOCOL_CFLAGS)
 
 LDFLAGS += -Wl,--no-undefined
 
@@ -53,6 +53,9 @@ ifneq ($(PROTOCOL_LIB),)
 $(PROTOCOL_LIB):
 	$(MAKE) -C $(MOD_HOST_DIR) libmod-host-protocol.so
 endif
+
+# the declared protocol is compiled into every object
+$(OBJ): include/plugin-hostd/protocol.h
 
 # meta-rule to generate the object files
 %.o: %.c
