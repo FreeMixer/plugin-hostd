@@ -1,0 +1,36 @@
+name: test
+
+# Builds the daemon against the protocol library of linuxnow/mod-host and runs the tests that need no
+# jack: the daemon against workers that die on cue. The jack tests need a PipeWire and a plugin host and
+# are run by hand (make test-jack).
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: build and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Install the build tools
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends build-essential python3
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v4
+        with:
+          repository: linuxnow/mod-host
+          ref: 9548ec5ca8f40968e7148267861ea13176da5c55
+          path: mod-host
+
+      - name: Build
+        run: make MOD_HOST_DIR=$PWD/mod-host
+
+      - name: Test
+        run: make test MOD_HOST_DIR=$PWD/mod-host

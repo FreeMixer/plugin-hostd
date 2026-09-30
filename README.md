@@ -156,5 +156,5 @@ exit), with `tests/stress.clap` (a passthrough that crashes on a parameter
 write, spins, keeps state). It kills workers and reads the graph and the audio
 level of a neighbouring chain across the kill.
 
-`tests/sabotage.sh` breaks the daemon on purpose, one guard at a time, and
+`make sabotage` (`tests/sabotage.py`) breaks the daemon on purpose, one guard at a time, and
 requires the named test to go red.

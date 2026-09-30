@@ -72,13 +72,17 @@ clean:
 # made to die on cue): placement, forwarding, ledger, replay, attribution, the storm bound; no jack, no plugin
 test: $(PROG) $(FAKE)
 	PLUGIN_HOSTD=./$(PROG) FAKE_HOST=./$(FAKE) python3 tests/daemon_test.py
-	python3 tests/verbs_contract.py
+	MOD_HOST_DIR=$(MOD_HOST_DIR) python3 tests/verbs_contract.py
 
 $(FAKE): tests/fake_host.c $(PROTOCOL_LIB)
 	$(CC) $(INCS) $(CFLAGS) -Werror -o $@ $< $(PROTOCOL_LIBS) -lm
 
 tests/stress.clap: tests/stress_plugin.c
 	$(CC) $(CLAP_CFLAGS) $(CFLAGS) -Werror -shared -o $@ $<
+
+# every guard broken on purpose, one at a time: its test must go red
+sabotage: $(PROG) $(FAKE)
+	MOD_HOST_DIR=$(MOD_HOST_DIR) FAKE_HOST=./$(FAKE) python3 tests/sabotage.py
 
 # the real workers over jack in a PipeWire of its own: omx-clap-host (OMX_CLAP_HOST) and, when MOD_HOST is
 # given, mod-host with an LV2 bundle (LV2_BUNDLE_DIR holds omx-delay.lv2)
