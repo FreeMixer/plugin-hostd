@@ -129,7 +129,8 @@ holds.
 
 A worker that dies is respawned after a backoff, and each instance is put
 back: `add`, one `state_load` of the checkpoint directory, the verb tail,
-the connections. What a plugin held in RAM and exposed through no verb (a
+the connections (a connect the new client cannot make yet, because the peer's port has not reached it, is asked again by
+the idle tick for five seconds). What a plugin held in RAM and exposed through no verb (a
 reverb tail) is lost.
 
 Who is blamed: a death with a command on the wire names that command's

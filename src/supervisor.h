@@ -82,6 +82,9 @@ typedef struct WORKER_T {
     int ndeaths;
     int backoff_ms;
     int64_t next_try_ms;
+    char **pend;                /* connects a replay could not make yet: the peer port may not be visible to the new client */
+    int npend;
+    int64_t pend_until_ms;
 } worker_t;
 
 void sup_init(const conf_t *conf);

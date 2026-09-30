@@ -168,6 +168,24 @@ def connections_are_replayed_and_disconnect_forgets():
 
 
 @test
+def a_connect_the_new_worker_cannot_make_yet_is_asked_again():
+    d = daemon(env={"FAKE_CONNECT_AFTER_MS": "400"})
+    try:
+        d.expect("add fake:a 0", "resp 0")
+        time.sleep(0.5)
+        d.expect("connect effect_0:out_1 system:playback_1", "resp 0")
+        d.expect("list_connections", "resp 0 effect_0:out_1>system:playback_1")
+        _, w = d.holder(0)
+        mark = d.mark()
+        os.kill(w["pid"], signal.SIGKILL)
+        d.wait_event("instance_restored 0 ", since=mark)
+        check(d.send("list_connections") == "resp 0", "the worker refused the connect while it was new")
+        wait_for(lambda: d.send("list_connections") == "resp 0 effect_0:out_1>system:playback_1", "the connection to come back", 5)
+    finally:
+        d.close()
+
+
+@test
 def replay_is_text_identical_and_state_checkpoint_is_byte_identical():
     d = daemon(conf={"checkpoint_ms": 300})
     try:

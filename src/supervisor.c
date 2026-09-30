@@ -36,6 +36,7 @@
 
 #define ATTRIBUTED  (-2)    /* on_death: the culprit is already dealt with, only schedule */
 #define POOL_NAMES  32
+#define CONNECT_RETRY_MS 5000
 
 typedef struct META_T {
     int crashes;
@@ -346,6 +347,9 @@ static void worker_free(worker_t *w)
     unlink(path);
     if (w->fd >= 0)
         close(w->fd);
+    for (n = 0; n < w->npend; n++)
+        free(w->pend[n]);
+    free(w->pend);
     free(w->inst);
     free(w);
 }
@@ -497,6 +501,8 @@ static void on_death(worker_t *w, int in_flight)
         close(w->fd);
     w->fd = -1;
     w->pid = 0;
+    while (w->npend)
+        free(w->pend[--w->npend]);
     note_death(w->deaths, &w->ndeaths, now);
 
     if (in_flight != ATTRIBUTED)
@@ -568,19 +574,60 @@ static void checkpoint(worker_t *w)
     }
 }
 
-/* one replayed line: the reply is read and dropped, the death is the caller's */
-static int replay_line(worker_t *w, const char *line)
+/* one replayed line: the reply is read and dropped, the death is the caller's; *code is the worker's answer */
+static int replay_line_code(worker_t *w, const char *line, int *code)
 {
     char *reply = NULL;
     int rc = proc_rpc(&g_conf, w->pid, w->fd, line, &reply);
 
+    *code = 0;
     if (rc == RPC_OK)
     {
-        if (resp_code(reply) < 0)
+        *code = resp_code(reply);
+        if (*code < 0)
             fprintf(stderr, "plugin-hostd: w%d refused '%s': %s\n", w->k, line, reply);
         free(reply);
     }
     return rc;
+}
+
+static int replay_line(worker_t *w, const char *line)
+{
+    int code;
+
+    return replay_line_code(w, line, &code);
+}
+
+/* a jack port is announced to a new client a moment after it is registered: a connect that is refused is asked again
+ * by the tick for a few seconds, and dropped after that (the peer is down, and its own replay makes the connection) */
+static void pend_add(worker_t *w, const char *line)
+{
+    w->pend = realloc(w->pend, (w->npend + 1) * sizeof(char *));
+    w->pend[w->npend++] = strdup(line);
+    w->pend_until_ms = proc_now_ms() + CONNECT_RETRY_MS;
+}
+
+static void pend_retry(worker_t *w, int64_t now)
+{
+    int n = 0;
+
+    while (n < w->npend && w->state == W_UP)
+    {
+        int code;
+
+        if (replay_line_code(w, w->pend[n], &code) != RPC_OK)
+        {
+            on_death(w, -1);
+            return;
+        }
+        if (code >= 0 || now > w->pend_until_ms)
+        {
+            free(w->pend[n]);
+            w->pend[n] = w->pend[--w->npend];
+        }
+        else
+            n++;
+    }
 }
 
 static void replay(worker_t *w, int64_t started)
@@ -625,11 +672,17 @@ static void replay(worker_t *w, int64_t started)
         instance_t *i = w->inst[n];
 
         for (m = 0; m < i->nconns; m++)
-            if (replay_line(w, i->conns[m]) != RPC_OK)
+        {
+            int code;
+
+            if (replay_line_code(w, i->conns[m], &code) != RPC_OK)
             {
                 on_death(w, i->id);
                 return;
             }
+            if (code < 0)
+                pend_add(w, i->conns[m]);
+        }
         count++;
     }
     w->state = W_UP;
@@ -673,6 +726,8 @@ void sup_tick(void)
             on_death(w, -1);
         else if (w->state == W_BACKOFF && now >= w->next_try_ms)
             respawn(w);
+        else if (w->state == W_UP && w->npend)
+            pend_retry(w, now);
     }
     for (n = 0; n < g_nworkers; n++)
     {
