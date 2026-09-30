@@ -99,7 +99,7 @@ static char *handle(char *line, char **tok, int ntok)
     if (!strcmp(verb, "pool_config"))
         return ntok == 3 ? sup_pool_config(tok[1], atoi(tok[2])) : sup_resp(ERR_INVALID_OPERATION);
     if (!strcmp(verb, "worker_env"))
-        return ntok == 5 ? sup_worker_env(tok[1], tok[2], tok[3], tok[4]) : sup_resp(ERR_INVALID_OPERATION);
+        return ntok == 4 ? sup_worker_env(tok[1], tok[2], tok[3]) : sup_resp(ERR_INVALID_OPERATION);
     if (!strcmp(verb, "quit"))
     {
         g_quitting = 1;

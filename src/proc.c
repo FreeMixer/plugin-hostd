@@ -86,13 +86,6 @@ static void apply_thread(pid_t tid, const worker_env_t *env)
         sched_setaffinity(tid, sizeof(set), &set);
     if (env->nice != INT_MIN)
         setpriority(PRIO_PROCESS, tid, env->nice);
-    if (env->rt_prio > 0)
-    {
-        struct sched_param param;
-
-        param.sched_priority = env->rt_prio;
-        sched_setscheduler(tid, SCHED_FIFO, &param);
-    }
 }
 
 void proc_apply_env(pid_t pid, const worker_env_t *env)

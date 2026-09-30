@@ -106,7 +106,7 @@ char *sup_reset(const char *which);
 char *sup_quarantine_clear(const char *which);
 char *sup_policy_set(const char *format, const char *place);
 char *sup_pool_config(const char *name, int max);
-char *sup_worker_env(const char *format, const char *cpus, const char *nice, const char *rt);
+char *sup_worker_env(const char *format, const char *cpus, const char *nice);
 
 /* the idle tick: reap the dead, respawn the due, checkpoint the quiet */
 void sup_tick(void);
