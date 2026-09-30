@@ -22,7 +22,8 @@
  *
  *   add <uri> <n> [client]      "crash_on_add" in the uri aborts, "refuse" in it answers -101,
  *                               "nostate" in it makes an instance that never writes state
- *   param_set <n> crash <v>     v other than 0 aborts 30 ms after the reply, as a plugin does in a callback
+ *   param_set <n> crash <v>     v other than 0 aborts 30 ms after the reply (FAKE_CRASH_AFTER_MS to say another), as a
+ *                               plugin does in a callback
  *                               (once only when FAKE_CRASH_ONCE names a file: it is created by the crash)
  *   param_set <n> crashnow <v>  v other than 0 aborts before the reply, with the command on the wire
  *   param_set <n> hang <v>      v other than 0 never answers
@@ -36,6 +37,7 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <stdarg.h>
+#include <sys/time.h>
 #include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -196,10 +198,14 @@ static void receive(msg_t *msg)
                 ;
             else
             {
+                const char *after = getenv("FAKE_CRASH_AFTER_MS");
+                long ms = after ? atol(after) : 30;
+                struct itimerval timer = { { 0, 0 }, { ms / 1000, (ms % 1000) * 1000 } };
+
                 if (once)
                     close(open(once, O_CREAT | O_WRONLY, 0644));
                 signal(SIGALRM, crash_alarm);
-                ualarm(30000, 0);
+                setitimer(ITIMER_REAL, &timer, NULL);
             }
         }
         answer(fd, "resp 0");

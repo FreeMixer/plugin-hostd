@@ -151,15 +151,17 @@ static int valid_place(const char *place)
 
 /* ---------------------------------------------------------------- ledger */
 
-static void tail_add(instance_t *i, const char *line, const char *key, int kind)
+/* *replaced is the line a keyed entry gave up, NULL when the entry is new; the caller owns it */
+static void tail_add(instance_t *i, const char *line, const char *key, int kind, char **replaced)
 {
     int n;
 
+    *replaced = NULL;
     if (key)
         for (n = 0; n < i->ntail; n++)
             if (i->tail[n].key && !strcmp(i->tail[n].key, key))
             {
-                free(i->tail[n].line);
+                *replaced = i->tail[n].line;
                 i->tail[n].line = strdup(line);
                 return;
             }
@@ -235,6 +237,8 @@ static void instance_free(instance_t *i)
     free(i->uri);
     free(i->add_line);
     free(i->client);
+    free(i->sus_line);
+    free(i->sus_prev);
     free(i);
 }
 
@@ -478,6 +482,58 @@ static void quarantine(instance_t *i, worker_t *w)
     }
 }
 
+/* the verb a worker answered and then died on, inside the suspect window: out of the ledger, so the respawn does not
+ * play it again; what it replaced comes back. Returns the instance that sent it, -1 when there is none */
+static int drop_suspect(worker_t *w, int64_t now)
+{
+    instance_t *s = NULL;
+    int n, m;
+
+    for (n = 0; n < w->ninst; n++)
+    {
+        instance_t *i = w->inst[n];
+
+        if (i->sus_line && g_conf.suspect_window_ms > 0 && now - i->sus_ms <= g_conf.suspect_window_ms &&
+            (!s || i->sus_seq > s->sus_seq))
+            s = i;
+    }
+    if (!s)
+        return -1;
+    for (m = s->ntail - 1; m >= 0; m--)
+        if (!strcmp(s->tail[m].line, s->sus_line))
+            break;
+    if (m >= 0)
+    {
+        if (s->sus_prev)
+        {
+            free(s->tail[m].line);
+            s->tail[m].line = s->sus_prev;
+            s->sus_prev = NULL;
+        }
+        else
+        {
+            free(s->tail[m].line);
+            free(s->tail[m].key);
+            memmove(&s->tail[m], &s->tail[m + 1], (s->ntail - m - 1) * sizeof(entry_t));
+            s->ntail--;
+        }
+    }
+    event("instance_verb_dropped %d suspect:%d %s", s->id, (int)(now - s->sus_ms), s->sus_line);
+    return s->id;
+}
+
+static void clear_suspects(worker_t *w)
+{
+    int n;
+
+    for (n = 0; n < w->ninst; n++)
+    {
+        free(w->inst[n]->sus_line);
+        free(w->inst[n]->sus_prev);
+        w->inst[n]->sus_line = w->inst[n]->sus_prev = NULL;
+    }
+}
+
 static void on_death(worker_t *w, int in_flight)
 {
     int status = 0, n, done = 0;
@@ -504,6 +560,10 @@ static void on_death(worker_t *w, int in_flight)
     while (w->npend)
         free(w->pend[--w->npend]);
     note_death(w->deaths, &w->ndeaths, now);
+    /* a kill from outside says nothing about the last verb */
+    if (in_flight == -1 && !(WIFSIGNALED(status) && (WTERMSIG(status) == SIGKILL || WTERMSIG(status) == SIGTERM)))
+        in_flight = drop_suspect(w, now);
+    clear_suspects(w);
 
     if (in_flight != ATTRIBUTED)
     {
@@ -953,6 +1013,8 @@ static char *refuse_worker(worker_t *w)
     return sup_resp(w->state == W_GIVEN_UP ? ERR_SUPERVISOR_GAVE_UP : ERR_SUPERVISOR_WORKER_SPAWN);
 }
 
+static int64_t g_sus_seq;
+
 static void record(instance_t *i, const char *line, char **tok, int ntok)
 {
     size_t v;
@@ -961,7 +1023,7 @@ static void record(instance_t *i, const char *line, char **tok, int ntok)
         if (!strcmp(tok[0], g_recorded[v].verb))
         {
             const char *key = NULL;
-            char keybuf[160];
+            char keybuf[160], *prev;
 
             if (g_recorded[v].key_arg && ntok > g_recorded[v].key_arg)
             {
@@ -972,7 +1034,13 @@ static void record(instance_t *i, const char *line, char **tok, int ntok)
                 return;
             if (!strcmp(tok[0], "preset_load"))
                 tail_drop_state(i);
-            tail_add(i, line, key, g_recorded[v].kind);
+            tail_add(i, line, key, g_recorded[v].kind, &prev);
+            free(i->sus_line);
+            free(i->sus_prev);
+            i->sus_line = strdup(line);
+            i->sus_prev = prev;
+            i->sus_ms = proc_now_ms();
+            i->sus_seq = ++g_sus_seq;
             if (g_recorded[v].kind == KIND_STATE)
             {
                 i->dirty = 1;
