@@ -825,6 +825,52 @@ def an_lv2_bundle_is_pinned_by_its_manifest_binary_and_seealso():
 
 
 @test
+def what_cannot_be_pinned_is_refused_and_never_pinned_in_part():
+    line_max = next(c["value"] for c in harness.DECLARED["constants"] if c["name"] == "line_max")
+    p = Plugins()
+    d = p.daemon()
+    try:
+        # a path holding the digest separator: refused, and the earlier pin stands
+        d.expect(p.lv2_pin(), "resp 0")
+        eq = os.path.join(p.bundle, "a=b.so")
+        write(eq, b"x")
+        d.expect("pin_set %s a=b.so=%s,manifest.ttl=%s %s" % (LV2_URI, sha(eq), sha(os.path.join(p.bundle, "manifest.ttl")),
+                                                              fake_layout()), "resp -902")
+        d.expect("add %s 0" % LV2_URI, "resp 0")
+        d.expect("remove 0", "resp 0")
+
+        # a pin_set line of line_max bytes is taken, one byte more is not
+        head = p.lv2_pin()
+        cut = head.rindex(" ")
+        pad = ",p%s=" + "0" * 64
+        fill = line_max - len(head) - len(pad % "")
+        d.expect(head[:cut] + (pad % ("a" * fill)) + head[cut:], "resp 0")
+        check(len(head[:cut] + (pad % ("a" * fill)) + head[cut:]) == line_max, "the line is line_max long")
+        d.expect(head[:cut] + (pad % ("a" * (fill + 1))) + head[cut:], "resp -902")
+        d.expect(p.lv2_pin(), "resp 0")
+
+        # a manifest that sets @base: its names are resolved against a base the daemon does not follow
+        manifest = os.path.join(p.bundle, "manifest.ttl")
+        good = open(manifest, "rb").read()
+        write(manifest, b"@base <http://example.org/elsewhere/> .\n" + good)
+        d.expect(p.lv2_pin(), "resp 0")
+        mark = len(p.received())
+        d.expect("add %s 1" % LV2_URI, resp("PIN_BINARY_MISMATCH"))
+
+        # a percent-encoded name: the host decodes it, the daemon would hash the file of the name as written
+        encoded = os.path.join(p.bundle, "pinned%2Eso")
+        write(encoded, b"not the binary the host loads")
+        write(manifest, (MANIFEST % LV2_URI).replace("<pinned.so>", "<pinned%2Eso>").encode())
+        d.expect(p.lv2_pin(("manifest.ttl", "pinned%2Eso", "pinned.so", "pinned.ttl")), "resp 0")
+        d.expect("add %s 1" % LV2_URI, resp("PIN_BINARY_MISMATCH"))
+        check(p.received()[mark:] == [], "no worker saw a refused add: %s" % p.received()[mark:])
+        write(manifest, good)
+    finally:
+        d.close()
+        p.close()
+
+
+@test
 def a_pinned_lv2_plugin_gets_a_worker_of_its_own():
     p = Plugins()
     d = p.daemon()
