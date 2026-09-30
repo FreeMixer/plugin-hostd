@@ -81,6 +81,12 @@ SABOTAGE = [
      "an_lv2_bundle_is_pinned_by_its_manifest_binary_and_seealso"),
     ("the manifest's bytes are not compared with the pin", "src/pins.c", "if (got != st.st_size || strcmp(hex, want))",
      "if (got != st.st_size)", "an_lv2_bundle_is_pinned_by_its_manifest_binary_and_seealso"),
+    ("a pinned LV2 plugin may ask for a pool", "src/supervisor.c",
+     "            if (placement && !strncmp(placement, PHD_PLACE_POOL_PREFIX, strlen(PHD_PLACE_POOL_PREFIX)))\n"
+     "                return sup_resp(PHD_ERR_PLACEMENT_INVALID);\n", "", "a_pinned_lv2_plugin_gets_a_worker_of_its_own"),
+    ("a pinned LV2 plugin follows a policy into a pool", "src/supervisor.c",
+     "            snprintf(place, sizeof(place), PHD_PLACE_OWN);\n        }\n    }\n", "        }\n    }\n",
+     "a_pinned_lv2_plugin_gets_a_worker_of_its_own"),
     ("a replayed add is not checked again", "src/supervisor.c", "    i->unreplayed = 0;\n    if (!g_conf.require_pins)",
      "    i->unreplayed = 0;\n    if (1)", "a_binary_swapped_while_its_worker_was_down_is_not_replayed"),
     ("the verbs of an instance its pin refused on replay are replayed", "src/supervisor.c",

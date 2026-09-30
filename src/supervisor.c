@@ -994,6 +994,13 @@ char *sup_add(const char *uri, int id, const char *placement, const char *client
         rc = pins_check(fmt == FMT_CLAP, fwd, g_conf.lv2_path, &layout);
         if (rc != SUCCESS)
             return sup_resp(rc);
+        /* a pool's world holds every member's bundle: the layout of a pinned LV2 holds in the one bundle of its own */
+        if (fmt == FMT_LV2)
+        {
+            if (placement && !strncmp(placement, PHD_PLACE_POOL_PREFIX, strlen(PHD_PLACE_POOL_PREFIX)))
+                return sup_resp(PHD_ERR_PLACEMENT_INVALID);
+            snprintf(place, sizeof(place), PHD_PLACE_OWN);
+        }
     }
 
     if (!strcmp(place, PHD_PLACE_OWN))
