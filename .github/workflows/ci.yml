@@ -17,7 +17,7 @@ permissions:
   contents: read
 
 env:
-  OMX_CLAP_HOST_REF: b678828e0574b6098211d3177c3d3fc6a9111efe
+  OMX_CLAP_HOST_REF: b379d95f41ff7b7764c8022238001138bfc8ce0f
 
 jobs:
   test:
@@ -36,7 +36,7 @@ jobs:
 
       - uses: actions/checkout@v4
 
-      - uses: FreeMixer/omx-clap-host/.github/actions/mod-host-protocol@b678828e0574b6098211d3177c3d3fc6a9111efe
+      - uses: FreeMixer/omx-clap-host/.github/actions/mod-host-protocol@b379d95f41ff7b7764c8022238001138bfc8ce0f
 
       - name: Build
         run: make
@@ -72,11 +72,13 @@ jobs:
           echo "They stay in the Makefile for the desk."
 
   rpm:
-    name: RPMs (fc44)
+    name: RPMs (fc44), installed in a clean root
     runs-on: ubuntu-latest
     timeout-minutes: 30
     container:
       image: fedora:44
+      # the clean root gets a /proc and a /dev of its own
+      options: --cap-add SYS_ADMIN --security-opt seccomp=unconfined --security-opt apparmor=unconfined --security-opt systempaths=unconfined
     steps:
       - name: Install the build tools
         run: dnf install -y --setopt=install_weak_deps=False git rpm-build dnf5-plugins gcc make tar gzip python3 pipewire-jack-audio-connection-kit-devel
@@ -85,9 +87,9 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: FreeMixer/omx-clap-host/.github/actions/mod-host-rpms@b678828e0574b6098211d3177c3d3fc6a9111efe
+      - uses: FreeMixer/omx-clap-host/.github/actions/mod-host-rpms@b379d95f41ff7b7764c8022238001138bfc8ce0f
 
-      - uses: FreeMixer/omx-clap-host/.github/actions/build-rpm@b678828e0574b6098211d3177c3d3fc6a9111efe
+      - uses: FreeMixer/omx-clap-host/.github/actions/build-rpm@b379d95f41ff7b7764c8022238001138bfc8ce0f
 
       - name: Check the file lists
         run: |
@@ -110,59 +112,20 @@ jobs:
       - name: Build the fake worker
         run: make tests/fake-host
 
-      - uses: actions/upload-artifact@v4
+      - uses: FreeMixer/omx-clap-host/.github/actions/install-clean@b379d95f41ff7b7764c8022238001138bfc8ce0f
         with:
-          name: plugin-hostd-rpms-fc44
-          path: rpms/plugin-hostd-[0-9]*.rpm
-          if-no-files-found: error
-          retention-days: 1
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: mod-host-rpms-fc44
-          path: |
+          rpms: |
             mod-host-rpms/mod-host-[0-9]*.rpm
-            mod-host-rpms/mod-host-protocol-devel-*.rpm
-          if-no-files-found: error
-          retention-days: 1
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: fake-worker
-          path: tests/fake-host
-          if-no-files-found: error
-          retention-days: 1
-
-  smoke:
-    name: install and run the RPMs in a clean container
-    needs: rpm
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    container:
-      image: fedora:44
-    steps:
-      - name: Install python for the test driver
-        run: dnf install -y --setopt=install_weak_deps=False python3
-
-      - uses: actions/checkout@v4
-
-      - uses: actions/download-artifact@v4
-        with:
-          path: in
-
-      - name: Install
-        run: |
-          set -euo pipefail
-          dnf install -y --setopt=install_weak_deps=False in/mod-host-rpms-fc44/mod-host-[0-9]*.rpm \
-            in/plugin-hostd-rpms-fc44/plugin-hostd-[0-9]*.x86_64.rpm
+            rpms/plugin-hostd-[0-9]*.x86_64.rpm
+          packages: python3
 
       - name: The daemon reports the version of its package and resolves its libraries
         run: |
           set -euo pipefail
-          version=$(rpm -q --qf '%{VERSION}' plugin-hostd)
-          plugin-hostd -V | tee v.txt
+          version=$(chroot /tmp/clean-root rpm -q --qf '%{VERSION}' plugin-hostd)
+          chroot /tmp/clean-root plugin-hostd -V | tee v.txt
           grep -q "version: $version\$" v.txt
-          ldd /usr/bin/plugin-hostd | tee ldd.txt
+          chroot /tmp/clean-root ldd /usr/bin/plugin-hostd | tee ldd.txt
           ! grep -q 'not found' ldd.txt
           grep -q 'libmod-host-protocol\.so\.0 => /' ldd.txt
 
@@ -170,5 +133,14 @@ jobs:
       - name: The installed daemon against the fake worker
         run: |
           set -euo pipefail
-          chmod +x in/fake-worker/fake-host
-          PLUGIN_HOSTD=/usr/bin/plugin-hostd FAKE_HOST=$PWD/in/fake-worker/fake-host python3 tests/daemon_test.py
+          mkdir -p /tmp/clean-root/smoke
+          cp -r tests /tmp/clean-root/smoke/tests
+          chroot /tmp/clean-root env PLUGIN_HOSTD=/usr/bin/plugin-hostd FAKE_HOST=/smoke/tests/fake-host \
+            python3 /smoke/tests/daemon_test.py
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plugin-hostd-rpms-fc44
+          path: rpms/plugin-hostd-[0-9]*.rpm
+          if-no-files-found: error
+          retention-days: 1

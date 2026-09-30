@@ -63,9 +63,9 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
-      - uses: FreeMixer/omx-clap-host/.github/actions/mod-host-rpms@b678828e0574b6098211d3177c3d3fc6a9111efe
+      - uses: FreeMixer/omx-clap-host/.github/actions/mod-host-rpms@b379d95f41ff7b7764c8022238001138bfc8ce0f
 
-      - uses: FreeMixer/omx-clap-host/.github/actions/build-rpm@b678828e0574b6098211d3177c3d3fc6a9111efe
+      - uses: FreeMixer/omx-clap-host/.github/actions/build-rpm@b379d95f41ff7b7764c8022238001138bfc8ce0f
         with:
           tag: ${{ env.RELEASE_TAG }}
 
@@ -94,7 +94,7 @@ jobs:
           name: plugin-hostd-release-rpms
           path: collected
 
-      - uses: FreeMixer/omx-clap-host/.github/actions/publish-rpms@b678828e0574b6098211d3177c3d3fc6a9111efe
+      - uses: FreeMixer/omx-clap-host/.github/actions/publish-rpms@b379d95f41ff7b7764c8022238001138bfc8ce0f
         with:
           rpm-dir: collected
           tag: ${{ inputs.tag }}
