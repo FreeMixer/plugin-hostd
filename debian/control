@@ -31,7 +31,7 @@ Package: plugin-hostd-dev
 Section: libdevel
 Architecture: all
 Depends: ${misc:Depends}
-Description: the protocol plugin-hostd declares, as a C header
+Description: C header declaring the protocol of plugin-hostd
  The verbs plugin-hostd adds to mod-host's protocol, its placement syntax,
  error codes, feedback events, settings and readiness line, declared once in
  plugin-hostd/protocol.h, which the daemon itself is compiled against.

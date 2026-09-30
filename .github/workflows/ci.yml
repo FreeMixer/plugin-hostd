@@ -31,7 +31,7 @@ jobs:
       - name: Install the build tools
         run: |
           dnf install -y --setopt=install_weak_deps=False git gcc make python3 pkgconf-pkg-config clap-devel \
-            pipewire-jack-audio-connection-kit-devel pipewire pipewire-utils iproute util-linux procps-ng python3-jsonschema
+            pipewire-jack-audio-connection-kit-devel pipewire pipewire-utils iproute util-linux procps-ng diffutils python3-jsonschema
 
       - uses: actions/checkout@v4
 
@@ -116,7 +116,7 @@ jobs:
           # the development package: the header a consumer includes, its pkg-config file, the schema of the JSON
           for rpm in rpms/plugin-hostd-devel-[0-9]*.noarch.rpm; do
             rpm -qlp "$rpm"
-            rpm -qp --qf '[%{FILENAMES}\n]' "$rpm" | sort > files.txt
+            rpm -qp --qf '[%{FILEMODES:perms} %{FILENAMES}\n]' "$rpm" | grep -v '^d' | cut -d' ' -f2 | sort > files.txt
             printf '%s\n' /usr/include/plugin-hostd/protocol.h /usr/share/pkgconfig/plugin-hostd.pc \
               /usr/share/plugin-hostd/protocol.schema.json /usr/share/licenses/plugin-hostd-devel/COPYING | sort > expected.txt
             diff -u expected.txt files.txt

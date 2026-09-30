@@ -9,6 +9,7 @@ Source0: %{url}/archive/v%{version}/%{name}-%{version}.tar.gz
 
 BuildRequires: gcc
 BuildRequires: make
+BuildRequires: diffutils
 BuildRequires: python3
 BuildRequires: pkgconfig(mod-host-protocol)
 
@@ -24,7 +25,7 @@ down its own worker and nothing else, and the daemon puts it back. Audio never
 passes through the daemon: every worker is a JACK client, as in mod-host.
 
 %package devel
-Summary: The protocol plugin-hostd declares, as a C header
+Summary: C header declaring the protocol of plugin-hostd
 BuildArch: noarch
 
 %description devel
