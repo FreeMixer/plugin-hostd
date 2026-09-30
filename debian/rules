@@ -11,5 +11,5 @@ override_dh_auto_install:
 # the verb table is checked against mod-host's README, which a build does not have
 override_dh_auto_test:
 ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
-	$(MAKE) test-daemon
+	$(MAKE) test-daemon check-generated
 endif

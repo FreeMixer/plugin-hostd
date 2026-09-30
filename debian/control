@@ -26,3 +26,16 @@ Description: supervisor of LV2 and CLAP plugin hosts behind one mod-host socket
  A format whose worker is not installed refuses its adds; the other format
  is unaffected. mod-host is not packaged by Debian: install it from source
  for LV2 plugins.
+
+Package: plugin-hostd-dev
+Section: libdevel
+Architecture: all
+Depends: ${misc:Depends}
+Description: the protocol plugin-hostd declares, as a C header
+ The verbs plugin-hostd adds to mod-host's protocol, its placement syntax,
+ error codes, feedback events, settings and readiness line, declared once in
+ plugin-hostd/protocol.h, which the daemon itself is compiled against.
+ Include it from a controller rather than spelling the values again;
+ pkg-config plugin-hostd gives the flags. The same declaration as JSON, for
+ readers that are not C, is /usr/share/plugin-hostd/protocol.json of the
+ plugin-hostd package.
