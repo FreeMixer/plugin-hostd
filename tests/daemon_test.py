@@ -86,6 +86,25 @@ def plain_verbs_pass_through_unchanged():
 
 
 @test
+def a_command_whose_first_argument_is_a_uri_reaches_every_worker():
+    log = tempfile.mktemp(prefix="plugin-hostd-log.")
+    d = daemon(env={"FAKE_LOG": log})
+    try:
+        d.expect("add fake:a 0", "resp 0")
+        d.expect("add fake:b 1", "resp 1")
+        pids = {w["pid"] for w in d.workers().values()}
+        d.send("preset_show http://example.org/presets#0")
+        with open(log) as f:
+            got = {int(l.split(" ", 1)[0]) for l in f if l.split()[1:2] == ["preset_show"]}
+        check(got == pids, "preset_show <uri> names no instance: every worker gets it, not the holder of %s: %s of %s"
+              % ("instance 0", sorted(got), sorted(pids)))
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
+
+
+@test
 def remove_all_and_quit():
     d = daemon()
     try:
