@@ -1,6 +1,7 @@
 # The daemon routes by instance the commands whose first argument is an instance number. That list is mod-host's
-# grammar, not ours: every "<verb> <instance_number>" line of mod-host's README must be a command of verbs.c's table,
-# whose verbs are read from mod-host.h. And no verb is spelled in the C sources: a verb of mod-host.h or of
+# grammar, not ours: the "<verb> <instance_number>" lines of mod-host's README are the commands of verbs.c's table, no
+# more and no fewer, and each one's format in mod-host.h takes a number first. The type alone does not make an
+# instance verb: "transport %i" and "monitor_midi_program %i" take a number that is not one. And no verb is spelled in the C sources: a verb of mod-host.h or of
 # include/plugin-hostd/protocol.h is read from its declaration, so a C string that starts with one is a copy.
 import os, re, sys
 
@@ -64,6 +65,12 @@ unknown = [m for m in names if m not in commands]
 if unknown:
     fail("not commands of mod-host.h: %s" % unknown)
 routed = {commands[m] for m in names if m in commands}
+# the instance is the first argument of the command's format: a command whose first argument is not a number is no
+# instance verb, whatever else its format takes
+formats = modhost.formats(include)
+for m in names:
+    if m in formats and formats[m].split()[1:2] != ["%i"]:
+        fail("%s is routed by instance but its format \"%s\" does not take one first" % (m, formats[m]))
 
 readme = os.path.join(MOD_HOST_DIR, "README.md")
 if not os.path.exists(readme):
@@ -73,10 +80,13 @@ else:
         grammar = set(re.findall(r"^\s{4}(\w+) <instance_number>", f.read(), re.M))
     handled = {commands["EFFECT_ADD"], commands["EFFECT_REMOVE"]}
     missing = grammar - handled - routed
+    extra = routed - grammar
     if len(grammar) < 15:
         fail("found only %d verbs in %s" % (len(grammar), readme))
     elif missing:
         fail("not routed by instance: %s" % sorted(missing))
+    elif extra:
+        fail("routed by instance, but mod-host's README gives them no <instance_number>: %s" % sorted(extra))
     else:
         print("ok   verbs contract: %d instance verbs of mod-host's README, all routed" % len(grammar))
 

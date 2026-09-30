@@ -35,9 +35,9 @@
 volatile int g_quitting;
 
 /* the commands of mod-host.h whose first argument is an instance number: mod-host's grammar, README
- * "<verb> <instance_number>"; tests/verbs_contract.py holds this list to it */
+ * "<verb> <instance_number>"; tests/verbs_contract.py holds this list to it, and to a format that takes a number first */
 static const char *const g_instance_verbs[] = {
-    EFFECT_PRESET_LOAD, EFFECT_PRESET_SAVE, EFFECT_PRESET_SHOW, EFFECT_BYPASS, EFFECT_PARAM_SET, EFFECT_PARAM_GET,
+    EFFECT_PRESET_LOAD, EFFECT_PRESET_SAVE, EFFECT_BYPASS, EFFECT_PARAM_SET, EFFECT_PARAM_GET,
     EFFECT_PARAM_MON, EFFECT_PATCH_SET, EFFECT_PATCH_GET, EFFECT_LICENSEE, MONITOR_OUTPUT, MIDI_LEARN, MIDI_MAP,
     MIDI_UNMAP, CC_MAP, CC_UNMAP, CC_VALUE_SET, CV_MAP, CV_UNMAP,
 };
@@ -104,7 +104,8 @@ static char *handle(char *line, char **tok, int ntok)
     if (!strcmp(verb, PHD_VERB_WORKER_ENV))
         return ntok == 4 ? sup_worker_env(tok[1], tok[2], tok[3]) : sup_resp(ERR_INVALID_OPERATION);
     if (!strcmp(verb, PHD_VERB_PIN_SET))
-        return sup_resp(ntok == 4 ? pins_set(tok[1], tok[2], tok[3]) : ERR_INVALID_OPERATION);
+        return sup_resp(ntok == 4 && strlen(line) <= PHD_LINE_MAX ? pins_set(tok[1], tok[2], tok[3])
+                                                                  : ERR_INVALID_OPERATION);
     if (!strcmp(verb, PHD_VERB_PIN_CLEAR))
         return sup_resp(ntok == 2 ? pins_clear(tok[1]) : ERR_INVALID_OPERATION);
     if (verb_is(verb, QUIT))

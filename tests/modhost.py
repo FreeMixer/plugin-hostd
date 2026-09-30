@@ -14,10 +14,15 @@ def include_dir(mod_host_dir):
     return os.path.join(mod_host_dir, "src")
 
 
+def formats(directory):
+    """{macro: format} for every command of mod-host.h"""
+    with open(os.path.join(directory, "mod-host.h")) as f:
+        return dict(re.findall(r'^#define\s+(\w+)\s+"([^"]*)"', f.read(), re.M))
+
+
 def commands(directory):
     """{macro: verb} for every command of mod-host.h, the verb being the first word of its format"""
-    with open(os.path.join(directory, "mod-host.h")) as f:
-        return {name: fmt.split()[0] for name, fmt in re.findall(r'^#define\s+(\w+)\s+"([^"]*)"', f.read(), re.M)}
+    return {name: fmt.split()[0] for name, fmt in formats(directory).items()}
 
 
 def errors(directory):

@@ -136,6 +136,15 @@ static void json(void)
     sep = ",\n";
     PHD_EVENTS(X)
 #undef X
+    printf("\n  ],\n  \"pin_limits\": [");
+    sep = "\n";
+#define X(id, meaning) \
+    printf("%s    {\"name\": \"" #id "\", \"meaning\": ", sep); \
+    jstr(meaning); \
+    printf("}"); \
+    sep = ",\n";
+    PHD_PIN_LIMITS(X)
+#undef X
     printf("\n  ],\n  \"config\": [");
     sep = "\n";
 #define X(key, size, def, env, meaning) \
@@ -277,6 +286,13 @@ static void region_events(void)
 #undef X
 }
 
+static void region_pin_limits(void)
+{
+#define X(id, meaning) printf("- %s.\n", meaning);
+    PHD_PIN_LIMITS(X)
+#undef X
+}
+
 static void region_readiness(void)
 {
     printf("It prints `%s` once both ports accept.\n", PHD_READY_LINE);
@@ -318,6 +334,13 @@ static void region_man_ready(void)
     printf("\n");
 }
 
+static void region_man_pin_limits(void)
+{
+#define X(id, meaning) printf(".IP \\(bu 2\n"); roff_escape(meaning); printf(".\n");
+    PHD_PIN_LIMITS(X)
+#undef X
+}
+
 static void region_man_port(void)
 {
     printf("Command port (default %d).\n", PHD_DEFAULT_COMMAND_PORT);
@@ -329,6 +352,7 @@ static const struct {
 } REGIONS[] = {
     { "config", region_config }, { "constants", region_constants }, { "placement", region_placement },
     { "verbs", region_verbs }, { "errors", region_errors }, { "events", region_events },
+    { "pin-limits", region_pin_limits }, { "man-pin-limits", region_man_pin_limits },
     { "readiness", region_readiness }, { "worker-ready", region_worker_ready },
     { "man-keys", region_man_keys }, { "man-ready", region_man_ready }, { "man-port", region_man_port },
 };

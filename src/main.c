@@ -35,7 +35,7 @@
 #endif
 
 #define SOCKET_DEFAULT_PORT     PHD_DEFAULT_COMMAND_PORT
-#define SOCKET_MSG_BUFFER_SIZE  4096
+#define SOCKET_MSG_BUFFER_SIZE  PHD_LINE_MAX
 
 static volatile int running;
 static conf_t g_conf;
