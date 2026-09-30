@@ -1,3 +1,11 @@
+plugin-hostd (0.1.1) unstable; urgency=medium
+
+  * Pin a plugin's binary and layout before add admits it (pin_set,
+    pin_clear, pin_expect).
+  * Read every verb from its declaration.
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Wed, 30 Sep 2026 20:35:59 +0200
+
 plugin-hostd (0.1.0) unstable; urgency=medium
 
   * First package.
