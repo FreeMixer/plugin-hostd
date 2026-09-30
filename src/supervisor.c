@@ -36,7 +36,7 @@
 
 #define ATTRIBUTED  (-2)    /* on_death: the culprit is already dealt with, only schedule */
 #define POOL_NAMES  32
-#define CONNECT_RETRY_MS 5000
+#define CONNECT_RETRY_MS PHD_CONNECT_RETRY_MS
 
 typedef struct META_T {
     int crashes;
@@ -61,8 +61,16 @@ static poolcfg_t g_pools[POOL_NAMES];
 static int g_npools;
 static worker_env_t g_env[FMT_COUNT];
 
-static const char *const g_fmt_name[FMT_COUNT] = { "lv2", "clap" };
-static const char *const g_state_states[] = { "up", "starting", "backoff", "given-up" };
+static const char *const g_fmt_name[FMT_COUNT] = {
+#define X(id, name) name,
+    PHD_FORMATS(X)
+#undef X
+};
+static const char *const g_state_states[W_COUNT] = {
+#define X(id, name, meaning) name,
+    PHD_WORKER_STATES(X)
+#undef X
+};
 
 /* the instance verbs the ledger keeps; the key compacts repeats of the same setting */
 static const struct { const char *verb; int kind; int key_arg; } g_recorded[] = {
@@ -131,22 +139,11 @@ static void note_death(int64_t *deaths, int *n, int64_t now)
     deaths[(*n)++] = now;
 }
 
-static int valid_name(const char *name)
-{
-    size_t n = strlen(name), i;
-
-    if (n < 1 || n > 32)
-        return 0;
-    for (i = 0; i < n; i++)
-        if (!((name[i] >= 'a' && name[i] <= 'z') || (name[i] >= 'A' && name[i] <= 'Z') ||
-              (name[i] >= '0' && name[i] <= '9') || name[i] == '_' || name[i] == '-'))
-            return 0;
-    return 1;
-}
-
 static int valid_place(const char *place)
 {
-    return !strcmp(place, "own") || (!strncmp(place, "pool:", 5) && valid_name(place + 5));
+    return !strcmp(place, PHD_PLACE_OWN) ||
+           (!strncmp(place, PHD_PLACE_POOL_PREFIX, strlen(PHD_PLACE_POOL_PREFIX)) &&
+            phd_pool_name_valid(place + strlen(PHD_PLACE_POOL_PREFIX)));
 }
 
 /* ---------------------------------------------------------------- ledger */
@@ -300,7 +297,7 @@ static worker_t *worker_new(int fmt, const char *place)
     w->fd = -1;
     w->state = W_BACKOFF;
     snprintf(w->place, sizeof(w->place), "%s", place);
-    w->pool = strncmp(place, "pool:", 5) == 0;
+    w->pool = strncmp(place, PHD_PLACE_POOL_PREFIX, strlen(PHD_PLACE_POOL_PREFIX)) == 0;
     if (g_nworkers == g_capworkers)
     {
         g_capworkers = g_capworkers ? g_capworkers * 2 : 16;
@@ -404,7 +401,7 @@ static int worker_start(worker_t *w, const char *uri)
     int rc;
 
     if (!proc_have_binary(bin_of(w->fmt)))
-        return ERR_SUPERVISOR_NO_BACKEND;
+        return PHD_ERR_NO_BACKEND;
     snprintf(logfile, sizeof(logfile), "%s/w%d.log", g_root, w->k);
     world = narrow_world(w, uri);
     w->state = W_STARTING;
@@ -414,14 +411,14 @@ static int worker_start(worker_t *w, const char *uri)
     if (rc != 0)
     {
         w->pid = 0;
-        return ERR_SUPERVISOR_WORKER_SPAWN;
+        return PHD_ERR_WORKER_SPAWN;
     }
     w->fd = proc_connect(&g_conf, w->pid, w->port, logfile);
     if (w->fd < 0)
     {
         proc_stop(w->pid);
         w->pid = 0;
-        return ERR_SUPERVISOR_WORKER_SPAWN;
+        return PHD_ERR_WORKER_SPAWN;
     }
     w->state = W_UP;
     return SUCCESS;
@@ -444,7 +441,7 @@ static void schedule(worker_t *w, int64_t now)
     if (n >= g_conf.storm_deaths)
     {
         w->state = W_GIVEN_UP;
-        event("supervisor_gave_up w%d %d %d", w->k, n, g_conf.storm_window_ms);
+        event(PHD_EVENT_SUPERVISOR_GAVE_UP_FMT, w->k, n, g_conf.storm_window_ms);
         return;
     }
     shift = n > 0 ? n - 1 : 0;
@@ -454,13 +451,13 @@ static void schedule(worker_t *w, int64_t now)
     w->backoff_ms = backoff;
     w->next_try_ms = now + backoff;
     w->state = W_BACKOFF;
-    event("worker_backoff w%d %d", w->k, backoff);
+    event(PHD_EVENT_WORKER_BACKOFF_FMT, w->k, backoff);
 }
 
 /* a named culprit leaves its pool for a worker of its own */
 static worker_t *move_to_own(instance_t *i, int64_t now, int from_split)
 {
-    worker_t *own = worker_new(i->fmt, "own");
+    worker_t *own = worker_new(i->fmt, PHD_PLACE_OWN);
 
     worker_detach(i->w, i);
     worker_attach(own, i);
@@ -478,7 +475,7 @@ static void quarantine(instance_t *i, worker_t *w)
     if (!m->quarantined)
     {
         m->quarantined = 1;
-        event("instance_quarantined %d w%d", i->id, w->k);
+        event(PHD_EVENT_INSTANCE_QUARANTINED_FMT, i->id, w->k);
     }
 }
 
@@ -518,7 +515,7 @@ static int drop_suspect(worker_t *w, int64_t now)
             s->ntail--;
         }
     }
-    event("instance_verb_dropped %d suspect:%d %s", s->id, (int)(now - s->sus_ms), s->sus_line);
+    event(PHD_EVENT_VERB_DROPPED_SUSPECT_FMT, s->id, (int)(now - s->sus_ms), s->sus_line);
     return s->id;
 }
 
@@ -552,7 +549,7 @@ static void on_death(worker_t *w, int in_flight)
     else
         snprintf(how, sizeof(how), "exit:%d", WEXITSTATUS(status));
     instances_of(w, ids, sizeof(ids));
-    event("worker_died w%d %d %s %s", w->k, (int)w->pid, how, ids[0] ? ids : "-");
+    event(PHD_EVENT_WORKER_DIED_FMT, w->k, (int)w->pid, how, ids[0] ? ids : PHD_WORD_NONE);
     if (w->fd >= 0)
         close(w->fd);
     w->fd = -1;
@@ -746,9 +743,9 @@ static void replay(worker_t *w, int64_t started)
         count++;
     }
     w->state = W_UP;
-    event("worker_respawned w%d %d %d %d", w->k, (int)w->pid, count, (int)(proc_now_ms() - started));
+    event(PHD_EVENT_WORKER_RESPAWNED_FMT, w->k, (int)w->pid, count, (int)(proc_now_ms() - started));
     for (n = 0; n < w->ninst; n++)
-        event("instance_restored %d w%d", w->inst[n]->id, w->k);
+        event(PHD_EVENT_INSTANCE_RESTORED_FMT, w->inst[n]->id, w->k);
 }
 
 static void respawn(worker_t *w)
@@ -819,7 +816,7 @@ void sup_init(const conf_t *conf)
     mkdir(g_ckpt, 0755);
     for (f = 0; f < FMT_COUNT; f++)
     {
-        snprintf(g_policy[f], sizeof(g_policy[f]), "own");
+        snprintf(g_policy[f], sizeof(g_policy[f]), PHD_PLACE_OWN);
         proc_env_clear(&g_env[f]);
     }
 }
@@ -865,7 +862,7 @@ static worker_t *pool_worker(int fmt, const char *name, int *full, int *unavaila
     for (n = 0; n < g_npools; n++)
         if (!strcmp(g_pools[n].name, name))
             max = g_pools[n].max;
-    snprintf(base, sizeof(base), "pool:%s", name);
+    snprintf(base, sizeof(base), PHD_PLACE_POOL_PREFIX "%s", name);
     *full = *unavailable = 0;
     for (n = 0; n < g_nworkers; n++)
     {
@@ -876,12 +873,12 @@ static worker_t *pool_worker(int fmt, const char *name, int *full, int *unavaila
             continue;
         if (w->state == W_GIVEN_UP)
         {
-            *unavailable = ERR_SUPERVISOR_GAVE_UP;
+            *unavailable = PHD_ERR_GAVE_UP;
             continue;
         }
         if (w->state != W_UP)
         {
-            *unavailable = ERR_SUPERVISOR_WORKER_SPAWN;
+            *unavailable = PHD_ERR_WORKER_SPAWN;
             continue;
         }
         if (w->ninst < max)
@@ -897,7 +894,7 @@ static int pool_siblings(int fmt, const char *name)
     char base[48];
     size_t len;
 
-    snprintf(base, sizeof(base), "pool:%s", name);
+    snprintf(base, sizeof(base), PHD_PLACE_POOL_PREFIX "%s", name);
     len = strlen(base);
     for (n = 0; n < g_nworkers; n++)
         if (g_workers[n]->fmt == fmt && g_workers[n]->pool && !strncmp(g_workers[n]->place, base, len) &&
@@ -921,23 +918,23 @@ char *sup_add(const char *uri, int id, const char *placement, const char *client
         return sup_resp(ERR_INSTANCE_INVALID);
     if (g_inst[id])
         return sup_resp(ERR_INSTANCE_ALREADY_EXISTS);
-    if (placement && strcmp(placement, "default") && !valid_place(placement))
-        return sup_resp(ERR_SUPERVISOR_PLACEMENT_INVALID);
-    if (!placement || !strcmp(placement, "default"))
+    if (placement && strcmp(placement, PHD_PLACE_DEFAULT) && !valid_place(placement))
+        return sup_resp(PHD_ERR_PLACEMENT_INVALID);
+    if (!placement || !strcmp(placement, PHD_PLACE_DEFAULT))
         snprintf(place, sizeof(place), "%s", g_policy[fmt]);
     else
         snprintf(place, sizeof(place), "%s", placement);
     m = meta_of(id);
     if (m->quarantined)
-        snprintf(place, sizeof(place), "own");
+        snprintf(place, sizeof(place), PHD_PLACE_OWN);
     if (!proc_have_binary(bin_of(fmt)))
-        return sup_resp(ERR_SUPERVISOR_NO_BACKEND);
+        return sup_resp(PHD_ERR_NO_BACKEND);
     if (recent(m->deaths, &m->ndeaths, now) >= g_conf.storm_deaths)
-        return sup_resp(ERR_SUPERVISOR_GAVE_UP);
+        return sup_resp(PHD_ERR_GAVE_UP);
 
-    if (!strcmp(place, "own"))
+    if (!strcmp(place, PHD_PLACE_OWN))
     {
-        w = worker_new(fmt, "own");
+        w = worker_new(fmt, PHD_PLACE_OWN);
         is_new = 1;
     }
     else
@@ -951,7 +948,7 @@ char *sup_add(const char *uri, int id, const char *placement, const char *client
             int siblings = pool_siblings(fmt, place + 5);
 
             if (siblings)
-                snprintf(name, sizeof(name), "%s#%d", place, siblings + 1);
+                snprintf(name, sizeof(name), "%s" PHD_POOL_SIBLING_SEPARATOR "%d", place, siblings + 1);
             else
                 snprintf(name, sizeof(name), "%s", place);
             w = worker_new(fmt, name);
@@ -978,7 +975,7 @@ char *sup_add(const char *uri, int id, const char *placement, const char *client
         if (w->pool)
         {
             m->quarantined = 1;
-            event("instance_quarantined %d w%d", id, w->k);
+            event(PHD_EVENT_INSTANCE_QUARANTINED_FMT, id, w->k);
         }
         on_death(w, ATTRIBUTED);
         return sup_resp(ERR_HOST_INSTANTIATION);
@@ -1010,7 +1007,7 @@ char *sup_add(const char *uri, int id, const char *placement, const char *client
 
 static char *refuse_worker(worker_t *w)
 {
-    return sup_resp(w->state == W_GIVEN_UP ? ERR_SUPERVISOR_GAVE_UP : ERR_SUPERVISOR_WORKER_SPAWN);
+    return sup_resp(w->state == W_GIVEN_UP ? PHD_ERR_GAVE_UP : PHD_ERR_WORKER_SPAWN);
 }
 
 static int64_t g_sus_seq;
@@ -1066,8 +1063,8 @@ static void ledger_verb(instance_t *i, const char *line)
 /* the verb the worker died on is not replayed: it never entered the ledger, and the controller is told so */
 static char *verb_dropped(instance_t *i, const char *line)
 {
-    event("instance_verb_dropped %d %s", i->id, line);
-    return sup_resp(ERR_SUPERVISOR_VERB_DROPPED);
+    event(PHD_EVENT_VERB_DROPPED_FMT, i->id, line);
+    return sup_resp(PHD_ERR_VERB_DROPPED);
 }
 
 char *sup_call(int id, const char *line)
@@ -1086,7 +1083,7 @@ char *sup_call(int id, const char *line)
     if (rc == RPC_WAS_DEAD)
     {
         on_death(w, -1);
-        return sup_resp(ERR_SUPERVISOR_WORKER_SPAWN);
+        return sup_resp(PHD_ERR_WORKER_SPAWN);
     }
     if (rc == RPC_DIED)
     {
@@ -1169,7 +1166,7 @@ char *sup_connect(const char *verb, const char *line, const char *port_a, const 
     if (rc != RPC_OK)
     {
         on_death(w, -1);
-        return sup_resp(ERR_SUPERVISOR_WORKER_SPAWN);
+        return sup_resp(PHD_ERR_WORKER_SPAWN);
     }
     if (resp_code(reply) >= 0)
     {
@@ -1278,7 +1275,7 @@ char *sup_worker_list(void)
 
         put(&buf, &used, &cap, " w%d:%d:%s:%s:%s:", w->k, (int)w->pid, g_fmt_name[w->fmt], g_state_states[w->state], w->place);
         if (!w->ninst)
-            put(&buf, &used, &cap, "-");
+            put(&buf, &used, &cap, PHD_WORD_NONE);
         for (m = 0; m < w->ninst; m++)
             put(&buf, &used, &cap, "%s%d", m ? "," : "", w->inst[m]->id);
     }
@@ -1302,7 +1299,7 @@ char *sup_instance_info(int id)
 
 char *sup_reset(const char *which)
 {
-    int n, all = !which || !*which || !strcmp(which, "all"), found = 0, id;
+    int n, all = !which || !*which || !strcmp(which, PHD_WORD_ALL), found = 0, id;
     int64_t now = proc_now_ms();
 
     for (n = 0; n < g_nworkers; n++)
@@ -1325,14 +1322,14 @@ char *sup_reset(const char *which)
         for (id = 0; id < MAX_INSTANCE; id++)
             if (g_meta[id])
                 g_meta[id]->ndeaths = 0;
-    return sup_resp(all || found ? SUCCESS : ERR_SUPERVISOR_NO_SUCH_WORKER);
+    return sup_resp(all || found ? SUCCESS : PHD_ERR_NO_SUCH_WORKER);
 }
 
 char *sup_quarantine_clear(const char *which)
 {
     int id;
 
-    if (!strcmp(which, "all"))
+    if (!strcmp(which, PHD_WORD_ALL))
     {
         for (id = 0; id < MAX_INSTANCE; id++)
             if (g_meta[id])
@@ -1348,9 +1345,9 @@ char *sup_quarantine_clear(const char *which)
 
 static int format_of(const char *name)
 {
-    if (!strcmp(name, "lv2"))
+    if (!strcmp(name, PHD_FORMAT_LV2))
         return FMT_LV2;
-    if (!strcmp(name, "clap"))
+    if (!strcmp(name, PHD_FORMAT_CLAP))
         return FMT_CLAP;
     return -1;
 }
@@ -1360,8 +1357,8 @@ char *sup_policy_set(const char *format, const char *place)
     int f;
 
     if (!valid_place(place))
-        return sup_resp(ERR_SUPERVISOR_PLACEMENT_INVALID);
-    if (!strcmp(format, "*"))
+        return sup_resp(PHD_ERR_PLACEMENT_INVALID);
+    if (!strcmp(format, PHD_FORMAT_ANY))
     {
         for (f = 0; f < FMT_COUNT; f++)
             snprintf(g_policy[f], sizeof(g_policy[f]), "%s", place);
@@ -1378,8 +1375,8 @@ char *sup_pool_config(const char *name, int max)
 {
     int n;
 
-    if (!valid_name(name))
-        return sup_resp(ERR_SUPERVISOR_PLACEMENT_INVALID);
+    if (!phd_pool_name_valid(name))
+        return sup_resp(PHD_ERR_PLACEMENT_INVALID);
     if (max < 1)
         return sup_resp(ERR_INVALID_OPERATION);
     for (n = 0; n < g_npools; n++)
@@ -1401,22 +1398,22 @@ char *sup_worker_env(const char *format, const char *cpus, const char *nice)
     worker_env_t env;
     size_t i;
 
-    if (strcmp(format, "*"))
+    if (strcmp(format, PHD_FORMAT_ANY))
     {
         lo = hi = format_of(format);
         if (lo < 0)
             return sup_resp(ERR_INVALID_OPERATION);
     }
-    for (i = 0; strcmp(cpus, "-") && i < strlen(cpus); i++)
+    for (i = 0; strcmp(cpus, PHD_WORD_NONE) && i < strlen(cpus); i++)
         if (!((cpus[i] >= '0' && cpus[i] <= '9') || cpus[i] == ',' || cpus[i] == '-'))
             return sup_resp(ERR_INVALID_OPERATION);
-    if (strlen(cpus) >= sizeof(env.cpus) || (strcmp(nice, "-") && (atoi(nice) < -20 || atoi(nice) > 19)))
+    if (strlen(cpus) >= sizeof(env.cpus) || (strcmp(nice, PHD_WORD_NONE) && (atoi(nice) < -20 || atoi(nice) > 19)))
         return sup_resp(ERR_INVALID_OPERATION);
     for (f = lo; f <= hi; f++)
     {
-        if (strcmp(cpus, "-"))
+        if (strcmp(cpus, PHD_WORD_NONE))
             snprintf(g_env[f].cpus, sizeof(g_env[f].cpus), "%s", cpus);
-        if (strcmp(nice, "-"))
+        if (strcmp(nice, PHD_WORD_NONE))
             g_env[f].nice = atoi(nice);
         for (n = 0; n < g_nworkers; n++)
             if (g_workers[n]->fmt == f && g_workers[n]->state == W_UP)

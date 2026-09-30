@@ -24,20 +24,22 @@
 
 #include "conf.h"
 #include "proc.h"
+#include <plugin-hostd/protocol.h>
 
 #define MAX_INSTANCE 10000
 
-/* error codes the supervisor adds to mod-host's, the -5xx hundred */
-#define ERR_SUPERVISOR_PLACEMENT_INVALID (-501)
-#define ERR_SUPERVISOR_NO_BACKEND        (-502)
-#define ERR_SUPERVISOR_WORKER_SPAWN      (-503)
-#define ERR_SUPERVISOR_REPLAY            (-504)
-#define ERR_SUPERVISOR_GAVE_UP           (-505)
-#define ERR_SUPERVISOR_NO_SUCH_WORKER    (-506)
-#define ERR_SUPERVISOR_VERB_DROPPED      (-507)
-
-enum { FMT_LV2, FMT_CLAP, FMT_COUNT };
-enum { W_UP, W_STARTING, W_BACKOFF, W_GIVEN_UP };
+enum {
+#define X(id, name) FMT_##id,
+    PHD_FORMATS(X)
+#undef X
+    FMT_COUNT
+};
+enum {
+#define X(id, name, meaning) W_##id,
+    PHD_WORKER_STATES(X)
+#undef X
+    W_COUNT
+};
 
 /* what a recorded verb is, for the checkpoint: STATE is what the plugin's own state holds and a checkpoint
  * replaces; HOST is what only the host knows and the ledger always keeps */
