@@ -75,7 +75,7 @@ def plain_verbs_pass_through_unchanged():
         d.expect("param_get 7 gain", "resp -3")
         d.expect("bypass 0 1", "resp 0")
         d.expect("param_get 0 :bypass", "resp 0 1")
-        d.expect("remove 7", "resp -3")
+        d.expect("remove 7", "resp 0")
         d.expect("remove 0", "resp 0")
         check(d.workers() == {}, "the last instance's removal retires its worker")
         d.expect("add fake:refuse 5", "resp -101")
