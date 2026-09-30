@@ -1,0 +1,28 @@
+Source: plugin-hostd
+Section: sound
+Priority: optional
+Maintainer: Pau Aliagas <linuxnow@gmail.com>
+Build-Depends: debhelper-compat (= 13),
+               libmod-host-protocol-dev,
+               pkgconf,
+               python3
+Standards-Version: 4.6.2
+Homepage: https://github.com/FreeMixer/plugin-hostd
+Rules-Requires-Root: no
+
+Package: plugin-hostd
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Recommends: omx-clap-host
+Suggests: mod-host
+Description: supervisor of LV2 and CLAP plugin hosts behind one mod-host socket
+ plugin-hostd speaks mod-host's socket protocol to a controller and runs one
+ worker process per plugin, or per named pool of plugins, behind it: mod-host
+ for LV2 plugins and omx-clap-host for CLAP plugins. A plugin that crashes
+ takes down its own worker and nothing else, and the daemon puts it back.
+ Audio never passes through the daemon: every worker is a JACK client, as in
+ mod-host.
+ .
+ A format whose worker is not installed refuses its adds; the other format
+ is unaffected. mod-host is not packaged by Debian: install it from source
+ for LV2 plugins.
