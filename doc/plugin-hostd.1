@@ -1,0 +1,74 @@
+.TH PLUGIN\-HOSTD 1 "September 2026" "plugin-hostd 0.1.0" "User Commands"
+.SH NAME
+plugin\-hostd \- supervisor of plugin host processes behind one mod\-host protocol socket
+.SH SYNOPSIS
+.B plugin\-hostd
+.RB [ \-n ]
+.RB [ \-p
+.IR port ]
+.RB [ \-f
+.IR port ]
+.RB [ \-c
+.IR file ]
+.br
+.B plugin\-hostd
+.RB [ \-V | \-h ]
+.SH DESCRIPTION
+.B plugin\-hostd
+speaks mod\-host's socket protocol to a controller and runs one worker process per plugin, or per named
+pool of plugins, behind it: a plugin that crashes takes down its own worker and nothing else, and the
+daemon puts it back. Workers are
+.BR mod\-host (1)
+for LV2 plugins and
+.BR omx\-clap\-host (1)
+for CLAP plugins, each started as
+.B \-n \-p
+.IR port .
+Audio never passes through the daemon: every worker is a jack client named
+.BI effect_ instance
+as in mod\-host, and links are made in the graph.
+.PP
+It prints
+.B plugin\-hostd ready!
+once both ports accept. No worker exists until the first
+.BR add .
+.B quit
+or SIGTERM stops every worker and the daemon.
+.SH OPTIONS
+.TP
+.BR \-p ", " \-\-socket\-port =\fIport\fR
+Command port (default 5555).
+.TP
+.BR \-f ", " \-\-feedback\-port =\fIport\fR
+Feedback port (default the command port plus one, unless
+.B \-n
+is given).
+.TP
+.BR \-c ", " \-\-config =\fIfile\fR
+Settings file.
+.TP
+.BR \-n ", " \-\-nofork
+Accepted; the daemon never forks.
+.TP
+.BR \-V ", " \-\-version
+Print the version and exit.
+.TP
+.BR \-h ", " \-\-help
+Print a help text and exit.
+.SH FILES
+The settings live in
+.IR file ,
+in
+.B $PLUGIN_HOSTD_CONF
+or in
+.IR ~/.config/plugin\-hostd.conf ,
+one
+.RI \(dq key " value" \(dq
+per line: mod_host, clap_host (the worker programs), lv2_path, state_root, ready_timeout_ms,
+rpc_timeout_ms, backoff_base_ms, backoff_max_ms, storm_deaths, storm_window_ms, checkpoint_ms and pool_max.
+.SH SEE ALSO
+.BR mod\-host (1),
+.BR omx\-clap\-host (1)
+.PP
+The protocol, the placement of an instance, the verbs the daemon adds and the events on the feedback port are
+described in the README of the source tree.
