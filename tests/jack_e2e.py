@@ -2,7 +2,7 @@
 import filecmp, os, signal, subprocess, sys, tempfile, threading, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from harness import Daemon, Fail, alive, check, run_tests, wait_for
+from harness import Daemon, Fail, alive, check, resp, run_tests, wait_for
 
 EXE = os.environ["PLUGIN_HOSTD"]
 CLAP_HOST = os.environ["OMX_CLAP_HOST"]
@@ -57,9 +57,9 @@ def node_id(name):
 
 def crash(d, inst):
     """the plugin aborts on this write: the worker is gone either after the reply (a callback: 'resp 0') or with
-    the command on the wire ('resp -507'), and both are the daemon's to deal with"""
+    the command on the wire (VERB_DROPPED), and both are the daemon's to deal with"""
     r = d.send("param_set %d %d 1" % (inst, CRASH))
-    check(r in ("resp 0", "resp -507"), "param_set that crashes the plugin -> %r" % r)
+    check(r in ("resp 0", resp("VERB_DROPPED")), "param_set that crashes the plugin -> %r" % r)
 
 
 def ckpt(d, inst):

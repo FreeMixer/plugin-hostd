@@ -201,7 +201,7 @@ static int log_has_ready(const char *logfile)
     if (n <= 0)
         return 0;
     buffer[n] = '\0';
-    return strstr(buffer, "ready!") != NULL;
+    return strstr(buffer, PHD_WORKER_READY_MARKER) != NULL;
 }
 
 int proc_connect(const conf_t *conf, pid_t pid, int port, const char *logfile)

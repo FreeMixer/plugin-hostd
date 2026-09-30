@@ -1,6 +1,20 @@
 # The daemon under test and a controller for it: a command socket, a feedback socket read on a thread, and
 # helpers that wait for what the daemon does instead of sleeping and hoping.
-import os, re, shutil, signal, socket, subprocess, tempfile, threading, time
+import json, os, re, shutil, signal, socket, subprocess, tempfile, threading, time
+
+# The protocol the daemon declares, read from the file a consumer reads: the tree's own, or PLUGIN_HOSTD_PROTOCOL (the
+# installed package's /usr/share/plugin-hostd/protocol.json, in the smoke test of a package). No value of it is
+# spelled in a test.
+with open(os.environ.get("PLUGIN_HOSTD_PROTOCOL",
+                         os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "protocol", "plugin-hostd.json"))) as f:
+    DECLARED = json.load(f)
+CODE = {e["name"]: e["code"] for e in DECLARED["errors"]}
+READY_LINE = DECLARED["readiness"]["daemon_line"]
+
+
+def resp(name):
+    """the reply for a declared error, by its name: resp(\"GAVE_UP\") is "resp -505" while the header says so"""
+    return "resp %d" % CODE[name]
 
 
 DAEMONS = []
@@ -73,7 +87,7 @@ class Daemon:
             args += ["-f", str(self.fb_port)]
         self.out = open(os.path.join(self.tmp, "daemon.out"), "w+")
         self.proc = subprocess.Popen(args, stdout=self.out, stderr=subprocess.STDOUT, env=e)
-        wait_for(lambda: "ready!" in self.log(), "the readiness line")
+        wait_for(lambda: READY_LINE in self.log().splitlines(), "the readiness line")
         self.events = []
         self.lock = threading.Lock()
         self.sock = socket.create_connection(("127.0.0.1", self.cmd_port), timeout=10)

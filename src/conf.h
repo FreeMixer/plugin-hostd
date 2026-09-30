@@ -22,21 +22,18 @@
 
 #include <limits.h>
 
+#include <plugin-hostd/protocol.h>
+
+#define CONF_SIZE_path PATH_MAX
+#define CONF_SIZE_pathlist (PATH_MAX * 2)
+
 typedef struct CONF_T {
-    char mod_host[PATH_MAX];
-    char clap_host[PATH_MAX];
-    char lv2_path[PATH_MAX * 2];
-    char state_root[PATH_MAX];
-    int ready_timeout_ms;
-    int rpc_timeout_ms;
-    int backoff_base_ms;
-    int backoff_max_ms;
-    int storm_deaths;
-    int storm_window_ms;
-    int suspect_window_ms;
-    int checkpoint_ms;
-    int idle_ms;
-    int pool_max;
+#define X(key, size, def, env, meaning) char key[CONF_SIZE_##size];
+    PHD_CONF_STRINGS(X)
+#undef X
+#define X(key, def, unit, meaning) int key;
+    PHD_CONF_INTS(X)
+#undef X
 } conf_t;
 
 /* Defaults, then the file: one "key value" per line, '#' starts a comment.

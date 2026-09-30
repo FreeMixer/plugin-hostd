@@ -1,7 +1,9 @@
 src/*.o
-plugin-hostd
+/plugin-hostd
 tests/fake-host
 tests/*.clap
 __pycache__/
 tests/jack_levels
 tests/host_scenarios
+tools/protocol-gen
+*.new

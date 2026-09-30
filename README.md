@@ -18,7 +18,14 @@ controller cannot re-lay.
 
 A controller that talks to mod-host talks to the daemon unchanged: same
 ports (command `-p`, feedback `-f`), same NUL-terminated messages, same
-`resp <code>` replies, the same `ready!` line.
+`resp <code>` replies, the same readiness line.
+
+The protocol surface the daemon owns (the verbs it adds, the placement syntax, the error codes, the feedback events,
+the settings, the readiness line) is declared once, in `include/plugin-hostd/protocol.h`, which the daemon compiles
+against. The tables below, the key list of the man page and `protocol/plugin-hostd.json` are generated from that
+header (`make gen`; `make check-generated` fails on any drift). A C consumer includes the installed header
+(`pkg-config --cflags plugin-hostd`, package `plugin-hostd-devel` or `plugin-hostd-dev`); anything else reads
+`/usr/share/plugin-hostd/protocol.json`, described by `protocol/plugin-hostd.schema.json` (`/usr/share/plugin-hostd/protocol.schema.json`, in the development package).
 
 Building
 --------
@@ -33,43 +40,56 @@ missing. The daemon needs libc and that library and nothing else.
 Running
 -------
 
-    plugin-hostd -n -p 5555 [-f 5556] [-c plugin-hostd.conf]
+    plugin-hostd -n -p <port> [-f <port>] [-c plugin-hostd.conf]
 
-It prints `plugin-hostd ready!` once both ports accept. No worker exists
-until the first `add`. `quit` or SIGTERM stops every worker and the daemon;
-after a SIGKILL the workers notice the parent gone (`PR_SET_PDEATHSIG`) and
-exit.
+<!-- BEGIN GENERATED protocol:readiness -->
+It prints `plugin-hostd ready!` once both ports accept.
+<!-- END GENERATED protocol:readiness -->
+
+No worker exists until the first `add`. `quit` or SIGTERM stops every worker and the daemon;
+after a SIGKILL the workers notice the parent gone (`PR_SET_PDEATHSIG`) and exit.
 
 The settings live in a file, `-c`, `$PLUGIN_HOSTD_CONF` or
 `~/.config/plugin-hostd.conf`, one `key value` per line:
 
-    mod_host          mod-host          worker for lv2 (a name on PATH or a path)
-    clap_host         omx-clap-host     worker for clap
-    lv2_path          $LV2_PATH         where bundles are searched
-    state_root        $XDG_RUNTIME_DIR  the daemon's checkpoints and worker logs
-    ready_timeout_ms  5000              a worker that does not accept in this long is a failed spawn
-    rpc_timeout_ms    5000              a worker that does not answer in this long is killed
-    backoff_base_ms   250               respawn backoff, doubling per death in the window
-    backoff_max_ms    5000
-    storm_deaths      5                 deaths inside the window that end respawning of a placement
-    storm_window_ms   60000
-    suspect_window_ms 500               a worker that dies this soon after a reply drops the verb it answered; 0 turns it off
-    checkpoint_ms     5000              a quiet interval with a changed ledger writes a checkpoint
-    pool_max          8                 instances in a pool before a sibling opens
+<!-- BEGIN GENERATED protocol:config -->
+| key | default | meaning |
+|---|---|---|
+| `mod_host` | `mod-host` | worker for lv2 (a name on PATH or a path) |
+| `clap_host` | `omx-clap-host` | worker for clap |
+| `lv2_path` | `$LV2_PATH`, else `/usr/lib64/lv2:/usr/lib/lv2:/usr/local/lib/lv2` | where bundles are searched |
+| `state_root` | `$XDG_RUNTIME_DIR`, else `/tmp` | the daemon's checkpoints and worker logs |
+| `ready_timeout_ms` | 5000 ms | a worker that does not accept in this long is a failed spawn |
+| `rpc_timeout_ms` | 5000 ms | a worker that does not answer in this long is killed |
+| `backoff_base_ms` | 250 ms | respawn backoff, doubling per death in the window |
+| `backoff_max_ms` | 5000 ms | the most a respawn backoff grows to |
+| `storm_deaths` | 5 deaths | deaths inside the window that end respawning of a placement |
+| `storm_window_ms` | 60000 ms | the window storm_deaths are counted in |
+| `suspect_window_ms` | 500 ms | a worker that dies this soon after a reply drops the verb it answered; 0 turns it off |
+| `checkpoint_ms` | 5000 ms | a quiet interval with a changed ledger writes a checkpoint |
+| `idle_ms` | 25 ms | the period of the idle tick: reap, respawn, checkpoint |
+| `pool_max` | 8 instances | instances in a pool before a sibling opens |
+<!-- END GENERATED protocol:config -->
+
+<!-- BEGIN GENERATED protocol:constants -->
+| name | value | meaning |
+|---|---|---|
+| `default_command_port` | 5555 port | the command port without -p; the feedback port is the next one, unless -n is given |
+| `connect_retry_ms` | 5000 ms | how long the idle tick asks again for a connect a respawned worker could not make yet |
+<!-- END GENERATED protocol:constants -->
 
 Placement
 ---------
 
-    add <uri> <instance> [own | pool:<name> | default] [client_name]
+<!-- BEGIN GENERATED protocol:placement -->
+The placement of an `add` is `own | pool:<name> | default`. `own` is a worker for that instance alone; `pool:<name>` is the pool's worker, opened on first use and capped by `pool_config`, and a full pool opens `<name>#2`, `<name>#3`, and so on; `default` is the policy of `policy_set`. A pool name matches `^[A-Za-z0-9_-]{1,32}$`.
+<!-- END GENERATED protocol:placement -->
 
 `<uri>` is `lv2:<uri>` or a bare URI for an LV2 plugin, `clap:<path>#<id>`
 for a CLAP one. The instance number is the controller's and reaches the
-worker unchanged. A worker holds one format. `own` is a worker for that
-instance alone; its death is the plugin's. `pool:<name>` is the pool's
-worker, opened on first use and capped by `pool_config`; a full pool opens
-`<name>#2`. `default` is the policy of `policy_set` (built in: `own`). An
-own LV2 worker sees one bundle: `LV2_PATH` is a directory of the daemon's
-holding a link to the bundle whose `manifest.ttl` names the URI.
+worker unchanged. A worker holds one format. An own LV2 worker sees one
+bundle: `LV2_PATH` is a directory of the daemon's holding a link to the bundle
+whose `manifest.ttl` names the URI.
 
 A token after the instance that is not a placement is the fork's optional
 jack client name, passed on. An instance that crashed in a pool is placed
@@ -78,53 +98,70 @@ jack client name, passed on. An instance that crashed in a pool is placed
 Verbs the daemon adds
 ---------------------
 
-    worker_list                              resp <n> <worker>:<pid>:<format>:<state>:<place>:<i>,<i>,...
-    instance_info <instance>                 resp 0 <worker> <pid> <state> <crashes> <quarantined>
-    supervisor_reset [<worker> | all]        re-arm the storm bound and the backoff of a given-up placement
-    quarantine_clear <instance> | all
-    policy_set <lv2 | clap | *> <own | pool:<name>>
-    pool_config <name> <max_instances>
-    worker_env <lv2 | clap | *> <cpu-list|-> <nice|->
+<!-- BEGIN GENERATED protocol:verbs -->
+| verb | arguments | reply | meaning |
+|---|---|---|---|
+| `add` | `<uri> <instance> [own \| pool:<name> \| default] [client_name]` | `resp <instance>` | mod-host's add with a placement; a token after the instance that is not a placement is the jack client name |
+| `worker_list` | none | `resp <n> <worker>:<pid>:<format>:<state>:<place>:<i>,<i>,...` | the workers, one record each |
+| `instance_info` | `<instance>` | `resp 0 <worker> <pid> <state> <crashes> <quarantined>` | where an instance lives and what it has cost |
+| `supervisor_reset` | `[<worker> \| all]` | `resp 0` | re-arm the storm bound and the backoff of a given-up placement |
+| `quarantine_clear` | `<instance> \| all` | `resp 0` | let a quarantined instance go back where its placement says |
+| `policy_set` | `<lv2 \| clap \| *> own \| pool:<name>` | `resp 0` | the placement of an add that says default |
+| `pool_config` | `<name> <max_instances>` | `resp 0` | the instances a pool holds before a sibling opens |
+| `worker_env` | `<lv2 \| clap \| *> <cpu-list\|-> <nice\|->` | `resp 0` | the cpu list and the nice value of the workers of a format, at spawn and on the ones running |
 
-`<state>` is `up`, `starting`, `backoff` or `given-up`. A record's place holds
-a colon (`pool:p`), so a record is read from both ends: four fields on the
+A `<state>` is `up` (accepting commands), `starting` (spawned, not yet accepting), `backoff` (dead, waiting to be respawned), `given-up` (the storm bound is spent for its placement).
+<!-- END GENERATED protocol:verbs -->
+
+A record's place holds a colon (`pool:p`), so a `worker_list` record is read from both ends: four fields on the
 left, the instance list on the right, the place in between.
 
-Codes: `-501` placement invalid, `-502` no worker program for the scheme,
-`-503` the worker is not up (spawn failed, or it is in backoff), `-505` the
-storm bound is spent for that placement, `-506` no such worker, `-507` the worker died on this very command and the
-daemon dropped it (it is not replayed; the `instance_verb_dropped` event names it), and the same event names the
-last verb a worker answered when it died inside the suspect window (below). A worker's own
-refusal is returned as it said it. An `add` that killed its worker answers
-`-102`.
+Error codes the daemon adds to mod-host's:
 
-`worker_env` sets the cpu list and the nice value of the workers of a format, at spawn and on the ones running.
-It offers no real-time priority: a worker's audio thread is set by the jack client library (under a SCHED_FIFO 60
+<!-- BEGIN GENERATED protocol:errors -->
+| code | name | meaning |
+|---|---|---|
+| `-501` | `PHD_ERR_PLACEMENT_INVALID` | placement invalid |
+| `-502` | `PHD_ERR_NO_BACKEND` | no worker program for the scheme |
+| `-503` | `PHD_ERR_WORKER_SPAWN` | the worker is not up: the spawn failed, or it is in backoff; ask again after instance_restored |
+| `-504` | `PHD_ERR_REPLAY` | reserved: declared, and not returned by this version |
+| `-505` | `PHD_ERR_GAVE_UP` | the storm bound is spent for that placement |
+| `-506` | `PHD_ERR_NO_SUCH_WORKER` | no such worker |
+| `-507` | `PHD_ERR_VERB_DROPPED` | the worker died on this very command and the daemon dropped it: it is not replayed, and the instance_verb_dropped event names it |
+<!-- END GENERATED protocol:errors -->
+
+A worker's own refusal is returned as it said it. An `add` that killed its worker answers mod-host's `-102`.
+
+`worker_env` offers no real-time priority: a worker's audio thread is set by the jack client library (under a SCHED_FIFO 60
 driver it ran at 55, unasked), and a FIFO priority given to the whole process puts the plugin's own threads above
 it, where a busy thread starves the graph.
 
 Like mod-host, the daemon serves one controller at a time, and `remove` of an instance it does not hold answers
 `resp 0`. With `-n` and no `-f` there is no feedback port (mod-host's own rule), and a controller need not open
 one; without `-n`, or with `-f`, the daemon waits for the controller to open both. A command that finds its
-worker gone answers `-503`: the worker is not up, ask again after `instance_restored`. A command that
-kills its worker answers `-507`.
+worker gone answers `PHD_ERR_WORKER_SPAWN`: the worker is not up, ask again after `instance_restored`. A command that
+kills its worker answers `PHD_ERR_VERB_DROPPED`.
 
 Events on the feedback port, one NUL-terminated line each:
 
-    worker_died <worker> <pid> <exit:N | signal:N> <instance>,...
-    instance_verb_dropped <instance> <the command as sent>
-    instance_verb_dropped <instance> suspect:<ms> <the command as sent>
-    worker_backoff <worker> <ms>
-    worker_respawned <worker> <pid> <replayed_count> <ms>
-    instance_restored <instance> <worker>
-    instance_quarantined <instance> <worker>
-    supervisor_gave_up <worker> <deaths> <window_ms>
+<!-- BEGIN GENERATED protocol:events -->
+| event | fields | meaning |
+|---|---|---|
+| `worker_died` | `<worker> <pid> <exit:N \| signal:N> <instance>,...` | a worker died; the instances it held, or - for none |
+| `instance_verb_dropped` | `<instance> <the command as sent>` | the command a worker died on, dropped from the ledger |
+| `instance_verb_dropped` | `<instance> suspect:<ms> <the command as sent>` | the last verb a worker answered when it died inside suspect_window_ms, <ms> the age of the reply |
+| `worker_backoff` | `<worker> <ms>` | the respawn waits this long |
+| `worker_respawned` | `<worker> <pid> <replayed_count> <ms>` | a worker is back and its ledger replayed |
+| `instance_restored` | `<instance> <worker>` | an instance is back in a worker |
+| `instance_quarantined` | `<instance> <worker>` | the culprit of a pool death, placed own until cleared |
+| `supervisor_gave_up` | `<worker> <deaths> <window_ms>` | the storm bound is spent; respawning ends |
+<!-- END GENERATED protocol:events -->
 
 The last verb is a suspect
 --------------------------
 
 A plugin that aborts in a callback dies after it answered `resp 0`, so the verb that killed it is in the ledger and
-the respawn would play it again until the storm bound ends it. For `suspect_window_ms` after a reply (default 500: the
+the respawn would play it again until the storm bound ends it. For `suspect_window_ms` after a reply (a setting, above: the
 test plugins die 30 ms after it, and the daemon sees the death 40 to 100 ms later) the last verb the ledger kept, of
 the instances of a worker, is a suspect. A worker that dies inside the window, of a crash or an exit and not of a
 SIGKILL or SIGTERM from outside, has that verb taken out of the ledger: the value it replaced comes back, or the
@@ -149,24 +186,28 @@ holds.
 A worker that dies is respawned after a backoff, and each instance is put
 back: `add`, one `state_load` of the checkpoint directory, the verb tail,
 the connections (a connect the new client cannot make yet, because the peer's port has not reached it, is asked again by
-the idle tick for five seconds). What a plugin held in RAM and exposed through no verb (a
+the idle tick for `connect_retry_ms`). What a plugin held in RAM and exposed through no verb (a
 reverb tail) is lost.
 
 Who is blamed: a death with a command on the wire names that command's
 instance. A death in a callback of a pool cannot be named from outside, so
 the pool is split, each member into a worker of its own, and the one that
 dies again is named (`instance_quarantined`) and stays own. In a worker of
-one instance the death is that instance's. Five deaths inside a minute end
+one instance the death is that instance's. `storm_deaths` deaths inside `storm_window_ms` end
 respawning for that placement only (`supervisor_gave_up`); its neighbours are
 not touched.
 
 What a worker must do
 ---------------------
 
-Answer mod-host's protocol on `-n -p <port>`; print a line ending `ready!` on
-stdout once its socket accepts; write, for `state_save <dir>`, files whose
-names begin `effect_<instance>` and read them back on `state_load <dir>`,
-skipping an instance with no file. `mod-host` and `omx-clap-host` do.
+- answer mod-host's protocol on `-n -p <port>`;
+<!-- BEGIN GENERATED protocol:worker-ready -->
+- print a line ending `ready!` on stdout once its socket accepts;
+<!-- END GENERATED protocol:worker-ready -->
+- write, for `state_save <dir>`, files whose names begin `effect_<instance>` and read them back on
+  `state_load <dir>`, skipping an instance with no file.
+
+`mod-host` and `omx-clap-host` do.
 
 Tests
 -----

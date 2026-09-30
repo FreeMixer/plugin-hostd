@@ -1,0 +1,3 @@
+usr/include/plugin-hostd/protocol.h
+usr/share/pkgconfig/plugin-hostd.pc
+usr/share/plugin-hostd/protocol.schema.json
