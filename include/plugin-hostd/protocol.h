@@ -40,12 +40,14 @@
 /* X(name, value, unit, meaning) */
 #define PHD_DEFAULT_COMMAND_PORT 5555
 #define PHD_CONNECT_RETRY_MS     5000
+#define PHD_LINE_MAX             4096
 
 #define PHD_CONSTANTS(X) \
     X(default_command_port, PHD_DEFAULT_COMMAND_PORT, "port", \
       "the command port without -p; the feedback port is the next one, unless -n is given") \
     X(connect_retry_ms, PHD_CONNECT_RETRY_MS, "ms", \
-      "how long the idle tick asks again for a connect a respawned worker could not make yet")
+      "how long the idle tick asks again for a connect a respawned worker could not make yet") \
+    X(line_max, PHD_LINE_MAX, "bytes", "the protocol socket's buffer: the longest pin_set line the daemon takes")
 
 /* ---------------------------------------------------------------- placement */
 
@@ -165,6 +167,21 @@ static inline int phd_pool_name_valid(const char *name)
 #define PHD_PIN_FILE_SEPARATOR   ","
 #define PHD_PIN_DIGEST_SEPARATOR "="
 #define PHD_PIN_SCHEME_SEPARATOR ":"
+/* what a path of a pin cannot hold: the separators of pin_set's words, and whitespace */
+#define PHD_PIN_PATH_EXCLUDED    PHD_PIN_FILE_SEPARATOR PHD_PIN_DIGEST_SEPARATOR " \t\r\n"
+/* a manifest's IRI that holds this is percent-encoded */
+#define PHD_PIN_PERCENT          "%"
+
+/* what cannot be pinned, each a refusal and never a partial pin: X(id, meaning) */
+#define PHD_PIN_LIMITS(X) \
+    X(PATH, "a path holding '" PHD_PIN_FILE_SEPARATOR "', '" PHD_PIN_DIGEST_SEPARATOR "' or whitespace cannot be pinned: " \
+            "they are the separators of " PHD_VERB_PIN_SET "'s words, and " PHD_VERB_PIN_SET " refuses it as a token " \
+            "outside its grammar") \
+    X(LINE, "a " PHD_VERB_PIN_SET " line is at most line_max, " PHD_STR(PHD_LINE_MAX) " bytes, the protocol socket's " \
+            "buffer; a longer one is refused as outside the grammar") \
+    X(MANIFEST, "a manifest that uses @base, or names a file of the plugin by a percent-encoded IRI, makes add answer " \
+                "PHD_ERR_PIN_BINARY_MISMATCH " PHD_STR(PHD_ERR_PIN_BINARY_MISMATCH) ": the daemon does not resolve " \
+                "either, so it cannot know the file the host would load")
 
 /* the verbs the daemon adds to mod-host's, or extends: X(id, name, arguments, reply, meaning) */
 #define PHD_VERBS(X) \

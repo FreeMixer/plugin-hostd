@@ -71,6 +71,20 @@ one
 .RI \(dq key " value" \(dq
 per line: mod_host, clap_host, lv2_path, state_root, ready_timeout_ms, rpc_timeout_ms, backoff_base_ms, backoff_max_ms, storm_deaths, storm_window_ms, suspect_window_ms, checkpoint_ms, idle_ms, pool_max, require_pins.
 .\" END GENERATED protocol:man-keys
+.SH PINS
+With require_pins on,
+.B add
+admits only a plugin the controller pinned with
+.BR pin_set .
+What cannot be pinned:
+.\" BEGIN GENERATED protocol:man-pin-limits
+.IP \(bu 2
+a path holding ',', '=' or whitespace cannot be pinned: they are the separators of pin_set's words, and pin_set refuses it as a token outside its grammar.
+.IP \(bu 2
+a pin_set line is at most line_max, 4096 bytes, the protocol socket's buffer; a longer one is refused as outside the grammar.
+.IP \(bu 2
+a manifest that uses @base, or names a file of the plugin by a percent\-encoded IRI, makes add answer PHD_ERR_PIN_BINARY_MISMATCH (\-509): the daemon does not resolve either, so it cannot know the file the host would load.
+.\" END GENERATED protocol:man-pin-limits
 .SH SEE ALSO
 .BR mod\-host (1),
 .BR omx\-clap\-host (1)
