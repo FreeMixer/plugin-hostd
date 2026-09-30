@@ -282,7 +282,8 @@ def pool_in_flight_command_names_the_culprit_and_the_pool_stays_a_pool():
         make_pool(d, [20, 21, 22, 23])
         mark = d.mark()
         r = d.send("param_set 21 hang 1")
-        check(r == "resp -503", "the controller is told the worker was not there: " + r)
+        check(r == "resp -507", "the controller is told its command was dropped: " + r)
+        d.wait_event("instance_verb_dropped 21 param_set 21 hang 1", since=mark)
         d.wait_event("instance_quarantined 21 ", since=mark)
         for i in (20, 22, 23):
             k, w = d.wait_up(i)
@@ -393,6 +394,52 @@ def one_shot_crash_comes_back_with_the_verb_that_killed_it_replayed():
         d.close()
         if os.path.exists(marker):
             os.unlink(marker)
+
+
+@test
+def the_verb_the_worker_died_on_is_dropped_and_not_replayed():
+    d = daemon()
+    try:
+        d.expect("add fake:a 0", "resp 0")
+        d.expect("param_set 0 gain 0.4000", "resp 0")
+        mark = d.mark()
+        r = d.send("param_set 0 crashnow 1")
+        check(r == "resp -507", "the controller is told its command was dropped: " + r)
+        d.wait_event("instance_verb_dropped 0 param_set 0 crashnow 1", since=mark)
+        d.wait_event("instance_restored 0 ", since=mark)
+        d.expect("param_get 0 gain", "resp 0 0.4000")
+        d.expect("param_get 0 crashnow", "resp -103")
+        time.sleep(0.5)
+        deaths = [e for e in d.events[mark:] if e.startswith("worker_died")]
+        check(len(deaths) == 1, "the plugin does not crash again on the replay: %s" % deaths)
+        check(d.holder(0)[1]["state"] == "up", "and it stays up")
+        info = d.send("instance_info 0").split()
+        check(info[4] == "up" and info[5] == "1", "one crash counted, not given up: %s" % info)
+        check(not any(e.startswith("supervisor_gave_up") for e in d.events), "the storm bound was not spent")
+    finally:
+        d.close()
+
+
+@test
+def pool_drops_the_verb_of_the_instance_it_names_and_replays_the_rest():
+    d = daemon()
+    try:
+        make_pool(d, [70, 71, 72])
+        mark = d.mark()
+        r = d.send("param_set 71 crashnow 1")
+        check(r == "resp -507", "dropped: " + r)
+        d.wait_event("instance_verb_dropped 71 param_set 71 crashnow 1", since=mark)
+        d.wait_event("instance_quarantined 71 ", since=mark)
+        for i in (70, 71, 72):
+            d.wait_up(i)
+            d.expect("param_get %d gain" % i, "resp 0 0.%d000" % (i % 10))
+        d.expect("param_get 71 crashnow", "resp -103")
+        time.sleep(0.5)
+        deaths = [e for e in d.events[mark:] if e.startswith("worker_died")]
+        check(len(deaths) == 1, "one death, no second crash: %s" % deaths)
+        check(sum(1 for e in d.events[mark:] if e.startswith("instance_verb_dropped")) == 1, "one verb dropped")
+    finally:
+        d.close()
 
 
 @test

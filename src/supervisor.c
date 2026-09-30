@@ -982,12 +982,32 @@ static void record(instance_t *i, const char *line, char **tok, int ntok)
         }
 }
 
+/* the ledger takes the verb of one forwarded line, if it is one it keeps */
+static void ledger_verb(instance_t *i, const char *line)
+{
+    char *save = NULL, *t, *copy = strdup(line), *tok[16];
+    int ntok = 0;
+
+    for (t = strtok_r(copy, " \t", &save); t && ntok < 16; t = strtok_r(NULL, " \t", &save))
+        tok[ntok++] = t;
+    if (ntok)
+        record(i, line, tok, ntok);
+    free(copy);
+}
+
+/* the verb the worker died on is not replayed: it never entered the ledger, and the controller is told so */
+static char *verb_dropped(instance_t *i, const char *line)
+{
+    event("instance_verb_dropped %d %s", i->id, line);
+    return sup_resp(ERR_SUPERVISOR_VERB_DROPPED);
+}
+
 char *sup_call(int id, const char *line)
 {
     instance_t *i = (id >= 0 && id < MAX_INSTANCE) ? g_inst[id] : NULL;
     worker_t *w;
-    char *reply = NULL, *copy, *tok[16];
-    int rc, ntok = 0;
+    char *reply = NULL;
+    int rc;
 
     if (!i)
         return sup_resp(ERR_INSTANCE_NON_EXISTS);
@@ -1002,20 +1022,13 @@ char *sup_call(int id, const char *line)
     }
     if (rc == RPC_DIED)
     {
+        char *dropped = verb_dropped(i, line);
+
         on_death(w, id);
-        return sup_resp(ERR_SUPERVISOR_WORKER_SPAWN);
+        return dropped;
     }
     if (resp_code(reply) >= 0)
-    {
-        char *save = NULL, *t;
-
-        copy = strdup(line);
-        for (t = strtok_r(copy, " \t", &save); t && ntok < 16; t = strtok_r(NULL, " \t", &save))
-            tok[ntok++] = t;
-        if (ntok)
-            record(i, line, tok, ntok);
-        free(copy);
-    }
+        ledger_verb(i, line);
     return reply;
 }
 

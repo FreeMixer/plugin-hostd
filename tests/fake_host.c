@@ -24,6 +24,7 @@
  *                               "nostate" in it makes an instance that never writes state
  *   param_set <n> crash <v>     v other than 0 aborts 30 ms after the reply, as a plugin does in a callback
  *                               (once only when FAKE_CRASH_ONCE names a file: it is created by the crash)
+ *   param_set <n> crashnow <v>  v other than 0 aborts before the reply, with the command on the wire
  *   param_set <n> hang <v>      v other than 0 never answers
  *   connect <a> <b>             with FAKE_CONNECT_AFTER_MS set, answers -205 until that long after the worker started,
  *                               as a jack client does for a port it has not been told of yet
@@ -184,6 +185,8 @@ static void receive(msg_t *msg)
     {
         if (!strcmp(tok[2], "hang") && strcmp(tok[3], "0"))
             sleep(60);
+        if (!strcmp(tok[2], "crashnow") && atof(tok[3]) != 0.0)
+            abort();
         set_param(&g_inst[n], tok[2], tok[3]);
         if (!strcmp(tok[2], "crash") && atof(tok[3]) != 0.0)
         {
