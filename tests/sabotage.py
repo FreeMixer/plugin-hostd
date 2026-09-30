@@ -7,7 +7,8 @@ MOD_HOST_DIR = os.path.abspath(os.environ.get("MOD_HOST_DIR", os.path.join(ROOT,
 FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "fake-host")))
 
 # (what is broken, file, text, replacement, the test that must go red[, "jack"]); a "jack" test runs in tests/jack_e2e.sh
-# over the real workers and is skipped when OMX_CLAP_HOST is not set; "lv2" is a jack test that also needs mod-host and
+# over the real workers and is skipped when OMX_CLAP_HOST is not set; "meters" is a jack test that also needs
+# omx-clap-host's FAKE_COMPRESSOR_CLAP and JACK_METER_SOURCE and is skipped without them; "lv2" is a jack test that also needs mod-host and
 # an LV2 bundle (MOD_HOST, LV2_DIR, LV2_URI, LV2_BUNDLE, LV2_PARAM) and is skipped without them; "pin" breaks
 # include/plugin-hostd/pin.h and runs tests/pin_test.c
 SABOTAGE = [
@@ -113,6 +114,21 @@ SABOTAGE = [
     ("a worker's refusal of a replayed add is taken for the instance", "src/supervisor.c",
      "        if (code < 0)\n        {\n            replay_refused(w, i, add, code);\n            continue;\n        }\n", "",
      "a_layout_pinned_again_while_its_worker_was_down_is_refused_by_the_replayed_add"),
+    ("a worker's feedback is not read", "src/supervisor.c", "    relay_add(w->fb_fd);\n", "",
+     "worker_feedback_reaches_the_controller_verbatim_and_in_order"),
+    ("the relay writes nothing to the controller", "src/relay.c",
+     "            send_line(start, nul - start + 1);\n", "",
+     "worker_feedback_reaches_the_controller_verbatim_and_in_order"),
+    ("monitor_output is not in the ledger", "src/supervisor.c", "    { MONITOR_OUTPUT, KIND_HOST, 2 },\n", "",
+     "a_respawned_worker_reports_the_same_outputs_once_each"),
+    ("a repeated monitor_output is replayed twice", "src/supervisor.c", "    { MONITOR_OUTPUT, KIND_HOST, 2 },",
+     "    { MONITOR_OUTPUT, KIND_HOST, 0 },", "a_respawned_worker_reports_the_same_outputs_once_each"),
+    ("a worker is read only while a controller listens", "src/relay.c",
+     "        for (i = 0; i < g_nsrc; i++)\n            if (!g_src[i].eof)\n",
+     "        for (i = 0; i < g_nsrc; i++)\n            if (!g_src[i].eof && g_client >= 0)\n",
+     "a_worker_is_read_when_no_controller_reads_the_feedback"),
+    ("meters behind the daemon never reach the controller", "src/supervisor.c", "    relay_add(w->fb_fd);\n", "",
+     "clap_meters_reach_the_controller_through_the_daemon_and_survive_a_kill", "meters"),
     ("a SHA-256 round constant is wrong", "include/plugin-hostd/pin.h", "0x428a2f98, 0x71374491", "0x428a2f98, 0x71374490",
      "pin.h", "pin"),
     ("a tab in a name is not escaped", "include/plugin-hostd/pin.h", "*s == '\\t' ? \"\\\\t\" : ", "", "pin.h", "pin"),
@@ -151,7 +167,10 @@ try:
     for entry in SABOTAGE:
         what, path, text, repl, name = entry[:5]
         jack = entry[5] if len(entry) > 5 else False
-        if jack in ("jack", "lv2") and not os.environ.get("OMX_CLAP_HOST"):
+        if jack == "meters" and not (os.environ.get("FAKE_COMPRESSOR_CLAP") and os.environ.get("JACK_METER_SOURCE")):
+            print("skip sabotage (no FAKE_COMPRESSOR_CLAP and JACK_METER_SOURCE of omx-clap-host): %s" % what)
+            continue
+        if jack in ("jack", "lv2", "meters") and not os.environ.get("OMX_CLAP_HOST"):
             print("skip sabotage (no OMX_CLAP_HOST): %s" % what)
             continue
         if entry[5:] == ("lv2",) and not all(os.environ.get(v) for v in ("MOD_HOST", "LV2_DIR", "LV2_URI", "LV2_BUNDLE", "LV2_PARAM")):

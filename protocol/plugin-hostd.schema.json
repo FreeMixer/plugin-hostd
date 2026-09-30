@@ -260,6 +260,39 @@
       },
       "minItems": 1
     },
+    "relay": {
+      "type": "object",
+      "properties": {
+        "worker_arguments": {
+          "type": "string"
+        },
+        "rules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "meaning": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "meaning"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "worker_arguments",
+        "rules"
+      ],
+      "additionalProperties": false
+    },
     "config": {
       "type": "array",
       "items": {
@@ -338,6 +371,7 @@
     "verbs",
     "events",
     "pin_limits",
+    "relay",
     "config"
   ],
   "additionalProperties": false
