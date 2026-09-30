@@ -766,6 +766,20 @@ def a_changed_layout_is_refused_by_the_worker_and_reaches_the_client():
         d.expect(p.clap_pin(), "resp 0")
         d.expect("add %s 0" % p.clap_uri, "resp -902")
         check(p.verbs("add").count("add %s 0" % p.clap_uri) == 2, "a worker that cannot check the layout gets no add")
+        check(d.workers() == {}, "the worker of the refused instance is gone: %s" % d.workers())
+    finally:
+        d.close()
+    os.unlink(p.log)
+    d = p.daemon(conf={"rpc_timeout_ms": 400}, env={"FAKE_PIN_EXPECT_HANG": "1"})
+    try:
+        d.expect(p.clap_pin(), "resp 0")
+        mark = d.mark()
+        d.expect("add %s 0" % p.clap_uri, resp("VERB_DROPPED"))
+        d.wait_event("instance_verb_dropped 0 pin_expect 0 %s" % fake_layout(), since=mark)
+        check(p.verbs("pin_expect") and not p.verbs("add"), "a worker that does not answer the layout pin gets no add: %s"
+              % p.received())
+        check(d.workers() == {}, "the worker that did not answer is gone: %s" % d.workers())
+        d.expect("instance_info 0", "resp -3")
     finally:
         d.close()
         p.close()
