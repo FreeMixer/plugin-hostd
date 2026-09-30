@@ -403,7 +403,7 @@ def worker_env_reaches_new_and_running_workers():
     cpus = sorted(os.sched_getaffinity(0))
     d = daemon()
     try:
-        d.expect("worker_env lv2 %d 5 -" % cpus[0], "resp 0")
+        d.expect("worker_env lv2 %d 5" % cpus[0], "resp 0")
         d.expect("add fake:a 0", "resp 0")
         pid = d.holder(0)[1]["pid"]
 
@@ -412,11 +412,12 @@ def worker_env_reaches_new_and_running_workers():
             allowed = [l for l in open("/proc/%d/status" % pid) if l.startswith("Cpus_allowed_list")][0].split()[1]
             return int(f[16]), allowed
         check(stat() == (5, str(cpus[0])), "a new worker has nice 5 and cpu %d: %s" % (cpus[0], stat()))
-        d.expect("worker_env lv2 - 7 -", "resp 0")
+        d.expect("worker_env lv2 - 7", "resp 0")
         check(stat()[0] == 7, "a running worker follows: %s" % (stat(),))
-        d.expect("worker_env lv2 abc - -", "resp -902")
-        d.expect("worker_env lv2 - 99 -", "resp -902")
-        d.expect("worker_env midi - - -", "resp -902")
+        d.expect("worker_env lv2 abc -", "resp -902")
+        d.expect("worker_env lv2 - 99", "resp -902")
+        d.expect("worker_env lv2 - - 50", "resp -902")   # no fifth word: a priority is not offered
+        d.expect("worker_env midi - -", "resp -902")
     finally:
         d.close()
 

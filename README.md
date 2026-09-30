@@ -83,7 +83,7 @@ Verbs the daemon adds
     quarantine_clear <instance> | all
     policy_set <lv2 | clap | *> <own | pool:<name>>
     pool_config <name> <max_instances>
-    worker_env <lv2 | clap | *> <cpu-list|-> <nice|-> <rt-prio|->
+    worker_env <lv2 | clap | *> <cpu-list|-> <nice|->
 
 `<state>` is `up`, `starting`, `backoff` or `given-up`. A record's place holds
 a colon (`pool:p`), so a record is read from both ends: four fields on the
@@ -94,6 +94,16 @@ Codes: `-501` placement invalid, `-502` no worker program for the scheme,
 storm bound is spent for that placement, `-506` no such worker. A worker's own
 refusal is returned as it said it. An `add` that killed its worker answers
 `-102`.
+
+`worker_env` sets the cpu list and the nice value of the workers of a format, at spawn and on the ones running.
+It offers no real-time priority: a worker's audio thread is set by the jack client library (under a SCHED_FIFO 60
+driver it ran at 55, unasked), and a FIFO priority given to the whole process puts the plugin's own threads above
+it, where a busy thread starves the graph.
+
+Like mod-host, the daemon serves one controller at a time, and `remove` of an instance it does not hold answers
+`resp 0`. With `-n` and no `-f` there is no feedback port (mod-host's own rule), and a controller need not open
+one; without `-n`, or with `-f`, the daemon waits for the controller to open both. A command that finds its
+worker gone, or kills it, answers `-503`: the worker is not up, ask again after `instance_restored`.
 
 Events on the feedback port, one NUL-terminated line each:
 

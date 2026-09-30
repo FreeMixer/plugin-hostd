@@ -1259,7 +1259,7 @@ char *sup_pool_config(const char *name, int max)
     return sup_resp(SUCCESS);
 }
 
-char *sup_worker_env(const char *format, const char *cpus, const char *nice, const char *rt)
+char *sup_worker_env(const char *format, const char *cpus, const char *nice)
 {
     int f, lo = 0, hi = FMT_COUNT - 1, n;
     worker_env_t env;
@@ -1274,8 +1274,7 @@ char *sup_worker_env(const char *format, const char *cpus, const char *nice, con
     for (i = 0; strcmp(cpus, "-") && i < strlen(cpus); i++)
         if (!((cpus[i] >= '0' && cpus[i] <= '9') || cpus[i] == ',' || cpus[i] == '-'))
             return sup_resp(ERR_INVALID_OPERATION);
-    if (strlen(cpus) >= sizeof(env.cpus) || (strcmp(nice, "-") && (atoi(nice) < -20 || atoi(nice) > 19)) ||
-        (strcmp(rt, "-") && (atoi(rt) < 1 || atoi(rt) > 99)))
+    if (strlen(cpus) >= sizeof(env.cpus) || (strcmp(nice, "-") && (atoi(nice) < -20 || atoi(nice) > 19)))
         return sup_resp(ERR_INVALID_OPERATION);
     for (f = lo; f <= hi; f++)
     {
@@ -1283,8 +1282,6 @@ char *sup_worker_env(const char *format, const char *cpus, const char *nice, con
             snprintf(g_env[f].cpus, sizeof(g_env[f].cpus), "%s", cpus);
         if (strcmp(nice, "-"))
             g_env[f].nice = atoi(nice);
-        if (strcmp(rt, "-"))
-            g_env[f].rt_prio = atoi(rt);
         for (n = 0; n < g_nworkers; n++)
             if (g_workers[n]->fmt == f && g_workers[n]->state == W_UP)
                 proc_apply_env(g_workers[n]->pid, &g_env[f]);

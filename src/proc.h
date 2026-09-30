@@ -31,7 +31,6 @@
 typedef struct WORKER_ENV_T {
     char cpus[128];             /* cpu list, "" leaves the mask alone */
     int nice;                   /* INT_MIN leaves it alone */
-    int rt_prio;                /* 0 leaves the policy alone */
 } worker_env_t;
 
 void proc_env_clear(worker_env_t *env);
