@@ -74,12 +74,16 @@ class Daemon:
             "mod_host": worker, "clap_host": clap_worker or worker, "state_root": self.tmp,
             "backoff_base_ms": 20, "backoff_max_ms": 80, "checkpoint_ms": 600000, "ready_timeout_ms": 4000,
             "rpc_timeout_ms": 1500, "idle_ms": 10,
+            # the tests of placement, replay and attribution add plugins no one pinned; the pin tests turn it back on,
+            # and a None leaves a setting out of the file, so the daemon's own default holds
+            "require_pins": 0,
         }
         settings.update(conf or {})
         self.conf = os.path.join(self.tmp, "plugin-hostd.conf")
         with open(self.conf, "w") as f:
             for k, v in settings.items():
-                f.write("%s %s\n" % (k, v))
+                if v is not None:
+                    f.write("%s %s\n" % (k, v))
         e = dict(os.environ)
         e.update(env or {})
         args = [exe, "-n", "-p", str(self.cmd_port), "-c", self.conf]

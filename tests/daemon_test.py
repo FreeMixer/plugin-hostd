@@ -1,8 +1,9 @@
 # plugin-hostd against workers that are not plugin hosts (tests/fake-host). No jack, no plugin: the daemon's own
 # behaviour, over the wire, the way a controller sees it. tests/jack_e2e.sh runs the real workers.
-import os, signal, subprocess, sys, tempfile, time
+import hashlib, os, shutil, signal, subprocess, sys, tempfile, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import harness
 from harness import Daemon, Fail, alive, check, resp, run_tests, wait_for
 
 EXE = os.path.abspath(os.environ.get("PLUGIN_HOSTD", "./plugin-hostd"))
@@ -584,6 +585,241 @@ def feedback_off_is_the_same_daemon():
         wait_for(lambda: d.holder(0)[1]["pid"] not in (0, w["pid"]) and d.holder(0)[1]["state"] == "up", "the respawn")
     finally:
         d.close()
+
+
+# ---------------------------------------------------------------- pins (one-contract §10, supervisor §5.8)
+
+MANIFEST = """@prefix lv2: <http://lv2plug.in/ns/lv2core#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+<%s>
+    a lv2:Plugin ;
+    lv2:binary <pinned.so> ;
+    rdfs:seeAlso <pinned.ttl> .
+"""
+LV2_URI = "urn:test:pinned"
+
+
+def sha(path):
+    with open(path, "rb") as f:
+        return hashlib.sha256(f.read()).hexdigest()
+
+
+def fake_layout(default=None):
+    """the layout pin of the fake's one parameter, as the fake computes it through pin.h"""
+    env = dict(os.environ)
+    if default is not None:
+        env["FAKE_LAYOUT_DEFAULT"] = default
+    return subprocess.check_output([FAKE, "-L"], env=env, text=True).strip()
+
+
+def write(path, data):
+    with open(path, "wb") as f:
+        f.write(data)
+
+
+class Plugins:
+    """a CLAP file and an LV2 bundle on disk, and the log of every command a fake worker received"""
+
+    def __init__(self):
+        self.dir = tempfile.mkdtemp(prefix="plugin-hostd-pins.")
+        self.clap = os.path.join(self.dir, "clap", "omx-fault.clap")
+        os.makedirs(os.path.dirname(self.clap))
+        write(self.clap, b"clean pad build")
+        self.clap_uri = "clap:%s#org.openmixer.fault" % self.clap
+        self.lv2_dir = os.path.join(self.dir, "lv2")
+        self.bundle = os.path.join(self.lv2_dir, "pinned.lv2")
+        os.makedirs(self.bundle)
+        write(os.path.join(self.bundle, "manifest.ttl"), (MANIFEST % LV2_URI).encode())
+        write(os.path.join(self.bundle, "pinned.so"), b"lv2 binary")
+        write(os.path.join(self.bundle, "pinned.ttl"), b"lv2:port [ lv2:index 0 ; lv2:symbol \"gain\" ] .")
+        self.log = os.path.join(self.dir, "commands.log")
+
+    def clap_pin(self, layout=None):
+        return "pin_set %s omx-fault.clap=%s %s" % (self.clap_uri, sha(self.clap), layout or fake_layout())
+
+    def lv2_pin(self, files=("manifest.ttl", "pinned.so", "pinned.ttl")):
+        return "pin_set %s %s %s" % (LV2_URI, ",".join("%s=%s" % (f, sha(os.path.join(self.bundle, f))) for f in files),
+                                     fake_layout())
+
+    def daemon(self, conf=None, env=None):
+        c = {"require_pins": 1, "lv2_path": self.lv2_dir}
+        c.update(conf or {})
+        e = {"FAKE_LOG": self.log}
+        e.update(env or {})
+        return daemon(conf=c, env=e)
+
+    def received(self):
+        """(pid, command) of every command a worker received, in order"""
+        if not os.path.exists(self.log):
+            return []
+        with open(self.log) as f:
+            return [tuple(l.rstrip("\n").split(" ", 1)) for l in f if l.strip()]
+
+    def verbs(self, word):
+        return [c for _, c in self.received() if c.split()[0] == word]
+
+    def close(self):
+        shutil.rmtree(self.dir, ignore_errors=True)
+
+
+@test
+def an_unpinned_plugin_is_refused_by_default_and_no_worker_starts():
+    p = Plugins()
+    d = p.daemon(conf={"require_pins": None})
+    try:
+        d.expect("add %s 0" % p.clap_uri, resp("PIN_ABSENT"))
+        d.expect("add %s 1" % LV2_URI, resp("PIN_ABSENT"))
+        d.expect("add lv2:%s 1" % LV2_URI, resp("PIN_ABSENT"))
+        check(d.workers() == {}, "no worker was spawned: %s" % d.workers())
+        check(p.received() == [], "no worker received anything: %s" % p.received())
+        d.expect(p.clap_pin().replace(fake_layout(), "omx-layout/0:" + "0" * 64), "resp 0")
+        d.expect("add %s 0" % p.clap_uri, resp("PIN_ABSENT"))
+        check(p.received() == [], "a pin in a scheme this version does not know is no pin")
+        d.expect(p.clap_pin(), "resp 0")
+        d.expect("add %s 0" % p.clap_uri, "resp 0")
+        d.expect("pin_clear %s" % p.clap_uri, "resp 0")
+        d.expect("add %s 2" % p.clap_uri, resp("PIN_ABSENT"))
+    finally:
+        d.close()
+    os.unlink(p.log)
+    d = p.daemon(conf={"require_pins": 0})
+    try:
+        d.expect("add %s 0" % p.clap_uri, "resp 0")
+        check(p.verbs("pin_expect") == [], "with require_pins 0 no pin is asked for or sent")
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def a_swapped_clap_binary_is_refused_before_any_worker_sees_add():
+    p = Plugins()
+    d = p.daemon()
+    try:
+        d.expect(p.clap_pin(), "resp 0")
+        good = open(p.clap, "rb").read()
+        write(p.clap, b"another mode's build")
+        d.expect("add %s 0" % p.clap_uri, resp("PIN_BINARY_MISMATCH"))
+        d.expect("add %s 0 pool:p" % p.clap_uri, resp("PIN_BINARY_MISMATCH"))
+        check(d.workers() == {}, "no worker was spawned: %s" % d.workers())
+        check(p.received() == [], "no worker received anything: %s" % p.received())
+        os.unlink(p.clap)
+        d.expect("add %s 0" % p.clap_uri, resp("PIN_BINARY_MISMATCH"))
+        write(p.clap, good)
+        other = os.path.join(os.path.dirname(p.clap), "other.clap")
+        write(other, b"x")
+        d.expect("pin_set %s other.clap=%s %s" % (p.clap_uri, sha(other), fake_layout()), "resp 0")
+        d.expect("add %s 0" % p.clap_uri, resp("PIN_BINARY_MISMATCH"))
+        check(p.received() == [], "a pin that does not hold the .clap is refused before any worker")
+        d.expect(p.clap_pin(), "resp 0")
+        d.expect("add %s 0" % p.clap_uri, "resp 0")
+        got = p.received()
+        check([c.split()[0] for _, c in got] == ["pin_expect", "add"] and got[0][0] == got[1][0],
+              "the worker got the layout pin, then the add: %s" % got)
+        check(got[0][1] == "pin_expect 0 %s" % fake_layout(), "the layout pin as set: %s" % got[0][1])
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def a_changed_layout_is_refused_by_the_worker_and_reaches_the_client():
+    p = Plugins()
+    d = p.daemon(env={"FAKE_LAYOUT_DEFAULT": "0.25"})
+    try:
+        check(fake_layout("0.25") != fake_layout(), "the two defaults are two layouts")
+        d.expect(p.clap_pin(), "resp 0")
+        d.expect("add %s 0" % p.clap_uri, resp("PIN_LAYOUT_MISMATCH"))
+        check(p.verbs("add") == ["add %s 0" % p.clap_uri], "the binary passed and the worker checked the layout")
+        check(d.workers() == {}, "the worker of the refused instance is gone: %s" % d.workers())
+        d.expect("instance_info 0", "resp -3")
+        d.expect(p.clap_pin(fake_layout("0.25")), "resp 0")
+        d.expect("add %s 0" % p.clap_uri, "resp 0")
+    finally:
+        d.close()
+    d = p.daemon(env={"FAKE_NO_PIN_EXPECT": "1"})
+    try:
+        d.expect(p.clap_pin(), "resp 0")
+        d.expect("add %s 0" % p.clap_uri, "resp -902")
+        check(p.verbs("add").count("add %s 0" % p.clap_uri) == 2, "a worker that cannot check the layout gets no add")
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def an_lv2_bundle_is_pinned_by_its_manifest_binary_and_seealso():
+    p = Plugins()
+    d = p.daemon()
+    try:
+        d.expect(p.lv2_pin(("manifest.ttl", "pinned.ttl")), "resp 0")
+        d.expect("add %s 0" % LV2_URI, resp("PIN_BINARY_MISMATCH"))
+        d.expect(p.lv2_pin(("manifest.ttl", "pinned.so")), "resp 0")
+        d.expect("add %s 0" % LV2_URI, resp("PIN_BINARY_MISMATCH"))
+        d.expect(p.lv2_pin(("pinned.so", "pinned.ttl")), "resp 0")
+        d.expect("add %s 0" % LV2_URI, resp("PIN_BINARY_MISMATCH"))
+        check(p.received() == [], "a pin short of a file the manifest names is refused before any worker")
+        d.expect(p.lv2_pin(), "resp 0")
+        for f, data in (("pinned.so", b"swapped"), ("pinned.ttl", b"lv2:port [ lv2:index 0 ; lv2:symbol \"mix\" ] ."),
+                        ("manifest.ttl", (MANIFEST % LV2_URI + "<%s> lv2:extensionData <urn:x> .\n" % LV2_URI).encode())):
+            path = os.path.join(p.bundle, f)
+            good = open(path, "rb").read()
+            write(path, data)
+            d.expect("add lv2:%s 0" % LV2_URI, resp("PIN_BINARY_MISMATCH"))
+            write(path, good)
+        check(p.received() == [], "a changed file of the bundle is refused before any worker: %s" % p.received())
+        d.expect("add lv2:%s 0" % LV2_URI, "resp 0")
+        check(p.verbs("add") == ["add %s 0" % LV2_URI] and p.verbs("pin_expect") == [],
+              "the LV2 worker got its add and no pin verb: %s" % p.received())
+        d.expect("pin_set %s ../pinned.so=%s %s" % (LV2_URI, "0" * 64, fake_layout()), "resp -902")
+        d.expect("pin_set %s /abs=%s %s" % (LV2_URI, "0" * 64, fake_layout()), "resp -902")
+        d.expect("pin_set %s pinned.so=%s %s" % (LV2_URI, "0" * 63, fake_layout()), "resp -902")
+        d.expect("pin_set %s pinned.so=%s %s" % (LV2_URI, "A" * 64, fake_layout()), "resp -902")
+        d.expect("pin_set %s pinned.so=%s,pinned.so=%s %s" % (LV2_URI, "0" * 64, "0" * 64, fake_layout()), "resp -902")
+        d.expect("pin_set %s pinned.so=%s %s" % (LV2_URI, "0" * 64, "nolayout"), "resp -902")
+        d.expect("pin_set %s pinned.so=%s" % (LV2_URI, "0" * 64), "resp -902")
+        d.expect("pin_clear", "resp -902")
+        d.expect("pin_clear all", "resp 0")
+        d.expect("add %s 1" % LV2_URI, resp("PIN_ABSENT"))
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def a_binary_swapped_while_its_worker_was_down_is_not_replayed():
+    p = Plugins()
+    d = p.daemon()
+    try:
+        d.expect(p.clap_pin(), "resp 0")
+        d.expect("add %s 0" % p.clap_uri, "resp 0")
+        d.expect("param_set 0 gain 0.7", "resp 0")
+        _, w = d.holder(0)
+        good = open(p.clap, "rb").read()
+        write(p.clap, b"another mode's build")
+        mark = d.mark()
+        os.kill(w["pid"], signal.SIGKILL)
+        d.wait_event("worker_respawned", since=mark)
+        new = d.holder(0)[1]["pid"]
+        check(new != w["pid"], "a new worker")
+        check([c for pid, c in p.received() if int(pid) == new] == [],
+              "the new worker got neither the add nor the verbs of the refused instance: %s" % p.received())
+        check(not [e for e in d.events[mark:] if e.startswith("instance_restored 0 ")], "instance 0 is not restored")
+        log = d.log()
+        check("resp %d" % harness.CODE["REPLAY"] in log and "resp %d" % harness.CODE["PIN_BINARY_MISMATCH"] in log,
+              "the refusal is written with PHD_ERR_REPLAY and the pin's code: %s" % log[-400:])
+        write(p.clap, good)
+        mark = d.mark()
+        os.kill(new, signal.SIGKILL)
+        d.wait_event("instance_restored 0 ", since=mark)
+        again = d.holder(0)[1]["pid"]
+        check([c for pid, c in p.received() if int(pid) == again][:3] ==
+              ["pin_expect 0 %s" % fake_layout(), "add %s 0" % p.clap_uri, "param_set 0 gain 0.7"],
+              "with the true binary back the replay checks the layout, adds and replays: %s" % p.received())
+    finally:
+        d.close()
+        p.close()
 
 
 sys.exit(run_tests(TESTS))
