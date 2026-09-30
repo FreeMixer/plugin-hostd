@@ -122,7 +122,7 @@ jobs:
       - name: The daemon reports the version of its package and resolves its libraries
         run: |
           set -euo pipefail
-          version=$(chroot /tmp/clean-root rpm -q --qf '%{VERSION}' plugin-hostd)
+          version=$(rpm --root /tmp/clean-root -q --qf '%{VERSION}' plugin-hostd)
           chroot /tmp/clean-root plugin-hostd -V | tee v.txt
           grep -q "version: $version\$" v.txt
           chroot /tmp/clean-root ldd /usr/bin/plugin-hostd | tee ldd.txt
