@@ -77,6 +77,7 @@ The settings live in a file, `-c`, `$PLUGIN_HOSTD_CONF` or
 |---|---|---|
 | `default_command_port` | 5555 port | the command port without -p; the feedback port is the next one, unless -n is given |
 | `connect_retry_ms` | 5000 ms | how long the idle tick asks again for a connect a respawned worker could not make yet |
+| `line_max` | 4096 bytes | the protocol socket's buffer: the longest pin_set line the daemon takes |
 <!-- END GENERATED protocol:constants -->
 
 Placement
@@ -191,6 +192,14 @@ a file missing, changed or not held answers `PHD_ERR_PIN_BINARY_MISMATCH`. For a
 `pin_expect <instance> <layout pin>` and the `add` unchanged, and the worker answers `PHD_ERR_PIN_LAYOUT_MISMATCH`
 when the layout after `init` is not the pinned one; a worker that refuses `pin_expect` gets no `add`, and its refusal
 is the reply. An LV2 worker gets no pin verb: its layout is its bundle's TTL, which the hash covers.
+
+What cannot be pinned:
+
+<!-- BEGIN GENERATED protocol:pin-limits -->
+- a path holding ',', '=' or whitespace cannot be pinned: they are the separators of pin_set's words, and pin_set refuses it as a token outside its grammar.
+- a pin_set line is at most line_max, 4096 bytes, the protocol socket's buffer; a longer one is refused as outside the grammar.
+- a manifest that uses @base, or names a file of the plugin by a percent-encoded IRI, makes add answer PHD_ERR_PIN_BINARY_MISMATCH (-509): the daemon does not resolve either, so it cannot know the file the host would load.
+<!-- END GENERATED protocol:pin-limits -->
 
 Pins are the controller's policy, like `policy_set`: not in the ledger, gone with the daemon, set again by a controller
 that reconnects. A replayed `add` is checked again, so a file swapped while a worker was down is refused on respawn:

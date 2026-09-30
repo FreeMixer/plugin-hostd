@@ -240,6 +240,26 @@
       },
       "minItems": 1
     },
+    "pin_limits": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "meaning": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "meaning"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
     "config": {
       "type": "array",
       "items": {
@@ -317,6 +337,7 @@
     "errors",
     "verbs",
     "events",
+    "pin_limits",
     "config"
   ],
   "additionalProperties": false
