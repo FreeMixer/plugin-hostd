@@ -177,6 +177,26 @@ parameter goes to the plugin's own, and the event `instance_verb_dropped <instan
 command was in flight: its crash is counted, and in a pool it is quarantined and leaves the pool alone. A death
 outside the window replays everything, as before.
 
+Pins
+----
+
+With `require_pins` on, the default, `add` admits only a plugin the controller pinned with `pin_set`: the SHA-256 of
+every file the host loads for it, and its parameter layout fingerprint. Before any worker is spawned or sees the
+`add`, the daemon hashes each pinned file over one open descriptor: for a CLAP the files beside the `.clap` that
+`clap:<path>#<id>` names, the `.clap` itself among them; for an LV2 the files of the bundle whose `manifest.ttl` names
+the URI, the manifest among them, and every file the manifest names with `lv2:binary` or `rdfs:seeAlso` for the plugin
+must be held by the pin. No pin, or a layout pin in a scheme this version does not know, answers `PHD_ERR_PIN_ABSENT`;
+a file missing, changed or not held answers `PHD_ERR_PIN_BINARY_MISMATCH`. For a CLAP the daemon then sends the worker
+`pin_expect <instance> <layout pin>` and the `add` unchanged, and the worker answers `PHD_ERR_PIN_LAYOUT_MISMATCH`
+when the layout after `init` is not the pinned one; a worker that refuses `pin_expect` gets no `add`, and its refusal
+is the reply. An LV2 worker gets no pin verb: its layout is its bundle's TTL, which the hash covers.
+
+Pins are the controller's policy, like `policy_set`: not in the ledger, gone with the daemon, set again by a controller
+that reconnects. A replayed `add` is checked again, so a file swapped while a worker was down is refused on respawn:
+the daemon writes `PHD_ERR_REPLAY` and the pin's code to stderr, and the worker does not hold that instance until a
+later replay passes. The hashing and the layout serialisation are `include/plugin-hostd/pin.h`, installed beside the
+protocol header for the hosts that check a layout.
+
 What it keeps and replays
 -------------------------
 
@@ -224,7 +244,8 @@ Tests
 runs the daemon against `tests/fake-host`, a worker that speaks the same
 protocol and dies, hangs or refuses on cue: placement, forwarding, the
 ledger, replay to the byte, attribution, quarantine, the storm bound,
-`worker_env`, and the verb table against mod-host's README. No jack, no plugin.
+`worker_env`, pins, and the verb table against mod-host's README; `tests/pin_test.c` holds
+`include/plugin-hostd/pin.h` to the FIPS 180-2 examples and to layout bytes hashed elsewhere. No jack, no plugin.
 
     make test-jack OMX_CLAP_HOST=<omx-clap-host> [MOD_HOST=<mod-host> LV2_DIR=<lv2 path> LV2_URI=<a stereo effect> LV2_BUNDLE=<its bundle dir> LV2_PARAM=<a control taking 0.25>]
 

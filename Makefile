@@ -42,7 +42,7 @@ INCS = -Iinclude $(PROTOCOL_CFLAGS)
 LDFLAGS += -Wl,--no-undefined
 
 # source and object files
-SRC = src/main.c src/conf.c src/proc.c src/supervisor.c src/verbs.c
+SRC = src/main.c src/conf.c src/proc.c src/supervisor.c src/verbs.c src/pins.c
 OBJ = $(SRC:.c=.o)
 
 # default build
@@ -57,7 +57,7 @@ $(PROTOCOL_LIB):
 endif
 
 # the declared protocol is compiled into every object
-$(OBJ): include/plugin-hostd/protocol.h
+$(OBJ): include/plugin-hostd/protocol.h include/plugin-hostd/pin.h
 
 # meta-rule to generate the object files
 %.o: %.c

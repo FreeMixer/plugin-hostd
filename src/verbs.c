@@ -25,6 +25,7 @@
 #include <host-errors.h>
 #include <socket.h>
 
+#include "pins.h"
 #include "supervisor.h"
 #include "verbs.h"
 
@@ -101,6 +102,10 @@ static char *handle(char *line, char **tok, int ntok)
         return ntok == 3 ? sup_pool_config(tok[1], atoi(tok[2])) : sup_resp(ERR_INVALID_OPERATION);
     if (!strcmp(verb, PHD_VERB_WORKER_ENV))
         return ntok == 4 ? sup_worker_env(tok[1], tok[2], tok[3]) : sup_resp(ERR_INVALID_OPERATION);
+    if (!strcmp(verb, PHD_VERB_PIN_SET))
+        return sup_resp(ntok == 4 ? pins_set(tok[1], tok[2], tok[3]) : ERR_INVALID_OPERATION);
+    if (!strcmp(verb, PHD_VERB_PIN_CLEAR))
+        return sup_resp(ntok == 2 ? pins_clear(tok[1]) : ERR_INVALID_OPERATION);
     if (!strcmp(verb, "quit"))
     {
         g_quitting = 1;
