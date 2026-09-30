@@ -248,7 +248,7 @@ def make_pool(d, ids, name="p"):
 
 @test
 def pool_callback_crash_splits_the_pool_and_the_culprit_comes_back_own():
-    d = daemon()
+    d = daemon(conf={"suspect_window_ms": 0})
     try:
         make_pool(d, [10, 11, 12, 13])
         w = d.workers()
@@ -353,7 +353,7 @@ def storm_bound_is_per_placement_and_reset_rearms_it():
 
 @test
 def crashing_own_instance_is_given_up_alone():
-    d = daemon(conf={"storm_deaths": 3})
+    d = daemon(conf={"storm_deaths": 3, "suspect_window_ms": 0})
     try:
         d.expect("add fake:ok 60", "resp 60")
         d.expect("param_set 60 gain 0.5000", "resp 0")
@@ -376,9 +376,57 @@ def crashing_own_instance_is_given_up_alone():
 
 
 @test
-def one_shot_crash_comes_back_with_the_verb_that_killed_it_replayed():
+def a_crash_just_after_the_reply_drops_the_verb_it_answered_and_does_not_crash_again():
+    d = daemon()
+    try:
+        d.expect("add fake:a 0", "resp 0")
+        d.expect("param_set 0 gain 0.4000", "resp 0")
+        mark = d.mark()
+        d.expect("param_set 0 crash 1", "resp 0")
+        dropped = d.wait_event("instance_verb_dropped 0 suspect:", since=mark)
+        check(dropped.endswith(" param_set 0 crash 1"), "the event names the verb: " + dropped)
+        d.wait_event("instance_restored 0 ", since=mark)
+        d.expect("param_get 0 gain", "resp 0 0.4000")
+        d.expect("param_get 0 crash", "resp -103")
+        time.sleep(0.5)
+        deaths = [e for e in d.events[mark:] if e.startswith("worker_died")]
+        check(len(deaths) == 1, "the plugin does not crash again on the replay: %s" % deaths)
+        check(d.holder(0)[1]["state"] == "up", "and it stays up")
+        info = d.send("instance_info 0").split()
+        check(info[4] == "up" and info[5] == "1", "one crash counted, not given up: %s" % info)
+        check(not any(e.startswith("supervisor_gave_up") for e in d.events), "the storm bound was not spent")
+    finally:
+        d.close()
+
+
+@test
+def a_dropped_suspect_gives_back_the_value_it_replaced():
+    d = daemon()
+    try:
+        d.expect("add fake:a 0", "resp 0")
+        d.expect("param_set 0 gain 0.4000", "resp 0")
+        mark = d.mark()
+        d.expect("param_set 0 gain 0.9000", "resp 0")
+        d.expect("param_set 0 crash 1", "resp 0")
+        d.wait_event("instance_verb_dropped 0 suspect:", since=mark)
+        d.wait_event("instance_restored 0 ", since=mark)
+        d.expect("param_get 0 gain", "resp 0 0.9000")
+        d.expect("param_set 0 crash 0", "resp 0")
+        mark = d.mark()
+        d.expect("param_set 0 gain 0.2000", "resp 0")
+        d.expect("param_set 0 crash 1", "resp 0")
+        d.wait_event("instance_verb_dropped 0 suspect:", since=mark)
+        d.wait_event("instance_restored 0 ", since=mark)
+        d.expect("param_get 0 gain", "resp 0 0.2000")
+        d.expect("param_get 0 crash", "resp 0 0")
+    finally:
+        d.close()
+
+
+@test
+def a_crash_well_after_the_reply_replays_the_verb_as_before():
     marker = tempfile.mktemp(prefix="plugin-hostd-once.")
-    d = daemon(env={"FAKE_CRASH_ONCE": marker})
+    d = daemon(env={"FAKE_CRASH_ONCE": marker, "FAKE_CRASH_AFTER_MS": "900"})
     try:
         d.expect("add fake:a 0", "resp 0")
         d.expect("param_set 0 gain 0.4000", "resp 0")
@@ -387,6 +435,7 @@ def one_shot_crash_comes_back_with_the_verb_that_killed_it_replayed():
         d.wait_event("instance_restored 0 ", since=mark)
         d.expect("param_get 0 gain", "resp 0 0.4000")
         d.expect("param_get 0 crash", "resp 0 1")
+        check(not any(e.startswith("instance_verb_dropped") for e in d.events), "nothing was dropped: %s" % d.events)
         check(d.holder(0)[1]["state"] == "up", "and it stays up")
         info = d.send("instance_info 0").split()
         check(info[5] == "1", "one crash counted: %s" % info)
@@ -394,6 +443,44 @@ def one_shot_crash_comes_back_with_the_verb_that_killed_it_replayed():
         d.close()
         if os.path.exists(marker):
             os.unlink(marker)
+
+
+@test
+def a_kill_from_outside_inside_the_window_drops_nothing():
+    d = daemon()
+    try:
+        d.expect("add fake:a 0", "resp 0")
+        d.expect("param_set 0 gain 0.4000", "resp 0")
+        _, w = d.holder(0)
+        mark = d.mark()
+        os.kill(w["pid"], signal.SIGKILL)
+        d.wait_event("instance_restored 0 ", since=mark)
+        d.expect("param_get 0 gain", "resp 0 0.4000")
+        check(not any(e.startswith("instance_verb_dropped") for e in d.events), "nothing was dropped: %s" % d.events)
+    finally:
+        d.close()
+
+
+@test
+def pool_crash_just_after_the_reply_names_the_sender_and_the_pool_stays_a_pool():
+    d = daemon()
+    try:
+        make_pool(d, [80, 81, 82])
+        mark = d.mark()
+        d.expect("param_set 81 crash 1", "resp 0")
+        d.wait_event("instance_verb_dropped 81 suspect:", since=mark)
+        d.wait_event("instance_quarantined 81 ", since=mark)
+        for i in (80, 82):
+            k, w = d.wait_up(i)
+            check(w["place"] == "pool:p" and set(w["inst"]) == {80, 82}, "survivors stay pooled: %s" % w)
+            d.expect("param_get %d gain" % i, "resp 0 0.%d000" % (i % 10))
+        d.wait_up(81)
+        d.expect("param_get 81 crash", "resp -103")
+        time.sleep(0.5)
+        deaths = [e for e in d.events[mark:] if e.startswith("worker_died")]
+        check(len(deaths) == 1, "one death, no second crash: %s" % deaths)
+    finally:
+        d.close()
 
 
 @test
