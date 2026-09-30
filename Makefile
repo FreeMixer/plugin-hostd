@@ -75,11 +75,12 @@ install: $(PROG) install_man install_protocol
 	install -d $(DESTDIR)$(BINDIR)
 	install -m 755 $(PROG) $(DESTDIR)$(BINDIR)
 
-# the declared protocol: the JSON for readers that are not C, and the header and its pkg-config file, which the
-# development package carries
+# the declared protocol: the JSON for readers that are not C, which the package carries; the header, its pkg-config
+# file and the schema of the JSON, which the development package carries
 install_protocol:
 	install -d $(DESTDIR)$(DATADIR)/plugin-hostd
 	install -m 644 protocol/plugin-hostd.json $(DESTDIR)$(DATADIR)/plugin-hostd/protocol.json
+	install -m 644 protocol/plugin-hostd.schema.json $(DESTDIR)$(DATADIR)/plugin-hostd/protocol.schema.json
 	install -d $(DESTDIR)$(INCLUDEDIR)/plugin-hostd
 	install -m 644 include/plugin-hostd/protocol.h $(DESTDIR)$(INCLUDEDIR)/plugin-hostd/protocol.h
 	install -d $(DESTDIR)$(DATADIR)/pkgconfig
@@ -96,7 +97,7 @@ clean:
 
 # the daemon against workers that are not plugin hosts at all (tests/fake-host speaks the same protocol and can be
 # made to die on cue): placement, forwarding, ledger, replay, attribution, the storm bound; no jack, no plugin
-test: test-daemon check-generated
+test: test-daemon check-generated check-schema test-consumer test-perturbation
 	MOD_HOST_DIR=$(MOD_HOST_DIR) python3 tests/verbs_contract.py
 
 # the same without the verb table, which is read from a mod-host checkout's README
@@ -139,12 +140,28 @@ gen: $(GEN)
 	for f in README.md doc/plugin-hostd.1; do $(GEN) splice $$f > $$f.new && mv $$f.new $$f || exit 1; done
 
 # fails on any drift: every generated output must be byte-identical to a fresh generation, every region the generator
-# knows must be in a file, and the JSON must satisfy its schema
+# knows must be in a file
 check-generated: $(GEN)
 	@set -e; tmp=$$(mktemp -d); trap 'rm -rf $$tmp' EXIT; \
 	$(GEN) json > $$tmp/json; cmp $$tmp/json protocol/plugin-hostd.json; \
 	for f in README.md doc/plugin-hostd.1; do $(GEN) splice $$f > $$tmp/out; cmp $$tmp/out $$f; done; \
 	$(GEN) regions > $$tmp/regions; test -s $$tmp/regions; \
 	while read r; do grep -q "BEGIN GENERATED protocol:$$r\( .*\)\?$$" README.md doc/plugin-hostd.1 || { echo "region $$r is in no file"; exit 1; }; done < $$tmp/regions; \
-	python3 tests/protocol_schema.py protocol/plugin-hostd.json protocol/plugin-hostd.schema.json; \
 	echo "generated files are current"
+
+# the JSON against its schema, for which the jsonschema module is needed
+check-schema:
+	python3 tests/protocol_schema.py protocol/plugin-hostd.json protocol/plugin-hostd.schema.json
+
+# the declaration is the one copy: change values in a scratch copy of it, regenerate, rebuild, and the daemon and the docs follow
+test-perturbation: $(PROG) $(FAKE) $(GEN)
+	MOD_HOST_DIR=$(MOD_HOST_DIR) FAKE_HOST=./$(FAKE) python3 tests/perturbation.py
+
+# a consumer compiles against the installed header alone, through pkg-config, as plain C
+test-consumer:
+	@set -e; tmp=$$(mktemp -d); trap 'rm -rf $$tmp' EXIT; \
+	$(MAKE) -s install_protocol PREFIX=$$tmp DESTDIR=; \
+	PKG_CONFIG_PATH=$$tmp/share/pkgconfig $(PKG_CONFIG) --exists plugin-hostd; \
+	$(CC) $$(PKG_CONFIG_PATH=$$tmp/share/pkgconfig $(PKG_CONFIG) --cflags plugin-hostd) -std=c99 -Wall -Wextra -Werror \
+	  -o $$tmp/consumer tests/consumer.c; \
+	$$tmp/consumer
