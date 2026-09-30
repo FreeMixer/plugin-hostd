@@ -365,7 +365,7 @@ static const char *bin_of(int fmt)
 }
 
 /* an own LV2 worker sees a world of one bundle: LV2_PATH is a directory holding a link to the bundle
- * that names the URI; a pool, and a URI no bundle names, keeps the whole set */
+ * that names the URI; a pool, and a URI no bundle names, gets the whole set of the settings' lv2_path */
 static char *narrow_world(worker_t *w, const char *uri)
 {
     char *bundle, *base, dir[PATH_MAX], link_path[PATH_MAX];
@@ -400,7 +400,8 @@ static int worker_start(worker_t *w, const char *uri)
     snprintf(logfile, sizeof(logfile), "%s/w%d.log", g_root, w->k);
     world = narrow_world(w, uri);
     w->state = W_STARTING;
-    rc = proc_spawn(&g_conf, bin_of(w->fmt), world, &g_env[w->fmt], logfile, &w->pid, &w->port);
+    rc = proc_spawn(&g_conf, bin_of(w->fmt), world ? world : (w->fmt == FMT_LV2 ? g_conf.lv2_path : NULL), &g_env[w->fmt],
+                    logfile, &w->pid, &w->port);
     free(world);
     if (rc != 0)
     {
