@@ -7,12 +7,14 @@ FAKE = tests/fake-host
 
 PKG_CONFIG ?= pkg-config
 
+# a mod-host checkout: the library when pkg-config has none, and always the scenario corpus of the jack test
+MOD_HOST_DIR ?= ../mod-host
+
 # mod-host protocol library: pkg-config when it is installed, a mod-host checkout otherwise
 ifeq ($(shell $(PKG_CONFIG) --exists mod-host-protocol && echo true), true)
 PROTOCOL_CFLAGS = $(shell $(PKG_CONFIG) --cflags mod-host-protocol)
 PROTOCOL_LIBS = $(shell $(PKG_CONFIG) --libs mod-host-protocol)
 else
-MOD_HOST_DIR ?= ../mod-host
 PROTOCOL_LIB = $(MOD_HOST_DIR)/libmod-host-protocol.so
 PROTOCOL_CFLAGS = -I$(MOD_HOST_DIR)/src
 # the checkout's library is not installed: the binary finds it there through its rpath
@@ -66,7 +68,7 @@ install: $(PROG)
 
 # clean rule
 clean:
-	@rm -f src/*.o $(PROG) $(FAKE) tests/stress.clap tests/jack_levels
+	@rm -f src/*.o $(PROG) $(FAKE) tests/stress.clap tests/jack_levels tests/host_scenarios
 
 # the daemon against workers that are not plugin hosts at all (tests/fake-host speaks the same protocol and can be
 # made to die on cue): placement, forwarding, ledger, replay, attribution, the storm bound; no jack, no plugin
@@ -86,8 +88,13 @@ sabotage: $(PROG) $(FAKE)
 
 # the real workers over jack in a PipeWire of its own: omx-clap-host (OMX_CLAP_HOST) and, when MOD_HOST is
 # given, mod-host with an LV2 bundle (LV2_BUNDLE_DIR holds omx-delay.lv2)
-test-jack: $(PROG) tests/stress.clap tests/jack_levels
-	PLUGIN_HOSTD=./$(PROG) STRESS_CLAP=$(abspath tests/stress.clap) JACK_LEVELS=$(abspath tests/jack_levels) ./tests/jack_e2e.sh
+test-jack: $(PROG) tests/stress.clap tests/jack_levels tests/host_scenarios
+	PLUGIN_HOSTD=./$(PROG) STRESS_CLAP=$(abspath tests/stress.clap) JACK_LEVELS=$(abspath tests/jack_levels) \
+	HOST_SCENARIOS=$(abspath tests/host_scenarios) SCENARIOS=$(abspath $(MOD_HOST_DIR)/tests/host-scenarios.txt) ./tests/jack_e2e.sh
+
+# mod-host's scenario corpus, the runner every host is tested with
+tests/host_scenarios: $(MOD_HOST_DIR)/tests/host_scenarios.c $(PROTOCOL_LIB)
+	$(CC) $(INCS) $(CFLAGS) -Werror -o $@ $< $(PROTOCOL_LIBS) -lpthread
 
 tests/jack_levels: tests/jack_levels.c
 	$(CC) $(shell $(PKG_CONFIG) --cflags jack) $(CFLAGS) -Werror -o $@ $< $(shell $(PKG_CONFIG) --libs jack) -lm
