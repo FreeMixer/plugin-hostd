@@ -29,7 +29,7 @@ The LV2 worker is mod-host, which Debian does not package; without it CLAP plugi
 Try it
 ------
 
-Start the daemon (it prints `plugin-hostd ready!`), with pin checking off for a first try:
+Start the daemon, with pin checking off for a first try (it says when both ports accept):
 
     echo 'require_pins 0' > plugin-hostd.conf
     plugin-hostd -n -p 5555 -c plugin-hostd.conf
