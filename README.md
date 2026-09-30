@@ -6,9 +6,10 @@ on the way up and runs one worker process per plugin (or per named pool of
 plugins) on the way down, so that a plugin that crashes takes down its own
 worker and nothing else, and the daemon puts it back.
 
-    controller ── mod-host protocol ──> plugin-hostd ──> mod-host -n -p <port>      (lv2)
-       (unchanged)                          │        └─> omx-clap-host -n -p <port> (clap)
-                                            └ ledger, placement, respawn, checkpoints
+    controller ── mod-host protocol ──> plugin-hostd ──> mod-host -n -p <port> -f <port>      (lv2)
+       (unchanged)                          │        └─> omx-clap-host -n -p <port> -f <port> (clap)
+                                            └ ledger, placement, respawn, checkpoints,
+                                              the workers' feedback relayed
 
 Audio never passes through the daemon. Every worker is a jack client named
 `effect_<instance>` exactly as in mod-host, whichever worker holds it, and
@@ -166,6 +167,24 @@ Events on the feedback port, one NUL-terminated line each:
 | `supervisor_gave_up` | `<worker> <deaths> <window_ms>` | the storm bound is spent; respawning ends |
 <!-- END GENERATED protocol:events -->
 
+The workers' own feedback
+-------------------------
+
+What a worker reports on its feedback port (the `output_set` of a monitored output, the `param_set` of a parameter the
+plugin moved, `data_finish`, the log lines) reaches the controller on the daemon's feedback port, among the events
+above:
+
+<!-- BEGIN GENERATED protocol:relay -->
+Every worker is started as `<program> -n -p <command port> -f <feedback port>`.
+
+- every line a worker writes on its feedback port goes out on the daemon's feedback port as the worker wrote it: output_set, param_set, data_finish and the rest of mod-host's feedback, and a line the daemon does not know.
+- the instance number in a relayed line is already the controller's: add hands it to the worker unchanged, so nothing in a line is rewritten.
+- a worker's lines go out in the order it wrote them, and what a worker wrote before it died goes out before its worker_died event; an instance lives in one worker at a time, so its lines keep their order across a respawn; the lines of different workers interleave.
+- monitor_output is in the ledger, one line per output, and param_monitor as it was sent; a respawn replays them after the add, so a respawned instance reports the same outputs, each once, starting again from its first value.
+- output_data_ready names no instance and goes to every worker; each worker's data_finish is relayed.
+- with no feedback port, or no controller on it, a line is dropped, as mod-host drops it; the daemon reads every worker's feedback all the time, so no worker waits on it.
+<!-- END GENERATED protocol:relay -->
+
 The last verb is a suspect
 --------------------------
 
@@ -216,7 +235,7 @@ What it keeps and replays
 
 Per instance, in memory: the `add` line, then the state-changing verbs as
 sent, as text (`param_set`, `patch_set`, `preset_load`, `bypass`,
-`param_monitor`, the `midi_`, `cc_` and `cv_` maps), a repeat of the same
+`param_monitor`, `monitor_output`, the `midi_`, `cc_` and `cv_` maps), a repeat of the same
 setting replacing the earlier one, a `preset_load` dropping the parameter
 writes before it; and the `connect`s that name the instance's jack client.
 After a `preset_load` or `patch_set`, and after a quiet interval, it asks the
@@ -241,7 +260,8 @@ not touched.
 What a worker must do
 ---------------------
 
-- answer mod-host's protocol on `-n -p <port>`;
+- answer mod-host's protocol on `-n -p <port> -f <port>`, the feedback port opened by the daemon right after the
+  command port;
 <!-- BEGIN GENERATED protocol:worker-ready -->
 - print a line ending `ready!` on stdout once its socket accepts;
 <!-- END GENERATED protocol:worker-ready -->
@@ -274,7 +294,10 @@ runs `tests/jack_e2e.sh`: the real workers behind the daemon, over jack inside
 a PipeWire of its own (private user, net and pid namespace, torn down on
 exit), with `tests/stress.clap` (a passthrough that crashes on a parameter
 write, spins, keeps state). It kills workers and reads the graph and the audio
-level of a neighbouring chain across the kill.
+level of a neighbouring chain across the kill. Given omx-clap-host's meter fixtures
+(`FAKE_COMPRESSOR_CLAP=<tree>/tests/fake_compressor.clap JACK_METER_SOURCE=<tree>/tests/jack_meter_source`), it
+also reads the meters of a CLAP compressor as `output_set` on the daemon's feedback port, before and after its
+worker is killed.
 
 `make sabotage` (`tests/sabotage.py`) breaks the daemon on purpose, one guard at a time, and
 requires the named test to go red.

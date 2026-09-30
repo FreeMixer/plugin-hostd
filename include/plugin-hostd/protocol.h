@@ -254,6 +254,28 @@ static inline int phd_pool_name_valid(const char *name)
     X(PHD_EVENT_INSTANCE_QUARANTINED, "<instance> <worker>", "the culprit of a pool death, placed own until cleared") \
     X(PHD_EVENT_SUPERVISOR_GAVE_UP, "<worker> <deaths> <window_ms>", "the storm bound is spent; respawning ends")
 
+/* ---------------------------------------------------------------- worker feedback, relayed */
+
+/* a worker is started with a command port and a feedback port of its own, both on loopback and private to it */
+#define PHD_WORKER_ARGUMENTS "-n -p <command port> -f <feedback port>"
+
+/* what the daemon does with the lines a worker writes on its feedback port: X(id, meaning) */
+#define PHD_RELAY(X) \
+    X(VERBATIM, "every line a worker writes on its feedback port goes out on the daemon's feedback port as the worker " \
+                "wrote it: output_set, param_set, data_finish and the rest of mod-host's feedback, and a line the daemon " \
+                "does not know") \
+    X(INSTANCE, "the instance number in a relayed line is already the controller's: " PHD_VERB_ADD " hands it to the " \
+                "worker unchanged, so nothing in a line is rewritten") \
+    X(ORDER, "a worker's lines go out in the order it wrote them, and what a worker wrote before it died goes out " \
+             "before its " PHD_EVENT_WORKER_DIED " event; an instance lives in one worker at a time, so its lines keep " \
+             "their order across a respawn; the lines of different workers interleave") \
+    X(SUBSCRIPTION, "monitor_output is in the ledger, one line per output, and param_monitor as it was sent; a " \
+                    "respawn replays them after the " PHD_VERB_ADD ", so a respawned instance reports the same outputs, " \
+                    "each once, starting again from its first value") \
+    X(HANDSHAKE, "output_data_ready names no instance and goes to every worker; each worker's data_finish is relayed") \
+    X(NO_CONTROLLER, "with no feedback port, or no controller on it, a line is dropped, as mod-host drops it; the " \
+                     "daemon reads every worker's feedback all the time, so no worker waits on it")
+
 /* ---------------------------------------------------------------- settings */
 
 #define PHD_DEFAULT_MOD_HOST          "mod-host"
