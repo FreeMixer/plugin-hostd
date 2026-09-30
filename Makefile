@@ -66,7 +66,7 @@ install: $(PROG)
 
 # clean rule
 clean:
-	@rm -f src/*.o $(PROG) $(FAKE) tests/stress.clap
+	@rm -f src/*.o $(PROG) $(FAKE) tests/stress.clap tests/jack_levels
 
 # the daemon against workers that are not plugin hosts at all (tests/fake-host speaks the same protocol and can be
 # made to die on cue): placement, forwarding, ledger, replay, attribution, the storm bound; no jack, no plugin
@@ -86,5 +86,8 @@ sabotage: $(PROG) $(FAKE)
 
 # the real workers over jack in a PipeWire of its own: omx-clap-host (OMX_CLAP_HOST) and, when MOD_HOST is
 # given, mod-host with an LV2 bundle (LV2_BUNDLE_DIR holds omx-delay.lv2)
-test-jack: $(PROG) tests/stress.clap
-	PLUGIN_HOSTD=./$(PROG) STRESS_CLAP=$(abspath tests/stress.clap) ./tests/jack_e2e.sh
+test-jack: $(PROG) tests/stress.clap tests/jack_levels
+	PLUGIN_HOSTD=./$(PROG) STRESS_CLAP=$(abspath tests/stress.clap) JACK_LEVELS=$(abspath tests/jack_levels) ./tests/jack_e2e.sh
+
+tests/jack_levels: tests/jack_levels.c
+	$(CC) $(shell $(PKG_CONFIG) --cflags jack) $(CFLAGS) -Werror -o $@ $< $(shell $(PKG_CONFIG) --libs jack) -lm

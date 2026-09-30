@@ -3,3 +3,4 @@ plugin-hostd
 tests/fake-host
 tests/*.clap
 __pycache__/
+tests/jack_levels
