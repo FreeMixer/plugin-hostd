@@ -702,36 +702,52 @@ static void pend_retry(worker_t *w, int64_t now)
     }
 }
 
-/* the pin of a replayed add, checked again: a binary swapped while its worker was down is refused on respawn, the
- * refusal written with PHD_ERR_REPLAY and the pin's code, and the worker does not hold the instance until it is
- * replayed again. RPC_OK, PIN_REFUSED, or the worker's death. */
+/* a replayed add refused, by its pin or by the worker: announced with the refusal's own code, written with
+ * PHD_ERR_REPLAY and the step that refused it, and the worker does not hold the instance until it is replayed again */
+static void replay_refused(worker_t *w, instance_t *i, const char *step, int code)
+{
+    fprintf(stderr, "plugin-hostd: w%d did not replay instance %d: resp %d, its %s resp %d\n", w->k, i->id, PHD_ERR_REPLAY,
+            step, code);
+    event(PHD_EVENT_REPLAY_REFUSED_FMT, i->id, code);
+    i->unreplayed = 1;
+}
+
+/* the pin of a replayed add, checked again: a binary swapped while its worker was down is refused on respawn.
+ * RPC_OK, PIN_REFUSED, or the worker's death. */
 static int replay_pin(worker_t *w, instance_t *i)
 {
     const char *layout = NULL;
-    int code = SUCCESS, rc;
+    int code, rc;
 
     i->unreplayed = 0;
     if (!g_conf.require_pins)
         return RPC_OK;
     code = pins_check(i->fmt == FMT_CLAP, i->uri, g_conf.lv2_path, &layout);
-    if (code == SUCCESS && i->fmt == FMT_CLAP)
+    if (code != SUCCESS)
+    {
+        replay_refused(w, i, "pin", code);
+        return PIN_REFUSED;
+    }
+    if (i->fmt == FMT_CLAP)
     {
         rc = replay_line_code(w, pin_expect_line(i->id, layout), &code);
         if (rc != RPC_OK)
             return rc;
+        if (code < 0)
+        {
+            replay_refused(w, i, PHD_VERB_PIN_EXPECT, code);
+            return PIN_REFUSED;
+        }
     }
-    if (code >= 0)
-        return RPC_OK;
-    fprintf(stderr, "plugin-hostd: w%d did not replay instance %d: resp %d, its pin resp %d\n", w->k, i->id,
-            PHD_ERR_REPLAY, code);
-    i->unreplayed = 1;
-    return PIN_REFUSED;
+    return RPC_OK;
 }
 
 static void replay(worker_t *w, int64_t started)
 {
-    int n, m, any_ckpt = 0, count = 0;
-    char msg[PATH_MAX + 16];
+    int n, m, any_ckpt = 0, count = 0, code;
+    char msg[PATH_MAX + 16], add[32];
+
+    snprintf(add, sizeof(add), "%.*s", verb_len(EFFECT_ADD), EFFECT_ADD);
 
     for (n = 0; n < w->ninst; n++)
     {
@@ -747,10 +763,15 @@ static void replay(worker_t *w, int64_t started)
             on_death(w, i->id);
             return;
         }
-        if (replay_line(w, i->add_line) != RPC_OK)
+        if (replay_line_code(w, i->add_line, &code) != RPC_OK)
         {
             on_death(w, i->id);
             return;
+        }
+        if (code < 0)
+        {
+            replay_refused(w, i, add, code);
+            continue;
         }
         i->has_ckpt = ckpt_exists(i->id);
         any_ckpt |= i->has_ckpt;
@@ -969,7 +990,7 @@ char *sup_add(const char *uri, int id, const char *placement, const char *client
     worker_t *w = NULL;
     meta_t *m;
     int64_t now = proc_now_ms();
-    int rc, is_new = 0, full, unavailable;
+    int rc, is_new = 0, full, unavailable, code = ERR_HOST_INSTANTIATION;
     instance_t *i;
 
     if (id < 0 || id >= MAX_INSTANCE)
@@ -994,6 +1015,13 @@ char *sup_add(const char *uri, int id, const char *placement, const char *client
         rc = pins_check(fmt == FMT_CLAP, fwd, g_conf.lv2_path, &layout);
         if (rc != SUCCESS)
             return sup_resp(rc);
+        /* a pool's world holds every member's bundle: the layout of a pinned LV2 holds in the one bundle of its own */
+        if (fmt == FMT_LV2)
+        {
+            if (placement && !strncmp(placement, PHD_PLACE_POOL_PREFIX, strlen(PHD_PLACE_POOL_PREFIX)))
+                return sup_resp(PHD_ERR_PLACEMENT_INVALID);
+            snprintf(place, sizeof(place), PHD_PLACE_OWN);
+        }
     }
 
     if (!strcmp(place, PHD_PLACE_OWN))
@@ -1038,6 +1066,12 @@ char *sup_add(const char *uri, int id, const char *placement, const char *client
             free(reply);
             reply = NULL;
         }
+        else if (rc != RPC_OK)
+        {
+            /* the worker went with pin_expect on the wire: the add is never forwarded */
+            event(PHD_EVENT_VERB_DROPPED_FMT, id, pin_expect_line(id, layout));
+            code = PHD_ERR_VERB_DROPPED;
+        }
     }
     snprintf(line, sizeof(line), "%.*s %s %d%s%s", verb_len(EFFECT_ADD), EFFECT_ADD, fwd, id, client ? " " : "",
              client ? client : "");
@@ -1045,7 +1079,7 @@ char *sup_add(const char *uri, int id, const char *placement, const char *client
         rc = proc_rpc(&g_conf, w->pid, w->fd, line, &reply);
     if (rc != RPC_OK)
     {
-        /* the worker went with `add` on the wire: the instance is the suspect */
+        /* the worker went with `add` or its pin_expect on the wire: the instance is the suspect */
         m->crashes++;
         note_death(m->deaths, &m->ndeaths, now);
         if (w->pool)
@@ -1054,7 +1088,7 @@ char *sup_add(const char *uri, int id, const char *placement, const char *client
             event(PHD_EVENT_INSTANCE_QUARANTINED_FMT, id, w->k);
         }
         on_death(w, ATTRIBUTED);
-        return sup_resp(ERR_HOST_INSTANTIATION);
+        return sup_resp(code);
     }
     if (resp_code(reply) < 0)
     {
