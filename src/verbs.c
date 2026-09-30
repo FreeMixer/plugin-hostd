@@ -35,9 +35,9 @@
 volatile int g_quitting;
 
 /* the commands of mod-host.h whose first argument is an instance number: mod-host's grammar, README
- * "<verb> <instance_number>"; tests/verbs_contract.py holds this list to it */
+ * "<verb> <instance_number>"; tests/verbs_contract.py holds this list to it, and to a format that takes a number first */
 static const char *const g_instance_verbs[] = {
-    EFFECT_PRESET_LOAD, EFFECT_PRESET_SAVE, EFFECT_PRESET_SHOW, EFFECT_BYPASS, EFFECT_PARAM_SET, EFFECT_PARAM_GET,
+    EFFECT_PRESET_LOAD, EFFECT_PRESET_SAVE, EFFECT_BYPASS, EFFECT_PARAM_SET, EFFECT_PARAM_GET,
     EFFECT_PARAM_MON, EFFECT_PATCH_SET, EFFECT_PATCH_GET, EFFECT_LICENSEE, MONITOR_OUTPUT, MIDI_LEARN, MIDI_MAP,
     MIDI_UNMAP, CC_MAP, CC_UNMAP, CC_VALUE_SET, CV_MAP, CV_UNMAP,
 };
