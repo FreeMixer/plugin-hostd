@@ -128,7 +128,7 @@ Error codes the daemon adds to mod-host's:
 | `-501` | `PHD_ERR_PLACEMENT_INVALID` | placement invalid: not a placement, or not valid here, as a pool:<name> for an lv2 plugin while require_pins is on |
 | `-502` | `PHD_ERR_NO_BACKEND` | no worker program for the scheme |
 | `-503` | `PHD_ERR_WORKER_SPAWN` | the worker is not up: the spawn failed, or it is in backoff; ask again after instance_restored |
-| `-504` | `PHD_ERR_REPLAY` | reserved: not returned as a reply by this version; a replayed add its pin refuses is written to stderr with it and the pin's code |
+| `-504` | `PHD_ERR_REPLAY` | the name of a refused replay, never a reply: a replayed add that its pin or the worker refuses is announced by the instance_replay_refused event with the refusal's own code, and written to stderr with this one and the step that refused it |
 | `-505` | `PHD_ERR_GAVE_UP` | the storm bound is spent for that placement |
 | `-506` | `PHD_ERR_NO_SUCH_WORKER` | no such worker |
 | `-507` | `PHD_ERR_VERB_DROPPED` | the worker died on this very command and the daemon dropped it: it is not replayed, and the instance_verb_dropped event names it; or it died on, or did not answer in rpc_timeout_ms, the pin_expect of an add, which is then never forwarded |
@@ -160,6 +160,7 @@ Events on the feedback port, one NUL-terminated line each:
 | `worker_backoff` | `<worker> <ms>` | the respawn waits this long |
 | `worker_respawned` | `<worker> <pid> <replayed_count> <ms>` | a worker is back and its ledger replayed |
 | `instance_restored` | `<instance> <worker>` | an instance is back in a worker |
+| `instance_replay_refused` | `<instance> <code>` | a replayed add was refused, by its pin or by the worker, <code> the refusal's own: no worker holds the instance until the next replay |
 | `instance_quarantined` | `<instance> <worker>` | the culprit of a pool death, placed own until cleared |
 | `supervisor_gave_up` | `<worker> <deaths> <window_ms>` | the storm bound is spent; respawning ends |
 <!-- END GENERATED protocol:events -->
