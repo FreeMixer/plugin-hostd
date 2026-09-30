@@ -8,7 +8,7 @@
 # PLUGIN_HOSTD   the daemon (default ./plugin-hostd)
 # OMX_CLAP_HOST  omx-clap-host, the CLAP worker (required)
 # STRESS_CLAP    tests/stress.clap
-# MOD_HOST       mod-host, the LV2 worker; with LV2_DIR (the directory holding omx-delay.lv2) it adds the LV2 steps
+# MOD_HOST       mod-host, the LV2 worker; with LV2_DIR, LV2_URI, LV2_BUNDLE and LV2_PARAM (a stereo effect of the path, its bundle, a control) it adds the LV2 steps
 # JACK_LEVELS    tests/jack_levels
 
 set -u

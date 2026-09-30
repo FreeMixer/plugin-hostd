@@ -10,9 +10,12 @@ STRESS = "clap:%s#org.plugin-hostd.test.stress" % os.environ["STRESS_CLAP"]
 LEVELS = os.environ["JACK_LEVELS"]
 MOD_HOST = os.environ.get("MOD_HOST")
 LV2_DIR = os.environ.get("LV2_DIR")
+LV2_URI = os.environ.get("LV2_URI")          # a stereo effect in a bundle of LV2_DIR, its ports lv2_audio_in_1 ..
+LV2_BUNDLE = os.environ.get("LV2_BUNDLE")    # the bundle's directory name
+LV2_PARAM = os.environ.get("LV2_PARAM")      # a control symbol of it that takes 0.25
+LV2 = MOD_HOST and LV2_DIR and LV2_URI and LV2_BUNDLE and LV2_PARAM
 HOST_SCENARIOS = os.environ.get("HOST_SCENARIOS")
 SCENARIOS = os.environ.get("SCENARIOS")
-DELAY_URI = "urn:openmixer:dpf:delay"
 TESTS = []
 LEVEL, CRASH = 3, 0
 
@@ -84,10 +87,10 @@ if HOST_SCENARIOS and SCENARIOS and os.path.exists(HOST_SCENARIOS) and os.path.e
     def mod_host_scenarios_pass_unchanged_with_a_clap_worker():
         run_scenarios(STRESS, "clap:/nonexistent.clap#no.such.plugin", str(LEVEL), "effect_3:out_1", "effect_3:in_1")
 
-    if MOD_HOST and LV2_DIR:
+    if LV2:
         @test
         def mod_host_scenarios_pass_unchanged_with_an_lv2_worker():
-            run_scenarios(DELAY_URI, "urn:no:such:plugin", "mix", "effect_3:lv2_audio_out_1", "effect_3:lv2_audio_in_1")
+            run_scenarios(LV2_URI, "urn:no:such:plugin", LV2_PARAM, "effect_3:lv2_audio_out_1", "effect_3:lv2_audio_in_1")
 
 
 @test
@@ -204,33 +207,33 @@ def audio_of_the_other_strip_never_changes_when_one_worker_is_killed():
         d.close()
 
 
-if MOD_HOST and LV2_DIR:
+if LV2:
     @test
     def lv2_own_worker_sees_one_bundle_and_replays_after_a_kill():
         d = daemon()
         try:
-            d.expect("add lv2:%s 0" % DELAY_URI, "resp 0")
-            d.expect("add %s 1 pool:l" % DELAY_URI, "resp 1")
+            d.expect("add lv2:%s 0" % LV2_URI, "resp 0")
+            d.expect("add %s 1 pool:l" % LV2_URI, "resp 1")
             names = ("lv2_audio_in_1", "lv2_audio_in_2", "lv2_audio_out_1", "lv2_audio_out_2")
             check(has_ports(0, names) and has_ports(1, names), "both LV2 inserts are in the graph")
             k, w = d.holder(0)
             env = open("/proc/%d/environ" % w["pid"], "rb").read().split(b"\0")
             world = [e for e in env if e.startswith(b"LV2_PATH=")][0][9:].decode()
             entries = os.listdir(world)
-            check(entries == ["omx-delay.lv2"] and os.path.islink(os.path.join(world, entries[0])),
+            check(entries == [LV2_BUNDLE] and os.path.islink(os.path.join(world, entries[0])),
                   "an own LV2 worker's world is one linked bundle: %s in %s" % (entries, world))
             kp, wp = d.holder(1)
             penv = [e for e in open("/proc/%d/environ" % wp["pid"], "rb").read().split(b"\0") if e.startswith(b"LV2_PATH=")]
             check(not penv or penv[0][9:].decode() == LV2_DIR, "a pool keeps the whole set")
-            d.expect("param_set 0 timeMs 123.5", "resp 0")
-            before = d.send("param_get 0 timeMs")
-            check(before.startswith("resp 0 "), "timeMs answers: " + before)
+            d.expect("param_set 0 %s 0.25" % LV2_PARAM, "resp 0")
+            before = d.send("param_get 0 " + LV2_PARAM)
+            check(before == "resp 0 0.2500", "%s answers: %s" % (LV2_PARAM, before))
             mark = d.mark()
             os.kill(w["pid"], signal.SIGKILL)
             wait_for(lambda: not has_ports(0, names), "the LV2 insert to leave the graph")
             d.wait_event("instance_restored 0 ", since=mark)
             wait_for(lambda: has_ports(0, names), "the LV2 insert to come back")
-            d.expect("param_get 0 timeMs", before)
+            d.expect("param_get 0 " + LV2_PARAM, before)
         finally:
             d.close()
 
