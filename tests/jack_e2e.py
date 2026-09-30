@@ -14,6 +14,9 @@ LV2_URI = os.environ.get("LV2_URI")          # a stereo effect in a bundle of LV
 LV2_BUNDLE = os.environ.get("LV2_BUNDLE")    # the bundle's directory name
 LV2_PARAM = os.environ.get("LV2_PARAM")      # a control symbol of it that takes 0.25
 LV2 = MOD_HOST and LV2_DIR and LV2_URI and LV2_BUNDLE and LV2_PARAM
+# omx-clap-host's own meter fixtures: a compressor that reports gain reduction and input levels, and a constant source
+COMPRESSOR = os.environ.get("FAKE_COMPRESSOR_CLAP")
+METER_SOURCE = os.environ.get("JACK_METER_SOURCE")
 HOST_SCENARIOS = os.environ.get("HOST_SCENARIOS")
 SCENARIOS = os.environ.get("SCENARIOS")
 TESTS = []
@@ -205,6 +208,78 @@ def audio_of_the_other_strip_never_changes_when_one_worker_is_killed():
         if probe:
             probe.kill()
         d.close()
+
+
+def meter_source(d, *ports):
+    """0.5 left and 0.25 right into the ports, -6.0206 and -12.0412 dBFS; it connects them itself"""
+    src = subprocess.Popen([METER_SOURCE] + list(ports), stdout=subprocess.PIPE,
+                           stderr=open(os.path.join(d.tmp, "source.err"), "a"), text=True)
+    check(src.stdout.readline().strip() == "playing", "the meter source plays into %s" % (ports,))
+    return src
+
+
+def output_values(d, inst, sym, since=0):
+    prefix = "output_set %d %s " % (inst, sym)
+    with d.lock:
+        return [e[len(prefix):] for e in d.events[since:] if e.startswith(prefix)]
+
+
+def reads(d, inst, sym, want, tol, since=0, timeout=5):
+    def near():
+        v = output_values(d, inst, sym, since)
+        return v and v[-1] != "-inf" and abs(float(v[-1]) - want) <= tol
+    wait_for(near, "output_set %d %s to read %s (have %s)" % (inst, sym, want, output_values(d, inst, sym, since)[-5:]), timeout)
+
+
+if COMPRESSOR and METER_SOURCE:
+    @test
+    def clap_meters_reach_the_controller_through_the_daemon_and_survive_a_kill():
+        """omx-clap-host's meters e2e, with the daemon between: monitor_output is answered by the worker, output_set
+        comes back on the daemon's feedback port, and after the worker is killed the replayed subscription reports
+        the same meters again, once each"""
+        d = daemon()
+        src = None
+        uri = "clap:%s#org.omx-clap-host.test.compressor" % COMPRESSOR
+        try:
+            d.expect("add %s 0" % uri, "resp 0")
+            d.expect("add %s#org.omx-clap-host.test.compressor-std 1" % uri.split("#")[0], "resp 1")
+            src = meter_source(d, "effect_0:in_1", "effect_0:in_2", "effect_1:in_1", "effect_1:in_2")
+            d.expect("monitor_output 0 gain_reduction", "resp 1")
+            d.expect("monitor_output 0 input_level_0", "resp 1")
+            d.expect("monitor_output 0 input_level_1", "resp 1")
+            d.expect("monitor_output 0 nothing", "resp 0")
+            d.expect("monitor_output 1 gain_adjustment_metering", "resp 1")
+            reads(d, 0, "gain_reduction", -6, 0.0001)
+            reads(d, 0, "input_level_0", -6.0206, 0.0001)
+            reads(d, 0, "input_level_1", -12.0412, 0.0001)
+            reads(d, 1, "gain_adjustment_metering", -6, 0.0001)
+            check(not output_values(d, 0, "nothing"), "an output the plugin does not have sends nothing")
+            # a value that does not move is not sent again, through the daemon as from the host
+            n = len(output_values(d, 0, "gain_reduction"))
+            time.sleep(1)
+            check(len(output_values(d, 0, "gain_reduction")) == n, "no output_set while the value holds")
+
+            _, w = d.holder(0)
+            _, w1 = d.holder(1)
+            mark = d.mark()
+            os.kill(w["pid"], signal.SIGKILL)
+            d.wait_event("instance_restored 0 ", since=mark)
+            wait_for(lambda: has_ports(0), "effect_0's ports to come back")
+            src.kill()
+            src.wait()
+            src = meter_source(d, "effect_0:in_1", "effect_0:in_2", "effect_1:in_1", "effect_1:in_2")
+            reads(d, 0, "gain_reduction", -6, 0.0001, since=mark)
+            reads(d, 0, "input_level_0", -6.0206, 0.0001, since=mark)
+            reads(d, 0, "input_level_1", -12.0412, 0.0001, since=mark)
+            check(d.holder(1)[1]["pid"] == w1["pid"], "instance 1's worker was not touched")
+            # the replayed subscription is one per output: a doubled one would send each value twice in a row
+            for sym in ("gain_reduction", "input_level_0", "input_level_1"):
+                v = output_values(d, 0, sym, mark)
+                check(all(a != b for a, b in zip(v, v[1:])), "output_set 0 %s after the respawn: no value twice: %s" % (sym, v))
+        finally:
+            if src:
+                src.kill()
+            d.close()
 
 
 if LV2:
