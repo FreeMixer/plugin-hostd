@@ -69,6 +69,7 @@ The settings live in a file, `-c`, `$PLUGIN_HOSTD_CONF` or
 | `checkpoint_ms` | 5000 ms | a quiet interval with a changed ledger writes a checkpoint |
 | `idle_ms` | 25 ms | the period of the idle tick: reap, respawn, checkpoint |
 | `pool_max` | 8 instances | instances in a pool before a sibling opens |
+| `require_pins` | 1  | 1: add admits only a plugin pin_set pinned, its files hashed before any worker sees it; 0: no pin is checked |
 <!-- END GENERATED protocol:config -->
 
 <!-- BEGIN GENERATED protocol:constants -->
@@ -109,6 +110,9 @@ Verbs the daemon adds
 | `policy_set` | `<lv2 \| clap \| *> own \| pool:<name>` | `resp 0` | the placement of an add that says default |
 | `pool_config` | `<name> <max_instances>` | `resp 0` | the instances a pool holds before a sibling opens |
 | `worker_env` | `<lv2 \| clap \| *> <cpu-list\|-> <nice\|->` | `resp 0` | the cpu list and the nice value of the workers of a format, at spawn and on the ones running |
+| `pin_set` | `<uri> <path>=<sha256>[,<path>=<sha256>...] <scheme>:<sha256>` | `resp 0` | the pin of one plugin: the SHA-256 of every file the host loads for it, a path relative to the bundle (the .clap's directory for a CLAP), and its layout fingerprint; it replaces an earlier pin of the uri |
+| `pin_clear` | `<uri> \| all` | `resp 0` | forget the pin of one plugin, or of every one |
+| `pin_expect` | `<instance> <scheme>:<sha256>` | `resp 0` | sent by the daemon to a clap worker just before the instance's add: the layout pin that add checks after init and before activate |
 
 A `<state>` is `up` (accepting commands), `starting` (spawned, not yet accepting), `backoff` (dead, waiting to be respawned), `given-up` (the storm bound is spent for its placement).
 <!-- END GENERATED protocol:verbs -->
@@ -124,10 +128,13 @@ Error codes the daemon adds to mod-host's:
 | `-501` | `PHD_ERR_PLACEMENT_INVALID` | placement invalid |
 | `-502` | `PHD_ERR_NO_BACKEND` | no worker program for the scheme |
 | `-503` | `PHD_ERR_WORKER_SPAWN` | the worker is not up: the spawn failed, or it is in backoff; ask again after instance_restored |
-| `-504` | `PHD_ERR_REPLAY` | reserved: declared, and not returned by this version |
+| `-504` | `PHD_ERR_REPLAY` | reserved: not returned as a reply by this version; a replayed add its pin refuses is written to stderr with it and the pin's code |
 | `-505` | `PHD_ERR_GAVE_UP` | the storm bound is spent for that placement |
 | `-506` | `PHD_ERR_NO_SUCH_WORKER` | no such worker |
 | `-507` | `PHD_ERR_VERB_DROPPED` | the worker died on this very command and the daemon dropped it: it is not replayed, and the instance_verb_dropped event names it |
+| `-508` | `PHD_ERR_PIN_ABSENT` | require_pins is on and the plugin has no pin, or its layout pin is in a scheme this version does not know: add is refused and no worker sees it |
+| `-509` | `PHD_ERR_PIN_BINARY_MISMATCH` | a pinned file is missing or its SHA-256 differs, or the plugin's manifest names a file the pin does not hold: add is refused and no worker sees it |
+| `-510` | `PHD_ERR_PIN_LAYOUT_MISMATCH` | the worker found the parameter layout after init differs from the layout pin: the instance is destroyed before activate |
 <!-- END GENERATED protocol:errors -->
 
 A worker's own refusal is returned as it said it. An `add` that killed its worker answers mod-host's `-102`.
