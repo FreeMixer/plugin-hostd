@@ -157,6 +157,9 @@ jobs:
       matrix:
         suite: [bookworm, trixie]
         arch: [amd64, arm64]
+    defaults:
+      run:
+        shell: bash
     container:
       image: debian:${{ matrix.suite }}
     steps:
@@ -183,7 +186,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: plugin-hostd-debs-${{ matrix.suite }}-${{ matrix.arch }}
+          name: plugin-hostd-ci-debs-${{ matrix.suite }}-${{ matrix.arch }}
           path: |
             debs/*.deb
             dep-debs/libmod-host-protocol0_*.deb
@@ -202,12 +205,15 @@ jobs:
         suite: [bookworm, trixie]
         arch: [amd64, arm64]
     # nothing but the distribution: a dependency the package forgot to declare is missing here
+    defaults:
+      run:
+        shell: bash
     container:
       image: debian:${{ matrix.suite }}
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: plugin-hostd-debs-${{ matrix.suite }}-${{ matrix.arch }}
+          name: plugin-hostd-ci-debs-${{ matrix.suite }}-${{ matrix.arch }}
 
       - name: Install the package with its dependencies from the distribution
         run: |
