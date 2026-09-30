@@ -104,7 +104,7 @@ test: test-daemon check-generated check-schema test-consumer test-perturbation
 test-daemon: $(PROG) $(FAKE)
 	PLUGIN_HOSTD=./$(PROG) FAKE_HOST=./$(FAKE) python3 tests/daemon_test.py
 
-$(FAKE): tests/fake_host.c $(PROTOCOL_LIB)
+$(FAKE): tests/fake_host.c src/verbs.h $(PROTOCOL_LIB)
 	$(CC) $(INCS) $(CFLAGS) -Werror -o $@ $< $(PROTOCOL_LIBS) -lm
 
 tests/stress.clap: tests/stress_plugin.c

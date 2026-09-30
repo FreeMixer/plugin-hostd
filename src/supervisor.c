@@ -30,9 +30,11 @@
 #include <unistd.h>
 
 #include <host-errors.h>
+#include <mod-host.h>
 #include <socket.h>
 
 #include "supervisor.h"
+#include "verbs.h"
 
 #define ATTRIBUTED  (-2)    /* on_death: the culprit is already dealt with, only schedule */
 #define POOL_NAMES  32
@@ -73,20 +75,21 @@ static const char *const g_state_states[W_COUNT] = {
 };
 
 /* the instance verbs the ledger keeps; the key compacts repeats of the same setting */
-static const struct { const char *verb; int kind; int key_arg; } g_recorded[] = {
-    { "param_set", KIND_STATE, 2 },
-    { "patch_set", KIND_STATE, 2 },
-    { "preset_load", KIND_STATE, 0 },
-    { "bypass", KIND_HOST, 1 },
-    { "param_monitor", KIND_HOST, 0 },
-    { "midi_learn", KIND_HOST, 0 },
-    { "midi_map", KIND_HOST, 0 },
-    { "midi_unmap", KIND_HOST, 0 },
-    { "cc_map", KIND_HOST, 0 },
-    { "cc_unmap", KIND_HOST, 0 },
-    { "cc_value_set", KIND_HOST, 0 },
-    { "cv_map", KIND_HOST, 0 },
-    { "cv_unmap", KIND_HOST, 0 },
+/* the instance commands of mod-host.h the ledger keeps; the key compacts repeats of the same setting */
+static const struct { const char *format; int kind; int key_arg; } g_recorded[] = {
+    { EFFECT_PARAM_SET, KIND_STATE, 2 },
+    { EFFECT_PATCH_SET, KIND_STATE, 2 },
+    { EFFECT_PRESET_LOAD, KIND_STATE, 0 },
+    { EFFECT_BYPASS, KIND_HOST, 1 },
+    { EFFECT_PARAM_MON, KIND_HOST, 0 },
+    { MIDI_LEARN, KIND_HOST, 0 },
+    { MIDI_MAP, KIND_HOST, 0 },
+    { MIDI_UNMAP, KIND_HOST, 0 },
+    { CC_MAP, KIND_HOST, 0 },
+    { CC_UNMAP, KIND_HOST, 0 },
+    { CC_VALUE_SET, KIND_HOST, 0 },
+    { CV_MAP, KIND_HOST, 0 },
+    { CV_UNMAP, KIND_HOST, 0 },
 };
 
 static void event(const char *fmt, ...)
@@ -612,7 +615,7 @@ static void checkpoint(worker_t *w)
 
     if (w->state != W_UP)
         return;
-    snprintf(msg, sizeof(msg), "state_save %s", g_ckpt);
+    snprintf(msg, sizeof(msg), STATE_SAVE, g_ckpt);
     rc = proc_rpc(&g_conf, w->pid, w->fd, msg, &reply);
     if (rc != RPC_OK)
     {
@@ -706,7 +709,7 @@ static void replay(worker_t *w, int64_t started)
     }
     if (any_ckpt)
     {
-        snprintf(msg, sizeof(msg), "state_load %s", g_ckpt);
+        snprintf(msg, sizeof(msg), STATE_LOAD, g_ckpt);
         if (replay_line(w, msg) != RPC_OK)
         {
             on_death(w, -1);
@@ -965,7 +968,8 @@ char *sup_add(const char *uri, int id, const char *placement, const char *client
             return sup_resp(rc);
         }
     }
-    snprintf(line, sizeof(line), "add %s %d%s%s", fwd, id, client ? " " : "", client ? client : "");
+    snprintf(line, sizeof(line), "%.*s %s %d%s%s", verb_len(EFFECT_ADD), EFFECT_ADD, fwd, id, client ? " " : "",
+             client ? client : "");
     rc = proc_rpc(&g_conf, w->pid, w->fd, line, &reply);
     if (rc != RPC_OK)
     {
@@ -1017,7 +1021,7 @@ static void record(instance_t *i, const char *line, char **tok, int ntok)
     size_t v;
 
     for (v = 0; v < sizeof(g_recorded) / sizeof(g_recorded[0]); v++)
-        if (!strcmp(tok[0], g_recorded[v].verb))
+        if (verb_is(tok[0], g_recorded[v].format))
         {
             const char *key = NULL;
             char keybuf[160], *prev;
@@ -1029,7 +1033,7 @@ static void record(instance_t *i, const char *line, char **tok, int ntok)
             }
             else if (g_recorded[v].key_arg)
                 return;
-            if (!strcmp(tok[0], "preset_load"))
+            if (verb_is(tok[0], EFFECT_PRESET_LOAD))
                 tail_drop_state(i);
             tail_add(i, line, key, g_recorded[v].kind, &prev);
             free(i->sus_line);
@@ -1109,7 +1113,7 @@ char *sup_remove(int id)
     w = i->w;
     if (w->state == W_UP)
     {
-        snprintf(line, sizeof(line), "remove %d", id);
+        snprintf(line, sizeof(line), EFFECT_REMOVE, id);
         rc = proc_rpc(&g_conf, w->pid, w->fd, line, &reply);
         if (rc != RPC_OK)
         {
@@ -1170,8 +1174,8 @@ char *sup_connect(const char *verb, const char *line, const char *port_a, const 
     }
     if (resp_code(reply) >= 0)
     {
-        snprintf(ledger, sizeof(ledger), "connect %s %s", port_a, port_b);
-        if (!strcmp(verb, "connect"))
+        snprintf(ledger, sizeof(ledger), EFFECT_CONNECT, port_a, port_b);
+        if (verb_is(verb, EFFECT_CONNECT))
         {
             if (a)
                 conn_add(a, ledger);
@@ -1217,7 +1221,7 @@ char *sup_broadcast(const char *line)
         else
             free(reply);
     }
-    if (!strncmp(line, "state_load ", 11) && first && resp_code(first) >= 0)
+    if (verb_is(line, STATE_LOAD) && first && resp_code(first) >= 0)
         for (id = 0; id < MAX_INSTANCE; id++)
             if (g_inst[id])
             {
@@ -1231,7 +1235,8 @@ void sup_after_reply(int id, const char *verb)
 {
     instance_t *i = (id >= 0 && id < MAX_INSTANCE) ? g_inst[id] : NULL;
 
-    if (i && i->w && i->w->state == W_UP && i->dirty && (!strcmp(verb, "preset_load") || !strcmp(verb, "patch_set")))
+    if (i && i->w && i->w->state == W_UP && i->dirty &&
+        (verb_is(verb, EFFECT_PRESET_LOAD) || verb_is(verb, EFFECT_PATCH_SET)))
         checkpoint(i->w);
 }
 
