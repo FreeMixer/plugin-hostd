@@ -71,6 +71,7 @@ typedef struct INSTANCE_T {
     int64_t sus_ms;
     int64_t sus_seq;            /* the order of the verbs across instances, which the millisecond clock cannot give */
     int has_ckpt;
+    int unreplayed;             /* its pin refused the add of the last replay: the worker does not hold it */
 } instance_t;
 
 typedef struct WORKER_T {

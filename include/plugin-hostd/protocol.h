@@ -122,17 +122,27 @@ static inline int phd_pool_name_valid(const char *name)
 #define PHD_ERR_GAVE_UP           (-505)
 #define PHD_ERR_NO_SUCH_WORKER    (-506)
 #define PHD_ERR_VERB_DROPPED      (-507)
+#define PHD_ERR_PIN_ABSENT          (-508)
+#define PHD_ERR_PIN_BINARY_MISMATCH (-509)
+#define PHD_ERR_PIN_LAYOUT_MISMATCH (-510)
 
 /* X(id, meaning) */
 #define PHD_ERRORS(X) \
     X(PLACEMENT_INVALID, "placement invalid") \
     X(NO_BACKEND, "no worker program for the scheme") \
     X(WORKER_SPAWN, "the worker is not up: the spawn failed, or it is in backoff; ask again after instance_restored") \
-    X(REPLAY, "reserved: declared, and not returned by this version") \
+    X(REPLAY, "reserved: not returned as a reply by this version; a replayed add its pin refuses is written to " \
+              "stderr with it and the pin's code") \
     X(GAVE_UP, "the storm bound is spent for that placement") \
     X(NO_SUCH_WORKER, "no such worker") \
     X(VERB_DROPPED, "the worker died on this very command and the daemon dropped it: it is not replayed, " \
-                    "and the instance_verb_dropped event names it")
+                    "and the instance_verb_dropped event names it") \
+    X(PIN_ABSENT, "require_pins is on and the plugin has no pin, or its layout pin is in a scheme this version does " \
+                  "not know: add is refused and no worker sees it") \
+    X(PIN_BINARY_MISMATCH, "a pinned file is missing or its SHA-256 differs, or the plugin's manifest names a file the " \
+                           "pin does not hold: add is refused and no worker sees it") \
+    X(PIN_LAYOUT_MISMATCH, "the worker found the parameter layout after init differs from the layout pin: the " \
+                           "instance is destroyed before activate")
 
 /* ---------------------------------------------------------------- verbs */
 
@@ -144,6 +154,14 @@ static inline int phd_pool_name_valid(const char *name)
 #define PHD_VERB_POLICY_SET       "policy_set"
 #define PHD_VERB_POOL_CONFIG      "pool_config"
 #define PHD_VERB_WORKER_ENV       "worker_env"
+#define PHD_VERB_PIN_SET          "pin_set"
+#define PHD_VERB_PIN_CLEAR        "pin_clear"
+#define PHD_VERB_PIN_EXPECT       "pin_expect"
+
+/* the words of a pin: <path>=<sha256>, joined by ',', and <scheme>:<sha256> */
+#define PHD_PIN_FILE_SEPARATOR   ","
+#define PHD_PIN_DIGEST_SEPARATOR "="
+#define PHD_PIN_SCHEME_SEPARATOR ":"
 
 /* the verbs the daemon adds to mod-host's, or extends: X(id, name, arguments, reply, meaning) */
 #define PHD_VERBS(X) \
@@ -163,7 +181,15 @@ static inline int phd_pool_name_valid(const char *name)
       "the instances a pool holds before a sibling opens") \
     X(WORKER_ENV, PHD_VERB_WORKER_ENV, "<" PHD_FORMAT_LV2 " | " PHD_FORMAT_CLAP " | " PHD_FORMAT_ANY "> <cpu-list|" \
       PHD_WORD_NONE "> <nice|" PHD_WORD_NONE ">", "resp 0", \
-      "the cpu list and the nice value of the workers of a format, at spawn and on the ones running")
+      "the cpu list and the nice value of the workers of a format, at spawn and on the ones running") \
+    X(PIN_SET, PHD_VERB_PIN_SET, "<uri> <path>" PHD_PIN_DIGEST_SEPARATOR "<sha256>[" PHD_PIN_FILE_SEPARATOR "<path>" \
+      PHD_PIN_DIGEST_SEPARATOR "<sha256>...] <scheme>" PHD_PIN_SCHEME_SEPARATOR "<sha256>", "resp 0", \
+      "the pin of one plugin: the SHA-256 of every file the host loads for it, a path relative to the bundle (the " \
+      ".clap's directory for a CLAP), and its layout fingerprint; it replaces an earlier pin of the uri") \
+    X(PIN_CLEAR, PHD_VERB_PIN_CLEAR, "<uri> | " PHD_WORD_ALL, "resp 0", "forget the pin of one plugin, or of every one") \
+    X(PIN_EXPECT, PHD_VERB_PIN_EXPECT, "<instance> <scheme>" PHD_PIN_SCHEME_SEPARATOR "<sha256>", "resp 0", \
+      "sent by the daemon to a " PHD_FORMAT_CLAP " worker just before the instance's add: the layout pin that add " \
+      "checks after init and before activate")
 
 /* ---------------------------------------------------------------- feedback events */
 
@@ -218,6 +244,7 @@ static inline int phd_pool_name_valid(const char *name)
 #define PHD_DEFAULT_CHECKPOINT_MS     5000
 #define PHD_DEFAULT_IDLE_MS           25
 #define PHD_DEFAULT_POOL_MAX          8
+#define PHD_DEFAULT_REQUIRE_PINS      1
 
 /* the settings file: one "key value" per line, '#' starts a comment.
  * A string setting: X(key, size, default, env, meaning); env names the variable that stands in for the default when
@@ -240,6 +267,8 @@ static inline int phd_pool_name_valid(const char *name)
       "a worker that dies this soon after a reply drops the verb it answered; 0 turns it off") \
     X(checkpoint_ms, PHD_DEFAULT_CHECKPOINT_MS, "ms", "a quiet interval with a changed ledger writes a checkpoint") \
     X(idle_ms, PHD_DEFAULT_IDLE_MS, "ms", "the period of the idle tick: reap, respawn, checkpoint") \
-    X(pool_max, PHD_DEFAULT_POOL_MAX, "instances", "instances in a pool before a sibling opens")
+    X(pool_max, PHD_DEFAULT_POOL_MAX, "instances", "instances in a pool before a sibling opens") \
+    X(require_pins, PHD_DEFAULT_REQUIRE_PINS, "", \
+      "1: add admits only a plugin pin_set pinned, its files hashed before any worker sees it; 0: no pin is checked")
 
 #endif

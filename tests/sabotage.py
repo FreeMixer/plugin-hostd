@@ -8,7 +8,8 @@ FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "
 
 # (what is broken, file, text, replacement, the test that must go red[, "jack"]); a "jack" test runs in tests/jack_e2e.sh
 # over the real workers and is skipped when OMX_CLAP_HOST is not set; "lv2" is a jack test that also needs mod-host and
-# an LV2 bundle (MOD_HOST, LV2_DIR, LV2_URI, LV2_BUNDLE, LV2_PARAM) and is skipped without them
+# an LV2 bundle (MOD_HOST, LV2_DIR, LV2_URI, LV2_BUNDLE, LV2_PARAM) and is skipped without them; "pin" breaks
+# include/plugin-hostd/pin.h and runs tests/pin_test.c
 SABOTAGE = [
     ("the verb tail is not replayed", "src/supervisor.c",
      "if (replay_line(w, i->tail[m].line) != RPC_OK)", "if (0 && replay_line(w, i->tail[m].line) != RPC_OK)",
@@ -58,6 +59,36 @@ SABOTAGE = [
      "    return NULL;", "lv2_own_worker_sees_one_bundle_and_replays_after_a_kill", "lv2"),
     ("the checkpoint is not loaded after a real respawn", "src/supervisor.c", "    if (any_ckpt)\n", "    if (0 && any_ckpt)\n",
      "clap_own_crash_replays_bit_identically_and_the_neighbour_never_notices", "jack"),
+    ("add checks no pin", "src/supervisor.c", "rc = pins_check(fmt == FMT_CLAP, fwd, g_conf.lv2_path, &layout);", "rc = SUCCESS;",
+     "an_unpinned_plugin_is_refused_by_default_and_no_worker_starts"),
+    ("a pin in a scheme this version does not know is a pin", "src/pins.c",
+     "if (!p || strcmp(p->scheme, PHD_PIN_LAYOUT_SCHEME))", "if (!p)",
+     "an_unpinned_plugin_is_refused_by_default_and_no_worker_starts"),
+    ("a file whose digest differs passes", "src/pins.c", "else if (phd_pin_fd_digest(fd, hex) != 0 || strcmp(hex, want))",
+     "else if (phd_pin_fd_digest(fd, hex) != 0)", "a_swapped_clap_binary_is_refused_before_any_worker_sees_add"),
+    ("a pin need not hold the .clap it admits", "src/pins.c", "if (held(p, slash + 1) < 0)", "if (0)",
+     "a_swapped_clap_binary_is_refused_before_any_worker_sees_add"),
+    ("the layout pin is not handed to the CLAP worker", "src/supervisor.c", "    if (layout && fmt == FMT_CLAP)\n", "    if (0)\n",
+     "a_changed_layout_is_refused_by_the_worker_and_reaches_the_client"),
+    ("a worker's refusal of the layout pin is not a refusal", "src/supervisor.c",
+     "if (rc == RPC_OK && resp_code(reply) >= 0)", "if (rc == RPC_OK)",
+     "a_changed_layout_is_refused_by_the_worker_and_reaches_the_client"),
+    ("the manifest may name a file the pin does not hold", "src/pins.c", "if (held(p, names.name[n]) < 0)", "if (0)",
+     "an_lv2_bundle_is_pinned_by_its_manifest_binary_and_seealso"),
+    ("the manifest's bytes are not compared with the pin", "src/pins.c", "if (got != st.st_size || strcmp(hex, want))",
+     "if (got != st.st_size)", "an_lv2_bundle_is_pinned_by_its_manifest_binary_and_seealso"),
+    ("a replayed add is not checked again", "src/supervisor.c", "    i->unreplayed = 0;\n    if (!g_conf.require_pins)",
+     "    i->unreplayed = 0;\n    if (1)", "a_binary_swapped_while_its_worker_was_down_is_not_replayed"),
+    ("the verbs of an instance its pin refused on replay are replayed", "src/supervisor.c",
+     "        if (i->unreplayed)\n            continue;\n        for (m = 0; m < i->ntail; m++)",
+     "        for (m = 0; m < i->ntail; m++)", "a_binary_swapped_while_its_worker_was_down_is_not_replayed"),
+    ("a SHA-256 round constant is wrong", "include/plugin-hostd/pin.h", "0x428a2f98, 0x71374491", "0x428a2f98, 0x71374490",
+     "pin.h", "pin"),
+    ("a tab in a name is not escaped", "include/plugin-hostd/pin.h", "*s == '\\t' ? \"\\\\t\" : ", "", "pin.h", "pin"),
+    ("an LV2 port's properties are not sorted", "include/plugin-hostd/pin.h",
+     "            qsort(props, p->nproperties, sizeof(*props), phd_layout_bytewise);\n", "", "pin.h", "pin"),
+    ("a number declared by no port is written as its bits", "include/plugin-hostd/pin.h",
+     "    if (!declared)\n", "    if (0)\n", "pin.h", "pin"),
 ]
 
 
@@ -66,7 +97,17 @@ def build(tree):
                    stdout=subprocess.DEVNULL)
 
 
+def run_pin_test(tree):
+    exe = os.path.join(tree, "pin-test")
+    subprocess.run(["cc", "-I" + os.path.join(tree, "include"), "-std=gnu99", "-o", exe,
+                    os.path.join(ROOT, "tests", "pin_test.c")], check=True)
+    p = subprocess.run([exe], capture_output=True, text=True, timeout=60)
+    return p.returncode, p.stdout
+
+
 def run_test(tree, name, jack=False):
+    if jack == "pin":
+        return run_pin_test(tree)
     env = dict(os.environ, ONLY=name, PLUGIN_HOSTD=os.path.join(tree, "plugin-hostd"), FAKE_HOST=FAKE)
     cmd = [os.path.join(ROOT, "tests", "jack_e2e.sh")] if jack else [sys.executable, os.path.join(ROOT, "tests", "daemon_test.py")]
     p = subprocess.run(cmd, env=env, cwd=ROOT, capture_output=True, text=True, timeout=300)
@@ -78,8 +119,8 @@ work = tempfile.mkdtemp(prefix="plugin-hostd-sabotage.")
 try:
     for entry in SABOTAGE:
         what, path, text, repl, name = entry[:5]
-        jack = len(entry) > 5
-        if jack and not os.environ.get("OMX_CLAP_HOST"):
+        jack = entry[5] if len(entry) > 5 else False
+        if jack in ("jack", "lv2") and not os.environ.get("OMX_CLAP_HOST"):
             print("skip sabotage (no OMX_CLAP_HOST): %s" % what)
             continue
         if entry[5:] == ("lv2",) and not all(os.environ.get(v) for v in ("MOD_HOST", "LV2_DIR", "LV2_URI", "LV2_BUNDLE", "LV2_PARAM")):

@@ -26,10 +26,13 @@
     {"name": "PLACEMENT_INVALID", "macro": "PHD_ERR_PLACEMENT_INVALID", "code": -501, "meaning": "placement invalid"},
     {"name": "NO_BACKEND", "macro": "PHD_ERR_NO_BACKEND", "code": -502, "meaning": "no worker program for the scheme"},
     {"name": "WORKER_SPAWN", "macro": "PHD_ERR_WORKER_SPAWN", "code": -503, "meaning": "the worker is not up: the spawn failed, or it is in backoff; ask again after instance_restored"},
-    {"name": "REPLAY", "macro": "PHD_ERR_REPLAY", "code": -504, "meaning": "reserved: declared, and not returned by this version"},
+    {"name": "REPLAY", "macro": "PHD_ERR_REPLAY", "code": -504, "meaning": "reserved: not returned as a reply by this version; a replayed add its pin refuses is written to stderr with it and the pin's code"},
     {"name": "GAVE_UP", "macro": "PHD_ERR_GAVE_UP", "code": -505, "meaning": "the storm bound is spent for that placement"},
     {"name": "NO_SUCH_WORKER", "macro": "PHD_ERR_NO_SUCH_WORKER", "code": -506, "meaning": "no such worker"},
-    {"name": "VERB_DROPPED", "macro": "PHD_ERR_VERB_DROPPED", "code": -507, "meaning": "the worker died on this very command and the daemon dropped it: it is not replayed, and the instance_verb_dropped event names it"}
+    {"name": "VERB_DROPPED", "macro": "PHD_ERR_VERB_DROPPED", "code": -507, "meaning": "the worker died on this very command and the daemon dropped it: it is not replayed, and the instance_verb_dropped event names it"},
+    {"name": "PIN_ABSENT", "macro": "PHD_ERR_PIN_ABSENT", "code": -508, "meaning": "require_pins is on and the plugin has no pin, or its layout pin is in a scheme this version does not know: add is refused and no worker sees it"},
+    {"name": "PIN_BINARY_MISMATCH", "macro": "PHD_ERR_PIN_BINARY_MISMATCH", "code": -509, "meaning": "a pinned file is missing or its SHA-256 differs, or the plugin's manifest names a file the pin does not hold: add is refused and no worker sees it"},
+    {"name": "PIN_LAYOUT_MISMATCH", "macro": "PHD_ERR_PIN_LAYOUT_MISMATCH", "code": -510, "meaning": "the worker found the parameter layout after init differs from the layout pin: the instance is destroyed before activate"}
   ],
   "verbs": [
     {"name": "add", "arguments": "<uri> <instance> [own | pool:<name> | default] [client_name]", "reply": "resp <instance>", "meaning": "mod-host's add with a placement; a token after the instance that is not a placement is the jack client name"},
@@ -39,7 +42,10 @@
     {"name": "quarantine_clear", "arguments": "<instance> | all", "reply": "resp 0", "meaning": "let a quarantined instance go back where its placement says"},
     {"name": "policy_set", "arguments": "<lv2 | clap | *> own | pool:<name>", "reply": "resp 0", "meaning": "the placement of an add that says default"},
     {"name": "pool_config", "arguments": "<name> <max_instances>", "reply": "resp 0", "meaning": "the instances a pool holds before a sibling opens"},
-    {"name": "worker_env", "arguments": "<lv2 | clap | *> <cpu-list|-> <nice|->", "reply": "resp 0", "meaning": "the cpu list and the nice value of the workers of a format, at spawn and on the ones running"}
+    {"name": "worker_env", "arguments": "<lv2 | clap | *> <cpu-list|-> <nice|->", "reply": "resp 0", "meaning": "the cpu list and the nice value of the workers of a format, at spawn and on the ones running"},
+    {"name": "pin_set", "arguments": "<uri> <path>=<sha256>[,<path>=<sha256>...] <scheme>:<sha256>", "reply": "resp 0", "meaning": "the pin of one plugin: the SHA-256 of every file the host loads for it, a path relative to the bundle (the .clap's directory for a CLAP), and its layout fingerprint; it replaces an earlier pin of the uri"},
+    {"name": "pin_clear", "arguments": "<uri> | all", "reply": "resp 0", "meaning": "forget the pin of one plugin, or of every one"},
+    {"name": "pin_expect", "arguments": "<instance> <scheme>:<sha256>", "reply": "resp 0", "meaning": "sent by the daemon to a clap worker just before the instance's add: the layout pin that add checks after init and before activate"}
   ],
   "events": [
     {"name": "worker_died", "fields": "<worker> <pid> <exit:N | signal:N> <instance>,...", "meaning": "a worker died; the instances it held, or - for none"},
@@ -65,6 +71,7 @@
     {"key": "suspect_window_ms", "type": "int", "default": 500, "unit": "ms", "meaning": "a worker that dies this soon after a reply drops the verb it answered; 0 turns it off"},
     {"key": "checkpoint_ms", "type": "int", "default": 5000, "unit": "ms", "meaning": "a quiet interval with a changed ledger writes a checkpoint"},
     {"key": "idle_ms", "type": "int", "default": 25, "unit": "ms", "meaning": "the period of the idle tick: reap, respawn, checkpoint"},
-    {"key": "pool_max", "type": "int", "default": 8, "unit": "instances", "meaning": "instances in a pool before a sibling opens"}
+    {"key": "pool_max", "type": "int", "default": 8, "unit": "instances", "meaning": "instances in a pool before a sibling opens"},
+    {"key": "require_pins", "type": "int", "default": 1, "unit": "", "meaning": "1: add admits only a plugin pin_set pinned, its files hashed before any worker sees it; 0: no pin is checked"}
   ]
 }
