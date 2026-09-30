@@ -10,6 +10,8 @@ STRESS = "clap:%s#org.plugin-hostd.test.stress" % os.environ["STRESS_CLAP"]
 LEVELS = os.environ["JACK_LEVELS"]
 MOD_HOST = os.environ.get("MOD_HOST")
 LV2_DIR = os.environ.get("LV2_DIR")
+HOST_SCENARIOS = os.environ.get("HOST_SCENARIOS")
+SCENARIOS = os.environ.get("SCENARIOS")
 DELAY_URI = "urn:openmixer:dpf:delay"
 TESTS = []
 LEVEL, CRASH = 3, 0
@@ -59,6 +61,33 @@ def crash(d, inst):
 
 def ckpt(d, inst):
     return os.path.join(d.tmp, "plugin-hostd", str(d.proc.pid), "ckpt", "effect_%d.clapstate" % inst)
+
+
+def run_scenarios(uri, bad_uri, param, port_a, port_b):
+    """mod-host's own scenario corpus, unmodified, against the daemon with no placement and no verb of ours,
+    started the way a controller starts mod-host (-n -p <port>: no feedback port, and the runner opens none)"""
+    d = daemon(feedback=False)
+    try:
+        d.sock.close()   # one controller at a time, as in mod-host: the runner is the controller here
+        state = tempfile.mkdtemp(dir=d.tmp)
+        r = subprocess.run([HOST_SCENARIOS, str(d.cmd_port), SCENARIOS, "URI=" + uri, "BAD_URI=" + bad_uri, "PARAM=" + param,
+                            "DIR=" + state, "PORT_A=" + port_a, "PORT_B=" + port_b, "REMOVE_TWICE=resp 0"],
+                           capture_output=True, text=True, timeout=120)
+        check(r.returncode == 0, "the scenario corpus against the daemon: rc %d\n%s%s" % (r.returncode, r.stdout, r.stderr))
+        check("0 failed" in r.stdout, r.stdout)
+    finally:
+        d.close()
+
+
+if HOST_SCENARIOS and SCENARIOS and os.path.exists(HOST_SCENARIOS) and os.path.exists(SCENARIOS):
+    @test
+    def mod_host_scenarios_pass_unchanged_with_a_clap_worker():
+        run_scenarios(STRESS, "clap:/nonexistent.clap#no.such.plugin", str(LEVEL), "effect_3:out_1", "effect_3:in_1")
+
+    if MOD_HOST and LV2_DIR:
+        @test
+        def mod_host_scenarios_pass_unchanged_with_an_lv2_worker():
+            run_scenarios(DELAY_URI, "urn:no:such:plugin", "mix", "effect_3:lv2_audio_out_1", "effect_3:lv2_audio_in_1")
 
 
 @test
