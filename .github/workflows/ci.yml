@@ -16,7 +16,7 @@ permissions:
   contents: read
 
 env:
-  OMX_CLAP_HOST_REF: b379d95f41ff7b7764c8022238001138bfc8ce0f
+  OMX_CLAP_HOST_REF: 07885b2358aabdf57581d8db5d89ba634898aebd
 
 jobs:
   test:
@@ -53,13 +53,16 @@ jobs:
           ref: ${{ env.OMX_CLAP_HOST_REF }}
           path: omx-clap-host
 
+      # the worker, and its meter fixtures: a compressor that reports meters, and a constant jack source
       - name: Build the CLAP worker
-        run: make -C omx-clap-host omx-clap-host
+        run: make -C omx-clap-host omx-clap-host tests/fake_compressor.clap tests/jack_meter_source
 
       # The daemon with the real worker over jack, in a PipeWire of its own. It needs a private user
       # namespace with its own /proc; a runner that refuses one cannot run it, and the step says so.
       - name: Test the daemon with a real worker over jack, then break every guard on purpose
         run: |
+          export FAKE_COMPRESSOR_CLAP=$PWD/omx-clap-host/tests/fake_compressor.clap
+          export JACK_METER_SOURCE=$PWD/omx-clap-host/tests/jack_meter_source
           if unshare --user --map-root-user --net --pid --fork --mount-proc true; then
             make test-jack OMX_CLAP_HOST=$PWD/omx-clap-host/omx-clap-host
             OMX_CLAP_HOST=$PWD/omx-clap-host/omx-clap-host make sabotage
