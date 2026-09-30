@@ -169,7 +169,7 @@ def connections_are_replayed_and_disconnect_forgets():
 
 @test
 def replay_is_text_identical_and_state_checkpoint_is_byte_identical():
-    d = daemon()
+    d = daemon(conf={"checkpoint_ms": 300})
     try:
         d.expect("add fake:a 0", "resp 0")
         d.expect("param_set 0 old 9.0000", "resp 0")
@@ -206,7 +206,7 @@ def replay_is_text_identical_and_state_checkpoint_is_byte_identical():
 
 @test
 def instance_without_state_replays_from_verbs_alone():
-    d = daemon()
+    d = daemon(conf={"checkpoint_ms": 300})
     try:
         d.expect("add fake:nostate 0", "resp 0")
         d.expect("param_set 0 gain 0.6000", "resp 0")

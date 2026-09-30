@@ -3,6 +3,9 @@
 import os, re, shutil, signal, socket, subprocess, tempfile, threading, time
 
 
+DAEMONS = []
+
+
 class Fail(Exception):
     pass
 
@@ -50,11 +53,12 @@ def wait_for(cond, what, timeout=10.0, step=0.02):
 class Daemon:
     def __init__(self, exe, worker, clap_worker=None, conf=None, env=None, feedback=True):
         self.exe = exe
+        DAEMONS.append(self)
         self.tmp = tempfile.mkdtemp(prefix="plugin-hostd-test.")
         self.cmd_port, self.fb_port = port_pair()
         settings = {
             "mod_host": worker, "clap_host": clap_worker or worker, "state_root": self.tmp,
-            "backoff_base_ms": 20, "backoff_max_ms": 80, "checkpoint_ms": 300, "ready_timeout_ms": 4000,
+            "backoff_base_ms": 20, "backoff_max_ms": 80, "checkpoint_ms": 600000, "ready_timeout_ms": 4000,
             "rpc_timeout_ms": 1500, "idle_ms": 10,
         }
         settings.update(conf or {})
@@ -75,6 +79,7 @@ class Daemon:
         self.sock = socket.create_connection(("127.0.0.1", self.cmd_port), timeout=10)
         self.fb = socket.create_connection(("127.0.0.1", self.fb_port), timeout=10) if feedback else None
         if self.fb:
+            self.fb.settimeout(None)   # silence on the feedback port is not an error
             threading.Thread(target=self._read_feedback, daemon=True).start()
 
     def log(self):
@@ -117,6 +122,17 @@ class Daemon:
         r = self.send(msg)
         check(r == expect, "%s -> %r, wanted %r" % (msg, r, expect))
 
+    def until_ok(self, msg, timeout=5.0):
+        """a jack port is announced to the other clients a moment after it is registered: ask again"""
+        end = time.monotonic() + timeout
+        while True:
+            r = self.send(msg)
+            if r == "resp 0":
+                return
+            if time.monotonic() > end:
+                raise Fail("%s -> %r after %.0f s" % (msg, r, timeout))
+            time.sleep(0.05)
+
     def workers(self):
         r = self.send("worker_list")
         parts = r.split()
@@ -137,6 +153,8 @@ class Daemon:
 
     def wait_event(self, prefix, timeout=10.0, since=0):
         def find():
+            if self.proc.poll() is not None:
+                raise Fail("the daemon exited with %s: %s" % (self.proc.returncode, self.log()[-600:]))
             with self.lock:
                 for i, e in enumerate(self.events):
                     if i >= since and e.startswith(prefix):
@@ -158,6 +176,12 @@ class Daemon:
         return None
 
     def close(self, kill_workers=True):
+        self.snap = "daemon exit %s, events %s, log:\n%s" % (self.proc.poll(), self.events[-12:], self.log()[-800:])
+        try:
+            self.sock.settimeout(3)
+            self.snap += "\nworkers: " + self.send("worker_list")
+        except Exception as e:
+            self.snap += "\nworker_list failed: %r" % (e,)
         try:
             if self.proc.poll() is None:
                 self.proc.terminate()
@@ -175,14 +199,14 @@ def run_tests(tests):
     for name, fn in tests:
         if only and only != name:
             continue
+        del DAEMONS[:]
         try:
             fn()
             print("ok   " + name, flush=True)
-        except Fail as e:
+        except (Fail, Exception) as e:
             failed += 1
-            print("FAIL %s: %s" % (name, e), flush=True)
-        except Exception as e:
-            failed += 1
-            print("FAIL %s: %s: %s" % (name, type(e).__name__, e), flush=True)
+            print("FAIL %s: %s" % (name, e if isinstance(e, Fail) else "%s: %s" % (type(e).__name__, e)), flush=True)
+            for d in DAEMONS:
+                print("     " + getattr(d, "snap", "daemon not closed"), flush=True)
     print("%s (%d failed)" % ("plugin-hostd tests FAILED" if failed else "plugin-hostd tests ok", failed))
     return 1 if failed else 0
