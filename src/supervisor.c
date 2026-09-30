@@ -972,7 +972,7 @@ char *sup_remove(int id)
     int rc;
 
     if (!i)
-        return sup_resp(ERR_INSTANCE_NON_EXISTS);
+        return sup_resp(SUCCESS);   /* mod-host's remove of an instance it does not hold is not an error */
     w = i->w;
     if (w->state == W_UP)
     {
