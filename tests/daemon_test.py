@@ -811,6 +811,30 @@ def an_lv2_bundle_is_pinned_by_its_manifest_binary_and_seealso():
 
 
 @test
+def a_pinned_lv2_plugin_gets_a_worker_of_its_own():
+    p = Plugins()
+    d = p.daemon()
+    try:
+        d.expect(p.lv2_pin(), "resp 0")
+        d.expect("add %s 0 pool:fx" % LV2_URI, resp("PLACEMENT_INVALID"))
+        check(d.workers() == {} and p.received() == [], "a refused pool starts no worker: %s" % d.workers())
+        d.expect("policy_set lv2 pool:fx", "resp 0")
+        d.expect("add %s 1 default" % LV2_URI, "resp 1")
+        d.expect("add %s 2" % LV2_URI, "resp 2")
+        for i in (1, 2):
+            check(d.holder(i)[1]["place"] == "own" and d.holder(i)[1]["inst"] == [i],
+                  "a default that resolves to a pool is placed own: %s" % d.workers())
+        d.expect(p.clap_pin(), "resp 0")
+        d.expect("add %s 3 pool:fx" % p.clap_uri, "resp 3")
+        d.expect("add %s 4 pool:fx" % p.clap_uri, "resp 4")
+        check(d.holder(3)[1]["place"] == "pool:fx" and d.holder(3)[1]["inst"] == [3, 4],
+              "a pinned CLAP still goes into a pool: %s" % d.workers())
+    finally:
+        d.close()
+        p.close()
+
+
+@test
 def a_binary_swapped_while_its_worker_was_down_is_not_replayed():
     p = Plugins()
     d = p.daemon()
