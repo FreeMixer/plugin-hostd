@@ -131,6 +131,7 @@ jobs:
         with:
           rpms: |
             mod-host-rpms/mod-host-[0-9]*.rpm
+            mod-host-rpms/mod-host-protocol-[0-9]*.rpm
             rpms/plugin-hostd-[0-9]*.${{ matrix.arch }}.rpm
           packages: python3
 

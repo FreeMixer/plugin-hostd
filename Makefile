@@ -106,7 +106,7 @@ test: test-pin test-daemon check-generated check-schema test-consumer test-pertu
 test-daemon: $(PROG) $(FAKE)
 	PLUGIN_HOSTD=./$(PROG) FAKE_HOST=./$(FAKE) python3 tests/daemon_test.py
 
-$(FAKE): tests/fake_host.c $(PROTOCOL_LIB)
+$(FAKE): tests/fake_host.c src/verbs.h $(PROTOCOL_LIB)
 	$(CC) $(INCS) $(CFLAGS) -Werror -o $@ $< $(PROTOCOL_LIBS) -lm
 
 # include/plugin-hostd/pin.h against answers it did not compute
