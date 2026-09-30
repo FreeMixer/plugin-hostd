@@ -867,9 +867,10 @@ def a_binary_swapped_while_its_worker_was_down_is_not_replayed():
         check([c for pid, c in p.received() if int(pid) == new] == [],
               "the new worker got neither the add nor the verbs of the refused instance: %s" % p.received())
         check(not [e for e in d.events[mark:] if e.startswith("instance_restored 0 ")], "instance 0 is not restored")
+        d.wait_event("instance_replay_refused 0 %d" % harness.CODE["PIN_BINARY_MISMATCH"], since=mark)
         log = d.log()
-        check("resp %d" % harness.CODE["REPLAY"] in log and "resp %d" % harness.CODE["PIN_BINARY_MISMATCH"] in log,
-              "the refusal is written with PHD_ERR_REPLAY and the pin's code: %s" % log[-400:])
+        check("resp %d, its pin resp %d" % (harness.CODE["REPLAY"], harness.CODE["PIN_BINARY_MISMATCH"]) in log,
+              "the refusal is written with PHD_ERR_REPLAY, the step and the pin's code: %s" % log[-400:])
         write(p.clap, good)
         mark = d.mark()
         os.kill(new, signal.SIGKILL)
@@ -878,6 +879,32 @@ def a_binary_swapped_while_its_worker_was_down_is_not_replayed():
         check([c for pid, c in p.received() if int(pid) == again][:3] ==
               ["pin_expect 0 %s" % fake_layout(), "add %s 0" % p.clap_uri, "param_set 0 gain 0.7"],
               "with the true binary back the replay checks the layout, adds and replays: %s" % p.received())
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def a_layout_pinned_again_while_its_worker_was_down_is_refused_by_the_replayed_add():
+    p = Plugins()
+    d = p.daemon()
+    try:
+        d.expect(p.clap_pin(), "resp 0")
+        d.expect("add %s 0" % p.clap_uri, "resp 0")
+        d.expect("param_set 0 gain 0.7", "resp 0")
+        _, w = d.holder(0)
+        d.expect(p.clap_pin(fake_layout("0.25")), "resp 0")
+        mark = d.mark()
+        os.kill(w["pid"], signal.SIGKILL)
+        d.wait_event("instance_replay_refused 0 %d" % harness.CODE["PIN_LAYOUT_MISMATCH"], since=mark)
+        d.wait_event("worker_respawned", since=mark)
+        new = d.holder(0)[1]["pid"]
+        check([c for pid, c in p.received() if int(pid) == new] ==
+              ["pin_expect 0 %s" % fake_layout("0.25"), "add %s 0" % p.clap_uri],
+              "the worker refused the replayed add and got none of its verbs: %s" % p.received())
+        check(not [e for e in d.events[mark:] if e.startswith("instance_restored 0 ")], "instance 0 is not restored")
+        check("resp %d, its add resp %d" % (harness.CODE["REPLAY"], harness.CODE["PIN_LAYOUT_MISMATCH"]) in d.log(),
+              "the refusal is written with PHD_ERR_REPLAY, the step and the worker's code: %s" % d.log()[-400:])
     finally:
         d.close()
         p.close()
