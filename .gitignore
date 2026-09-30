@@ -5,3 +5,5 @@ tests/*.clap
 __pycache__/
 tests/jack_levels
 tests/host_scenarios
+tools/protocol-gen
+*.new

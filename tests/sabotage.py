@@ -20,7 +20,7 @@ SABOTAGE = [
     ("a pool that died in a callback is not split", "src/supervisor.c", "else if (w->ninst > 1)", "else if (0)",
      "pool_callback_crash_splits_the_pool_and_the_culprit_comes_back_own"),
     ("the verb the worker died on is put in the ledger and replayed", "src/supervisor.c",
-     "    event(\"instance_verb_dropped %d %s\", i->id, line);\n", "    ledger_verb(i, line);\n",
+     "    event(PHD_EVENT_VERB_DROPPED_FMT, i->id, line);\n", "    ledger_verb(i, line);\n",
      "the_verb_the_worker_died_on_is_dropped_and_not_replayed"),
     ("the suspect window is zero", "src/supervisor.c", "now - i->sus_ms <= g_conf.suspect_window_ms", "0",
      "a_crash_just_after_the_reply_drops_the_verb_it_answered_and_does_not_crash_again"),
@@ -39,9 +39,9 @@ SABOTAGE = [
     ("a failed add is never counted against its instance", "src/supervisor.c",
      "if (recent(m->deaths, &m->ndeaths, now) >= g_conf.storm_deaths)", "if (0)",
      "storm_bound_is_per_placement_and_reset_rearms_it"),
-    ("every instance gets a worker of its own", "src/supervisor.c", "if (!strcmp(place, \"own\"))", "if (1)",
+    ("every instance gets a worker of its own", "src/supervisor.c", "if (!strcmp(place, PHD_PLACE_OWN))", "if (1)",
      "placement_own_default_and_pool"),
-    ("a quarantined instance goes where the hint says", "src/supervisor.c", "    if (m->quarantined)\n        snprintf(place, sizeof(place), \"own\");",
+    ("a quarantined instance goes where the hint says", "src/supervisor.c", "    if (m->quarantined)\n        snprintf(place, sizeof(place), PHD_PLACE_OWN);",
      "", "quarantined_instance_is_placed_own_until_cleared"),
     ("workers outlive a killed daemon", "src/proc.c", "prctl(PR_SET_PDEATHSIG, SIGTERM);", "",
      "sigkill_of_the_daemon_takes_the_workers_with_it"),
@@ -88,6 +88,7 @@ try:
         tree = os.path.join(work, "t")
         shutil.rmtree(tree, ignore_errors=True)
         shutil.copytree(os.path.join(ROOT, "src"), os.path.join(tree, "src"))
+        shutil.copytree(os.path.join(ROOT, "include"), os.path.join(tree, "include"))
         shutil.copy(os.path.join(ROOT, "Makefile"), tree)
         build(tree)
         code, out = run_test(tree, name, jack)

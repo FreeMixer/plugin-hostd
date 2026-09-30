@@ -3,6 +3,7 @@ CC ?= gcc
 
 # program names
 PROG = plugin-hostd
+VERSION = $(shell sed -n "s/^Version: *//p" packaging/plugin-hostd.spec)
 FAKE = tests/fake-host
 
 PKG_CONFIG ?= pkg-config
@@ -67,9 +68,23 @@ BINDIR = $(PREFIX)/bin
 
 MANDIR = $(PREFIX)/share/man/man1
 
-install: $(PROG) install_man
+DATADIR = $(PREFIX)/share
+INCLUDEDIR = $(PREFIX)/include
+
+install: $(PROG) install_man install_protocol
 	install -d $(DESTDIR)$(BINDIR)
 	install -m 755 $(PROG) $(DESTDIR)$(BINDIR)
+
+# the declared protocol: the JSON for readers that are not C, and the header and its pkg-config file, which the
+# development package carries
+install_protocol:
+	install -d $(DESTDIR)$(DATADIR)/plugin-hostd
+	install -m 644 protocol/plugin-hostd.json $(DESTDIR)$(DATADIR)/plugin-hostd/protocol.json
+	install -d $(DESTDIR)$(INCLUDEDIR)/plugin-hostd
+	install -m 644 include/plugin-hostd/protocol.h $(DESTDIR)$(INCLUDEDIR)/plugin-hostd/protocol.h
+	install -d $(DESTDIR)$(DATADIR)/pkgconfig
+	sed -e 's,@PREFIX@,$(PREFIX),g' -e 's,@VERSION@,$(VERSION),g' protocol/plugin-hostd.pc.in > $(DESTDIR)$(DATADIR)/pkgconfig/plugin-hostd.pc
+	chmod 644 $(DESTDIR)$(DATADIR)/pkgconfig/plugin-hostd.pc
 
 install_man:
 	install -d $(DESTDIR)$(MANDIR)
@@ -77,11 +92,11 @@ install_man:
 
 # clean rule
 clean:
-	@rm -f src/*.o $(PROG) $(FAKE) tests/stress.clap tests/jack_levels tests/host_scenarios
+	@rm -f src/*.o $(PROG) $(FAKE) $(GEN) tests/stress.clap tests/jack_levels tests/host_scenarios
 
 # the daemon against workers that are not plugin hosts at all (tests/fake-host speaks the same protocol and can be
 # made to die on cue): placement, forwarding, ledger, replay, attribution, the storm bound; no jack, no plugin
-test: test-daemon
+test: test-daemon check-generated
 	MOD_HOST_DIR=$(MOD_HOST_DIR) python3 tests/verbs_contract.py
 
 # the same without the verb table, which is read from a mod-host checkout's README
@@ -110,3 +125,26 @@ tests/host_scenarios: $(MOD_HOST_DIR)/tests/host_scenarios.c $(PROTOCOL_LIB)
 
 tests/jack_levels: tests/jack_levels.c
 	$(CC) $(shell $(PKG_CONFIG) --cflags jack) $(CFLAGS) -Werror -o $@ $< $(shell $(PKG_CONFIG) --libs jack) -lm
+
+# what include/plugin-hostd/protocol.h declares, written out: README.md and the man page between their markers, and
+# protocol/plugin-hostd.json, the same for readers that are not C
+GEN = tools/protocol-gen
+GENERATED = README.md doc/plugin-hostd.1 protocol/plugin-hostd.json
+
+$(GEN): tools/protocol-gen.c include/plugin-hostd/protocol.h
+	$(CC) -Wall -Wextra -Werror -std=gnu99 -Iinclude -o $@ tools/protocol-gen.c
+
+gen: $(GEN)
+	$(GEN) json > protocol/plugin-hostd.json.new && mv protocol/plugin-hostd.json.new protocol/plugin-hostd.json
+	for f in README.md doc/plugin-hostd.1; do $(GEN) splice $$f > $$f.new && mv $$f.new $$f || exit 1; done
+
+# fails on any drift: every generated output must be byte-identical to a fresh generation, every region the generator
+# knows must be in a file, and the JSON must satisfy its schema
+check-generated: $(GEN)
+	@set -e; tmp=$$(mktemp -d); trap 'rm -rf $$tmp' EXIT; \
+	$(GEN) json > $$tmp/json; cmp $$tmp/json protocol/plugin-hostd.json; \
+	for f in README.md doc/plugin-hostd.1; do $(GEN) splice $$f > $$tmp/out; cmp $$tmp/out $$f; done; \
+	$(GEN) regions > $$tmp/regions; test -s $$tmp/regions; \
+	while read r; do grep -q "BEGIN GENERATED protocol:$$r\( .*\)\?$$" README.md doc/plugin-hostd.1 || { echo "region $$r is in no file"; exit 1; }; done < $$tmp/regions; \
+	python3 tests/protocol_schema.py protocol/plugin-hostd.json protocol/plugin-hostd.schema.json; \
+	echo "generated files are current"
