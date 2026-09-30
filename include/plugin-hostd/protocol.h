@@ -137,7 +137,8 @@ static inline int phd_pool_name_valid(const char *name)
     X(GAVE_UP, "the storm bound is spent for that placement") \
     X(NO_SUCH_WORKER, "no such worker") \
     X(VERB_DROPPED, "the worker died on this very command and the daemon dropped it: it is not replayed, " \
-                    "and the instance_verb_dropped event names it") \
+                    "and the instance_verb_dropped event names it; or it died on, or did not answer in rpc_timeout_ms, " \
+                    "the " PHD_VERB_PIN_EXPECT " of an add, which is then never forwarded") \
     X(PIN_ABSENT, "require_pins is on and the plugin has no pin, or its layout pin is in a scheme this version does " \
                   "not know: add is refused and no worker sees it") \
     X(PIN_BINARY_MISMATCH, "a pinned file is missing or its SHA-256 differs, or the plugin's manifest names a file the " \
@@ -190,7 +191,8 @@ static inline int phd_pool_name_valid(const char *name)
     X(PIN_CLEAR, PHD_VERB_PIN_CLEAR, "<uri> | " PHD_WORD_ALL, "resp 0", "forget the pin of one plugin, or of every one") \
     X(PIN_EXPECT, PHD_VERB_PIN_EXPECT, "<instance> <scheme>" PHD_PIN_SCHEME_SEPARATOR "<sha256>", "resp 0", \
       "sent by the daemon to a " PHD_FORMAT_CLAP " worker just before the instance's add: the layout pin that add " \
-      "checks after init and before activate")
+      "checks after init and before activate; any other reply than resp 0 refuses the add with that code, and the " \
+      "add is never forwarded")
 
 /* ---------------------------------------------------------------- feedback events */
 
@@ -220,7 +222,7 @@ static inline int phd_pool_name_valid(const char *name)
     X(PHD_EVENT_WORKER_DIED, "<worker> <pid> <exit:N | signal:N> <instance>,...", \
       "a worker died; the instances it held, or - for none") \
     X(PHD_EVENT_INSTANCE_VERB_DROPPED, "<instance> <the command as sent>", \
-      "the command a worker died on, dropped from the ledger") \
+      "the command a worker died on, dropped from the ledger, or the " PHD_VERB_PIN_EXPECT " of an add it died on") \
     X(PHD_EVENT_INSTANCE_VERB_DROPPED, "<instance> " PHD_EVENT_SUSPECT_PREFIX "<ms> <the command as sent>", \
       "the last verb a worker answered when it died inside suspect_window_ms, <ms> the age of the reply") \
     X(PHD_EVENT_WORKER_BACKOFF, "<worker> <ms>", "the respawn waits this long") \

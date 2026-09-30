@@ -29,7 +29,7 @@
     {"name": "REPLAY", "macro": "PHD_ERR_REPLAY", "code": -504, "meaning": "reserved: not returned as a reply by this version; a replayed add its pin refuses is written to stderr with it and the pin's code"},
     {"name": "GAVE_UP", "macro": "PHD_ERR_GAVE_UP", "code": -505, "meaning": "the storm bound is spent for that placement"},
     {"name": "NO_SUCH_WORKER", "macro": "PHD_ERR_NO_SUCH_WORKER", "code": -506, "meaning": "no such worker"},
-    {"name": "VERB_DROPPED", "macro": "PHD_ERR_VERB_DROPPED", "code": -507, "meaning": "the worker died on this very command and the daemon dropped it: it is not replayed, and the instance_verb_dropped event names it"},
+    {"name": "VERB_DROPPED", "macro": "PHD_ERR_VERB_DROPPED", "code": -507, "meaning": "the worker died on this very command and the daemon dropped it: it is not replayed, and the instance_verb_dropped event names it; or it died on, or did not answer in rpc_timeout_ms, the pin_expect of an add, which is then never forwarded"},
     {"name": "PIN_ABSENT", "macro": "PHD_ERR_PIN_ABSENT", "code": -508, "meaning": "require_pins is on and the plugin has no pin, or its layout pin is in a scheme this version does not know: add is refused and no worker sees it"},
     {"name": "PIN_BINARY_MISMATCH", "macro": "PHD_ERR_PIN_BINARY_MISMATCH", "code": -509, "meaning": "a pinned file is missing or its SHA-256 differs, or the plugin's manifest names a file the pin does not hold: add is refused and no worker sees it"},
     {"name": "PIN_LAYOUT_MISMATCH", "macro": "PHD_ERR_PIN_LAYOUT_MISMATCH", "code": -510, "meaning": "the worker found the parameter layout after init differs from the layout pin: the instance is destroyed before activate"}
@@ -45,11 +45,11 @@
     {"name": "worker_env", "arguments": "<lv2 | clap | *> <cpu-list|-> <nice|->", "reply": "resp 0", "meaning": "the cpu list and the nice value of the workers of a format, at spawn and on the ones running"},
     {"name": "pin_set", "arguments": "<uri> <path>=<sha256>[,<path>=<sha256>...] <scheme>:<sha256>", "reply": "resp 0", "meaning": "the pin of one plugin: the SHA-256 of every file the host loads for it, a path relative to the bundle (the .clap's directory for a CLAP), and its layout fingerprint; it replaces an earlier pin of the uri"},
     {"name": "pin_clear", "arguments": "<uri> | all", "reply": "resp 0", "meaning": "forget the pin of one plugin, or of every one"},
-    {"name": "pin_expect", "arguments": "<instance> <scheme>:<sha256>", "reply": "resp 0", "meaning": "sent by the daemon to a clap worker just before the instance's add: the layout pin that add checks after init and before activate"}
+    {"name": "pin_expect", "arguments": "<instance> <scheme>:<sha256>", "reply": "resp 0", "meaning": "sent by the daemon to a clap worker just before the instance's add: the layout pin that add checks after init and before activate; any other reply than resp 0 refuses the add with that code, and the add is never forwarded"}
   ],
   "events": [
     {"name": "worker_died", "fields": "<worker> <pid> <exit:N | signal:N> <instance>,...", "meaning": "a worker died; the instances it held, or - for none"},
-    {"name": "instance_verb_dropped", "fields": "<instance> <the command as sent>", "meaning": "the command a worker died on, dropped from the ledger"},
+    {"name": "instance_verb_dropped", "fields": "<instance> <the command as sent>", "meaning": "the command a worker died on, dropped from the ledger, or the pin_expect of an add it died on"},
     {"name": "instance_verb_dropped", "fields": "<instance> suspect:<ms> <the command as sent>", "meaning": "the last verb a worker answered when it died inside suspect_window_ms, <ms> the age of the reply"},
     {"name": "worker_backoff", "fields": "<worker> <ms>", "meaning": "the respawn waits this long"},
     {"name": "worker_respawned", "fields": "<worker> <pid> <replayed_count> <ms>", "meaning": "a worker is back and its ledger replayed"},
