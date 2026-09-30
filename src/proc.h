@@ -35,13 +35,14 @@ typedef struct WORKER_ENV_T {
 
 void proc_env_clear(worker_env_t *env);
 
-/* Start `bin` as "<bin> -n -p <port>" on a free port, its stdout and stderr in `logfile`.
- * `lv2_path` replaces LV2_PATH in the worker's environment when not NULL. */
+/* Start `bin` as "<bin> -n -p <port> -f <fb_port>" (PHD_WORKER_ARGUMENTS) on two free ports, its stdout and stderr
+ * in `logfile`. `lv2_path` replaces LV2_PATH in the worker's environment when not NULL. */
 int proc_spawn(const conf_t *conf, const char *bin, const char *lv2_path, const worker_env_t *env,
-               const char *logfile, pid_t *pid, int *port);
+               const char *logfile, pid_t *pid, int *port, int *fb_port);
 
-/* Wait for the worker's socket to accept and its "ready!" line; returns the command socket or -1. */
-int proc_connect(const conf_t *conf, pid_t pid, int port, const char *logfile);
+/* Wait for the worker's socket to accept and its "ready!" line, then open its feedback port; returns the command
+ * socket, and the feedback socket in *fb_fd, or -1. */
+int proc_connect(const conf_t *conf, pid_t pid, int port, int fb_port, const char *logfile, int *fb_fd);
 
 /* One command, one reply. On RPC_OK *reply is a malloc'd string. A worker that does not answer within the
  * timeout is killed, and counts as having died with the command on the wire. */

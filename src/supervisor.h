@@ -80,6 +80,8 @@ typedef struct WORKER_T {
     pid_t pid;
     int fd;
     int port;
+    int fb_fd;                  /* its feedback socket, read by the relay */
+    int fb_port;
     int state;
     int pool;                   /* 1 when place is a pool */
     char place[48];             /* own | pool:<name> */

@@ -128,7 +128,7 @@ int proc_have_binary(const char *bin)
     return found;
 }
 
-static int free_port(void)
+static int free_port(int other)
 {
     struct sockaddr_in addr;
     socklen_t len = sizeof(addr);
@@ -142,21 +142,24 @@ static int free_port(void)
     if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) == 0 && getsockname(fd, (struct sockaddr *)&addr, &len) == 0)
         port = ntohs(addr.sin_port);
     close(fd);
-    return port;
+    /* the kernel may hand the same ephemeral port out twice in a row */
+    return port == other ? free_port(other) : port;
 }
 
 int proc_spawn(const conf_t *conf, const char *bin, const char *lv2_path, const worker_env_t *env,
-               const char *logfile, pid_t *pid, int *port)
+               const char *logfile, pid_t *pid, int *port, int *fb_port)
 {
-    char port_arg[16];
+    char port_arg[16], fb_arg[16];
     pid_t child;
     int log;
 
     (void)conf;
-    *port = free_port();
-    if (*port < 0)
+    *port = free_port(-1);
+    *fb_port = *port < 0 ? -1 : free_port(*port);
+    if (*port < 0 || *fb_port < 0)
         return -1;
     snprintf(port_arg, sizeof(port_arg), "%d", *port);
+    snprintf(fb_arg, sizeof(fb_arg), "%d", *fb_port);
     log = open(logfile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if (log < 0)
         return -1;
@@ -180,7 +183,7 @@ int proc_spawn(const conf_t *conf, const char *bin, const char *lv2_path, const 
             setenv("LV2_PATH", lv2_path, 1);
         if (env)
             apply_thread(0, env);
-        execlp(bin, bin, "-n", "-p", port_arg, (char *)NULL);
+        execlp(bin, bin, "-n", "-p", port_arg, "-f", fb_arg, (char *)NULL);
         _exit(127);
     }
     close(log);
@@ -204,32 +207,45 @@ static int log_has_ready(const char *logfile)
     return strstr(buffer, PHD_WORKER_READY_MARKER) != NULL;
 }
 
-int proc_connect(const conf_t *conf, pid_t pid, int port, const char *logfile)
+static int connect_loopback(int port)
+{
+    struct sockaddr_in addr;
+    int fd = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0);
+
+    if (fd < 0)
+        return -1;
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(port);
+    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0)
+    {
+        close(fd);
+        return -1;
+    }
+    return fd;
+}
+
+int proc_connect(const conf_t *conf, pid_t pid, int port, int fb_port, const char *logfile, int *fb_fd)
 {
     int64_t start = proc_now_ms();
     int fd = -1, status;
 
+    *fb_fd = -1;
+
     while (proc_now_ms() - start < conf->ready_timeout_ms)
     {
-        struct sockaddr_in addr;
-
         if (proc_exited(pid, &status))
-            return -1;
+            break;
         if (fd < 0)
-        {
-            fd = socket(AF_INET, SOCK_STREAM, 0);
-            memset(&addr, 0, sizeof(addr));
-            addr.sin_family = AF_INET;
-            addr.sin_port = htons(port);
-            addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-            if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0)
-            {
-                close(fd);
-                fd = -1;
-            }
-        }
+            fd = connect_loopback(port);
+        /* the worker takes the command connection first, then the feedback one: both listen before "ready!" */
         if (fd >= 0 && log_has_ready(logfile))
-            return fd;
+        {
+            *fb_fd = connect_loopback(fb_port);
+            if (*fb_fd >= 0)
+                return fd;
+        }
         usleep(2000);
     }
     if (fd >= 0)

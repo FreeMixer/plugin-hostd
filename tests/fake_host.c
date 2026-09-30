@@ -33,6 +33,11 @@
  *   pin_expect <n> <pin>        the layout pin of the next add of <n>: that add answers PHD_ERR_PIN_LAYOUT_MISMATCH
  *                               when the fake's own layout differs (FAKE_NO_PIN_EXPECT: the verb is unknown, -902;
  *                               FAKE_PIN_EXPECT_HANG: it is never answered)
+ *   monitor_output <n> <sym>    "resp 1", or "resp 0" for the symbol "none"; from then on, every 20 ms, the feedback port
+ *                               carries "output_set <n> <sym> <k>", k counting 0, 1, 2 ... for that output of this
+ *                               process: a line lost, doubled or out of order shows as a gap or a repeat in k.
+ *                               FAKE_FEEDBACK_BURST sends that many lines per output every 20 ms instead of one, and
+ *                               a feedback port no one reads then fills and stops the fake, as it stops a real host
  *
  * Its layout is one CLAP parameter whose default is FAKE_LAYOUT_DEFAULT (0.5 without it); "fake-host -L" prints its
  * layout pin. With FAKE_LOG set, every command received is appended to that file as "<pid> <command>".
@@ -63,6 +68,7 @@
 #define MAX_INST    10000
 #define MAX_PARAMS  32
 #define MAX_CONNS   64
+#define MAX_OUTPUTS 64
 
 typedef struct INST_T {
     int exists;
@@ -76,6 +82,8 @@ typedef struct INST_T {
 static char g_expect[MAX_INST][PHD_SHA256_HEX_LEN + 64];
 
 static inst_t g_inst[MAX_INST];
+static struct { int inst; char sym[64]; long k; } g_out[MAX_OUTPUTS];
+static int g_nout;
 static char g_conns[MAX_CONNS][256];
 static int g_nconns;
 static volatile int running = 1;
@@ -240,6 +248,9 @@ static void receive(msg_t *msg)
             answer(fd, "resp -3");
             goto out;
         }
+        for (k = 0; k < g_nout; k++)
+            if (n == -1 || g_out[k].inst == n)
+                g_out[k--] = g_out[--g_nout];
         answer(fd, "resp 0");
     }
     else if (n >= 0 && n < MAX_INST && !g_inst[n].exists && !verb_is(verb, STATE_SAVE) && !verb_is(verb, STATE_LOAD) &&
@@ -299,6 +310,20 @@ static void receive(msg_t *msg)
             set_param(&g_inst[n], ":bypass", keep);
         set_param(&g_inst[n], "preset", tok[2]);
         answer(fd, "resp 0");
+    }
+    else if (verb_is(verb, MONITOR_OUTPUT) && ntok == 3)
+    {
+        int found = !strcmp(tok[2], "none");
+
+        for (k = 0; k < g_nout && !found; k++)
+            found = g_out[k].inst == n && !strcmp(g_out[k].sym, tok[2]);
+        if (!found && g_nout < MAX_OUTPUTS)
+        {
+            g_out[g_nout].inst = n;
+            snprintf(g_out[g_nout].sym, sizeof(g_out[0].sym), "%s", tok[2]);
+            g_out[g_nout++].k = 0;
+        }
+        answer(fd, "resp %d", strcmp(tok[2], "none") ? 1 : 0);
     }
     else if (verb_is(verb, EFFECT_PATCH_SET) && ntok == 4)
     {
@@ -399,15 +424,32 @@ out:
     free(line);
 }
 
+/* every monitored output, once a tick (FAKE_FEEDBACK_BURST times), its counter the value */
+static void idle(void)
+{
+    const char *burst = getenv("FAKE_FEEDBACK_BURST");
+    int n, times = burst ? atoi(burst) : 1, t;
+    char line[256];
+
+    for (n = 0; n < g_nout; n++)
+        for (t = 0; t < times; t++)
+        {
+            snprintf(line, sizeof(line), OUTPUT_SET, g_out[n].inst, g_out[n].sym, (float)g_out[n].k++);
+            socket_send_feedback(line);
+        }
+}
+
 int main(int argc, char **argv)
 {
-    int opt, port = 5555;
+    int opt, port = 5555, fb_port = 0;
     struct sigaction sig;
 
     clock_gettime(CLOCK_MONOTONIC, &g_start);
     while ((opt = getopt(argc, argv, "np:f:L")) != -1)
         if (opt == 'p')
             port = atoi(optarg);
+        else if (opt == 'f')
+            fb_port = atoi(optarg);
         else if (opt == 'L')
         {
             char pin[PHD_SHA256_HEX_LEN + 64];
@@ -416,9 +458,11 @@ int main(int argc, char **argv)
             printf("%s\n", pin);
             return 0;
         }
-    if (socket_start(port, 0, 4096) < 0)
+    if (socket_start(port, fb_port, 4096) < 0)
         return EXIT_FAILURE;
     socket_set_receive_cb(receive);
+    socket_set_idle_cb(idle);
+    socket_set_idle_interval(20);
     memset(&sig, 0, sizeof(sig));
     sig.sa_handler = term_signal;
     sigemptyset(&sig.sa_mask);
