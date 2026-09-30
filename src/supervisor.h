@@ -64,6 +64,10 @@ typedef struct INSTANCE_T {
     int nconns, capconns;
     int dirty;
     int64_t changed_ms;
+    char *sus_line;             /* the last verb it answered and the ledger kept, the suspect of a death that follows soon */
+    char *sus_prev;             /* the ledger line that verb replaced, put back when it is dropped */
+    int64_t sus_ms;
+    int64_t sus_seq;            /* the order of the verbs across instances, which the millisecond clock cannot give */
     int has_ckpt;
 } instance_t;
 

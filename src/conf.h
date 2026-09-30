@@ -33,6 +33,7 @@ typedef struct CONF_T {
     int backoff_max_ms;
     int storm_deaths;
     int storm_window_ms;
+    int suspect_window_ms;
     int checkpoint_ms;
     int idle_ms;
     int pool_max;
