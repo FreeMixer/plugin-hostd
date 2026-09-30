@@ -610,6 +610,94 @@ def feedback_off_is_the_same_daemon():
         d.close()
 
 
+# ---------------------------------------------------------------- the workers' own feedback (PHD_RELAY)
+
+def outputs(d, inst, sym, since=0):
+    """the values of every output_set line the controller got for one output, in the order it got them"""
+    prefix = "output_set %d %s " % (inst, sym)
+    with d.lock:
+        return [float(e[len(prefix):]) for e in d.events[since:] if e.startswith(prefix)]
+
+
+def counts_up(values):
+    """the fake counts 0, 1, 2 ... per output and process: a lost, doubled or reordered line breaks the run"""
+    return all(b == a + 1 for a, b in zip(values, values[1:]))
+
+
+@test
+def worker_feedback_reaches_the_controller_verbatim_and_in_order():
+    d = daemon()
+    try:
+        d.expect("add fake:a 0", "resp 0")
+        d.expect("add fake:b 1 pool:p", "resp 1")
+        d.expect("add fake:c 2 pool:p", "resp 2")
+        d.expect("monitor_output 0 gain_reduction", "resp 1")
+        d.expect("monitor_output 2 level", "resp 1")
+        d.expect("monitor_output 1 none", "resp 0")
+        wait_for(lambda: len(outputs(d, 0, "gain_reduction")) >= 20 and len(outputs(d, 2, "level")) >= 20,
+                 "twenty output_set lines of each monitored output")
+        for inst, sym in ((0, "gain_reduction"), (2, "level")):
+            v = outputs(d, inst, sym)
+            check(v[0] == 0 and counts_up(v), "output_set %d %s arrives whole and in order: %s" % (inst, sym, v[:30]))
+        with d.lock:
+            line = next(e for e in d.events if e.startswith("output_set 0 "))
+        check(line == "output_set 0 gain_reduction 0.000000", "the line is the worker's, unchanged: %r" % line)
+        check(not outputs(d, 1, "none"), "an output the worker does not have sends nothing")
+    finally:
+        d.close()
+
+
+@test
+def a_respawned_worker_reports_the_same_outputs_once_each():
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(env={"FAKE_LOG": log})
+    try:
+        d.expect("add fake:a 0", "resp 0")
+        d.expect("monitor_output 0 gain_reduction", "resp 1")
+        d.expect("monitor_output 0 gain_reduction", "resp 1")
+        d.expect("monitor_output 0 input_level_0", "resp 1")
+        wait_for(lambda: len(outputs(d, 0, "gain_reduction")) >= 5, "output_set before the kill")
+        _, w = d.holder(0)
+        mark = d.mark()
+        os.kill(w["pid"], signal.SIGKILL)
+        d.wait_event("instance_restored 0 ", since=mark)
+        pid = d.holder(0)[1]["pid"]
+        # what the dead worker wrote comes before the news of its death, the new worker's lines after it
+        with d.lock:
+            died = next(n for n in range(mark, len(d.events)) if d.events[n].startswith("worker_died "))
+        for sym in ("gain_reduction", "input_level_0"):
+            wait_for(lambda: len(outputs(d, 0, sym, died)) >= 10, "output_set %s after the respawn" % sym)
+            v = outputs(d, 0, sym, died)
+            check(v[0] == 0 and counts_up(v), "%s starts again from its first value, once: %s" % (sym, v[:30]))
+        with open(log) as f:
+            sent = [l.split(" ", 1)[1].strip() for l in f if l.startswith("%d " % pid)]
+        mon = [l for l in sent if l.startswith("monitor_output")]
+        check(mon == ["monitor_output 0 gain_reduction", "monitor_output 0 input_level_0"],
+              "the new worker is asked for each output once: %s" % mon)
+        check(sent.index(mon[0]) > sent.index(next(l for l in sent if l.startswith("add "))), "after its add: %s" % sent)
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
+
+
+@test
+def a_worker_is_read_when_no_controller_reads_the_feedback():
+    """a worker whose feedback port no one reads stops on a full socket, as a real host does: the daemon reads it
+    with no feedback port of its own, so the worker still answers"""
+    d = daemon(feedback=False, env={"FAKE_FEEDBACK_BURST": "2000"})
+    try:
+        d.expect("add fake:a 0", "resp 0")
+        d.expect("monitor_output 0 gain_reduction", "resp 1")
+        time.sleep(2)
+        for n in range(20):
+            d.expect("param_set 0 gain 0.%d" % n, "resp 0")
+        _, w = d.holder(0)
+        check(alive(w["pid"]) and w["state"] == "up", "the worker is up: %s" % w)
+    finally:
+        d.close()
+
+
 # ---------------------------------------------------------------- pins (one-contract §10, supervisor §5.8)
 
 MANIFEST = """@prefix lv2: <http://lv2plug.in/ns/lv2core#> .
