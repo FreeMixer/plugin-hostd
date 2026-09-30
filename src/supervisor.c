@@ -969,7 +969,7 @@ char *sup_add(const char *uri, int id, const char *placement, const char *client
     worker_t *w = NULL;
     meta_t *m;
     int64_t now = proc_now_ms();
-    int rc, is_new = 0, full, unavailable;
+    int rc, is_new = 0, full, unavailable, code = ERR_HOST_INSTANTIATION;
     instance_t *i;
 
     if (id < 0 || id >= MAX_INSTANCE)
@@ -1045,6 +1045,12 @@ char *sup_add(const char *uri, int id, const char *placement, const char *client
             free(reply);
             reply = NULL;
         }
+        else if (rc != RPC_OK)
+        {
+            /* the worker went with pin_expect on the wire: the add is never forwarded */
+            event(PHD_EVENT_VERB_DROPPED_FMT, id, pin_expect_line(id, layout));
+            code = PHD_ERR_VERB_DROPPED;
+        }
     }
     snprintf(line, sizeof(line), "%.*s %s %d%s%s", verb_len(EFFECT_ADD), EFFECT_ADD, fwd, id, client ? " " : "",
              client ? client : "");
@@ -1052,7 +1058,7 @@ char *sup_add(const char *uri, int id, const char *placement, const char *client
         rc = proc_rpc(&g_conf, w->pid, w->fd, line, &reply);
     if (rc != RPC_OK)
     {
-        /* the worker went with `add` on the wire: the instance is the suspect */
+        /* the worker went with `add` or its pin_expect on the wire: the instance is the suspect */
         m->crashes++;
         note_death(m->deaths, &m->ndeaths, now);
         if (w->pool)
@@ -1061,7 +1067,7 @@ char *sup_add(const char *uri, int id, const char *placement, const char *client
             event(PHD_EVENT_INSTANCE_QUARANTINED_FMT, id, w->k);
         }
         on_death(w, ATTRIBUTED);
-        return sup_resp(ERR_HOST_INSTANTIATION);
+        return sup_resp(code);
     }
     if (resp_code(reply) < 0)
     {
