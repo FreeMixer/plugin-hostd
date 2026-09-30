@@ -86,6 +86,25 @@ def plain_verbs_pass_through_unchanged():
 
 
 @test
+def a_command_whose_first_argument_is_a_uri_reaches_every_worker():
+    log = tempfile.mktemp(prefix="plugin-hostd-log.")
+    d = daemon(env={"FAKE_LOG": log})
+    try:
+        d.expect("add fake:a 0", "resp 0")
+        d.expect("add fake:b 1", "resp 1")
+        pids = {w["pid"] for w in d.workers().values()}
+        d.send("preset_show http://example.org/presets#0")
+        with open(log) as f:
+            got = {int(l.split(" ", 1)[0]) for l in f if l.split()[1:2] == ["preset_show"]}
+        check(got == pids, "preset_show <uri> names no instance: every worker gets it, not the holder of %s: %s of %s"
+              % ("instance 0", sorted(got), sorted(pids)))
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
+
+
+@test
 def remove_all_and_quit():
     d = daemon()
     try:
@@ -298,17 +317,21 @@ def pool_in_flight_command_names_the_culprit_and_the_pool_stays_a_pool():
 
 @test
 def quarantined_instance_is_placed_own_until_cleared():
-    d = daemon()
+    # the pool's respawn waits out a backoff longer than the steps below take, so an add into the pool before its
+    # instance_restored meets it in backoff every time, not one run in ten
+    d = daemon(conf={"backoff_base_ms": 300, "backoff_max_ms": 300})
     try:
         make_pool(d, [30, 31])
+        mark = d.mark()
         d.expect("param_set 30 crash 1", "resp 0")
-        d.wait_event("instance_quarantined 30 ")
+        d.wait_event("instance_quarantined 30 ", since=mark)
         d.expect("remove 30", "resp 0")
         d.expect("add fake:m30 30 pool:p", "resp 30")
         k, w = d.holder(30)
         check(w["place"] == "own", "a quarantined instance asked into a pool is placed own: %s" % w)
         d.expect("remove 30", "resp 0")
         d.expect("quarantine_clear 30", "resp 0")
+        d.wait_event("instance_restored 31 ", since=mark)
         d.expect("add fake:m30 30 pool:p", "resp 30")
         wait_for(lambda: d.holder(30)[1]["place"].startswith("pool:p"), "instance 30 back in the pool")
         d.expect("quarantine_clear 999", "resp -3")
@@ -743,6 +766,20 @@ def a_changed_layout_is_refused_by_the_worker_and_reaches_the_client():
         d.expect(p.clap_pin(), "resp 0")
         d.expect("add %s 0" % p.clap_uri, "resp -902")
         check(p.verbs("add").count("add %s 0" % p.clap_uri) == 2, "a worker that cannot check the layout gets no add")
+        check(d.workers() == {}, "the worker of the refused instance is gone: %s" % d.workers())
+    finally:
+        d.close()
+    os.unlink(p.log)
+    d = p.daemon(conf={"rpc_timeout_ms": 400}, env={"FAKE_PIN_EXPECT_HANG": "1"})
+    try:
+        d.expect(p.clap_pin(), "resp 0")
+        mark = d.mark()
+        d.expect("add %s 0" % p.clap_uri, resp("VERB_DROPPED"))
+        d.wait_event("instance_verb_dropped 0 pin_expect 0 %s" % fake_layout(), since=mark)
+        check(p.verbs("pin_expect") and not p.verbs("add"), "a worker that does not answer the layout pin gets no add: %s"
+              % p.received())
+        check(d.workers() == {}, "the worker that did not answer is gone: %s" % d.workers())
+        d.expect("instance_info 0", "resp -3")
     finally:
         d.close()
         p.close()
@@ -788,6 +825,76 @@ def an_lv2_bundle_is_pinned_by_its_manifest_binary_and_seealso():
 
 
 @test
+def what_cannot_be_pinned_is_refused_and_never_pinned_in_part():
+    line_max = next(c["value"] for c in harness.DECLARED["constants"] if c["name"] == "line_max")
+    p = Plugins()
+    d = p.daemon()
+    try:
+        # a path holding the digest separator: refused, and the earlier pin stands
+        d.expect(p.lv2_pin(), "resp 0")
+        eq = os.path.join(p.bundle, "a=b.so")
+        write(eq, b"x")
+        d.expect("pin_set %s a=b.so=%s,manifest.ttl=%s %s" % (LV2_URI, sha(eq), sha(os.path.join(p.bundle, "manifest.ttl")),
+                                                              fake_layout()), "resp -902")
+        d.expect("add %s 0" % LV2_URI, "resp 0")
+        d.expect("remove 0", "resp 0")
+
+        # a pin_set line of line_max bytes is taken, one byte more is not
+        head = p.lv2_pin()
+        cut = head.rindex(" ")
+        pad = ",p%s=" + "0" * 64
+        fill = line_max - len(head) - len(pad % "")
+        d.expect(head[:cut] + (pad % ("a" * fill)) + head[cut:], "resp 0")
+        check(len(head[:cut] + (pad % ("a" * fill)) + head[cut:]) == line_max, "the line is line_max long")
+        d.expect(head[:cut] + (pad % ("a" * (fill + 1))) + head[cut:], "resp -902")
+        d.expect(p.lv2_pin(), "resp 0")
+
+        # a manifest that sets @base: its names are resolved against a base the daemon does not follow
+        manifest = os.path.join(p.bundle, "manifest.ttl")
+        good = open(manifest, "rb").read()
+        write(manifest, b"@base <http://example.org/elsewhere/> .\n" + good)
+        d.expect(p.lv2_pin(), "resp 0")
+        mark = len(p.received())
+        d.expect("add %s 1" % LV2_URI, resp("PIN_BINARY_MISMATCH"))
+
+        # a percent-encoded name: the host decodes it, the daemon would hash the file of the name as written
+        encoded = os.path.join(p.bundle, "pinned%2Eso")
+        write(encoded, b"not the binary the host loads")
+        write(manifest, (MANIFEST % LV2_URI).replace("<pinned.so>", "<pinned%2Eso>").encode())
+        d.expect(p.lv2_pin(("manifest.ttl", "pinned%2Eso", "pinned.so", "pinned.ttl")), "resp 0")
+        d.expect("add %s 1" % LV2_URI, resp("PIN_BINARY_MISMATCH"))
+        check(p.received()[mark:] == [], "no worker saw a refused add: %s" % p.received()[mark:])
+        write(manifest, good)
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def a_pinned_lv2_plugin_gets_a_worker_of_its_own():
+    p = Plugins()
+    d = p.daemon()
+    try:
+        d.expect(p.lv2_pin(), "resp 0")
+        d.expect("add %s 0 pool:fx" % LV2_URI, resp("PLACEMENT_INVALID"))
+        check(d.workers() == {} and p.received() == [], "a refused pool starts no worker: %s" % d.workers())
+        d.expect("policy_set lv2 pool:fx", "resp 0")
+        d.expect("add %s 1 default" % LV2_URI, "resp 1")
+        d.expect("add %s 2" % LV2_URI, "resp 2")
+        for i in (1, 2):
+            check(d.holder(i)[1]["place"] == "own" and d.holder(i)[1]["inst"] == [i],
+                  "a default that resolves to a pool is placed own: %s" % d.workers())
+        d.expect(p.clap_pin(), "resp 0")
+        d.expect("add %s 3 pool:fx" % p.clap_uri, "resp 3")
+        d.expect("add %s 4 pool:fx" % p.clap_uri, "resp 4")
+        check(d.holder(3)[1]["place"] == "pool:fx" and d.holder(3)[1]["inst"] == [3, 4],
+              "a pinned CLAP still goes into a pool: %s" % d.workers())
+    finally:
+        d.close()
+        p.close()
+
+
+@test
 def a_binary_swapped_while_its_worker_was_down_is_not_replayed():
     p = Plugins()
     d = p.daemon()
@@ -806,9 +913,10 @@ def a_binary_swapped_while_its_worker_was_down_is_not_replayed():
         check([c for pid, c in p.received() if int(pid) == new] == [],
               "the new worker got neither the add nor the verbs of the refused instance: %s" % p.received())
         check(not [e for e in d.events[mark:] if e.startswith("instance_restored 0 ")], "instance 0 is not restored")
+        d.wait_event("instance_replay_refused 0 %d" % harness.CODE["PIN_BINARY_MISMATCH"], since=mark)
         log = d.log()
-        check("resp %d" % harness.CODE["REPLAY"] in log and "resp %d" % harness.CODE["PIN_BINARY_MISMATCH"] in log,
-              "the refusal is written with PHD_ERR_REPLAY and the pin's code: %s" % log[-400:])
+        check("resp %d, its pin resp %d" % (harness.CODE["REPLAY"], harness.CODE["PIN_BINARY_MISMATCH"]) in log,
+              "the refusal is written with PHD_ERR_REPLAY, the step and the pin's code: %s" % log[-400:])
         write(p.clap, good)
         mark = d.mark()
         os.kill(new, signal.SIGKILL)
@@ -817,6 +925,32 @@ def a_binary_swapped_while_its_worker_was_down_is_not_replayed():
         check([c for pid, c in p.received() if int(pid) == again][:3] ==
               ["pin_expect 0 %s" % fake_layout(), "add %s 0" % p.clap_uri, "param_set 0 gain 0.7"],
               "with the true binary back the replay checks the layout, adds and replays: %s" % p.received())
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def a_layout_pinned_again_while_its_worker_was_down_is_refused_by_the_replayed_add():
+    p = Plugins()
+    d = p.daemon()
+    try:
+        d.expect(p.clap_pin(), "resp 0")
+        d.expect("add %s 0" % p.clap_uri, "resp 0")
+        d.expect("param_set 0 gain 0.7", "resp 0")
+        _, w = d.holder(0)
+        d.expect(p.clap_pin(fake_layout("0.25")), "resp 0")
+        mark = d.mark()
+        os.kill(w["pid"], signal.SIGKILL)
+        d.wait_event("instance_replay_refused 0 %d" % harness.CODE["PIN_LAYOUT_MISMATCH"], since=mark)
+        d.wait_event("worker_respawned", since=mark)
+        new = d.holder(0)[1]["pid"]
+        check([c for pid, c in p.received() if int(pid) == new] ==
+              ["pin_expect 0 %s" % fake_layout("0.25"), "add %s 0" % p.clap_uri],
+              "the worker refused the replayed add and got none of its verbs: %s" % p.received())
+        check(not [e for e in d.events[mark:] if e.startswith("instance_restored 0 ")], "instance 0 is not restored")
+        check("resp %d, its add resp %d" % (harness.CODE["REPLAY"], harness.CODE["PIN_LAYOUT_MISMATCH"]) in d.log(),
+              "the refusal is written with PHD_ERR_REPLAY, the step and the worker's code: %s" % d.log()[-400:])
     finally:
         d.close()
         p.close()

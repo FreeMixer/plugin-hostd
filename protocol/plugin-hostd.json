@@ -4,7 +4,8 @@
   "readiness": {"daemon_line": "plugin-hostd ready!", "worker_marker": "ready!"},
   "constants": [
     {"name": "default_command_port", "value": 5555, "unit": "port", "meaning": "the command port without -p; the feedback port is the next one, unless -n is given"},
-    {"name": "connect_retry_ms", "value": 5000, "unit": "ms", "meaning": "how long the idle tick asks again for a connect a respawned worker could not make yet"}
+    {"name": "connect_retry_ms", "value": 5000, "unit": "ms", "meaning": "how long the idle tick asks again for a connect a respawned worker could not make yet"},
+    {"name": "line_max", "value": 4096, "unit": "bytes", "meaning": "the protocol socket's buffer: the longest pin_set line the daemon takes"}
   ],
   "placement": {
     "own": "own",
@@ -23,13 +24,13 @@
     {"name": "given-up", "meaning": "the storm bound is spent for its placement"}
   ],
   "errors": [
-    {"name": "PLACEMENT_INVALID", "macro": "PHD_ERR_PLACEMENT_INVALID", "code": -501, "meaning": "placement invalid"},
+    {"name": "PLACEMENT_INVALID", "macro": "PHD_ERR_PLACEMENT_INVALID", "code": -501, "meaning": "placement invalid: not a placement, or not valid here, as a pool:<name> for an lv2 plugin while require_pins is on"},
     {"name": "NO_BACKEND", "macro": "PHD_ERR_NO_BACKEND", "code": -502, "meaning": "no worker program for the scheme"},
     {"name": "WORKER_SPAWN", "macro": "PHD_ERR_WORKER_SPAWN", "code": -503, "meaning": "the worker is not up: the spawn failed, or it is in backoff; ask again after instance_restored"},
-    {"name": "REPLAY", "macro": "PHD_ERR_REPLAY", "code": -504, "meaning": "reserved: not returned as a reply by this version; a replayed add its pin refuses is written to stderr with it and the pin's code"},
+    {"name": "REPLAY", "macro": "PHD_ERR_REPLAY", "code": -504, "meaning": "the name of a refused replay, never a reply: a replayed add that its pin or the worker refuses is announced by the instance_replay_refused event with the refusal's own code, and written to stderr with this one and the step that refused it"},
     {"name": "GAVE_UP", "macro": "PHD_ERR_GAVE_UP", "code": -505, "meaning": "the storm bound is spent for that placement"},
     {"name": "NO_SUCH_WORKER", "macro": "PHD_ERR_NO_SUCH_WORKER", "code": -506, "meaning": "no such worker"},
-    {"name": "VERB_DROPPED", "macro": "PHD_ERR_VERB_DROPPED", "code": -507, "meaning": "the worker died on this very command and the daemon dropped it: it is not replayed, and the instance_verb_dropped event names it"},
+    {"name": "VERB_DROPPED", "macro": "PHD_ERR_VERB_DROPPED", "code": -507, "meaning": "the worker died on this very command and the daemon dropped it: it is not replayed, and the instance_verb_dropped event names it; or it died on, or did not answer in rpc_timeout_ms, the pin_expect of an add, which is then never forwarded"},
     {"name": "PIN_ABSENT", "macro": "PHD_ERR_PIN_ABSENT", "code": -508, "meaning": "require_pins is on and the plugin has no pin, or its layout pin is in a scheme this version does not know: add is refused and no worker sees it"},
     {"name": "PIN_BINARY_MISMATCH", "macro": "PHD_ERR_PIN_BINARY_MISMATCH", "code": -509, "meaning": "a pinned file is missing or its SHA-256 differs, or the plugin's manifest names a file the pin does not hold: add is refused and no worker sees it"},
     {"name": "PIN_LAYOUT_MISMATCH", "macro": "PHD_ERR_PIN_LAYOUT_MISMATCH", "code": -510, "meaning": "the worker found the parameter layout after init differs from the layout pin: the instance is destroyed before activate"}
@@ -45,17 +46,23 @@
     {"name": "worker_env", "arguments": "<lv2 | clap | *> <cpu-list|-> <nice|->", "reply": "resp 0", "meaning": "the cpu list and the nice value of the workers of a format, at spawn and on the ones running"},
     {"name": "pin_set", "arguments": "<uri> <path>=<sha256>[,<path>=<sha256>...] <scheme>:<sha256>", "reply": "resp 0", "meaning": "the pin of one plugin: the SHA-256 of every file the host loads for it, a path relative to the bundle (the .clap's directory for a CLAP), and its layout fingerprint; it replaces an earlier pin of the uri"},
     {"name": "pin_clear", "arguments": "<uri> | all", "reply": "resp 0", "meaning": "forget the pin of one plugin, or of every one"},
-    {"name": "pin_expect", "arguments": "<instance> <scheme>:<sha256>", "reply": "resp 0", "meaning": "sent by the daemon to a clap worker just before the instance's add: the layout pin that add checks after init and before activate"}
+    {"name": "pin_expect", "arguments": "<instance> <scheme>:<sha256>", "reply": "resp 0", "meaning": "sent by the daemon to a clap worker just before the instance's add: the layout pin that add checks after init and before activate; any other reply than resp 0 refuses the add with that code, and the add is never forwarded"}
   ],
   "events": [
     {"name": "worker_died", "fields": "<worker> <pid> <exit:N | signal:N> <instance>,...", "meaning": "a worker died; the instances it held, or - for none"},
-    {"name": "instance_verb_dropped", "fields": "<instance> <the command as sent>", "meaning": "the command a worker died on, dropped from the ledger"},
+    {"name": "instance_verb_dropped", "fields": "<instance> <the command as sent>", "meaning": "the command a worker died on, dropped from the ledger, or the pin_expect of an add it died on"},
     {"name": "instance_verb_dropped", "fields": "<instance> suspect:<ms> <the command as sent>", "meaning": "the last verb a worker answered when it died inside suspect_window_ms, <ms> the age of the reply"},
     {"name": "worker_backoff", "fields": "<worker> <ms>", "meaning": "the respawn waits this long"},
     {"name": "worker_respawned", "fields": "<worker> <pid> <replayed_count> <ms>", "meaning": "a worker is back and its ledger replayed"},
     {"name": "instance_restored", "fields": "<instance> <worker>", "meaning": "an instance is back in a worker"},
+    {"name": "instance_replay_refused", "fields": "<instance> <code>", "meaning": "a replayed add was refused, by its pin or by the worker, <code> the refusal's own: no worker holds the instance until the next replay"},
     {"name": "instance_quarantined", "fields": "<instance> <worker>", "meaning": "the culprit of a pool death, placed own until cleared"},
     {"name": "supervisor_gave_up", "fields": "<worker> <deaths> <window_ms>", "meaning": "the storm bound is spent; respawning ends"}
+  ],
+  "pin_limits": [
+    {"name": "PATH", "meaning": "a path holding ',', '=' or whitespace cannot be pinned: they are the separators of pin_set's words, and pin_set refuses it as a token outside its grammar"},
+    {"name": "LINE", "meaning": "a pin_set line is at most line_max, 4096 bytes, the protocol socket's buffer; a longer one is refused as outside the grammar"},
+    {"name": "MANIFEST", "meaning": "a manifest that uses @base, or names a file of the plugin by a percent-encoded IRI, makes add answer PHD_ERR_PIN_BINARY_MISMATCH (-509): the daemon does not resolve either, so it cannot know the file the host would load"}
   ],
   "config": [
     {"key": "mod_host", "type": "string", "default": "mod-host", "env": "", "meaning": "worker for lv2 (a name on PATH or a path)"},
@@ -72,6 +79,6 @@
     {"key": "checkpoint_ms", "type": "int", "default": 5000, "unit": "ms", "meaning": "a quiet interval with a changed ledger writes a checkpoint"},
     {"key": "idle_ms", "type": "int", "default": 25, "unit": "ms", "meaning": "the period of the idle tick: reap, respawn, checkpoint"},
     {"key": "pool_max", "type": "int", "default": 8, "unit": "instances", "meaning": "instances in a pool before a sibling opens"},
-    {"key": "require_pins", "type": "int", "default": 1, "unit": "", "meaning": "1: add admits only a plugin pin_set pinned, its files hashed before any worker sees it; 0: no pin is checked"}
+    {"key": "require_pins", "type": "int", "default": 1, "unit": "", "meaning": "1: add admits only a plugin pin_set pinned, its files hashed before any worker sees it, and an lv2 plugin gets a worker of its own, its world the one bundle the pin holds (a default that resolves to a pool is placed own); 0: no pin is checked"}
   ]
 }
