@@ -25,7 +25,7 @@ the settings, the readiness line) is declared once, in `include/plugin-hostd/pro
 against. The tables below, the key list of the man page and `protocol/plugin-hostd.json` are generated from that
 header (`make gen`; `make check-generated` fails on any drift). A C consumer includes the installed header
 (`pkg-config --cflags plugin-hostd`, package `plugin-hostd-devel` or `plugin-hostd-dev`); anything else reads
-`/usr/share/plugin-hostd/protocol.json`, described by `protocol/plugin-hostd.schema.json`.
+`/usr/share/plugin-hostd/protocol.json`, described by `protocol/plugin-hostd.schema.json` (`/usr/share/plugin-hostd/protocol.schema.json`, in the development package).
 
 Building
 --------
