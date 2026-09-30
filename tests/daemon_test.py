@@ -298,17 +298,21 @@ def pool_in_flight_command_names_the_culprit_and_the_pool_stays_a_pool():
 
 @test
 def quarantined_instance_is_placed_own_until_cleared():
-    d = daemon()
+    # the pool's respawn waits out a backoff longer than the steps below take, so an add into the pool before its
+    # instance_restored meets it in backoff every time, not one run in ten
+    d = daemon(conf={"backoff_base_ms": 300, "backoff_max_ms": 300})
     try:
         make_pool(d, [30, 31])
+        mark = d.mark()
         d.expect("param_set 30 crash 1", "resp 0")
-        d.wait_event("instance_quarantined 30 ")
+        d.wait_event("instance_quarantined 30 ", since=mark)
         d.expect("remove 30", "resp 0")
         d.expect("add fake:m30 30 pool:p", "resp 30")
         k, w = d.holder(30)
         check(w["place"] == "own", "a quarantined instance asked into a pool is placed own: %s" % w)
         d.expect("remove 30", "resp 0")
         d.expect("quarantine_clear 30", "resp 0")
+        d.wait_event("instance_restored 31 ", since=mark)
         d.expect("add fake:m30 30 pool:p", "resp 30")
         wait_for(lambda: d.holder(30)[1]["place"].startswith("pool:p"), "instance 30 back in the pool")
         d.expect("quarantine_clear 999", "resp -3")
