@@ -25,6 +25,8 @@
  *   param_set <n> crash <v>     v other than 0 aborts 30 ms after the reply, as a plugin does in a callback
  *                               (once only when FAKE_CRASH_ONCE names a file: it is created by the crash)
  *   param_set <n> hang <v>      v other than 0 never answers
+ *   connect <a> <b>             with FAKE_CONNECT_AFTER_MS set, answers -205 until that long after the worker started,
+ *                               as a jack client does for a port it has not been told of yet
  *   list_connections            "resp 0 <a>><b> ..."
  */
 
@@ -33,6 +35,7 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <stdarg.h>
+#include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -59,6 +62,15 @@ static inst_t g_inst[MAX_INST];
 static char g_conns[MAX_CONNS][256];
 static int g_nconns;
 static volatile int running = 1;
+static struct timespec g_start;
+
+static long since_start_ms(void)
+{
+    struct timespec t;
+
+    clock_gettime(CLOCK_MONOTONIC, &t);
+    return (t.tv_sec - g_start.tv_sec) * 1000 + (t.tv_nsec - g_start.tv_nsec) / 1000000;
+}
 
 static void crash_alarm(int sig)
 {
@@ -272,6 +284,9 @@ static void receive(msg_t *msg)
         }
         answer(fd, "resp 0");
     }
+    else if (!strcmp(verb, "connect") && ntok == 3 && getenv("FAKE_CONNECT_AFTER_MS") &&
+             since_start_ms() < atol(getenv("FAKE_CONNECT_AFTER_MS")))
+        answer(fd, "resp -205");
     else if (!strcmp(verb, "connect") && ntok == 3)
     {
         if (g_nconns < MAX_CONNS)
@@ -317,6 +332,7 @@ int main(int argc, char **argv)
     int opt, port = 5555;
     struct sigaction sig;
 
+    clock_gettime(CLOCK_MONOTONIC, &g_start);
     while ((opt = getopt(argc, argv, "np:f:")) != -1)
         if (opt == 'p')
             port = atoi(optarg);

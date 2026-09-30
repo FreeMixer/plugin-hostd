@@ -35,6 +35,8 @@ SABOTAGE = [
      "    free(reply);\n    return sup_resp(0);\n}\n\nchar *sup_remove(int id)", "plain_verbs_pass_through_unchanged"),
     ("worker_env is not applied to a running worker", "src/supervisor.c", "proc_apply_env(g_workers[n]->pid, &g_env[f]);", ";",
      "worker_env_reaches_new_and_running_workers"),
+    ("a refused connect is never asked again", "src/supervisor.c", "        else if (w->state == W_UP && w->npend)\n            pend_retry(w, now);",
+     "", "a_connect_the_new_worker_cannot_make_yet_is_asked_again"),
     ("connections are not replayed, so a killed strip never gets its audio back", "src/supervisor.c",
      "for (m = 0; m < i->nconns; m++)\n            if (replay_line", "for (m = 0; m < 0; m++)\n            if (replay_line",
      "audio_of_the_other_strip_never_changes_when_one_worker_is_killed", "jack"),
