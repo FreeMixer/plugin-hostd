@@ -6,7 +6,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MOD_HOST_DIR = os.path.abspath(os.environ.get("MOD_HOST_DIR", os.path.join(ROOT, "..", "mod-host")))
 FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "fake-host")))
 
-# (what is broken, file, text, replacement, the test that must go red)
+# (what is broken, file, text, replacement, the test that must go red[, "jack"]); a "jack" test runs in tests/jack_e2e.sh
+# over the real workers and is skipped when OMX_CLAP_HOST is not set
 SABOTAGE = [
     ("the verb tail is not replayed", "src/supervisor.c",
      "if (replay_line(w, i->tail[m].line) != RPC_OK)", "if (0 && replay_line(w, i->tail[m].line) != RPC_OK)",
@@ -34,6 +35,13 @@ SABOTAGE = [
      "    free(reply);\n    return sup_resp(0);\n}\n\nchar *sup_remove(int id)", "plain_verbs_pass_through_unchanged"),
     ("worker_env is not applied to a running worker", "src/supervisor.c", "proc_apply_env(g_workers[n]->pid, &g_env[f]);", ";",
      "worker_env_reaches_new_and_running_workers"),
+    ("connections are not replayed, so a killed strip never gets its audio back", "src/supervisor.c",
+     "for (m = 0; m < i->nconns; m++)\n            if (replay_line", "for (m = 0; m < 0; m++)\n            if (replay_line",
+     "audio_of_the_other_strip_never_changes_when_one_worker_is_killed", "jack"),
+    ("an own lv2 worker keeps the whole bundle set", "src/supervisor.c", "    if (w->fmt != FMT_LV2 || w->pool || !uri)\n        return NULL;",
+     "    return NULL;", "lv2_own_worker_sees_one_bundle_and_replays_after_a_kill", "jack"),
+    ("the checkpoint is not loaded after a real respawn", "src/supervisor.c", "    if (any_ckpt)\n", "    if (0 && any_ckpt)\n",
+     "clap_own_crash_replays_bit_identically_and_the_neighbour_never_notices", "jack"),
 ]
 
 
@@ -42,23 +50,28 @@ def build(tree):
                    stdout=subprocess.DEVNULL)
 
 
-def run_test(tree, name):
+def run_test(tree, name, jack=False):
     env = dict(os.environ, ONLY=name, PLUGIN_HOSTD=os.path.join(tree, "plugin-hostd"), FAKE_HOST=FAKE)
-    p = subprocess.run([sys.executable, os.path.join(ROOT, "tests", "daemon_test.py")], env=env, cwd=ROOT,
-                       capture_output=True, text=True, timeout=120)
+    cmd = [os.path.join(ROOT, "tests", "jack_e2e.sh")] if jack else [sys.executable, os.path.join(ROOT, "tests", "daemon_test.py")]
+    p = subprocess.run(cmd, env=env, cwd=ROOT, capture_output=True, text=True, timeout=300)
     return p.returncode, p.stdout
 
 
 failed = 0
 work = tempfile.mkdtemp(prefix="plugin-hostd-sabotage.")
 try:
-    for what, path, text, repl, name in SABOTAGE:
+    for entry in SABOTAGE:
+        what, path, text, repl, name = entry[:5]
+        jack = len(entry) > 5
+        if jack and not os.environ.get("OMX_CLAP_HOST"):
+            print("skip sabotage (no OMX_CLAP_HOST): %s" % what)
+            continue
         tree = os.path.join(work, "t")
         shutil.rmtree(tree, ignore_errors=True)
         shutil.copytree(os.path.join(ROOT, "src"), os.path.join(tree, "src"))
         shutil.copy(os.path.join(ROOT, "Makefile"), tree)
         build(tree)
-        code, out = run_test(tree, name)
+        code, out = run_test(tree, name, jack)
         if code != 0 or "ok   " + name not in out:
             print("FAIL control: %s does not pass on the unbroken daemon:\n%s" % (name, out))
             failed += 1
@@ -73,7 +86,7 @@ try:
             if f.endswith(".o"):
                 os.unlink(os.path.join(tree, "src", f))
         build(tree)
-        code, out = run_test(tree, name)
+        code, out = run_test(tree, name, jack)
         if code == 0:
             print("FAIL sabotage survived: %s (%s still passes)" % (what, name))
             failed += 1
