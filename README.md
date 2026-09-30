@@ -91,7 +91,8 @@ left, the instance list on the right, the place in between.
 
 Codes: `-501` placement invalid, `-502` no worker program for the scheme,
 `-503` the worker is not up (spawn failed, or it is in backoff), `-505` the
-storm bound is spent for that placement, `-506` no such worker. A worker's own
+storm bound is spent for that placement, `-506` no such worker, `-507` the worker died on this very command and the
+daemon dropped it (it is not replayed; the `instance_verb_dropped` event names it). A worker's own
 refusal is returned as it said it. An `add` that killed its worker answers
 `-102`.
 
@@ -103,11 +104,13 @@ it, where a busy thread starves the graph.
 Like mod-host, the daemon serves one controller at a time, and `remove` of an instance it does not hold answers
 `resp 0`. With `-n` and no `-f` there is no feedback port (mod-host's own rule), and a controller need not open
 one; without `-n`, or with `-f`, the daemon waits for the controller to open both. A command that finds its
-worker gone, or kills it, answers `-503`: the worker is not up, ask again after `instance_restored`.
+worker gone answers `-503`: the worker is not up, ask again after `instance_restored`. A command that
+kills its worker answers `-507`.
 
 Events on the feedback port, one NUL-terminated line each:
 
     worker_died <worker> <pid> <exit:N | signal:N> <instance>,...
+    instance_verb_dropped <instance> <the command as sent>
     worker_backoff <worker> <ms>
     worker_respawned <worker> <pid> <replayed_count> <ms>
     instance_restored <instance> <worker>

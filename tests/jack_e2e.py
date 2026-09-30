@@ -57,9 +57,9 @@ def node_id(name):
 
 def crash(d, inst):
     """the plugin aborts on this write: the worker is gone either after the reply (a callback: 'resp 0') or with
-    the command on the wire ('resp -503'), and both are the daemon's to deal with"""
+    the command on the wire ('resp -507'), and both are the daemon's to deal with"""
     r = d.send("param_set %d %d 1" % (inst, CRASH))
-    check(r in ("resp 0", "resp -503"), "param_set that crashes the plugin -> %r" % r)
+    check(r in ("resp 0", "resp -507"), "param_set that crashes the plugin -> %r" % r)
 
 
 def ckpt(d, inst):
