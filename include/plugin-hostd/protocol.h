@@ -132,8 +132,9 @@ static inline int phd_pool_name_valid(const char *name)
                          "<name> for an " PHD_FORMAT_LV2 " plugin while require_pins is on") \
     X(NO_BACKEND, "no worker program for the scheme") \
     X(WORKER_SPAWN, "the worker is not up: the spawn failed, or it is in backoff; ask again after instance_restored") \
-    X(REPLAY, "reserved: not returned as a reply by this version; a replayed add its pin refuses is written to " \
-              "stderr with it and the pin's code") \
+    X(REPLAY, "the name of a refused replay, never a reply: a replayed add that its pin or the worker refuses is " \
+              "announced by the instance_replay_refused event with the refusal's own code, and written to stderr " \
+              "with this one and the step that refused it") \
     X(GAVE_UP, "the storm bound is spent for that placement") \
     X(NO_SUCH_WORKER, "no such worker") \
     X(VERB_DROPPED, "the worker died on this very command and the daemon dropped it: it is not replayed, " \
@@ -202,6 +203,7 @@ static inline int phd_pool_name_valid(const char *name)
 #define PHD_EVENT_WORKER_BACKOFF          "worker_backoff"
 #define PHD_EVENT_WORKER_RESPAWNED        "worker_respawned"
 #define PHD_EVENT_INSTANCE_RESTORED       "instance_restored"
+#define PHD_EVENT_INSTANCE_REPLAY_REFUSED "instance_replay_refused"
 #define PHD_EVENT_INSTANCE_QUARANTINED    "instance_quarantined"
 #define PHD_EVENT_SUPERVISOR_GAVE_UP      "supervisor_gave_up"
 
@@ -214,6 +216,7 @@ static inline int phd_pool_name_valid(const char *name)
 #define PHD_EVENT_WORKER_BACKOFF_FMT        PHD_EVENT_WORKER_BACKOFF " w%d %d"
 #define PHD_EVENT_WORKER_RESPAWNED_FMT      PHD_EVENT_WORKER_RESPAWNED " w%d %d %d %d"
 #define PHD_EVENT_INSTANCE_RESTORED_FMT     PHD_EVENT_INSTANCE_RESTORED " %d w%d"
+#define PHD_EVENT_REPLAY_REFUSED_FMT        PHD_EVENT_INSTANCE_REPLAY_REFUSED " %d %d"
 #define PHD_EVENT_INSTANCE_QUARANTINED_FMT  PHD_EVENT_INSTANCE_QUARANTINED " %d w%d"
 #define PHD_EVENT_SUPERVISOR_GAVE_UP_FMT    PHD_EVENT_SUPERVISOR_GAVE_UP " w%d %d %d"
 
@@ -228,6 +231,9 @@ static inline int phd_pool_name_valid(const char *name)
     X(PHD_EVENT_WORKER_BACKOFF, "<worker> <ms>", "the respawn waits this long") \
     X(PHD_EVENT_WORKER_RESPAWNED, "<worker> <pid> <replayed_count> <ms>", "a worker is back and its ledger replayed") \
     X(PHD_EVENT_INSTANCE_RESTORED, "<instance> <worker>", "an instance is back in a worker") \
+    X(PHD_EVENT_INSTANCE_REPLAY_REFUSED, "<instance> <code>", \
+      "a replayed add was refused, by its pin or by the worker, <code> the refusal's own: no worker holds the " \
+      "instance until the next replay") \
     X(PHD_EVENT_INSTANCE_QUARANTINED, "<instance> <worker>", "the culprit of a pool death, placed own until cleared") \
     X(PHD_EVENT_SUPERVISOR_GAVE_UP, "<worker> <deaths> <window_ms>", "the storm bound is spent; respawning ends")
 

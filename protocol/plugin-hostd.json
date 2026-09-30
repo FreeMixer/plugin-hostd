@@ -26,7 +26,7 @@
     {"name": "PLACEMENT_INVALID", "macro": "PHD_ERR_PLACEMENT_INVALID", "code": -501, "meaning": "placement invalid: not a placement, or not valid here, as a pool:<name> for an lv2 plugin while require_pins is on"},
     {"name": "NO_BACKEND", "macro": "PHD_ERR_NO_BACKEND", "code": -502, "meaning": "no worker program for the scheme"},
     {"name": "WORKER_SPAWN", "macro": "PHD_ERR_WORKER_SPAWN", "code": -503, "meaning": "the worker is not up: the spawn failed, or it is in backoff; ask again after instance_restored"},
-    {"name": "REPLAY", "macro": "PHD_ERR_REPLAY", "code": -504, "meaning": "reserved: not returned as a reply by this version; a replayed add its pin refuses is written to stderr with it and the pin's code"},
+    {"name": "REPLAY", "macro": "PHD_ERR_REPLAY", "code": -504, "meaning": "the name of a refused replay, never a reply: a replayed add that its pin or the worker refuses is announced by the instance_replay_refused event with the refusal's own code, and written to stderr with this one and the step that refused it"},
     {"name": "GAVE_UP", "macro": "PHD_ERR_GAVE_UP", "code": -505, "meaning": "the storm bound is spent for that placement"},
     {"name": "NO_SUCH_WORKER", "macro": "PHD_ERR_NO_SUCH_WORKER", "code": -506, "meaning": "no such worker"},
     {"name": "VERB_DROPPED", "macro": "PHD_ERR_VERB_DROPPED", "code": -507, "meaning": "the worker died on this very command and the daemon dropped it: it is not replayed, and the instance_verb_dropped event names it; or it died on, or did not answer in rpc_timeout_ms, the pin_expect of an add, which is then never forwarded"},
@@ -54,6 +54,7 @@
     {"name": "worker_backoff", "fields": "<worker> <ms>", "meaning": "the respawn waits this long"},
     {"name": "worker_respawned", "fields": "<worker> <pid> <replayed_count> <ms>", "meaning": "a worker is back and its ledger replayed"},
     {"name": "instance_restored", "fields": "<instance> <worker>", "meaning": "an instance is back in a worker"},
+    {"name": "instance_replay_refused", "fields": "<instance> <code>", "meaning": "a replayed add was refused, by its pin or by the worker, <code> the refusal's own: no worker holds the instance until the next replay"},
     {"name": "instance_quarantined", "fields": "<instance> <worker>", "meaning": "the culprit of a pool death, placed own until cleared"},
     {"name": "supervisor_gave_up", "fields": "<worker> <deaths> <window_ms>", "meaning": "the storm bound is spent; respawning ends"}
   ],
