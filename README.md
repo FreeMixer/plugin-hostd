@@ -191,7 +191,10 @@ must be held by the pin. No pin, or a layout pin in a scheme this version does n
 a file missing, changed or not held answers `PHD_ERR_PIN_BINARY_MISMATCH`. For a CLAP the daemon then sends the worker
 `pin_expect <instance> <layout pin>` and the `add` unchanged, and the worker answers `PHD_ERR_PIN_LAYOUT_MISMATCH`
 when the layout after `init` is not the pinned one; a worker that refuses `pin_expect` gets no `add`, and its refusal
-is the reply. An LV2 worker gets no pin verb: its layout is its bundle's TTL, which the hash covers.
+is the reply, and one that dies on it or does not answer it is dropped with `PHD_ERR_VERB_DROPPED`, the
+`instance_verb_dropped` event naming the `pin_expect`. An LV2 worker gets no pin verb: its layout is its bundle's TTL,
+which the hash covers, in a world of that one bundle; so a pinned LV2 plugin gets a worker of its own, a `default` that
+resolves to a pool is placed `own` and an explicit `pool:<name>` answers `PHD_ERR_PLACEMENT_INVALID`.
 
 What cannot be pinned:
 
@@ -203,8 +206,9 @@ What cannot be pinned:
 
 Pins are the controller's policy, like `policy_set`: not in the ledger, gone with the daemon, set again by a controller
 that reconnects. A replayed `add` is checked again, so a file swapped while a worker was down is refused on respawn:
-the daemon writes `PHD_ERR_REPLAY` and the pin's code to stderr, and the worker does not hold that instance until a
-later replay passes. The hashing and the layout serialisation are `include/plugin-hostd/pin.h`, installed beside the
+the daemon emits `instance_replay_refused <instance> <code>` with the refusal's own code (the pin's, or the worker's
+when it refuses the replayed `pin_expect` or `add`), writes `PHD_ERR_REPLAY`, the step and that code to stderr, and
+the worker does not hold that instance until a later replay passes. The hashing and the layout serialisation are `include/plugin-hostd/pin.h`, installed beside the
 protocol header for the hosts that check a layout.
 
 What it keeps and replays
