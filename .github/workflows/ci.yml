@@ -236,6 +236,8 @@ jobs:
       - name: The installed daemon against the fake worker
         run: |
           set -euo pipefail
+          # an artifact does not keep the executable bit
+          chmod +x smoke/tests/fake-host
           PLUGIN_HOSTD=/usr/bin/plugin-hostd FAKE_HOST=$PWD/smoke/tests/fake-host \
             python3 smoke/tests/daemon_test.py
 
