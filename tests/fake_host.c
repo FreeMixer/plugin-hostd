@@ -51,10 +51,13 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <mod-host.h>
 #include <plugin-hostd/pin.h>
 #include <plugin-hostd/protocol.h>
 #include <socket.h>
 #include <utils.h>
+
+#include "../src/verbs.h"
 
 #define MAX_INST    10000
 #define MAX_PARAMS  32
@@ -189,14 +192,14 @@ static void receive(msg_t *msg)
     verb = tok[0];
     n = ntok > 1 ? atoi(tok[1]) : -1;
 
-    if (!strcmp(verb, PHD_VERB_PIN_EXPECT) && getenv("FAKE_NO_PIN_EXPECT"))
+    if (verb_is(verb, PHD_VERB_PIN_EXPECT) && getenv("FAKE_NO_PIN_EXPECT"))
         answer(fd, "resp -902");
-    else if (!strcmp(verb, PHD_VERB_PIN_EXPECT) && ntok == 3 && n >= 0 && n < MAX_INST)
+    else if (verb_is(verb, PHD_VERB_PIN_EXPECT) && ntok == 3 && n >= 0 && n < MAX_INST)
     {
         snprintf(g_expect[n], sizeof(g_expect[n]), "%s", tok[2]);
         answer(fd, "resp 0");
     }
-    else if (!strcmp(verb, "add") && ntok >= 3)
+    else if (verb_is(verb, EFFECT_ADD) && ntok >= 3)
     {
         int id = atoi(tok[2]);
         char mine[PHD_SHA256_HEX_LEN + 64];
@@ -223,7 +226,7 @@ static void receive(msg_t *msg)
             answer(fd, "resp %d", id);
         }
     }
-    else if (!strcmp(verb, "remove") && ntok == 2)
+    else if (verb_is(verb, EFFECT_REMOVE) && ntok == 2)
     {
         if (n == -1)
             memset(g_inst, 0, sizeof(g_inst));
@@ -236,10 +239,11 @@ static void receive(msg_t *msg)
         }
         answer(fd, "resp 0");
     }
-    else if (n >= 0 && n < MAX_INST && !g_inst[n].exists && strcmp(verb, "state_save") && strcmp(verb, "state_load") &&
-             strcmp(verb, "connect") && strcmp(verb, "disconnect") && strcmp(verb, "list_connections") && strcmp(verb, "quit"))
+    else if (n >= 0 && n < MAX_INST && !g_inst[n].exists && !verb_is(verb, STATE_SAVE) && !verb_is(verb, STATE_LOAD) &&
+             !verb_is(verb, EFFECT_CONNECT) && !verb_is(verb, EFFECT_DISCONNECT) && strcmp(verb, "list_connections") &&
+             !verb_is(verb, QUIT))
         answer(fd, "resp -3");
-    else if (!strcmp(verb, "param_set") && ntok == 4)
+    else if (verb_is(verb, EFFECT_PARAM_SET) && ntok == 4)
     {
         if (!strcmp(tok[2], "hang") && strcmp(tok[3], "0"))
             sleep(60);
@@ -266,7 +270,7 @@ static void receive(msg_t *msg)
         }
         answer(fd, "resp 0");
     }
-    else if (!strcmp(verb, "param_get") && ntok == 3)
+    else if (verb_is(verb, EFFECT_PARAM_GET) && ntok == 3)
     {
         const char *value = get_param(&g_inst[n], tok[2]);
 
@@ -275,12 +279,12 @@ static void receive(msg_t *msg)
         else
             answer(fd, "resp -103");
     }
-    else if (!strcmp(verb, "bypass") && ntok == 3)
+    else if (verb_is(verb, EFFECT_BYPASS) && ntok == 3)
     {
         set_param(&g_inst[n], ":bypass", tok[2]);
         answer(fd, "resp 0");
     }
-    else if (!strcmp(verb, "preset_load") && ntok == 3)
+    else if (verb_is(verb, EFFECT_PRESET_LOAD) && ntok == 3)
     {
         const char *bypass = get_param(&g_inst[n], ":bypass");
         char keep[128] = "";
@@ -293,7 +297,7 @@ static void receive(msg_t *msg)
         set_param(&g_inst[n], "preset", tok[2]);
         answer(fd, "resp 0");
     }
-    else if (!strcmp(verb, "patch_set") && ntok == 4)
+    else if (verb_is(verb, EFFECT_PATCH_SET) && ntok == 4)
     {
         char key[80];
 
@@ -301,7 +305,7 @@ static void receive(msg_t *msg)
         set_param(&g_inst[n], key, tok[3]);
         answer(fd, "resp 0");
     }
-    else if (!strcmp(verb, "state_save") && ntok == 2)
+    else if (verb_is(verb, STATE_SAVE) && ntok == 2)
     {
         mkdir(tok[1], 0755);
         for (k = 0; k < MAX_INST; k++)
@@ -323,7 +327,7 @@ static void receive(msg_t *msg)
         }
         answer(fd, "resp 0");
     }
-    else if (!strcmp(verb, "state_load") && ntok == 2)
+    else if (verb_is(verb, STATE_LOAD) && ntok == 2)
     {
         for (k = 0; k < MAX_INST; k++)
         {
@@ -349,16 +353,16 @@ static void receive(msg_t *msg)
         }
         answer(fd, "resp 0");
     }
-    else if (!strcmp(verb, "connect") && ntok == 3 && getenv("FAKE_CONNECT_AFTER_MS") &&
+    else if (verb_is(verb, EFFECT_CONNECT) && ntok == 3 && getenv("FAKE_CONNECT_AFTER_MS") &&
              since_start_ms() < atol(getenv("FAKE_CONNECT_AFTER_MS")))
         answer(fd, "resp -205");
-    else if (!strcmp(verb, "connect") && ntok == 3)
+    else if (verb_is(verb, EFFECT_CONNECT) && ntok == 3)
     {
         if (g_nconns < MAX_CONNS)
             snprintf(g_conns[g_nconns++], sizeof(g_conns[0]), "%s>%s", tok[1], tok[2]);
         answer(fd, "resp 0");
     }
-    else if (!strcmp(verb, "disconnect") && ntok == 3)
+    else if (verb_is(verb, EFFECT_DISCONNECT) && ntok == 3)
     {
         char want[256];
 
@@ -379,7 +383,7 @@ static void receive(msg_t *msg)
             snprintf(out + strlen(out), sizeof(out) - strlen(out), " %s", g_conns[k]);
         answer(fd, "%s", out);
     }
-    else if (!strcmp(verb, "quit"))
+    else if (verb_is(verb, QUIT))
     {
         answer(fd, "resp 0");
         running = 0;
