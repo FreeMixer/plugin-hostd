@@ -80,12 +80,12 @@ static pin_t *find(const char *uri)
     return NULL;
 }
 
-/* a path of a pin: relative to the bundle, and never out of it */
+/* a path of a pin: relative to the bundle, never out of it, and none of the separators of pin_set's words */
 static int path_valid(const char *path)
 {
     const char *c = path;
 
-    if (!*path || *path == '/')
+    if (!*path || *path == '/' || strpbrk(path, PHD_PIN_PATH_EXCLUDED))
         return 0;
     while (*c)
     {
@@ -394,12 +394,12 @@ static void names_free(names_t *names)
 
 enum { WANT_SUBJECT, WANT_PREDICATE, WANT_OBJECT, AFTER_OBJECT };
 
-/* the files the manifest names with lv2:binary and rdfs:seeAlso for the plugin */
-static void manifest_files(const char *text, size_t size, const char *bundle, const char *uri, names_t *names)
+/* the files the manifest names with lv2:binary and rdfs:seeAlso for the plugin; whether it sets a base */
+static int manifest_files(const char *text, size_t size, const char *bundle, const char *uri, names_t *names)
 {
     scan_t *s = calloc(1, sizeof(scan_t));
     token_t t;
-    int state = WANT_SUBJECT, ours = 0, depth = 0, pred = 0;
+    int state = WANT_SUBJECT, ours = 0, depth = 0, pred = 0, based;
 
     s->p = text;
     s->end = text + size;
@@ -453,7 +453,9 @@ static void manifest_files(const char *text, size_t size, const char *bundle, co
             state = AFTER_OBJECT;
         }
     }
+    based = s->based;
     free(s);
+    return based;
 }
 
 /* ---------------------------------------------------------------- the check */
@@ -541,9 +543,14 @@ int pins_check(int clap, const char *uri, const char *lv2_path, const char **lay
         rc = hash_file(root, MANIFEST, p->digest[skip], uri, &manifest, &manifest_size);
         if (rc == SUCCESS)
         {
-            manifest_files(manifest, manifest_size, root, bare(uri), &names);
+            /* the host resolves a base and decodes a percent-encoded name; the daemon does neither, so it cannot
+             * know the file the host would load */
+            if (manifest_files(manifest, manifest_size, root, bare(uri), &names))
+                rc = refuse(uri, MANIFEST, "sets a base the daemon does not resolve");
             for (n = 0; n < names.n && rc == SUCCESS; n++)
-                if (held(p, names.name[n]) < 0)
+                if (strstr(names.name[n], PHD_PIN_PERCENT))
+                    rc = refuse(uri, names.name[n], "is percent-encoded, which the daemon does not decode");
+                else if (held(p, names.name[n]) < 0)
                     rc = refuse(uri, names.name[n], "is named by the manifest and not held by the pin");
         }
         names_free(&names);
