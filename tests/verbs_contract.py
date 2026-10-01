@@ -78,7 +78,20 @@ if not os.path.exists(readme):
 else:
     with open(readme) as f:
         grammar = set(re.findall(r"^\s{4}(\w+) <instance_number>", f.read(), re.M))
-    handled = {commands["EFFECT_ADD"], commands["EFFECT_REMOVE"]}
+    # protocol.h's PHD_INSTANCE_VERBS, routed by instance through verbs.c's table of them, and its events, which a
+    # controller never sends
+    with open(os.path.join(ROOT, "include", "plugin-hostd", "protocol.h")) as f:
+        header = f.read()
+    rows = header[header.index("#define PHD_INSTANCE_VERBS(X)"):]
+    rows = rows[:rows.index("\n\n")]
+    by_macro = dict(re.findall(r'^#define\s+(PHD_(?:VERB|EVENT)_\w+)\s+"(\w+)"', header, re.M))
+    instance_info = {by_macro[m] for m in re.findall(r"X\(\w+, (PHD_VERB_\w+),", rows)}
+    events = {v for m, v in by_macro.items() if m.startswith("PHD_EVENT_")}
+    with open(os.path.join(ROOT, "src", "verbs.c")) as f:
+        if "PHD_INSTANCE_VERBS(X)" not in f.read():
+            fail("verbs.c does not route PHD_INSTANCE_VERBS")
+    routed |= instance_info
+    handled = {commands["EFFECT_ADD"], commands["EFFECT_REMOVE"]} | events
     missing = grammar - handled - routed
     extra = routed - grammar
     if len(grammar) < 15:

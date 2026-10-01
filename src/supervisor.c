@@ -34,6 +34,9 @@
 #include <plugin-hostd/pin.h>
 #include <utils.h>
 
+/* mod-host's pseudo port of the host's own bypass, which param_info names no parameter */
+#define LV2_BYPASS_SYMBOL ":bypass"
+
 #include "pins.h"
 #include "relay.h"
 #include "supervisor.h"
@@ -1364,6 +1367,22 @@ static char **words(char *copy, int *count)
     return word;
 }
 
+/* param_info of an LV2 instance: -103 for what is no parameter, asked of mod-host with its own param_get, and for the
+ * host's bypass; -511 for a parameter, whose unit and scale the daemon does not hold */
+static char *lv2_param_info(int id, const char *symbol)
+{
+    char line[PATH_MAX], *reply;
+    int code;
+
+    if (!strcmp(symbol, LV2_BYPASS_SYMBOL))
+        return sup_resp(ERR_HOST_INVALID_PARAM_SYMBOL);
+    snprintf(line, sizeof(line), EFFECT_PARAM_GET, id, symbol);
+    reply = sup_call(id, line);
+    code = resp_code(reply);
+    free(reply);
+    return sup_resp(code == ERR_HOST_INVALID_PARAM_SYMBOL ? ERR_HOST_INVALID_PARAM_SYMBOL : PHD_ERR_NO_PARAM_CONTRACT);
+}
+
 char *sup_instance_verb(const char *line, int ledger)
 {
     char *copy = strdup(line), **word, *end, *reply;
@@ -1398,7 +1417,7 @@ char *sup_instance_verb(const char *line, int ledger)
     else if (!strcmp(word[0], PHD_VERB_REMOTE_PAGES))
         reply = sup_resp(count == 2 ? 0 : ERR_INVALID_OPERATION);
     else if (!strcmp(word[0], PHD_VERB_PARAM_INFO))
-        reply = sup_resp(count == 3 ? PHD_ERR_NO_PARAM_CONTRACT : ERR_INVALID_OPERATION);
+        reply = count == 3 ? lv2_param_info(id, word[2]) : sup_resp(ERR_INVALID_OPERATION);
     else
         reply = sup_resp(ERR_INVALID_OPERATION);
     free(word);
