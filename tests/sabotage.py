@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 # Break the daemon on purpose, one guard at a time, and require the named test to go red; the unbroken daemon must
 # pass the same test first, or a red proves nothing. A guard whose sabotage leaves its test green is decoration.
 import os, shutil, subprocess, sys, tempfile

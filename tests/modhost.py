@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 # mod-host's protocol as its headers declare it, for the tests that must not spell it: where the build takes the
 # headers from (pkg-config when mod-host-protocol is installed, a mod-host checkout otherwise, as the Makefile does),
 # the verb of every command of mod-host.h and the codes of host-errors.h.
