@@ -216,6 +216,76 @@
       },
       "minItems": 1
     },
+    "instance_verbs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "arguments": {
+            "type": "string"
+          },
+          "reply": {
+            "type": "string"
+          },
+          "ledger": {
+            "enum": [
+              "none",
+              "replace"
+            ]
+          },
+          "meaning": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "arguments",
+          "reply",
+          "ledger",
+          "meaning"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
+    "track_kinds": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "param_scales": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "meaning": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "meaning"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
+    "remote_page_slots": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "string_max": {
+      "type": "integer",
+      "minimum": 1
+    },
     "events": {
       "type": "array",
       "items": {
@@ -369,6 +439,11 @@
     "worker_states",
     "errors",
     "verbs",
+    "instance_verbs",
+    "track_kinds",
+    "param_scales",
+    "remote_page_slots",
+    "string_max",
     "events",
     "pin_limits",
     "relay",
