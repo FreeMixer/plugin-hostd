@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 # The real workers behind the daemon, over jack, in the namespace tests/jack_e2e.sh built.
 import filecmp, os, signal, subprocess, sys, tempfile, threading, time
 

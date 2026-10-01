@@ -8,3 +8,8 @@ tests/host_scenarios
 tools/protocol-gen
 *.new
 tests/pin-test
+
+# AI tooling stays out of the tree
+/.claude/
+CLAUDE.md
+AGENTS.md

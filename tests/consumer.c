@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* A consumer of the declared protocol, the way a controller uses it: the installed header alone, plain C, no daemon
  * header, no library. It compiles against whatever `pkg-config --cflags plugin-hostd` says and is run by make test. */
 #include <stdio.h>

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 # The declared protocol, protocol/plugin-hostd.json, against its schema: a consumer that reads the JSON may rely on
 # the shape the schema says.
 import json, sys

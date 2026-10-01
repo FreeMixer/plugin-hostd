@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 # The daemon under test and a controller for it: a command socket, a feedback socket read on a thread, and
 # helpers that wait for what the daemon does instead of sleeping and hoping.
 import json, os, re, shutil, signal, socket, subprocess, tempfile, threading, time
