@@ -32,6 +32,7 @@
 #include <host-errors.h>
 #include <mod-host.h>
 #include <plugin-hostd/pin.h>
+#include <utils.h>
 
 #include "pins.h"
 #include "relay.h"
@@ -243,6 +244,7 @@ static void instance_free(instance_t *i)
     free(i->client);
     free(i->sus_line);
     free(i->sus_prev);
+    free(i->track_info);
     free(i);
 }
 
@@ -780,6 +782,13 @@ static void replay(worker_t *w, int64_t started)
         {
             replay_refused(w, i, add, code);
             continue;
+        }
+        /* before the state: what the plugin does on hearing it is overwritten by the state it saved; mod-host
+         * has no track_info, so an LV2 worker never gets it */
+        if (i->track_info && i->fmt == FMT_CLAP && replay_line(w, i->track_info) != RPC_OK)
+        {
+            on_death(w, i->id);
+            return;
         }
         i->has_ckpt = ckpt_exists(i->id);
         any_ckpt |= i->has_ckpt;
@@ -1343,6 +1352,58 @@ char *sup_broadcast(const char *line)
                 g_inst[id]->changed_ms = proc_now_ms();
             }
     return first ? first : sup_resp(SUCCESS);
+}
+
+/* the words of a line by mod-host's own tokenizer, quotes and \" read as the worker reads them; the count in *count */
+static char **words(char *copy, int *count)
+{
+    char **word = strarr_split(copy);
+
+    for (*count = 0; word && word[*count]; (*count)++)
+        ;
+    return word;
+}
+
+char *sup_instance_verb(const char *line, int ledger)
+{
+    char *copy = strdup(line), **word, *end, *reply;
+    instance_t *i = NULL;
+    int count;
+    long id;
+
+    word = words(copy, &count);
+    id = count > 1 ? strtol(word[1], &end, 10) : -1;
+    if (count < 2 || *end || end == word[1])
+        reply = sup_resp(ERR_INVALID_OPERATION);
+    else if (!(i = (id >= 0 && id < MAX_INSTANCE) ? g_inst[id] : NULL))
+        reply = sup_resp(ERR_INSTANCE_NON_EXISTS);
+    else if (!strcmp(word[0], PHD_VERB_TRACK_INFO) && !phd_track_info_valid(word, count))
+        reply = sup_resp(ERR_INVALID_OPERATION);
+    else if (i->fmt == FMT_CLAP)
+    {
+        reply = sup_call(id, line);
+        if (ledger == PHD_LEDGER_REPLACE && resp_code(reply) >= 0 && g_inst[id] == i)
+        {
+            free(i->track_info);
+            i->track_info = strdup(line);
+        }
+    }
+    /* an LV2 instance: mod-host has none of these, so nothing goes to its worker */
+    else if (!strcmp(word[0], PHD_VERB_TRACK_INFO))
+    {
+        free(i->track_info);
+        i->track_info = strdup(line);
+        reply = sup_resp(SUCCESS);
+    }
+    else if (!strcmp(word[0], PHD_VERB_REMOTE_PAGES))
+        reply = sup_resp(count == 2 ? 0 : ERR_INVALID_OPERATION);
+    else if (!strcmp(word[0], PHD_VERB_PARAM_INFO))
+        reply = sup_resp(count == 3 ? PHD_ERR_NO_PARAM_CONTRACT : ERR_INVALID_OPERATION);
+    else
+        reply = sup_resp(ERR_INVALID_OPERATION);
+    free(word);
+    free(copy);
+    return reply;
 }
 
 void sup_after_reply(int id, const char *verb)
