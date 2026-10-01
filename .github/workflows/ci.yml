@@ -56,7 +56,7 @@ jobs:
       # the worker, and its fixtures: a plugin that reads clap.track-info, a compressor that reports meters, and a
       # constant jack source
       - name: Build the CLAP worker
-        run: make -C omx-clap-host omx-clap-host tests/fake.clap tests/fake_compressor.clap tests/jack_meter_source
+        run: make -C omx-clap-host PLUGIN_HOSTD_DIR=$PWD omx-clap-host tests/fake.clap tests/fake_compressor.clap tests/jack_meter_source
 
       # The daemon with the real worker over jack, in a PipeWire of its own. It needs a private user
       # namespace with its own /proc; a runner that refuses one cannot run it, and the step says so.
