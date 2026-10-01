@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
 #
 # plugin-hostd with real workers over jack, in a PipeWire of its own: the script re-runs itself in a private
 # user, net, pid and mount namespace with its own /proc, starts pipewire on a private runtime dir (no session

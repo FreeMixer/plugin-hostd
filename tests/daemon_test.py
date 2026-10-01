@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 # plugin-hostd against workers that are not plugin hosts (tests/fake-host). No jack, no plugin: the daemon's own
 # behaviour, over the wire, the way a controller sees it. tests/jack_e2e.sh runs the real workers.
 import hashlib, os, shutil, signal, subprocess, sys, tempfile, time
