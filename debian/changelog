@@ -1,3 +1,11 @@
+plugin-hostd (0.1.2) unstable; urgency=medium
+
+  * Relay the workers' feedback to the controller.
+  * Plugin info commands: track_info, remote_pages, remote_page_get,
+    param_info.
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Thu, 01 Oct 2026 03:31:19 +0200
+
 plugin-hostd (0.1.1) unstable; urgency=medium
 
   * Pin a plugin's binary and layout before add admits it (pin_set,
