@@ -19,7 +19,7 @@ static void check(int cond, const char *what)
 
 int main(void)
 {
-    int errors = 0, verbs = 0, events = 0, ints = 0, strings = 0;
+    int errors = 0, verbs = 0, events = 0, ints = 0, strings = 0, instance_verbs = 0;
     char reply[32];
 
 #define X(id, meaning) errors++; check(PHD_ERR_##id < 0, #id " is a refusal");
@@ -27,6 +27,11 @@ int main(void)
 #undef X
 #define X(id, name, args, rep, meaning) verbs++; check(*name && *rep, #id " is named and answers");
     PHD_VERBS(X)
+#undef X
+#define X(id, name, args, rep, ledger, meaning) \
+    instance_verbs++; check(*name && *rep && (PHD_LEDGER_##ledger == PHD_LEDGER_NONE || PHD_LEDGER_##ledger == PHD_LEDGER_REPLACE), \
+                            #id " is named, answers and says what the ledger keeps");
+    PHD_INSTANCE_VERBS(X)
 #undef X
 #define X(name, fields, meaning) events++; check(*name && *fields, name " has fields");
     PHD_EVENTS(X)
@@ -60,11 +65,28 @@ int main(void)
         phd_sha256_hex("abc", 3, hex);
         check(!strcmp(hex, "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"), "the pin header hashes");
     }
+    {
+        char *ok[] = { "track_info", "0", "Kick \"In\" \xc3\xb1", "#FF8000", "bus" };
+        char *bad_kind[] = { "track_info", "0", "a", "-", "aux" };
+        char *bad_color[] = { "track_info", "0", "a", "FF8000" };
+        char *bad_utf8[] = { "track_info", "0", "\xc3", "-" };
+        char longest[PHD_STRING_MAX + 2];
+
+        check(phd_track_info_valid(ok, 5), "a track_info line");
+        check(!phd_track_info_valid(bad_kind, 5) && !phd_track_info_valid(bad_color, 4) &&
+              !phd_track_info_valid(bad_utf8, 4), "a kind, a colour or a name outside the grammar is refused");
+        memset(longest, 'a', sizeof(longest));
+        longest[PHD_STRING_MAX] = '\0';
+        check(phd_string_valid(longest), "a name of the longest length");
+        longest[PHD_STRING_MAX] = 'a';
+        longest[PHD_STRING_MAX + 1] = '\0';
+        check(!phd_string_valid(longest), "a name one byte longer is refused");
+    }
     snprintf(reply, sizeof(reply), "resp %d", PHD_ERR_GAVE_UP);
     check(!strncmp(reply, "resp -5", 7), "a reply is resp <code>");
     if (failures)
         return 1;
-    printf("ok   a C consumer of the installed header: %d errors, %d verbs, %d events, %d settings\n", errors, verbs, events,
-           ints + strings);
+    printf("ok   a C consumer of the installed header: %d errors, %d verbs, %d instance verbs, %d events, %d settings\n",
+           errors, verbs, instance_verbs, events, ints + strings);
     return 0;
 }

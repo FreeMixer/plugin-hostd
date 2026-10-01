@@ -33,7 +33,8 @@
     {"name": "VERB_DROPPED", "macro": "PHD_ERR_VERB_DROPPED", "code": -507, "meaning": "the worker died on this very command and the daemon dropped it: it is not replayed, and the instance_verb_dropped event names it; or it died on, or did not answer in rpc_timeout_ms, the pin_expect of an add, which is then never forwarded"},
     {"name": "PIN_ABSENT", "macro": "PHD_ERR_PIN_ABSENT", "code": -508, "meaning": "require_pins is on and the plugin has no pin, or its layout pin is in a scheme this version does not know: add is refused and no worker sees it"},
     {"name": "PIN_BINARY_MISMATCH", "macro": "PHD_ERR_PIN_BINARY_MISMATCH", "code": -509, "meaning": "a pinned file is missing or its SHA-256 differs, or the plugin's manifest names a file the pin does not hold: add is refused and no worker sees it"},
-    {"name": "PIN_LAYOUT_MISMATCH", "macro": "PHD_ERR_PIN_LAYOUT_MISMATCH", "code": -510, "meaning": "the worker found the parameter layout after init differs from the layout pin: the instance is destroyed before activate"}
+    {"name": "PIN_LAYOUT_MISMATCH", "macro": "PHD_ERR_PIN_LAYOUT_MISMATCH", "code": -510, "meaning": "the worker found the parameter layout after init differs from the layout pin: the instance is destroyed before activate"},
+    {"name": "NO_PARAM_CONTRACT", "macro": "PHD_ERR_NO_PARAM_CONTRACT", "code": -511, "meaning": "the host holds no checked unit and scale for this parameter: fall back to qualification"}
   ],
   "verbs": [
     {"name": "add", "arguments": "<uri> <instance> [own | pool:<name> | default] [client_name]", "reply": "resp <instance>", "meaning": "mod-host's add with a placement; a token after the instance that is not a placement is the jack client name"},
@@ -48,6 +49,20 @@
     {"name": "pin_clear", "arguments": "<uri> | all", "reply": "resp 0", "meaning": "forget the pin of one plugin, or of every one"},
     {"name": "pin_expect", "arguments": "<instance> <scheme>:<sha256>", "reply": "resp 0", "meaning": "sent by the daemon to a clap worker just before the instance's add: the layout pin that add checks after init and before activate; any other reply than resp 0 refuses the add with that code, and the add is never forwarded"}
   ],
+  "instance_verbs": [
+    {"name": "track_info", "arguments": "<instance> <name> <#RRGGBB | -> [bus | return | master]", "reply": "resp 0", "ledger": "replace", "meaning": "the strip's name (\"\" for none), colour and kind, absent for an input channel; a clap plugin reads them through clap.track-info; any other word is -902"},
+    {"name": "remote_pages", "arguments": "<instance>", "reply": "resp <count>", "ledger": "none", "meaning": "the plugin's remote-control pages, from clap.remote-controls; 0 for an lv2 instance"},
+    {"name": "remote_page_get", "arguments": "<instance> <page>", "reply": "resp 0 <page_id> <section> <page_name> <s1> <s2> <s3> <s4> <s5> <s6> <s7> <s8>", "ledger": "none", "meaning": "one page, 0 to count - 1: each slot the symbol param_set takes, - for an empty one; -902 for a page that is not one"},
+    {"name": "param_info", "arguments": "<instance> <symbol>", "reply": "resp 0 <unit> <scale> <min> <max> <default> <step> <stable_symbol>", "ledger": "none", "meaning": "what a parameter's value means: its unit, its scale, and the symbol it keeps across hosts and versions; -103 for a symbol that is not a parameter, the plugin's own bypass and :bypass included"}
+  ],
+  "track_kinds": ["bus", "return", "master"],
+  "param_scales": [
+    {"name": "linear", "meaning": "the value is linear in position"},
+    {"name": "log", "meaning": "the value is geometric in position; both bounds are positive"},
+    {"name": "stepped", "meaning": "the whole numbers from min to max, step 1"}
+  ],
+  "remote_page_slots": 8,
+  "string_max": 255,
   "events": [
     {"name": "worker_died", "fields": "<worker> <pid> <exit:N | signal:N> <instance>,...", "meaning": "a worker died; the instances it held, or - for none"},
     {"name": "instance_verb_dropped", "fields": "<instance> <the command as sent>", "meaning": "the command a worker died on, dropped from the ledger, or the pin_expect of an add it died on"},
@@ -57,7 +72,8 @@
     {"name": "instance_restored", "fields": "<instance> <worker>", "meaning": "an instance is back in a worker"},
     {"name": "instance_replay_refused", "fields": "<instance> <code>", "meaning": "a replayed add was refused, by its pin or by the worker, <code> the refusal's own: no worker holds the instance until the next replay"},
     {"name": "instance_quarantined", "fields": "<instance> <worker>", "meaning": "the culprit of a pool death, placed own until cleared"},
-    {"name": "supervisor_gave_up", "fields": "<worker> <deaths> <window_ms>", "meaning": "the storm bound is spent; respawning ends"}
+    {"name": "supervisor_gave_up", "fields": "<worker> <deaths> <window_ms>", "meaning": "the storm bound is spent; respawning ends"},
+    {"name": "remote_pages_changed", "fields": "<instance>", "meaning": "relayed from a clap worker: the plugin changed its remote pages; read them again"}
   ],
   "pin_limits": [
     {"name": "PATH", "meaning": "a path holding ',', '=' or whitespace cannot be pinned: they are the separators of pin_set's words, and pin_set refuses it as a token outside its grammar"},

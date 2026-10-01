@@ -123,7 +123,37 @@ static void json(void)
     sep = ",\n";
     PHD_VERBS(X)
 #undef X
-    printf("\n  ],\n  \"events\": [");
+    printf("\n  ],\n  \"instance_verbs\": [");
+    sep = "\n";
+#define X(id, name, args, reply, ledger, meaning) \
+    printf("%s    {\"name\": ", sep); \
+    jstr(name); \
+    printf(", \"arguments\": "); \
+    jstr(args); \
+    printf(", \"reply\": "); \
+    jstr(reply); \
+    printf(", \"ledger\": \"%s\", \"meaning\": ", PHD_LEDGER_##ledger == PHD_LEDGER_REPLACE ? "replace" : "none"); \
+    jstr(meaning); \
+    printf("}"); \
+    sep = ",\n";
+    PHD_INSTANCE_VERBS(X)
+#undef X
+    printf("\n  ],\n  \"track_kinds\": [");
+    sep = "";
+#define X(id, name) printf("%s\"%s\"", sep, name); sep = ", ";
+    PHD_TRACK_KINDS(X)
+#undef X
+    printf("],\n  \"param_scales\": [");
+    sep = "\n";
+#define X(id, name, meaning) \
+    printf("%s    {\"name\": \"%s\", \"meaning\": ", sep, name); \
+    jstr(meaning); \
+    printf("}"); \
+    sep = ",\n";
+    PHD_PARAM_SCALES(X)
+#undef X
+    printf("\n  ],\n  \"remote_page_slots\": %d,\n  \"string_max\": %d,\n  \"events\": [", PHD_REMOTE_PAGE_SLOTS,
+           PHD_STRING_MAX);
     sep = "\n";
 #define X(name, fields, meaning) \
     printf("%s    {\"name\": ", sep); \
@@ -271,6 +301,32 @@ static void region_verbs(void)
     printf(".\n");
 }
 
+static void region_instance_verbs(void)
+{
+    const char *sep = "";
+    char args[PATH_MAX_DOC], reply[PATH_MAX_DOC];
+
+    row(" verb ", " arguments ", " reply ", " meaning ");
+    printf("|---|---|---|---|\n");
+#define X(id, name, arguments, rep, ledger, meaning) \
+    snprintf(args, sizeof(args), " `%s` ", arguments); \
+    snprintf(reply, sizeof(reply), " `%s` ", rep); \
+    row(" `" name "` ", args, reply, " " meaning " ");
+    PHD_INSTANCE_VERBS(X)
+#undef X
+    printf("\nThe ledger keeps the latest ");
+#define X(id, name, arguments, rep, ledger, meaning) \
+    if (PHD_LEDGER_##ledger == PHD_LEDGER_REPLACE) { printf("%s`%s`", sep, name); sep = ", "; }
+    PHD_INSTANCE_VERBS(X)
+#undef X
+    printf(" of an instance and replays it after the add; the others are queries. A `<scale>` is ");
+    sep = "";
+#define X(id, name, meaning) printf("%s`%s` (%s)", sep, name, meaning); sep = ", ";
+    PHD_PARAM_SCALES(X)
+#undef X
+    printf(". A string word is at most %d bytes of UTF-8 with no control character.\n", PHD_STRING_MAX);
+}
+
 static void region_errors(void)
 {
     char code[PATH_MAX_DOC];
@@ -379,7 +435,7 @@ static const struct {
     void (*emit)(void);
 } REGIONS[] = {
     { "config", region_config }, { "constants", region_constants }, { "placement", region_placement },
-    { "verbs", region_verbs }, { "errors", region_errors }, { "events", region_events },
+    { "verbs", region_verbs }, { "instance-verbs", region_instance_verbs }, { "errors", region_errors }, { "events", region_events },
     { "pin-limits", region_pin_limits }, { "man-pin-limits", region_man_pin_limits },
     { "readiness", region_readiness }, { "worker-ready", region_worker_ready },
     { "man-keys", region_man_keys }, { "man-ready", region_man_ready }, { "man-port", region_man_port },
