@@ -8,7 +8,7 @@ FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "
 
 # (what is broken, file, text, replacement, the test that must go red[, "jack"]); a "jack" test runs in tests/jack_e2e.sh
 # over the real workers and is skipped when OMX_CLAP_HOST is not set; "meters" is a jack test that also needs
-# omx-clap-host's FAKE_COMPRESSOR_CLAP and JACK_METER_SOURCE and is skipped without them; "lv2" is a jack test that also needs mod-host and
+# omx-clap-host's FAKE_COMPRESSOR_CLAP and JACK_METER_SOURCE and is skipped without them; "info" one that needs its FAKE_CLAP; "lv2" is a jack test that also needs mod-host and
 # an LV2 bundle (MOD_HOST, LV2_DIR, LV2_URI, LV2_BUNDLE, LV2_PARAM) and is skipped without them; "pin" breaks
 # include/plugin-hostd/pin.h and runs tests/pin_test.c
 SABOTAGE = [
@@ -141,6 +141,9 @@ SABOTAGE = [
     ("a worker's remote_pages_changed is not relayed", "src/relay.c",
      "            send_line(start, nul - start + 1);\n", "",
      "remote_pages_changed_from_a_worker_reaches_the_controller"),
+    ("a CLAP worker is not told track_info again after a kill", "src/supervisor.c",
+     "if (i->track_info && i->fmt == FMT_CLAP && replay_line(", "if (0 && replay_line(",
+     "clap_track_info_and_remote_pages_reach_the_plugin_through_the_daemon", "info"),
     ("meters behind the daemon never reach the controller", "src/supervisor.c", "    relay_add(w->fb_fd);\n", "",
      "clap_meters_reach_the_controller_through_the_daemon_and_survive_a_kill", "meters"),
     ("a SHA-256 round constant is wrong", "include/plugin-hostd/pin.h", "0x428a2f98, 0x71374491", "0x428a2f98, 0x71374490",
@@ -184,7 +187,10 @@ try:
         if jack == "meters" and not (os.environ.get("FAKE_COMPRESSOR_CLAP") and os.environ.get("JACK_METER_SOURCE")):
             print("skip sabotage (no FAKE_COMPRESSOR_CLAP and JACK_METER_SOURCE of omx-clap-host): %s" % what)
             continue
-        if jack in ("jack", "lv2", "meters") and not os.environ.get("OMX_CLAP_HOST"):
+        if jack == "info" and not os.environ.get("FAKE_CLAP"):
+            print("skip sabotage (no FAKE_CLAP of omx-clap-host): %s" % what)
+            continue
+        if jack in ("jack", "lv2", "meters", "info") and not os.environ.get("OMX_CLAP_HOST"):
             print("skip sabotage (no OMX_CLAP_HOST): %s" % what)
             continue
         if entry[5:] == ("lv2",) and not all(os.environ.get(v) for v in ("MOD_HOST", "LV2_DIR", "LV2_URI", "LV2_BUNDLE", "LV2_PARAM")):
