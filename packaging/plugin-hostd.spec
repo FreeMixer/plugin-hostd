@@ -1,5 +1,5 @@
 Name: plugin-hostd
-Version: 0.1.1
+Version: 0.1.2
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Supervisor that runs LV2 and CLAP plugin hosts as isolated workers behind one mod-host socket
@@ -69,6 +69,10 @@ make test-daemon check-generated
 %{_datadir}/plugin-hostd/protocol.schema.json
 
 %changelog
+* Thu Oct 01 2026 Pau Aliagas <linuxnow@gmail.com> - 0.1.2-1
+- relay the workers' feedback to the controller
+- plugin info commands: track_info, remote_pages, remote_page_get, param_info
+
 * Wed Sep 30 2026 Pau Aliagas <linuxnow@gmail.com> - 0.1.1-1
 - pin a plugin's binary and layout before add admits it (pin_set, pin_clear, pin_expect)
 - read every verb from its declaration
