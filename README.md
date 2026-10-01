@@ -224,6 +224,12 @@ outside the window replays everything, as before.
 Pins
 ----
 
+Why: a plugin is checked before the console trusts it. We measure one build of it for crashes, real-time safety and
+its parameters. The pin makes sure the bytes that load are the bytes that were checked, so an update or a swapped
+file cannot slip in unchecked. The layout pin also protects the controls: presets, surfaces and the REST rows are
+mapped to the plugin's parameters, and a changed layout would send values to the wrong ones. It also leaves a record
+you can audit: the exact plugin build that processed the audio.
+
 With `require_pins` on, the default, `add` admits only a plugin the controller pinned with `pin_set`: the SHA-256 of
 every file the host loads for it, and its parameter layout fingerprint. Before any worker is spawned or sees the
 `add`, the daemon hashes each pinned file over one open descriptor: for a CLAP the files beside the `.clap` that
