@@ -33,6 +33,11 @@
  *   pin_expect <n> <pin>        the layout pin of the next add of <n>: that add answers PHD_ERR_PIN_LAYOUT_MISMATCH
  *                               when the fake's own layout differs (FAKE_NO_PIN_EXPECT: the verb is unknown, -902;
  *                               FAKE_PIN_EXPECT_HANG: it is never answered)
+ *   param_set <n> pages_changed <v>   v other than 0 writes "remote_pages_changed <n>" on the feedback port, as a CLAP
+ *                               worker does when its plugin changes its remote pages
+ *   track_info <n> ...          "resp 0"; the fake keeps nothing of it (FAKE_LOG shows what it was sent)
+ *   remote_pages <n>            "resp 2", and remote_page_get <n> <0|1> one page each, -902 for any other page
+ *   param_info <n> <sym>        for the symbol 0 the worked vector of the param contract, -103 for any other
  *   monitor_output <n> <sym>    "resp 1", or "resp 0" for the symbol "none"; from then on, every 20 ms, the feedback port
  *                               carries "output_set <n> <sym> <k>", k counting 0, 1, 2 ... for that output of this
  *                               process: a line lost, doubled or out of order shows as a gap or a repeat in k.
@@ -264,6 +269,13 @@ static void receive(msg_t *msg)
         if (!strcmp(tok[2], "crashnow") && atof(tok[3]) != 0.0)
             crash();
         set_param(&g_inst[n], tok[2], tok[3]);
+        if (!strcmp(tok[2], "pages_changed") && atof(tok[3]) != 0.0)
+        {
+            char event[64];
+
+            snprintf(event, sizeof(event), PHD_EVENT_REMOTE_PAGES_CHANGED_FMT, n);
+            socket_send_feedback(event);
+        }
         if (!strcmp(tok[2], "crash") && atof(tok[3]) != 0.0)
         {
             const char *once = getenv("FAKE_CRASH_ONCE");
@@ -325,6 +337,18 @@ static void receive(msg_t *msg)
         }
         answer(fd, "resp %d", strcmp(tok[2], "none") ? 1 : 0);
     }
+    else if (!strcmp(verb, PHD_VERB_TRACK_INFO))
+        answer(fd, "resp 0");
+    else if (!strcmp(verb, PHD_VERB_REMOTE_PAGES) && ntok == 2)
+        answer(fd, "resp 2");
+    else if (!strcmp(verb, PHD_VERB_REMOTE_PAGE_GET) && ntok == 3 && !strcmp(tok[2], "0"))
+        answer(fd, "resp 0 7 \"Main\" \"Page \\\"A\\\"\" 0 2 - - - - - -");
+    else if (!strcmp(verb, PHD_VERB_REMOTE_PAGE_GET) && ntok == 3 && !strcmp(tok[2], "1"))
+        answer(fd, "resp 0 8 \"\" \"Two\" 2 - - - - - - -");
+    else if (!strcmp(verb, PHD_VERB_REMOTE_PAGE_GET) && ntok == 3)
+        answer(fd, "resp -902");
+    else if (!strcmp(verb, PHD_VERB_PARAM_INFO) && ntok == 3)
+        answer(fd, !strcmp(tok[2], "0") ? "resp 0 ms linear 1 2000 350 1 time_ms" : "resp -103");
     else if (verb_is(verb, EFFECT_PATCH_SET) && ntok == 4)
     {
         char key[80];

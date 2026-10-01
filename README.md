@@ -122,6 +122,27 @@ A `<state>` is `up` (accepting commands), `starting` (spawned, not yet accepting
 A record's place holds a colon (`pool:p`), so a `worker_list` record is read from both ends: four fields on the
 left, the instance list on the right, the place in between.
 
+Verbs a worker answers, by instance
+-----------------------------------
+
+What a host knows of a strip and of a plugin's controls. For a CLAP instance the daemon routes them like mod-host's
+instance verbs and passes the worker's reply through; the worker answers them from the plugin (`clap.track-info`,
+`clap.remote-controls`, `clap.params`). For an LV2 instance the daemon answers them itself, never forwarding them, so
+mod-host learns none of them: `track_info` is kept and answered `resp 0`, an LV2 plugin has no remote pages, and
+`param_info` answers `-511` until the daemon reads the bundle's port data. When a CLAP plugin changes its pages, its
+worker writes `remote_pages_changed <instance>` on its feedback port and the daemon relays it.
+
+<!-- BEGIN GENERATED protocol:instance-verbs -->
+| verb | arguments | reply | meaning |
+|---|---|---|---|
+| `track_info` | `<instance> <name> <#RRGGBB \| -> [bus \| return \| master]` | `resp 0` | the strip's name ("" for none), colour and kind, absent for an input channel; a clap plugin reads them through clap.track-info; any other word is -902 |
+| `remote_pages` | `<instance>` | `resp <count>` | the plugin's remote-control pages, from clap.remote-controls; 0 for an lv2 instance |
+| `remote_page_get` | `<instance> <page>` | `resp 0 <page_id> <section> <page_name> <s1> <s2> <s3> <s4> <s5> <s6> <s7> <s8>` | one page, 0 to count - 1: each slot the symbol param_set takes, - for an empty one; -902 for a page that is not one |
+| `param_info` | `<instance> <symbol>` | `resp 0 <unit> <scale> <min> <max> <default> <step> <stable_symbol>` | what a parameter's value means: its unit, its scale, and the symbol it keeps across hosts and versions; -103 for a symbol that is not a parameter, the plugin's own bypass and :bypass included |
+
+The ledger keeps the latest `track_info` of an instance and replays it after the add; the others are queries. A `<scale>` is `linear` (the value is linear in position), `log` (the value is geometric in position; both bounds are positive), `stepped` (the whole numbers from min to max, step 1). A string word is at most 255 bytes of UTF-8 with no control character.
+<!-- END GENERATED protocol:instance-verbs -->
+
 Error codes the daemon adds to mod-host's:
 
 <!-- BEGIN GENERATED protocol:errors -->
@@ -137,6 +158,7 @@ Error codes the daemon adds to mod-host's:
 | `-508` | `PHD_ERR_PIN_ABSENT` | require_pins is on and the plugin has no pin, or its layout pin is in a scheme this version does not know: add is refused and no worker sees it |
 | `-509` | `PHD_ERR_PIN_BINARY_MISMATCH` | a pinned file is missing or its SHA-256 differs, or the plugin's manifest names a file the pin does not hold: add is refused and no worker sees it |
 | `-510` | `PHD_ERR_PIN_LAYOUT_MISMATCH` | the worker found the parameter layout after init differs from the layout pin: the instance is destroyed before activate |
+| `-511` | `PHD_ERR_NO_PARAM_CONTRACT` | the host holds no checked unit and scale for this parameter: fall back to qualification |
 <!-- END GENERATED protocol:errors -->
 
 A worker's own refusal is returned as it said it. An `add` that killed its worker answers mod-host's `-102`.
@@ -165,6 +187,7 @@ Events on the feedback port, one NUL-terminated line each:
 | `instance_replay_refused` | `<instance> <code>` | a replayed add was refused, by its pin or by the worker, <code> the refusal's own: no worker holds the instance until the next replay |
 | `instance_quarantined` | `<instance> <worker>` | the culprit of a pool death, placed own until cleared |
 | `supervisor_gave_up` | `<worker> <deaths> <window_ms>` | the storm bound is spent; respawning ends |
+| `remote_pages_changed` | `<instance>` | relayed from a clap worker: the plugin changed its remote pages; read them again |
 <!-- END GENERATED protocol:events -->
 
 The workers' own feedback
