@@ -25,6 +25,8 @@
 #ifndef PLUGIN_HOSTD_PROTOCOL_H
 #define PLUGIN_HOSTD_PROTOCOL_H
 
+#include <string.h>
+
 /* bumped when a name, a code or the shape of a verb or an event changes incompatibly */
 #define PLUGIN_HOSTD_PROTOCOL_VERSION 1
 
@@ -127,6 +129,7 @@ static inline int phd_pool_name_valid(const char *name)
 #define PHD_ERR_PIN_ABSENT          (-508)
 #define PHD_ERR_PIN_BINARY_MISMATCH (-509)
 #define PHD_ERR_PIN_LAYOUT_MISMATCH (-510)
+#define PHD_ERR_NO_PARAM_CONTRACT   (-511)
 
 /* X(id, meaning) */
 #define PHD_ERRORS(X) \
@@ -147,7 +150,8 @@ static inline int phd_pool_name_valid(const char *name)
     X(PIN_BINARY_MISMATCH, "a pinned file is missing or its SHA-256 differs, or the plugin's manifest names a file the " \
                            "pin does not hold: add is refused and no worker sees it") \
     X(PIN_LAYOUT_MISMATCH, "the worker found the parameter layout after init differs from the layout pin: the " \
-                           "instance is destroyed before activate")
+                           "instance is destroyed before activate") \
+    X(NO_PARAM_CONTRACT, "the host holds no checked unit and scale for this parameter: fall back to qualification")
 
 /* ---------------------------------------------------------------- verbs */
 
@@ -212,6 +216,136 @@ static inline int phd_pool_name_valid(const char *name)
       "checks after init and before activate; any other reply than resp 0 refuses the add with that code, and the " \
       "add is never forwarded")
 
+/* ---------------------------------------------------------------- instance verbs */
+
+/* What a host knows of a strip and of a plugin's controls, asked by instance. The daemon routes them to a
+ * PHD_FORMAT_CLAP worker, which answers them from the plugin; for a PHD_FORMAT_LV2 instance it answers them itself and
+ * never forwards them. A string word is quoted when it is not a plain word, and always in a reply, with \" inside it
+ * for a quote: mod-host's own tokenizer reads them. */
+#define PHD_VERB_TRACK_INFO      "track_info"
+#define PHD_VERB_REMOTE_PAGES    "remote_pages"
+#define PHD_VERB_REMOTE_PAGE_GET "remote_page_get"
+#define PHD_VERB_PARAM_INFO      "param_info"
+
+/* the same verbs as a host registers them with protocol_add_command */
+#define PHD_VERB_TRACK_INFO_FMT      PHD_VERB_TRACK_INFO " %i %s %s ..."
+#define PHD_VERB_REMOTE_PAGES_FMT    PHD_VERB_REMOTE_PAGES " %i"
+#define PHD_VERB_REMOTE_PAGE_GET_FMT PHD_VERB_REMOTE_PAGE_GET " %i %i"
+#define PHD_VERB_PARAM_INFO_FMT      PHD_VERB_PARAM_INFO " %i %s"
+
+/* the longest string word, in bytes: CLAP_NAME_SIZE - 1 */
+#define PHD_STRING_MAX 255
+/* the parameters on one remote page, and the word of an empty slot */
+#define PHD_REMOTE_PAGE_SLOTS 8
+#define PHD_EMPTY_SLOT        PHD_WORD_NONE
+/* the colour of a strip that has none */
+#define PHD_NO_COLOR          PHD_WORD_NONE
+
+/* the kind of strip, the fourth word of track_info; none for an input channel: X(id, name) */
+#define PHD_TRACK_KINDS(X) X(BUS, "bus") X(RETURN, "return") X(MASTER, "master")
+
+/* how a parameter's plain value maps to a control's travel: X(id, name, meaning) */
+#define PHD_PARAM_SCALES(X) \
+    X(LINEAR, "linear", "the value is linear in position") \
+    X(LOG, "log", "the value is geometric in position; both bounds are positive") \
+    X(STEPPED, "stepped", "the whole numbers from min to max, step 1")
+
+/* what the ledger keeps of a verb: nothing, or the latest one per instance, replayed after the add */
+#define PHD_LEDGER_NONE    0
+#define PHD_LEDGER_REPLACE 1
+
+/* X(id, name, arguments, reply, ledger, meaning) */
+#define PHD_INSTANCE_VERBS(X) \
+    X(TRACK_INFO, PHD_VERB_TRACK_INFO, "<instance> <name> <#RRGGBB | " PHD_NO_COLOR "> [bus | return | master]", \
+      "resp 0", REPLACE, \
+      "the strip's name (\"\" for none), colour and kind, absent for an input channel; a " PHD_FORMAT_CLAP \
+      " plugin reads them through clap.track-info; any other word is -902") \
+    X(REMOTE_PAGES, PHD_VERB_REMOTE_PAGES, "<instance>", "resp <count>", NONE, \
+      "the plugin's remote-control pages, from clap.remote-controls; 0 for an " PHD_FORMAT_LV2 " instance") \
+    X(REMOTE_PAGE_GET, PHD_VERB_REMOTE_PAGE_GET, "<instance> <page>", \
+      "resp 0 <page_id> <section> <page_name> <s1> <s2> <s3> <s4> <s5> <s6> <s7> <s8>", NONE, \
+      "one page, 0 to count - 1: each slot the symbol param_set takes, " PHD_EMPTY_SLOT " for an empty one; -902 " \
+      "for a page that is not one") \
+    X(PARAM_INFO, PHD_VERB_PARAM_INFO, "<instance> <symbol>", \
+      "resp 0 <unit> <scale> <min> <max> <default> <step> <stable_symbol>", NONE, \
+      "what a parameter's value means: its unit, its scale, and the symbol it keeps across hosts and versions; -103 " \
+      "for a symbol that is not a parameter, the plugin's own bypass and :bypass included")
+
+/* whether s is a string word: valid UTF-8, at most PHD_STRING_MAX bytes, no byte below 0x20 */
+static inline int phd_string_valid(const char *s)
+{
+    const unsigned char *p = (const unsigned char *)s;
+    int n = 0;
+
+    while (p[n])
+    {
+        unsigned c = p[n], cp;
+        int more, k;
+
+        if (c < 0x20)
+            return 0;
+        if (c < 0x80)
+        {
+            n++;
+            continue;
+        }
+        if (c >= 0xc2 && c <= 0xdf)
+            more = 1, cp = c & 0x1f;
+        else if (c >= 0xe0 && c <= 0xef)
+            more = 2, cp = c & 0x0f;
+        else if (c >= 0xf0 && c <= 0xf4)
+            more = 3, cp = c & 0x07;
+        else
+            return 0;
+        for (k = 1; k <= more; k++)
+        {
+            if ((p[n + k] & 0xc0) != 0x80)
+                return 0;
+            cp = (cp << 6) | (p[n + k] & 0x3f);
+        }
+        if ((more == 2 && (cp < 0x800 || (cp >= 0xd800 && cp <= 0xdfff))) || (more == 3 && (cp < 0x10000 || cp > 0x10ffff)))
+            return 0;
+        n += more + 1;
+    }
+    return n <= PHD_STRING_MAX;
+}
+
+/* whether c is a colour of track_info: #RRGGBB, either case, or PHD_NO_COLOR */
+static inline int phd_color_valid(const char *c)
+{
+    int n;
+
+    if (!strcmp(c, PHD_NO_COLOR))
+        return 1;
+    if (c[0] != '#')
+        return 0;
+    for (n = 1; n <= 6; n++)
+        if (!((c[n] >= '0' && c[n] <= '9') || (c[n] >= 'a' && c[n] <= 'f') || (c[n] >= 'A' && c[n] <= 'F')))
+            return 0;
+    return c[7] == '\0';
+}
+
+/* the kind of strip a fourth word of track_info names, 1 for the first row of PHD_TRACK_KINDS; 0 for NULL (an
+ * input channel); -1 for a word that is not one */
+static inline int phd_track_kind(const char *word)
+{
+    int n = 0;
+
+    if (!word)
+        return 0;
+#define X(id, name) n++; if (!strcmp(word, name)) return n;
+    PHD_TRACK_KINDS(X)
+#undef X
+    return -1;
+}
+
+/* whether the words of a track_info line, the verb first, are its grammar */
+static inline int phd_track_info_valid(char *const *word, int count)
+{
+    return (count == 4 || count == 5) && phd_string_valid(word[2]) && phd_color_valid(word[3]) &&
+           phd_track_kind(count == 5 ? word[4] : NULL) >= 0;
+}
+
 /* ---------------------------------------------------------------- feedback events */
 
 /* one NUL-terminated line each on the feedback port; a worker is "w<k>" */
@@ -223,6 +357,8 @@ static inline int phd_pool_name_valid(const char *name)
 #define PHD_EVENT_INSTANCE_REPLAY_REFUSED "instance_replay_refused"
 #define PHD_EVENT_INSTANCE_QUARANTINED    "instance_quarantined"
 #define PHD_EVENT_SUPERVISOR_GAVE_UP      "supervisor_gave_up"
+/* written by a worker, relayed as it wrote it */
+#define PHD_EVENT_REMOTE_PAGES_CHANGED    "remote_pages_changed"
 
 #define PHD_EVENT_SUSPECT_PREFIX "suspect:"
 
@@ -236,6 +372,7 @@ static inline int phd_pool_name_valid(const char *name)
 #define PHD_EVENT_REPLAY_REFUSED_FMT        PHD_EVENT_INSTANCE_REPLAY_REFUSED " %d %d"
 #define PHD_EVENT_INSTANCE_QUARANTINED_FMT  PHD_EVENT_INSTANCE_QUARANTINED " %d w%d"
 #define PHD_EVENT_SUPERVISOR_GAVE_UP_FMT    PHD_EVENT_SUPERVISOR_GAVE_UP " w%d %d %d"
+#define PHD_EVENT_REMOTE_PAGES_CHANGED_FMT  PHD_EVENT_REMOTE_PAGES_CHANGED " %d"
 
 /* the table of the docs: X(name, fields, meaning), one row per shape of a line */
 #define PHD_EVENTS(X) \
@@ -252,7 +389,9 @@ static inline int phd_pool_name_valid(const char *name)
       "a replayed add was refused, by its pin or by the worker, <code> the refusal's own: no worker holds the " \
       "instance until the next replay") \
     X(PHD_EVENT_INSTANCE_QUARANTINED, "<instance> <worker>", "the culprit of a pool death, placed own until cleared") \
-    X(PHD_EVENT_SUPERVISOR_GAVE_UP, "<worker> <deaths> <window_ms>", "the storm bound is spent; respawning ends")
+    X(PHD_EVENT_SUPERVISOR_GAVE_UP, "<worker> <deaths> <window_ms>", "the storm bound is spent; respawning ends") \
+    X(PHD_EVENT_REMOTE_PAGES_CHANGED, "<instance>", \
+      "relayed from a " PHD_FORMAT_CLAP " worker: the plugin changed its remote pages; read them again")
 
 /* ---------------------------------------------------------------- worker feedback, relayed */
 

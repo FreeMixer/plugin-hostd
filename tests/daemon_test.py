@@ -698,6 +698,130 @@ def a_worker_is_read_when_no_controller_reads_the_feedback():
         d.close()
 
 
+# ---------------------------------------------------------------- verbs a worker answers by instance (PHD_INSTANCE_VERBS)
+
+VERBS = {v["name"]: v for v in harness.DECLARED["instance_verbs"]}
+TRACK = 'track_info 0 "Kick \\"In\\" ñ" #FF8000 bus'
+BAD_TRACK = ['track_info 0 "%s" - ' % ("x" * 256), "track_info 0 a #FF800", "track_info 0 a FF8000",
+             "track_info 0 a #FF8000 aux", "track_info 0 a", 'track_info 0 "a\tb" -', "track_info x a -"]
+
+
+def sent_to(log, pid=None):
+    """the commands the fake workers were sent, or one worker's"""
+    if not os.path.exists(log):
+        return []
+    with open(log, encoding="utf-8") as f:
+        return [l.split(" ", 1)[1].rstrip("\n") for l in f if pid is None or l.startswith("%d " % pid)]
+
+
+@test
+def an_lv2_instance_is_answered_by_the_daemon_and_its_worker_never_sees_the_verbs():
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(env={"FAKE_LOG": log})
+    try:
+        check(set(VERBS) == {"track_info", "remote_pages", "remote_page_get", "param_info"}, "declared: %s" % VERBS)
+        d.expect("add fake:a 0", "resp 0")
+        d.expect(TRACK, "resp 0")
+        d.expect('track_info 0 "" -', "resp 0")
+        d.expect("track_info 0 Kick #ff8000", "resp 0")
+        for bad in BAD_TRACK:
+            d.expect(bad, "resp -902")
+        d.expect("track_info 9 a -", "resp -3")
+        d.expect("remote_pages 0", "resp 0")
+        d.expect("remote_page_get 0 0", "resp -902")
+        d.expect("param_set 0 gain 0.5000", "resp 0")
+        d.expect("param_info 0 gain", resp("NO_PARAM_CONTRACT"))
+        d.expect("param_info 0 no_such_symbol", "resp -103")
+        d.expect("param_info 0 :bypass", "resp -103")
+        d.expect("remote_pages 9", "resp -3")
+        d.expect("param_info 9 gain", "resp -3")
+        _, w = d.holder(0)
+        mark = d.mark()
+        os.kill(w["pid"], signal.SIGKILL)
+        d.wait_event("instance_restored 0 ", since=mark)
+        d.expect("remote_pages 0", "resp 0")
+        got = [c for c in sent_to(log) if c.split(" ", 1)[0] in VERBS]
+        check(got == [], "mod-host learns none of the verbs, before or after a respawn: %s" % got)
+        check(any(c.startswith("add ") for c in sent_to(log, d.holder(0)[1]["pid"])), "the respawned worker got its add")
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
+
+
+@test
+def a_clap_instance_is_routed_to_its_worker_and_its_reply_passed_through():
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(env={"FAKE_LOG": log})
+    try:
+        d.expect("add clap:fake#a 0", "resp 0")
+        d.expect(TRACK, "resp 0")
+        d.expect("remote_pages 0", "resp 2")
+        d.expect("remote_page_get 0 0", 'resp 0 7 "Main" "Page \\"A\\"" 0 2 - - - - - -')
+        d.expect("remote_page_get 0 2", "resp -902")
+        d.expect("param_info 0 0", "resp 0 ms linear 1 2000 350 1 time_ms")
+        d.expect("param_info 0 1", "resp -103")
+        for bad in BAD_TRACK:
+            d.expect(bad, "resp -902")
+        d.expect("remote_pages 9", "resp -3")
+        got = [c for c in sent_to(log) if c.split(" ", 1)[0] in VERBS]
+        check(got == [TRACK, "remote_pages 0", "remote_page_get 0 0", "remote_page_get 0 2", "param_info 0 0",
+                      "param_info 0 1"], "the worker gets each verb as sent, and no line the daemon refused: %s" % got)
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
+
+
+@test
+def track_info_is_replayed_once_after_the_add_and_before_the_state():
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(conf={"checkpoint_ms": 300}, env={"FAKE_LOG": log})
+    try:
+        d.expect("add clap:fake#a 0", "resp 0")
+        d.expect("track_info 0 Old #000000", "resp 0")
+        d.expect(TRACK, "resp 0")
+        d.expect("remote_pages 0", "resp 2")
+        d.expect("param_set 0 gain 0.6000", "resp 0")
+        wait_for(lambda: os.path.exists(os.path.join(d.tmp, "plugin-hostd", str(d.proc.pid), "ckpt", "effect_0.fakestate")),
+                 "a checkpoint of instance 0")
+        _, w = d.holder(0)
+        mark = d.mark()
+        os.kill(w["pid"], signal.SIGKILL)
+        d.wait_event("instance_restored 0 ", since=mark)
+        sent = sent_to(log, d.holder(0)[1]["pid"])
+        first = [c.split(" ", 1)[0] for c in sent][:3]
+        check(first == ["add", "track_info", "state_load"], "add, then track_info, then the state: %s" % sent)
+        check([c for c in sent if c.startswith("track_info")] == [TRACK], "the latest track_info, once: %s" % sent)
+        check(not [c for c in sent if c.split(" ", 1)[0] in ("remote_pages", "remote_page_get", "param_info")],
+              "a query is never replayed: %s" % sent)
+        d.expect("remove 0", "resp 0")
+        d.expect("add clap:fake#a 0", "resp 0")
+        _, w = d.holder(0)
+        mark = d.mark()
+        os.kill(w["pid"], signal.SIGKILL)
+        d.wait_event("instance_restored 0 ", since=mark)
+        sent = sent_to(log, d.holder(0)[1]["pid"])
+        check(not [c for c in sent if c.startswith("track_info")], "a removed instance's track_info is gone: %s" % sent)
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
+
+
+@test
+def remote_pages_changed_from_a_worker_reaches_the_controller():
+    d = daemon()
+    try:
+        d.expect("add clap:fake#a 3", "resp 3")
+        mark = d.mark()
+        d.expect("param_set 3 pages_changed 1", "resp 0")
+        check(d.wait_event("remote_pages_changed ", since=mark) == "remote_pages_changed 3",
+              "the worker's line, unchanged: %s" % d.events[mark:])
+    finally:
+        d.close()
+
+
 # ---------------------------------------------------------------- pins (one-contract §10, supervisor §5.8)
 
 MANIFEST = """@prefix lv2: <http://lv2plug.in/ns/lv2core#> .

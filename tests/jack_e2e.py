@@ -18,6 +18,7 @@ LV2 = MOD_HOST and LV2_DIR and LV2_URI and LV2_BUNDLE and LV2_PARAM
 COMPRESSOR = os.environ.get("FAKE_COMPRESSOR_CLAP")
 METER_SOURCE = os.environ.get("JACK_METER_SOURCE")
 HOST_SCENARIOS = os.environ.get("HOST_SCENARIOS")
+FAKE_CLAP = os.environ.get("FAKE_CLAP")      # omx-clap-host's tests/fake.clap: its passthrough reads clap.track-info
 SCENARIOS = os.environ.get("SCENARIOS")
 TESTS = []
 LEVEL, CRASH = 3, 0
@@ -309,6 +310,40 @@ if LV2:
             d.wait_event("instance_restored 0 ", since=mark)
             wait_for(lambda: has_ports(0, names), "the LV2 insert to come back")
             d.expect("param_get 0 " + LV2_PARAM, before)
+        finally:
+            d.close()
+
+
+if FAKE_CLAP:
+    @test
+    def clap_track_info_and_remote_pages_reach_the_plugin_through_the_daemon():
+        """track_info reaches the plugin through the worker, is replayed to it after a kill, and the plugin's call of
+        the host's remote_controls.changed comes back on the daemon's feedback port"""
+        log = os.path.join(tempfile.mkdtemp(), "fake.log")
+        d = daemon(env={"FAKE_LOG": log})
+        uri = "clap:%s#org.omx-clap-host.test.passthrough" % FAKE_CLAP
+
+        def told():
+            if not os.path.exists(log):
+                return []
+            with open(log, encoding="utf-8") as f:
+                return [l.rstrip("\n").split(" track_info ", 1)[1] for l in f if " track_info " in l]
+        try:
+            d.expect("add %s 0" % uri, "resp 0")
+            mark = d.mark()
+            d.expect('track_info 0 "Kick In" #FF8000 bus', "resp 0")
+            check(told() == ["1 13 255,255,128,0 Kick In"], "the plugin read the strip once: %s" % told())
+            check(d.wait_event("remote_pages_changed ", since=mark) == "remote_pages_changed 0",
+                  "the plugin's changed comes back through the daemon: %s" % d.events[mark:])
+            d.expect("remote_pages 0", "resp 2")
+            d.expect("remote_page_get 0 1", 'resp 0 8 "" "Two" - - - - - - - 0')
+            d.expect("param_info 0 0", resp("NO_PARAM_CONTRACT"))
+            _, w = d.holder(0)
+            mark = d.mark()
+            os.kill(w["pid"], signal.SIGKILL)
+            d.wait_event("instance_restored 0 ", since=mark)
+            check(told() == ["1 13 255,255,128,0 Kick In"] * 2, "the respawned plugin was told the strip once: %s" % told())
+            d.expect("remote_pages 0", "resp 2")
         finally:
             d.close()
 

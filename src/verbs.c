@@ -52,6 +52,13 @@ static int is_instance_verb(const char *verb)
     return 0;
 }
 
+/* the verbs a worker answers by instance, and what the ledger keeps of each */
+static const struct { const char *name; int ledger; } g_instance_info_verbs[] = {
+#define X(id, name, arguments, reply, ledger, meaning) { name, PHD_LEDGER_##ledger },
+    PHD_INSTANCE_VERBS(X)
+#undef X
+};
+
 static int is_placement(const char *token)
 {
     return !strcmp(token, PHD_PLACE_OWN) || !strcmp(token, PHD_PLACE_DEFAULT) ||
@@ -113,6 +120,9 @@ static char *handle(char *line, char **tok, int ntok)
         g_quitting = 1;
         return sup_resp(SUCCESS);
     }
+    for (size_t n = 0; n < sizeof(g_instance_info_verbs) / sizeof(g_instance_info_verbs[0]); n++)
+        if (!strcmp(verb, g_instance_info_verbs[n].name))
+            return sup_instance_verb(line, g_instance_info_verbs[n].ledger);
     if (is_instance_verb(verb) && ntok > 1)
         return sup_call(atoi(tok[1]), line);
     if ((verb_is(verb, EFFECT_CONNECT) || verb_is(verb, EFFECT_DISCONNECT)) && ntok == 3)
