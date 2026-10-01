@@ -72,6 +72,7 @@ typedef struct INSTANCE_T {
     int64_t sus_seq;            /* the order of the verbs across instances, which the millisecond clock cannot give */
     int has_ckpt;
     int unreplayed;             /* its pin refused the add of the last replay: the worker does not hold it */
+    char *track_info;           /* the latest track_info it took, replayed after its add, never to an LV2 worker */
 } instance_t;
 
 typedef struct WORKER_T {
@@ -112,6 +113,8 @@ char *sup_remove(int id);
 char *sup_remove_all(void);
 char *sup_connect(const char *verb, const char *line, const char *port_a, const char *port_b);
 char *sup_broadcast(const char *line);
+/* a verb of PHD_INSTANCE_VERBS: routed to a CLAP worker, answered here for an LV2 instance */
+char *sup_instance_verb(const char *line, int ledger);
 
 char *sup_worker_list(void);
 char *sup_instance_info(int id);
