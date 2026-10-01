@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 # The daemon routes by instance the commands whose first argument is an instance number. That list is mod-host's
 # grammar, not ours: the "<verb> <instance_number>" lines of mod-host's README are the commands of verbs.c's table, no
 # more and no fewer, and each one's format in mod-host.h takes a number first. The type alone does not make an

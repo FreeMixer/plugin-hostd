@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 # The declaration is the one copy: change values in a scratch copy of include/plugin-hostd/protocol.h, regenerate,
 import sys as _s; _s.stdout.reconfigure(line_buffering=True)
 # rebuild, and the daemon's behaviour and the docs follow, with no other copy of an old value left in src/, the README
