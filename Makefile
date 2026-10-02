@@ -99,7 +99,7 @@ clean:
 
 # the daemon against workers that are not plugin hosts at all (tests/fake-host speaks the same protocol and can be
 # made to die on cue): placement, forwarding, ledger, replay, attribution, the storm bound; no jack, no plugin
-test: test-pin test-daemon check-generated check-schema test-consumer test-perturbation
+test: test-pin test-daemon check-generated check-schema test-consumer test-perturbation check-readme
 	MOD_HOST_DIR=$(MOD_HOST_DIR) python3 tests/verbs_contract.py
 
 # the same without the verb table, which is read from a mod-host checkout's README
@@ -158,6 +158,10 @@ check-generated: $(GEN)
 	$(GEN) regions > $$tmp/regions; test -s $$tmp/regions; \
 	while read r; do grep -q "BEGIN GENERATED protocol:$$r\( .*\)\?$$" README.md doc/plugin-hostd.1 || { echo "region $$r is in no file"; exit 1; }; done < $$tmp/regions; \
 	echo "generated files are current"
+
+# the README sells the packages: no build command on it, and BUILDING.md carries the build
+check-readme:
+	python3 tests/readme_build.py
 
 # the JSON against its schema, for which the jsonschema module is needed
 check-schema:
