@@ -11,7 +11,8 @@ FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "
 # over the real workers and is skipped when OMX_CLAP_HOST is not set; "meters" is a jack test that also needs
 # omx-clap-host's FAKE_COMPRESSOR_CLAP and JACK_METER_SOURCE and is skipped without them; "info" one that needs its FAKE_CLAP; "lv2" is a jack test that also needs mod-host and
 # an LV2 bundle (MOD_HOST, LV2_DIR, LV2_URI, LV2_BUNDLE, LV2_PARAM) and is skipped without them; "pin" breaks
-# include/plugin-hostd/pin.h and runs tests/pin_test.c
+# include/plugin-hostd/pin.h and runs tests/pin_test.c; "readme" breaks README.md or BUILDING.md and runs
+# tests/readme_build.py, with no daemon to build
 SABOTAGE = [
     ("the verb tail is not replayed", "src/supervisor.c",
      "if (replay_line(w, i->tail[m].line) != RPC_OK)", "if (0 && replay_line(w, i->tail[m].line) != RPC_OK)",
@@ -157,6 +158,10 @@ SABOTAGE = [
      "            qsort(props, p->nproperties, sizeof(*props), phd_layout_bytewise);\n", "", "pin.h", "pin"),
     ("a number declared by no port is written as its bits", "include/plugin-hostd/pin.h",
      "    if (!declared)\n", "    if (0)\n", "pin.h", "pin"),
+    ("the build steps are back on the README", "README.md", "Building from source: see [BUILDING.md](BUILDING.md).",
+     "Building from source:\n\n    make\n\nsee [BUILDING.md](BUILDING.md).", "README.md runs no build tool", "readme"),
+    ("BUILDING.md lost its build command", "BUILDING.md", "    make [MOD_HOST_DIR=<mod-host checkout>]\n", "",
+     "README.md runs no build tool", "readme"),
 ]
 
 
@@ -176,6 +181,10 @@ def run_pin_test(tree):
 def run_test(tree, name, jack=False):
     if jack == "pin":
         return run_pin_test(tree)
+    if jack == "readme":
+        p = subprocess.run([sys.executable, os.path.join(ROOT, "tests", "readme_build.py"), tree], capture_output=True,
+                           text=True, timeout=60)
+        return p.returncode, p.stdout
     env = dict(os.environ, ONLY=name, PLUGIN_HOSTD=os.path.join(tree, "plugin-hostd"), FAKE_HOST=FAKE)
     cmd = [os.path.join(ROOT, "tests", "jack_e2e.sh")] if jack else [sys.executable, os.path.join(ROOT, "tests", "daemon_test.py")]
     p = subprocess.run(cmd, env=env, cwd=ROOT, capture_output=True, text=True, timeout=300)
@@ -202,10 +211,15 @@ try:
             continue
         tree = os.path.join(work, "t")
         shutil.rmtree(tree, ignore_errors=True)
-        shutil.copytree(os.path.join(ROOT, "src"), os.path.join(tree, "src"))
-        shutil.copytree(os.path.join(ROOT, "include"), os.path.join(tree, "include"))
-        shutil.copy(os.path.join(ROOT, "Makefile"), tree)
-        build(tree)
+        if jack == "readme":
+            os.makedirs(tree)
+            for f in ("README.md", "BUILDING.md"):
+                shutil.copy(os.path.join(ROOT, f), tree)
+        else:
+            shutil.copytree(os.path.join(ROOT, "src"), os.path.join(tree, "src"))
+            shutil.copytree(os.path.join(ROOT, "include"), os.path.join(tree, "include"))
+            shutil.copy(os.path.join(ROOT, "Makefile"), tree)
+            build(tree)
         code, out = run_test(tree, name, jack)
         if code != 0 or "ok   " + name not in out:
             print("FAIL control: %s does not pass on the unbroken daemon:\n%s" % (name, out))
@@ -217,10 +231,11 @@ try:
             failed += 1
             continue
         open(os.path.join(tree, path), "w").write(src.replace(text, repl))
-        for f in os.listdir(os.path.join(tree, "src")):
-            if f.endswith(".o"):
-                os.unlink(os.path.join(tree, "src", f))
-        build(tree)
+        if jack != "readme":
+            for f in os.listdir(os.path.join(tree, "src")):
+                if f.endswith(".o"):
+                    os.unlink(os.path.join(tree, "src", f))
+            build(tree)
         code, out = run_test(tree, name, jack)
         if code == 0:
             print("FAIL sabotage survived: %s (%s still passes)" % (what, name))
