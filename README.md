@@ -1,42 +1,61 @@
 plugin-hostd
 ============
 
-A supervisor for plugin host processes. It speaks mod-host's socket protocol
-on the way up and runs one worker process per plugin (or per named pool of
-plugins) on the way down, so that a plugin that crashes takes down its own
-worker and nothing else, and the daemon puts it back.
+plugin-hostd runs your LV2 and CLAP audio plugins, each in a worker process of its own, and
+puts back any worker that dies. A plugin that crashes takes down its own worker and nothing
+else. It is for anyone who runs plugins live on Linux, on a mixing console, a stage rig or a
+Raspberry Pi, and cannot let one bad plugin stop the show.
 
-    controller ── mod-host protocol ──> plugin-hostd ──> mod-host -n -p <port> -f <port>      (lv2)
-       (unchanged)                          │        └─> omx-clap-host -n -p <port> -f <port> (clap)
-                                            └ ledger, placement, respawn, checkpoints,
-                                              the workers' feedback relayed
+- A crash stays small: the plugin's worker is respawned with its settings put back.
+- Nothing to change in your controller: it speaks mod-host's socket protocol, same ports, same replies.
+- LV2 (through mod-host) and CLAP (through omx-clap-host) side by side.
+- Audio never passes through the daemon; every worker is a JACK client, as in mod-host.
+- A plugin that keeps crashing is singled out and given up on without touching its neighbours.
 
-Audio never passes through the daemon. Every worker is a jack client named
-`effect_<instance>` exactly as in mod-host, whichever worker holds it, and
-links are made in the graph. The daemon loads no plugin code: no lilv world,
-no CLAP entry point. It can only die of its own bugs, and it holds nothing a
-controller cannot re-lay.
+Install
+-------
 
-A controller that talks to mod-host talks to the daemon unchanged: same
-ports (command `-p`, feedback `-f`), same NUL-terminated messages, same
-`resp <code>` replies, the same readiness line.
+Fedora:
 
-The protocol surface the daemon owns (the verbs it adds, the placement syntax, the error codes, the feedback events,
-the settings, the readiness line) is declared once, in `include/plugin-hostd/protocol.h`, which the daemon compiles
-against. The tables below, the key list of the man page and `protocol/plugin-hostd.json` are generated from that
-header (`make gen`; `make check-generated` fails on any drift). A C consumer includes the installed header
-(`pkg-config --cflags plugin-hostd`, package `plugin-hostd-devel` or `plugin-hostd-dev`); anything else reads
-`/usr/share/plugin-hostd/protocol.json`, described by `protocol/plugin-hostd.schema.json` (`/usr/share/plugin-hostd/protocol.schema.json`, in the development package).
+    sudo dnf config-manager addrepo --from-repofile=https://freemixer.github.io/rpm/freemixer.repo
+    sudo dnf install plugin-hostd omx-clap-host
 
-Building
+Debian and Raspberry Pi OS: add the apt line from <https://freemixer.github.io>, then
+
+    sudo apt install plugin-hostd omx-clap-host
+
+The LV2 worker is mod-host, which Debian does not package; without it CLAP plugins still work.
+
+Try it
+------
+
+Start the daemon, with pin checking off for a first try (it says when both ports accept):
+
+    echo 'require_pins 0' > plugin-hostd.conf
+    plugin-hostd -n -p 5555 -c plugin-hostd.conf
+
+In another terminal, add an LV2 plugin, set its gain and ask where it runs
+(messages end in a NUL byte, which `printf` adds):
+
+    send() { printf '%s\0' "$1" | nc -w3 127.0.0.1 5555 | tr '\0' '\n'; }
+    send "add http://plugin.org.uk/swh-plugins/amp 0"      # resp 0
+    send "param_set 0 gain 6"                              # resp 0
+    send "param_get 0 gain"                                # resp 0 6.0000
+    send "worker_list"                                     # resp 1 w1:<pid>:lv2:up:own:0
+
+The plugin now runs as JACK client `effect_0` in its own process. Link it in your graph as
+you would a mod-host plugin. `man plugin-hostd` has the options; the full protocol is below.
+
+Building from source: see [BUILDING.md](BUILDING.md). More about FreeMixer at <https://freemixer.github.io>.
+
+Protocol
 --------
 
-    make [MOD_HOST_DIR=<mod-host checkout>]
-
-The protocol is mod-host's `libmod-host-protocol.so`, from `pkg-config
-mod-host-protocol` when it is installed (mod-host's `make install-lib`),
-otherwise from `MOD_HOST_DIR`, a mod-host tree where the library is built if
-missing. The daemon needs libc and that library and nothing else.
+The verbs the daemon adds, the placement syntax, the error codes, the feedback events and the
+settings are declared once in `include/plugin-hostd/protocol.h`; the tables here, the man page's
+key list and `protocol/plugin-hostd.json` are generated from it. A C program includes the installed
+header (`pkg-config --cflags plugin-hostd`, package `plugin-hostd-devel` or `plugin-hostd-dev`); anything
+else reads `/usr/share/plugin-hostd/protocol.json`.
 
 Running
 -------
@@ -208,19 +227,6 @@ Every worker is started as `<program> -n -p <command port> -f <feedback port>`.
 - with no feedback port, or no controller on it, a line is dropped, as mod-host drops it; the daemon reads every worker's feedback all the time, so no worker waits on it.
 <!-- END GENERATED protocol:relay -->
 
-The last verb is a suspect
---------------------------
-
-A plugin that aborts in a callback dies after it answered `resp 0`, so the verb that killed it is in the ledger and
-the respawn would play it again until the storm bound ends it. For `suspect_window_ms` after a reply (a setting, above: the
-test plugins die 30 ms after it, and the daemon sees the death 40 to 100 ms later) the last verb the ledger kept, of
-the instances of a worker, is a suspect. A worker that dies inside the window, of a crash or an exit and not of a
-SIGKILL or SIGTERM from outside, has that verb taken out of the ledger: the value it replaced comes back, or the
-parameter goes to the plugin's own, and the event `instance_verb_dropped <instance> suspect:<ms> <command>` names it,
-`<ms>` being the age of the reply when the death was seen. The instance that sent it is blamed like the one whose
-command was in flight: its crash is counted, and in a pool it is quarantined and leaves the pool alone. A death
-outside the window replays everything, as before.
-
 Pins
 ----
 
@@ -259,33 +265,6 @@ when it refuses the replayed `pin_expect` or `add`), writes `PHD_ERR_REPLAY`, th
 the worker does not hold that instance until a later replay passes. The hashing and the layout serialisation are `include/plugin-hostd/pin.h`, installed beside the
 protocol header for the hosts that check a layout.
 
-What it keeps and replays
--------------------------
-
-Per instance, in memory: the `add` line, then the state-changing verbs as
-sent, as text (`param_set`, `patch_set`, `preset_load`, `bypass`,
-`param_monitor`, `monitor_output`, the `midi_`, `cc_` and `cv_` maps), a repeat of the same
-setting replacing the earlier one, a `preset_load` dropping the parameter
-writes before it; and the `connect`s that name the instance's jack client.
-After a `preset_load` or `patch_set`, and after a quiet interval, it asks the
-worker for `state_save <dir>` into one checkpoint directory of its own and,
-for an instance whose state file is there, drops the verbs the state now
-holds.
-
-A worker that dies is respawned after a backoff, and each instance is put
-back: `add`, one `state_load` of the checkpoint directory, the verb tail,
-the connections (a connect the new client cannot make yet, because the peer's port has not reached it, is asked again by
-the idle tick for `connect_retry_ms`). What a plugin held in RAM and exposed through no verb (a
-reverb tail) is lost.
-
-Who is blamed: a death with a command on the wire names that command's
-instance. A death in a callback of a pool cannot be named from outside, so
-the pool is split, each member into a worker of its own, and the one that
-dies again is named (`instance_quarantined`) and stays own. In a worker of
-one instance the death is that instance's. `storm_deaths` deaths inside `storm_window_ms` end
-respawning for that placement only (`supervisor_gave_up`); its neighbours are
-not touched.
-
 What a worker must do
 ---------------------
 
@@ -298,35 +277,3 @@ What a worker must do
   `state_load <dir>`, skipping an instance with no file.
 
 `mod-host` and `omx-clap-host` do.
-
-Tests
------
-
-    make test
-
-runs the daemon against `tests/fake-host`, a worker that speaks the same
-protocol and dies, hangs or refuses on cue: placement, forwarding, the
-ledger, replay to the byte, attribution, quarantine, the storm bound,
-`worker_env`, pins, and the verb table against mod-host's README; `tests/pin_test.c` holds
-`include/plugin-hostd/pin.h` to the FIPS 180-2 examples and to layout bytes hashed elsewhere. No jack, no plugin.
-
-The verbs are read from their declarations, never spelled: mod-host's from the
-command formats of `mod-host.h`, the daemon's own from
-`include/plugin-hostd/protocol.h`. `tests/verbs_contract.py` fails on a C string
-that starts with one, and `tests/perturbation.py` renames a verb in a scratch
-copy of each header and requires the rebuilt daemon to answer the new name and
-not the old.
-
-    make test-jack OMX_CLAP_HOST=<omx-clap-host> [MOD_HOST=<mod-host> LV2_DIR=<lv2 path> LV2_URI=<a stereo effect> LV2_BUNDLE=<its bundle dir> LV2_PARAM=<a control taking 0.25>]
-
-runs `tests/jack_e2e.sh`: the real workers behind the daemon, over jack inside
-a PipeWire of its own (private user, net and pid namespace, torn down on
-exit), with `tests/stress.clap` (a passthrough that crashes on a parameter
-write, spins, keeps state). It kills workers and reads the graph and the audio
-level of a neighbouring chain across the kill. Given omx-clap-host's meter fixtures
-(`FAKE_COMPRESSOR_CLAP=<tree>/tests/fake_compressor.clap JACK_METER_SOURCE=<tree>/tests/jack_meter_source`), it
-also reads the meters of a CLAP compressor as `output_set` on the daemon's feedback port, before and after its
-worker is killed.
-
-`make sabotage` (`tests/sabotage.py`) breaks the daemon on purpose, one guard at a time, and
-requires the named test to go red.
