@@ -13,8 +13,16 @@
 # JACK_LEVELS    tests/jack_levels
 # FAKE_COMPRESSOR_CLAP, JACK_METER_SOURCE  omx-clap-host's tests/fake_compressor.clap and tests/jack_meter_source: with
 #                both, the meters test runs, output_set through the daemon's feedback port
+# JACK_SERVER    pipewire (default) or jackd: the jack server the private namespace runs, pipewire's own jack
+#                implementation or JACK2's jackd (dummy backend) -- the one Zynthian runs
 
 set -u
+
+export JACK_SERVER=${JACK_SERVER:-pipewire}
+case "$JACK_SERVER" in
+    pipewire|jackd) ;;
+    *) echo "JACK_SERVER must be 'pipewire' or 'jackd' (got '$JACK_SERVER')" >&2; exit 2 ;;
+esac
 
 here=$(cd "$(dirname "$0")" && pwd)
 root=$(dirname "$here")
@@ -44,10 +52,29 @@ trap cleanup EXIT
 echo "ok   pid 1 of a private pid namespace"
 
 ip link set lo up
-pipewire >"$runtime/pw.log" 2>&1 &
-for _ in $(seq 50); do [ -S "$runtime/pipewire-0" ] && break; sleep 0.1; done
-[ -S "$runtime/pipewire-0" ] || { echo "pipewire did not come up" >&2; cat "$runtime/pw.log" >&2; exit 2; }
-pw-metadata -n settings 0 clock.force-rate 48000 >/dev/null
-echo "ok   private pipewire on $runtime"
+
+case "$JACK_SERVER" in
+pipewire)
+    pipewire >"$runtime/pw.log" 2>&1 &
+    for _ in $(seq 50); do [ -S "$runtime/pipewire-0" ] && break; sleep 0.1; done
+    [ -S "$runtime/pipewire-0" ] || { echo "pipewire did not come up" >&2; cat "$runtime/pw.log" >&2; exit 2; }
+    pw-metadata -n settings 0 clock.force-rate 48000 >/dev/null
+    echo "ok   private pipewire on $runtime"
+    ;;
+jackd)
+    name=plugin-hostd-e2e
+    jackd -n "$name" -d dummy -r 48000 -p 256 >"$runtime/jackd.log" 2>&1 &
+    export JACK_DEFAULT_SERVER=$name
+    for _ in $(seq 50); do jack_lsp >/dev/null 2>&1 && break; sleep 0.1; done
+    jack_lsp >/dev/null 2>&1 || { echo "jackd did not come up" >&2; cat "$runtime/jackd.log" >&2; exit 2; }
+    # the server is jackd: its dummy backend's own ports, not a session reached by some other name
+    jack_lsp | grep -qx 'system:playback_1' || {
+        echo "the server is not the private jackd (jack_lsp sees no system:playback_1 from its dummy backend)" >&2
+        jack_lsp >&2
+        exit 2
+    }
+    echo "ok   private jackd ($name) on $runtime"
+    ;;
+esac
 
 python3 "$here/jack_e2e.py"

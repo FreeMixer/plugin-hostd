@@ -46,6 +46,13 @@ level of a neighbouring chain across the kill. Given omx-clap-host's meter fixtu
 also reads the meters of a CLAP compressor as `output_set` on the daemon's feedback port, before and after its
 worker is killed.
 
+    make test-jack2 OMX_CLAP_HOST=<omx-clap-host> [...]
+
+is `test-jack` against JACK2's `jackd` (`-d dummy`) instead of pipewire's own jack implementation: the server
+Zynthian runs. `JACK_SERVER=jackd` makes `tests/jack_e2e.sh` start a private `jackd` inside the same namespace,
+wait for it with `jack_lsp`, and export `JACK_DEFAULT_SERVER` to it, before running the same `tests/jack_e2e.py`.
+`JACK_SERVER=pipewire`, the default, is `test-jack` unchanged.
+
 `make sabotage` (`tests/sabotage.py`) breaks the daemon on purpose, one guard at a time, and
 requires the named test to go red.
 
