@@ -2,7 +2,7 @@ Name: plugin-hostd
 Version: 0.1.2
 Release: 1%{?dist}
 License: GPL-3.0-or-later
-Summary: Supervisor that runs LV2 and CLAP plugin hosts as isolated workers behind one mod-host socket
+Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
 URL: https://github.com/FreeMixer/plugin-hostd
 
 Source0: %{url}/archive/v%{version}/%{name}-%{version}.tar.gz
@@ -18,21 +18,23 @@ Recommends: mod-host
 Recommends: omx-clap-host
 
 %description
-plugin-hostd speaks mod-host's socket protocol to a controller and runs one
-worker process per plugin, or per named pool of plugins, behind it: mod-host
-for LV2 plugins and omx-clap-host for CLAP plugins. A plugin that crashes takes
-down its own worker and nothing else, and the daemon puts it back. Audio never
-passes through the daemon: every worker is a JACK client, as in mod-host.
+plugin-hostd keeps your effects and instruments running when one of them
+misbehaves. It gives a controller one mod-host socket and starts each plugin, or
+each named group of plugins, in a worker process of its own: mod-host for LV2,
+omx-clap-host for CLAP. If a plugin crashes, only its worker goes down and the
+daemon brings it back. Audio never passes through the daemon, so it adds no
+latency: every worker is a JACK client.
 
 %package devel
-Summary: C header declaring the protocol of plugin-hostd
+Summary: Talk to plugin-hostd from your own controller without retyping its protocol
 BuildArch: noarch
 
 %description devel
-The verbs plugin-hostd adds to mod-host's protocol, its placement syntax, error codes, feedback events, settings and
-readiness line, declared once in plugin-hostd/protocol.h, which the daemon itself is compiled against. Include it from a
-controller rather than spelling the values again; pkg-config plugin-hostd gives the flags. The same declaration as JSON,
-for readers that are not C, is /usr/share/plugin-hostd/protocol.json of the plugin-hostd package.
+The C header that declares everything a controller needs to drive plugin-hostd:
+the verbs it adds to mod-host's protocol, error codes, feedback events and
+settings. Include it instead of copying the values, and pkg-config plugin-hostd
+gives the flags. The same declaration as JSON, for tools not written in C, ships
+in the plugin-hostd package.
 
 %prep
 %autosetup
@@ -70,13 +72,19 @@ make test-daemon check-generated
 
 %changelog
 * Thu Oct 01 2026 Pau Aliagas <linuxnow@gmail.com> - 0.1.2-1
-- relay the workers' feedback to the controller
-- plugin info commands: track_info, remote_pages, remote_page_get, param_info
+- Messages the plugin workers send back, such as meter and state feedback, now
+  reach the controller.
+- New commands to ask about a plugin: track_info, remote_pages,
+  remote_page_get and param_info.
 
 * Wed Sep 30 2026 Pau Aliagas <linuxnow@gmail.com> - 0.1.1-1
-- pin a plugin's binary and layout before add admits it (pin_set, pin_clear, pin_expect)
-- read every verb from its declaration
-- give a pinned LV2 plugin a worker of its own, fail an add whose pin_expect goes unanswered, announce a refused replay
+- A controller can pin the exact binary and layout of a plugin before adding
+  it (pin_set, pin_clear, pin_expect), so a plugin that changed on disk is
+  refused instead of loaded.
+- Every command is now read from one declaration, so the daemon and its header
+  cannot disagree.
+- A pinned LV2 plugin gets a worker of its own, an add whose pin_expect goes
+  unanswered fails, and a refused replay is announced.
 
 * Wed Sep 30 2026 Pau Aliagas <linuxnow@gmail.com> - 0.1.0-1
-- first package
+- First package.
