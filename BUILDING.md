@@ -13,7 +13,9 @@ Regenerating the protocol tables
 
 The tables in README.md marked `BEGIN GENERATED protocol:...`, the key list of the man page and
 `protocol/plugin-hostd.json` are generated from `include/plugin-hostd/protocol.h`: `make gen` rewrites them and
-`make check-generated` fails on any drift.
+`make check-generated` fails on any drift. `protocol/mod-host.json` is generated the same way from the mod-host
+headers the build compiles against (`pkg-config --cflags mod-host-protocol`, or `MOD_HOST_DIR/src`), by
+`tools/mod-host-json.py`; `make test-mod-host-json` checks that it follows them.
 
 Tests
 -----

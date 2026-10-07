@@ -1,3 +1,4 @@
 usr/bin/plugin-hostd
 usr/share/man/man1/plugin-hostd.1
 usr/share/plugin-hostd/protocol.json
+usr/share/plugin-hostd/mod-host.json

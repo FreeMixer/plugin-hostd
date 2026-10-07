@@ -23,6 +23,9 @@ PROTOCOL_CFLAGS = -I$(MOD_HOST_DIR)/src
 PROTOCOL_LIBS = -L$(MOD_HOST_DIR) -lmod-host-protocol -Wl,-rpath,$(abspath $(MOD_HOST_DIR))
 endif
 
+# the directory holding mod-host's protocol headers, which protocol/mod-host.json is written from
+MOD_HOST_INCLUDE = $(patsubst -I%,%,$(firstword $(filter -I%,$(PROTOCOL_CFLAGS))))
+
 # CLAP headers for the test plugin: pkg-config when clap-devel is installed, CLAP_CFLAGS=-I<dir> otherwise
 CLAP_CFLAGS ?= $(shell $(PKG_CONFIG) --cflags clap 2>/dev/null)
 
@@ -81,6 +84,7 @@ install: $(PROG) install_man install_protocol
 install_protocol:
 	install -d $(DESTDIR)$(DATADIR)/plugin-hostd
 	install -m 644 protocol/plugin-hostd.json $(DESTDIR)$(DATADIR)/plugin-hostd/protocol.json
+	install -m 644 protocol/mod-host.json $(DESTDIR)$(DATADIR)/plugin-hostd/mod-host.json
 	install -m 644 protocol/plugin-hostd.schema.json $(DESTDIR)$(DATADIR)/plugin-hostd/protocol.schema.json
 	install -d $(DESTDIR)$(INCLUDEDIR)/plugin-hostd
 	install -m 644 include/plugin-hostd/protocol.h $(DESTDIR)$(INCLUDEDIR)/plugin-hostd/protocol.h
@@ -99,7 +103,7 @@ clean:
 
 # the daemon against workers that are not plugin hosts at all (tests/fake-host speaks the same protocol and can be
 # made to die on cue): placement, forwarding, ledger, replay, attribution, the storm bound; no jack, no plugin
-test: test-pin test-daemon check-generated check-schema test-consumer test-perturbation check-readme
+test: test-pin test-daemon check-generated check-schema test-consumer test-perturbation check-readme test-mod-host-json
 	MOD_HOST_DIR=$(MOD_HOST_DIR) python3 tests/verbs_contract.py
 
 # the same without the verb table, which is read from a mod-host checkout's README
@@ -138,15 +142,17 @@ tests/jack_levels: tests/jack_levels.c
 	$(CC) $(shell $(PKG_CONFIG) --cflags jack) $(CFLAGS) -Werror -o $@ $< $(shell $(PKG_CONFIG) --libs jack) -lm
 
 # what include/plugin-hostd/protocol.h declares, written out: README.md and the man page between their markers, and
-# protocol/plugin-hostd.json, the same for readers that are not C
+# protocol/plugin-hostd.json, the same for readers that are not C; and protocol/mod-host.json, the protocol of the
+# worker this daemon serves LV2 with, read from the mod-host headers it compiles against
 GEN = tools/protocol-gen
-GENERATED = README.md doc/plugin-hostd.1 protocol/plugin-hostd.json
+GENERATED = README.md doc/plugin-hostd.1 protocol/plugin-hostd.json protocol/mod-host.json
 
 $(GEN): tools/protocol-gen.c include/plugin-hostd/protocol.h
 	$(CC) -Wall -Wextra -Werror -std=gnu99 -Iinclude -o $@ tools/protocol-gen.c
 
 gen: $(GEN)
 	$(GEN) json > protocol/plugin-hostd.json.new && mv protocol/plugin-hostd.json.new protocol/plugin-hostd.json
+	python3 tools/mod-host-json.py $(MOD_HOST_INCLUDE) > protocol/mod-host.json.new && mv protocol/mod-host.json.new protocol/mod-host.json
 	for f in README.md doc/plugin-hostd.1; do $(GEN) splice $$f > $$f.new && mv $$f.new $$f || exit 1; done
 
 # fails on any drift: every generated output must be byte-identical to a fresh generation, every region the generator
@@ -154,6 +160,7 @@ gen: $(GEN)
 check-generated: $(GEN)
 	@set -e; tmp=$$(mktemp -d); trap 'rm -rf $$tmp' EXIT; \
 	$(GEN) json > $$tmp/json; cmp $$tmp/json protocol/plugin-hostd.json; \
+	python3 tools/mod-host-json.py $(MOD_HOST_INCLUDE) > $$tmp/mod-host.json; cmp $$tmp/mod-host.json protocol/mod-host.json; \
 	for f in README.md doc/plugin-hostd.1; do $(GEN) splice $$f > $$tmp/out; cmp $$tmp/out $$f; done; \
 	$(GEN) regions > $$tmp/regions; test -s $$tmp/regions; \
 	while read r; do grep -q "BEGIN GENERATED protocol:$$r\( .*\)\?$$" README.md doc/plugin-hostd.1 || { echo "region $$r is in no file"; exit 1; }; done < $$tmp/regions; \
@@ -162,6 +169,11 @@ check-generated: $(GEN)
 # the README sells the packages: no build command on it, and BUILDING.md carries the build
 check-readme:
 	python3 tests/readme_build.py
+
+# mod-host.json follows its headers: a moved verb, code or message in a scratch copy moves the JSON, and a header it
+# cannot read is refused
+test-mod-host-json:
+	python3 tests/mod_host_json.py $(MOD_HOST_INCLUDE)
 
 # the JSON against its schema, for which the jsonschema module is needed
 check-schema:
