@@ -121,7 +121,7 @@ jobs:
             rpm -qp --qf '[%{FILEMODES:perms} %{FILENAMES}\n]' "$rpm" | grep -v -e '^d' -e '/\.build-id/' | cut -d' ' -f2 | sort > files.txt
             printf '%s\n' /usr/bin/plugin-hostd /usr/share/man/man1/plugin-hostd.1.gz \
               /usr/share/doc/plugin-hostd/README.md /usr/share/licenses/plugin-hostd/COPYING \
-              /usr/share/plugin-hostd/protocol.json | sort > expected.txt
+              /usr/share/plugin-hostd/protocol.json /usr/share/plugin-hostd/mod-host.json | sort > expected.txt
             diff -u expected.txt files.txt
             rpm -qp --requires "$rpm" | tee requires.txt
             grep -q 'libmod-host-protocol.so.0' requires.txt
@@ -255,6 +255,7 @@ jobs:
           grep -qx /usr/include/plugin-hostd/pin.h dev.txt
           grep -qx /usr/share/pkgconfig/plugin-hostd.pc dev.txt
           dpkg -L plugin-hostd | grep -qx /usr/share/plugin-hostd/protocol.json
+          dpkg -L plugin-hostd | grep -qx /usr/share/plugin-hostd/mod-host.json
           dpkg -s libmod-host-protocol0 | grep '^Status: install ok installed'
 
       - name: The daemon reports the version of its package and resolves its libraries
