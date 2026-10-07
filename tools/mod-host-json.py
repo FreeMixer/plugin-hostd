@@ -50,7 +50,7 @@ def commands(text):
 
 def protocol_errors(text):
     messages = [(n, v) for n, v in string_defines(text) if n.startswith("MESSAGE_")]
-    codes = re.findall(r"^#define\s+PROTOCOL_([A-Z_]+)\s+\((-\d+)\)", text, re.M)
+    codes = re.findall(r"^#define\s+PROTOCOL_([A-Z][A-Z0-9_]*)\s+\((-\d+)\)", text, re.M)
     if not codes:
         fail("protocol.h declares no PROTOCOL_* code")
     out = []
@@ -68,7 +68,7 @@ def host_errors(text):
         fail("host-errors.h has no enum")
     values = {}
     out = []
-    for raw in re.sub(r"/\*[\s\S]*?\*/", "", m.group(1)).split(","):
+    for raw in re.sub(r"/\*[\s\S]*?\*/|//[^\n]*", "", m.group(1)).split(","):
         e = re.fullmatch(r"\s*([A-Z][A-Z0-9_]*)\s*=\s*(-?\d+|[A-Z][A-Z0-9_]*)\s*", raw)
         if not e:
             if raw.strip():
@@ -91,8 +91,8 @@ def line(obj):
 
 
 def main():
-    if len(sys.argv) != 2:
-        sys.exit("usage: tools/mod-host-json.py <include dir>")
+    if len(sys.argv) != 2 or not sys.argv[1]:
+        sys.exit("usage: tools/mod-host-json.py <include dir> (make: no -I in the mod-host protocol flags; set MOD_HOST_INCLUDE)")
     read = lambda f: open(f"{sys.argv[1]}/{f}", encoding="utf-8").read()
     cmds, feedback = commands(read("mod-host.h"))
     sections = [

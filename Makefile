@@ -23,8 +23,9 @@ PROTOCOL_CFLAGS = -I$(MOD_HOST_DIR)/src
 PROTOCOL_LIBS = -L$(MOD_HOST_DIR) -lmod-host-protocol -Wl,-rpath,$(abspath $(MOD_HOST_DIR))
 endif
 
-# the directory holding mod-host's protocol headers, which protocol/mod-host.json is written from
-MOD_HOST_INCLUDE = $(patsubst -I%,%,$(firstword $(filter -I%,$(PROTOCOL_CFLAGS))))
+# the directory holding mod-host's protocol headers, which protocol/mod-host.json is written from: the -I of the
+# protocol's flags (mod-host-protocol.pc names <includedir>/mod-host), or MOD_HOST_INCLUDE=<dir> on the command line
+MOD_HOST_INCLUDE ?= $(patsubst -I%,%,$(firstword $(filter -I%,$(PROTOCOL_CFLAGS))))
 
 # CLAP headers for the test plugin: pkg-config when clap-devel is installed, CLAP_CFLAGS=-I<dir> otherwise
 CLAP_CFLAGS ?= $(shell $(PKG_CONFIG) --cflags clap 2>/dev/null)
