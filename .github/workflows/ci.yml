@@ -16,7 +16,7 @@ permissions:
   contents: read
 
 env:
-  OMX_CLAP_HOST_REF: 1ea9d40d7f958fd6b7946df1f3316e8cde4dac58
+  OMX_CLAP_HOST_REF: a58ad8478c92c5178ebfbfbffb30a75414dddff8
 
 jobs:
   changelog:
