@@ -19,6 +19,14 @@ env:
   OMX_CLAP_HOST_REF: 1ea9d40d7f958fd6b7946df1f3316e8cde4dac58
 
 jobs:
+  changelog:
+    name: CHANGELOG.md agrees with the spec and debian/changelog
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: FreeMixer/.github/.github/actions/changelog@packaging-changelog
+
   test:
     name: build and test
     runs-on: ubuntu-latest
