@@ -15,13 +15,13 @@ Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Recommends: omx-clap-host
 Suggests: mod-host
-Description: supervisor of LV2 and CLAP plugin hosts behind one mod-host socket
- plugin-hostd speaks mod-host's socket protocol to a controller and runs one
- worker process per plugin, or per named pool of plugins, behind it: mod-host
- for LV2 plugins and omx-clap-host for CLAP plugins. A plugin that crashes
- takes down its own worker and nothing else, and the daemon puts it back.
- Audio never passes through the daemon: every worker is a JACK client, as in
- mod-host.
+Description: run LV2 and CLAP plugins so that one crash cannot stop the show
+ plugin-hostd keeps your effects and instruments running when one of them
+ misbehaves. It gives a controller one mod-host socket and starts each plugin,
+ or each named group of plugins, in a worker process of its own: mod-host for
+ LV2, omx-clap-host for CLAP. If a plugin crashes, only its worker goes down
+ and the daemon brings it back. Audio never passes through the daemon, so it
+ adds no latency: every worker is a JACK client.
  .
  A format whose worker is not installed refuses its adds; the other format
  is unaffected. mod-host is not packaged by Debian: install it from source
@@ -31,11 +31,9 @@ Package: plugin-hostd-dev
 Section: libdevel
 Architecture: all
 Depends: ${misc:Depends}
-Description: C header declaring the protocol of plugin-hostd
- The verbs plugin-hostd adds to mod-host's protocol, its placement syntax,
- error codes, feedback events, settings and readiness line, declared once in
- plugin-hostd/protocol.h, which the daemon itself is compiled against.
- Include it from a controller rather than spelling the values again;
- pkg-config plugin-hostd gives the flags. The same declaration as JSON, for
- readers that are not C, is /usr/share/plugin-hostd/protocol.json of the
- plugin-hostd package.
+Description: C header to drive plugin-hostd from your own controller
+ The C header that declares everything a controller needs to drive
+ plugin-hostd: the verbs it adds to mod-host's protocol, error codes, feedback
+ events and settings. Include it instead of copying the values, and pkg-config
+ plugin-hostd gives the flags. The same declaration as JSON, for tools not
+ written in C, ships in the plugin-hostd package.
