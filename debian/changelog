@@ -1,3 +1,14 @@
+plugin-hostd (0.1.4) unstable; urgency=medium
+
+  * When a plugin worker cannot get its network ports because another process
+    took them first, the daemon now starts it again on fresh ports, up to
+    three tries, instead of giving up. This fixes the occasional "-503" when
+    adding a plugin.
+  * The JACK test now also runs on JACK2's jackd, and the continuous checks
+    use pinned versions of the tools they build with.
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Thu, 08 Oct 2026 12:01:00 +0000
+
 plugin-hostd (0.1.3) unstable; urgency=medium
 
   * mod-host's own command vocabulary now ships as a JSON file,

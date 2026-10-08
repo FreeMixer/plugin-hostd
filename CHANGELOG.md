@@ -3,6 +3,14 @@
 What changed in each release of plugin-hostd, in plain words. The RPM and Debian changelogs and the
 GitHub release notes are generated from this file.
 
+## 0.1.4 - 2026-10-08
+
+- When a plugin worker cannot get its network ports because another process took them first, the daemon now
+  starts it again on fresh ports, up to three tries, instead of giving up. This fixes the occasional
+  "-503" when adding a plugin.
+- The JACK test now also runs on JACK2's jackd, and the continuous checks use pinned versions of the tools
+  they build with.
+
 ## 0.1.3 - 2026-10-08
 
 - mod-host's own command vocabulary now ships as a JSON file, /usr/share/plugin-hostd/mod-host.json, beside

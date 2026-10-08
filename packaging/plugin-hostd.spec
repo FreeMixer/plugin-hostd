@@ -1,5 +1,5 @@
 Name: plugin-hostd
-Version: 0.1.3
+Version: 0.1.4
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -72,6 +72,14 @@ make test-daemon check-generated
 %{_datadir}/plugin-hostd/protocol.schema.json
 
 %changelog
+* Thu Oct 08 2026 Pau Aliagas <linuxnow@gmail.com> - 0.1.4-1
+- When a plugin worker cannot get its network ports because another process
+  took them first, the daemon now starts it again on fresh ports, up to three
+  tries, instead of giving up. This fixes the occasional "-503" when adding a
+  plugin.
+- The JACK test now also runs on JACK2's jackd, and the continuous checks use
+  pinned versions of the tools they build with.
+
 * Thu Oct 08 2026 Pau Aliagas <linuxnow@gmail.com> - 0.1.3-1
 - mod-host's own command vocabulary now ships as a JSON file,
   /usr/share/plugin-hostd/mod-host.json, beside protocol.json, so a controller
