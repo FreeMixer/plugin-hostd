@@ -5,7 +5,7 @@ name: ci
 # here: release.yml is a release, run from a version tag, and its dry run is the last job.
 #
 # The protocol library, the mod-host RPMs and the RPM build are the composite actions of
-# FreeMixer/.github; OMX_CLAP_HOST_REF is the commit of omx-clap-host whose worker the jack test drives.
+# FreeMixer/.github; OMX_CLAP_HOST_REF is the omx-clap-core release tag whose worker the jack test drives.
 
 on:
   pull_request:
@@ -16,7 +16,7 @@ permissions:
   contents: read
 
 env:
-  OMX_CLAP_HOST_REF: a58ad8478c92c5178ebfbfbffb30a75414dddff8
+  OMX_CLAP_HOST_REF: v0.4.0
 
 jobs:
   changelog:
