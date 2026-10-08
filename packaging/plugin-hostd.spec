@@ -1,5 +1,5 @@
 Name: plugin-hostd
-Version: 0.1.2
+Version: 0.1.3
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -72,6 +72,13 @@ make test-daemon check-generated
 %{_datadir}/plugin-hostd/protocol.schema.json
 
 %changelog
+* Thu Oct 08 2026 Pau Aliagas <linuxnow@gmail.com> - 0.1.3-1
+- mod-host's own command vocabulary now ships as a JSON file,
+  /usr/share/plugin-hostd/mod-host.json, beside protocol.json, so a controller
+  that is not written in C can read both from the installed package.
+- The package descriptions now say what plugin-hostd does for you: it keeps
+  your effects and instruments running when one plugin crashes.
+
 * Thu Oct 01 2026 Pau Aliagas <linuxnow@gmail.com> - 0.1.2-1
 - Messages the plugin workers send back, such as meter and state feedback, now
   reach the controller.
