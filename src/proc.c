@@ -230,14 +230,17 @@ static int connect_loopback(int port)
 int proc_connect(const conf_t *conf, pid_t pid, int port, int fb_port, const char *logfile, int *fb_fd)
 {
     int64_t start = proc_now_ms();
-    int fd = -1, status;
+    int fd = -1, status, exited = 0;
 
     *fb_fd = -1;
 
     while (proc_now_ms() - start < conf->ready_timeout_ms)
     {
         if (proc_exited(pid, &status))
+        {
+            exited = 1;
             break;
+        }
         if (fd < 0)
             fd = connect_loopback(port);
         /* the worker takes the command connection first, then the feedback one: both listen before "ready!" */
@@ -251,7 +254,7 @@ int proc_connect(const conf_t *conf, pid_t pid, int port, int fb_port, const cha
     }
     if (fd >= 0)
         close(fd);
-    return -1;
+    return exited ? PROC_EXITED : -1;
 }
 
 int proc_dead(pid_t pid)

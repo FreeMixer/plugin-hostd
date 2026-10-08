@@ -483,6 +483,18 @@ int main(int argc, char **argv)
             printf("%s\n", pin);
             return 0;
         }
+    /* the ports a daemon hands a worker were free when it picked them, not when the worker binds: a worker that
+     * finds one taken exits before it listens. FAKE_BIND_FAIL_ONCE=<file> is that, once; FAKE_BIND_FAIL_ALWAYS, always */
+    if (getenv("FAKE_BIND_FAIL_ALWAYS"))
+        return EXIT_FAILURE;
+    if (getenv("FAKE_BIND_FAIL_ONCE") && access(getenv("FAKE_BIND_FAIL_ONCE"), F_OK) != 0)
+    {
+        FILE *mark = fopen(getenv("FAKE_BIND_FAIL_ONCE"), "w");
+
+        if (mark)
+            fclose(mark);
+        return EXIT_FAILURE;
+    }
     if (socket_start(port, fb_port, 4096) < 0)
         return EXIT_FAILURE;
     socket_set_receive_cb(receive);

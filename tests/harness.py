@@ -71,7 +71,6 @@ class Daemon:
         self.exe = exe
         DAEMONS.append(self)
         self.tmp = tempfile.mkdtemp(prefix="plugin-hostd-test.")
-        self.cmd_port, self.fb_port = port_pair()
         settings = {
             "mod_host": worker, "clap_host": clap_worker or worker, "state_root": self.tmp,
             "backoff_base_ms": 20, "backoff_max_ms": 80, "checkpoint_ms": 600000, "ready_timeout_ms": 4000,
@@ -88,12 +87,22 @@ class Daemon:
                     f.write("%s %s\n" % (k, v))
         e = dict(os.environ)
         e.update(env or {})
-        args = [exe, "-n", "-p", str(self.cmd_port), "-c", self.conf]
-        if feedback:
-            args += ["-f", str(self.fb_port)]
-        self.out = open(os.path.join(self.tmp, "daemon.out"), "w+")
-        self.proc = subprocess.Popen(args, stdout=self.out, stderr=subprocess.STDOUT, env=e)
-        wait_for(lambda: READY_LINE in self.log().splitlines(), "the readiness line")
+        # the ports are free when port_pair picks them, not when the daemon binds: one that exits before it is ready
+        # lost that race, and is started again on fresh ones
+        for attempt in range(3):
+            self.cmd_port, self.fb_port = port_pair()
+            args = [exe, "-n", "-p", str(self.cmd_port), "-c", self.conf]
+            if feedback:
+                args += ["-f", str(self.fb_port)]
+            self.out = open(os.path.join(self.tmp, "daemon.out"), "w+")
+            self.proc = subprocess.Popen(args, stdout=self.out, stderr=subprocess.STDOUT, env=e)
+            wait_for(lambda: READY_LINE in self.log().splitlines() or self.proc.poll() is not None, "the readiness line")
+            if READY_LINE in self.log().splitlines():
+                break
+            last = self.log()
+            self.out.close()
+        else:
+            raise Fail("the daemon exited before it was ready, three times: " + last)
         self.events = []
         self.lock = threading.Lock()
         self.sock = socket.create_connection(("127.0.0.1", self.cmd_port), timeout=10)
