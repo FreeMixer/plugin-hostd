@@ -60,7 +60,7 @@ jobs:
       # The real worker for CLAP, built from the pinned omx-clap-host.
       - uses: actions/checkout@v4
         with:
-          repository: FreeMixer/omx-clap-host
+          repository: FreeMixer/omx-clap-core
           ref: ${{ env.OMX_CLAP_HOST_REF }}
           path: omx-clap-host
 
