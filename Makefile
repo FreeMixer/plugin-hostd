@@ -128,12 +128,19 @@ tests/stress.clap: tests/stress_plugin.c
 sabotage: $(PROG) $(FAKE)
 	MOD_HOST_DIR=$(MOD_HOST_DIR) FAKE_HOST=./$(FAKE) python3 tests/sabotage.py
 
+# the jack server the real-worker tests run over: pipewire's own jack implementation (default) or JACK2's jackd
+JACK_SERVER ?= pipewire
+
 # the real workers over jack in a PipeWire of its own: omx-clap-host (OMX_CLAP_HOST) and, when MOD_HOST is
 # given, mod-host with an LV2 bundle (LV2_DIR, LV2_URI, LV2_BUNDLE, LV2_PARAM name the plugin); with omx-clap-host's
 # meter fixtures (FAKE_COMPRESSOR_CLAP, JACK_METER_SOURCE) the meters reach the controller through the daemon
 test-jack: $(PROG) tests/stress.clap tests/jack_levels tests/host_scenarios
-	PLUGIN_HOSTD=./$(PROG) STRESS_CLAP=$(abspath tests/stress.clap) JACK_LEVELS=$(abspath tests/jack_levels) \
+	JACK_SERVER=$(JACK_SERVER) PLUGIN_HOSTD=./$(PROG) STRESS_CLAP=$(abspath tests/stress.clap) JACK_LEVELS=$(abspath tests/jack_levels) \
 	HOST_SCENARIOS=$(abspath tests/host_scenarios) SCENARIOS=$(abspath $(MOD_HOST_DIR)/tests/host-scenarios.txt) ./tests/jack_e2e.sh
+
+# test-jack against JACK2's jackd (the server Zynthian runs) instead of pipewire's own jack implementation
+test-jack2:
+	$(MAKE) test-jack JACK_SERVER=jackd
 
 # mod-host's scenario corpus, the runner every host is tested with
 tests/host_scenarios: $(MOD_HOST_DIR)/tests/host_scenarios.c $(PROTOCOL_LIB)

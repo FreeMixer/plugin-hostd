@@ -89,6 +89,69 @@ jobs:
           echo "The LV2 steps of test-jack are NOT run here: they need mod-host and an LV2 bundle (MOD_HOST, LV2_DIR, LV2_URI, LV2_BUNDLE, LV2_PARAM)."
           echo "They stay in the Makefile for the desk."
 
+  jack2:
+    name: build and test over JACK2's jackd (x86_64)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    container:
+      image: debian:trixie
+      # the jack test runs the daemon and its workers in a user, net, pid and mount namespace of their own
+      options: --cap-add SYS_ADMIN --security-opt seccomp=unconfined --security-opt apparmor=unconfined --security-opt systempaths=unconfined
+    steps:
+      - name: Install the build tools
+        run: |
+          apt-get update -qq
+          apt-get install -y --no-install-recommends ca-certificates git gcc make python3 pkg-config cmake \
+            dpkg-dev debhelper build-essential lintian jackd2 libjack-jackd2-dev jack-example-tools \
+            iproute2 util-linux procps
+
+      - uses: actions/checkout@v4
+
+      # the library, corpus and README of mod-host 0.10.6-3-fmx, which carry track_info, remote pages and param_info
+      - uses: FreeMixer/.github/.github/actions/mod-host-protocol@main
+        with:
+          ref: ce0d247dce860051456e45d5e4e4e70d5884629f
+
+      # the CLAP headers, which Debian does not package either: built and installed from the pin of
+      # FreeMixer/.github, the same one the RPM and DEB builds of the CLAP worker use
+      - uses: FreeMixer/.github/.github/actions/deb-deps@main
+        with:
+          names: clap-headers
+
+      - name: Build
+        run: make
+
+      # The real worker for CLAP, built from the pinned omx-clap-host, as the fedora job does.
+      - uses: actions/checkout@v4
+        with:
+          repository: FreeMixer/omx-clap-host
+          ref: ${{ env.OMX_CLAP_HOST_REF }}
+          path: omx-clap-host
+
+      # the worker, and its fixtures: a plugin that reads clap.track-info, a compressor that reports meters, and a
+      # constant jack source
+      - name: Build the CLAP worker
+        run: make -C omx-clap-host PLUGIN_HOSTD_DIR=$PWD omx-clap-host tests/fake.clap tests/fake_compressor.clap tests/jack_meter_source
+
+      # The daemon with the real worker over JACK2's own jackd, in the private namespace jack_e2e.sh builds.
+      # It needs a private user namespace with its own /proc; a runner that refuses one cannot run it, and the
+      # step says so.
+      - name: Test the daemon with a real worker over JACK2's jackd
+        run: |
+          export FAKE_COMPRESSOR_CLAP=$PWD/omx-clap-host/tests/fake_compressor.clap
+          export JACK_METER_SOURCE=$PWD/omx-clap-host/tests/jack_meter_source
+          export FAKE_CLAP=$PWD/omx-clap-host/tests/fake.clap
+          if unshare --user --map-root-user --net --pid --fork --mount-proc true; then
+            make test-jack2 OMX_CLAP_HOST=$PWD/omx-clap-host/omx-clap-host
+          else
+            echo "::warning::test-jack2 SKIPPED: this runner refuses a private user and pid namespace with its own /proc"
+          fi
+
+      - name: Name what this job does not run
+        run: |
+          echo "The LV2 steps of test-jack2 are NOT run here: mod-host itself (not just its protocol library) is not built in this job, and Debian does not package it."
+          echo "An aarch64 run of this job is not here either: this is x86_64 only, a separate step for later."
+
   rpm:
     name: RPMs (fc44, ${{ matrix.arch }}), installed in a clean root
     runs-on: ${{ matrix.arch == 'aarch64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
