@@ -409,26 +409,37 @@ static char *narrow_world(worker_t *w, const char *uri)
     return strdup(dir);
 }
 
+/* how many times one start asks for ports before it is a failed spawn */
+#define SPAWN_ATTEMPTS 3
+
 static int worker_start(worker_t *w, const char *uri)
 {
     char logfile[PATH_MAX];
     char *world;
-    int rc;
+    int rc, attempt;
 
     if (!proc_have_binary(bin_of(w->fmt)))
         return PHD_ERR_NO_BACKEND;
     snprintf(logfile, sizeof(logfile), "%s/w%d.log", g_root, w->k);
     world = narrow_world(w, uri);
     w->state = W_STARTING;
-    rc = proc_spawn(&g_conf, bin_of(w->fmt), world ? world : (w->fmt == FMT_LV2 ? g_conf.lv2_path : NULL), &g_env[w->fmt],
-                    logfile, &w->pid, &w->port, &w->fb_port);
-    free(world);
-    if (rc != 0)
+    for (attempt = 0;; attempt++)
     {
+        rc = proc_spawn(&g_conf, bin_of(w->fmt), world ? world : (w->fmt == FMT_LV2 ? g_conf.lv2_path : NULL), &g_env[w->fmt],
+                        logfile, &w->pid, &w->port, &w->fb_port);
+        if (rc != 0)
+        {
+            free(world);
+            w->pid = 0;
+            return PHD_ERR_WORKER_SPAWN;
+        }
+        w->fd = proc_connect(&g_conf, w->pid, w->port, w->fb_port, logfile, &w->fb_fd);
+        /* a worker that was gone before it listened lost the race for its ports: ask for fresh ones, a bounded few times */
+        if (w->fd != PROC_EXITED || attempt + 1 >= SPAWN_ATTEMPTS)
+            break;
         w->pid = 0;
-        return PHD_ERR_WORKER_SPAWN;
     }
-    w->fd = proc_connect(&g_conf, w->pid, w->port, w->fb_port, logfile, &w->fb_fd);
+    free(world);
     if (w->fd < 0)
     {
         proc_stop(w->pid);

@@ -138,6 +138,29 @@ def sigkill_of_the_daemon_takes_the_workers_with_it():
 
 
 @test
+def a_worker_that_lost_the_race_for_its_ports_is_started_again_on_fresh_ones():
+    marker = os.path.join(tempfile.mkdtemp(), "bind-failed")
+    d = daemon(env={"FAKE_BIND_FAIL_ONCE": marker})
+    try:
+        d.expect("add fake:a 0", "resp 0")
+        check(os.path.exists(marker), "positive control: the first worker did exit before it listened")
+        check(d.holder(0)[1]["state"] == "up", "the instance is on a worker that is up")
+    finally:
+        d.close()
+
+
+@test
+def a_worker_that_never_listens_is_refused_after_a_bounded_number_of_starts():
+    d = daemon(env={"FAKE_BIND_FAIL_ALWAYS": "1"})
+    try:
+        t0 = time.time()
+        d.expect("add fake:a 0", resp("WORKER_SPAWN"))
+        check(time.time() - t0 < 3, "three quick starts, not three ready timeouts (%.1fs)" % (time.time() - t0))
+    finally:
+        d.close()
+
+
+@test
 def own_crash_respawns_only_that_instance_and_replays_it():
     d = daemon()
     try:
