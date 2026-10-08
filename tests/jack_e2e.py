@@ -41,8 +41,12 @@ def daemon(**kw):
 
 
 def links():
-    out = subprocess.run(["pw-link", "-o"], capture_output=True, text=True, timeout=10).stdout
-    out += subprocess.run(["pw-link", "-i"], capture_output=True, text=True, timeout=10).stdout
+    """every port of the graph, by name: pw-link on PipeWire, jack_lsp on JACK2's jackd (which has no pw-link)"""
+    if os.environ.get("JACK_SERVER") == "jackd":
+        out = subprocess.run(["jack_lsp"], capture_output=True, text=True, timeout=10).stdout
+    else:
+        out = subprocess.run(["pw-link", "-o"], capture_output=True, text=True, timeout=10).stdout
+        out += subprocess.run(["pw-link", "-i"], capture_output=True, text=True, timeout=10).stdout
     return set(out.split("\n"))
 
 
@@ -52,6 +56,10 @@ def has_ports(inst, names=("in_1", "in_2", "out_1", "out_2")):
 
 
 def node_id(name):
+    if os.environ.get("JACK_SERVER") == "jackd":
+        # no pw-dump on JACK2: the client's ports are what the graph holds of it (the worker's pid is checked beside)
+        ports = sorted(l for l in links() if l.startswith(name + ":"))
+        return tuple(ports) or None
     import json
     dump = json.loads(subprocess.run(["pw-dump"], capture_output=True, text=True, timeout=10).stdout)
     for o in dump:
