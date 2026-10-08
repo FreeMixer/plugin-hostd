@@ -3,6 +3,13 @@
 What changed in each release of plugin-hostd, in plain words. The RPM and Debian changelogs and the
 GitHub release notes are generated from this file.
 
+## 0.1.3 - 2026-10-08
+
+- mod-host's own command vocabulary now ships as a JSON file, /usr/share/plugin-hostd/mod-host.json, beside
+  protocol.json, so a controller that is not written in C can read both from the installed package.
+- The package descriptions now say what plugin-hostd does for you: it keeps your effects and instruments
+  running when one plugin crashes.
+
 ## 0.1.2 - 2026-10-01
 
 - Messages the plugin workers send back, such as meter and state feedback, now reach the controller.
