@@ -20,11 +20,29 @@ Fedora:
     sudo dnf config-manager addrepo --from-repofile=https://freemixer.github.io/rpm/freemixer.repo
     sudo dnf install plugin-hostd omx-clap-host
 
-Debian and Raspberry Pi OS: add the apt line from <https://freemixer.github.io>, then
+Debian bookworm and trixie and Raspberry Pi OS (amd64 and arm64):
 
-    sudo apt install plugin-hostd omx-clap-host
+    curl -fsSL https://freemixer.github.io/deb/freemixer.asc | sudo tee /usr/share/keyrings/freemixer.asc >/dev/null
+    echo "deb [signed-by=/usr/share/keyrings/freemixer.asc] https://freemixer.github.io/deb/debian/$(. /etc/os-release; echo $VERSION_CODENAME) ./" | sudo tee /etc/apt/sources.list.d/freemixer.list
+    sudo apt update && sudo apt install plugin-hostd omx-clap-host
 
 The LV2 worker is mod-host, which Debian does not package; without it CLAP plugins still work.
+
+Status
+------
+
+What the continuous integration runs on every push:
+
+- The daemon against stand-in workers that die on cue: placement, forwarding, the ledger, replay,
+  attribution and the bound on a respawn storm. No JACK and no plugin are needed for this.
+- The generated protocol files, README tables and man page checked against `protocol.h`, and
+  every guard broken on purpose to see its test go red.
+- The daemon with a real CLAP worker (omx-clap-host) over PipeWire's JACK and over JACK2's `jackd`,
+  including meters reaching the controller.
+- RPMs (Fedora 44) and DEBs (bookworm and trixie) built and installed in a clean environment.
+
+The LV2 worker (mod-host) is not run in CI; those steps stay in the Makefile for a machine that has
+mod-host and an LV2 bundle.
 
 Try it
 ------
