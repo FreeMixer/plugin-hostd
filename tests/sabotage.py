@@ -62,20 +62,20 @@ SABOTAGE = [
     ("connections are not replayed, so a killed strip never gets its audio back", "src/supervisor.c",
      "for (m = 0; m < i->nconns; m++)\n        {\n            int code;", "for (m = 0; m < 0; m++)\n        {\n            int code;",
      "audio_of_the_other_strip_never_changes_when_one_worker_is_killed", "jack"),
-    ("an own lv2 worker keeps the whole bundle set", "src/supervisor.c", "    if (w->fmt != FMT_LV2 || w->pool || !uri)\n        return NULL;",
+    ("an own lv2 worker keeps the whole bundle set", "src/supervisor.c", "    if (!f->narrow_world || w->pool || !uri)\n        return NULL;",
      "    return NULL;", "lv2_own_worker_sees_one_bundle_and_replays_after_a_kill", "lv2"),
     ("the checkpoint is not loaded after a real respawn", "src/supervisor.c", "    if (any_ckpt)\n", "    if (0 && any_ckpt)\n",
      "clap_own_crash_replays_bit_identically_and_the_neighbour_never_notices", "jack"),
-    ("add checks no pin", "src/supervisor.c", "rc = pins_check(fmt == FMT_CLAP, fwd, g_conf.lv2_path, &layout);", "rc = SUCCESS;",
-     "an_unpinned_plugin_is_refused_by_default_and_no_worker_starts"),
+    ("add checks no pin", "src/supervisor.c", "rc = pins_check(format, fwd, search_of(fmt), &layout);\n        /* a plugin", "rc = SUCCESS;\n        /* a plugin",
+     "an_unpinned_plugin_is_refused_under_strict_and_no_worker_starts"),
     ("a pin in a scheme this version does not know is a pin", "src/pins.c",
-     "if (!p || strcmp(p->scheme, PHD_PIN_LAYOUT_SCHEME))", "if (!p)",
-     "an_unpinned_plugin_is_refused_by_default_and_no_worker_starts"),
+     "if (!p || (strcmp(p->layout, PHD_PIN_LAYOUT_UNKNOWN) && strcmp(p->scheme, PHD_PIN_LAYOUT_SCHEME)))", "if (!p)",
+     "an_unpinned_plugin_is_refused_under_strict_and_no_worker_starts"),
     ("a file whose digest differs passes", "src/pins.c", "else if (phd_pin_fd_digest(fd, hex) != 0 || strcmp(hex, want))",
      "else if (phd_pin_fd_digest(fd, hex) != 0)", "a_swapped_clap_binary_is_refused_before_any_worker_sees_add"),
-    ("a pin need not hold the .clap it admits", "src/pins.c", "if (held(p, slash + 1) < 0)", "if (0)",
+    ("a pin need not hold the .clap it admits", "src/pins.c", "        if (held(p, files.name[n]) < 0)\n            rc = pin_refuse(uri, files.name[n], \"is named by the plugin", "        if (0)\n            rc = pin_refuse(uri, files.name[n], \"is named by the plugin",
      "a_swapped_clap_binary_is_refused_before_any_worker_sees_add"),
-    ("the layout pin is not handed to the CLAP worker", "src/supervisor.c", "    if (layout && fmt == FMT_CLAP)\n", "    if (0)\n",
+    ("the layout pin is not handed to the CLAP worker", "src/supervisor.c", "    if (layout && format->layout_check)\n", "    if (0)\n",
      "a_changed_layout_is_refused_by_the_worker_and_reaches_the_client"),
     ("a worker's refusal of the layout pin is not a refusal", "src/supervisor.c",
      "if (rc == RPC_OK && resp_code(reply) >= 0)", "if (rc == RPC_OK)",
@@ -85,10 +85,10 @@ SABOTAGE = [
     ("the pin_expect a worker went with is not named", "src/supervisor.c",
      "            event(PHD_EVENT_VERB_DROPPED_FMT, id, pin_expect_line(id, layout));\n", "",
      "a_changed_layout_is_refused_by_the_worker_and_reaches_the_client"),
-    ("the manifest may name a file the pin does not hold", "src/pins.c", "if (held(p, names.name[n]) < 0)", "if (0)",
+    ("the manifest may name a file the pin does not hold", "src/pins.c", "        if (held(p, files.name[n]) < 0)\n            rc = pin_refuse(uri, files.name[n], \"is named by the plugin", "        if (0)\n            rc = pin_refuse(uri, files.name[n], \"is named by the plugin",
      "an_lv2_bundle_is_pinned_by_its_manifest_binary_and_seealso"),
-    ("the manifest's bytes are not compared with the pin", "src/pins.c", "if (got != st.st_size || strcmp(hex, want))",
-     "if (got != st.st_size)", "an_lv2_bundle_is_pinned_by_its_manifest_binary_and_seealso"),
+    ("the manifest's bytes are not compared with the pin", "src/pins.c", "else if (phd_pin_fd_digest(fd, hex) != 0 || strcmp(hex, want))",
+     "else if (phd_pin_fd_digest(fd, hex) != 0)", "an_lv2_bundle_is_pinned_by_its_manifest_binary_and_seealso"),
     ("a pinned LV2 plugin may ask for a pool", "src/supervisor.c",
      "            if (placement && !strncmp(placement, PHD_PLACE_POOL_PREFIX, strlen(PHD_PLACE_POOL_PREFIX)))\n"
      "                return sup_resp(PHD_ERR_PLACEMENT_INVALID);\n", "", "a_pinned_lv2_plugin_gets_a_worker_of_its_own"),
@@ -98,13 +98,13 @@ SABOTAGE = [
     ("a pin's path may hold a separator of pin_set's words", "src/pins.c",
      "if (!*path || *path == '/' || strpbrk(path, PHD_PIN_PATH_EXCLUDED))", "if (!*path || *path == '/')",
      "what_cannot_be_pinned_is_refused_and_never_pinned_in_part"),
-    ("a pin_set line may be longer than line_max", "src/verbs.c", "strlen(line) <= PHD_LINE_MAX", "1",
+    ("a pin_set line may be longer than line_max", "src/verbs.c", "|| strlen(line) > PHD_LINE_MAX ||", "|| 0 ||",
      "what_cannot_be_pinned_is_refused_and_never_pinned_in_part"),
-    ("a manifest's base is taken for none", "src/pins.c",
-     "                rc = refuse(uri, MANIFEST, \"sets a base the daemon does not resolve\");\n", "                ;\n",
+    ("a manifest's base is taken for none", "src/lv2.c",
+     "        rc = pin_refuse(uri, MANIFEST, \"sets a base the daemon does not resolve\");\n", "        ;\n",
      "what_cannot_be_pinned_is_refused_and_never_pinned_in_part"),
-    ("a percent-encoded name is taken as written", "src/pins.c",
-     "                if (strstr(names.name[n], PHD_PIN_PERCENT))\n", "                if (0)\n",
+    ("a percent-encoded name is taken as written", "src/lv2.c",
+     "        if (strstr(names.name[n], PHD_PIN_PERCENT))\n", "        if (0)\n",
      "what_cannot_be_pinned_is_refused_and_never_pinned_in_part"),
     ("a plugin with no pin is not given one", "src/supervisor.c", "        if (rc == PHD_ERR_PIN_ABSENT && first_use && !pins_known(fwd))",
      "        if (0)", "first_use_pins_an_unpinned_plugin_and_runs_it_isolated"),
@@ -113,10 +113,18 @@ SABOTAGE = [
     ("a changed plugin is refused and not announced", "src/supervisor.c",
      "    if (code == PHD_ERR_PIN_BINARY_MISMATCH)\n        event(PHD_EVENT_PIN_CHANGED_FMT, uri, PHD_PIN_CHANGED_FILES);\n",
      "", "a_plugin_changed_after_first_use_is_refused_with_an_event_until_accepted"),
-    ("pin_accept takes nothing new", "src/pins.c", "    return record(clap, uri, lv2_path);\n}\n\nint pins_set_layout",
+    ("pin_accept takes nothing new", "src/pins.c", "    return record(format, uri, search);\n}\n\nint pins_set_layout",
      "    return SUCCESS;\n}\n\nint pins_set_layout", "a_plugin_changed_after_first_use_is_refused_with_an_event_until_accepted"),
     ("the store is not written", "src/pins.c", "    pin.learned = 1;\n    pin_put(&pin);\n    store_save();\n",
      "    pin.learned = 1;\n    pin_put(&pin);\n", "first_use_pins_an_unpinned_plugin_and_runs_it_isolated"),
+    ("a format row with no pin_collect is registered", "src/formats.c",
+     "    if (!f->pin_collect)\n        return reject(f,", "    if (0)\n        return reject(f,", "format_test", "format"),
+    ("a format row with no worker is registered", "src/formats.c",
+     "    if (!f->worker)\n        return reject(f,", "    if (0)\n        return reject(f,", "format_test", "format"),
+    ("a format row nobody answers the instance verbs for is registered", "src/formats.c",
+     "    if (!f->native_instance_verbs && !f->param_info)\n", "    if (0)\n", "format_test", "format"),
+    ("the pin rule of a registered format is the first two formats'", "src/supervisor.c",
+     "        rc = pins_check(format, fwd, search_of(fmt), &layout);\n        /* a plugin", "        rc = SUCCESS;\n        /* a plugin", "format_test", "format"),
     ("a replayed add is not checked again", "src/supervisor.c", "    i->unreplayed = 0;\n    if (!g_conf.require_pins)",
      "    i->unreplayed = 0;\n    if (1)", "a_binary_swapped_while_its_worker_was_down_is_not_replayed"),
     ("the verbs of an instance its pin refused on replay are replayed", "src/supervisor.c",
@@ -140,25 +148,25 @@ SABOTAGE = [
      "        for (i = 0; i < g_nsrc; i++)\n            if (!g_src[i].eof)\n",
      "        for (i = 0; i < g_nsrc; i++)\n            if (!g_src[i].eof && g_client >= 0)\n",
      "a_worker_is_read_when_no_controller_reads_the_feedback"),
-    ("an LV2 instance's track_info and queries go to mod-host", "src/supervisor.c", "    else if (i->fmt == FMT_CLAP)\n",
+    ("an LV2 instance's track_info and queries go to mod-host", "src/supervisor.c", "    else if (format_at(i->fmt)->native_instance_verbs)\n",
      "    else if (1)\n", "an_lv2_instance_is_answered_by_the_daemon_and_its_worker_never_sees_the_verbs"),
     ("an LV2 worker gets track_info on a replay", "src/supervisor.c",
-     "if (i->track_info && i->fmt == FMT_CLAP && replay_line(", "if (i->track_info && replay_line(",
+     "if (i->track_info && format_at(i->fmt)->native_instance_verbs && replay_line(", "if (i->track_info && replay_line(",
      "an_lv2_instance_is_answered_by_the_daemon_and_its_worker_never_sees_the_verbs"),
-    ("an LV2 param_info answers -511 for a symbol mod-host does not know", "src/supervisor.c",
+    ("an LV2 param_info answers -511 for a symbol mod-host does not know", "src/lv2.c",
      "code == ERR_HOST_INVALID_PARAM_SYMBOL ? ERR_HOST_INVALID_PARAM_SYMBOL : PHD_ERR_NO_PARAM_CONTRACT",
      "PHD_ERR_NO_PARAM_CONTRACT", "an_lv2_instance_is_answered_by_the_daemon_and_its_worker_never_sees_the_verbs"),
     ("track_info's kind is not checked", "include/plugin-hostd/protocol.h",
      "phd_track_kind(count == 5 ? word[4] : NULL) >= 0;", "1;",
      "a_clap_instance_is_routed_to_its_worker_and_its_reply_passed_through"),
     ("track_info is not replayed", "src/supervisor.c",
-     "if (i->track_info && i->fmt == FMT_CLAP && replay_line(", "if (0 && replay_line(",
+     "if (i->track_info && format_at(i->fmt)->native_instance_verbs && replay_line(", "if (0 && replay_line(",
      "track_info_is_replayed_once_after_the_add_and_before_the_state"),
     ("a worker's remote_pages_changed is not relayed", "src/relay.c",
      "            send_line(start, nul - start + 1);\n", "",
      "remote_pages_changed_from_a_worker_reaches_the_controller"),
     ("a CLAP worker is not told track_info again after a kill", "src/supervisor.c",
-     "if (i->track_info && i->fmt == FMT_CLAP && replay_line(", "if (0 && replay_line(",
+     "if (i->track_info && format_at(i->fmt)->native_instance_verbs && replay_line(", "if (0 && replay_line(",
      "clap_track_info_and_remote_pages_reach_the_plugin_through_the_daemon", "info"),
     ("meters behind the daemon never reach the controller", "src/supervisor.c", "    relay_add(w->fb_fd);\n", "",
      "clap_meters_reach_the_controller_through_the_daemon_and_survive_a_kill", "meters"),
@@ -202,7 +210,23 @@ def run_pin_test(tree):
     return p.returncode, p.stdout
 
 
+def run_format_test(tree):
+    """tests/format_test.c against the tree's sources; it prints "ok   format_test" when no check failed"""
+    os.makedirs(os.path.join(tree, "tests"), exist_ok=True)
+    shutil.copy(os.path.join(ROOT, "tests", "format_test.c"), os.path.join(tree, "tests"))
+    for f in os.listdir(os.path.join(tree, "src")):
+        if f.endswith(".o"):
+            os.unlink(os.path.join(tree, "src", f))
+    subprocess.run(["make", "-s", "MOD_HOST_DIR=" + MOD_HOST_DIR, "tests/format-test"], cwd=tree, check=True,
+                   stdout=subprocess.DEVNULL)
+    env = dict(os.environ, PLUGIN_HOSTD_FORMAT_TEST_DIR=tree)
+    p = subprocess.run([os.path.join(tree, "tests", "format-test"), FAKE], env=env, capture_output=True, text=True, timeout=120)
+    return p.returncode, p.stdout + ("ok   format_test\n" if p.returncode == 0 else "")
+
+
 def run_test(tree, name, jack=False):
+    if jack == "format":
+        return run_format_test(tree)
     if jack == "pin":
         return run_pin_test(tree)
     if jack == "readme":
@@ -263,7 +287,7 @@ try:
             failed += 1
             continue
         open(os.path.join(tree, path), "w").write(src.replace(text, repl))
-        if jack not in ("readme", "nopins"):
+        if jack not in ("readme", "nopins", "format"):
             for f in os.listdir(os.path.join(tree, "src")):
                 if f.endswith(".o"):
                     os.unlink(os.path.join(tree, "src", f))
