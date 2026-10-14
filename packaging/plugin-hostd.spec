@@ -1,5 +1,5 @@
 Name: plugin-hostd
-Version: 0.1.5
+Version: 0.1.6
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -76,6 +76,13 @@ make test-daemon check-generated
 %{_datadir}/plugin-hostd/protocol.schema.json
 
 %changelog
+* Thu Oct 15 2026 Pau Aliagas <linuxnow@gmail.com> - 0.1.6-1
+- The CLAP worker and its test fixtures now come from the installed
+  omx-clap-core packages (omx-clap-host and omx-clap-host-tests) instead of a
+  pinned checkout. There are no pins anywhere in the build.
+- The packages require omx-clap-host-tests >= 0.6.0 and below 0.7 for the
+  tests.
+
 * Wed Oct 14 2026 Pau Aliagas <linuxnow@gmail.com> - 0.1.5-1
 - The README gains a Status section drawn from the CI jobs, and spells out
   the apt lines for Debian and Ubuntu.
