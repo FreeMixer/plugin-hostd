@@ -5,7 +5,9 @@ name: ci
 # here: release.yml is a release, run from a version tag, and its dry run is the last job.
 #
 # The protocol library, the mod-host RPMs and the RPM build are the composite actions of
-# FreeMixer/.github; OMX_CLAP_HOST_REF is the omx-clap-core release tag whose worker the jack test drives.
+# FreeMixer/.github. The real CLAP worker the jack test drives, and its fixtures, are the omx-clap-host and
+# omx-clap-host-tests packages of the FreeMixer channel, installed by dnf builddep / apt-get build-dep from the
+# floor and ceiling the spec and debian/control declare; nothing of omx-clap-core is checked out or built here.
 
 on:
   pull_request:
@@ -14,9 +16,6 @@ on:
 
 permissions:
   contents: read
-
-env:
-  OMX_CLAP_HOST_REF: v0.4.0
 
 jobs:
   test:
@@ -30,10 +29,18 @@ jobs:
     steps:
       - name: Install the build tools
         run: |
-          dnf install -y --setopt=install_weak_deps=False git gcc make python3 pkgconf-pkg-config clap-devel \
+          dnf install -y --setopt=install_weak_deps=False git dnf5-plugins gcc make python3 pkgconf-pkg-config clap-devel \
             pipewire-jack-audio-connection-kit-devel pipewire pipewire-utils iproute util-linux procps-ng diffutils python3-jsonschema
 
       - uses: actions/checkout@v4
+
+      # the FreeMixer channel: where the BuildRequires Fedora does not carry (omx-clap-host-tests) come from
+      - name: Add the FreeMixer channel
+        run: dnf config-manager addrepo --setopt=retries=10 --from-repofile=https://freemixer.github.io/rpm/freemixer.repo
+
+      # the worker and the fixtures: omx-clap-host-tests Requires omx-clap-host, so this installs both
+      - name: Install the build dependencies from the channel
+        run: dnf builddep -y --setopt=retries=10 packaging/plugin-hostd.spec
 
       # the library, corpus and README of mod-host 0.10.6-3-fmx, which carry track_info, remote pages and param_info
       - uses: FreeMixer/.github/.github/actions/mod-host-protocol@v1
@@ -49,28 +56,16 @@ jobs:
       - name: Test the daemon against workers that die on cue, and the declared protocol
         run: make test
 
-      # The real worker for CLAP, built from the pinned omx-clap-host.
-      - uses: actions/checkout@v4
-        with:
-          repository: FreeMixer/omx-clap-core
-          ref: ${{ env.OMX_CLAP_HOST_REF }}
-          path: omx-clap-host
-
-      # the worker, and its fixtures: a plugin that reads clap.track-info, a compressor that reports meters, and a
-      # constant jack source
-      - name: Build the CLAP worker
-        run: make -C omx-clap-host PLUGIN_HOSTD_DIR=$PWD omx-clap-host tests/fake.clap tests/fake_compressor.clap tests/jack_meter_source
-
-      # The daemon with the real worker over jack, in a PipeWire of its own. It needs a private user
+      # The daemon with the installed worker over jack, in a PipeWire of its own. It needs a private user
       # namespace with its own /proc; a runner that refuses one cannot run it, and the step says so.
       - name: Test the daemon with a real worker over jack, then break every guard on purpose
         run: |
-          export FAKE_COMPRESSOR_CLAP=$PWD/omx-clap-host/tests/fake_compressor.clap
-          export JACK_METER_SOURCE=$PWD/omx-clap-host/tests/jack_meter_source
-          export FAKE_CLAP=$PWD/omx-clap-host/tests/fake.clap
+          export FAKE_COMPRESSOR_CLAP=/usr/libexec/omx-clap-host/tests/fake_compressor.clap
+          export JACK_METER_SOURCE=/usr/libexec/omx-clap-host/tests/jack_meter_source
+          export FAKE_CLAP=/usr/libexec/omx-clap-host/tests/fake.clap
           if unshare --user --map-root-user --net --pid --fork --mount-proc true; then
-            make test-jack OMX_CLAP_HOST=$PWD/omx-clap-host/omx-clap-host
-            OMX_CLAP_HOST=$PWD/omx-clap-host/omx-clap-host make sabotage
+            make test-jack OMX_CLAP_HOST=/usr/bin/omx-clap-host
+            OMX_CLAP_HOST=/usr/bin/omx-clap-host make sabotage
           else
             echo "::warning::test-jack SKIPPED: this runner refuses a private user and pid namespace with its own /proc"
             make sabotage
@@ -93,11 +88,24 @@ jobs:
       - name: Install the build tools
         run: |
           apt-get update -qq
-          apt-get install -y --no-install-recommends ca-certificates git gcc make python3 pkg-config cmake \
+          apt-get install -y --no-install-recommends ca-certificates curl git gcc make python3 pkg-config cmake \
             dpkg-dev debhelper build-essential lintian jackd2 libjack-jackd2-dev jack-example-tools \
             iproute2 util-linux procps
 
       - uses: actions/checkout@v4
+
+      # the FreeMixer channel: where the Build-Depends Debian does not carry (omx-clap-host-tests) come from
+      - name: Add the FreeMixer channel
+        run: |
+          set -euo pipefail
+          install -d /etc/apt/keyrings
+          curl -fsSL --retry 5 --retry-all-errors --connect-timeout 20 -o /etc/apt/keyrings/freemixer.asc https://freemixer.github.io/deb/freemixer.asc
+          echo "deb [signed-by=/etc/apt/keyrings/freemixer.asc] https://freemixer.github.io/deb/debian/$(. /etc/os-release; echo $VERSION_CODENAME) ./" > /etc/apt/sources.list.d/freemixer.list
+          apt-get update -qq
+
+      # the worker and the fixtures: omx-clap-host-tests Depends on omx-clap-host, so this installs both
+      - name: Install the build dependencies from the channel
+        run: apt-get build-dep -y --no-install-recommends ./
 
       # the library, corpus and README of mod-host 0.10.6-3-fmx, which carry track_info, remote pages and param_info
       - uses: FreeMixer/.github/.github/actions/mod-host-protocol@v1
@@ -113,28 +121,16 @@ jobs:
       - name: Build
         run: make
 
-      # The real worker for CLAP, built from the pinned omx-clap-host, as the fedora job does.
-      - uses: actions/checkout@v4
-        with:
-          repository: FreeMixer/omx-clap-host
-          ref: ${{ env.OMX_CLAP_HOST_REF }}
-          path: omx-clap-host
-
-      # the worker, and its fixtures: a plugin that reads clap.track-info, a compressor that reports meters, and a
-      # constant jack source
-      - name: Build the CLAP worker
-        run: make -C omx-clap-host PLUGIN_HOSTD_DIR=$PWD omx-clap-host tests/fake.clap tests/fake_compressor.clap tests/jack_meter_source
-
       # The daemon with the real worker over JACK2's own jackd, in the private namespace jack_e2e.sh builds.
       # It needs a private user namespace with its own /proc; a runner that refuses one cannot run it, and the
       # step says so.
       - name: Test the daemon with a real worker over JACK2's jackd
         run: |
-          export FAKE_COMPRESSOR_CLAP=$PWD/omx-clap-host/tests/fake_compressor.clap
-          export JACK_METER_SOURCE=$PWD/omx-clap-host/tests/jack_meter_source
-          export FAKE_CLAP=$PWD/omx-clap-host/tests/fake.clap
+          export FAKE_COMPRESSOR_CLAP=/usr/libexec/omx-clap-host/tests/fake_compressor.clap
+          export JACK_METER_SOURCE=/usr/libexec/omx-clap-host/tests/jack_meter_source
+          export FAKE_CLAP=/usr/libexec/omx-clap-host/tests/fake.clap
           if unshare --user --map-root-user --net --pid --fork --mount-proc true; then
-            make test-jack2 OMX_CLAP_HOST=$PWD/omx-clap-host/omx-clap-host
+            make test-jack2 OMX_CLAP_HOST=/usr/bin/omx-clap-host
           else
             echo "::warning::test-jack2 SKIPPED: this runner refuses a private user and pid namespace with its own /proc"
           fi
@@ -163,6 +159,10 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      # the FreeMixer channel: where the BuildRequires Fedora does not carry (omx-clap-host-tests) come from
+      - name: Add the FreeMixer channel
+        run: dnf config-manager addrepo --setopt=retries=10 --from-repofile=https://freemixer.github.io/rpm/freemixer.repo
 
       - uses: FreeMixer/.github/.github/actions/mod-host-rpms@v1
 
@@ -251,11 +251,20 @@ jobs:
       - name: Install the build tools
         run: |
           apt-get update -qq
-          apt-get install -y --no-install-recommends ca-certificates git dpkg-dev debhelper build-essential lintian
+          apt-get install -y --no-install-recommends ca-certificates curl git dpkg-dev debhelper build-essential lintian
 
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      # the FreeMixer channel: where the Build-Depends Debian does not carry (omx-clap-host-tests) come from
+      - name: Add the FreeMixer channel
+        run: |
+          set -euo pipefail
+          install -d /etc/apt/keyrings
+          curl -fsSL --retry 5 --retry-all-errors --connect-timeout 20 -o /etc/apt/keyrings/freemixer.asc https://freemixer.github.io/deb/freemixer.asc
+          echo "deb [signed-by=/etc/apt/keyrings/freemixer.asc] https://freemixer.github.io/deb/debian/$(. /etc/os-release; echo $VERSION_CODENAME) ./" > /etc/apt/sources.list.d/freemixer.list
+          apt-get update -qq
 
       - uses: FreeMixer/.github/.github/actions/deb-deps@v1
 
