@@ -1,3 +1,11 @@
+plugin-hostd (0.1.5) unstable; urgency=medium
+
+  * The README gains a Status section drawn from the CI jobs, and spells out
+    the apt lines for Debian and Ubuntu.
+  * The project keeps no changelog file: the git history is the changelog.
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Wed, 14 Oct 2026 12:00:00 +0000
+
 plugin-hostd (0.1.4) unstable; urgency=medium
 
   * When a plugin worker cannot get its network ports because another process
