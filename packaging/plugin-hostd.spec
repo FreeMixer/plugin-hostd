@@ -1,5 +1,5 @@
 Name: plugin-hostd
-Version: 0.1.4
+Version: 0.1.5
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -72,6 +72,11 @@ make test-daemon check-generated
 %{_datadir}/plugin-hostd/protocol.schema.json
 
 %changelog
+* Wed Oct 14 2026 Pau Aliagas <linuxnow@gmail.com> - 0.1.5-1
+- The README gains a Status section drawn from the CI jobs, and spells out
+  the apt lines for Debian and Ubuntu.
+- The project keeps no changelog file: the git history is the changelog.
+
 * Thu Oct 08 2026 Pau Aliagas <linuxnow@gmail.com> - 0.1.4-1
 - When a plugin worker cannot get its network ports because another process
   took them first, the daemon now starts it again on fresh ports, up to three
