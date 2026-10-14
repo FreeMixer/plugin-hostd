@@ -36,7 +36,6 @@
 #include <utils.h>
 
 /* mod-host's pseudo port of the host's own bypass, which param_info names no parameter */
-#define LV2_BYPASS_SYMBOL ":bypass"
 
 #include "pins.h"
 #include "relay.h"
@@ -66,16 +65,11 @@ static int g_nworkers, g_capworkers, g_next_k = 1;
 static instance_t *g_inst[MAX_INSTANCE];
 static meta_t *g_meta[MAX_INSTANCE];
 static char g_root[PATH_MAX], g_ckpt[PATH_MAX];
-static char g_policy[FMT_COUNT][48];
+static char g_policy[FORMATS_MAX][48];
 static poolcfg_t g_pools[POOL_NAMES];
 static int g_npools;
-static worker_env_t g_env[FMT_COUNT];
+static worker_env_t g_env[FORMATS_MAX];
 
-static const char *const g_fmt_name[FMT_COUNT] = {
-#define X(id, name) name,
-    PHD_FORMATS(X)
-#undef X
-};
 static const char *const g_state_states[W_COUNT] = {
 #define X(id, name, meaning) name,
     PHD_WORKER_STATES(X)
@@ -123,6 +117,11 @@ char *sup_resp(int code)
 static int resp_code(const char *reply)
 {
     return strncmp(reply, "resp ", 5) == 0 ? atoi(reply + 5) : -999;
+}
+
+int sup_reply_code(const char *reply)
+{
+    return resp_code(reply);
 }
 
 static meta_t *meta_of(int id)
@@ -356,7 +355,7 @@ static void worker_free(worker_t *w)
             g_workers[n] = g_workers[--g_nworkers];
             break;
         }
-    snprintf(path, sizeof(path), "%s/lv2-w%d", g_root, w->k);
+    snprintf(path, sizeof(path), "%s/world-w%d", g_root, w->k);
     rm_tree(path);
     snprintf(path, sizeof(path), "%s/w%d.log", g_root, w->k);
     unlink(path);
@@ -381,32 +380,28 @@ static void worker_retire(worker_t *w)
 
 static const char *bin_of(int fmt)
 {
-    return fmt == FMT_CLAP ? g_conf.clap_host : g_conf.mod_host;
+    return format_at(fmt)->worker(&g_conf);
 }
 
-/* an own LV2 worker sees a world of one bundle: LV2_PATH is a directory holding a link to the bundle
- * that names the URI; a pool, and a URI no bundle names, gets the whole set of the settings' lv2_path */
+/* where the plugins of a format are searched, NULL for nowhere */
+static const char *search_of(int fmt)
+{
+    const format_t *f = format_at(fmt);
+
+    return f->search ? f->search(&g_conf) : NULL;
+}
+
+/* a format that can narrow its worker's world gives an own worker the world of the one plugin; a pool, and a plugin the
+ * format cannot find, gets the whole search path */
 static char *narrow_world(worker_t *w, const char *uri)
 {
-    char *bundle, *base, dir[PATH_MAX], link_path[PATH_MAX];
+    const format_t *f = format_at(w->fmt);
+    char dir[PATH_MAX];
 
-    if (w->fmt != FMT_LV2 || w->pool || !uri)
+    if (!f->narrow_world || w->pool || !uri)
         return NULL;
-    bundle = proc_find_lv2_bundle(g_conf.lv2_path, uri);
-    if (!bundle)
-        return NULL;
-    snprintf(dir, sizeof(dir), "%s/lv2-w%d", g_root, w->k);
-    mkdir(dir, 0755);
-    base = strrchr(bundle, '/');
-    snprintf(link_path, sizeof(link_path), "%s/%s", dir, base ? base + 1 : bundle);
-    unlink(link_path);
-    if (symlink(bundle, link_path) != 0)
-    {
-        free(bundle);
-        return NULL;
-    }
-    free(bundle);
-    return strdup(dir);
+    snprintf(dir, sizeof(dir), "%s/world-w%d", g_root, w->k);
+    return f->narrow_world(&g_conf, dir, uri);
 }
 
 /* how many times one start asks for ports before it is a failed spawn */
@@ -425,8 +420,8 @@ static int worker_start(worker_t *w, const char *uri)
     w->state = W_STARTING;
     for (attempt = 0;; attempt++)
     {
-        rc = proc_spawn(&g_conf, bin_of(w->fmt), world ? world : (w->fmt == FMT_LV2 ? g_conf.lv2_path : NULL), &g_env[w->fmt],
-                        logfile, &w->pid, &w->port, &w->fb_port);
+        rc = proc_spawn(&g_conf, bin_of(w->fmt), format_at(w->fmt)->world_env, world ? world : search_of(w->fmt),
+                        &g_env[w->fmt], logfile, &w->pid, &w->port, &w->fb_port);
         if (rc != 0)
         {
             free(world);
@@ -757,13 +752,13 @@ static int replay_pin(worker_t *w, instance_t *i)
     i->unreplayed = 0;
     if (!g_conf.require_pins)
         return RPC_OK;
-    code = pins_check(i->fmt == FMT_CLAP, i->uri, g_conf.lv2_path, &layout);
+    code = pins_check(format_at(i->fmt), i->uri, search_of(i->fmt), &layout);
     if (code != SUCCESS)
     {
         replay_refused(w, i, "pin", code);
         return PIN_REFUSED;
     }
-    if (i->fmt == FMT_CLAP)
+    if (format_at(i->fmt)->layout_check && layout)
     {
         rc = replay_line_code(w, pin_expect_line(i->id, layout), &code);
         if (rc != RPC_OK)
@@ -809,8 +804,8 @@ static void replay(worker_t *w, int64_t started)
             continue;
         }
         /* before the state: what the plugin does on hearing it is overwritten by the state it saved; mod-host
-         * has no track_info, so an LV2 worker never gets it */
-        if (i->track_info && i->fmt == FMT_CLAP && replay_line(w, i->track_info) != RPC_OK)
+         * has no track_info, so a worker that does not answer the instance verbs never gets it */
+        if (i->track_info && format_at(i->fmt)->native_instance_verbs && replay_line(w, i->track_info) != RPC_OK)
         {
             on_death(w, i->id);
             return;
@@ -933,7 +928,7 @@ void sup_init(const conf_t *conf)
     mkdir(g_root, 0755);
     snprintf(g_ckpt, sizeof(g_ckpt), "%s/ckpt", g_root);
     mkdir(g_ckpt, 0755);
-    for (f = 0; f < FMT_COUNT; f++)
+    for (f = 0; f < FORMATS_MAX; f++)
     {
         snprintf(g_policy[f], sizeof(g_policy[f]), PHD_PLACE_OWN);
         proc_env_clear(&g_env[f]);
@@ -1045,8 +1040,9 @@ static void learn_layout(worker_t *w, int id, const char *uri)
 
 char *sup_add(const char *uri, int id, const char *placement, const char *client)
 {
-    int fmt = strncmp(uri, "clap:", 5) == 0 ? FMT_CLAP : FMT_LV2;
-    const char *fwd = (fmt == FMT_LV2 && strncmp(uri, "lv2:", 4) == 0) ? uri + 4 : uri;
+    const char *fwd;
+    int fmt = format_of_uri(uri, &fwd);
+    const format_t *format = format_at(fmt);
     char place[48], line[PATH_MAX + 128], *reply = NULL;
     const char *layout = NULL;
     worker_t *w = NULL;
@@ -1076,19 +1072,19 @@ char *sup_add(const char *uri, int id, const char *placement, const char *client
     {
         int first_use = conf_pins_first_use(&g_conf);
 
-        rc = pins_check(fmt == FMT_CLAP, fwd, g_conf.lv2_path, &layout);
+        rc = pins_check(format, fwd, search_of(fmt), &layout);
         /* a plugin that has no pin gets one, from the files as they are now; it is not asked about again */
         if (rc == PHD_ERR_PIN_ABSENT && first_use && !pins_known(fwd))
         {
-            rc = pins_learn(fmt == FMT_CLAP, fwd, g_conf.lv2_path);
+            rc = pins_learn(format, fwd, search_of(fmt));
             if (rc == SUCCESS)
-                rc = pins_check(fmt == FMT_CLAP, fwd, g_conf.lv2_path, &layout);
+                rc = pins_check(format, fwd, search_of(fmt), &layout);
         }
         pin_changed_event(fwd, rc);
         if (rc != SUCCESS)
             return sup_resp(rc);
-        /* a pool's world holds every member's bundle: the layout of a pinned LV2 holds in the one bundle of its own */
-        if (fmt == FMT_LV2)
+        /* a pool's world holds every member's files: what a format pins holds only in a world of the plugin's own */
+        if (format->pinned_own_only)
         {
             if (placement && !strncmp(placement, PHD_PLACE_POOL_PREFIX, strlen(PHD_PLACE_POOL_PREFIX)))
                 return sup_resp(PHD_ERR_PLACEMENT_INVALID);
@@ -1137,7 +1133,7 @@ char *sup_add(const char *uri, int id, const char *placement, const char *client
         }
     }
     rc = RPC_OK;
-    if (layout && fmt == FMT_CLAP)
+    if (layout && format->layout_check)
     {
         rc = proc_rpc(&g_conf, w->pid, w->fd, pin_expect_line(id, layout), &reply);
         if (rc == RPC_OK && resp_code(reply) >= 0)
@@ -1176,7 +1172,7 @@ char *sup_add(const char *uri, int id, const char *placement, const char *client
             worker_retire(w);
         return reply;
     }
-    if (g_conf.require_pins && !layout && fmt == FMT_CLAP)
+    if (g_conf.require_pins && !layout && format->layout_check)
         learn_layout(w, id, fwd);
     i = calloc(1, sizeof(instance_t));
     i->id = id;
@@ -1429,22 +1425,6 @@ static char **words(char *copy, int *count)
     return word;
 }
 
-/* param_info of an LV2 instance: -103 for what is no parameter, asked of mod-host with its own param_get, and for the
- * host's bypass; -511 for a parameter, whose unit and scale the daemon does not hold */
-static char *lv2_param_info(int id, const char *symbol)
-{
-    char line[PATH_MAX], *reply;
-    int code;
-
-    if (!strcmp(symbol, LV2_BYPASS_SYMBOL))
-        return sup_resp(ERR_HOST_INVALID_PARAM_SYMBOL);
-    snprintf(line, sizeof(line), EFFECT_PARAM_GET, id, symbol);
-    reply = sup_call(id, line);
-    code = resp_code(reply);
-    free(reply);
-    return sup_resp(code == ERR_HOST_INVALID_PARAM_SYMBOL ? ERR_HOST_INVALID_PARAM_SYMBOL : PHD_ERR_NO_PARAM_CONTRACT);
-}
-
 char *sup_instance_verb(const char *line, int ledger)
 {
     char *copy = strdup(line), **word, *end, *reply;
@@ -1460,7 +1440,7 @@ char *sup_instance_verb(const char *line, int ledger)
         reply = sup_resp(ERR_INSTANCE_NON_EXISTS);
     else if (!strcmp(word[0], PHD_VERB_TRACK_INFO) && !phd_track_info_valid(word, count))
         reply = sup_resp(ERR_INVALID_OPERATION);
-    else if (i->fmt == FMT_CLAP)
+    else if (format_at(i->fmt)->native_instance_verbs)
     {
         reply = sup_call(id, line);
         if (ledger == PHD_LEDGER_REPLACE && resp_code(reply) >= 0 && g_inst[id] == i)
@@ -1469,7 +1449,7 @@ char *sup_instance_verb(const char *line, int ledger)
             i->track_info = strdup(line);
         }
     }
-    /* an LV2 instance: mod-host has none of these, so nothing goes to its worker */
+    /* a format whose worker has none of these: the daemon answers, and nothing goes to the worker */
     else if (!strcmp(word[0], PHD_VERB_TRACK_INFO))
     {
         free(i->track_info);
@@ -1479,7 +1459,7 @@ char *sup_instance_verb(const char *line, int ledger)
     else if (!strcmp(word[0], PHD_VERB_REMOTE_PAGES))
         reply = sup_resp(count == 2 ? 0 : ERR_INVALID_OPERATION);
     else if (!strcmp(word[0], PHD_VERB_PARAM_INFO))
-        reply = count == 3 ? lv2_param_info(id, word[2]) : sup_resp(ERR_INVALID_OPERATION);
+        reply = count == 3 ? format_at(i->fmt)->param_info(id, word[2]) : sup_resp(ERR_INVALID_OPERATION);
     else
         reply = sup_resp(ERR_INVALID_OPERATION);
     free(word);
@@ -1534,7 +1514,7 @@ char *sup_worker_list(void)
     {
         worker_t *w = sorted[n];
 
-        put(&buf, &used, &cap, " w%d:%d:%s:%s:%s:", w->k, (int)w->pid, g_fmt_name[w->fmt], g_state_states[w->state], w->place);
+        put(&buf, &used, &cap, " w%d:%d:%s:%s:%s:", w->k, (int)w->pid, format_at(w->fmt)->name, g_state_states[w->state], w->place);
         if (!w->ninst)
             put(&buf, &used, &cap, PHD_WORD_NONE);
         for (m = 0; m < w->ninst; m++)
@@ -1604,25 +1584,6 @@ char *sup_quarantine_clear(const char *which)
     return sup_resp(SUCCESS);
 }
 
-static int format_of(const char *name)
-{
-    if (!strcmp(name, PHD_FORMAT_LV2))
-        return FMT_LV2;
-    if (!strcmp(name, PHD_FORMAT_CLAP))
-        return FMT_CLAP;
-    return -1;
-}
-
-char *sup_pin_accept(const char *uri)
-{
-    int fmt = strncmp(uri, "clap:", 5) == 0 ? FMT_CLAP : FMT_LV2;
-    const char *fwd = (fmt == FMT_LV2 && strncmp(uri, "lv2:", 4) == 0) ? uri + 4 : uri;
-
-    if (!g_conf.require_pins || !conf_pins_first_use(&g_conf))
-        return sup_resp(ERR_INVALID_OPERATION);
-    return sup_resp(pins_accept(fmt == FMT_CLAP, fwd, g_conf.lv2_path));
-}
-
 char *sup_policy_set(const char *format, const char *place)
 {
     int f;
@@ -1631,11 +1592,11 @@ char *sup_policy_set(const char *format, const char *place)
         return sup_resp(PHD_ERR_PLACEMENT_INVALID);
     if (!strcmp(format, PHD_FORMAT_ANY))
     {
-        for (f = 0; f < FMT_COUNT; f++)
+        for (f = 0; f < formats_count(); f++)
             snprintf(g_policy[f], sizeof(g_policy[f]), "%s", place);
         return sup_resp(SUCCESS);
     }
-    f = format_of(format);
+    f = format_by_name(format);
     if (f < 0)
         return sup_resp(ERR_INVALID_OPERATION);
     snprintf(g_policy[f], sizeof(g_policy[f]), "%s", place);
@@ -1665,13 +1626,13 @@ char *sup_pool_config(const char *name, int max)
 
 char *sup_worker_env(const char *format, const char *cpus, const char *nice)
 {
-    int f, lo = 0, hi = FMT_COUNT - 1, n;
+    int f, lo = 0, hi = formats_count() - 1, n;
     worker_env_t env;
     size_t i;
 
     if (strcmp(format, PHD_FORMAT_ANY))
     {
-        lo = hi = format_of(format);
+        lo = hi = format_by_name(format);
         if (lo < 0)
             return sup_resp(ERR_INVALID_OPERATION);
     }

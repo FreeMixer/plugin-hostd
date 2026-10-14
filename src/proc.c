@@ -147,7 +147,7 @@ static int free_port(int other)
     return port == other ? free_port(other) : port;
 }
 
-int proc_spawn(const conf_t *conf, const char *bin, const char *lv2_path, const worker_env_t *env,
+int proc_spawn(const conf_t *conf, const char *bin, const char *world_env, const char *world, const worker_env_t *env,
                const char *logfile, pid_t *pid, int *port, int *fb_port)
 {
     char port_arg[16], fb_arg[16];
@@ -180,8 +180,8 @@ int proc_spawn(const conf_t *conf, const char *bin, const char *lv2_path, const 
         if (log > STDERR_FILENO)
             close(log);
         signal(SIGPIPE, SIG_DFL);
-        if (lv2_path)
-            setenv("LV2_PATH", lv2_path, 1);
+        if (world_env && world)
+            setenv(world_env, world, 1);
         if (env)
             apply_thread(0, env);
         execlp(bin, bin, "-n", "-p", port_arg, "-f", fb_arg, (char *)NULL);

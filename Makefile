@@ -5,6 +5,7 @@ CC ?= gcc
 PROG = plugin-hostd
 VERSION = $(shell sed -n "s/^Version: *//p" packaging/plugin-hostd.spec)
 FAKE = tests/fake-host
+FORMAT_TEST = tests/format-test
 PIN_TEST = tests/pin-test
 
 PKG_CONFIG ?= pkg-config
@@ -46,7 +47,7 @@ INCS = -Iinclude $(PROTOCOL_CFLAGS)
 LDFLAGS += -Wl,--no-undefined
 
 # source and object files
-SRC = src/main.c src/conf.c src/proc.c src/supervisor.c src/verbs.c src/pins.c src/relay.c
+SRC = src/main.c src/conf.c src/proc.c src/supervisor.c src/verbs.c src/pins.c src/relay.c src/formats.c src/lv2.c
 OBJ = $(SRC:.c=.o)
 
 # default build
@@ -100,11 +101,11 @@ install_man:
 
 # clean rule
 clean:
-	@rm -f src/*.o $(PROG) $(FAKE) $(PIN_TEST) $(GEN) tests/stress.clap tests/jack_levels tests/host_scenarios
+	@rm -f src/*.o $(PROG) $(FAKE) $(PIN_TEST) $(FORMAT_TEST) $(GEN) tests/stress.clap tests/jack_levels tests/host_scenarios
 
 # the daemon against workers that are not plugin hosts at all (tests/fake-host speaks the same protocol and can be
 # made to die on cue): placement, forwarding, ledger, replay, attribution, the storm bound; no jack, no plugin
-test: test-pin test-daemon check-generated check-schema test-consumer test-perturbation check-readme check-no-pins test-mod-host-json
+test: test-pin test-format test-daemon check-generated check-schema test-consumer test-perturbation check-readme check-no-pins test-mod-host-json
 	MOD_HOST_DIR=$(MOD_HOST_DIR) python3 tests/verbs_contract.py
 
 # the same without the verb table, which is read from a mod-host checkout's README
@@ -113,6 +114,16 @@ test-daemon: $(PROG) $(FAKE)
 
 $(FAKE): tests/fake_host.c src/verbs.h $(PROTOCOL_LIB)
 	$(CC) $(INCS) $(CFLAGS) -Werror -o $@ $< $(PROTOCOL_LIBS) -lm
+
+# a format registered only by the test goes through add, param, pin and remove; a row with a capability missing is refused
+test-format: $(FORMAT_TEST) $(FAKE)
+	PLUGIN_HOSTD_FORMAT_TEST_DIR=$${TMPDIR:-$${XDG_RUNTIME_DIR:-.}} ./$(FORMAT_TEST) ./$(FAKE)
+
+# the daemon's parts without its main and its verbs: the test calls the supervisor as the verbs do
+FORMAT_OBJ = src/conf.o src/proc.o src/supervisor.o src/pins.o src/relay.o src/formats.o src/lv2.o
+
+$(FORMAT_TEST): tests/format_test.c $(FORMAT_OBJ) $(PROTOCOL_LIB)
+	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -o $@ tests/format_test.c $(FORMAT_OBJ) $(PROTOCOL_LIBS) -pthread -lm
 
 # include/plugin-hostd/pin.h against answers it did not compute
 test-pin: $(PIN_TEST)
