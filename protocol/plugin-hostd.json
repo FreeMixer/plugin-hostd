@@ -31,7 +31,7 @@
     {"name": "GAVE_UP", "macro": "PHD_ERR_GAVE_UP", "code": -505, "meaning": "the storm bound is spent for that placement"},
     {"name": "NO_SUCH_WORKER", "macro": "PHD_ERR_NO_SUCH_WORKER", "code": -506, "meaning": "no such worker"},
     {"name": "VERB_DROPPED", "macro": "PHD_ERR_VERB_DROPPED", "code": -507, "meaning": "the worker died on this very command and the daemon dropped it: it is not replayed, and the instance_verb_dropped event names it; or it died on, or did not answer in rpc_timeout_ms, the pin_expect of an add, which is then never forwarded"},
-    {"name": "PIN_ABSENT", "macro": "PHD_ERR_PIN_ABSENT", "code": -508, "meaning": "require_pins is on and the plugin has no pin, or its layout pin is in a scheme this version does not know: add is refused and no worker sees it"},
+    {"name": "PIN_ABSENT", "macro": "PHD_ERR_PIN_ABSENT", "code": -508, "meaning": "pin_mode strict and the plugin has no pin, or its layout pin is in a scheme this version does not know: add is refused and no worker sees it"},
     {"name": "PIN_BINARY_MISMATCH", "macro": "PHD_ERR_PIN_BINARY_MISMATCH", "code": -509, "meaning": "a pinned file is missing or its SHA-256 differs, or the plugin's manifest names a file the pin does not hold: add is refused and no worker sees it"},
     {"name": "PIN_LAYOUT_MISMATCH", "macro": "PHD_ERR_PIN_LAYOUT_MISMATCH", "code": -510, "meaning": "the worker found the parameter layout after init differs from the layout pin: the instance is destroyed before activate"},
     {"name": "NO_PARAM_CONTRACT", "macro": "PHD_ERR_NO_PARAM_CONTRACT", "code": -511, "meaning": "the host holds no checked unit and scale for this parameter: fall back to qualification"}
@@ -45,8 +45,10 @@
     {"name": "policy_set", "arguments": "<lv2 | clap | *> own | pool:<name>", "reply": "resp 0", "meaning": "the placement of an add that says default"},
     {"name": "pool_config", "arguments": "<name> <max_instances>", "reply": "resp 0", "meaning": "the instances a pool holds before a sibling opens"},
     {"name": "worker_env", "arguments": "<lv2 | clap | *> <cpu-list|-> <nice|->", "reply": "resp 0", "meaning": "the cpu list and the nice value of the workers of a format, at spawn and on the ones running"},
-    {"name": "pin_set", "arguments": "<uri> <path>=<sha256>[,<path>=<sha256>...] <scheme>:<sha256>", "reply": "resp 0", "meaning": "the pin of one plugin: the SHA-256 of every file the host loads for it, a path relative to the bundle (the .clap's directory for a CLAP), and its layout fingerprint; it replaces an earlier pin of the uri"},
+    {"name": "pin_set", "arguments": "<uri> <path>=<sha256>[,<path>=<sha256>...] <scheme>:<sha256> [verdict=<verdict>]", "reply": "resp 0", "meaning": "the pin of one plugin: the SHA-256 of every file the host loads for it, a path relative to the bundle (the .clap's directory for a CLAP), its layout fingerprint and, when it is known, the verdict of its qualification; it replaces an earlier pin of the uri. The pin store and a pin_file hold the same line, with or without the verb"},
     {"name": "pin_clear", "arguments": "<uri> | all", "reply": "resp 0", "meaning": "forget the pin of one plugin, or of every one"},
+    {"name": "pin_accept", "arguments": "<uri>", "reply": "resp 0", "meaning": "pin_mode first-use only: take the plugin's files as they are now as its pin, after a pin_changed event; the layout is learned again by the next add and the verdict is dropped; -508 when the plugin has no pin, -509 when its files cannot be collected, -902 under pin_mode strict"},
+    {"name": "pin_layout", "arguments": "<instance>", "reply": "resp 0 <scheme>:<sha256>", "meaning": "sent by the daemon to a clap worker after it accepted the add of a plugin whose layout pin is still unknown: the layout the worker found after init, which the daemon records in the pin"},
     {"name": "pin_expect", "arguments": "<instance> <scheme>:<sha256>", "reply": "resp 0", "meaning": "sent by the daemon to a clap worker just before the instance's add: the layout pin that add checks after init and before activate; any other reply than resp 0 refuses the add with that code, and the add is never forwarded"}
   ],
   "instance_verbs": [
@@ -73,6 +75,7 @@
     {"name": "instance_replay_refused", "fields": "<instance> <code>", "meaning": "a replayed add was refused, by its pin or by the worker, <code> the refusal's own: no worker holds the instance until the next replay"},
     {"name": "instance_quarantined", "fields": "<instance> <worker>", "meaning": "the culprit of a pool death, placed own until cleared"},
     {"name": "supervisor_gave_up", "fields": "<worker> <deaths> <window_ms>", "meaning": "the storm bound is spent; respawning ends"},
+    {"name": "pin_changed", "fields": "<uri> files | layout", "meaning": "an add or a replay of a plugin was refused because its files, or the layout the worker found, differ from its pin; the pin is as it was until pin_accept or pin_set"},
     {"name": "remote_pages_changed", "fields": "<instance>", "meaning": "relayed from a clap worker: the plugin changed its remote pages; read them again"}
   ],
   "pin_limits": [
@@ -96,6 +99,9 @@
     {"key": "clap_host", "type": "string", "default": "omx-clap-host", "env": "", "meaning": "worker for clap"},
     {"key": "lv2_path", "type": "string", "default": "/usr/lib64/lv2:/usr/lib/lv2:/usr/local/lib/lv2", "env": "LV2_PATH", "meaning": "where bundles are searched"},
     {"key": "state_root", "type": "string", "default": "/tmp", "env": "XDG_RUNTIME_DIR", "meaning": "the daemon's checkpoints and worker logs"},
+    {"key": "pin_mode", "type": "string", "default": "first-use", "env": "", "meaning": "strict or first-use, while require_pins is 1: first-use records the pin of a plugin on its first add, strict admits only a plugin a controller or a pin_file pinned"},
+    {"key": "pin_store", "type": "string", "default": "", "env": "", "meaning": "the file first-use pins are kept in; empty is $XDG_STATE_HOME/plugin-hostd/pins, else $HOME/.local/state/plugin-hostd/pins"},
+    {"key": "pin_file", "type": "string", "default": "", "env": "", "meaning": "a file of pin lines loaded at start, as plugin-qualify --all --pins writes it; empty is none"},
     {"key": "ready_timeout_ms", "type": "int", "default": 5000, "unit": "ms", "meaning": "a worker that does not accept in this long is a failed spawn"},
     {"key": "rpc_timeout_ms", "type": "int", "default": 5000, "unit": "ms", "meaning": "a worker that does not answer in this long is killed"},
     {"key": "backoff_base_ms", "type": "int", "default": 250, "unit": "ms", "meaning": "respawn backoff, doubling per death in the window"},
@@ -106,6 +112,6 @@
     {"key": "checkpoint_ms", "type": "int", "default": 5000, "unit": "ms", "meaning": "a quiet interval with a changed ledger writes a checkpoint"},
     {"key": "idle_ms", "type": "int", "default": 25, "unit": "ms", "meaning": "the period of the idle tick: reap, respawn, checkpoint"},
     {"key": "pool_max", "type": "int", "default": 8, "unit": "instances", "meaning": "instances in a pool before a sibling opens"},
-    {"key": "require_pins", "type": "int", "default": 1, "unit": "", "meaning": "1: add admits only a plugin pin_set pinned, its files hashed before any worker sees it, and an lv2 plugin gets a worker of its own, its world the one bundle the pin holds (a default that resolves to a pool is placed own); 0: no pin is checked"}
+    {"key": "require_pins", "type": "int", "default": 1, "unit": "", "meaning": "1: add admits only a plugin that has a pin (see pin_mode), its files hashed before any worker sees it, and an lv2 plugin gets a worker of its own, its world the one bundle the pin holds (a default that resolves to a pool is placed own); 0: no pin is checked"}
   ]
 }

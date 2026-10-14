@@ -99,6 +99,9 @@ The settings live in a file, `-c`, `$PLUGIN_HOSTD_CONF` or
 | `clap_host` | `omx-clap-host` | worker for clap |
 | `lv2_path` | `$LV2_PATH`, else `/usr/lib64/lv2:/usr/lib/lv2:/usr/local/lib/lv2` | where bundles are searched |
 | `state_root` | `$XDG_RUNTIME_DIR`, else `/tmp` | the daemon's checkpoints and worker logs |
+| `pin_mode` | `first-use` | strict or first-use, while require_pins is 1: first-use records the pin of a plugin on its first add, strict admits only a plugin a controller or a pin_file pinned |
+| `pin_store` | `` | the file first-use pins are kept in; empty is $XDG_STATE_HOME/plugin-hostd/pins, else $HOME/.local/state/plugin-hostd/pins |
+| `pin_file` | `` | a file of pin lines loaded at start, as plugin-qualify --all --pins writes it; empty is none |
 | `ready_timeout_ms` | 5000 ms | a worker that does not accept in this long is a failed spawn |
 | `rpc_timeout_ms` | 5000 ms | a worker that does not answer in this long is killed |
 | `backoff_base_ms` | 250 ms | respawn backoff, doubling per death in the window |
@@ -109,7 +112,7 @@ The settings live in a file, `-c`, `$PLUGIN_HOSTD_CONF` or
 | `checkpoint_ms` | 5000 ms | a quiet interval with a changed ledger writes a checkpoint |
 | `idle_ms` | 25 ms | the period of the idle tick: reap, respawn, checkpoint |
 | `pool_max` | 8 instances | instances in a pool before a sibling opens |
-| `require_pins` | 1  | 1: add admits only a plugin pin_set pinned, its files hashed before any worker sees it, and an lv2 plugin gets a worker of its own, its world the one bundle the pin holds (a default that resolves to a pool is placed own); 0: no pin is checked |
+| `require_pins` | 1  | 1: add admits only a plugin that has a pin (see pin_mode), its files hashed before any worker sees it, and an lv2 plugin gets a worker of its own, its world the one bundle the pin holds (a default that resolves to a pool is placed own); 0: no pin is checked |
 <!-- END GENERATED protocol:config -->
 
 <!-- BEGIN GENERATED protocol:constants -->
@@ -151,8 +154,10 @@ Verbs the daemon adds
 | `policy_set` | `<lv2 \| clap \| *> own \| pool:<name>` | `resp 0` | the placement of an add that says default |
 | `pool_config` | `<name> <max_instances>` | `resp 0` | the instances a pool holds before a sibling opens |
 | `worker_env` | `<lv2 \| clap \| *> <cpu-list\|-> <nice\|->` | `resp 0` | the cpu list and the nice value of the workers of a format, at spawn and on the ones running |
-| `pin_set` | `<uri> <path>=<sha256>[,<path>=<sha256>...] <scheme>:<sha256>` | `resp 0` | the pin of one plugin: the SHA-256 of every file the host loads for it, a path relative to the bundle (the .clap's directory for a CLAP), and its layout fingerprint; it replaces an earlier pin of the uri |
+| `pin_set` | `<uri> <path>=<sha256>[,<path>=<sha256>...] <scheme>:<sha256> [verdict=<verdict>]` | `resp 0` | the pin of one plugin: the SHA-256 of every file the host loads for it, a path relative to the bundle (the .clap's directory for a CLAP), its layout fingerprint and, when it is known, the verdict of its qualification; it replaces an earlier pin of the uri. The pin store and a pin_file hold the same line, with or without the verb |
 | `pin_clear` | `<uri> \| all` | `resp 0` | forget the pin of one plugin, or of every one |
+| `pin_accept` | `<uri>` | `resp 0` | pin_mode first-use only: take the plugin's files as they are now as its pin, after a pin_changed event; the layout is learned again by the next add and the verdict is dropped; -508 when the plugin has no pin, -509 when its files cannot be collected, -902 under pin_mode strict |
+| `pin_layout` | `<instance>` | `resp 0 <scheme>:<sha256>` | sent by the daemon to a clap worker after it accepted the add of a plugin whose layout pin is still unknown: the layout the worker found after init, which the daemon records in the pin |
 | `pin_expect` | `<instance> <scheme>:<sha256>` | `resp 0` | sent by the daemon to a clap worker just before the instance's add: the layout pin that add checks after init and before activate; any other reply than resp 0 refuses the add with that code, and the add is never forwarded |
 
 A `<state>` is `up` (accepting commands), `starting` (spawned, not yet accepting), `backoff` (dead, waiting to be respawned), `given-up` (the storm bound is spent for its placement).
@@ -194,7 +199,7 @@ Error codes the daemon adds to mod-host's:
 | `-505` | `PHD_ERR_GAVE_UP` | the storm bound is spent for that placement |
 | `-506` | `PHD_ERR_NO_SUCH_WORKER` | no such worker |
 | `-507` | `PHD_ERR_VERB_DROPPED` | the worker died on this very command and the daemon dropped it: it is not replayed, and the instance_verb_dropped event names it; or it died on, or did not answer in rpc_timeout_ms, the pin_expect of an add, which is then never forwarded |
-| `-508` | `PHD_ERR_PIN_ABSENT` | require_pins is on and the plugin has no pin, or its layout pin is in a scheme this version does not know: add is refused and no worker sees it |
+| `-508` | `PHD_ERR_PIN_ABSENT` | pin_mode strict and the plugin has no pin, or its layout pin is in a scheme this version does not know: add is refused and no worker sees it |
 | `-509` | `PHD_ERR_PIN_BINARY_MISMATCH` | a pinned file is missing or its SHA-256 differs, or the plugin's manifest names a file the pin does not hold: add is refused and no worker sees it |
 | `-510` | `PHD_ERR_PIN_LAYOUT_MISMATCH` | the worker found the parameter layout after init differs from the layout pin: the instance is destroyed before activate |
 | `-511` | `PHD_ERR_NO_PARAM_CONTRACT` | the host holds no checked unit and scale for this parameter: fall back to qualification |
@@ -226,6 +231,7 @@ Events on the feedback port, one NUL-terminated line each:
 | `instance_replay_refused` | `<instance> <code>` | a replayed add was refused, by its pin or by the worker, <code> the refusal's own: no worker holds the instance until the next replay |
 | `instance_quarantined` | `<instance> <worker>` | the culprit of a pool death, placed own until cleared |
 | `supervisor_gave_up` | `<worker> <deaths> <window_ms>` | the storm bound is spent; respawning ends |
+| `pin_changed` | `<uri> files \| layout` | an add or a replay of a plugin was refused because its files, or the layout the worker found, differ from its pin; the pin is as it was until pin_accept or pin_set |
 | `remote_pages_changed` | `<instance>` | relayed from a clap worker: the plugin changed its remote pages; read them again |
 <!-- END GENERATED protocol:events -->
 
@@ -256,7 +262,7 @@ file cannot slip in unchecked. The layout pin also protects the controls: preset
 mapped to the plugin's parameters, and a changed layout would send values to the wrong ones. It also leaves a record
 you can audit: the exact plugin build that processed the audio.
 
-With `require_pins` on, the default, `add` admits only a plugin the controller pinned with `pin_set`: the SHA-256 of
+With `require_pins` on, the default, `add` admits only a plugin that has a pin: the SHA-256 of
 every file the host loads for it, and its parameter layout fingerprint. Before any worker is spawned or sees the
 `add`, the daemon hashes each pinned file over one open descriptor: for a CLAP the files beside the `.clap` that
 `clap:<path>#<id>` names, the `.clap` itself among them; for an LV2 the files of the bundle whose `manifest.ttl` names
@@ -269,6 +275,15 @@ is the reply, and one that dies on it or does not answer it is dropped with `PHD
 `instance_verb_dropped` event naming the `pin_expect`. An LV2 worker gets no pin verb: its layout is its bundle's TTL,
 which the hash covers, in a world of that one bundle; so a pinned LV2 plugin gets a worker of its own, a `default` that
 resolves to a pool is placed `own` and an explicit `pool:<name>` answers `PHD_ERR_PLACEMENT_INVALID`.
+
+Where the pin comes from is `pin_mode`. `strict` takes it from `pin_set` or from a `pin_file` loaded at start, and a
+plugin with no pin is refused. `first-use`, the default, records it: the first `add` of a plugin with no pin hashes its
+files, keeps the pin in the pin store (`$XDG_STATE_HOME/plugin-hostd/pins`) and places the instance `own`; the layout is
+asked of the worker after the add (`pin_layout`) and recorded too. A host that pins by itself sets `pin_mode strict`.
+The store, a `pin_file` and `pin_set` carry one line format, `pin_set <uri> <files> <layout> [verdict=<word>]` with the
+verb optional in a file. In `first-use` only a pin with `verdict=in-process`, which plugin-qualify writes, lets a plugin
+share a worker. A plugin that changed since it was pinned is refused (-509, or -510 from the worker), the
+`pin_changed <uri> files|layout` event names what changed, and `pin_accept <uri>` takes the new pin.
 
 What cannot be pinned:
 

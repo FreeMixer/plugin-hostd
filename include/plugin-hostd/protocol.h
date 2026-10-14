@@ -146,7 +146,7 @@ static inline int phd_pool_name_valid(const char *name)
     X(VERB_DROPPED, "the worker died on this very command and the daemon dropped it: it is not replayed, " \
                     "and the instance_verb_dropped event names it; or it died on, or did not answer in rpc_timeout_ms, " \
                     "the " PHD_VERB_PIN_EXPECT " of an add, which is then never forwarded") \
-    X(PIN_ABSENT, "require_pins is on and the plugin has no pin, or its layout pin is in a scheme this version does " \
+    X(PIN_ABSENT, "pin_mode strict and the plugin has no pin, or its layout pin is in a scheme this version does " \
                   "not know: add is refused and no worker sees it") \
     X(PIN_BINARY_MISMATCH, "a pinned file is missing or its SHA-256 differs, or the plugin's manifest names a file the " \
                            "pin does not hold: add is refused and no worker sees it") \
@@ -167,6 +167,8 @@ static inline int phd_pool_name_valid(const char *name)
 #define PHD_VERB_PIN_SET          "pin_set"
 #define PHD_VERB_PIN_CLEAR        "pin_clear"
 #define PHD_VERB_PIN_EXPECT       "pin_expect"
+#define PHD_VERB_PIN_ACCEPT       "pin_accept"
+#define PHD_VERB_PIN_LAYOUT       "pin_layout"
 
 /* the words of a pin: <path>=<sha256>, joined by ',', and <scheme>:<sha256> */
 #define PHD_PIN_FILE_SEPARATOR   ","
@@ -174,6 +176,33 @@ static inline int phd_pool_name_valid(const char *name)
 #define PHD_PIN_SCHEME_SEPARATOR ":"
 /* what a path of a pin cannot hold: the separators of pin_set's words, and whitespace */
 #define PHD_PIN_PATH_EXCLUDED    PHD_PIN_FILE_SEPARATOR PHD_PIN_DIGEST_SEPARATOR " \t\r\n"
+/* the layout word of a pin whose layout has not been learned yet: a pin of the store, of a pins file or learned by the
+ * daemon may hold it, pin_set may not */
+#define PHD_PIN_LAYOUT_UNKNOWN   "-"
+/* the optional last word of a pin line: the qualification verdict of the pinned bytes */
+#define PHD_PIN_VERDICT_KEY      "verdict="
+
+/* the verdicts: X(id, name, meaning); only in-process lets a plugin share a worker under pin_mode first-use */
+#define PHD_PIN_VERDICT_IN_PROCESS "in-process"
+#define PHD_PIN_VERDICT_ISOLATED   "isolated"
+#define PHD_PIN_VERDICT_REFUSED    "refused"
+#define PHD_PIN_VERDICTS(X) \
+    X(IN_PROCESS, PHD_PIN_VERDICT_IN_PROCESS, "qualified to run in a worker that other plugins share") \
+    X(ISOLATED, PHD_PIN_VERDICT_ISOLATED, "qualified to run, in a worker of its own") \
+    X(REFUSED, PHD_PIN_VERDICT_REFUSED, "failed qualification: the pin records the bytes, a host should not load them")
+
+/* what pin_changed names as changed */
+#define PHD_PIN_CHANGED_FILES  "files"
+#define PHD_PIN_CHANGED_LAYOUT "layout"
+
+/* the pin modes: X(id, name, meaning), read while require_pins is 1 */
+#define PHD_PIN_MODE_STRICT    "strict"
+#define PHD_PIN_MODE_FIRST_USE "first-use"
+#define PHD_PIN_MODES(X) \
+    X(STRICT, PHD_PIN_MODE_STRICT, "add admits only a plugin that has a pin; a pin comes from pin_set or pin_file") \
+    X(FIRST_USE, PHD_PIN_MODE_FIRST_USE, "add of a plugin with no pin records its pin, keeps it in the pin store and places " \
+                              "the instance " PHD_PLACE_OWN "; a later change is refused until pin_accept")
+
 /* a manifest's IRI that holds this is percent-encoded */
 #define PHD_PIN_PERCENT          "%"
 
@@ -208,10 +237,19 @@ static inline int phd_pool_name_valid(const char *name)
       PHD_WORD_NONE "> <nice|" PHD_WORD_NONE ">", "resp 0", \
       "the cpu list and the nice value of the workers of a format, at spawn and on the ones running") \
     X(PIN_SET, PHD_VERB_PIN_SET, "<uri> <path>" PHD_PIN_DIGEST_SEPARATOR "<sha256>[" PHD_PIN_FILE_SEPARATOR "<path>" \
-      PHD_PIN_DIGEST_SEPARATOR "<sha256>...] <scheme>" PHD_PIN_SCHEME_SEPARATOR "<sha256>", "resp 0", \
+      PHD_PIN_DIGEST_SEPARATOR "<sha256>...] <scheme>" PHD_PIN_SCHEME_SEPARATOR "<sha256> [" PHD_PIN_VERDICT_KEY \
+      "<verdict>]", "resp 0", \
       "the pin of one plugin: the SHA-256 of every file the host loads for it, a path relative to the bundle (the " \
-      ".clap's directory for a CLAP), and its layout fingerprint; it replaces an earlier pin of the uri") \
+      ".clap's directory for a CLAP), its layout fingerprint and, when it is known, the verdict of its qualification; " \
+      "it replaces an earlier pin of the uri. The pin store and a pin_file hold the same line, with or without the verb") \
     X(PIN_CLEAR, PHD_VERB_PIN_CLEAR, "<uri> | " PHD_WORD_ALL, "resp 0", "forget the pin of one plugin, or of every one") \
+    X(PIN_ACCEPT, PHD_VERB_PIN_ACCEPT, "<uri>", "resp 0", \
+      "pin_mode " PHD_PIN_MODE_FIRST_USE " only: take the plugin's files as they are now as its pin, after a " \
+      PHD_EVENT_PIN_CHANGED " event; the layout is learned again by the next add and the verdict is dropped; -508 when " \
+      "the plugin has no pin, -509 when its files cannot be collected, -902 under pin_mode strict") \
+    X(PIN_LAYOUT, PHD_VERB_PIN_LAYOUT, "<instance>", "resp 0 <scheme>" PHD_PIN_SCHEME_SEPARATOR "<sha256>", \
+      "sent by the daemon to a " PHD_FORMAT_CLAP " worker after it accepted the add of a plugin whose layout pin is " \
+      "still unknown: the layout the worker found after init, which the daemon records in the pin") \
     X(PIN_EXPECT, PHD_VERB_PIN_EXPECT, "<instance> <scheme>" PHD_PIN_SCHEME_SEPARATOR "<sha256>", "resp 0", \
       "sent by the daemon to a " PHD_FORMAT_CLAP " worker just before the instance's add: the layout pin that add " \
       "checks after init and before activate; any other reply than resp 0 refuses the add with that code, and the " \
@@ -358,6 +396,7 @@ static inline int phd_track_info_valid(char *const *word, int count)
 #define PHD_EVENT_INSTANCE_REPLAY_REFUSED "instance_replay_refused"
 #define PHD_EVENT_INSTANCE_QUARANTINED    "instance_quarantined"
 #define PHD_EVENT_SUPERVISOR_GAVE_UP      "supervisor_gave_up"
+#define PHD_EVENT_PIN_CHANGED             "pin_changed"
 /* written by a worker, relayed as it wrote it */
 #define PHD_EVENT_REMOTE_PAGES_CHANGED    "remote_pages_changed"
 
@@ -374,6 +413,7 @@ static inline int phd_track_info_valid(char *const *word, int count)
 #define PHD_EVENT_INSTANCE_QUARANTINED_FMT  PHD_EVENT_INSTANCE_QUARANTINED " %d w%d"
 #define PHD_EVENT_SUPERVISOR_GAVE_UP_FMT    PHD_EVENT_SUPERVISOR_GAVE_UP " w%d %d %d"
 #define PHD_EVENT_REMOTE_PAGES_CHANGED_FMT  PHD_EVENT_REMOTE_PAGES_CHANGED " %d"
+#define PHD_EVENT_PIN_CHANGED_FMT           PHD_EVENT_PIN_CHANGED " %s %s"
 
 /* the table of the docs: X(name, fields, meaning), one row per shape of a line */
 #define PHD_EVENTS(X) \
@@ -391,6 +431,9 @@ static inline int phd_track_info_valid(char *const *word, int count)
       "instance until the next replay") \
     X(PHD_EVENT_INSTANCE_QUARANTINED, "<instance> <worker>", "the culprit of a pool death, placed own until cleared") \
     X(PHD_EVENT_SUPERVISOR_GAVE_UP, "<worker> <deaths> <window_ms>", "the storm bound is spent; respawning ends") \
+    X(PHD_EVENT_PIN_CHANGED, "<uri> " PHD_PIN_CHANGED_FILES " | " PHD_PIN_CHANGED_LAYOUT, \
+      "an add or a replay of a plugin was refused because its files, or the layout the worker found, differ from its " \
+      "pin; the pin is as it was until pin_accept or pin_set") \
     X(PHD_EVENT_REMOTE_PAGES_CHANGED, "<instance>", \
       "relayed from a " PHD_FORMAT_CLAP " worker: the plugin changed its remote pages; read them again")
 
@@ -433,6 +476,7 @@ static inline int phd_track_info_valid(char *const *word, int count)
 #define PHD_DEFAULT_IDLE_MS           25
 #define PHD_DEFAULT_POOL_MAX          8
 #define PHD_DEFAULT_REQUIRE_PINS      1
+#define PHD_DEFAULT_PIN_MODE          PHD_PIN_MODE_FIRST_USE
 
 /* the settings file: one "key value" per line, '#' starts a comment.
  * A string setting: X(key, size, default, env, meaning); env names the variable that stands in for the default when
@@ -441,7 +485,12 @@ static inline int phd_track_info_valid(char *const *word, int count)
     X(mod_host, path, PHD_DEFAULT_MOD_HOST, "", "worker for " PHD_FORMAT_LV2 " (a name on PATH or a path)") \
     X(clap_host, path, PHD_DEFAULT_CLAP_HOST, "", "worker for " PHD_FORMAT_CLAP) \
     X(lv2_path, pathlist, PHD_DEFAULT_LV2_PATH, "LV2_PATH", "where bundles are searched") \
-    X(state_root, path, PHD_DEFAULT_STATE_ROOT, "XDG_RUNTIME_DIR", "the daemon's checkpoints and worker logs")
+    X(state_root, path, PHD_DEFAULT_STATE_ROOT, "XDG_RUNTIME_DIR", "the daemon's checkpoints and worker logs") \
+    X(pin_mode, word, PHD_DEFAULT_PIN_MODE, "", "strict or first-use, while require_pins is 1: first-use records the pin " \
+      "of a plugin on its first add, strict admits only a plugin a controller or a pin_file pinned") \
+    X(pin_store, path, "", "", "the file first-use pins are kept in; empty is $XDG_STATE_HOME/plugin-hostd/pins, " \
+      "else $HOME/.local/state/plugin-hostd/pins") \
+    X(pin_file, path, "", "", "a file of pin lines loaded at start, as plugin-qualify --all --pins writes it; empty is none")
 
 /* A whole-number setting: X(key, default, unit, meaning); 0 turns off where the meaning says so */
 #define PHD_CONF_INTS(X) \
@@ -457,7 +506,7 @@ static inline int phd_track_info_valid(char *const *word, int count)
     X(idle_ms, PHD_DEFAULT_IDLE_MS, "ms", "the period of the idle tick: reap, respawn, checkpoint") \
     X(pool_max, PHD_DEFAULT_POOL_MAX, "instances", "instances in a pool before a sibling opens") \
     X(require_pins, PHD_DEFAULT_REQUIRE_PINS, "", \
-      "1: add admits only a plugin pin_set pinned, its files hashed before any worker sees it, and an " PHD_FORMAT_LV2 \
+      "1: add admits only a plugin that has a pin (see pin_mode), its files hashed before any worker sees it, and an " PHD_FORMAT_LV2 \
       " plugin gets a worker of its own, its world the one bundle the pin holds (a " PHD_PLACE_DEFAULT " that resolves " \
       "to a pool is placed " PHD_PLACE_OWN "); 0: no pin is checked")
 

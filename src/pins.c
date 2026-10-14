@@ -18,6 +18,7 @@
  * Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
  */
 
+#include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <stdio.h>
@@ -41,6 +42,8 @@
 #define RDFS_SEEALSO "http://www.w3.org/2000/01/rdf-schema#seeAlso"
 #define LV2_PREFIX   "lv2:"
 #define CLAP_PREFIX  "clap:"
+#define STORE_NAME   "plugin-hostd/pins"
+#define LINE_MAX_PIN (PHD_LINE_MAX * 2)
 
 typedef struct PIN_T {
     char *uri;
@@ -49,10 +52,13 @@ typedef struct PIN_T {
     int nfiles;
     char scheme[SCHEME_MAX];
     char *layout;
+    char verdict[16];           /* one of PHD_PIN_VERDICTS, or empty */
+    int learned;                /* the daemon recorded it: the store keeps it */
 } pin_t;
 
 static pin_t *g_pins;
 static int g_npins;
+static char g_store[PATH_MAX];
 
 static const char *bare(const char *uri)
 {
@@ -111,13 +117,28 @@ static int held(const pin_t *p, const char *path)
     return -1;
 }
 
-int pins_set(const char *uri, const char *files, const char *layout)
+static int verdict_valid(const char *verdict)
+{
+    int ok = 0;
+
+#define X(id, name, meaning) ok |= !strcmp(verdict, name);
+    PHD_PIN_VERDICTS(X)
+#undef X
+    return ok;
+}
+
+/* a pin from its words; the pin is not in the table yet. `unknown_ok` lets the layout be PHD_PIN_LAYOUT_UNKNOWN */
+static int pin_build(pin_t *pin, const char *uri, const char *files, const char *layout, const char *verdict,
+                     int unknown_ok)
 {
     char *copy = strdup(files), *item, *save = NULL, hex[PHD_SHA256_HEX_LEN + 1];
-    pin_t pin, *old;
 
-    memset(&pin, 0, sizeof(pin));
-    if (phd_pin_layout_parse(layout, pin.scheme, sizeof(pin.scheme), hex) != 0)
+    memset(pin, 0, sizeof(*pin));
+    if (unknown_ok && !strcmp(layout, PHD_PIN_LAYOUT_UNKNOWN))
+        ;
+    else if (phd_pin_layout_parse(layout, pin->scheme, sizeof(pin->scheme), hex) != 0)
+        goto invalid;
+    if (verdict && (!verdict_valid(verdict) || strlen(verdict) >= sizeof(pin->verdict)))
         goto invalid;
     for (item = strtok_r(copy, PHD_PIN_FILE_SEPARATOR, &save); item; item = strtok_r(NULL, PHD_PIN_FILE_SEPARATOR, &save))
     {
@@ -126,52 +147,227 @@ int pins_set(const char *uri, const char *files, const char *layout)
         if (!eq)
             goto invalid;
         *eq = '\0';
-        if (!path_valid(item) || !phd_pin_hex_valid(eq + 1) || held(&pin, item) >= 0)
+        if (!path_valid(item) || !phd_pin_hex_valid(eq + 1) || held(pin, item) >= 0)
             goto invalid;
-        pin.path = realloc(pin.path, (pin.nfiles + 1) * sizeof(char *));
-        pin.digest = realloc(pin.digest, (pin.nfiles + 1) * sizeof(*pin.digest));
-        pin.path[pin.nfiles] = strdup(item);
-        memcpy(pin.digest[pin.nfiles], eq + 1, PHD_SHA256_HEX_LEN + 1);
-        pin.nfiles++;
+        pin->path = realloc(pin->path, (pin->nfiles + 1) * sizeof(char *));
+        pin->digest = realloc(pin->digest, (pin->nfiles + 1) * sizeof(*pin->digest));
+        pin->path[pin->nfiles] = strdup(item);
+        memcpy(pin->digest[pin->nfiles], eq + 1, PHD_SHA256_HEX_LEN + 1);
+        pin->nfiles++;
     }
-    if (!pin.nfiles)
+    if (!pin->nfiles)
         goto invalid;
     free(copy);
-    pin.uri = strdup(bare(uri));
-    pin.layout = strdup(layout);
-    old = find(pin.uri);
-    if (old)
-    {
-        pin_free(old);
-        *old = pin;
-    }
-    else
-    {
-        g_pins = realloc(g_pins, (g_npins + 1) * sizeof(pin_t));
-        g_pins[g_npins++] = pin;
-    }
+    pin->uri = strdup(bare(uri));
+    pin->layout = strdup(layout);
+    if (verdict)
+        snprintf(pin->verdict, sizeof(pin->verdict), "%s", verdict);
     return SUCCESS;
 
 invalid:
     free(copy);
-    pin_free(&pin);
+    pin_free(pin);
     return ERR_INVALID_OPERATION;
+}
+
+/* the pin in the table, replacing the one of its uri */
+static void pin_put(pin_t *pin)
+{
+    pin_t *old = find(pin->uri);
+
+    if (old)
+    {
+        pin_free(old);
+        *old = *pin;
+    }
+    else
+    {
+        g_pins = realloc(g_pins, (g_npins + 1) * sizeof(pin_t));
+        g_pins[g_npins++] = *pin;
+    }
+}
+
+/* ---------------------------------------------------------------- the store and the pin lines */
+
+static const char *store_path(const char *configured)
+{
+    const char *state = getenv("XDG_STATE_HOME"), *home = getenv("HOME");
+
+    if (*configured)
+        snprintf(g_store, sizeof(g_store), "%s", configured);
+    else if (state && *state)
+        snprintf(g_store, sizeof(g_store), "%s/" STORE_NAME, state);
+    else if (home && *home)
+        snprintf(g_store, sizeof(g_store), "%s/.local/state/" STORE_NAME, home);
+    else
+        g_store[0] = '\0';
+    return g_store;
+}
+
+static void line_write(FILE *file, const pin_t *p)
+{
+    int n;
+
+    fprintf(file, "%s %s ", PHD_VERB_PIN_SET, p->uri);
+    for (n = 0; n < p->nfiles; n++)
+        fprintf(file, "%s%s" PHD_PIN_DIGEST_SEPARATOR "%s", n ? PHD_PIN_FILE_SEPARATOR : "", p->path[n], p->digest[n]);
+    fprintf(file, " %s", p->layout);
+    if (*p->verdict)
+        fprintf(file, " " PHD_PIN_VERDICT_KEY "%s", p->verdict);
+    fprintf(file, "\n");
+}
+
+static int mkdir_parents(char *path)
+{
+    char *slash;
+
+    for (slash = path + 1; (slash = strchr(slash, '/')); slash++)
+    {
+        *slash = '\0';
+        if (mkdir(path, 0700) != 0 && errno != EEXIST)
+        {
+            *slash = '/';
+            return -1;
+        }
+        *slash = '/';
+    }
+    return 0;
+}
+
+/* the pins the daemon learned, to the store: a temporary file beside it, renamed over it. A failure is written on stderr
+ * and leaves the pins in memory: the next start learns them again */
+static void store_save(void)
+{
+    char tmp[PATH_MAX + 8];
+    FILE *file;
+    int n;
+
+    if (!*g_store)
+        return;
+    snprintf(tmp, sizeof(tmp), "%s.tmp", g_store);
+    if (mkdir_parents(tmp) != 0 || !(file = fopen(tmp, "w")))
+    {
+        fprintf(stderr, "plugin-hostd: can't write the pin store %s: %s\n", g_store, strerror(errno));
+        return;
+    }
+    fchmod(fileno(file), 0600);
+    for (n = 0; n < g_npins; n++)
+        if (g_pins[n].learned)
+            line_write(file, &g_pins[n]);
+    if (fclose(file) != 0 || rename(tmp, g_store) != 0)
+    {
+        fprintf(stderr, "plugin-hostd: can't write the pin store %s: %s\n", g_store, strerror(errno));
+        unlink(tmp);
+    }
+}
+
+/* one line: the words of pin_set, the verb in front or not; a blank or comment line is SUCCESS and records nothing */
+static int line_read(char *line, int learned)
+{
+    char *tok[8], *save = NULL, *t;
+    int ntok = 0, first = 0, rc;
+    pin_t pin;
+
+    for (t = strtok_r(line, " \t\r\n", &save); t && ntok < 8; t = strtok_r(NULL, " \t\r\n", &save))
+        tok[ntok++] = t;
+    if (ntok == 0 || tok[0][0] == '#')
+        return SUCCESS;
+    if (!strcmp(tok[0], PHD_VERB_PIN_SET))
+        first = 1;
+    if (ntok - first != 3 && ntok - first != 4)
+        return ERR_INVALID_OPERATION;
+    if (ntok - first == 4 && strncmp(tok[first + 3], PHD_PIN_VERDICT_KEY, strlen(PHD_PIN_VERDICT_KEY)))
+        return ERR_INVALID_OPERATION;
+    rc = pin_build(&pin, tok[first], tok[first + 1], tok[first + 2],
+                   ntok - first == 4 ? tok[first + 3] + strlen(PHD_PIN_VERDICT_KEY) : NULL, 1);
+    if (rc != SUCCESS)
+        return rc;
+    pin.learned = learned;
+    pin_put(&pin);
+    return SUCCESS;
+}
+
+static int file_read(const char *path, int learned, int strict)
+{
+    char line[LINE_MAX_PIN];
+    FILE *file = fopen(path, "r");
+    int lineno = 0;
+
+    if (!file)
+    {
+        if (strict)
+            fprintf(stderr, "plugin-hostd: can't open the pin file %s: %s\n", path, strerror(errno));
+        return strict ? -1 : 0;
+    }
+    while (fgets(line, sizeof(line), file))
+    {
+        lineno++;
+        if (line_read(line, learned) != SUCCESS)
+        {
+            fprintf(stderr, "plugin-hostd: %s:%d: not a pin\n", path, lineno);
+            if (strict)
+            {
+                fclose(file);
+                return -1;
+            }
+        }
+    }
+    fclose(file);
+    return 0;
+}
+
+int pins_init(const char *store, const char *file)
+{
+    if (*store_path(store))
+        file_read(g_store, 1, 0);
+    return *file ? file_read(file, 0, 1) : 0;
+}
+
+int pins_set(const char *uri, const char *files, const char *layout, const char *verdict)
+{
+    pin_t pin;
+    int rc = pin_build(&pin, uri, files, layout, verdict, 0);
+
+    if (rc != SUCCESS)
+        return rc;
+    pin_put(&pin);
+    return SUCCESS;
+}
+
+int pins_known(const char *uri)
+{
+    return find(bare(uri)) != NULL;
+}
+
+int pins_in_process(const char *uri)
+{
+    const pin_t *p = find(bare(uri));
+
+    return p && !strcmp(p->verdict, PHD_PIN_VERDICT_IN_PROCESS);
 }
 
 int pins_clear(const char *uri)
 {
     pin_t *p;
+    int learned = 0;
 
     if (!strcmp(uri, PHD_WORD_ALL))
     {
+        for (p = g_pins; p < g_pins + g_npins; p++)
+            learned |= p->learned;
         pins_finish();
+        if (learned)
+            store_save();
         return SUCCESS;
     }
     p = find(bare(uri));
     if (p)
     {
+        learned = p->learned;
         pin_free(p);
         *p = g_pins[--g_npins];
+        if (learned)
+            store_save();
     }
     return SUCCESS;
 }
@@ -503,6 +699,164 @@ static int hash_file(const char *root, const char *path, const char *want, const
     return rc;
 }
 
+/* ---------------------------------------------------------------- first use */
+
+static int digest_of(const char *root, const char *path, char hex[PHD_SHA256_HEX_LEN + 1])
+{
+    char full[PATH_MAX * 2];
+    struct stat st;
+    int fd, rc = -1;
+
+    snprintf(full, sizeof(full), "%s/%s", root, path);
+    fd = open(full, O_RDONLY | O_CLOEXEC);
+    if (fd < 0)
+        return -1;
+    if (fstat(fd, &st) == 0 && S_ISREG(st.st_mode))
+        rc = phd_pin_fd_digest(fd, hex);
+    close(fd);
+    return rc;
+}
+
+static int read_manifest(const char *root, char **bytes, size_t *size)
+{
+    char full[PATH_MAX * 2];
+    struct stat st;
+    ssize_t got = 0, r;
+    int fd;
+
+    snprintf(full, sizeof(full), "%s/" MANIFEST, root);
+    fd = open(full, O_RDONLY | O_CLOEXEC);
+    if (fd < 0)
+        return -1;
+    if (fstat(fd, &st) != 0 || !S_ISREG(st.st_mode) || st.st_size > MANIFEST_MAX)
+    {
+        close(fd);
+        return -1;
+    }
+    *bytes = malloc(st.st_size + 1);
+    while (got < st.st_size && (r = read(fd, *bytes + got, st.st_size - got)) > 0)
+        got += r;
+    close(fd);
+    *size = got;
+    return got == st.st_size ? 0 : -1;
+}
+
+/* the root and the files a host loads for the uri, as the check holds a pin to: a CLAP's one file, an LV2 bundle's
+ * manifest and the files it names. PHD_ERR_PIN_BINARY_MISMATCH, with the reason on stderr, for what cannot be pinned */
+static int collect(int clap, const char *uri, const char *lv2_path, char *root, size_t size, names_t *files)
+{
+    if (clap)
+    {
+        const char *path = uri + strlen(CLAP_PREFIX), *hash = strrchr(path, '#'), *slash;
+        size_t len = hash ? (size_t)(hash - path) : strlen(path);
+
+        snprintf(root, size, "%.*s", (int)len, path);
+        slash = strrchr(root, '/');
+        if (!slash)
+            return refuse(uri, root, "is not a path");
+        names_add(files, slash + 1);
+        root[slash - root] = '\0';
+        return SUCCESS;
+    }
+    else
+    {
+        names_t names = { NULL, 0 };
+        char *bundle = proc_find_lv2_bundle(lv2_path, bare(uri)), *manifest = NULL;
+        size_t manifest_size = 0;
+        int n, m, rc = SUCCESS;
+
+        if (!bundle)
+            return refuse(uri, MANIFEST, "is in no bundle of lv2_path naming the plugin");
+        snprintf(root, size, "%s", bundle);
+        free(bundle);
+        if (read_manifest(root, &manifest, &manifest_size) != 0)
+            return refuse(uri, MANIFEST, "can't be read as a manifest");
+        if (manifest_files(manifest, manifest_size, root, bare(uri), &names))
+            rc = refuse(uri, MANIFEST, "sets a base the daemon does not resolve");
+        names_add(files, MANIFEST);
+        for (n = 0; n < names.n && rc == SUCCESS; n++)
+        {
+            for (m = 0; m < files->n && strcmp(files->name[m], names.name[n]); m++)
+                ;
+            if (strstr(names.name[n], PHD_PIN_PERCENT))
+                rc = refuse(uri, names.name[n], "is percent-encoded, which the daemon does not decode");
+            else if (!path_valid(names.name[n]))
+                rc = refuse(uri, names.name[n], "is not a path a pin can hold");
+            else if (m == files->n)
+                names_add(files, names.name[n]);
+        }
+        names_free(&names);
+        free(manifest);
+        return rc;
+    }
+}
+
+/* the pin of a uri from the files on disk now, layout unknown, learned */
+static int record(int clap, const char *uri, const char *lv2_path)
+{
+    char root[PATH_MAX], hex[PHD_SHA256_HEX_LEN + 1], *words;
+    names_t files = { NULL, 0 };
+    size_t cap = 1;
+    int n, rc = collect(clap, uri, lv2_path, root, sizeof(root), &files);
+    pin_t pin;
+
+    memset(&pin, 0, sizeof(pin));
+
+    if (rc != SUCCESS)
+    {
+        names_free(&files);
+        return rc;
+    }
+    for (n = 0; n < files.n; n++)
+        cap += strlen(files.name[n]) + PHD_SHA256_HEX_LEN + 2;
+    words = calloc(1, cap);
+    for (n = 0; n < files.n && rc == SUCCESS; n++)
+    {
+        if (digest_of(root, files.name[n], hex) != 0)
+            rc = refuse(uri, files.name[n], "is missing or not a file");
+        else
+            sprintf(words + strlen(words), "%s%s" PHD_PIN_DIGEST_SEPARATOR "%s", n ? PHD_PIN_FILE_SEPARATOR : "",
+                    files.name[n], hex);
+    }
+    if (rc == SUCCESS && pin_build(&pin, uri, words, PHD_PIN_LAYOUT_UNKNOWN, NULL, 1) != SUCCESS)
+        rc = refuse(uri, root, "can't be pinned");
+    names_free(&files);
+    free(words);
+    if (rc != SUCCESS)
+        return rc;
+    pin.learned = 1;
+    pin_put(&pin);
+    store_save();
+    return SUCCESS;
+}
+
+int pins_learn(int clap, const char *uri, const char *lv2_path)
+{
+    return record(clap, uri, lv2_path);
+}
+
+int pins_accept(int clap, const char *uri, const char *lv2_path)
+{
+    if (!find(bare(uri)))
+        return PHD_ERR_PIN_ABSENT;
+    return record(clap, uri, lv2_path);
+}
+
+int pins_set_layout(const char *uri, const char *layout)
+{
+    char scheme[SCHEME_MAX], hex[PHD_SHA256_HEX_LEN + 1];
+    pin_t *p = find(bare(uri));
+
+    if (!p || phd_pin_layout_parse(layout, scheme, sizeof(scheme), hex) != 0 || strcmp(scheme, PHD_PIN_LAYOUT_SCHEME))
+        return ERR_INVALID_OPERATION;
+    free(p->layout);
+    p->layout = strdup(layout);
+    snprintf(p->scheme, sizeof(p->scheme), "%s", scheme);
+    if (p->learned)
+        store_save();
+    return SUCCESS;
+}
+
 int pins_check(int clap, const char *uri, const char *lv2_path, const char **layout)
 {
     const pin_t *p = find(bare(uri));
@@ -510,7 +864,7 @@ int pins_check(int clap, const char *uri, const char *lv2_path, const char **lay
     size_t manifest_size = 0;
     int n, rc = SUCCESS, skip = -1;
 
-    if (!p || strcmp(p->scheme, PHD_PIN_LAYOUT_SCHEME))
+    if (!p || (strcmp(p->layout, PHD_PIN_LAYOUT_UNKNOWN) && strcmp(p->scheme, PHD_PIN_LAYOUT_SCHEME)))
     {
         fprintf(stderr, "plugin-hostd: %s: %s\n", uri, p ? "its layout pin is in a scheme this version does not know"
                                                           : "no pin");
@@ -563,6 +917,6 @@ int pins_check(int clap, const char *uri, const char *lv2_path, const char **lay
         if (n != skip)
             rc = hash_file(root, p->path[n], p->digest[n], uri, NULL, NULL);
     if (rc == SUCCESS)
-        *layout = p->layout;
+        *layout = strcmp(p->layout, PHD_PIN_LAYOUT_UNKNOWN) ? p->layout : NULL;
     return rc;
 }

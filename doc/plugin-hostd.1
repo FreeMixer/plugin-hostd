@@ -72,13 +72,24 @@ or in
 one
 .\" BEGIN GENERATED protocol:man-keys
 .RI \(dq key " value" \(dq
-per line: mod_host, clap_host, lv2_path, state_root, ready_timeout_ms, rpc_timeout_ms, backoff_base_ms, backoff_max_ms, storm_deaths, storm_window_ms, suspect_window_ms, checkpoint_ms, idle_ms, pool_max, require_pins.
+per line: mod_host, clap_host, lv2_path, state_root, pin_mode, pin_store, pin_file, ready_timeout_ms, rpc_timeout_ms, backoff_base_ms, backoff_max_ms, storm_deaths, storm_window_ms, suspect_window_ms, checkpoint_ms, idle_ms, pool_max, require_pins.
 .\" END GENERATED protocol:man-keys
 .SH PINS
 With require_pins on,
 .B add
-admits only a plugin the controller pinned with
-.BR pin_set .
+admits only a plugin that has a pin.
+With pin_mode strict the pin comes from
+.B pin_set
+or from the
+.B pin_file
+loaded at start; with pin_mode first\-use, the default, the first
+.B add
+of a plugin with no pin records it in the pin store and places the instance own.
+A change after that is refused and announced by the
+.B pin_changed
+event until
+.B pin_accept
+takes the new pin.
 What cannot be pinned:
 .\" BEGIN GENERATED protocol:man-pin-limits
 .IP \(bu 2

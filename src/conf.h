@@ -25,6 +25,7 @@
 
 #include <plugin-hostd/protocol.h>
 
+#define CONF_SIZE_word 32
 #define CONF_SIZE_path PATH_MAX
 #define CONF_SIZE_pathlist (PATH_MAX * 2)
 
@@ -41,5 +42,10 @@ typedef struct CONF_T {
  * A missing file is an error only when the path was asked for. */
 void conf_defaults(conf_t *conf);
 int conf_load(conf_t *conf, const char *path, int required);
+
+/* whether the settings are consistent: pin_mode is one of PHD_PIN_MODES; 0, or -1 with the reason on stderr */
+int conf_check(const conf_t *conf);
+/* whether pin_mode is first-use */
+int conf_pins_first_use(const conf_t *conf);
 
 #endif
