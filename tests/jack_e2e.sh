@@ -34,6 +34,21 @@ if [ -z "${JACK_E2E_INSIDE:-}" ]; then
     for f in "${OMX_CLAP_HOST:-}" "$PLUGIN_HOSTD" "$STRESS_CLAP" "$JACK_LEVELS"; do
         [ -e "$f" ] || { echo "missing '$f'" >&2; exit 2; }
     done
+    # the fixtures belong to omx-clap-host-tests, declared in the spec with a floor: a fixture that is named and
+    # absent, or an installed package below the floor, stops the run and says which, never a test that is skipped
+    floor=$(sed -n 's/^BuildRequires:[[:space:]]*omx-clap-host-tests[[:space:]]*>=[[:space:]]*//p' "$root/packaging/plugin-hostd.spec")
+    have=$(rpm -q --qf '%{VERSION}' omx-clap-host-tests 2>/dev/null || dpkg-query -W -f='${Version}' omx-clap-host-tests 2>/dev/null || echo "not installed")
+    for f in "${FAKE_CLAP:-}" "${FAKE_COMPRESSOR_CLAP:-}" "${JACK_METER_SOURCE:-}"; do
+        [ -z "$f" ] || [ -e "$f" ] || {
+            echo "missing fixture '$f': omx-clap-host-tests >= ${floor:-?} is required, installed: $have" >&2
+            exit 2
+        }
+    done
+    if [ -n "${FAKE_CLAP:-}${FAKE_COMPRESSOR_CLAP:-}${JACK_METER_SOURCE:-}" ] && [ -n "$floor" ] && [ "$have" != "not installed" ] &&
+       [ "$(printf '%s\n%s\n' "$floor" "$have" | sort -V | head -n 1)" != "$floor" ]; then
+        echo "omx-clap-host-tests >= $floor is required, installed: $have" >&2
+        exit 2
+    fi
     export OMX_CLAP_HOST=$(readlink -f "$OMX_CLAP_HOST")
     exec env JACK_E2E_INSIDE=1 unshare --user --map-root-user --net --pid --fork --mount-proc "$0" "$@"
 fi

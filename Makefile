@@ -104,7 +104,7 @@ clean:
 
 # the daemon against workers that are not plugin hosts at all (tests/fake-host speaks the same protocol and can be
 # made to die on cue): placement, forwarding, ledger, replay, attribution, the storm bound; no jack, no plugin
-test: test-pin test-daemon check-generated check-schema test-consumer test-perturbation check-readme test-mod-host-json
+test: test-pin test-daemon check-generated check-schema test-consumer test-perturbation check-readme check-no-pins test-mod-host-json
 	MOD_HOST_DIR=$(MOD_HOST_DIR) python3 tests/verbs_contract.py
 
 # the same without the verb table, which is read from a mod-host checkout's README
@@ -177,6 +177,10 @@ check-generated: $(GEN)
 # the README sells the packages: no build command on it, and BUILDING.md carries the build
 check-readme:
 	python3 tests/readme_build.py
+
+# no pin: a dependency is declared in the spec and debian/control with a floor and a next-minor ceiling, nowhere else
+check-no-pins:
+	python3 tests/no_pins.py
 
 # mod-host.json follows its headers: a moved verb, code or message in a scratch copy moves the JSON, and a header it
 # cannot read is refused

@@ -12,7 +12,7 @@ FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "
 # omx-clap-host's FAKE_COMPRESSOR_CLAP and JACK_METER_SOURCE and is skipped without them; "info" one that needs its FAKE_CLAP; "lv2" is a jack test that also needs mod-host and
 # an LV2 bundle (MOD_HOST, LV2_DIR, LV2_URI, LV2_BUNDLE, LV2_PARAM) and is skipped without them; "pin" breaks
 # include/plugin-hostd/pin.h and runs tests/pin_test.c; "readme" breaks README.md or BUILDING.md and runs
-# tests/readme_build.py, with no daemon to build
+# tests/readme_build.py, with no daemon to build; "nopins" breaks the packaging or a workflow and runs tests/no_pins.py
 SABOTAGE = [
     ("the verb tail is not replayed", "src/supervisor.c",
      "if (replay_line(w, i->tail[m].line) != RPC_OK)", "if (0 && replay_line(w, i->tail[m].line) != RPC_OK)",
@@ -162,6 +162,19 @@ SABOTAGE = [
      "Building from source:\n\n    make\n\nsee [BUILDING.md](BUILDING.md).", "README.md runs no build tool", "readme"),
     ("BUILDING.md lost its build command", "BUILDING.md", "    make [MOD_HOST_DIR=<mod-host checkout>]\n", "",
      "README.md runs no build tool", "readme"),
+    ("the spec lost the ceiling of omx-clap-host-tests", "packaging/plugin-hostd.spec",
+     "BuildRequires: omx-clap-host-tests < 0.7\n", "", "no pin anywhere", "nopins"),
+    ("debian/control lost the floor of omx-clap-host-tests", "debian/control",
+     "               omx-clap-host-tests (>= 0.6.0~),\n", "", "no pin anywhere", "nopins"),
+    ("the ceiling is not the next minor", "packaging/plugin-hostd.spec",
+     "omx-clap-host-tests < 0.7", "omx-clap-host-tests < 0.9", "no pin anywhere", "nopins"),
+    ("a workflow pins omx-clap-core by a ref variable again", ".github/workflows/ci.yml",
+     "permissions:\n  contents: read\n", "permissions:\n  contents: read\n\nenv:\n  OMX_CLAP_HOST_REF: v0.4.0\n",
+     "no pin anywhere", "nopins"),
+    ("a workflow checks omx-clap-core out again", ".github/workflows/ci.yml",
+     "      - uses: actions/checkout@v4\n\n      # the FreeMixer channel: where the BuildRequires Fedora does not carry (omx-clap-host-tests) come from\n      - name: Add the FreeMixer channel\n        run: dnf config-manager addrepo --setopt=retries=10 --from-repofile=https://freemixer.github.io/rpm/freemixer.repo\n\n      # the worker and the fixtures",
+     "      - uses: actions/checkout@v4\n        with:\n          repository: FreeMixer/omx-clap-core\n\n      # the FreeMixer channel: where the BuildRequires Fedora does not carry (omx-clap-host-tests) come from\n      - name: Add the FreeMixer channel\n        run: dnf config-manager addrepo --setopt=retries=10 --from-repofile=https://freemixer.github.io/rpm/freemixer.repo\n\n      # the worker and the fixtures",
+     "no pin anywhere", "nopins"),
 ]
 
 
@@ -183,6 +196,10 @@ def run_test(tree, name, jack=False):
         return run_pin_test(tree)
     if jack == "readme":
         p = subprocess.run([sys.executable, os.path.join(ROOT, "tests", "readme_build.py"), tree], capture_output=True,
+                           text=True, timeout=60)
+        return p.returncode, p.stdout
+    if jack == "nopins":
+        p = subprocess.run([sys.executable, os.path.join(ROOT, "tests", "no_pins.py"), tree], capture_output=True,
                            text=True, timeout=60)
         return p.returncode, p.stdout
     env = dict(os.environ, ONLY=name, PLUGIN_HOSTD=os.path.join(tree, "plugin-hostd"), FAKE_HOST=FAKE)
@@ -215,6 +232,10 @@ try:
             os.makedirs(tree)
             for f in ("README.md", "BUILDING.md"):
                 shutil.copy(os.path.join(ROOT, f), tree)
+        elif jack == "nopins":
+            for f in ("packaging/plugin-hostd.spec", "debian/control", ".github/workflows/ci.yml"):
+                os.makedirs(os.path.dirname(os.path.join(tree, f)), exist_ok=True)
+                shutil.copy(os.path.join(ROOT, f), os.path.join(tree, f))
         else:
             shutil.copytree(os.path.join(ROOT, "src"), os.path.join(tree, "src"))
             shutil.copytree(os.path.join(ROOT, "include"), os.path.join(tree, "include"))
@@ -231,7 +252,7 @@ try:
             failed += 1
             continue
         open(os.path.join(tree, path), "w").write(src.replace(text, repl))
-        if jack != "readme":
+        if jack not in ("readme", "nopins"):
             for f in os.listdir(os.path.join(tree, "src")):
                 if f.endswith(".o"):
                     os.unlink(os.path.join(tree, "src", f))

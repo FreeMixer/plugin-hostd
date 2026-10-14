@@ -42,7 +42,8 @@ a PipeWire of its own (private user, net and pid namespace, torn down on
 exit), with `tests/stress.clap` (a passthrough that crashes on a parameter
 write, spins, keeps state). It kills workers and reads the graph and the audio
 level of a neighbouring chain across the kill. Given omx-clap-host's meter fixtures
-(`FAKE_COMPRESSOR_CLAP=<tree>/tests/fake_compressor.clap JACK_METER_SOURCE=<tree>/tests/jack_meter_source`), it
+(`FAKE_COMPRESSOR_CLAP=/usr/libexec/omx-clap-host/tests/fake_compressor.clap JACK_METER_SOURCE=/usr/libexec/omx-clap-host/tests/jack_meter_source`,
+installed by the omx-clap-host-tests package, which the spec and `debian/control` name as a build dependency with a floor and a ceiling), it
 also reads the meters of a CLAP compressor as `output_set` on the daemon's feedback port, before and after its
 worker is killed.
 
