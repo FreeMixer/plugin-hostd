@@ -7,7 +7,7 @@ name: ci
 # The protocol library, the mod-host RPMs and the RPM build are the composite actions of
 # FreeMixer/.github. The real CLAP worker the jack test drives, and its fixtures, are the omx-clap-host and
 # omx-clap-host-tests packages of the FreeMixer channel, installed by dnf builddep / apt-get build-dep from the
-# floor and ceiling the spec and debian/control declare; nothing of omx-clap-core is checked out or built here.
+# floor the spec and debian/control declare; nothing of omx-clap-core is checked out or built here.
 
 on:
   pull_request:
