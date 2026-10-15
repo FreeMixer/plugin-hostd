@@ -15,6 +15,7 @@
 #                both, the meters test runs, output_set through the daemon's feedback port
 # JACK_SERVER    pipewire (default) or jackd: the jack server the private namespace runs, pipewire's own jack
 #                implementation or JACK2's jackd (dummy backend) -- the one Zynthian runs
+# JACK_E2E_PY    the test the namespace runs, a file of tests/ (default jack_e2e.py; lv2_adapter_e2e.py for the adapter)
 
 set -u
 
@@ -92,4 +93,4 @@ jackd)
     ;;
 esac
 
-python3 "$here/jack_e2e.py"
+python3 "$here/${JACK_E2E_PY:-jack_e2e.py}"
