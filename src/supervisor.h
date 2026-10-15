@@ -24,17 +24,12 @@
 #include <stdint.h>
 
 #include "conf.h"
+#include "formats.h"
 #include "proc.h"
 #include <plugin-hostd/protocol.h>
 
 #define MAX_INSTANCE 10000
 
-enum {
-#define X(id, name) FMT_##id,
-    PHD_FORMATS(X)
-#undef X
-    FMT_COUNT
-};
 enum {
 #define X(id, name, meaning) W_##id,
     PHD_WORKER_STATES(X)
@@ -104,6 +99,8 @@ void sup_finish(void);
 
 /* mod-host's own "resp <code>" text for a refusal; malloc'd */
 char *sup_resp(int code);
+/* the code of a "resp <code> ..." reply */
+int sup_reply_code(const char *reply);
 
 /* add: `line` is the whole verb, `uri` `id` and the optional placement/client token already parsed */
 char *sup_add(const char *uri, int id, const char *placement, const char *client);

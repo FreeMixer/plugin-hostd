@@ -112,7 +112,7 @@ The settings live in a file, `-c`, `$PLUGIN_HOSTD_CONF` or
 | `checkpoint_ms` | 5000 ms | a quiet interval with a changed ledger writes a checkpoint |
 | `idle_ms` | 25 ms | the period of the idle tick: reap, respawn, checkpoint |
 | `pool_max` | 8 instances | instances in a pool before a sibling opens |
-| `require_pins` | 1  | 1: add admits only a plugin that has a pin (see pin_mode), its files hashed before any worker sees it, and an lv2 plugin gets a worker of its own, its world the one bundle the pin holds (a default that resolves to a pool is placed own); 0: no pin is checked |
+| `require_pins` | 1  | 1: add admits only a plugin that has a pin (see pin_mode), its files hashed before any worker sees it, and a plugin of a format whose pin holds only in a world of its own gets a worker of its own, its world the plugin's files (a default that resolves to a pool is placed own); 0: no pin is checked |
 <!-- END GENERATED protocol:config -->
 
 <!-- BEGIN GENERATED protocol:constants -->
@@ -151,14 +151,14 @@ Verbs the daemon adds
 | `instance_info` | `<instance>` | `resp 0 <worker> <pid> <state> <crashes> <quarantined>` | where an instance lives and what it has cost |
 | `supervisor_reset` | `[<worker> \| all]` | `resp 0` | re-arm the storm bound and the backoff of a given-up placement |
 | `quarantine_clear` | `<instance> \| all` | `resp 0` | let a quarantined instance go back where its placement says |
-| `policy_set` | `<lv2 \| clap \| *> own \| pool:<name>` | `resp 0` | the placement of an add that says default |
+| `policy_set` | `<format \| *> own \| pool:<name>` | `resp 0` | the placement of an add that says default |
 | `pool_config` | `<name> <max_instances>` | `resp 0` | the instances a pool holds before a sibling opens |
-| `worker_env` | `<lv2 \| clap \| *> <cpu-list\|-> <nice\|->` | `resp 0` | the cpu list and the nice value of the workers of a format, at spawn and on the ones running |
-| `pin_set` | `<uri> <path>=<sha256>[,<path>=<sha256>...] <scheme>:<sha256> [verdict=<verdict>]` | `resp 0` | the pin of one plugin: the SHA-256 of every file the host loads for it, a path relative to the bundle (the .clap's directory for a CLAP), its layout fingerprint and, when it is known, the verdict of its qualification; it replaces an earlier pin of the uri. The pin store and a pin_file hold the same line, with or without the verb |
+| `worker_env` | `<format \| *> <cpu-list\|-> <nice\|->` | `resp 0` | the cpu list and the nice value of the workers of a format, at spawn and on the ones running |
+| `pin_set` | `<uri> <path>=<sha256>[,<path>=<sha256>...] <scheme>:<sha256> [verdict=<verdict>]` | `resp 0` | the pin of one plugin: the SHA-256 of every file the host loads for it, a path relative to the bundle (the directory of a single-file format's file), its layout fingerprint and, when it is known, the verdict of its qualification; it replaces an earlier pin of the uri. The pin store and a pin_file hold the same line, with or without the verb |
 | `pin_clear` | `<uri> \| all` | `resp 0` | forget the pin of one plugin, or of every one |
 | `pin_accept` | `<uri>` | `resp 0` | pin_mode first-use only: take the plugin's files as they are now as its pin, after a pin_changed event; the layout is learned again by the next add and the verdict is dropped; -508 when the plugin has no pin, -509 when its files cannot be collected, -902 under pin_mode strict |
-| `pin_layout` | `<instance>` | `resp 0 <scheme>:<sha256>` | sent by the daemon to a clap worker after it accepted the add of a plugin whose layout pin is still unknown: the layout the worker found after init, which the daemon records in the pin |
-| `pin_expect` | `<instance> <scheme>:<sha256>` | `resp 0` | sent by the daemon to a clap worker just before the instance's add: the layout pin that add checks after init and before activate; any other reply than resp 0 refuses the add with that code, and the add is never forwarded |
+| `pin_layout` | `<instance>` | `resp 0 <scheme>:<sha256>` | sent by the daemon to a worker of a format that checks layouts, after it accepted the add of a plugin whose layout pin is still unknown: the layout the worker found after init, which the daemon records in the pin |
+| `pin_expect` | `<instance> <scheme>:<sha256>` | `resp 0` | sent by the daemon to a worker of a format that checks layouts, just before the instance's add: the layout pin that add checks after init and before activate; any other reply than resp 0 refuses the add with that code, and the add is never forwarded |
 
 A `<state>` is `up` (accepting commands), `starting` (spawned, not yet accepting), `backoff` (dead, waiting to be respawned), `given-up` (the storm bound is spent for its placement).
 <!-- END GENERATED protocol:verbs -->
@@ -179,8 +179,8 @@ worker writes `remote_pages_changed <instance>` on its feedback port and the dae
 <!-- BEGIN GENERATED protocol:instance-verbs -->
 | verb | arguments | reply | meaning |
 |---|---|---|---|
-| `track_info` | `<instance> <name> <#RRGGBB \| -> [bus \| return \| master]` | `resp 0` | the strip's name ("" for none), colour and kind, absent for an input channel; a clap plugin reads them through clap.track-info; any other word is -902 |
-| `remote_pages` | `<instance>` | `resp <count>` | the plugin's remote-control pages, from clap.remote-controls; 0 for an lv2 instance |
+| `track_info` | `<instance> <name> <#RRGGBB \| -> [bus \| return \| master]` | `resp 0` | the strip's name ("" for none), colour and kind, absent for an input channel; a worker whose plugin format has a track-info extension passes them on; any other word is -902 |
+| `remote_pages` | `<instance>` | `resp <count>` | the plugin's remote-control pages, from clap.remote-controls; 0 for an instance of a format whose worker has none |
 | `remote_page_get` | `<instance> <page>` | `resp 0 <page_id> <section> <page_name> <s1> <s2> <s3> <s4> <s5> <s6> <s7> <s8>` | one page, 0 to count - 1: each slot the symbol param_set takes, - for an empty one; -902 for a page that is not one |
 | `param_info` | `<instance> <symbol>` | `resp 0 <unit> <scale> <min> <max> <default> <step> <stable_symbol>` | what a parameter's value means: its unit, its scale, and the symbol it keeps across hosts and versions; -103 for a symbol that is not a parameter, the plugin's own bypass and :bypass included |
 
@@ -192,7 +192,7 @@ Error codes the daemon adds to mod-host's:
 <!-- BEGIN GENERATED protocol:errors -->
 | code | name | meaning |
 |---|---|---|
-| `-501` | `PHD_ERR_PLACEMENT_INVALID` | placement invalid: not a placement, or not valid here, as a pool:<name> for an lv2 plugin while require_pins is on |
+| `-501` | `PHD_ERR_PLACEMENT_INVALID` | placement invalid: not a placement, or not valid here, as a pool:<name> for a plugin of a format whose pin holds only in a world of the plugin's own, while require_pins is on |
 | `-502` | `PHD_ERR_NO_BACKEND` | no worker program for the scheme |
 | `-503` | `PHD_ERR_WORKER_SPAWN` | the worker is not up: the spawn failed, or it is in backoff; ask again after instance_restored |
 | `-504` | `PHD_ERR_REPLAY` | the name of a refused replay, never a reply: a replayed add that its pin or the worker refuses is announced by the instance_replay_refused event with the refusal's own code, and written to stderr with this one and the step that refused it |
@@ -232,7 +232,7 @@ Events on the feedback port, one NUL-terminated line each:
 | `instance_quarantined` | `<instance> <worker>` | the culprit of a pool death, placed own until cleared |
 | `supervisor_gave_up` | `<worker> <deaths> <window_ms>` | the storm bound is spent; respawning ends |
 | `pin_changed` | `<uri> files \| layout` | an add or a replay of a plugin was refused because its files, or the layout the worker found, differ from its pin; the pin is as it was until pin_accept or pin_set |
-| `remote_pages_changed` | `<instance>` | relayed from a clap worker: the plugin changed its remote pages; read them again |
+| `remote_pages_changed` | `<instance>` | relayed from a worker: the plugin changed its remote pages; read them again |
 <!-- END GENERATED protocol:events -->
 
 The workers' own feedback
@@ -312,3 +312,16 @@ What a worker must do
   `state_load <dir>`, skipping an instance with no file.
 
 `mod-host` and `omx-clap-host` do.
+
+Formats
+-------
+
+The daemon holds its plugin formats in one table, `src/formats.c`, and nothing else in the daemon, the protocol or the
+pins names a format. A row says how a uri reaches the format (`prefix`, `strip_prefix`, `fallback`), which program serves
+it (`worker`), where its plugins are searched and how a worker's world is narrowed to one plugin (`search`, `world_env`,
+`narrow_world`), which files a pin holds (`pin_collect`), whether the worker checks the layout (`layout_check`), whether
+a pinned plugin must run in a worker of its own (`pinned_own_only`) and who answers the instance verbs
+(`native_instance_verbs`, else `param_info`). Adding a format is a row and its worker; `formats_register` refuses a row
+with a capability missing and says which. a test registers a third format in the test and takes it through
+`add`, `param_set`, `pin_set` and `remove`.
+

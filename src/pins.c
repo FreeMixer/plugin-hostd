@@ -33,16 +33,10 @@
 #include <plugin-hostd/pin.h>
 #include <plugin-hostd/protocol.h>
 
+#include "formats.h"
 #include "pins.h"
-#include "proc.h"
 
 #define SCHEME_MAX   32
-#define MANIFEST     "manifest.ttl"
-#define MANIFEST_MAX (4 * 1024 * 1024)
-#define LV2_BINARY   "http://lv2plug.in/ns/lv2core#binary"
-#define RDFS_SEEALSO "http://www.w3.org/2000/01/rdf-schema#seeAlso"
-#define LV2_PREFIX   "lv2:"
-#define CLAP_PREFIX  "clap:"
 #define STORE_NAME   "plugin-hostd/pins"
 #define LINE_MAX_PIN (PHD_LINE_MAX * 2)
 /* what a line grows by when its layout (omx-layout/1:<sha256>) and a verdict are added */
@@ -63,9 +57,13 @@ static pin_t *g_pins;
 static int g_npins;
 static char g_store[PATH_MAX];
 
+/* the uri as the worker is given it: the key of a pin, whichever way a controller wrote it */
 static const char *bare(const char *uri)
 {
-    return strncmp(uri, LV2_PREFIX, strlen(LV2_PREFIX)) ? uri : uri + strlen(LV2_PREFIX);
+    const char *worker_uri;
+
+    format_of_uri(uri, &worker_uri);
+    return worker_uri;
 }
 
 static void pin_free(pin_t *p)
@@ -521,291 +519,16 @@ void pins_finish(void)
     g_pins = NULL;
 }
 
-/* ---------------------------------------------------------------- the manifest's files of a plugin */
-
-/* Turtle as a manifest writes it, enough to find the objects of lv2:binary and rdfs:seeAlso whose subject is the
- * plugin: prefixes, IRIs, prefixed names, "a", literals skipped, nested [ ] and ( ) skipped. A name the pin cannot
- * hold (an absolute IRI outside the bundle, a relative one that climbs out of it, an @base) is kept as it is, and no
- * pinned path matches it. */
-
-enum { T_END, T_IRI, T_NAME, T_PUNCT, T_LITERAL, T_DIRECTIVE };
-
-typedef struct SCAN_T {
-    const char *p, *end;
-    char prefix[64][2][256];
-    int nprefix;
-    int based;
-} scan_t;
-
-typedef struct TOKEN_T {
-    int kind;
-    char text[PATH_MAX];
-} token_t;
-
-static void skip_space(scan_t *s)
-{
-    while (s->p < s->end)
-    {
-        if (*s->p == '#')
-            while (s->p < s->end && *s->p != '\n')
-                s->p++;
-        else if (*s->p == ' ' || *s->p == '\t' || *s->p == '\n' || *s->p == '\r')
-            s->p++;
-        else
-            return;
-    }
-}
-
-static void skip_literal(scan_t *s)
-{
-    char q = *s->p;
-    int triple = s->end - s->p >= 3 && s->p[1] == q && s->p[2] == q;
-
-    s->p += triple ? 3 : 1;
-    while (s->p < s->end)
-    {
-        if (*s->p == '\\')
-            s->p += 2;
-        else if (*s->p == q && (!triple || (s->end - s->p >= 3 && s->p[1] == q && s->p[2] == q)))
-        {
-            s->p += triple ? 3 : 1;
-            break;
-        }
-        else
-            s->p++;
-    }
-    if (s->p < s->end && *s->p == '@')
-        while (s->p < s->end && *s->p != ' ' && *s->p != '\t' && *s->p != '\n' && !strchr(";,.])", *s->p))
-            s->p++;
-    else if (s->end - s->p >= 2 && s->p[0] == '^' && s->p[1] == '^')
-        s->p += 2;
-}
-
-static void copy_text(token_t *t, const char *from, size_t n)
-{
-    if (n >= sizeof(t->text))
-        n = sizeof(t->text) - 1;
-    memcpy(t->text, from, n);
-    t->text[n] = '\0';
-}
-
-static void next(scan_t *s, token_t *t)
-{
-    const char *start;
-
-    skip_space(s);
-    t->text[0] = '\0';
-    if (s->p >= s->end)
-    {
-        t->kind = T_END;
-        return;
-    }
-    start = s->p;
-    if (*s->p == '<')
-    {
-        while (s->p < s->end && *s->p != '>')
-            s->p++;
-        copy_text(t, start + 1, s->p - start - 1);
-        if (s->p < s->end)
-            s->p++;
-        t->kind = T_IRI;
-        return;
-    }
-    if (*s->p == '"' || *s->p == '\'')
-    {
-        skip_literal(s);
-        t->kind = T_LITERAL;
-        return;
-    }
-    if (strchr(".;,[]()", *s->p))
-    {
-        copy_text(t, s->p++, 1);
-        t->kind = T_PUNCT;
-        return;
-    }
-    while (s->p < s->end && !strchr(" \t\r\n<>\"';,[]()#", *s->p))
-        s->p++;
-    /* a prefixed name never ends with '.': that one ends the statement */
-    if (s->p > start + 1 && s->p[-1] == '.')
-        s->p--;
-    copy_text(t, start, s->p - start);
-    t->kind = *start == '@' ? T_DIRECTIVE : T_NAME;
-    if (!strcasecmp(t->text, "PREFIX") || !strcasecmp(t->text, "BASE"))
-        t->kind = T_DIRECTIVE;
-}
-
-/* a prefixed name or "a" as a full IRI */
-static void expand(scan_t *s, token_t *t)
-{
-    char *colon;
-    int n;
-
-    if (t->kind != T_NAME)
-        return;
-    if (!strcmp(t->text, "a"))
-    {
-        snprintf(t->text, sizeof(t->text), "http://www.w3.org/1999/02/22-rdf-syntax-ns#type");
-        t->kind = T_IRI;
-        return;
-    }
-    colon = strchr(t->text, ':');
-    if (!colon)
-        return;
-    for (n = 0; n < s->nprefix; n++)
-        if (strlen(s->prefix[n][0]) == (size_t)(colon - t->text) && !strncmp(s->prefix[n][0], t->text, colon - t->text))
-        {
-            char full[PATH_MAX];
-
-            snprintf(full, sizeof(full), "%s%s", s->prefix[n][1], colon + 1);
-            snprintf(t->text, sizeof(t->text), "%s", full);
-            t->kind = T_IRI;
-            return;
-        }
-}
-
-static void directive(scan_t *s, token_t *t)
-{
-    int sparql = t->text[0] != '@';
-    token_t name, iri;
-
-    if (!strcasecmp(t->text + !sparql, "base"))
-    {
-        s->based = 1;
-        next(s, &iri);
-    }
-    else
-    {
-        next(s, &name);
-        next(s, &iri);
-        if (name.kind == T_NAME && iri.kind == T_IRI && s->nprefix < 64 && name.text[0] &&
-            name.text[strlen(name.text) - 1] == ':')
-        {
-            name.text[strlen(name.text) - 1] = '\0';
-            snprintf(s->prefix[s->nprefix][0], sizeof(s->prefix[0][0]), "%s", name.text);
-            snprintf(s->prefix[s->nprefix][1], sizeof(s->prefix[0][1]), "%s", iri.text);
-            s->nprefix++;
-        }
-    }
-    if (!sparql)
-    {
-        skip_space(s);
-        if (s->p < s->end && *s->p == '.')
-            s->p++;
-    }
-}
-
-/* the object of lv2:binary or rdfs:seeAlso as a path in the bundle, or the IRI as written when it is not one */
-static void bundle_path(const scan_t *s, const char *bundle, const char *iri, char *out, size_t size)
-{
-    char file[PATH_MAX + 8];
-
-    snprintf(file, sizeof(file), "file://%s/", bundle);
-    if (!strncmp(iri, file, strlen(file)))
-        iri += strlen(file);
-    else if (strchr(iri, ':') || s->based)
-    {
-        snprintf(out, size, "%s", iri);
-        return;
-    }
-    while (!strncmp(iri, "./", 2))
-        iri += 2;
-    snprintf(out, size, "%s", iri);
-}
-
-typedef struct NAMES_T {
-    char **name;
-    int n;
-} names_t;
-
-static void names_add(names_t *names, const char *name)
-{
-    names->name = realloc(names->name, (names->n + 1) * sizeof(char *));
-    names->name[names->n++] = strdup(name);
-}
-
-static void names_free(names_t *names)
-{
-    while (names->n)
-        free(names->name[--names->n]);
-    free(names->name);
-}
-
-enum { WANT_SUBJECT, WANT_PREDICATE, WANT_OBJECT, AFTER_OBJECT };
-
-/* the files the manifest names with lv2:binary and rdfs:seeAlso for the plugin; whether it sets a base */
-static int manifest_files(const char *text, size_t size, const char *bundle, const char *uri, names_t *names)
-{
-    scan_t *s = calloc(1, sizeof(scan_t));
-    token_t t;
-    int state = WANT_SUBJECT, ours = 0, depth = 0, pred = 0, based;
-
-    s->p = text;
-    s->end = text + size;
-    for (next(s, &t); t.kind != T_END; next(s, &t))
-    {
-        if (t.kind == T_PUNCT && (t.text[0] == '[' || t.text[0] == '('))
-        {
-            if (depth++ == 0 && state == WANT_SUBJECT)
-                ours = 0;
-            continue;
-        }
-        if (t.kind == T_PUNCT && (t.text[0] == ']' || t.text[0] == ')'))
-        {
-            if (depth && --depth == 0)
-                state = state == WANT_SUBJECT ? WANT_PREDICATE : AFTER_OBJECT;
-            continue;
-        }
-        if (depth)
-            continue;
-        if (t.kind == T_DIRECTIVE && state == WANT_SUBJECT)
-        {
-            directive(s, &t);
-            continue;
-        }
-        expand(s, &t);
-        if (t.kind == T_PUNCT && t.text[0] == '.')
-            state = WANT_SUBJECT;
-        else if (t.kind == T_PUNCT && t.text[0] == ';')
-            state = WANT_PREDICATE;
-        else if (t.kind == T_PUNCT && t.text[0] == ',')
-            state = WANT_OBJECT;
-        else if (state == WANT_SUBJECT)
-        {
-            ours = t.kind == T_IRI && !strcmp(t.text, uri);
-            state = WANT_PREDICATE;
-        }
-        else if (state == WANT_PREDICATE)
-        {
-            pred = t.kind == T_IRI && (!strcmp(t.text, LV2_BINARY) || !strcmp(t.text, RDFS_SEEALSO));
-            state = WANT_OBJECT;
-        }
-        else if (state == WANT_OBJECT)
-        {
-            if (ours && pred)
-            {
-                char path[PATH_MAX];
-
-                bundle_path(s, bundle, t.text, path, sizeof(path));
-                names_add(names, path);
-            }
-            state = AFTER_OBJECT;
-        }
-    }
-    based = s->based;
-    free(s);
-    return based;
-}
-
 /* ---------------------------------------------------------------- the check */
 
-static int refuse(const char *uri, const char *path, const char *why)
+int pin_refuse(const char *uri, const char *path, const char *why)
 {
     fprintf(stderr, "plugin-hostd: %s: %s %s\n", uri, path, why);
     return PHD_ERR_PIN_BINARY_MISMATCH;
 }
 
-/* the file of a pin hashed over one open descriptor; the manifest's bytes are kept for reading when asked */
-static int hash_file(const char *root, const char *path, const char *want, const char *uri, char **bytes, size_t *size)
+/* the file of a pin hashed over one open descriptor */
+static int hash_file(const char *root, const char *path, const char *want, const char *uri)
 {
     char full[PATH_MAX * 2], hex[PHD_SHA256_HEX_LEN + 1];
     struct stat st;
@@ -814,28 +537,11 @@ static int hash_file(const char *root, const char *path, const char *want, const
     snprintf(full, sizeof(full), "%s/%s", root, path);
     fd = open(full, O_RDONLY | O_CLOEXEC);
     if (fd < 0)
-        return refuse(uri, path, "is missing");
+        return pin_refuse(uri, path, "is missing");
     if (fstat(fd, &st) != 0 || !S_ISREG(st.st_mode))
-        rc = refuse(uri, path, "is not a file");
-    else if (bytes)
-    {
-        ssize_t got = 0, r;
-
-        if (st.st_size > MANIFEST_MAX)
-            rc = refuse(uri, path, "is too large to be a manifest");
-        else
-        {
-            *bytes = malloc(st.st_size + 1);
-            while (got < st.st_size && (r = read(fd, *bytes + got, st.st_size - got)) > 0)
-                got += r;
-            *size = got;
-            phd_sha256_hex(*bytes, got, hex);
-            if (got != st.st_size || strcmp(hex, want))
-                rc = refuse(uri, path, "differs from its pin");
-        }
-    }
+        rc = pin_refuse(uri, path, "is not a file");
     else if (phd_pin_fd_digest(fd, hex) != 0 || strcmp(hex, want))
-        rc = refuse(uri, path, "differs from its pin");
+        rc = pin_refuse(uri, path, "differs from its pin");
     close(fd);
     return rc;
 }
@@ -858,87 +564,13 @@ static int digest_of(const char *root, const char *path, char hex[PHD_SHA256_HEX
     return rc;
 }
 
-static int read_manifest(const char *root, char **bytes, size_t *size)
-{
-    char full[PATH_MAX * 2];
-    struct stat st;
-    ssize_t got = 0, r;
-    int fd;
-
-    snprintf(full, sizeof(full), "%s/" MANIFEST, root);
-    fd = open(full, O_RDONLY | O_CLOEXEC);
-    if (fd < 0)
-        return -1;
-    if (fstat(fd, &st) != 0 || !S_ISREG(st.st_mode) || st.st_size > MANIFEST_MAX)
-    {
-        close(fd);
-        return -1;
-    }
-    *bytes = malloc(st.st_size + 1);
-    while (got < st.st_size && (r = read(fd, *bytes + got, st.st_size - got)) > 0)
-        got += r;
-    close(fd);
-    *size = got;
-    return got == st.st_size ? 0 : -1;
-}
-
-/* the root and the files a host loads for the uri, as the check holds a pin to: a CLAP's one file, an LV2 bundle's
- * manifest and the files it names. PHD_ERR_PIN_BINARY_MISMATCH, with the reason on stderr, for what cannot be pinned */
-static int collect(int clap, const char *uri, const char *lv2_path, char *root, size_t size, names_t *files)
-{
-    if (clap)
-    {
-        const char *path = uri + strlen(CLAP_PREFIX), *hash = strrchr(path, '#'), *slash;
-        size_t len = hash ? (size_t)(hash - path) : strlen(path);
-
-        snprintf(root, size, "%.*s", (int)len, path);
-        slash = strrchr(root, '/');
-        if (!slash)
-            return refuse(uri, root, "is not a path");
-        names_add(files, slash + 1);
-        root[slash - root] = '\0';
-        return SUCCESS;
-    }
-    else
-    {
-        names_t names = { NULL, 0 };
-        char *bundle = proc_find_lv2_bundle(lv2_path, bare(uri)), *manifest = NULL;
-        size_t manifest_size = 0;
-        int n, m, rc = SUCCESS;
-
-        if (!bundle)
-            return refuse(uri, MANIFEST, "is in no bundle of lv2_path naming the plugin");
-        snprintf(root, size, "%s", bundle);
-        free(bundle);
-        if (read_manifest(root, &manifest, &manifest_size) != 0)
-            return refuse(uri, MANIFEST, "can't be read as a manifest");
-        if (manifest_files(manifest, manifest_size, root, bare(uri), &names))
-            rc = refuse(uri, MANIFEST, "sets a base the daemon does not resolve");
-        names_add(files, MANIFEST);
-        for (n = 0; n < names.n && rc == SUCCESS; n++)
-        {
-            for (m = 0; m < files->n && strcmp(files->name[m], names.name[n]); m++)
-                ;
-            if (strstr(names.name[n], PHD_PIN_PERCENT))
-                rc = refuse(uri, names.name[n], "is percent-encoded, which the daemon does not decode");
-            else if (!path_valid(names.name[n]))
-                rc = refuse(uri, names.name[n], "is not a path a pin can hold");
-            else if (m == files->n)
-                names_add(files, names.name[n]);
-        }
-        names_free(&names);
-        free(manifest);
-        return rc;
-    }
-}
-
 /* the pin of a uri from the files on disk now, layout unknown, learned */
-static int record(int clap, const char *uri, const char *lv2_path)
+static int record(const format_t *format, const char *uri, const char *search)
 {
     char root[PATH_MAX], hex[PHD_SHA256_HEX_LEN + 1], *words;
     names_t files = { NULL, 0 };
     size_t cap = 1;
-    int n, rc = collect(clap, uri, lv2_path, root, sizeof(root), &files);
+    int n, rc = format->pin_collect(uri, search, root, sizeof(root), &files);
     pin_t pin;
 
     memset(&pin, 0, sizeof(pin));
@@ -960,18 +592,18 @@ static int record(int clap, const char *uri, const char *lv2_path)
     for (n = 0; n < files.n && rc == SUCCESS; n++)
     {
         if (digest_of(root, files.name[n], hex) != 0)
-            rc = refuse(uri, files.name[n], "is missing or not a file");
+            rc = pin_refuse(uri, files.name[n], "is missing or not a file");
         else
             sprintf(words + strlen(words), "%s%s" PHD_PIN_DIGEST_SEPARATOR "%s", n ? PHD_PIN_FILE_SEPARATOR : "",
                     files.name[n], hex);
     }
     if (rc == SUCCESS && pin_build(&pin, uri, words, PHD_PIN_LAYOUT_UNKNOWN, NULL, 1) != SUCCESS)
-        rc = refuse(uri, root, "can't be pinned");
+        rc = pin_refuse(uri, root, "can't be pinned");
     /* the line must fit what pin_set takes, with room for the layout and the verdict that are added later */
     if (rc == SUCCESS && line_size(&pin) + LINE_RESERVE > PHD_LINE_MAX)
     {
         pin_free(&pin);
-        rc = refuse(uri, root, "holds too many files for one pin line");
+        rc = pin_refuse(uri, root, "holds too many files for one pin line");
     }
     names_free(&files);
     free(words);
@@ -983,16 +615,16 @@ static int record(int clap, const char *uri, const char *lv2_path)
     return SUCCESS;
 }
 
-int pins_learn(int clap, const char *uri, const char *lv2_path)
+int pins_learn(const format_t *format, const char *uri, const char *search)
 {
-    return record(clap, uri, lv2_path);
+    return record(format, uri, search);
 }
 
-int pins_accept(int clap, const char *uri, const char *lv2_path)
+int pins_accept(const format_t *format, const char *uri, const char *search)
 {
     if (!find(bare(uri)))
         return PHD_ERR_PIN_ABSENT;
-    return record(clap, uri, lv2_path);
+    return record(format, uri, search);
 }
 
 int pins_set_layout(const char *uri, const char *layout)
@@ -1010,12 +642,12 @@ int pins_set_layout(const char *uri, const char *layout)
     return SUCCESS;
 }
 
-int pins_check(int clap, const char *uri, const char *lv2_path, const char **layout)
+int pins_check(const format_t *format, const char *uri, const char *search, const char **layout)
 {
     const pin_t *p = find(bare(uri));
-    char root[PATH_MAX], *manifest = NULL, *bundle = NULL;
-    size_t manifest_size = 0;
-    int n, rc = SUCCESS, skip = -1;
+    char root[PATH_MAX];
+    names_t files = { NULL, 0 };
+    int n, rc;
 
     if (!p || (strcmp(p->layout, PHD_PIN_LAYOUT_UNKNOWN) && strcmp(p->scheme, PHD_PIN_LAYOUT_SCHEME)))
     {
@@ -1023,52 +655,14 @@ int pins_check(int clap, const char *uri, const char *lv2_path, const char **lay
                                                           : "no pin");
         return PHD_ERR_PIN_ABSENT;
     }
-    if (clap)
-    {
-        const char *path = uri + strlen(CLAP_PREFIX), *hash = strrchr(path, '#'), *slash;
-        size_t len = hash ? (size_t)(hash - path) : strlen(path);
-
-        snprintf(root, sizeof(root), "%.*s", (int)len, path);
-        slash = strrchr(root, '/');
-        if (!slash)
-            return refuse(uri, root, "is not a path");
-        if (held(p, slash + 1) < 0)
-            return refuse(uri, slash + 1, "is not held by the pin");
-        root[slash - root] = '\0';
-    }
-    else
-    {
-        names_t names = { NULL, 0 };
-
-        bundle = proc_find_lv2_bundle(lv2_path, bare(uri));
-        if (!bundle)
-            return refuse(uri, MANIFEST, "is in no bundle of lv2_path naming the plugin");
-        snprintf(root, sizeof(root), "%s", bundle);
-        free(bundle);
-        skip = held(p, MANIFEST);
-        if (skip < 0)
-            return refuse(uri, MANIFEST, "is not held by the pin");
-        rc = hash_file(root, MANIFEST, p->digest[skip], uri, &manifest, &manifest_size);
-        if (rc == SUCCESS)
-        {
-            /* the host resolves a base and decodes a percent-encoded name; the daemon does neither, so it cannot
-             * know the file the host would load */
-            if (manifest_files(manifest, manifest_size, root, bare(uri), &names))
-                rc = refuse(uri, MANIFEST, "sets a base the daemon does not resolve");
-            for (n = 0; n < names.n && rc == SUCCESS; n++)
-                if (strstr(names.name[n], PHD_PIN_PERCENT))
-                    rc = refuse(uri, names.name[n], "is percent-encoded, which the daemon does not decode");
-                else if (held(p, names.name[n]) < 0)
-                    rc = refuse(uri, names.name[n], "is named by the manifest and not held by the pin");
-        }
-        names_free(&names);
-        free(manifest);
-        if (rc != SUCCESS)
-            return rc;
-    }
+    /* what the format says the host loads for the plugin, each held by the pin, then every file the pin holds hashed */
+    rc = format->pin_collect(uri, search, root, sizeof(root), &files);
+    for (n = 0; n < files.n && rc == SUCCESS; n++)
+        if (held(p, files.name[n]) < 0)
+            rc = pin_refuse(uri, files.name[n], "is named by the plugin and not held by the pin");
+    names_free(&files);
     for (n = 0; n < p->nfiles && rc == SUCCESS; n++)
-        if (n != skip)
-            rc = hash_file(root, p->path[n], p->digest[n], uri, NULL, NULL);
+        rc = hash_file(root, p->path[n], p->digest[n], uri);
     if (rc == SUCCESS)
         *layout = strcmp(p->layout, PHD_PIN_LAYOUT_UNKNOWN) ? p->layout : NULL;
     return rc;

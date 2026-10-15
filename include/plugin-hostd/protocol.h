@@ -77,10 +77,13 @@
 #define PHD_FORMAT_LV2  "lv2"
 #define PHD_FORMAT_CLAP "clap"
 #define PHD_FORMAT_ANY  "*"
+#define PHD_FORMAT_ARGUMENT "<format | " PHD_FORMAT_ANY ">"
 #define PHD_WORD_ALL    "all"
 #define PHD_WORD_NONE   "-"
 
-/* X(id, name) in the order of the daemon's enum */
+/* the built-in formats, X(id, name) in the order of the daemon's table (src/formats.c): the rest of what a format is
+ * (its prefix, its worker, the files its pin holds, whether its pin holds in a shared world, who answers its instance
+ * verbs) is a field of its row there, and a format joins with a row */
 #define PHD_FORMATS(X) X(LV2, PHD_FORMAT_LV2) X(CLAP, PHD_FORMAT_CLAP)
 
 /* X(id, name, meaning) in the order of the daemon's enum */
@@ -135,7 +138,7 @@ static inline int phd_pool_name_valid(const char *name)
 /* X(id, meaning) */
 #define PHD_ERRORS(X) \
     X(PLACEMENT_INVALID, "placement invalid: not a placement, or not valid here, as a " PHD_PLACE_POOL_PREFIX \
-                         "<name> for an " PHD_FORMAT_LV2 " plugin while require_pins is on") \
+                         "<name> for a plugin of a format whose pin holds only in a world of the plugin's own, while require_pins is on") \
     X(NO_BACKEND, "no worker program for the scheme") \
     X(WORKER_SPAWN, "the worker is not up: the spawn failed, or it is in backoff; ask again after instance_restored") \
     X(REPLAY, "the name of a refused replay, never a reply: a replayed add that its pin or the worker refuses is " \
@@ -229,18 +232,18 @@ static inline int phd_pool_name_valid(const char *name)
       "re-arm the storm bound and the backoff of a given-up placement") \
     X(QUARANTINE_CLEAR, PHD_VERB_QUARANTINE_CLEAR, "<instance> | " PHD_WORD_ALL, "resp 0", \
       "let a quarantined instance go back where its placement says") \
-    X(POLICY_SET, PHD_VERB_POLICY_SET, "<" PHD_FORMAT_LV2 " | " PHD_FORMAT_CLAP " | " PHD_FORMAT_ANY "> " \
+    X(POLICY_SET, PHD_VERB_POLICY_SET, PHD_FORMAT_ARGUMENT " " \
       PHD_PLACE_OWN " | " PHD_PLACE_POOL_PREFIX "<name>", "resp 0", "the placement of an add that says default") \
     X(POOL_CONFIG, PHD_VERB_POOL_CONFIG, "<name> <max_instances>", "resp 0", \
       "the instances a pool holds before a sibling opens") \
-    X(WORKER_ENV, PHD_VERB_WORKER_ENV, "<" PHD_FORMAT_LV2 " | " PHD_FORMAT_CLAP " | " PHD_FORMAT_ANY "> <cpu-list|" \
+    X(WORKER_ENV, PHD_VERB_WORKER_ENV, PHD_FORMAT_ARGUMENT " <cpu-list|" \
       PHD_WORD_NONE "> <nice|" PHD_WORD_NONE ">", "resp 0", \
       "the cpu list and the nice value of the workers of a format, at spawn and on the ones running") \
     X(PIN_SET, PHD_VERB_PIN_SET, "<uri> <path>" PHD_PIN_DIGEST_SEPARATOR "<sha256>[" PHD_PIN_FILE_SEPARATOR "<path>" \
       PHD_PIN_DIGEST_SEPARATOR "<sha256>...] <scheme>" PHD_PIN_SCHEME_SEPARATOR "<sha256> [" PHD_PIN_VERDICT_KEY \
       "<verdict>]", "resp 0", \
       "the pin of one plugin: the SHA-256 of every file the host loads for it, a path relative to the bundle (the " \
-      ".clap's directory for a CLAP), its layout fingerprint and, when it is known, the verdict of its qualification; " \
+      "directory of a single-file format's file), its layout fingerprint and, when it is known, the verdict of its qualification; " \
       "it replaces an earlier pin of the uri. The pin store and a pin_file hold the same line, with or without the verb") \
     X(PIN_CLEAR, PHD_VERB_PIN_CLEAR, "<uri> | " PHD_WORD_ALL, "resp 0", "forget the pin of one plugin, or of every one") \
     X(PIN_ACCEPT, PHD_VERB_PIN_ACCEPT, "<uri>", "resp 0", \
@@ -248,18 +251,18 @@ static inline int phd_pool_name_valid(const char *name)
       PHD_EVENT_PIN_CHANGED " event; the layout is learned again by the next add and the verdict is dropped; -508 when " \
       "the plugin has no pin, -509 when its files cannot be collected, -902 under pin_mode strict") \
     X(PIN_LAYOUT, PHD_VERB_PIN_LAYOUT, "<instance>", "resp 0 <scheme>" PHD_PIN_SCHEME_SEPARATOR "<sha256>", \
-      "sent by the daemon to a " PHD_FORMAT_CLAP " worker after it accepted the add of a plugin whose layout pin is " \
+      "sent by the daemon to a worker of a format that checks layouts, after it accepted the add of a plugin whose layout pin is " \
       "still unknown: the layout the worker found after init, which the daemon records in the pin") \
     X(PIN_EXPECT, PHD_VERB_PIN_EXPECT, "<instance> <scheme>" PHD_PIN_SCHEME_SEPARATOR "<sha256>", "resp 0", \
-      "sent by the daemon to a " PHD_FORMAT_CLAP " worker just before the instance's add: the layout pin that add " \
+      "sent by the daemon to a worker of a format that checks layouts, just before the instance's add: the layout pin that add " \
       "checks after init and before activate; any other reply than resp 0 refuses the add with that code, and the " \
       "add is never forwarded")
 
 /* ---------------------------------------------------------------- instance verbs */
 
 /* What a host knows of a strip and of a plugin's controls, asked by instance. The daemon routes them to a
- * PHD_FORMAT_CLAP worker, which answers them from the plugin; for a PHD_FORMAT_LV2 instance it answers them itself and
- * never forwards them. A string word is quoted when it is not a plain word, and always in a reply, with \" inside it
+ * worker of a format whose workers answer them from the plugin; for a format whose worker does not, it answers them
+ * itself and never forwards them. A string word is quoted when it is not a plain word, and always in a reply, with \" inside it
  * for a quote: mod-host's own tokenizer reads them. */
 #define PHD_VERB_TRACK_INFO      "track_info"
 #define PHD_VERB_REMOTE_PAGES    "remote_pages"
@@ -297,10 +300,10 @@ static inline int phd_pool_name_valid(const char *name)
 #define PHD_INSTANCE_VERBS(X) \
     X(TRACK_INFO, PHD_VERB_TRACK_INFO, "<instance> <name> <#RRGGBB | " PHD_NO_COLOR "> [bus | return | master]", \
       "resp 0", REPLACE, \
-      "the strip's name (\"\" for none), colour and kind, absent for an input channel; a " PHD_FORMAT_CLAP \
-      " plugin reads them through clap.track-info; any other word is -902") \
+      "the strip's name (\"\" for none), colour and kind, absent for an input channel; a worker whose plugin format " \
+      "has a track-info extension passes them on; any other word is -902") \
     X(REMOTE_PAGES, PHD_VERB_REMOTE_PAGES, "<instance>", "resp <count>", NONE, \
-      "the plugin's remote-control pages, from clap.remote-controls; 0 for an " PHD_FORMAT_LV2 " instance") \
+      "the plugin's remote-control pages, from clap.remote-controls; 0 for an instance of a format whose worker has none") \
     X(REMOTE_PAGE_GET, PHD_VERB_REMOTE_PAGE_GET, "<instance> <page>", \
       "resp 0 <page_id> <section> <page_name> <s1> <s2> <s3> <s4> <s5> <s6> <s7> <s8>", NONE, \
       "one page, 0 to count - 1: each slot the symbol param_set takes, " PHD_EMPTY_SLOT " for an empty one; -902 " \
@@ -435,7 +438,7 @@ static inline int phd_track_info_valid(char *const *word, int count)
       "an add or a replay of a plugin was refused because its files, or the layout the worker found, differ from its " \
       "pin; the pin is as it was until pin_accept or pin_set") \
     X(PHD_EVENT_REMOTE_PAGES_CHANGED, "<instance>", \
-      "relayed from a " PHD_FORMAT_CLAP " worker: the plugin changed its remote pages; read them again")
+      "relayed from a worker: the plugin changed its remote pages; read them again")
 
 /* ---------------------------------------------------------------- worker feedback, relayed */
 
@@ -506,8 +509,8 @@ static inline int phd_track_info_valid(char *const *word, int count)
     X(idle_ms, PHD_DEFAULT_IDLE_MS, "ms", "the period of the idle tick: reap, respawn, checkpoint") \
     X(pool_max, PHD_DEFAULT_POOL_MAX, "instances", "instances in a pool before a sibling opens") \
     X(require_pins, PHD_DEFAULT_REQUIRE_PINS, "", \
-      "1: add admits only a plugin that has a pin (see pin_mode), its files hashed before any worker sees it, and an " PHD_FORMAT_LV2 \
-      " plugin gets a worker of its own, its world the one bundle the pin holds (a " PHD_PLACE_DEFAULT " that resolves " \
-      "to a pool is placed " PHD_PLACE_OWN "); 0: no pin is checked")
+      "1: add admits only a plugin that has a pin (see pin_mode), its files hashed before any worker sees it, and a plugin of a " \
+      "format whose pin holds only in a world of its own gets a worker of its own, its world the plugin's files (a " \
+      PHD_PLACE_DEFAULT " that resolves to a pool is placed " PHD_PLACE_OWN "); 0: no pin is checked")
 
 #endif
