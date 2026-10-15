@@ -189,7 +189,7 @@ check-generated: $(GEN)
 check-readme:
 	python3 tests/readme_build.py
 
-# no pin: a dependency is declared in the spec and debian/control with a floor and a next-minor ceiling, nowhere else
+# no pin: a dependency is declared in the spec and debian/control with a floor (no ceiling), nowhere else
 check-no-pins:
 	python3 tests/no_pins.py
 

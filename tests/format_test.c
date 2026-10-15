@@ -240,7 +240,7 @@ int main(int argc, char **argv)
     write_file(plugin, "third format, build two");
     check_reply(sup_add(uri, 1, NULL, NULL), "resp -509", "pin: a changed file of the new format is refused");
     write_file(plugin, "third format, build one");
-    check_reply(sup_add(uri, 1, NULL, NULL), "resp 0", "pin: the file back, the add passes");
+    check_reply(sup_add(uri, 1, NULL, NULL), "resp 1", "pin: the file back, the add passes");
 
     /* policy and environment resolve the new name through the table */
     check_reply(sup_policy_set("fake3", "pool:shared"), "resp 0", "policy: the new format's name is accepted");

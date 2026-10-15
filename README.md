@@ -322,6 +322,6 @@ it (`worker`), where its plugins are searched and how a worker's world is narrow
 `narrow_world`), which files a pin holds (`pin_collect`), whether the worker checks the layout (`layout_check`), whether
 a pinned plugin must run in a worker of its own (`pinned_own_only`) and who answers the instance verbs
 (`native_instance_verbs`, else `param_info`). Adding a format is a row and its worker; `formats_register` refuses a row
-with a capability missing and says which. `make test-format` registers a third format in the test and takes it through
+with a capability missing and says which. a test registers a third format in the test and takes it through
 `add`, `param_set`, `pin_set` and `remove`.
 

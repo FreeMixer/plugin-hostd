@@ -28,7 +28,8 @@
  * three: <uri> <path>=<sha256>[,...] <scheme>:<sha256> [verdict=<word>], the verb pin_set in front or not. */
 
 /* start: the store (empty is the XDG default) is read, then `file` (empty is none), which wins. -1 with the line named on
- * stderr when `file` has a line outside the grammar; a bad line of the store is skipped */
+ * stderr when `file` has a line outside the grammar; a bad line of the store is kept verbatim by every save, announced on
+ * stderr, and its uri is not learned again; a store that can't be read blocks learning and saving */
 int pins_init(const char *store, const char *file);
 
 /* pin_set: SUCCESS, or ERR_INVALID_OPERATION for a word outside the grammar; it replaces an earlier pin of the uri.

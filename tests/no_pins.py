@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# No pins: a dependency is declared in the packaging alone, the RPM spec and debian/control, as a floor and a ceiling
-# (the next minor after it), installed from the FreeMixer channel by dnf builddep / apt-get build-dep. No pins file,
+# No pins: a dependency is declared in the packaging alone, the RPM spec and debian/control, as a floor only (>= the
+# lowest version with the API it uses; no ceiling, operator ruling 2026-10-15), installed from the FreeMixer channel by dnf builddep / apt-get build-dep. No pins file,
 # no submodule, no ref or sha a workflow checks a sibling out at, no sibling built from source.
 # Usage: no_pins.py [root]. The scan proves it can see a planted pin before it trusts an empty result.
 import os, re, shutil, sys, tempfile
@@ -40,13 +40,8 @@ def scan(root):
     return found
 
 
-def minor(v):
-    m = re.match(r"^(\d+)\.(\d+)", v)
-    return (int(m.group(1)), int(m.group(2))) if m else None
-
-
 def declared(root):
-    """the (floor, ceiling) pair of DEP in the spec and in debian/control, or the reason it is not one"""
+    """the floors and ceilings of DEP in the spec and in debian/control"""
     out = []
     spec = open(os.path.join(root, "packaging", "plugin-hostd.spec")).read()
     fl = re.findall(r"^BuildRequires:\s*%s\s*>=\s*(\S+)" % re.escape(DEP), spec, re.M)
@@ -63,15 +58,14 @@ def check_declared(root):
     bad = []
     pairs = []
     for where, fl, ce in declared(root):
-        if len(fl) != 1 or len(ce) != 1:
-            bad.append("%s declares %s with %d floor and %d ceiling (one of each is the rule)" % (where, DEP, len(fl), len(ce)))
+        if len(fl) != 1:
+            bad.append("%s declares %s with %d floors (one is the rule)" % (where, DEP, len(fl)))
             continue
-        lo, hi = minor(fl[0]), minor(ce[0])
-        if not lo or not hi or hi != (lo[0], lo[1] + 1) or ce[0].count(".") != 1:
-            bad.append("%s: floor %s ceiling %s: the ceiling is the next minor after the floor, X.Y+1" % (where, fl[0], ce[0]))
-        pairs.append((fl[0], ce[0]))
+        if ce:
+            bad.append("%s caps %s below %s: a dependency is a floor only, never a ceiling" % (where, DEP, ce[0]))
+        pairs.append(fl[0])
     if len(set(pairs)) > 1:
-        bad.append("the spec and debian/control disagree on the floor and ceiling: %s" % pairs)
+        bad.append("the spec and debian/control disagree on the floor: %s" % pairs)
     return bad
 
 
@@ -101,7 +95,7 @@ def main():
         print("FAIL %s" % b)
         failed += 1
     if not failed:
-        print("ok   no pin anywhere; %s has a floor and a next-minor ceiling in the spec and in debian/control" % DEP)
+        print("ok   no pin anywhere; %s has one floor and no ceiling in the spec and in debian/control" % DEP)
     return 1 if failed else 0
 
 

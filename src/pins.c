@@ -232,31 +232,118 @@ static int mkdir_parents(char *path)
     return 0;
 }
 
-/* the pins the daemon learned, to the store: a temporary file beside it, renamed over it. A failure is written on stderr
- * and leaves the pins in memory: the next start learns them again */
+/* Lines of the store this version could not parse. They are kept verbatim and written back by every save, so a corrupt
+ * line is never dropped by the next save, and the uri they name (when one can be read) is never learned again: the pin
+ * that line held is the operator's to repair or remove by hand. A store that could not be read at all blocks every
+ * write and every learning for the same reason. */
+static char **g_held;
+static int g_nheld;
+static int g_store_unreadable;
+
+static void held_add(const char *line)
+{
+    size_t n = strlen(line);
+
+    while (n && (line[n - 1] == '\n' || line[n - 1] == '\r'))
+        n--;
+    if (!n)
+        return;
+    g_held = realloc(g_held, (g_nheld + 1) * sizeof(char *));
+    g_held[g_nheld] = strndup(line, n);
+    g_nheld++;
+}
+
+/* the uri a held line names: its first word, or the second after the verb */
+static int held_names(const char *line, const char *uri)
+{
+    char copy[LINE_MAX_PIN], *save = NULL, *t;
+
+    snprintf(copy, sizeof(copy), "%s", line);
+    t = strtok_r(copy, " \t", &save);
+    if (t && !strcmp(t, PHD_VERB_PIN_SET))
+        t = strtok_r(NULL, " \t", &save);
+    return t && !strcmp(bare(t), uri);
+}
+
+static int uri_held(const char *uri)
+{
+    int n;
+
+    for (n = 0; n < g_nheld; n++)
+        if (held_names(g_held[n], bare(uri)))
+            return 1;
+    return 0;
+}
+
+static void held_free(void)
+{
+    while (g_nheld)
+        free(g_held[--g_nheld]);
+    free(g_held);
+    g_held = NULL;
+    g_store_unreadable = 0;
+}
+
+static void sync_dir(const char *path)
+{
+    char dir[PATH_MAX + 8], *slash;
+    int fd;
+
+    snprintf(dir, sizeof(dir), "%s", path);
+    slash = strrchr(dir, '/');
+    if (!slash)
+        snprintf(dir, sizeof(dir), ".");
+    else if (slash == dir)
+        dir[1] = '\0';
+    else
+        *slash = '\0';
+    fd = open(dir, O_RDONLY | O_DIRECTORY);
+    if (fd >= 0)
+    {
+        fsync(fd);
+        close(fd);
+    }
+}
+
+/* the pins the daemon learned, to the store: a temporary file of its own beside it (mkstemp, so two daemons on one
+ * store never share a name), written, fsynced and renamed over it, then the directory fsynced. A failure is announced
+ * on stderr, with what it costs, and leaves the pins in memory */
 static void store_save(void)
 {
-    char tmp[PATH_MAX + 8];
+    char tmp[PATH_MAX + 16];
     FILE *file;
-    int n;
+    int n, fd, ok;
 
     if (!*g_store)
         return;
-    snprintf(tmp, sizeof(tmp), "%s.tmp", g_store);
-    if (mkdir_parents(tmp) != 0 || !(file = fopen(tmp, "w")))
+    if (g_store_unreadable)
     {
-        fprintf(stderr, "plugin-hostd: can't write the pin store %s: %s\n", g_store, strerror(errno));
+        fprintf(stderr, "plugin-hostd: the pin store %s could not be read: NOT overwriting it; the pins learned this run "
+                        "are NOT persisted until the operator repairs it\n", g_store);
         return;
     }
-    fchmod(fileno(file), 0600);
+    snprintf(tmp, sizeof(tmp), "%s.XXXXXX", g_store);
+    if (mkdir_parents(tmp) != 0 || (fd = mkstemp(tmp)) < 0 || !(file = fdopen(fd, "w")))
+    {
+        fprintf(stderr, "plugin-hostd: can't write the pin store %s: %s; the pins learned this run are NOT persisted and "
+                        "the next start learns them again\n", g_store, strerror(errno));
+        return;
+    }
+    for (n = 0; n < g_nheld; n++)
+        fprintf(file, "%s\n", g_held[n]);
     for (n = 0; n < g_npins; n++)
         if (g_pins[n].learned)
             line_write(file, &g_pins[n]);
-    if (fclose(file) != 0 || rename(tmp, g_store) != 0)
+    ok = fflush(file) == 0 && !ferror(file) && fsync(fileno(file)) == 0;
+    ok = fclose(file) == 0 && ok;
+    if (!ok || rename(tmp, g_store) != 0)
     {
-        fprintf(stderr, "plugin-hostd: can't write the pin store %s: %s\n", g_store, strerror(errno));
+        fprintf(stderr, "plugin-hostd: can't write the pin store %s: %s; the pins learned this run are NOT persisted and "
+                        "the next start learns them again\n", g_store, strerror(errno));
         unlink(tmp);
+        return;
     }
+    sync_dir(g_store);
 }
 
 /* one line: the words of pin_set, the verb in front or not; a blank or comment line is SUCCESS and records nothing */
@@ -295,20 +382,40 @@ static int file_read(const char *path, int learned, int strict)
     {
         if (strict)
             fprintf(stderr, "plugin-hostd: can't open the pin file %s: %s\n", path, strerror(errno));
+        else if (errno != ENOENT && errno != ENOTDIR)
+        {
+            /* a store that exists and can't be opened is not a first run */
+            fprintf(stderr, "plugin-hostd: can't read the pin store %s: %s; learning and saving are blocked until it "
+                            "is repaired\n", path, strerror(errno));
+            g_store_unreadable = 1;
+        }
         return strict ? -1 : 0;
     }
     while (fgets(line, sizeof(line), file))
     {
+        char original[LINE_MAX_PIN];
+
         lineno++;
+        snprintf(original, sizeof(original), "%s", line);
         if (line_read(line, learned) != SUCCESS)
         {
-            fprintf(stderr, "plugin-hostd: %s:%d: not a pin\n", path, lineno);
+            fprintf(stderr, "plugin-hostd: %s:%d: not a pin%s\n", path, lineno,
+                    strict ? "" : "; the line is kept as it is and its plugin is not learned again until the operator "
+                                  "repairs or removes it");
             if (strict)
             {
                 fclose(file);
                 return -1;
             }
+            if (learned)
+                held_add(original);
         }
+    }
+    if (ferror(file) && !strict)
+    {
+        fprintf(stderr, "plugin-hostd: can't read the pin store %s: %s; learning and saving are blocked until it is "
+                        "repaired\n", path, strerror(errno));
+        g_store_unreadable = 1;
     }
     fclose(file);
     return 0;
@@ -316,6 +423,7 @@ static int file_read(const char *path, int learned, int strict)
 
 int pins_init(const char *store, const char *file)
 {
+    held_free();
     if (*store_path(store))
         file_read(g_store, 1, 0);
     return *file ? file_read(file, 0, 1) : 0;
@@ -433,6 +541,13 @@ static int record(const format_t *format, const char *uri, const char *search)
     pin_t pin;
 
     memset(&pin, 0, sizeof(pin));
+
+    if (rc == SUCCESS && (g_store_unreadable || uri_held(uri)))
+    {
+        fprintf(stderr, "plugin-hostd: %s: %s; not learned\n", uri, g_store_unreadable
+                ? "the pin store could not be read" : "its line in the pin store is corrupt");
+        rc = PHD_ERR_PIN_BINARY_MISMATCH;
+    }
     if (rc != SUCCESS)
     {
         names_free(&files);
