@@ -22,6 +22,8 @@
  * its parameters as text, saves and loads them as state, and dies or hangs on cue.
  *
  *   add <uri> <n> [client]      "crash_on_add" in the uri aborts, "refuse" in it answers -101,
+ *                               "adapter_cv" in an lv2: uri (the adapter's, mod-host is given it bare) writes hosting.features.cv-ports on stderr and answers the
+ *                               instantiation error, as omx-clap-host does for a plugin its LV2 adapter refuses,
  *                               "nostate" in it makes an instance that never writes state
  *   param_set <n> crash <v>     v other than 0 aborts 30 ms after the reply (FAKE_CRASH_AFTER_MS to say another), as a
  *                               plugin does in a callback
@@ -65,6 +67,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <host-errors.h>
 #include <mod-host.h>
 #include <plugin-hostd/pin.h>
 #include <plugin-hostd/protocol.h>
@@ -235,7 +238,14 @@ static void receive(msg_t *msg)
         layout_pin(mine, sizeof(mine));
         if (strstr(tok[1], "crash_on_add"))
             crash();
-        if (strstr(tok[1], "refuse"))
+        if (strstr(tok[1], "adapter_cv") && !strncmp(tok[1], "lv2:", 4))
+        {
+            /* what omx-clap-host does for a plugin its LV2 adapter cannot run: the hosting code on stderr, an instantiation error */
+            fprintf(stderr, "%s: hosting.features.cv-ports: the plugin has a CV port\n", tok[1]);
+            fflush(stderr);
+            answer(fd, "resp %d", ERR_HOST_INSTANTIATION);
+        }
+        else if (strstr(tok[1], "refuse"))
             answer(fd, "resp -101");
         else if (id >= 0 && id < MAX_INST && g_expect[id][0] && strcmp(g_expect[id], mine))
         {

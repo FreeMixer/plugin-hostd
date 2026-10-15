@@ -122,6 +122,8 @@ char *sup_policy_set(const char *format, const char *place);
 /* pin_accept: the plugin's files as they are now become its pin; only under pin_mode first-use */
 char *sup_pin_accept(const char *uri);
 char *sup_pool_config(const char *name, int max);
+/* lv2_worker_set: the worker of one LV2 plugin, for its adds from now on */
+char *sup_lv2_worker_set(const char *uri, const char *worker);
 char *sup_worker_env(const char *format, const char *cpus, const char *nice);
 
 /* the idle tick: reap the dead, respawn the due, checkpoint the quiet */

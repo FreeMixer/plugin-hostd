@@ -1038,11 +1038,31 @@ static void learn_layout(worker_t *w, int id, const char *uri)
     free(reply);
 }
 
+/* what an add of a plugin that an adapter runs answers when the adapter cannot run it: the instantiation error, and the
+ * invalid uri of a worker that does not know the plugin */
+static int adapter_refusal(int code)
+{
+    return code == ERR_HOST_INSTANTIATION || code == ERR_HOST_INVALID_URI;
+}
+
+/* the adapter of a worker refused the add of `uri`, for the reason `why`: say so on the feedback port; under auto the plugin
+ * goes to the lv2 row from now on and this add is made again there, otherwise the add answers PHD_ERR_LV2_ADAPTER_REFUSED */
+static char *adapter_refused(const char *uri, const char *why, int id, const char *placement, const char *client)
+{
+    int automatic = lv2_worker_is_auto(&g_conf, uri);
+
+    event(PHD_EVENT_LV2_ADAPTER_REFUSED_FMT, uri, why, automatic ? PHD_LV2_WORKER_AUTO : PHD_LV2_WORKER_CLAP_HOST);
+    if (!automatic)
+        return sup_resp(PHD_ERR_LV2_ADAPTER_REFUSED);
+    lv2_adapter_refused(uri);
+    return sup_add(uri, id, placement, client);
+}
+
 char *sup_add(const char *uri, int id, const char *placement, const char *client)
 {
     const char *fwd;
     int fmt = format_of_uri(uri, &fwd);
-    const format_t *format = format_at(fmt);
+    const format_t *format;
     char place[48], line[PATH_MAX + 128], *reply = NULL;
     const char *layout = NULL;
     worker_t *w = NULL;
@@ -1051,6 +1071,12 @@ char *sup_add(const char *uri, int id, const char *placement, const char *client
     int rc, is_new = 0, full, unavailable, code = ERR_HOST_INSTANTIATION;
     instance_t *i;
 
+    /* the format may hand the uri to another row: which worker runs an LV2 plugin is a setting, not the uri's */
+    fmt = format_route(&g_conf, fmt, fwd);
+    /* auto without the adapter's worker installed is the lv2 row, for this add only */
+    if (format_at(fmt)->adapter && !proc_have_binary(bin_of(fmt)) && lv2_worker_is_auto(&g_conf, fwd))
+        fmt = format_by_name(PHD_FORMAT_LV2);
+    format = format_at(fmt);
     if (id < 0 || id >= MAX_INSTANCE)
         return sup_resp(ERR_INSTANCE_INVALID);
     if (g_inst[id])
@@ -1148,8 +1174,8 @@ char *sup_add(const char *uri, int id, const char *placement, const char *client
             code = PHD_ERR_VERB_DROPPED;
         }
     }
-    snprintf(line, sizeof(line), "%.*s %s %d%s%s", verb_len(EFFECT_ADD), EFFECT_ADD, fwd, id, client ? " " : "",
-             client ? client : "");
+    snprintf(line, sizeof(line), "%.*s %s%s %d%s%s", verb_len(EFFECT_ADD), EFFECT_ADD,
+             format->worker_prefix ? format->worker_prefix : "", fwd, id, client ? " " : "", client ? client : "");
     if (rc == RPC_OK && !reply)
         rc = proc_rpc(&g_conf, w->pid, w->fd, line, &reply);
     if (rc != RPC_OK)
@@ -1167,9 +1193,23 @@ char *sup_add(const char *uri, int id, const char *placement, const char *client
     }
     if (resp_code(reply) < 0)
     {
+        int refused = format->adapter && adapter_refusal(resp_code(reply));
+        char logfile[PATH_MAX], why[128] = PHD_WORD_NONE;
+
+        /* the reason is in the worker's log, which goes with the worker */
+        if (refused)
+        {
+            snprintf(logfile, sizeof(logfile), "%s/w%d.log", g_root, w->k);
+            lv2_refusal_reason(logfile, why, sizeof(why));
+        }
         pin_changed_event(fwd, resp_code(reply));
         if (w->ninst == 0)
             worker_retire(w);
+        if (refused)
+        {
+            free(reply);
+            return adapter_refused(fwd, why, id, placement, client);
+        }
         return reply;
     }
     if (g_conf.require_pins && !layout && format->layout_check)
@@ -1611,6 +1651,14 @@ char *sup_policy_set(const char *format, const char *place)
         return sup_resp(ERR_INVALID_OPERATION);
     snprintf(g_policy[f], sizeof(g_policy[f]), "%s", place);
     return sup_resp(SUCCESS);
+}
+
+char *sup_lv2_worker_set(const char *uri, const char *worker)
+{
+    const char *fwd;
+
+    format_of_uri(uri, &fwd);
+    return sup_resp(lv2_worker_pick(fwd, worker) == 0 ? SUCCESS : ERR_INVALID_OPERATION);
 }
 
 char *sup_pool_config(const char *name, int max)

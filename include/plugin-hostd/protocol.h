@@ -76,6 +76,8 @@
 /* the formats a worker holds, and the words a verb takes for "every one", "all" and "none" */
 #define PHD_FORMAT_LV2  "lv2"
 #define PHD_FORMAT_CLAP "clap"
+/* LV2 plugins run by the CLAP worker through its LV2 adapter: a row of its own, reached by lv2_worker and never by a uri */
+#define PHD_FORMAT_LV2_CLAP "lv2-clap"
 #define PHD_FORMAT_ANY  "*"
 #define PHD_FORMAT_ARGUMENT "<format | " PHD_FORMAT_ANY ">"
 #define PHD_WORD_ALL    "all"
@@ -84,7 +86,18 @@
 /* the built-in formats, X(id, name) in the order of the daemon's table (src/formats.c): the rest of what a format is
  * (its prefix, its worker, the files its pin holds, whether its pin holds in a shared world, who answers its instance
  * verbs) is a field of its row there, and a format joins with a row */
-#define PHD_FORMATS(X) X(LV2, PHD_FORMAT_LV2) X(CLAP, PHD_FORMAT_CLAP)
+#define PHD_FORMATS(X) X(LV2, PHD_FORMAT_LV2) X(CLAP, PHD_FORMAT_CLAP) X(LV2_CLAP, PHD_FORMAT_LV2_CLAP)
+
+/* the programs that can run an LV2 plugin, the values of the lv2_worker setting and of lv2_worker_set: X(id, name, meaning) */
+#define PHD_LV2_WORKER_MOD_HOST  "mod-host"
+#define PHD_LV2_WORKER_CLAP_HOST "omx-clap-host"
+#define PHD_LV2_WORKER_AUTO      "auto"
+#define PHD_LV2_WORKERS(X) \
+    X(MOD_HOST, PHD_LV2_WORKER_MOD_HOST, "the " PHD_FORMAT_LV2 " row: mod_host runs the plugin") \
+    X(CLAP_HOST, PHD_LV2_WORKER_CLAP_HOST, "the " PHD_FORMAT_LV2_CLAP " row: clap_host runs the plugin through its LV2 adapter, " \
+                                           "and a plugin the adapter refuses is refused with a named code") \
+    X(AUTO, PHD_LV2_WORKER_AUTO, "the " PHD_FORMAT_LV2_CLAP " row first; a plugin its adapter refuses is run by the " \
+                                 PHD_FORMAT_LV2 " row from then on, and an event says why")
 
 /* X(id, name, meaning) in the order of the daemon's enum */
 #define PHD_WORKER_STATES(X) \
@@ -134,6 +147,7 @@ static inline int phd_pool_name_valid(const char *name)
 #define PHD_ERR_PIN_BINARY_MISMATCH (-509)
 #define PHD_ERR_PIN_LAYOUT_MISMATCH (-510)
 #define PHD_ERR_NO_PARAM_CONTRACT   (-511)
+#define PHD_ERR_LV2_ADAPTER_REFUSED (-512)
 
 /* X(id, meaning) */
 #define PHD_ERRORS(X) \
@@ -155,7 +169,11 @@ static inline int phd_pool_name_valid(const char *name)
                            "pin does not hold: add is refused and no worker sees it") \
     X(PIN_LAYOUT_MISMATCH, "the worker found the parameter layout after init differs from the layout pin: the " \
                            "instance is destroyed before activate") \
-    X(NO_PARAM_CONTRACT, "the host holds no checked unit and scale for this parameter: fall back to qualification")
+    X(NO_PARAM_CONTRACT, "the host holds no checked unit and scale for this parameter: fall back to qualification") \
+    X(LV2_ADAPTER_REFUSED, "the " PHD_FORMAT_LV2_CLAP " worker's LV2 adapter cannot run this plugin (CV ports, MIDI, a required " \
+                           "feature it lacks, a layout it does not take): the add is refused, the " PHD_EVENT_LV2_ADAPTER_REFUSED \
+                           " event carries the adapter's own reason, and under lv2_worker " PHD_LV2_WORKER_AUTO " the plugin is " \
+                           "run by the " PHD_FORMAT_LV2 " row instead and this code is never answered")
 
 /* ---------------------------------------------------------------- verbs */
 
@@ -172,6 +190,7 @@ static inline int phd_pool_name_valid(const char *name)
 #define PHD_VERB_PIN_EXPECT       "pin_expect"
 #define PHD_VERB_PIN_ACCEPT       "pin_accept"
 #define PHD_VERB_PIN_LAYOUT       "pin_layout"
+#define PHD_VERB_LV2_WORKER_SET   "lv2_worker_set"
 
 /* the words of a pin: <path>=<sha256>, joined by ',', and <scheme>:<sha256> */
 #define PHD_PIN_FILE_SEPARATOR   ","
@@ -246,6 +265,10 @@ static inline int phd_pool_name_valid(const char *name)
       "directory of a single-file format's file), its layout fingerprint and, when it is known, the verdict of its qualification; " \
       "it replaces an earlier pin of the uri. The pin store and a pin_file hold the same line, with or without the verb") \
     X(PIN_CLEAR, PHD_VERB_PIN_CLEAR, "<uri> | " PHD_WORD_ALL, "resp 0", "forget the pin of one plugin, or of every one") \
+    X(LV2_WORKER_SET, PHD_VERB_LV2_WORKER_SET, "<uri> <" PHD_LV2_WORKER_MOD_HOST " | " PHD_LV2_WORKER_CLAP_HOST " | " \
+      PHD_LV2_WORKER_AUTO " | " PHD_WORD_NONE ">", "resp 0", \
+      "the worker of one LV2 plugin, for its adds from now on: it overrides the lv2_worker setting, " PHD_WORD_NONE " takes the " \
+      "override back; -902 for a word that is none of these. Like policy_set it is the controller's, not in the ledger, gone with the daemon") \
     X(PIN_ACCEPT, PHD_VERB_PIN_ACCEPT, "<uri>", "resp 0", \
       "pin_mode " PHD_PIN_MODE_FIRST_USE " only: take the plugin's files as they are now as its pin, after a " \
       PHD_EVENT_PIN_CHANGED " event; the layout is learned again by the next add and the verdict is dropped; -508 when " \
@@ -400,6 +423,7 @@ static inline int phd_track_info_valid(char *const *word, int count)
 #define PHD_EVENT_INSTANCE_QUARANTINED    "instance_quarantined"
 #define PHD_EVENT_SUPERVISOR_GAVE_UP      "supervisor_gave_up"
 #define PHD_EVENT_PIN_CHANGED             "pin_changed"
+#define PHD_EVENT_LV2_ADAPTER_REFUSED     "lv2_adapter_refused"
 /* written by a worker, relayed as it wrote it */
 #define PHD_EVENT_REMOTE_PAGES_CHANGED    "remote_pages_changed"
 
@@ -417,6 +441,7 @@ static inline int phd_track_info_valid(char *const *word, int count)
 #define PHD_EVENT_SUPERVISOR_GAVE_UP_FMT    PHD_EVENT_SUPERVISOR_GAVE_UP " w%d %d %d"
 #define PHD_EVENT_REMOTE_PAGES_CHANGED_FMT  PHD_EVENT_REMOTE_PAGES_CHANGED " %d"
 #define PHD_EVENT_PIN_CHANGED_FMT           PHD_EVENT_PIN_CHANGED " %s %s"
+#define PHD_EVENT_LV2_ADAPTER_REFUSED_FMT   PHD_EVENT_LV2_ADAPTER_REFUSED " %s %s %s"
 
 /* the table of the docs: X(name, fields, meaning), one row per shape of a line */
 #define PHD_EVENTS(X) \
@@ -437,6 +462,11 @@ static inline int phd_track_info_valid(char *const *word, int count)
     X(PHD_EVENT_PIN_CHANGED, "<uri> " PHD_PIN_CHANGED_FILES " | " PHD_PIN_CHANGED_LAYOUT, \
       "an add or a replay of a plugin was refused because its files, or the layout the worker found, differ from its " \
       "pin; the pin is as it was until pin_accept or pin_set") \
+    X(PHD_EVENT_LV2_ADAPTER_REFUSED, "<uri> <reason> " PHD_LV2_WORKER_AUTO " | " PHD_LV2_WORKER_CLAP_HOST, \
+      "the LV2 adapter of the " PHD_FORMAT_LV2_CLAP " worker refused a plugin: <reason> is the hosting.* code the worker wrote " \
+      "(" PHD_WORD_NONE " when it wrote none); the last word is the lv2_worker in force, " PHD_LV2_WORKER_AUTO " for a plugin " \
+      "the " PHD_FORMAT_LV2 " row runs from now on, " PHD_LV2_WORKER_CLAP_HOST " for an add answered " \
+      PHD_STR(PHD_ERR_LV2_ADAPTER_REFUSED)) \
     X(PHD_EVENT_REMOTE_PAGES_CHANGED, "<instance>", \
       "relayed from a worker: the plugin changed its remote pages; read them again")
 
@@ -466,6 +496,7 @@ static inline int phd_track_info_valid(char *const *word, int count)
 
 #define PHD_DEFAULT_MOD_HOST          "mod-host"
 #define PHD_DEFAULT_CLAP_HOST         "omx-clap-host"
+#define PHD_DEFAULT_LV2_WORKER        PHD_LV2_WORKER_MOD_HOST
 #define PHD_DEFAULT_LV2_PATH          "/usr/lib64/lv2:/usr/lib/lv2:/usr/local/lib/lv2"
 #define PHD_DEFAULT_STATE_ROOT        "/tmp"
 #define PHD_DEFAULT_READY_TIMEOUT_MS  5000
@@ -487,6 +518,9 @@ static inline int phd_track_info_valid(char *const *word, int count)
 #define PHD_CONF_STRINGS(X) \
     X(mod_host, path, PHD_DEFAULT_MOD_HOST, "", "worker for " PHD_FORMAT_LV2 " (a name on PATH or a path)") \
     X(clap_host, path, PHD_DEFAULT_CLAP_HOST, "", "worker for " PHD_FORMAT_CLAP) \
+    X(lv2_worker, word, PHD_DEFAULT_LV2_WORKER, "", "who runs an LV2 plugin: mod-host (the mod_host program), omx-clap-host " \
+      "(the clap_host program, through its LV2 adapter, a plugin it cannot run refused with a code) or auto (the adapter " \
+      "first, mod-host for what it refuses); lv2_worker_set overrides it for one plugin") \
     X(lv2_path, pathlist, PHD_DEFAULT_LV2_PATH, "LV2_PATH", "where bundles are searched") \
     X(state_root, path, PHD_DEFAULT_STATE_ROOT, "XDG_RUNTIME_DIR", "the daemon's checkpoints and worker logs") \
     X(pin_mode, word, PHD_DEFAULT_PIN_MODE, "", "strict or first-use, while require_pins is 1: first-use records the pin " \

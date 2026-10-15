@@ -1437,4 +1437,245 @@ def a_pin_file_is_loaded_with_its_verdict_and_a_corrupt_hash_is_refused():
         p.close()
 
 
+# ---------------------------------------------------------------- who runs an LV2 plugin
+
+class Programs:
+    """two programs for the two workers, so a test sees which one ran a plugin: each wrapper notes its pid, its name and the
+    LV2_PATH it was started with, then becomes the fake worker"""
+
+    def __init__(self):
+        self.dir = tempfile.mkdtemp(prefix="plugin-hostd-programs.")
+        self.notes = os.path.join(self.dir, "notes")
+        open(self.notes, "w").close()
+        self.mod_host = self.wrapper("mod-host")
+        self.clap_host = self.wrapper("omx-clap-host")
+
+    def wrapper(self, name):
+        path = os.path.join(self.dir, name)
+        write(path, ('#!/bin/sh\necho "$$ %s $LV2_PATH" >> %s\nexec %s "$@"\n' % (name, self.notes, FAKE)).encode())
+        os.chmod(path, 0o755)
+        return path
+
+    def conf(self, **more):
+        c = {"mod_host": self.mod_host, "clap_host": self.clap_host}
+        c.update(more)
+        return c
+
+    def of(self, pid):
+        """(program, LV2_PATH) of a worker, by pid"""
+        with open(self.notes) as f:
+            for line in f:
+                parts = line.rstrip("\n").split(" ", 2)
+                if parts[0] == str(pid):
+                    return parts[1], parts[2] if len(parts) > 2 else ""
+        raise Fail("no program started as pid %d" % pid)
+
+    def close(self):
+        shutil.rmtree(self.dir, ignore_errors=True)
+
+
+def lv2_run(**conf):
+    """a daemon with both programs; returns (daemon, programs, log path of every command a worker received)"""
+    programs = Programs()
+    log = os.path.join(programs.dir, "commands.log")
+    return Daemon(EXE, FAKE, conf=programs.conf(**conf), env={"FAKE_LOG": log}), programs, log
+
+
+def adds_of(log, pid):
+    return [c for c in sent_to(log, pid) if c.startswith("add ")]
+
+
+@test
+def lv2_worker_defaults_to_mod_host_on_the_lv2_row():
+    d, programs, log = lv2_run()
+    try:
+        d.expect("add lv2:urn:test:a 0", "resp 0")
+        _, w = d.holder(0)
+        check(w["fmt"] == "lv2", "the default row is lv2: %s" % w)
+        check(programs.of(w["pid"])[0] == "mod-host", "mod-host runs it, not %s" % programs.of(w["pid"])[0])
+        check(adds_of(log, w["pid"]) == ["add urn:test:a 0"], "mod-host is given the bare uri: %s" % adds_of(log, w["pid"]))
+    finally:
+        d.close()
+        programs.close()
+
+
+@test
+def lv2_worker_omx_clap_host_runs_the_plugin_in_the_clap_program_on_the_adapter_row():
+    d, programs, log = lv2_run(lv2_worker="omx-clap-host")
+    try:
+        d.expect("add lv2:urn:test:a 0", "resp 0")
+        d.expect("add urn:test:b 1", "resp 1")
+        for i, uri in ((0, "urn:test:a"), (1, "urn:test:b")):
+            _, w = d.holder(i)
+            check(w["fmt"] == "lv2-clap", "the adapter row: %s" % w)
+            check(programs.of(w["pid"])[0] == "omx-clap-host", "omx-clap-host runs it, not %s" % programs.of(w["pid"])[0])
+            check(adds_of(log, w["pid"]) == ["add lv2:%s %d" % (uri, i)],
+                  "the adapter worker is given the uri with its lv2: prefix: %s" % adds_of(log, w["pid"]))
+        d.expect("add clap:fake#c 2", "resp 2")
+        check(d.holder(2)[1]["fmt"] == "clap", "a CLAP plugin is not affected")
+    finally:
+        d.close()
+        programs.close()
+
+
+
+@test
+def a_plugin_can_be_given_its_own_lv2_worker_and_taken_back():
+    d, programs, log = lv2_run()
+    try:
+        d.expect("lv2_worker_set lv2:urn:test:b omx-clap-host", "resp 0")
+        d.expect("add urn:test:a 0", "resp 0")
+        d.expect("add urn:test:b 1", "resp 1")
+        check(d.holder(0)[1]["fmt"] == "lv2" and d.holder(1)[1]["fmt"] == "lv2-clap",
+              "the override moves only its plugin: %s" % d.workers())
+        d.expect("lv2_worker_set urn:test:b -", "resp 0")
+        d.expect("add urn:test:b 2", "resp 2")
+        check(d.holder(2)[1]["fmt"] == "lv2", "the override taken back, the setting holds again: %s" % d.workers())
+        d.expect("lv2_worker_set urn:test:b nonsense", "resp -902")
+        d.expect("lv2_worker_set urn:test:b", "resp -902")
+        d.expect("lv2_worker_set urn:test:b -", "resp 0")
+    finally:
+        d.close()
+        programs.close()
+    d, programs, log = lv2_run(lv2_worker="omx-clap-host")
+    try:
+        d.expect("lv2_worker_set urn:test:a mod-host", "resp 0")
+        d.expect("add urn:test:a 0", "resp 0")
+        d.expect("add urn:test:b 1", "resp 1")
+        check(d.holder(0)[1]["fmt"] == "lv2" and d.holder(1)[1]["fmt"] == "lv2-clap",
+              "the override can move a plugin the other way: %s" % d.workers())
+    finally:
+        d.close()
+        programs.close()
+
+
+@test
+def the_adapter_row_answers_the_instance_verbs_from_its_worker_and_replays_track_info():
+    d, programs, log = lv2_run(lv2_worker="omx-clap-host")
+    try:
+        d.expect("add lv2:urn:test:a 0", "resp 0")
+        d.expect(TRACK, "resp 0")
+        d.expect("remote_pages 0", "resp 2")
+        d.expect("remote_page_get 0 0", 'resp 0 7 "Main" "Page \\"A\\"" 0 2 - - - - - -')
+        d.expect("param_info 0 0", "resp 0 ms linear 1 2000 350 1 time_ms")
+        _, w = d.holder(0)
+        got = [c for c in sent_to(log, w["pid"]) if c.split(" ", 1)[0] in VERBS]
+        check(got == [TRACK, "remote_pages 0", "remote_page_get 0 0", "param_info 0 0"],
+              "the adapter's worker gets each verb as sent, where mod-host gets none: %s" % got)
+        mark = d.mark()
+        os.kill(w["pid"], signal.SIGKILL)
+        d.wait_event("instance_restored 0 ", since=mark)
+        sent = sent_to(log, d.holder(0)[1]["pid"])
+        check([c.split(" ", 1)[0] for c in sent][:2] == ["add", "track_info"] and TRACK in sent,
+              "the respawned adapter worker is given its track_info after the add: %s" % sent)
+    finally:
+        d.close()
+        programs.close()
+
+
+@test
+def a_plugin_the_adapter_refuses_answers_a_named_code_and_the_event_names_the_reason():
+    d, programs, log = lv2_run(lv2_worker="omx-clap-host")
+    try:
+        mark = d.mark()
+        d.expect("add lv2:urn:test:adapter_cv 0", resp("LV2_ADAPTER_REFUSED"))
+        event = d.wait_event("lv2_adapter_refused ", since=mark)
+        check(event == "lv2_adapter_refused urn:test:adapter_cv hosting.features.cv-ports omx-clap-host", "the event: %r" % event)
+        check(d.workers() == {}, "the worker that refused is gone, no instance is left: %s" % d.workers())
+        d.expect("add lv2:urn:test:fine 1", "resp 1")
+        check(d.holder(1)[1]["fmt"] == "lv2-clap", "another plugin still runs on the adapter")
+        d.expect("lv2_worker_set urn:test:adapter_cv mod-host", "resp 0")
+        d.expect("add lv2:urn:test:adapter_cv 2", "resp 2")
+        check(d.holder(2)[1]["fmt"] == "lv2", "the refused plugin runs on mod-host once it is placed there")
+        check(CODE_OF_REFUSAL == -512, "the code is stable: %s" % CODE_OF_REFUSAL)
+    finally:
+        d.close()
+        programs.close()
+
+
+CODE_OF_REFUSAL = harness.CODE["LV2_ADAPTER_REFUSED"]
+
+
+@test
+def under_auto_a_plugin_the_adapter_refuses_runs_on_mod_host_and_the_adapter_is_not_asked_again():
+    d, programs, log = lv2_run(lv2_worker="auto")
+    try:
+        d.expect("add lv2:urn:test:fine 0", "resp 0")
+        check(d.holder(0)[1]["fmt"] == "lv2-clap", "auto asks the adapter first: %s" % d.workers())
+        mark = d.mark()
+        d.expect("add lv2:urn:test:adapter_cv 1", "resp 1")
+        event = d.wait_event("lv2_adapter_refused ", since=mark)
+        check(event == "lv2_adapter_refused urn:test:adapter_cv hosting.features.cv-ports auto", "the event: %r" % event)
+        _, w = d.holder(1)
+        check(w["fmt"] == "lv2" and programs.of(w["pid"])[0] == "mod-host", "the refused plugin runs on mod-host: %s" % w)
+        check(adds_of(log, w["pid"]) == ["add urn:test:adapter_cv 1"], "mod-host is given the bare uri")
+        mark = d.mark()
+        d.expect("add lv2:urn:test:adapter_cv 2", "resp 2")
+        check(d.holder(2)[1]["fmt"] == "lv2", "the second add goes straight to mod-host")
+        asked = [c for c in sent_to(log) if c.startswith("add lv2:urn:test:adapter_cv")]
+        check(len(asked) == 1, "the adapter was asked about the plugin once: %s" % asked)
+        check(not [e for e in d.events[mark:] if e.startswith("lv2_adapter_refused")], "and said why once")
+    finally:
+        d.close()
+        programs.close()
+    # the CLAP program is not installed: auto runs the plugin on mod-host, an explicit omx-clap-host has no backend
+    d, programs, log = lv2_run(lv2_worker="auto", clap_host="/nonexistent/omx-clap-host")
+    try:
+        d.expect("add lv2:urn:test:fine 0", "resp 0")
+        check(d.holder(0)[1]["fmt"] == "lv2", "auto without the adapter's program is mod-host: %s" % d.workers())
+        d.expect("lv2_worker_set urn:test:fine omx-clap-host", "resp 0")
+        d.expect("add lv2:urn:test:fine 1", resp("NO_BACKEND"))
+    finally:
+        d.close()
+        programs.close()
+
+
+@test
+def lv2_worker_must_be_one_of_the_declared_values():
+    programs = Programs()
+    try:
+        conf = os.path.join(programs.dir, "bad.conf")
+        write(conf, b"lv2_worker nonsense\n")
+        p = subprocess.run([EXE, "-n", "-p", "0", "-c", conf], capture_output=True, text=True, timeout=10)
+        check(p.returncode != 0 and "lv2_worker 'nonsense' is not one of: mod-host omx-clap-host auto" in p.stderr,
+              "the daemon refuses to start: %s %r" % (p.returncode, p.stderr))
+    finally:
+        programs.close()
+
+
+@test
+def the_adapter_row_keeps_the_pin_rules_of_the_lv2_row_and_checks_no_layout():
+    programs = Programs()
+    p = Plugins()
+    d = p.daemon(conf=programs.conf(lv2_worker="omx-clap-host"))
+    try:
+        d.expect("add %s 0" % LV2_URI, resp("PIN_ABSENT"))
+        check(d.workers() == {}, "an unpinned plugin starts no worker on the adapter row either")
+        d.expect(p.lv2_pin(), "resp 0")
+        # pin_pool: the world holds one bundle, so a pool is refused and a default that resolves to one is placed own
+        d.expect("add %s 0 pool:fx" % LV2_URI, resp("PLACEMENT_INVALID"))
+        d.expect("policy_set lv2-clap pool:fx", "resp 0")
+        d.expect("add %s 1 default" % LV2_URI, "resp 1")
+        d.expect("add %s 2" % LV2_URI, "resp 2")
+        for i in (1, 2):
+            _, w = d.holder(i)
+            check(w["place"] == "own" and w["inst"] == [i] and w["fmt"] == "lv2-clap", "own, on the adapter row: %s" % d.workers())
+        # layout_check: the layout of an LV2 pin is the ports', so the worker is never asked to check one or to report one
+        check(p.verbs("pin_expect") == [] and p.verbs("pin_layout") == [],
+              "no layout travels to the adapter's worker: %s" % p.received())
+        # world_scope: the worker's LV2_PATH is a directory of one link, to the plugin's bundle
+        _, w = d.holder(1)
+        program, world = programs.of(w["pid"])
+        check(program == "omx-clap-host" and world != p.lv2_dir and os.path.exists(os.path.join(world, "pinned.lv2", "manifest.ttl")),
+              "the world is narrowed to the bundle: %s %s" % (program, world))
+        check(os.listdir(world) == ["pinned.lv2"], "and holds nothing else: %s" % os.listdir(world))
+        # the pin is checked on every add as it is for the lv2 row
+        write(os.path.join(p.bundle, "pinned.so"), b"swapped")
+        d.expect("add %s 3" % LV2_URI, resp("PIN_BINARY_MISMATCH"))
+    finally:
+        d.close()
+        p.close()
+        programs.close()
+
+
 sys.exit(run_tests(TESTS))

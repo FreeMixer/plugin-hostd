@@ -89,6 +89,30 @@ static int fake3_collect(const char *uri, const char *search, char *root, size_t
     return SUCCESS;
 }
 
+/* fake3 hands its uris to fake4 while g_route is set: a row reached by another row, as the lv2 row hands its uris to the adapter's */
+static int g_route;
+
+static const char *fake3_route(const conf_t *conf, const char *uri)
+{
+    (void)conf;
+    (void)uri;
+    return g_route ? "fake4" : NULL;
+}
+
+static format_t fake4(void)
+{
+    format_t f;
+
+    memset(&f, 0, sizeof(f));
+    f.name = "fake4";
+    f.routed = 1;
+    f.worker_prefix = "wp:";
+    f.worker = fake3_worker;
+    f.pin_collect = fake3_collect;
+    f.native_instance_verbs = 1;
+    return f;
+}
+
 static char *fake3_narrow(const conf_t *conf, const char *dir, const char *uri)
 {
     (void)conf;
@@ -106,6 +130,7 @@ static format_t fake3(void)
     f.worker = fake3_worker;
     f.pin_collect = fake3_collect;
     f.native_instance_verbs = 1;
+    f.route = fake3_route;
     return f;
 }
 
@@ -151,6 +176,15 @@ static void capabilities_are_required(void)
     f = fake3();
     f.fallback = 1;
     rejected_row(&f, "a second fallback is refused");
+    f = fake4();
+    f.prefix = "fake4:";
+    rejected_row(&f, "a routed row that also claims uris by a prefix is refused");
+    f = fake4();
+    f.fallback = 1;
+    rejected_row(&f, "a routed row that is also a fallback is refused");
+    f = fake4();
+    f.worker_prefix = "";
+    rejected_row(&f, "a row whose worker is given an empty prefix is refused");
 }
 
 static void write_file(const char *path, const char *text)
@@ -241,6 +275,18 @@ int main(int argc, char **argv)
     check_reply(sup_add(uri, 1, NULL, NULL), "resp -509", "pin: a changed file of the new format is refused");
     write_file(plugin, "third format, build one");
     check_reply(sup_add(uri, 1, NULL, NULL), "resp 1", "pin: the file back, the add passes");
+
+    /* a row reached by routing: no uri's prefix claims it, another row hands uris to it, and its worker is given them with its prefix */
+    f = fake4();
+    check(formats_register(&f) == formats_count() - 1, "a routed row joins the table");
+    check(format_of_uri("fake4:x", NULL) != format_by_name("fake4"), "no uri reaches a routed row by itself");
+    check(format_route(&conf, index, uri) == index, "a row that routes nowhere runs its own uris");
+    g_route = 1;
+    check(format_route(&conf, index, uri) == format_by_name("fake4"), "a row that routes names the row that runs the uri");
+    check_reply(sup_add(uri, 5, NULL, NULL), "resp 5", "add: a routed uri is added to the routed row's worker");
+    check(contains(sup_worker_list(), ":fake4:"), "the worker list names the routed row");
+    check_reply(sup_remove(5), "resp 0", "remove: the routed instance goes");
+    g_route = 0;
 
     /* policy and environment resolve the new name through the table */
     check_reply(sup_policy_set("fake3", "pool:shared"), "resp 0", "policy: the new format's name is accepted");

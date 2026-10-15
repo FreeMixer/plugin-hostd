@@ -35,6 +35,12 @@ typedef struct FORMAT_T {
     const char *prefix;             /* the uri says it is this format with this prefix; NULL for none */
     int strip_prefix;               /* the worker is given the uri without the prefix */
     int fallback;                   /* the format of a uri no prefix claims; one format only */
+    int routed;                     /* no uri reaches it by its prefix: another row's `route` hands uris to it */
+    const char *worker_prefix;      /* put before the uri the worker is given, NULL for nothing */
+    /* the row a uri of this format is run by, as a name of the table, or NULL for this one; malloc'd nothing */
+    const char *(*route)(const conf_t *conf, const char *uri);
+    /* the worker runs the plugin through an adapter that may refuse it: its instantiation error is PHD_ERR_LV2_ADAPTER_REFUSED */
+    int adapter;
 
     const char *(*worker)(const conf_t *conf);  /* the program that serves it */
     const char *(*search)(const conf_t *conf);  /* where its plugins are searched, NULL for nowhere */
@@ -65,6 +71,9 @@ int format_by_name(const char *name);
 /* the format a uri belongs to, and in *worker_uri the uri as the worker is given it */
 int format_of_uri(const char *uri, const char **worker_uri);
 
+/* the row that runs the plugin: the format's own, or the one its `route` names; -1 when a route names no row */
+int format_route(const conf_t *conf, int format, const char *uri);
+
 /* the pin root and files of a CLAP: the directory of the .clap and the file */
 int clap_pin_collect(const char *uri, const char *search, char *root, size_t size, names_t *files);
 
@@ -72,5 +81,17 @@ int clap_pin_collect(const char *uri, const char *search, char *root, size_t siz
 int lv2_pin_collect(const char *uri, const char *search, char *root, size_t size, names_t *files);
 char *lv2_narrow_world(const conf_t *conf, const char *dir, const char *uri);
 char *lv2_param_info(int id, const char *symbol);
+
+/* which LV2 row runs a uri: the lv2_worker_set override of the uri, else the lv2_worker setting; auto is the adapter's row
+ * until the adapter has refused the uri. NULL names the lv2 row itself. */
+const char *lv2_route(const conf_t *conf, const char *uri);
+/* lv2_worker_set: the worker of one uri, or PHD_WORD_NONE to take the override back; -1 for a word that is no worker */
+int lv2_worker_pick(const char *uri, const char *worker);
+/* the adapter refused the uri: auto runs it by the lv2 row from now on */
+void lv2_adapter_refused(const char *uri);
+/* whether the lv2_worker in force for the uri is auto */
+int lv2_worker_is_auto(const conf_t *conf, const char *uri);
+/* the hosting.* code a worker wrote in its log, "-" for none, in buf */
+void lv2_refusal_reason(const char *logfile, char *buf, size_t size);
 
 #endif

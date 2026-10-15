@@ -97,6 +97,7 @@ The settings live in a file, `-c`, `$PLUGIN_HOSTD_CONF` or
 |---|---|---|
 | `mod_host` | `mod-host` | worker for lv2 (a name on PATH or a path) |
 | `clap_host` | `omx-clap-host` | worker for clap |
+| `lv2_worker` | `mod-host` | who runs an LV2 plugin: mod-host (the mod_host program), omx-clap-host (the clap_host program, through its LV2 adapter, a plugin it cannot run refused with a code) or auto (the adapter first, mod-host for what it refuses); lv2_worker_set overrides it for one plugin |
 | `lv2_path` | `$LV2_PATH`, else `/usr/lib64/lv2:/usr/lib/lv2:/usr/local/lib/lv2` | where bundles are searched |
 | `state_root` | `$XDG_RUNTIME_DIR`, else `/tmp` | the daemon's checkpoints and worker logs |
 | `pin_mode` | `first-use` | strict or first-use, while require_pins is 1: first-use records the pin of a plugin on its first add, strict admits only a plugin a controller or a pin_file pinned |
@@ -156,6 +157,7 @@ Verbs the daemon adds
 | `worker_env` | `<format \| *> <cpu-list\|-> <nice\|->` | `resp 0` | the cpu list and the nice value of the workers of a format, at spawn and on the ones running |
 | `pin_set` | `<uri> <path>=<sha256>[,<path>=<sha256>...] <scheme>:<sha256> [verdict=<verdict>]` | `resp 0` | the pin of one plugin: the SHA-256 of every file the host loads for it, a path relative to the bundle (the directory of a single-file format's file), its layout fingerprint and, when it is known, the verdict of its qualification; it replaces an earlier pin of the uri. The pin store and a pin_file hold the same line, with or without the verb |
 | `pin_clear` | `<uri> \| all` | `resp 0` | forget the pin of one plugin, or of every one |
+| `lv2_worker_set` | `<uri> <mod-host \| omx-clap-host \| auto \| ->` | `resp 0` | the worker of one LV2 plugin, for its adds from now on: it overrides the lv2_worker setting, - takes the override back; -902 for a word that is none of these. Like policy_set it is the controller's, not in the ledger, gone with the daemon |
 | `pin_accept` | `<uri>` | `resp 0` | pin_mode first-use only: take the plugin's files as they are now as its pin, after a pin_changed event; the layout is learned again by the next add and the verdict is dropped; -508 when the plugin has no pin, -509 when its files cannot be collected, -902 under pin_mode strict |
 | `pin_layout` | `<instance>` | `resp 0 <scheme>:<sha256>` | sent by the daemon to a worker of a format that checks layouts, after it accepted the add of a plugin whose layout pin is still unknown: the layout the worker found after init, which the daemon records in the pin |
 | `pin_expect` | `<instance> <scheme>:<sha256>` | `resp 0` | sent by the daemon to a worker of a format that checks layouts, just before the instance's add: the layout pin that add checks after init and before activate; any other reply than resp 0 refuses the add with that code, and the add is never forwarded |
@@ -203,6 +205,7 @@ Error codes the daemon adds to mod-host's:
 | `-509` | `PHD_ERR_PIN_BINARY_MISMATCH` | a pinned file is missing or its SHA-256 differs, or the plugin's manifest names a file the pin does not hold: add is refused and no worker sees it |
 | `-510` | `PHD_ERR_PIN_LAYOUT_MISMATCH` | the worker found the parameter layout after init differs from the layout pin: the instance is destroyed before activate |
 | `-511` | `PHD_ERR_NO_PARAM_CONTRACT` | the host holds no checked unit and scale for this parameter: fall back to qualification |
+| `-512` | `PHD_ERR_LV2_ADAPTER_REFUSED` | the lv2-clap worker's LV2 adapter cannot run this plugin (CV ports, MIDI, a required feature it lacks, a layout it does not take): the add is refused, the lv2_adapter_refused event carries the adapter's own reason, and under lv2_worker auto the plugin is run by the lv2 row instead and this code is never answered |
 <!-- END GENERATED protocol:errors -->
 
 A worker's own refusal is returned as it said it. An `add` that killed its worker answers mod-host's `-102`.
@@ -232,6 +235,7 @@ Events on the feedback port, one NUL-terminated line each:
 | `instance_quarantined` | `<instance> <worker>` | the culprit of a pool death, placed own until cleared |
 | `supervisor_gave_up` | `<worker> <deaths> <window_ms>` | the storm bound is spent; respawning ends |
 | `pin_changed` | `<uri> files \| layout` | an add or a replay of a plugin was refused because its files, or the layout the worker found, differ from its pin; the pin is as it was until pin_accept or pin_set |
+| `lv2_adapter_refused` | `<uri> <reason> auto \| omx-clap-host` | the LV2 adapter of the lv2-clap worker refused a plugin: <reason> is the hosting.* code the worker wrote (- when it wrote none); the last word is the lv2_worker in force, auto for a plugin the lv2 row runs from now on, omx-clap-host for an add answered (-512) |
 | `remote_pages_changed` | `<instance>` | relayed from a worker: the plugin changed its remote pages; read them again |
 <!-- END GENERATED protocol:events -->
 
@@ -324,4 +328,26 @@ a pinned plugin must run in a worker of its own (`pinned_own_only`) and who answ
 (`native_instance_verbs`, else `param_info`). Adding a format is a row and its worker; `formats_register` refuses a row
 with a capability missing and says which. a test registers a third format in the test and takes it through
 `add`, `param_set`, `pin_set` and `remove`.
+
+Who runs an LV2 plugin
+----------------------
+
+`lv2_worker` chooses the program that runs LV2 plugins: `mod-host` (the default, the `mod_host` program), `omx-clap-host`
+(the `clap_host` program, through its LV2 adapter) or `auto` (the adapter first, mod-host for a plugin the adapter
+refuses). `lv2_worker_set <uri> <mod-host|omx-clap-host|auto|->` overrides it for one plugin from then on, and `-` takes
+the override back. The two programs are two rows of the table, `lv2` and `lv2-clap`, so `policy_set`, `worker_env` and
+`worker_list` name them like any format. The adapter row differs from the mod-host row in these ways, each held by a test:
+
+| capability | `lv2` (mod-host) | `lv2-clap` (omx-clap-host) |
+|---|---|---|
+| `worker` | `mod_host` | `clap_host`, given the uri with its `lv2:` prefix |
+| `native_instance_verbs` | no: the daemon answers `track_info`, `remote_pages`, `remote_page_get` and `param_info` | yes: the worker answers them from the plugin, and `track_info` is replayed to it after a respawn |
+| `layout_check` | no | no: an LV2 pin holds the layout of the plugin's ports, not of the CLAP parameters the adapter presents, so `pin_expect` would refuse every pin `plugin-qualify` wrote |
+| `world_scope` | one bundle, narrowed: `LV2_PATH` holds a link to the plugin's bundle | the same: the adapter opens bundles through the LV2 world |
+| `pin_pool` | no: a pinned plugin is placed `own` | the same, for the same reason |
+
+An adapter handles a subset of LV2. When it refuses a plugin, the add under `omx-clap-host` answers `-512`
+(`LV2_ADAPTER_REFUSED`) and the `lv2_adapter_refused` event carries the `hosting.*` code the worker wrote; under `auto`
+the add is made again on the `lv2` row, the plugin stays there, the event is sent once, and the controller never sees
+`-512`. Under `auto` an `omx-clap-host` that is not installed is not an error either: the add goes to the `lv2` row.
 
