@@ -1315,6 +1315,49 @@ def a_corrupt_store_line_is_kept_announced_and_its_plugin_is_not_learned_again()
 
 
 @test
+def an_overlong_store_line_is_one_held_line_and_its_tail_is_not_a_pin():
+    p = Plugins()
+    os.makedirs(os.path.dirname(p.store))
+    # a line longer than the daemon's read buffer whose tail, cut off where a buffer would end, is a good pin
+    long_line = "pin_set junk " + "x" * 9000 + " " + p.clap_pin().split(" ", 1)[1]
+    write(p.store, (long_line + "\n").encode())
+    d = p.daemon()
+    try:
+        check("too long" in d.log(), "the overlong line is announced: %s" % d.log()[:300])
+        d.expect("add %s 0" % p.clap_uri, resp("PIN_ABSENT"))
+    finally:
+        d.close()
+    d = p.daemon(conf={"pin_mode": "first-use"})
+    try:
+        d.expect("add %s 1" % LV2_URI, "resp 1")
+        with open(p.store) as f:
+            lines = f.read().split("\n")
+        check(lines[0] == long_line and len([l for l in lines if l]) == 2,
+              "the overlong line survives the save as one line: %d lines" % len(lines))
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def a_pin_line_too_long_for_pin_set_is_refused_when_learned():
+    p = Plugins()
+    names = ["f%03d-%s.ttl" % (n, "n" * 40) for n in range(120)]
+    seealso = " ;\n    ".join("rdfs:seeAlso <%s>" % n for n in names)
+    for n in names:
+        write(os.path.join(p.bundle, n), b"x")
+    write(os.path.join(p.bundle, "manifest.ttl"), (MANIFEST.replace("rdfs:seeAlso <pinned.ttl>", seealso) % LV2_URI).encode())
+    d = p.daemon(conf={"pin_mode": "first-use"})
+    try:
+        d.expect("add %s 0" % LV2_URI, resp("PIN_BINARY_MISMATCH"))
+        check("too many files for one pin line" in d.log(), "the refusal is announced: %s" % d.log())
+        check(store_lines(p) == [], "nothing too long is stored")
+    finally:
+        d.close()
+        p.close()
+
+
+@test
 def a_missing_store_is_a_first_run_and_says_nothing():
     p = Plugins()
     check(not os.path.exists(p.store), "no store yet")
