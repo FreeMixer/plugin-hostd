@@ -1,3 +1,17 @@
+plugin-hostd (0.2.0) unstable; urgency=medium
+
+  * Pins are learned on first use: the first time a plugin is added its pin
+    is recorded in a pin store, and a later change of the plugin or its
+    layout is announced instead of passing silently.
+  * pin_file names the pin store; saves are fsync'd so a crash never loses a
+    pin, and a corrupt or overlong store line is refused rather than trusted.
+  * One format table holds a row per plugin format: the pins and the
+    supervisor read the row, so a new format needs no changes elsewhere, and
+    the protocol names capabilities instead of formats.
+  * The packages require omx-clap-host-tests as a floor only, no ceiling.
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Thu, 15 Oct 2026 18:00:00 +0000
+
 plugin-hostd (0.1.7) unstable; urgency=medium
 
   * The build needs omx-clap-core 0.7.
