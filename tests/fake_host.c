@@ -22,9 +22,12 @@
  * its parameters as text, saves and loads them as state, and dies or hangs on cue.
  *
  *   add <uri> <n> [client]      "crash_on_add" in the uri aborts, "refuse" in it answers -101,
- *                               "adapter_cv" in an lv2: uri (the adapter's, mod-host is given it bare) writes hosting.features.cv-ports on stderr and answers the
- *                               instantiation error, as omx-clap-host does for a plugin its LV2 adapter refuses,
- *                               "nostate" in it makes an instance that never writes state
+ *                               "nostate" in it makes an instance that never writes state; an lv2: uri is the
+ *                               adapter's (mod-host is given it bare), and the fake answers it as omx-clap-host does:
+ *                               "adapter_midi", "adapter_missing", "adapter_wide" or "adapter_unrealised" in it is a
+ *                               plugin the adapter refuses, "resp -102 <hosting code>" and "<uri>: <hosting code>" on
+ *                               stderr; "adapter_nocode" is a refusal that names no code, "resp -102" alone;
+ *                               "absent" in it is a plugin no bundle of the world holds, "resp -101" and no code
  *   param_set <n> crash <v>     v other than 0 aborts 30 ms after the reply (FAKE_CRASH_AFTER_MS to say another), as a
  *                               plugin does in a callback
  *                               (once only when FAKE_CRASH_ONCE names a file: it is created by the crash)
@@ -195,6 +198,25 @@ static void answer(int fd, const char *fmt, ...)
     socket_send(fd, buffer, strlen(buffer) + 1);
 }
 
+/* the hosting code omx-clap-host's LV2 adapter refuses a plugin with, by a word in its uri: "" for a refusal that
+ * names none, NULL for a plugin it takes */
+static const char *adapter_refusal(const char *uri)
+{
+    static const char *const refusal[][2] = {
+        { "adapter_midi", "hosting.features.midi-in-fed-empty" },
+        { "adapter_missing", "hosting.features.missing" },
+        { "adapter_wide", "hosting.topology.wider-than-strip" },
+        { "adapter_unrealised", "hosting.no-realisation" },
+        { "adapter_nocode", "" },
+    };
+    size_t n;
+
+    for (n = 0; n < sizeof(refusal) / sizeof(refusal[0]); n++)
+        if (strstr(uri, refusal[n][0]))
+            return refusal[n][1];
+    return NULL;
+}
+
 static void receive(msg_t *msg)
 {
     char *line = strndup(msg->data, msg->data_size), *copy = strdup(line), *tok[16], *save = NULL, *t;
@@ -238,12 +260,24 @@ static void receive(msg_t *msg)
         layout_pin(mine, sizeof(mine));
         if (strstr(tok[1], "crash_on_add"))
             crash();
-        if (strstr(tok[1], "adapter_cv") && !strncmp(tok[1], "lv2:", 4))
+        if (!strncmp(tok[1], "lv2:", 4) && adapter_refusal(tok[1]))
         {
-            /* what omx-clap-host does for a plugin its LV2 adapter cannot run: the hosting code on stderr, an instantiation error */
-            fprintf(stderr, "%s: hosting.features.cv-ports: the plugin has a CV port\n", tok[1]);
+            /* what omx-clap-host does for a plugin its LV2 adapter cannot run: the code on stderr and after the error */
+            const char *code = adapter_refusal(tok[1]);
+
+            fprintf(stderr, "%s: %s\n", tok[1] + 4, *code ? code : "its parameters cannot be read");
             fflush(stderr);
-            answer(fd, "resp %d", ERR_HOST_INSTANTIATION);
+            if (*code)
+                answer(fd, "resp %d %s", ERR_HOST_INSTANTIATION, code);
+            else
+                answer(fd, "resp %d", ERR_HOST_INSTANTIATION);
+        }
+        else if (!strncmp(tok[1], "lv2:", 4) && strstr(tok[1], "absent"))
+        {
+            /* and for a uri no bundle on its LV2_PATH holds: the invalid uri, with no code */
+            fprintf(stderr, "%s: no bundle on the LV2 path holds it\n", tok[1] + 4);
+            fflush(stderr);
+            answer(fd, "resp %d", ERR_HOST_INVALID_URI);
         }
         else if (strstr(tok[1], "refuse"))
             answer(fd, "resp -101");

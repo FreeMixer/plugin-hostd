@@ -1578,14 +1578,14 @@ def a_plugin_the_adapter_refuses_answers_a_named_code_and_the_event_names_the_re
     d, programs, log = lv2_run(lv2_worker="omx-clap-host")
     try:
         mark = d.mark()
-        d.expect("add lv2:urn:test:adapter_cv 0", resp("LV2_ADAPTER_REFUSED"))
+        d.expect("add lv2:urn:test:adapter_midi 0", resp("LV2_ADAPTER_REFUSED"))
         event = d.wait_event("lv2_adapter_refused ", since=mark)
-        check(event == "lv2_adapter_refused urn:test:adapter_cv hosting.features.cv-ports omx-clap-host", "the event: %r" % event)
+        check(event == "lv2_adapter_refused urn:test:adapter_midi hosting.features.midi-in-fed-empty omx-clap-host", "the event: %r" % event)
         check(d.workers() == {}, "the worker that refused is gone, no instance is left: %s" % d.workers())
         d.expect("add lv2:urn:test:fine 1", "resp 1")
         check(d.holder(1)[1]["fmt"] == "lv2-clap", "another plugin still runs on the adapter")
-        d.expect("lv2_worker_set urn:test:adapter_cv mod-host", "resp 0")
-        d.expect("add lv2:urn:test:adapter_cv 2", "resp 2")
+        d.expect("lv2_worker_set urn:test:adapter_midi mod-host", "resp 0")
+        d.expect("add lv2:urn:test:adapter_midi 2", "resp 2")
         check(d.holder(2)[1]["fmt"] == "lv2", "the refused plugin runs on mod-host once it is placed there")
         check(CODE_OF_REFUSAL == -512, "the code is stable: %s" % CODE_OF_REFUSAL)
     finally:
@@ -1603,16 +1603,16 @@ def under_auto_a_plugin_the_adapter_refuses_runs_on_mod_host_and_the_adapter_is_
         d.expect("add lv2:urn:test:fine 0", "resp 0")
         check(d.holder(0)[1]["fmt"] == "lv2-clap", "auto asks the adapter first: %s" % d.workers())
         mark = d.mark()
-        d.expect("add lv2:urn:test:adapter_cv 1", "resp 1")
+        d.expect("add lv2:urn:test:adapter_midi 1", "resp 1")
         event = d.wait_event("lv2_adapter_refused ", since=mark)
-        check(event == "lv2_adapter_refused urn:test:adapter_cv hosting.features.cv-ports auto", "the event: %r" % event)
+        check(event == "lv2_adapter_refused urn:test:adapter_midi hosting.features.midi-in-fed-empty auto", "the event: %r" % event)
         _, w = d.holder(1)
         check(w["fmt"] == "lv2" and programs.of(w["pid"])[0] == "mod-host", "the refused plugin runs on mod-host: %s" % w)
-        check(adds_of(log, w["pid"]) == ["add urn:test:adapter_cv 1"], "mod-host is given the bare uri")
+        check(adds_of(log, w["pid"]) == ["add urn:test:adapter_midi 1"], "mod-host is given the bare uri")
         mark = d.mark()
-        d.expect("add lv2:urn:test:adapter_cv 2", "resp 2")
+        d.expect("add lv2:urn:test:adapter_midi 2", "resp 2")
         check(d.holder(2)[1]["fmt"] == "lv2", "the second add goes straight to mod-host")
-        asked = [c for c in sent_to(log) if c.startswith("add lv2:urn:test:adapter_cv")]
+        asked = [c for c in sent_to(log) if c.startswith("add lv2:urn:test:adapter_midi")]
         check(len(asked) == 1, "the adapter was asked about the plugin once: %s" % asked)
         check(not [e for e in d.events[mark:] if e.startswith("lv2_adapter_refused")], "and said why once")
     finally:
@@ -1625,6 +1625,65 @@ def under_auto_a_plugin_the_adapter_refuses_runs_on_mod_host_and_the_adapter_is_
         check(d.holder(0)[1]["fmt"] == "lv2", "auto without the adapter's program is mod-host: %s" % d.workers())
         d.expect("lv2_worker_set urn:test:fine omx-clap-host", "resp 0")
         d.expect("add lv2:urn:test:fine 1", resp("NO_BACKEND"))
+    finally:
+        d.close()
+        programs.close()
+
+
+@test
+def the_code_of_a_refusal_is_the_one_on_the_reply_of_its_own_add():
+    # one pool worker, one log: each refusal is named by its own reply, never by what an earlier one wrote on stderr
+    d, programs, log = lv2_run(lv2_worker="omx-clap-host")
+    try:
+        d.expect("add lv2:urn:test:fine 0 pool:fx", "resp 0")
+        for i, (uri, code) in enumerate((("adapter_wide", "hosting.topology.wider-than-strip"),
+                                         ("adapter_nocode", "-"),
+                                         ("adapter_missing", "hosting.features.missing"),
+                                         ("adapter_unrealised", "hosting.no-realisation"),
+                                         ("adapter_nocode", "-")), 1):
+            mark = d.mark()
+            d.expect("add lv2:urn:test:%s %d pool:fx" % (uri, i), resp("LV2_ADAPTER_REFUSED"))
+            event = d.wait_event("lv2_adapter_refused ", since=mark)
+            check(event == "lv2_adapter_refused urn:test:%s %s omx-clap-host" % (uri, code), "the event of %s: %r" % (uri, event))
+        w = d.holder(0)[1]
+        check(w["inst"] == [0] and w["fmt"] == "lv2-clap", "the pool worker lived through the refusals: %s" % d.workers())
+    finally:
+        d.close()
+        programs.close()
+
+
+@test
+def a_plugin_the_adapter_does_not_find_is_not_found_and_no_refusal():
+    d, programs, log = lv2_run(lv2_worker="omx-clap-host")
+    try:
+        mark = d.mark()
+        d.expect("add lv2:urn:test:absent 0", "resp -101")
+        check(d.workers() == {}, "no instance is left: %s" % d.workers())
+        d.expect("add lv2:urn:test:adapter_midi 1", resp("LV2_ADAPTER_REFUSED"))
+        d.wait_event("lv2_adapter_refused urn:test:adapter_midi ", since=mark)
+        said = [e for e in d.events[mark:] if e.startswith("lv2_adapter_refused")]
+        check(len(said) == 1, "the plugin not found is no refusal: %s" % said)
+    finally:
+        d.close()
+        programs.close()
+    # under auto, mod-host looks for it, for that add only: the adapter is asked again next time
+    d, programs, log = lv2_run(lv2_worker="auto")
+    try:
+        mark = d.mark()
+        d.expect("add lv2:urn:test:absent 0", "resp 0")
+        _, w = d.holder(0)
+        check(w["fmt"] == "lv2" and programs.of(w["pid"])[0] == "mod-host", "mod-host runs it: %s" % w)
+        check(adds_of(log, w["pid"]) == ["add urn:test:absent 0"], "mod-host is given the bare uri")
+        d.expect("add lv2:urn:test:absent 1", "resp 1")
+        check(d.holder(1)[1]["fmt"] == "lv2", "and runs it again: %s" % d.workers())
+        asked = [c for c in sent_to(log) if c.startswith("add lv2:urn:test:absent")]
+        check(len(asked) == 2, "the adapter is asked on every add, nothing is remembered: %s" % asked)
+        # a plugin neither finds is mod-host's own -101
+        d.expect("add lv2:urn:test:absent_refuse 2", "resp -101")
+        d.expect("add lv2:urn:test:adapter_midi 3", "resp 3")
+        d.wait_event("lv2_adapter_refused urn:test:adapter_midi ", since=mark)
+        said = [e for e in d.events[mark:] if e.startswith("lv2_adapter_refused")]
+        check(len(said) == 1, "no event for the plugins the adapter did not find: %s" % said)
     finally:
         d.close()
         programs.close()

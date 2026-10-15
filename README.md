@@ -205,7 +205,7 @@ Error codes the daemon adds to mod-host's:
 | `-509` | `PHD_ERR_PIN_BINARY_MISMATCH` | a pinned file is missing or its SHA-256 differs, or the plugin's manifest names a file the pin does not hold: add is refused and no worker sees it |
 | `-510` | `PHD_ERR_PIN_LAYOUT_MISMATCH` | the worker found the parameter layout after init differs from the layout pin: the instance is destroyed before activate |
 | `-511` | `PHD_ERR_NO_PARAM_CONTRACT` | the host holds no checked unit and scale for this parameter: fall back to qualification |
-| `-512` | `PHD_ERR_LV2_ADAPTER_REFUSED` | the lv2-clap worker's LV2 adapter cannot run this plugin (CV ports, MIDI, a required feature it lacks, a layout it does not take): the add is refused, the lv2_adapter_refused event carries the adapter's own reason, and under lv2_worker auto the plugin is run by the lv2 row instead and this code is never answered |
+| `-512` | `PHD_ERR_LV2_ADAPTER_REFUSED` | the lv2-clap worker's LV2 adapter cannot run this plugin (MIDI it does not feed, a required feature it lacks, a layout it does not take): the worker answered the add -102, the lv2_adapter_refused event carries the hosting.* code of that reply, and under lv2_worker auto the plugin is run by the lv2 row instead and this code is never answered; a plugin no bundle of the worker's world holds is no refusal: the worker's -101 is answered |
 <!-- END GENERATED protocol:errors -->
 
 A worker's own refusal is returned as it said it. An `add` that killed its worker answers mod-host's `-102`.
@@ -235,7 +235,7 @@ Events on the feedback port, one NUL-terminated line each:
 | `instance_quarantined` | `<instance> <worker>` | the culprit of a pool death, placed own until cleared |
 | `supervisor_gave_up` | `<worker> <deaths> <window_ms>` | the storm bound is spent; respawning ends |
 | `pin_changed` | `<uri> files \| layout` | an add or a replay of a plugin was refused because its files, or the layout the worker found, differ from its pin; the pin is as it was until pin_accept or pin_set |
-| `lv2_adapter_refused` | `<uri> <reason> auto \| omx-clap-host` | the LV2 adapter of the lv2-clap worker refused a plugin: <reason> is the hosting.* code the worker wrote (- when it wrote none); the last word is the lv2_worker in force, auto for a plugin the lv2 row runs from now on, omx-clap-host for an add answered (-512) |
+| `lv2_adapter_refused` | `<uri> <reason> auto \| omx-clap-host` | the LV2 adapter of the lv2-clap worker refused a plugin: <reason> is the hosting.* code after -102 on the worker's reply to that add (- when it named none); the last word is the lv2_worker in force, auto for a plugin the lv2 row runs from now on, omx-clap-host for an add answered (-512) |
 | `remote_pages_changed` | `<instance>` | relayed from a worker: the plugin changed its remote pages; read them again |
 <!-- END GENERATED protocol:events -->
 
@@ -346,8 +346,15 @@ the override back. The two programs are two rows of the table, `lv2` and `lv2-cl
 | `world_scope` | one bundle, narrowed: `LV2_PATH` holds a link to the plugin's bundle | the same: the adapter opens bundles through the LV2 world |
 | `pin_pool` | no: a pinned plugin is placed `own` | the same, for the same reason |
 
-An adapter handles a subset of LV2. When it refuses a plugin, the add under `omx-clap-host` answers `-512`
-(`LV2_ADAPTER_REFUSED`) and the `lv2_adapter_refused` event carries the `hosting.*` code the worker wrote; under `auto`
-the add is made again on the `lv2` row, the plugin stays there, the event is sent once, and the controller never sees
-`-512`. Under `auto` an `omx-clap-host` that is not installed is not an error either: the add goes to the `lv2` row.
+An adapter handles a subset of LV2. When it refuses a plugin, the worker answers the add `resp -102 <hosting code>`
+(for instance `hosting.features.midi-in-fed-empty`, `hosting.features.missing`, `hosting.topology.wider-than-strip` or
+`hosting.no-realisation`). The add under `omx-clap-host` then answers `-512` (`LV2_ADAPTER_REFUSED`) and the
+`lv2_adapter_refused` event carries that code, read from the reply to that add and never from the worker's log, which a
+pool worker shares with other plugins (`-` when the reply named none). Under `auto` the add is made again on the `lv2`
+row, the plugin stays there, the event is sent once, and the controller never sees `-512`.
+
+A plugin that no bundle of the worker's world holds is not a refusal: the worker answers `resp -101` with no code. Under
+`omx-clap-host` the add answers that `-101`, with no event. Under `auto` the same add is made on the `lv2` row, so mod-host
+looks for the plugin; nothing is remembered, and the adapter is asked again on the next add. Under `auto` an
+`omx-clap-host` that is not installed is not an error either: the add goes to the `lv2` row.
 

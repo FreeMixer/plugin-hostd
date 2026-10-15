@@ -91,7 +91,7 @@ int lv2_worker_pick(const char *uri, const char *worker);
 void lv2_adapter_refused(const char *uri);
 /* whether the lv2_worker in force for the uri is auto */
 int lv2_worker_is_auto(const conf_t *conf, const char *uri);
-/* the hosting.* code a worker wrote in its log, "-" for none, in buf */
-void lv2_refusal_reason(const char *logfile, char *buf, size_t size);
+/* the hosting.* code an adapter's refusal carries after the error code on its reply line, "-" for none, in buf */
+void lv2_refusal_reason(const char *reply, char *buf, size_t size);
 
 #endif

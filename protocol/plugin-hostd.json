@@ -35,7 +35,7 @@
     {"name": "PIN_BINARY_MISMATCH", "macro": "PHD_ERR_PIN_BINARY_MISMATCH", "code": -509, "meaning": "a pinned file is missing or its SHA-256 differs, or the plugin's manifest names a file the pin does not hold: add is refused and no worker sees it"},
     {"name": "PIN_LAYOUT_MISMATCH", "macro": "PHD_ERR_PIN_LAYOUT_MISMATCH", "code": -510, "meaning": "the worker found the parameter layout after init differs from the layout pin: the instance is destroyed before activate"},
     {"name": "NO_PARAM_CONTRACT", "macro": "PHD_ERR_NO_PARAM_CONTRACT", "code": -511, "meaning": "the host holds no checked unit and scale for this parameter: fall back to qualification"},
-    {"name": "LV2_ADAPTER_REFUSED", "macro": "PHD_ERR_LV2_ADAPTER_REFUSED", "code": -512, "meaning": "the lv2-clap worker's LV2 adapter cannot run this plugin (CV ports, MIDI, a required feature it lacks, a layout it does not take): the add is refused, the lv2_adapter_refused event carries the adapter's own reason, and under lv2_worker auto the plugin is run by the lv2 row instead and this code is never answered"}
+    {"name": "LV2_ADAPTER_REFUSED", "macro": "PHD_ERR_LV2_ADAPTER_REFUSED", "code": -512, "meaning": "the lv2-clap worker's LV2 adapter cannot run this plugin (MIDI it does not feed, a required feature it lacks, a layout it does not take): the worker answered the add -102, the lv2_adapter_refused event carries the hosting.* code of that reply, and under lv2_worker auto the plugin is run by the lv2 row instead and this code is never answered; a plugin no bundle of the worker's world holds is no refusal: the worker's -101 is answered"}
   ],
   "verbs": [
     {"name": "add", "arguments": "<uri> <instance> [own | pool:<name> | default] [client_name]", "reply": "resp <instance>", "meaning": "mod-host's add with a placement; a token after the instance that is not a placement is the jack client name"},
@@ -78,7 +78,7 @@
     {"name": "instance_quarantined", "fields": "<instance> <worker>", "meaning": "the culprit of a pool death, placed own until cleared"},
     {"name": "supervisor_gave_up", "fields": "<worker> <deaths> <window_ms>", "meaning": "the storm bound is spent; respawning ends"},
     {"name": "pin_changed", "fields": "<uri> files | layout", "meaning": "an add or a replay of a plugin was refused because its files, or the layout the worker found, differ from its pin; the pin is as it was until pin_accept or pin_set"},
-    {"name": "lv2_adapter_refused", "fields": "<uri> <reason> auto | omx-clap-host", "meaning": "the LV2 adapter of the lv2-clap worker refused a plugin: <reason> is the hosting.* code the worker wrote (- when it wrote none); the last word is the lv2_worker in force, auto for a plugin the lv2 row runs from now on, omx-clap-host for an add answered (-512)"},
+    {"name": "lv2_adapter_refused", "fields": "<uri> <reason> auto | omx-clap-host", "meaning": "the LV2 adapter of the lv2-clap worker refused a plugin: <reason> is the hosting.* code after -102 on the worker's reply to that add (- when it named none); the last word is the lv2_worker in force, auto for a plugin the lv2 row runs from now on, omx-clap-host for an add answered (-512)"},
     {"name": "remote_pages_changed", "fields": "<instance>", "meaning": "relayed from a worker: the plugin changed its remote pages; read them again"}
   ],
   "pin_limits": [

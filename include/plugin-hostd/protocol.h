@@ -95,9 +95,11 @@
 #define PHD_LV2_WORKERS(X) \
     X(MOD_HOST, PHD_LV2_WORKER_MOD_HOST, "the " PHD_FORMAT_LV2 " row: mod_host runs the plugin") \
     X(CLAP_HOST, PHD_LV2_WORKER_CLAP_HOST, "the " PHD_FORMAT_LV2_CLAP " row: clap_host runs the plugin through its LV2 adapter, " \
-                                           "and a plugin the adapter refuses is refused with a named code") \
+                                           "a plugin the adapter refuses is refused with a named code, and one it does not " \
+                                           "find answers the worker's -101") \
     X(AUTO, PHD_LV2_WORKER_AUTO, "the " PHD_FORMAT_LV2_CLAP " row first; a plugin its adapter refuses is run by the " \
-                                 PHD_FORMAT_LV2 " row from then on, and an event says why")
+                                 PHD_FORMAT_LV2 " row from then on, and an event says why; one it does not find is looked " \
+                                 "for by the " PHD_FORMAT_LV2 " row, for that add only and with no event")
 
 /* X(id, name, meaning) in the order of the daemon's enum */
 #define PHD_WORKER_STATES(X) \
@@ -170,10 +172,11 @@ static inline int phd_pool_name_valid(const char *name)
     X(PIN_LAYOUT_MISMATCH, "the worker found the parameter layout after init differs from the layout pin: the " \
                            "instance is destroyed before activate") \
     X(NO_PARAM_CONTRACT, "the host holds no checked unit and scale for this parameter: fall back to qualification") \
-    X(LV2_ADAPTER_REFUSED, "the " PHD_FORMAT_LV2_CLAP " worker's LV2 adapter cannot run this plugin (CV ports, MIDI, a required " \
-                           "feature it lacks, a layout it does not take): the add is refused, the " PHD_EVENT_LV2_ADAPTER_REFUSED \
-                           " event carries the adapter's own reason, and under lv2_worker " PHD_LV2_WORKER_AUTO " the plugin is " \
-                           "run by the " PHD_FORMAT_LV2 " row instead and this code is never answered")
+    X(LV2_ADAPTER_REFUSED, "the " PHD_FORMAT_LV2_CLAP " worker's LV2 adapter cannot run this plugin (MIDI it does not feed, a " \
+                           "required feature it lacks, a layout it does not take): the worker answered the add -102, the " \
+                           PHD_EVENT_LV2_ADAPTER_REFUSED " event carries the hosting.* code of that reply, and under lv2_worker " \
+                           PHD_LV2_WORKER_AUTO " the plugin is run by the " PHD_FORMAT_LV2 " row instead and this code is never " \
+                           "answered; a plugin no bundle of the worker's world holds is no refusal: the worker's -101 is answered")
 
 /* ---------------------------------------------------------------- verbs */
 
@@ -463,8 +466,8 @@ static inline int phd_track_info_valid(char *const *word, int count)
       "an add or a replay of a plugin was refused because its files, or the layout the worker found, differ from its " \
       "pin; the pin is as it was until pin_accept or pin_set") \
     X(PHD_EVENT_LV2_ADAPTER_REFUSED, "<uri> <reason> " PHD_LV2_WORKER_AUTO " | " PHD_LV2_WORKER_CLAP_HOST, \
-      "the LV2 adapter of the " PHD_FORMAT_LV2_CLAP " worker refused a plugin: <reason> is the hosting.* code the worker wrote " \
-      "(" PHD_WORD_NONE " when it wrote none); the last word is the lv2_worker in force, " PHD_LV2_WORKER_AUTO " for a plugin " \
+      "the LV2 adapter of the " PHD_FORMAT_LV2_CLAP " worker refused a plugin: <reason> is the hosting.* code after -102 on the " \
+      "worker's reply to that add (" PHD_WORD_NONE " when it named none); the last word is the lv2_worker in force, " PHD_LV2_WORKER_AUTO " for a plugin " \
       "the " PHD_FORMAT_LV2 " row runs from now on, " PHD_LV2_WORKER_CLAP_HOST " for an add answered " \
       PHD_STR(PHD_ERR_LV2_ADAPTER_REFUSED)) \
     X(PHD_EVENT_REMOTE_PAGES_CHANGED, "<instance>", \

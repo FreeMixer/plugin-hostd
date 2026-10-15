@@ -503,25 +503,21 @@ void lv2_adapter_refused(const char *uri)
     g_refused[g_nrefused++] = strdup(uri);
 }
 
-/* the adapter writes the code of its refusal on stderr, which is the worker's log: the last "hosting." word in it */
-void lv2_refusal_reason(const char *logfile, char *buf, size_t size)
+/* the adapter answers its refusal "resp <code> <hosting code>": the word after the code, PHD_WORD_NONE when there is none */
+void lv2_refusal_reason(const char *reply, char *buf, size_t size)
 {
-    char text[8192], *at, *last = NULL, *end;
-    FILE *file = fopen(logfile, "r");
-    size_t got;
+    const char *at = reply;
+    size_t len;
+    int word;
 
     snprintf(buf, size, "%s", PHD_WORD_NONE);
-    if (!file)
-        return;
-    got = fread(text, 1, sizeof(text) - 1, file);
-    fclose(file);
-    text[got] = '\0';
-    for (at = strstr(text, "hosting."); at; at = strstr(at + 1, "hosting."))
-        last = at;
-    if (!last)
-        return;
-    for (end = last; *end && *end != ' ' && *end != '\t' && *end != '\n' && *end != '\r' && *end != ',' && *end != ':'; end++)
-        ;
-    if (end > last && (size_t)(end - last) < size)
-        snprintf(buf, size, "%.*s", (int)(end - last), last);
+    for (word = 0; word < 2; word++)
+    {
+        at += strspn(at, " \t");
+        at += strcspn(at, " \t\r\n");
+    }
+    at += strspn(at, " \t");
+    len = strcspn(at, " \t\r\n");
+    if (len > 0 && len < size)
+        snprintf(buf, size, "%.*s", (int)len, at);
 }
