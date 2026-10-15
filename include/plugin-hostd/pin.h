@@ -103,6 +103,9 @@ static inline void phd_sha256_init(phd_sha256_t *c)
     memcpy(c->h, h0, sizeof(h0));
     c->bytes = 0;
     c->used = 0;
+    // only a filled block is ever hashed, but gcc -O3 cannot see that through the inlined update and calls the bytes
+    // past `used` uninitialised (-Wmaybe-uninitialized): zeroed, a consumer building with -Werror builds
+    memset(c->block, 0, sizeof(c->block));
 }
 
 static inline void phd_sha256_update(phd_sha256_t *c, const void *data, size_t size)
