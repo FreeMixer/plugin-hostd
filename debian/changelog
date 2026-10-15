@@ -1,3 +1,19 @@
+plugin-hostd (0.2.0) unstable; urgency=medium
+
+  * A plugin's pin is now taken the first time it is used and kept in a store
+    that survives restarts. You no longer write pins by hand, and if a plugin
+    changes underneath you, the daemon tells you instead of carrying on
+    silently. The store is hardened: a corrupt or unreadable file is reported
+    loudly, saves are durable, and an overlong line cannot upset it.
+  * Plugin formats are described by one table with one row per format. Adding
+    a format means adding a row, and the tests now cover a third format
+    alongside the first two.
+  * Library dependencies are a floor only: the packages ask for
+    omx-clap-host-tests 0.7.0 or newer, with no upper bound, and a check
+    refuses a ceiling if one creeps back in.
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Thu, 15 Oct 2026 12:00:00 +0000
+
 plugin-hostd (0.1.7) unstable; urgency=medium
 
   * The build needs omx-clap-core 0.7.
