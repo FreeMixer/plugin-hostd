@@ -22,6 +22,7 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
@@ -38,6 +39,8 @@
 #define SCHEME_MAX   32
 #define STORE_NAME   "plugin-hostd/pins"
 #define LINE_MAX_PIN (PHD_LINE_MAX * 2)
+/* what a line grows by when its layout (omx-layout/1:<sha256>) and a verdict are added */
+#define LINE_RESERVE 128
 
 typedef struct PIN_T {
     char *uri;
@@ -215,6 +218,21 @@ static void line_write(FILE *file, const pin_t *p)
     fprintf(file, "\n");
 }
 
+/* the bytes of the pin's line */
+static size_t line_size(const pin_t *p)
+{
+    char *buf = NULL;
+    size_t size = 0;
+    FILE *mem = open_memstream(&buf, &size);
+
+    if (!mem)
+        return SIZE_MAX;
+    line_write(mem, p);
+    fclose(mem);
+    free(buf);
+    return size;
+}
+
 static int mkdir_parents(char *path)
 {
     char *slash;
@@ -323,10 +341,18 @@ static void store_save(void)
         return;
     }
     snprintf(tmp, sizeof(tmp), "%s.XXXXXX", g_store);
+    fd = -1;
     if (mkdir_parents(tmp) != 0 || (fd = mkstemp(tmp)) < 0 || !(file = fdopen(fd, "w")))
     {
+        int err = errno;
+
+        if (fd >= 0)
+        {
+            close(fd);
+            unlink(tmp);
+        }
         fprintf(stderr, "plugin-hostd: can't write the pin store %s: %s; the pins learned this run are NOT persisted and "
-                        "the next start learns them again\n", g_store, strerror(errno));
+                        "the next start learns them again\n", g_store, strerror(err));
         return;
     }
     for (n = 0; n < g_nheld; n++)
@@ -374,7 +400,9 @@ static int line_read(char *line, int learned)
 
 static int file_read(const char *path, int learned, int strict)
 {
-    char line[LINE_MAX_PIN];
+    char *line = NULL;
+    size_t cap = 0;
+    ssize_t len;
     FILE *file = fopen(path, "r");
     int lineno = 0;
 
@@ -391,26 +419,31 @@ static int file_read(const char *path, int learned, int strict)
         }
         return strict ? -1 : 0;
     }
-    while (fgets(line, sizeof(line), file))
+    while ((len = getline(&line, &cap, file)) >= 0)
     {
-        char original[LINE_MAX_PIN];
+        char buf[LINE_MAX_PIN];
+        int too_long = (size_t)len >= sizeof(buf);
 
         lineno++;
-        snprintf(original, sizeof(original), "%s", line);
-        if (line_read(line, learned) != SUCCESS)
+        /* a line longer than the buffer is one line: never cut into pieces that parse on their own */
+        if (!too_long)
+            memcpy(buf, line, len + 1);
+        if (too_long || line_read(buf, learned) != SUCCESS)
         {
-            fprintf(stderr, "plugin-hostd: %s:%d: not a pin%s\n", path, lineno,
+            fprintf(stderr, "plugin-hostd: %s:%d: not a pin%s%s\n", path, lineno, too_long ? " (the line is too long)" : "",
                     strict ? "" : "; the line is kept as it is and its plugin is not learned again until the operator "
                                   "repairs or removes it");
             if (strict)
             {
+                free(line);
                 fclose(file);
                 return -1;
             }
             if (learned)
-                held_add(original);
+                held_add(line);
         }
     }
+    free(line);
     if (ferror(file) && !strict)
     {
         fprintf(stderr, "plugin-hostd: can't read the pin store %s: %s; learning and saving are blocked until it is "
@@ -566,6 +599,12 @@ static int record(const format_t *format, const char *uri, const char *search)
     }
     if (rc == SUCCESS && pin_build(&pin, uri, words, PHD_PIN_LAYOUT_UNKNOWN, NULL, 1) != SUCCESS)
         rc = pin_refuse(uri, root, "can't be pinned");
+    /* the line must fit what pin_set takes, with room for the layout and the verdict that are added later */
+    if (rc == SUCCESS && line_size(&pin) + LINE_RESERVE > PHD_LINE_MAX)
+    {
+        pin_free(&pin);
+        rc = pin_refuse(uri, root, "holds too many files for one pin line");
+    }
     names_free(&files);
     free(words);
     if (rc != SUCCESS)
