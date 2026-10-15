@@ -1,5 +1,5 @@
 Name: plugin-hostd
-Version: 0.1.6
+Version: 0.1.7
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -12,10 +12,10 @@ BuildRequires: make
 BuildRequires: diffutils
 BuildRequires: python3
 BuildRequires: pkgconfig(mod-host-protocol)
-# the CLAP worker and the fixtures the real-worker tests drive: the first release that ships omx-clap-host-tests,
+# the CLAP worker and the fixtures the real-worker tests drive: the release this build needs (omx-clap-core 0.7),
 # and the minor after it, where omx-clap-core's breaking changes start
-BuildRequires: omx-clap-host-tests >= 0.6.0
-BuildRequires: omx-clap-host-tests < 0.7
+BuildRequires: omx-clap-host-tests >= 0.7.0
+BuildRequires: omx-clap-host-tests < 0.8
 
 # the workers: a format whose worker is not installed refuses its adds (-503), the other format is unaffected
 Recommends: mod-host
@@ -76,6 +76,11 @@ make test-daemon check-generated
 %{_datadir}/plugin-hostd/protocol.schema.json
 
 %changelog
+* Thu Oct 15 2026 Pau Aliagas <linuxnow@gmail.com> - 0.1.7-1
+- The build needs omx-clap-core 0.7.
+- The packages require omx-clap-host-tests >= 0.7.0 and below 0.8 for the
+  tests.
+
 * Thu Oct 15 2026 Pau Aliagas <linuxnow@gmail.com> - 0.1.6-1
 - The CLAP worker and its test fixtures now come from the installed
   omx-clap-core packages (omx-clap-host and omx-clap-host-tests) instead of a
