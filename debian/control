@@ -28,6 +28,17 @@ Description: run LV2 and CLAP plugins so that one crash cannot stop the show
  is unaffected. mod-host is not packaged by Debian: install it from source
  for LV2 plugins.
 
+Package: plugin-hostd-tests
+Architecture: any
+Depends: plugin-hostd (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
+Description: stand-in plugin worker to test a program that drives plugin-hostd
+ A small worker that speaks the same protocol as mod-host and omx-clap-host
+ and can be made to die on cue, so a program that talks to plugin-hostd can
+ be tested against a real daemon without a plugin, a JACK server or any
+ audio. Run it with -L to print the layout it reports. It is installed in
+ /usr/libexec/plugin-hostd/tests, away from the directories programs run
+ from, and is of no use to anyone else.
+
 Package: plugin-hostd-dev
 Section: libdevel
 Architecture: all

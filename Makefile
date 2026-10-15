@@ -76,8 +76,9 @@ MANDIR = $(PREFIX)/share/man/man1
 
 DATADIR = $(PREFIX)/share
 INCLUDEDIR = $(PREFIX)/include
+LIBEXECDIR = $(PREFIX)/libexec
 
-install: $(PROG) install_man install_protocol
+install: $(PROG) install_man install_protocol install_tests
 	install -d $(DESTDIR)$(BINDIR)
 	install -m 755 $(PROG) $(DESTDIR)$(BINDIR)
 
@@ -94,6 +95,11 @@ install_protocol:
 	install -d $(DESTDIR)$(DATADIR)/pkgconfig
 	sed -e 's,@PREFIX@,$(PREFIX),g' -e 's,@VERSION@,$(VERSION),g' protocol/plugin-hostd.pc.in > $(DESTDIR)$(DATADIR)/pkgconfig/plugin-hostd.pc
 	chmod 644 $(DESTDIR)$(DATADIR)/pkgconfig/plugin-hostd.pc
+
+# the fake worker, for a program that drives plugin-hostd: away from $(BINDIR), where nothing runs it by chance
+install_tests: $(FAKE)
+	install -d $(DESTDIR)$(LIBEXECDIR)/plugin-hostd/tests
+	install -m 755 $(FAKE) $(DESTDIR)$(LIBEXECDIR)/plugin-hostd/tests/fake-host
 
 install_man:
 	install -d $(DESTDIR)$(MANDIR)

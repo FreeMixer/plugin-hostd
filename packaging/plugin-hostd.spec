@@ -39,6 +39,18 @@ settings. Include it instead of copying the values, and pkg-config plugin-hostd
 gives the flags. The same declaration as JSON, for tools not written in C, ships
 in the plugin-hostd package.
 
+%package tests
+Summary: A stand-in plugin worker to test a program that drives plugin-hostd
+Requires: %{name}%{?_isa} = %{version}-%{release}
+
+%description tests
+A small worker that speaks the same protocol as mod-host and omx-clap-host and
+can be made to die on cue, so a program that talks to plugin-hostd can be
+tested against a real daemon without a plugin, a JACK server or any audio.
+Run it with -L to print the layout it reports. It is installed in
+%{_libexecdir}/plugin-hostd/tests, away from the directories programs run
+from, and is of no use to anyone else.
+
 %prep
 %autosetup
 
@@ -49,6 +61,7 @@ sed -i 's,LDFLAGS += -s,LDFLAGS +=,g' Makefile
 %set_build_flags
 
 %make_build
+%make_build tests/fake-host
 
 %install
 
@@ -66,6 +79,10 @@ make test-daemon check-generated
 %{_mandir}/man1/plugin-hostd.1*
 %{_datadir}/plugin-hostd/protocol.json
 %{_datadir}/plugin-hostd/mod-host.json
+
+%files tests
+%license COPYING
+%{_libexecdir}/plugin-hostd/tests/fake-host
 
 %files devel
 %license COPYING
