@@ -368,6 +368,45 @@ jobs:
           PLUGIN_HOSTD=/usr/bin/plugin-hostd FAKE_HOST=$PWD/smoke/tests/fake-host \
             PLUGIN_HOSTD_PROTOCOL=/usr/share/plugin-hostd/protocol.json python3 smoke/tests/daemon_test.py
 
+  # docs/own-host.md, command by command, as a reader would type it: a clean Debian with nothing but what the page
+  # lists, the published packages of the FreeMixer channel, on both architectures (arm64 is a native runner).
+  # A step of the page that stops working fails this job.
+  own-host-page:
+    name: own-host page (${{ matrix.suite }}, ${{ matrix.arch }}), run as written in a clean container
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [bookworm, trixie]
+        arch: [amd64, arm64]
+    defaults:
+      run:
+        shell: bash
+    container:
+      image: debian:${{ matrix.suite }}
+    steps:
+      # what a Debian base image lacks and the page assumes: sudo and curl, which Raspberry Pi OS and Zynthian carry,
+      # and python3 for the reader of the page
+      - name: Prepare the clean container
+        run: |
+          apt-get update -qq
+          apt-get install -y --no-install-recommends ca-certificates curl sudo python3
+
+      - uses: actions/checkout@v4
+
+      - name: The reader stops on a wrong reply
+        run: python3 tests/own_host_page.py selftest
+
+      - name: The page's commands
+        run: |
+          set -euo pipefail
+          export XDG_RUNTIME_DIR=/tmp/xdg XDG_STATE_HOME=/tmp/state
+          mkdir -p "$XDG_RUNTIME_DIR" "$XDG_STATE_HOME" /tmp/own-host
+          cd /tmp/own-host
+          python3 "$GITHUB_WORKSPACE/tests/own_host_page.py" run
+          test "$(dpkg --print-architecture)" = "${{ matrix.arch }}"
+
   # The release workflow as a tag would run it, publishing nothing: both architectures build through the
   # shared workflow and an unsigned tree is assembled. The caller grants what the called workflow may ask
   # for; its publish and release steps do not run here.
