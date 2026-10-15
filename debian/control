@@ -4,8 +4,7 @@ Priority: optional
 Maintainer: Pau Aliagas <linuxnow@gmail.com>
 Build-Depends: debhelper-compat (= 13),
                libmod-host-protocol-dev,
-               omx-clap-host-tests (>= 0.6.0~),
-               omx-clap-host-tests (<< 0.7~),
+               omx-clap-host-tests (>= 0.7.0~),
                pkgconf,
                python3
 Standards-Version: 4.6.2
