@@ -165,7 +165,7 @@ SABOTAGE = [
     ("the spec lost the ceiling of omx-clap-host-tests", "packaging/plugin-hostd.spec",
      "BuildRequires: omx-clap-host-tests < 0.8\n", "", "no pin anywhere", "nopins"),
     ("debian/control lost the floor of omx-clap-host-tests", "debian/control",
-     "               omx-clap-host-tests (>= 0.6.0~),\n", "", "no pin anywhere", "nopins"),
+     "               omx-clap-host-tests (>= 0.7.0~),\n", "", "no pin anywhere", "nopins"),
     ("the ceiling is not the next minor", "packaging/plugin-hostd.spec",
      "omx-clap-host-tests < 0.8", "omx-clap-host-tests < 0.9", "no pin anywhere", "nopins"),
     ("a workflow pins omx-clap-core by a ref variable again", ".github/workflows/ci.yml",
