@@ -893,6 +893,7 @@ class Plugins:
         write(os.path.join(self.bundle, "pinned.so"), b"lv2 binary")
         write(os.path.join(self.bundle, "pinned.ttl"), b"lv2:port [ lv2:index 0 ; lv2:symbol \"gain\" ] .")
         self.log = os.path.join(self.dir, "commands.log")
+        self.store = os.path.join(self.dir, "state", "plugin-hostd", "pins")
 
     def clap_pin(self, layout=None):
         return "pin_set %s omx-fault.clap=%s %s" % (self.clap_uri, sha(self.clap), layout or fake_layout())
@@ -902,7 +903,8 @@ class Plugins:
                                      fake_layout())
 
     def daemon(self, conf=None, env=None):
-        c = {"require_pins": 1, "lv2_path": self.lv2_dir}
+        # strict unless a test asks for first-use; the store is the test's own, never the user's
+        c = {"require_pins": 1, "pin_mode": "strict", "lv2_path": self.lv2_dir, "pin_store": self.store}
         c.update(conf or {})
         e = {"FAKE_LOG": self.log}
         e.update(env or {})
@@ -923,7 +925,7 @@ class Plugins:
 
 
 @test
-def an_unpinned_plugin_is_refused_by_default_and_no_worker_starts():
+def an_unpinned_plugin_is_refused_under_strict_and_no_worker_starts():
     p = Plugins()
     d = p.daemon(conf={"require_pins": None})
     try:
@@ -1189,6 +1191,249 @@ def a_layout_pinned_again_while_its_worker_was_down_is_refused_by_the_replayed_a
               "the refusal is written with PHD_ERR_REPLAY, the step and the worker's code: %s" % d.log()[-400:])
     finally:
         d.close()
+        p.close()
+
+
+def own_worker_of(d, inst):
+    return d.holder(inst)[1]["place"] == "own"
+
+
+def store_lines(p):
+    if not os.path.exists(p.store):
+        return []
+    with open(p.store) as f:
+        return [l.split() for l in f if l.strip()]
+
+
+@test
+def first_use_pins_an_unpinned_plugin_and_runs_it_isolated():
+    p = Plugins()
+    d = p.daemon(conf={"pin_mode": "first-use"})
+    try:
+        d.expect("policy_set * pool:shared", "resp 0")
+        d.expect("add %s 0" % p.clap_uri, "resp 0")
+        d.expect("add %s 1" % LV2_URI, "resp 1")
+        check(own_worker_of(d, 0) and own_worker_of(d, 1), "unpinned plugins run isolated, not in the policy's pool: %s"
+              % d.workers())
+        got = [c.split()[0] for _, c in p.received()]
+        check("pin_expect" not in got[:got.index("add")], "the first add sends no layout to expect: %s" % got)
+        check(len(p.verbs("pin_layout")) == 1, "the layout was asked of the CLAP worker once: %s" % p.received())
+        lines = store_lines(p)
+        check(sorted(l[1] for l in lines) == sorted([p.clap_uri, LV2_URI]), "both pins are in the store: %s" % lines)
+        clap = [l for l in lines if l[1] == p.clap_uri][0]
+        check(clap[0] == "pin_set" and clap[3] == fake_layout() and clap[2].startswith("omx-fault.clap=%s" % sha(p.clap)),
+              "the CLAP pin has its file digest and the layout the worker found: %s" % clap)
+        d.expect("add %s 2 pool:p" % p.clap_uri, resp("PLACEMENT_INVALID"))
+        d.expect("remove 0", "resp 0")
+        d.expect("add %s 0" % p.clap_uri, "resp 0")
+        check(p.verbs("pin_expect") == ["pin_expect 0 %s" % fake_layout()], "a later add checks the stored layout: %s"
+              % p.received())
+        check(len(p.verbs("pin_layout")) == 1, "a known layout is not asked again")
+    finally:
+        d.close()
+    # a restart keeps what was learned
+    os.unlink(p.log)
+    d = p.daemon(conf={"pin_mode": "first-use"})
+    try:
+        d.expect("add %s 0" % p.clap_uri, "resp 0")
+        check(p.verbs("pin_expect") == ["pin_expect 0 %s" % fake_layout()] and not p.verbs("pin_layout"),
+              "the stored pin is checked after a restart and learned nothing: %s" % p.received())
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def a_plugin_changed_after_first_use_is_refused_with_an_event_until_accepted():
+    p = Plugins()
+    d = p.daemon(conf={"pin_mode": "first-use"})
+    try:
+        d.expect("add %s 0" % p.clap_uri, "resp 0")
+        d.expect("remove 0", "resp 0")
+        good = open(p.clap, "rb").read()
+        write(p.clap, good[:-1] + b"X")
+        mark = d.mark()
+        d.expect("add %s 0" % p.clap_uri, resp("PIN_BINARY_MISMATCH"))
+        d.wait_event("pin_changed %s files" % p.clap_uri, since=mark)
+        check(d.workers() == {}, "the changed plugin reached no worker: %s" % d.workers())
+        d.expect("add %s 0" % p.clap_uri, resp("PIN_BINARY_MISMATCH"))
+        d.expect("pin_accept %s" % p.clap_uri, "resp 0")
+        d.expect("add %s 0" % p.clap_uri, "resp 0")
+        check(own_worker_of(d, 0), "an accepted plugin is isolated again")
+        check(len(p.verbs("pin_layout")) == 2, "the layout is learned again after pin_accept: %s" % p.received())
+        check([l for l in store_lines(p) if l[1] == p.clap_uri][0][2].startswith("omx-fault.clap=%s" % sha(p.clap)),
+              "the store holds the new digest")
+        d.expect("pin_accept clap:/nowhere/x.clap#id", resp("PIN_ABSENT"))
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def a_layout_that_changed_after_first_use_is_refused_with_an_event():
+    p = Plugins()
+    d = p.daemon(conf={"pin_mode": "first-use"})
+    try:
+        d.expect("add %s 0" % p.clap_uri, "resp 0")
+    finally:
+        d.close()
+    d = p.daemon(conf={"pin_mode": "first-use"}, env={"FAKE_LAYOUT_DEFAULT": "0.25"})
+    try:
+        mark = d.mark()
+        d.expect("add %s 0" % p.clap_uri, resp("PIN_LAYOUT_MISMATCH"))
+        d.wait_event("pin_changed %s layout" % p.clap_uri, since=mark)
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def a_corrupt_store_line_is_kept_announced_and_its_plugin_is_not_learned_again():
+    p = Plugins()
+    bad = "pin_set %s not-a-pin-word\n" % p.clap_uri
+    os.makedirs(os.path.dirname(p.store))
+    write(p.store, bad.encode())
+    d = p.daemon(conf={"pin_mode": "first-use"})
+    try:
+        check("not a pin" in d.log() and "kept as it is" in d.log(), "the corrupt line is announced: %s" % d.log())
+        d.expect("add %s 0" % p.clap_uri, resp("PIN_BINARY_MISMATCH"))
+        check(p.verbs("pin_layout") == [] and "its line in the pin store is corrupt" in d.log(),
+              "the plugin of the corrupt line is refused, and says why: %s" % d.log())
+        d.expect("add %s 1" % LV2_URI, "resp 1")   # another plugin is learned; that save keeps the corrupt line
+        with open(p.store) as f:
+            text = f.read()
+        check(text.splitlines()[0] == bad.strip(), "the corrupt line survives the save verbatim: %r" % text)
+        check(LV2_URI in text, "the new pin is saved beside it: %r" % text)
+    finally:
+        d.close()
+    d = p.daemon(conf={"pin_mode": "first-use"})
+    try:
+        d.expect("add %s 0" % p.clap_uri, resp("PIN_BINARY_MISMATCH"))
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def an_overlong_store_line_is_one_held_line_and_its_tail_is_not_a_pin():
+    p = Plugins()
+    os.makedirs(os.path.dirname(p.store))
+    # a line longer than the daemon's read buffer whose tail, cut off where a buffer would end, is a good pin
+    long_line = "pin_set junk " + "x" * 9000 + " " + p.clap_pin().split(" ", 1)[1]
+    write(p.store, (long_line + "\n").encode())
+    d = p.daemon()
+    try:
+        check("too long" in d.log(), "the overlong line is announced: %s" % d.log()[:300])
+        d.expect("add %s 0" % p.clap_uri, resp("PIN_ABSENT"))
+    finally:
+        d.close()
+    d = p.daemon(conf={"pin_mode": "first-use"})
+    try:
+        d.expect("add %s 1" % LV2_URI, "resp 1")
+        with open(p.store) as f:
+            lines = f.read().split("\n")
+        check(lines[0] == long_line and len([l for l in lines if l]) == 2,
+              "the overlong line survives the save as one line: %d lines" % len(lines))
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def a_pin_line_too_long_for_pin_set_is_refused_when_learned():
+    p = Plugins()
+    names = ["f%03d-%s.ttl" % (n, "n" * 40) for n in range(120)]
+    seealso = " ;\n    ".join("rdfs:seeAlso <%s>" % n for n in names)
+    for n in names:
+        write(os.path.join(p.bundle, n), b"x")
+    write(os.path.join(p.bundle, "manifest.ttl"), (MANIFEST.replace("rdfs:seeAlso <pinned.ttl>", seealso) % LV2_URI).encode())
+    d = p.daemon(conf={"pin_mode": "first-use"})
+    try:
+        d.expect("add %s 0" % LV2_URI, resp("PIN_BINARY_MISMATCH"))
+        check("too many files for one pin line" in d.log(), "the refusal is announced: %s" % d.log())
+        check(store_lines(p) == [], "nothing too long is stored")
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def a_missing_store_is_a_first_run_and_says_nothing():
+    p = Plugins()
+    check(not os.path.exists(p.store), "no store yet")
+    d = p.daemon(conf={"pin_mode": "first-use"})
+    try:
+        d.expect("add %s 0" % p.clap_uri, "resp 0")
+        check("not a pin" not in d.log() and "can't" not in d.log() and "NOT" not in d.log(), "a first run is quiet: %s" % d.log())
+        check([l[1] for l in store_lines(p)] == [p.clap_uri], "the pin is saved: %s" % store_lines(p))
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def a_store_that_cannot_be_written_is_announced_and_a_store_that_cannot_be_read_blocks_learning():
+    p = Plugins()
+    blocker = os.path.join(p.dir, "blocker")
+    write(blocker, b"a file where the store's directory should be\n")
+    d = p.daemon(conf={"pin_mode": "first-use", "pin_store": os.path.join(blocker, "pins")})
+    try:
+        d.expect("add %s 0" % p.clap_uri, "resp 0")
+        check("can't write the pin store" in d.log() and "NOT persisted" in d.log(),
+              "a failed save says the pin is not persisted: %s" % d.log())
+    finally:
+        d.close()
+    os.makedirs(p.store)   # a store that exists and is not a readable file is not a first run
+    d = p.daemon(conf={"pin_mode": "first-use"})
+    try:
+        check("can't read the pin store" in d.log(), "the unreadable store is announced: %s" % d.log())
+        d.expect("add %s 0" % p.clap_uri, resp("PIN_BINARY_MISMATCH"))
+        check(os.path.isdir(p.store), "the store was not replaced")
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def pin_accept_and_first_use_are_not_strict():
+    p = Plugins()
+    d = p.daemon()
+    try:
+        d.expect("pin_accept %s" % p.clap_uri, "resp -902")
+        d.expect("add %s 0" % p.clap_uri, resp("PIN_ABSENT"))
+        check(store_lines(p) == [], "strict learns nothing")
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def a_pin_file_is_loaded_with_its_verdict_and_a_corrupt_hash_is_refused():
+    p = Plugins()
+    pins = os.path.join(p.dir, "pins.txt")
+    write(pins, ("# written by plugin-qualify\n%s verdict=in-process\n" % p.clap_pin().split(" ", 1)[1]).encode())
+    d = p.daemon(conf={"pin_mode": "first-use", "pin_file": pins})
+    try:
+        d.expect("policy_set * pool:shared", "resp 0")
+        d.expect("add %s 0" % p.clap_uri, "resp 0")
+        check(d.holder(0)[1]["place"] == "pool:shared", "a qualified in-process plugin follows the policy: %s" % d.workers())
+        check(store_lines(p) == [], "a pin of the file is not written to the store")
+    finally:
+        d.close()
+    bad = open(pins).read().replace(sha(p.clap)[:8], "00000000")
+    write(pins, bad.encode())
+    d = p.daemon(conf={"pin_mode": "first-use", "pin_file": pins})
+    try:
+        d.expect("add %s 1" % p.clap_uri, resp("PIN_BINARY_MISMATCH"))
+    finally:
+        d.close()
+    write(pins, b"this is not a pin\n")
+    try:
+        p.daemon(conf={"pin_mode": "first-use", "pin_file": pins}).close()
+        raise Fail("the daemon started on a pin file outside the grammar")
+    except Fail as e:
+        check("exited" in str(e) or "ready" in str(e), "the start failed on the pin file: %s" % e)
+    finally:
         p.close()
 
 

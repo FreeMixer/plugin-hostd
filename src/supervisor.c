@@ -727,6 +727,15 @@ static void pend_retry(worker_t *w, int64_t now)
     }
 }
 
+/* the event of a refusal that says the plugin is not the one that was pinned */
+static void pin_changed_event(const char *uri, int code)
+{
+    if (code == PHD_ERR_PIN_BINARY_MISMATCH)
+        event(PHD_EVENT_PIN_CHANGED_FMT, uri, PHD_PIN_CHANGED_FILES);
+    else if (code == PHD_ERR_PIN_LAYOUT_MISMATCH)
+        event(PHD_EVENT_PIN_CHANGED_FMT, uri, PHD_PIN_CHANGED_LAYOUT);
+}
+
 /* a replayed add refused, by its pin or by the worker: announced with the refusal's own code, written with
  * PHD_ERR_REPLAY and the step that refused it, and the worker does not hold the instance until it is replayed again */
 static void replay_refused(worker_t *w, instance_t *i, const char *step, int code)
@@ -734,6 +743,7 @@ static void replay_refused(worker_t *w, instance_t *i, const char *step, int cod
     fprintf(stderr, "plugin-hostd: w%d did not replay instance %d: resp %d, its %s resp %d\n", w->k, i->id, PHD_ERR_REPLAY,
             step, code);
     event(PHD_EVENT_REPLAY_REFUSED_FMT, i->id, code);
+    pin_changed_event(i->uri, code);
     i->unreplayed = 1;
 }
 
@@ -1013,6 +1023,26 @@ static int pool_siblings(int fmt, const char *name)
     return count;
 }
 
+/* the layout a worker found after init, recorded in the pin that has none yet. A worker that does not know the verb, or
+ * a reply that is not a layout, leaves the pin as it is: its files are still checked on every add */
+static void learn_layout(worker_t *w, int id, const char *uri)
+{
+    char line[64], *reply = NULL, *save = NULL, *word;
+    int rc;
+
+    snprintf(line, sizeof(line), PHD_VERB_PIN_LAYOUT " %d", id);
+    rc = proc_rpc(&g_conf, w->pid, w->fd, line, &reply);
+    if (rc == RPC_OK && resp_code(reply) >= 0)
+    {
+        strtok_r(reply, " \t\r\n", &save);
+        strtok_r(NULL, " \t\r\n", &save);
+        word = strtok_r(NULL, " \t\r\n", &save);
+        if (word)
+            pins_set_layout(uri, word);
+    }
+    free(reply);
+}
+
 char *sup_add(const char *uri, int id, const char *placement, const char *client)
 {
     int fmt = strncmp(uri, "clap:", 5) == 0 ? FMT_CLAP : FMT_LV2;
@@ -1044,11 +1074,28 @@ char *sup_add(const char *uri, int id, const char *placement, const char *client
         return sup_resp(PHD_ERR_GAVE_UP);
     if (g_conf.require_pins)
     {
+        int first_use = conf_pins_first_use(&g_conf);
+
         rc = pins_check(fmt == FMT_CLAP, fwd, g_conf.lv2_path, &layout);
+        /* a plugin that has no pin gets one, from the files as they are now; it is not asked about again */
+        if (rc == PHD_ERR_PIN_ABSENT && first_use && !pins_known(fwd))
+        {
+            rc = pins_learn(fmt == FMT_CLAP, fwd, g_conf.lv2_path);
+            if (rc == SUCCESS)
+                rc = pins_check(fmt == FMT_CLAP, fwd, g_conf.lv2_path, &layout);
+        }
+        pin_changed_event(fwd, rc);
         if (rc != SUCCESS)
             return sup_resp(rc);
         /* a pool's world holds every member's bundle: the layout of a pinned LV2 holds in the one bundle of its own */
         if (fmt == FMT_LV2)
+        {
+            if (placement && !strncmp(placement, PHD_PLACE_POOL_PREFIX, strlen(PHD_PLACE_POOL_PREFIX)))
+                return sup_resp(PHD_ERR_PLACEMENT_INVALID);
+            snprintf(place, sizeof(place), PHD_PLACE_OWN);
+        }
+        /* first-use: only a plugin qualified for a shared worker is placed in one */
+        else if (first_use && !pins_in_process(fwd))
         {
             if (placement && !strncmp(placement, PHD_PLACE_POOL_PREFIX, strlen(PHD_PLACE_POOL_PREFIX)))
                 return sup_resp(PHD_ERR_PLACEMENT_INVALID);
@@ -1124,10 +1171,13 @@ char *sup_add(const char *uri, int id, const char *placement, const char *client
     }
     if (resp_code(reply) < 0)
     {
+        pin_changed_event(fwd, resp_code(reply));
         if (w->ninst == 0)
             worker_retire(w);
         return reply;
     }
+    if (g_conf.require_pins && !layout && fmt == FMT_CLAP)
+        learn_layout(w, id, fwd);
     i = calloc(1, sizeof(instance_t));
     i->id = id;
     i->fmt = fmt;
@@ -1561,6 +1611,16 @@ static int format_of(const char *name)
     if (!strcmp(name, PHD_FORMAT_CLAP))
         return FMT_CLAP;
     return -1;
+}
+
+char *sup_pin_accept(const char *uri)
+{
+    int fmt = strncmp(uri, "clap:", 5) == 0 ? FMT_CLAP : FMT_LV2;
+    const char *fwd = (fmt == FMT_LV2 && strncmp(uri, "lv2:", 4) == 0) ? uri + 4 : uri;
+
+    if (!g_conf.require_pins || !conf_pins_first_use(&g_conf))
+        return sup_resp(ERR_INVALID_OPERATION);
+    return sup_resp(pins_accept(fmt == FMT_CLAP, fwd, g_conf.lv2_path));
 }
 
 char *sup_policy_set(const char *format, const char *place)

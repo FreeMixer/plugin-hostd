@@ -31,6 +31,8 @@
  *   connect <a> <b>             with FAKE_CONNECT_AFTER_MS set, answers -205 until that long after the worker started,
  *                               as a jack client does for a port it has not been told of yet
  *   list_connections            "resp 0 <a>><b> ..."
+ *   pin_layout <n>              resp 0 <the layout pin>, the layout of the instance n (FAKE_NO_PIN_LAYOUT: the verb
+ *                               is unknown, -902)
  *   pin_expect <n> <pin>        the layout pin of the next add of <n>: that add answers PHD_ERR_PIN_LAYOUT_MISMATCH
  *                               when the fake's own layout differs (FAKE_NO_PIN_EXPECT: the verb is unknown, -902;
  *                               FAKE_PIN_EXPECT_HANG: it is never answered)
@@ -215,6 +217,15 @@ static void receive(msg_t *msg)
     {
         snprintf(g_expect[n], sizeof(g_expect[n]), "%s", tok[2]);
         answer(fd, "resp 0");
+    }
+    else if (verb_is(verb, PHD_VERB_PIN_LAYOUT) && getenv("FAKE_NO_PIN_LAYOUT"))
+        answer(fd, "resp -902");
+    else if (verb_is(verb, PHD_VERB_PIN_LAYOUT) && ntok == 2 && n >= 0 && n < MAX_INST && g_inst[n].exists)
+    {
+        char mine[PHD_SHA256_HEX_LEN + 64];
+
+        layout_pin(mine, sizeof(mine));
+        answer(fd, "resp 0 %s", mine);
     }
     else if (verb_is(verb, EFFECT_ADD) && ntok >= 3)
     {

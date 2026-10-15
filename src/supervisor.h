@@ -122,6 +122,8 @@ char *sup_instance_info(int id);
 char *sup_reset(const char *which);
 char *sup_quarantine_clear(const char *which);
 char *sup_policy_set(const char *format, const char *place);
+/* pin_accept: the plugin's files as they are now become its pin; only under pin_mode first-use */
+char *sup_pin_accept(const char *uri);
 char *sup_pool_config(const char *name, int max);
 char *sup_worker_env(const char *format, const char *cpus, const char *nice);
 

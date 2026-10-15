@@ -28,6 +28,7 @@
 #include <socket.h>
 
 #include "conf.h"
+#include "pins.h"
 #include "relay.h"
 #include "supervisor.h"
 #include "verbs.h"
@@ -134,6 +135,11 @@ int main(int argc, char **argv)
         if (conf_load(&g_conf, default_config, 0) != 0)
             return EXIT_FAILURE;
     }
+
+    if (conf_check(&g_conf) != 0)
+        return EXIT_FAILURE;
+    if (g_conf.require_pins && pins_init(g_conf.pin_store, g_conf.pin_file) != 0)
+        return EXIT_FAILURE;
 
     signal(SIGPIPE, SIG_IGN);
     sup_init(&g_conf);

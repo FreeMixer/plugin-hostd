@@ -66,6 +66,23 @@ static int is_placement(const char *token)
            !strncmp(token, PHD_PLACE_POOL_PREFIX, strlen(PHD_PLACE_POOL_PREFIX));
 }
 
+/* pin_set <uri> <files> <layout> [verdict=<word>]; the layout of a pin the controller sets is known */
+static int pin_set_words(const char *line, char **tok, int ntok)
+{
+    const char *verdict = NULL;
+    size_t key = strlen(PHD_PIN_VERDICT_KEY);
+
+    if ((ntok != 4 && ntok != 5) || strlen(line) > PHD_LINE_MAX || !strcmp(tok[3], PHD_PIN_LAYOUT_UNKNOWN))
+        return ERR_INVALID_OPERATION;
+    if (ntok == 5)
+    {
+        if (strncmp(tok[4], PHD_PIN_VERDICT_KEY, key))
+            return ERR_INVALID_OPERATION;
+        verdict = tok[4] + key;
+    }
+    return pins_set(tok[1], tok[2], tok[3], verdict);
+}
+
 static void reply(int fd, char *text)
 {
     socket_send(fd, text, strlen(text) + 1);
@@ -112,8 +129,9 @@ static char *handle(char *line, char **tok, int ntok)
     if (!strcmp(verb, PHD_VERB_WORKER_ENV))
         return ntok == 4 ? sup_worker_env(tok[1], tok[2], tok[3]) : sup_resp(ERR_INVALID_OPERATION);
     if (!strcmp(verb, PHD_VERB_PIN_SET))
-        return sup_resp(ntok == 4 && strlen(line) <= PHD_LINE_MAX ? pins_set(tok[1], tok[2], tok[3])
-                                                                  : ERR_INVALID_OPERATION);
+        return sup_resp(pin_set_words(line, tok, ntok));
+    if (!strcmp(verb, PHD_VERB_PIN_ACCEPT))
+        return ntok == 2 ? sup_pin_accept(tok[1]) : sup_resp(ERR_INVALID_OPERATION);
     if (!strcmp(verb, PHD_VERB_PIN_CLEAR))
         return sup_resp(ntok == 2 ? pins_clear(tok[1]) : ERR_INVALID_OPERATION);
     if (verb_is(verb, QUIT))

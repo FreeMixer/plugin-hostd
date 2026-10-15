@@ -106,3 +106,27 @@ int conf_load(conf_t *conf, const char *path, int required)
     fclose(file);
     return 0;
 }
+
+int conf_check(const conf_t *conf)
+{
+    int ok = 0;
+
+#define X(id, name, meaning) ok |= !strcmp(conf->pin_mode, name);
+    PHD_PIN_MODES(X)
+#undef X
+    if (!ok)
+    {
+        fprintf(stderr, "pin_mode '%s' is not one of:", conf->pin_mode);
+#define X(id, name, meaning) fprintf(stderr, " %s", name);
+        PHD_PIN_MODES(X)
+#undef X
+        fprintf(stderr, "\n");
+        return -1;
+    }
+    return 0;
+}
+
+int conf_pins_first_use(const conf_t *conf)
+{
+    return !strcmp(conf->pin_mode, PHD_PIN_MODE_FIRST_USE);
+}
