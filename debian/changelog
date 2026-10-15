@@ -1,3 +1,11 @@
+plugin-hostd (0.2.1) unstable; urgency=medium
+
+  * New package plugin-hostd-tests ships the fake worker (fake-host) in
+    /usr/libexec/plugin-hostd/tests/, so the CI of other repositories can
+    run the pin-file test for real.
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Thu, 15 Oct 2026 19:00:00 +0000
+
 plugin-hostd (0.2.0) unstable; urgency=medium
 
   * Pins are learned on first use: the first time a plugin is added its pin

@@ -1,5 +1,5 @@
 Name: plugin-hostd
-Version: 0.2.0
+Version: 0.2.1
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -92,6 +92,11 @@ make test-daemon check-generated
 %{_datadir}/plugin-hostd/protocol.schema.json
 
 %changelog
+* Thu Oct 15 2026 Pau Aliagas <linuxnow@gmail.com> - 0.2.1-1
+- New package plugin-hostd-tests ships the fake worker (fake-host) in
+  /usr/libexec/plugin-hostd/tests/, so the CI of other repositories can run
+  the pin-file test for real.
+
 * Thu Oct 15 2026 Pau Aliagas <linuxnow@gmail.com> - 0.2.0-1
 - Pins are learned on first use: the first time a plugin is added its pin is
   recorded in a pin store, and a later change of the plugin or its layout is
