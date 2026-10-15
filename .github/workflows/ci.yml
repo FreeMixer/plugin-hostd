@@ -348,6 +348,8 @@ jobs:
     name: release workflow, dry run
     permissions:
       contents: write
+      issues: write
+      actions: read
     uses: ./.github/workflows/release.yml
     with:
       publish: false
