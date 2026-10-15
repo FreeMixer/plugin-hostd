@@ -1,5 +1,5 @@
 Name: plugin-hostd
-Version: 0.1.7
+Version: 0.2.0
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -75,6 +75,17 @@ make test-daemon check-generated
 %{_datadir}/plugin-hostd/protocol.schema.json
 
 %changelog
+* Thu Oct 15 2026 Pau Aliagas <linuxnow@gmail.com> - 0.2.0-1
+- Pins are learned on first use: the first time a plugin is added its pin is
+  recorded in a pin store, and a later change of the plugin or its layout is
+  announced instead of passing silently.
+- pin_file names the pin store; saves are fsync'd so a crash never loses a
+  pin, and a corrupt or overlong store line is refused rather than trusted.
+- One format table holds a row per plugin format: the pins and the
+  supervisor read the row, so a new format needs no changes elsewhere, and
+  the protocol names capabilities instead of formats.
+- The packages require omx-clap-host-tests as a floor only, with no ceiling.
+
 * Thu Oct 15 2026 Pau Aliagas <linuxnow@gmail.com> - 0.1.7-1
 - The build needs omx-clap-core 0.7.
 - The packages require omx-clap-host-tests >= 0.7.0 and below 0.8 for the
