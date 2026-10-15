@@ -12,10 +12,9 @@ BuildRequires: make
 BuildRequires: diffutils
 BuildRequires: python3
 BuildRequires: pkgconfig(mod-host-protocol)
-# the CLAP worker and the fixtures the real-worker tests drive: the release this build needs (omx-clap-core 0.7),
-# and the minor after it, where omx-clap-core's breaking changes start
+# the CLAP worker and the fixtures the real-worker tests drive: the lowest release with what this build needs
+# (omx-clap-core 0.7); a floor only, minor and patch releases stay compatible
 BuildRequires: omx-clap-host-tests >= 0.7.0
-BuildRequires: omx-clap-host-tests < 0.8
 
 # the workers: a format whose worker is not installed refuses its adds (-503), the other format is unaffected
 Recommends: mod-host
