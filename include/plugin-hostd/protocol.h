@@ -76,6 +76,8 @@
 /* the formats a worker holds, and the words a verb takes for "every one", "all" and "none" */
 #define PHD_FORMAT_LV2  "lv2"
 #define PHD_FORMAT_CLAP "clap"
+/* LV2 plugins run by the CLAP worker through its LV2 adapter: a row of its own, reached by lv2_worker and never by a uri */
+#define PHD_FORMAT_LV2_CLAP "lv2-clap"
 #define PHD_FORMAT_ANY  "*"
 #define PHD_FORMAT_ARGUMENT "<format | " PHD_FORMAT_ANY ">"
 #define PHD_WORD_ALL    "all"
@@ -84,7 +86,20 @@
 /* the built-in formats, X(id, name) in the order of the daemon's table (src/formats.c): the rest of what a format is
  * (its prefix, its worker, the files its pin holds, whether its pin holds in a shared world, who answers its instance
  * verbs) is a field of its row there, and a format joins with a row */
-#define PHD_FORMATS(X) X(LV2, PHD_FORMAT_LV2) X(CLAP, PHD_FORMAT_CLAP)
+#define PHD_FORMATS(X) X(LV2, PHD_FORMAT_LV2) X(CLAP, PHD_FORMAT_CLAP) X(LV2_CLAP, PHD_FORMAT_LV2_CLAP)
+
+/* the programs that can run an LV2 plugin, the values of the lv2_worker setting and of lv2_worker_set: X(id, name, meaning) */
+#define PHD_LV2_WORKER_MOD_HOST  "mod-host"
+#define PHD_LV2_WORKER_CLAP_HOST "omx-clap-host"
+#define PHD_LV2_WORKER_AUTO      "auto"
+#define PHD_LV2_WORKERS(X) \
+    X(MOD_HOST, PHD_LV2_WORKER_MOD_HOST, "the " PHD_FORMAT_LV2 " row: mod_host runs the plugin") \
+    X(CLAP_HOST, PHD_LV2_WORKER_CLAP_HOST, "the " PHD_FORMAT_LV2_CLAP " row: clap_host runs the plugin through its LV2 adapter, " \
+                                           "a plugin the adapter refuses is refused with a named code, and one it does not " \
+                                           "find answers the worker's -101") \
+    X(AUTO, PHD_LV2_WORKER_AUTO, "the " PHD_FORMAT_LV2_CLAP " row first; a plugin its adapter refuses is run by the " \
+                                 PHD_FORMAT_LV2 " row from then on, and an event says why; one it does not find is looked " \
+                                 "for by the " PHD_FORMAT_LV2 " row, for that add only and with no event")
 
 /* X(id, name, meaning) in the order of the daemon's enum */
 #define PHD_WORKER_STATES(X) \
@@ -134,6 +149,10 @@ static inline int phd_pool_name_valid(const char *name)
 #define PHD_ERR_PIN_BINARY_MISMATCH (-509)
 #define PHD_ERR_PIN_LAYOUT_MISMATCH (-510)
 #define PHD_ERR_NO_PARAM_CONTRACT   (-511)
+#define PHD_ERR_LV2_ADAPTER_REFUSED (-512)
+#define PHD_ERR_NO_NOTE_INPUT       (-513)
+#define PHD_ERR_NOTES_BY_JACK       (-514)
+#define PHD_ERR_NO_PRESET_LIST      (-515)
 
 /* X(id, meaning) */
 #define PHD_ERRORS(X) \
@@ -155,7 +174,20 @@ static inline int phd_pool_name_valid(const char *name)
                            "pin does not hold: add is refused and no worker sees it") \
     X(PIN_LAYOUT_MISMATCH, "the worker found the parameter layout after init differs from the layout pin: the " \
                            "instance is destroyed before activate") \
-    X(NO_PARAM_CONTRACT, "the host holds no checked unit and scale for this parameter: fall back to qualification")
+    X(NO_PARAM_CONTRACT, "the host holds no checked unit and scale for this parameter: fall back to qualification") \
+    X(LV2_ADAPTER_REFUSED, "the " PHD_FORMAT_LV2_CLAP " worker's LV2 adapter cannot run this plugin (MIDI it does not feed, a " \
+                           "required feature it lacks, a layout it does not take): the worker answered the add -102, the " \
+                           PHD_EVENT_LV2_ADAPTER_REFUSED " event carries the hosting.* code of that reply, and under lv2_worker " \
+                           PHD_LV2_WORKER_AUTO " the plugin is run by the " PHD_FORMAT_LV2 " row instead and this code is never " \
+                           "answered; a plugin no bundle of the worker's world holds is no refusal: the worker's -101 is answered") \
+    X(NO_NOTE_INPUT, "the instance's plugin takes no notes (an effect): its worker answers " PHD_VERB_NOTE_ON ", " \
+                     PHD_VERB_NOTE_OFF " and " PHD_VERB_ALL_NOTES_OFF " with this code") \
+    X(NOTES_BY_JACK, "the instance's worker takes no notes on its socket (mod-host): the daemon answers the note verbs " \
+                     "and " PHD_VERB_NOTE_INPUT " with this code, and the plugin is played through its jack MIDI input " \
+                     "with connect") \
+    X(NO_PRESET_LIST, "the instance's worker cannot list the plugin's presets (mod-host): the daemon answers " \
+                      PHD_VERB_PRESET_LIST " and " PHD_VERB_PRESET_GET " with this code; preset_load still takes a preset " \
+                      "the controller knows")
 
 /* ---------------------------------------------------------------- verbs */
 
@@ -172,6 +204,7 @@ static inline int phd_pool_name_valid(const char *name)
 #define PHD_VERB_PIN_EXPECT       "pin_expect"
 #define PHD_VERB_PIN_ACCEPT       "pin_accept"
 #define PHD_VERB_PIN_LAYOUT       "pin_layout"
+#define PHD_VERB_LV2_WORKER_SET   "lv2_worker_set"
 
 /* the words of a pin: <path>=<sha256>, joined by ',', and <scheme>:<sha256> */
 #define PHD_PIN_FILE_SEPARATOR   ","
@@ -246,6 +279,10 @@ static inline int phd_pool_name_valid(const char *name)
       "directory of a single-file format's file), its layout fingerprint and, when it is known, the verdict of its qualification; " \
       "it replaces an earlier pin of the uri. The pin store and a pin_file hold the same line, with or without the verb") \
     X(PIN_CLEAR, PHD_VERB_PIN_CLEAR, "<uri> | " PHD_WORD_ALL, "resp 0", "forget the pin of one plugin, or of every one") \
+    X(LV2_WORKER_SET, PHD_VERB_LV2_WORKER_SET, "<uri> <" PHD_LV2_WORKER_MOD_HOST " | " PHD_LV2_WORKER_CLAP_HOST " | " \
+      PHD_LV2_WORKER_AUTO " | " PHD_WORD_NONE ">", "resp 0", \
+      "the worker of one LV2 plugin, for its adds from now on: it overrides the lv2_worker setting, " PHD_WORD_NONE " takes the " \
+      "override back; -902 for a word that is none of these. Like policy_set it is the controller's, not in the ledger, gone with the daemon") \
     X(PIN_ACCEPT, PHD_VERB_PIN_ACCEPT, "<uri>", "resp 0", \
       "pin_mode " PHD_PIN_MODE_FIRST_USE " only: take the plugin's files as they are now as its pin, after a " \
       PHD_EVENT_PIN_CHANGED " event; the layout is learned again by the next add and the verdict is dropped; -508 when " \
@@ -268,12 +305,36 @@ static inline int phd_pool_name_valid(const char *name)
 #define PHD_VERB_REMOTE_PAGES    "remote_pages"
 #define PHD_VERB_REMOTE_PAGE_GET "remote_page_get"
 #define PHD_VERB_PARAM_INFO      "param_info"
+#define PHD_VERB_PRESET_LIST     "preset_list"
+#define PHD_VERB_PRESET_GET      "preset_get"
 
 /* the same verbs as a host registers them with protocol_add_command */
 #define PHD_VERB_TRACK_INFO_FMT      PHD_VERB_TRACK_INFO " %i %s %s ..."
 #define PHD_VERB_REMOTE_PAGES_FMT    PHD_VERB_REMOTE_PAGES " %i"
 #define PHD_VERB_REMOTE_PAGE_GET_FMT PHD_VERB_REMOTE_PAGE_GET " %i %i"
 #define PHD_VERB_PARAM_INFO_FMT      PHD_VERB_PARAM_INFO " %i %s"
+#define PHD_VERB_PRESET_LIST_FMT     PHD_VERB_PRESET_LIST " %i"
+#define PHD_VERB_PRESET_GET_FMT      PHD_VERB_PRESET_GET " %i %i"
+
+/* Notes, played on an instance by a controller that is not a jack client: the worker delivers each one as a MIDI
+ * message at the start of its next cycle, on the plugin's note input. Nothing of them is kept: a note is an act, not a
+ * setting, and a respawned instance starts silent. */
+#define PHD_VERB_NOTE_INPUT     "note_input"
+#define PHD_VERB_NOTE_ON        "note_on"
+#define PHD_VERB_NOTE_OFF       "note_off"
+#define PHD_VERB_ALL_NOTES_OFF  "all_notes_off"
+
+#define PHD_VERB_NOTE_INPUT_FMT    PHD_VERB_NOTE_INPUT " %i"
+#define PHD_VERB_NOTE_ON_FMT       PHD_VERB_NOTE_ON " %i %i %i %i"
+#define PHD_VERB_NOTE_OFF_FMT      PHD_VERB_NOTE_OFF " %i %i %i %i"
+#define PHD_VERB_ALL_NOTES_OFF_FMT PHD_VERB_ALL_NOTES_OFF " %i"
+
+/* the ranges of a note's words: MIDI's */
+#define PHD_NOTE_CHANNEL_MAX  15
+#define PHD_NOTE_KEY_MAX      127
+#define PHD_NOTE_VELOCITY_MAX 127
+/* the word note_input answers for a plugin that takes no notes */
+#define PHD_NO_NOTE_INPUT     PHD_WORD_NONE
 
 /* the longest string word, in bytes: CLAP_NAME_SIZE - 1 */
 #define PHD_STRING_MAX 255
@@ -311,7 +372,25 @@ static inline int phd_pool_name_valid(const char *name)
     X(PARAM_INFO, PHD_VERB_PARAM_INFO, "<instance> <symbol>", \
       "resp 0 <unit> <scale> <min> <max> <default> <step> <stable_symbol>", NONE, \
       "what a parameter's value means: its unit, its scale, and the symbol it keeps across hosts and versions; -103 " \
-      "for a symbol that is not a parameter, the plugin's own bypass and :bypass included")
+      "for a symbol that is not a parameter, the plugin's own bypass and :bypass included; " \
+      "-511 for a parameter whose unit and scale the worker holds no checked contract for") \
+    X(PRESET_LIST, PHD_VERB_PRESET_LIST, "<instance>", "resp <count>", NONE, \
+      "the plugin's presets, the ones its preset discovery or its bundle lists; " PHD_STR(PHD_ERR_NO_PRESET_LIST) \
+      " for an instance of a worker that cannot list them") \
+    X(PRESET_GET, PHD_VERB_PRESET_GET, "<instance> <index>", "resp 0 <load_key> <name>", NONE, \
+      "one preset, 0 to count - 1: the key preset_load takes for it, and its name; -902 for an index that is not one") \
+    X(NOTE_INPUT, PHD_VERB_NOTE_INPUT, "<instance>", "resp 0 <port | " PHD_NO_NOTE_INPUT ">", NONE, \
+      "whether the instance takes notes: the name of its note input on its worker's jack client, " PHD_NO_NOTE_INPUT \
+      " for a plugin that takes none; " PHD_STR(PHD_ERR_NOTES_BY_JACK) " for an instance of a worker that cannot say") \
+    X(NOTE_ON, PHD_VERB_NOTE_ON, "<instance> <channel> <key> <velocity>", "resp 0", NONE, \
+      "play a key: channel 0 to " PHD_STR(PHD_NOTE_CHANNEL_MAX) ", key 0 to " PHD_STR(PHD_NOTE_KEY_MAX) ", velocity 1 to " \
+      PHD_STR(PHD_NOTE_VELOCITY_MAX) ", a MIDI note on at the start of the worker's next cycle; " \
+      PHD_STR(PHD_ERR_NO_NOTE_INPUT) " for a plugin that takes no notes, " PHD_STR(PHD_ERR_NOTES_BY_JACK) \
+      " for an instance of a worker that takes none on its socket, -902 for a word out of its range") \
+    X(NOTE_OFF, PHD_VERB_NOTE_OFF, "<instance> <channel> <key> <velocity>", "resp 0", NONE, \
+      "release a key, velocity 0 to " PHD_STR(PHD_NOTE_VELOCITY_MAX) ", a MIDI note off; answered as " PHD_VERB_NOTE_ON " is") \
+    X(ALL_NOTES_OFF, PHD_VERB_ALL_NOTES_OFF, "<instance>", "resp 0", NONE, \
+      "release every key of every channel, MIDI's all notes off (controller 123) on each; answered as " PHD_VERB_NOTE_ON " is")
 
 /* whether s is a string word: valid UTF-8, at most PHD_STRING_MAX bytes, no byte below 0x20 */
 static inline int phd_string_valid(const char *s)
@@ -388,6 +467,61 @@ static inline int phd_track_info_valid(char *const *word, int count)
            phd_track_kind(count == 5 ? word[4] : NULL) >= 0;
 }
 
+/* whether word is a whole number from lo to hi, in decimal with no sign but a leading '-' ('-0' is not a number: zero has one spelling) */
+static inline int phd_number_in(const char *word, int lo, int hi)
+{
+    long v = 0;
+    int n = word[0] == '-' ? 1 : 0;
+
+    if (!word[n])
+        return 0;
+    for (; word[n]; n++)
+    {
+        if (word[n] < '0' || word[n] > '9' || v > 100000)
+            return 0;
+        v = v * 10 + (word[n] - '0');
+    }
+    if (word[0] == '-')
+    {
+        if (v == 0)
+            return 0;
+        v = -v;
+    }
+    return v >= lo && v <= hi;
+}
+
+/* whether the words of a note verb's line, the verb first, are its grammar; 0 for a line of another verb */
+static inline int phd_note_valid(char *const *word, int count)
+{
+    int on = !strcmp(word[0], PHD_VERB_NOTE_ON);
+
+    if (count < 2 || !phd_number_in(word[1], 0, 1 << 20))
+        return 0;
+    if (on || !strcmp(word[0], PHD_VERB_NOTE_OFF))
+        return count == 5 && phd_number_in(word[2], 0, PHD_NOTE_CHANNEL_MAX) && phd_number_in(word[3], 0, PHD_NOTE_KEY_MAX) &&
+               phd_number_in(word[4], on ? 1 : 0, PHD_NOTE_VELOCITY_MAX);
+    if (!strcmp(word[0], PHD_VERB_ALL_NOTES_OFF) || !strcmp(word[0], PHD_VERB_NOTE_INPUT))
+        return count == 2;
+    return 0;
+}
+
+/* whether a verb is one of the note verbs */
+static inline int phd_is_note_verb(const char *verb)
+{
+    return !strcmp(verb, PHD_VERB_NOTE_ON) || !strcmp(verb, PHD_VERB_NOTE_OFF) || !strcmp(verb, PHD_VERB_ALL_NOTES_OFF) ||
+           !strcmp(verb, PHD_VERB_NOTE_INPUT);
+}
+
+/* ---------------------------------------------------------------- host settings */
+
+/* what the daemon keeps of a command that names no instance and is broadcast to every worker: X(id, meaning) */
+#define PHD_HOST_SETTINGS(X) \
+    X(TEMPO, "the tempo, the metre and the transport a controller sets (mod-host's set_bpm, set_bpb, transport and " \
+             "transport_sync) are kept, the latest line of each as it was sent, in the order they were last sent") \
+    X(REPLAY, "a worker is handed them before anything else: a respawned one before its first add, and a worker " \
+              "started later, of a new placement, as well; a worker's refusal of one is written to stderr and is no failure") \
+    X(GRAMMAR, "a line whose words are not that command's grammar is passed on and not kept")
+
 /* ---------------------------------------------------------------- feedback events */
 
 /* one NUL-terminated line each on the feedback port; a worker is "w<k>" */
@@ -400,8 +534,15 @@ static inline int phd_track_info_valid(char *const *word, int count)
 #define PHD_EVENT_INSTANCE_QUARANTINED    "instance_quarantined"
 #define PHD_EVENT_SUPERVISOR_GAVE_UP      "supervisor_gave_up"
 #define PHD_EVENT_PIN_CHANGED             "pin_changed"
+#define PHD_EVENT_LV2_ADAPTER_REFUSED     "lv2_adapter_refused"
 /* written by a worker, relayed as it wrote it */
 #define PHD_EVENT_REMOTE_PAGES_CHANGED    "remote_pages_changed"
+#define PHD_EVENT_REMOTE_PAGE_SUGGEST     "remote_page_suggest"
+#define PHD_EVENT_PARAM_GESTURE           "param_gesture"
+
+/* the last word of a param_gesture line */
+#define PHD_GESTURE_BEGIN "begin"
+#define PHD_GESTURE_END   "end"
 
 #define PHD_EVENT_SUSPECT_PREFIX "suspect:"
 
@@ -416,7 +557,10 @@ static inline int phd_track_info_valid(char *const *word, int count)
 #define PHD_EVENT_INSTANCE_QUARANTINED_FMT  PHD_EVENT_INSTANCE_QUARANTINED " %d w%d"
 #define PHD_EVENT_SUPERVISOR_GAVE_UP_FMT    PHD_EVENT_SUPERVISOR_GAVE_UP " w%d %d %d"
 #define PHD_EVENT_REMOTE_PAGES_CHANGED_FMT  PHD_EVENT_REMOTE_PAGES_CHANGED " %d"
+#define PHD_EVENT_REMOTE_PAGE_SUGGEST_FMT   PHD_EVENT_REMOTE_PAGE_SUGGEST " %d %u"
+#define PHD_EVENT_PARAM_GESTURE_FMT         PHD_EVENT_PARAM_GESTURE " %d %s %s"
 #define PHD_EVENT_PIN_CHANGED_FMT           PHD_EVENT_PIN_CHANGED " %s %s"
+#define PHD_EVENT_LV2_ADAPTER_REFUSED_FMT   PHD_EVENT_LV2_ADAPTER_REFUSED " %s %s %s"
 
 /* the table of the docs: X(name, fields, meaning), one row per shape of a line */
 #define PHD_EVENTS(X) \
@@ -437,8 +581,21 @@ static inline int phd_track_info_valid(char *const *word, int count)
     X(PHD_EVENT_PIN_CHANGED, "<uri> " PHD_PIN_CHANGED_FILES " | " PHD_PIN_CHANGED_LAYOUT, \
       "an add or a replay of a plugin was refused because its files, or the layout the worker found, differ from its " \
       "pin; the pin is as it was until pin_accept or pin_set") \
+    X(PHD_EVENT_LV2_ADAPTER_REFUSED, "<uri> <reason> " PHD_LV2_WORKER_AUTO " | " PHD_LV2_WORKER_CLAP_HOST, \
+      "the LV2 adapter of the " PHD_FORMAT_LV2_CLAP " worker refused a plugin: <reason> is the hosting.* code after -102 on the " \
+      "worker's reply to that add (" PHD_WORD_NONE " when it named none); the last word is the lv2_worker in force, " PHD_LV2_WORKER_AUTO " for a plugin " \
+      "the " PHD_FORMAT_LV2 " row runs from now on, " PHD_LV2_WORKER_CLAP_HOST " for an add answered " \
+      PHD_STR(PHD_ERR_LV2_ADAPTER_REFUSED)) \
     X(PHD_EVENT_REMOTE_PAGES_CHANGED, "<instance>", \
-      "relayed from a worker: the plugin changed its remote pages; read them again")
+      "relayed from a worker: the plugin changed its remote pages; read them again") \
+    X(PHD_EVENT_REMOTE_PAGE_SUGGEST, "<instance> <page_id>", \
+      "relayed from a worker: the plugin suggests the remote page of that id (a page_id of " PHD_VERB_REMOTE_PAGE_GET \
+      "); a surface may follow it") \
+    X(PHD_EVENT_PARAM_GESTURE, "<instance> <symbol> " PHD_GESTURE_BEGIN " | " PHD_GESTURE_END, \
+      "relayed from a worker: the user took hold of a control of the plugin's own, or let it go; a controller writes no " \
+      "automation of that parameter in between. The values the plugin moves meanwhile, or at any time by itself, are " \
+      "mod-host's param_set feedback lines, relayed as written. A gesture whose worker died, or whose instance was " \
+      "removed, before its " PHD_GESTURE_END " is ended by the daemon, before the worker_died event")
 
 /* ---------------------------------------------------------------- worker feedback, relayed */
 
@@ -466,6 +623,7 @@ static inline int phd_track_info_valid(char *const *word, int count)
 
 #define PHD_DEFAULT_MOD_HOST          "mod-host"
 #define PHD_DEFAULT_CLAP_HOST         "omx-clap-host"
+#define PHD_DEFAULT_LV2_WORKER        PHD_LV2_WORKER_MOD_HOST
 #define PHD_DEFAULT_LV2_PATH          "/usr/lib64/lv2:/usr/lib/lv2:/usr/local/lib/lv2"
 #define PHD_DEFAULT_STATE_ROOT        "/tmp"
 #define PHD_DEFAULT_READY_TIMEOUT_MS  5000
@@ -487,6 +645,9 @@ static inline int phd_track_info_valid(char *const *word, int count)
 #define PHD_CONF_STRINGS(X) \
     X(mod_host, path, PHD_DEFAULT_MOD_HOST, "", "worker for " PHD_FORMAT_LV2 " (a name on PATH or a path)") \
     X(clap_host, path, PHD_DEFAULT_CLAP_HOST, "", "worker for " PHD_FORMAT_CLAP) \
+    X(lv2_worker, word, PHD_DEFAULT_LV2_WORKER, "", "who runs an LV2 plugin: mod-host (the mod_host program), omx-clap-host " \
+      "(the clap_host program, through its LV2 adapter, a plugin it cannot run refused with a code) or auto (the adapter " \
+      "first, mod-host for what it refuses); lv2_worker_set overrides it for one plugin") \
     X(lv2_path, pathlist, PHD_DEFAULT_LV2_PATH, "LV2_PATH", "where bundles are searched") \
     X(state_root, path, PHD_DEFAULT_STATE_ROOT, "XDG_RUNTIME_DIR", "the daemon's checkpoints and worker logs") \
     X(pin_mode, word, PHD_DEFAULT_PIN_MODE, "", "strict or first-use, while require_pins is 1: first-use records the pin " \

@@ -100,6 +100,7 @@ The settings live in a file, `-c`, `$PLUGIN_HOSTD_CONF` or
 |---|---|---|
 | `mod_host` | `mod-host` | worker for lv2 (a name on PATH or a path) |
 | `clap_host` | `omx-clap-host` | worker for clap |
+| `lv2_worker` | `mod-host` | who runs an LV2 plugin: mod-host (the mod_host program), omx-clap-host (the clap_host program, through its LV2 adapter, a plugin it cannot run refused with a code) or auto (the adapter first, mod-host for what it refuses); lv2_worker_set overrides it for one plugin |
 | `lv2_path` | `$LV2_PATH`, else `/usr/lib64/lv2:/usr/lib/lv2:/usr/local/lib/lv2` | where bundles are searched |
 | `state_root` | `$XDG_RUNTIME_DIR`, else `/tmp` | the daemon's checkpoints and worker logs |
 | `pin_mode` | `first-use` | strict or first-use, while require_pins is 1: first-use records the pin of a plugin on its first add, strict admits only a plugin a controller or a pin_file pinned |
@@ -159,6 +160,7 @@ Verbs the daemon adds
 | `worker_env` | `<format \| *> <cpu-list\|-> <nice\|->` | `resp 0` | the cpu list and the nice value of the workers of a format, at spawn and on the ones running |
 | `pin_set` | `<uri> <path>=<sha256>[,<path>=<sha256>...] <scheme>:<sha256> [verdict=<verdict>]` | `resp 0` | the pin of one plugin: the SHA-256 of every file the host loads for it, a path relative to the bundle (the directory of a single-file format's file), its layout fingerprint and, when it is known, the verdict of its qualification; it replaces an earlier pin of the uri. The pin store and a pin_file hold the same line, with or without the verb |
 | `pin_clear` | `<uri> \| all` | `resp 0` | forget the pin of one plugin, or of every one |
+| `lv2_worker_set` | `<uri> <mod-host \| omx-clap-host \| auto \| ->` | `resp 0` | the worker of one LV2 plugin, for its adds from now on: it overrides the lv2_worker setting, - takes the override back; -902 for a word that is none of these. Like policy_set it is the controller's, not in the ledger, gone with the daemon |
 | `pin_accept` | `<uri>` | `resp 0` | pin_mode first-use only: take the plugin's files as they are now as its pin, after a pin_changed event; the layout is learned again by the next add and the verdict is dropped; -508 when the plugin has no pin, -509 when its files cannot be collected, -902 under pin_mode strict |
 | `pin_layout` | `<instance>` | `resp 0 <scheme>:<sha256>` | sent by the daemon to a worker of a format that checks layouts, after it accepted the add of a plugin whose layout pin is still unknown: the layout the worker found after init, which the daemon records in the pin |
 | `pin_expect` | `<instance> <scheme>:<sha256>` | `resp 0` | sent by the daemon to a worker of a format that checks layouts, just before the instance's add: the layout pin that add checks after init and before activate; any other reply than resp 0 refuses the add with that code, and the add is never forwarded |
@@ -174,10 +176,29 @@ Verbs a worker answers, by instance
 
 What a host knows of a strip and of a plugin's controls. For a CLAP instance the daemon routes them like mod-host's
 instance verbs and passes the worker's reply through; the worker answers them from the plugin (`clap.track-info`,
-`clap.remote-controls`, `clap.params`). For an LV2 instance the daemon answers them itself, never forwarding them, so
+`clap.remote-controls`, `clap.params`), except `param_info`: omx-clap-host 0.8.0 answers it `-511` for every parameter
+(and `-103` for a symbol that is no parameter), because it holds no checked unit and scale for any of them. `-511` is
+the stable answer to read as "no contract; fall back to the layout from `omx-clap-scan`"; the daemon passes it through
+and drops nothing. For an LV2 instance the daemon answers them itself, never forwarding them, so
 mod-host learns none of them: `track_info` is kept and answered `resp 0`, an LV2 plugin has no remote pages, and
 `param_info` answers `-511` until the daemon reads the bundle's port data. When a CLAP plugin changes its pages, its
 worker writes `remote_pages_changed <instance>` on its feedback port and the daemon relays it.
+
+Notes are played the same way, by a controller that is not a jack client (a web console, a test, a MIDI surface on the
+network): `note_input` says whether an instance takes notes, and `note_on`, `note_off` and `all_notes_off` reach its
+worker unchanged once the daemon has checked their words. A worker answers them from the plugin's note input. mod-host
+takes no notes on its socket, so for an LV2 instance on mod-host the daemon answers all four `-514`, and the plugin is
+played through its jack MIDI input with `connect`. omx-clap-host does not answer them yet (FreeMixer/omx-clap-core#122).
+
+`preset_list` and `preset_get` list a plugin's presets the way `remote_pages` and `remote_page_get` list its pages; the
+key `preset_get` gives is the one `preset_load` takes. mod-host cannot list presets, so for an LV2 instance on mod-host
+the daemon answers both `-515`. omx-clap-host does not list them yet (FreeMixer/omx-clap-core#95).
+
+A plugin with a window or a surface of its own tells its host when the user takes hold of one of its knobs and lets go,
+moves values by itself, and suggests a remote page. Its worker writes `param_gesture`, mod-host's `param_set` and
+`remote_page_suggest` on its feedback port, and the daemon relays them as written, in order (events below). If the
+worker dies, or the instance is removed, while a gesture is held, the daemon ends the gesture itself, so no control
+stays held at the controller. omx-clap-host writes these lines from FreeMixer/omx-clap-core#87 on.
 
 <!-- BEGIN GENERATED protocol:instance-verbs -->
 | verb | arguments | reply | meaning |
@@ -185,9 +206,15 @@ worker writes `remote_pages_changed <instance>` on its feedback port and the dae
 | `track_info` | `<instance> <name> <#RRGGBB \| -> [bus \| return \| master]` | `resp 0` | the strip's name ("" for none), colour and kind, absent for an input channel; a worker whose plugin format has a track-info extension passes them on; any other word is -902 |
 | `remote_pages` | `<instance>` | `resp <count>` | the plugin's remote-control pages, from clap.remote-controls; 0 for an instance of a format whose worker has none |
 | `remote_page_get` | `<instance> <page>` | `resp 0 <page_id> <section> <page_name> <s1> <s2> <s3> <s4> <s5> <s6> <s7> <s8>` | one page, 0 to count - 1: each slot the symbol param_set takes, - for an empty one; -902 for a page that is not one |
-| `param_info` | `<instance> <symbol>` | `resp 0 <unit> <scale> <min> <max> <default> <step> <stable_symbol>` | what a parameter's value means: its unit, its scale, and the symbol it keeps across hosts and versions; -103 for a symbol that is not a parameter, the plugin's own bypass and :bypass included |
+| `param_info` | `<instance> <symbol>` | `resp 0 <unit> <scale> <min> <max> <default> <step> <stable_symbol>` | what a parameter's value means: its unit, its scale, and the symbol it keeps across hosts and versions; -103 for a symbol that is not a parameter, the plugin's own bypass and :bypass included; -511 for a parameter whose unit and scale the worker holds no checked contract for |
+| `preset_list` | `<instance>` | `resp <count>` | the plugin's presets, the ones its preset discovery or its bundle lists; (-515) for an instance of a worker that cannot list them |
+| `preset_get` | `<instance> <index>` | `resp 0 <load_key> <name>` | one preset, 0 to count - 1: the key preset_load takes for it, and its name; -902 for an index that is not one |
+| `note_input` | `<instance>` | `resp 0 <port \| ->` | whether the instance takes notes: the name of its note input on its worker's jack client, - for a plugin that takes none; (-514) for an instance of a worker that cannot say |
+| `note_on` | `<instance> <channel> <key> <velocity>` | `resp 0` | play a key: channel 0 to 15, key 0 to 127, velocity 1 to 127, a MIDI note on at the start of the worker's next cycle; (-513) for a plugin that takes no notes, (-514) for an instance of a worker that takes none on its socket, -902 for a word out of its range |
+| `note_off` | `<instance> <channel> <key> <velocity>` | `resp 0` | release a key, velocity 0 to 127, a MIDI note off; answered as note_on is |
+| `all_notes_off` | `<instance>` | `resp 0` | release every key of every channel, MIDI's all notes off (controller 123) on each; answered as note_on is |
 
-The ledger keeps the latest `track_info` of an instance and replays it after the add; the others are queries. A `<scale>` is `linear` (the value is linear in position), `log` (the value is geometric in position; both bounds are positive), `stepped` (the whole numbers from min to max, step 1). A string word is at most 255 bytes of UTF-8 with no control character.
+The ledger keeps the latest `track_info` of an instance and replays it after the add; the others are never replayed. A `<scale>` is `linear` (the value is linear in position), `log` (the value is geometric in position; both bounds are positive), `stepped` (the whole numbers from min to max, step 1). A string word is at most 255 bytes of UTF-8 with no control character.
 <!-- END GENERATED protocol:instance-verbs -->
 
 Error codes the daemon adds to mod-host's:
@@ -206,6 +233,10 @@ Error codes the daemon adds to mod-host's:
 | `-509` | `PHD_ERR_PIN_BINARY_MISMATCH` | a pinned file is missing or its SHA-256 differs, or the plugin's manifest names a file the pin does not hold: add is refused and no worker sees it |
 | `-510` | `PHD_ERR_PIN_LAYOUT_MISMATCH` | the worker found the parameter layout after init differs from the layout pin: the instance is destroyed before activate |
 | `-511` | `PHD_ERR_NO_PARAM_CONTRACT` | the host holds no checked unit and scale for this parameter: fall back to qualification |
+| `-512` | `PHD_ERR_LV2_ADAPTER_REFUSED` | the lv2-clap worker's LV2 adapter cannot run this plugin (MIDI it does not feed, a required feature it lacks, a layout it does not take): the worker answered the add -102, the lv2_adapter_refused event carries the hosting.* code of that reply, and under lv2_worker auto the plugin is run by the lv2 row instead and this code is never answered; a plugin no bundle of the worker's world holds is no refusal: the worker's -101 is answered |
+| `-513` | `PHD_ERR_NO_NOTE_INPUT` | the instance's plugin takes no notes (an effect): its worker answers note_on, note_off and all_notes_off with this code |
+| `-514` | `PHD_ERR_NOTES_BY_JACK` | the instance's worker takes no notes on its socket (mod-host): the daemon answers the note verbs and note_input with this code, and the plugin is played through its jack MIDI input with connect |
+| `-515` | `PHD_ERR_NO_PRESET_LIST` | the instance's worker cannot list the plugin's presets (mod-host): the daemon answers preset_list and preset_get with this code; preset_load still takes a preset the controller knows |
 <!-- END GENERATED protocol:errors -->
 
 A worker's own refusal is returned as it said it. An `add` that killed its worker answers mod-host's `-102`.
@@ -235,7 +266,10 @@ Events on the feedback port, one NUL-terminated line each:
 | `instance_quarantined` | `<instance> <worker>` | the culprit of a pool death, placed own until cleared |
 | `supervisor_gave_up` | `<worker> <deaths> <window_ms>` | the storm bound is spent; respawning ends |
 | `pin_changed` | `<uri> files \| layout` | an add or a replay of a plugin was refused because its files, or the layout the worker found, differ from its pin; the pin is as it was until pin_accept or pin_set |
+| `lv2_adapter_refused` | `<uri> <reason> auto \| omx-clap-host` | the LV2 adapter of the lv2-clap worker refused a plugin: <reason> is the hosting.* code after -102 on the worker's reply to that add (- when it named none); the last word is the lv2_worker in force, auto for a plugin the lv2 row runs from now on, omx-clap-host for an add answered (-512) |
 | `remote_pages_changed` | `<instance>` | relayed from a worker: the plugin changed its remote pages; read them again |
+| `remote_page_suggest` | `<instance> <page_id>` | relayed from a worker: the plugin suggests the remote page of that id (a page_id of remote_page_get); a surface may follow it |
+| `param_gesture` | `<instance> <symbol> begin \| end` | relayed from a worker: the user took hold of a control of the plugin's own, or let it go; a controller writes no automation of that parameter in between. The values the plugin moves meanwhile, or at any time by itself, are mod-host's param_set feedback lines, relayed as written. A gesture whose worker died, or whose instance was removed, before its end is ended by the daemon, before the worker_died event |
 <!-- END GENERATED protocol:events -->
 
 The workers' own feedback
@@ -255,6 +289,15 @@ Every worker is started as `<program> -n -p <command port> -f <feedback port>`.
 - output_data_ready names no instance and goes to every worker; each worker's data_finish is relayed.
 - with no feedback port, or no controller on it, a line is dropped, as mod-host drops it; the daemon reads every worker's feedback all the time, so no worker waits on it.
 <!-- END GENERATED protocol:relay -->
+
+A synced delay or an arpeggiator comes back at the right tempo after a crash. What the daemon keeps of the commands
+every worker shares:
+
+<!-- BEGIN GENERATED protocol:host-settings -->
+- the tempo, the metre and the transport a controller sets (mod-host's set_bpm, set_bpb, transport and transport_sync) are kept, the latest line of each as it was sent, in the order they were last sent.
+- a worker is handed them before anything else: a respawned one before its first add, and a worker started later, of a new placement, as well; a worker's refusal of one is written to stderr and is no failure.
+- a line whose words are not that command's grammar is passed on and not kept.
+<!-- END GENERATED protocol:host-settings -->
 
 Pins
 ----
@@ -327,4 +370,36 @@ a pinned plugin must run in a worker of its own (`pinned_own_only`) and who answ
 (`native_instance_verbs`, else `param_info`). Adding a format is a row and its worker; `formats_register` refuses a row
 with a capability missing and says which. a test registers a third format in the test and takes it through
 `add`, `param_set`, `pin_set` and `remove`.
+
+Who runs an LV2 plugin
+----------------------
+
+`lv2_worker` chooses the program that runs LV2 plugins: `mod-host` (the default, the `mod_host` program), `omx-clap-host`
+(the `clap_host` program, through its LV2 adapter) or `auto` (the adapter first, mod-host for a plugin the adapter
+refuses). `lv2_worker_set <uri> <mod-host|omx-clap-host|auto|->` overrides it for one plugin from then on, and `-` takes
+the override back. The two programs are two rows of the table, `lv2` and `lv2-clap`, so `policy_set`, `worker_env` and
+`worker_list` name them like any format. The adapter row differs from the mod-host row in these ways, each held by a test:
+
+| capability | `lv2` (mod-host) | `lv2-clap` (omx-clap-host) |
+|---|---|---|
+| `worker` | `mod_host` | `clap_host`, given the uri with its `lv2:` prefix |
+| `native_instance_verbs` | no: the daemon answers `track_info`, `remote_pages`, `remote_page_get` and `param_info` | yes: the worker answers them from the plugin, and `track_info` is replayed to it after a respawn |
+| `layout_check` | no | no: an LV2 pin holds the layout of the plugin's ports, not of the CLAP parameters the adapter presents, so `pin_expect` would refuse every pin `plugin-qualify` wrote |
+| `world_scope` | one bundle, narrowed: `LV2_PATH` holds a link to the plugin's bundle | the same: the adapter opens bundles through the LV2 world |
+| `pin_pool` | no: a pinned plugin is placed `own` | the same, for the same reason |
+
+An adapter handles a subset of LV2. When it refuses a plugin, the worker answers the add `resp -102 <hosting code>`
+(for instance `hosting.features.midi-in-fed-empty`, `hosting.features.missing`, `hosting.topology.wider-than-strip` or
+`hosting.no-realisation`). The add under `omx-clap-host` then answers `-512` (`LV2_ADAPTER_REFUSED`) and the
+`lv2_adapter_refused` event carries that code, read from the reply to that add and never from the worker's log, which a
+pool worker shares with other plugins (`-` when the reply named none). Under `auto` the add is made again on the `lv2`
+row, the plugin stays there, the event is sent once, and the controller never sees `-512`. The daemon remembers the refusal until
+the adapter has a reason to take the plugin again: `lv2_worker_set` of that uri (to any word, `-` included) forgets it, and
+so does a change of pins (`pin_set`, `pin_accept`, `pin_clear`) for every plugin; the next add under `auto` asks the
+adapter once more.
+
+A plugin that no bundle of the worker's world holds is not a refusal: the worker answers `resp -101` with no code. Under
+`omx-clap-host` the add answers that `-101`, with no event. Under `auto` the same add is made on the `lv2` row, so mod-host
+looks for the plugin; nothing is remembered, and the adapter is asked again on the next add. Under `auto` an
+`omx-clap-host` that is not installed is not an error either: the add goes to the `lv2` row.
 

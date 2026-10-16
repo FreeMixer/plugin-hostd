@@ -105,9 +105,16 @@ install_man:
 	install -d $(DESTDIR)$(MANDIR)
 	install -m 644 doc/*.1 $(DESTDIR)$(MANDIR)
 
+# No tracked file points into a private repository, issue, branch or path (tools/private-refs-check.sh, with its
+# --self-test, which turns each kind of pointer red in each kind of file).
+.PHONY: private-refs
+private-refs:
+	tools/private-refs-check.sh
+	tools/private-refs-check.sh --self-test
+
 # clean rule
 clean:
-	@rm -f src/*.o $(PROG) $(FAKE) $(PIN_TEST) $(FORMAT_TEST) $(GEN) tests/stress.clap tests/jack_levels tests/host_scenarios
+	@rm -f src/*.o $(PROG) $(FAKE) $(PIN_TEST) $(FORMAT_TEST) $(GEN) tests/stress.clap tests/jack_levels tests/host_scenarios $(LV2_FIXTURE)
 
 # the daemon against workers that are not plugin hosts at all (tests/fake-host speaks the same protocol and can be
 # made to die on cue): placement, forwarding, ledger, replay, attribution, the storm bound; no jack, no plugin
@@ -166,6 +173,29 @@ test-jack: $(PROG) tests/stress.clap tests/jack_levels tests/host_scenarios
 # test-jack against JACK2's jackd (the server Zynthian runs) instead of pipewire's own jack implementation
 test-jack2:
 	$(MAKE) test-jack JACK_SERVER=jackd
+
+# the LV2 adapter of a real omx-clap-host behind the daemon, with the real mod-host (MOD_HOST, default the one on PATH),
+# over jack in a PipeWire of its own: omx-clap-host and its fixture bundles are built in an omx-clap-core checkout
+# (OMX_CLAP_HOST_SRC) against this tree's headers; without OMX_CLAP_HOST_SRC the target says it skipped
+OMX_CLAP_HOST_SRC ?=
+LV2_FIXTURE = tests/plugin-hostd-fixture.lv2/plugin-hostd-fixture.so
+
+test-lv2-adapter:
+	@if [ -z "$(OMX_CLAP_HOST_SRC)" ]; then \
+	    echo "skip test-lv2-adapter: OMX_CLAP_HOST_SRC is not set (an omx-clap-core checkout to build omx-clap-host from)"; \
+	else \
+	    $(MAKE) lv2-adapter-e2e; \
+	fi
+
+lv2-adapter-e2e: $(PROG) tests/stress.clap tests/jack_levels $(LV2_FIXTURE)
+	@set -e; src=$$(cd $(OMX_CLAP_HOST_SRC) && pwd); \
+	$(MAKE) -C $$src PLUGIN_HOSTD_DIR=$(abspath .) omx-clap-host build/lv2/omx-host-fixture.lv2/omx-host-fixture.so; \
+	JACK_E2E_PY=lv2_adapter_e2e.py JACK_SERVER=pipewire PLUGIN_HOSTD=./$(PROG) OMX_CLAP_HOST=$$src/omx-clap-host \
+	ADAPTER_BUNDLES=$$src/build/lv2 LV2_FIXTURE=$(abspath tests) MOD_HOST=$${MOD_HOST:-$$(command -v mod-host)} \
+	STRESS_CLAP=$(abspath tests/stress.clap) JACK_LEVELS=$(abspath tests/jack_levels) ./tests/jack_e2e.sh
+
+$(LV2_FIXTURE): tests/lv2_fixture.c
+	$(CC) $(shell $(PKG_CONFIG) --cflags lv2) $(CFLAGS) -Werror -shared -o $@ $<
 
 # mod-host's scenario corpus, the runner every host is tested with
 tests/host_scenarios: $(MOD_HOST_DIR)/tests/host_scenarios.c $(PROTOCOL_LIB)

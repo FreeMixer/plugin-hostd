@@ -123,6 +123,19 @@ int conf_check(const conf_t *conf)
         fprintf(stderr, "\n");
         return -1;
     }
+    ok = 0;
+#define X(id, name, meaning) ok |= !strcmp(conf->lv2_worker, name);
+    PHD_LV2_WORKERS(X)
+#undef X
+    if (!ok)
+    {
+        fprintf(stderr, "lv2_worker '%s' is not one of:", conf->lv2_worker);
+#define X(id, name, meaning) fprintf(stderr, " %s", name);
+        PHD_LV2_WORKERS(X)
+#undef X
+        fprintf(stderr, "\n");
+        return -1;
+    }
     return 0;
 }
 

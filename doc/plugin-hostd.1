@@ -1,4 +1,4 @@
-.TH PLUGIN\-HOSTD 1 "October 2026" "plugin-hostd 0.2.1" "User Commands"
+.TH PLUGIN\-HOSTD 1 "October 2026" "plugin-hostd 0.3.0" "User Commands"
 .SH NAME
 plugin\-hostd \- supervisor of plugin host processes behind one mod\-host protocol socket
 .SH SYNOPSIS
@@ -72,7 +72,7 @@ or in
 one
 .\" BEGIN GENERATED protocol:man-keys
 .RI \(dq key " value" \(dq
-per line: mod_host, clap_host, lv2_path, state_root, pin_mode, pin_store, pin_file, ready_timeout_ms, rpc_timeout_ms, backoff_base_ms, backoff_max_ms, storm_deaths, storm_window_ms, suspect_window_ms, checkpoint_ms, idle_ms, pool_max, require_pins.
+per line: mod_host, clap_host, lv2_worker, lv2_path, state_root, pin_mode, pin_store, pin_file, ready_timeout_ms, rpc_timeout_ms, backoff_base_ms, backoff_max_ms, storm_deaths, storm_window_ms, suspect_window_ms, checkpoint_ms, idle_ms, pool_max, require_pins.
 .\" END GENERATED protocol:man-keys
 .SH PINS
 With require_pins on,
@@ -115,6 +115,16 @@ output_data_ready names no instance and goes to every worker; each worker's data
 .IP \(bu 2
 with no feedback port, or no controller on it, a line is dropped, as mod\-host drops it; the daemon reads every worker's feedback all the time, so no worker waits on it.
 .\" END GENERATED protocol:man-relay
+.SH HOST SETTINGS
+What the daemon keeps of the commands every worker shares, so that a synced plugin comes back at the right tempo after a crash:
+.\" BEGIN GENERATED protocol:man-host-settings
+.IP \(bu 2
+the tempo, the metre and the transport a controller sets (mod\-host's set_bpm, set_bpb, transport and transport_sync) are kept, the latest line of each as it was sent, in the order they were last sent.
+.IP \(bu 2
+a worker is handed them before anything else: a respawned one before its first add, and a worker started later, of a new placement, as well; a worker's refusal of one is written to stderr and is no failure.
+.IP \(bu 2
+a line whose words are not that command's grammar is passed on and not kept.
+.\" END GENERATED protocol:man-host-settings
 .SH SEE ALSO
 .BR mod\-host (1),
 .BR omx\-clap\-host (1)

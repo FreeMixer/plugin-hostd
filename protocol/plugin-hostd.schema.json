@@ -363,6 +363,26 @@
       ],
       "additionalProperties": false
     },
+    "host_settings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "meaning": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "meaning"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
     "config": {
       "type": "array",
       "items": {
@@ -447,6 +467,7 @@
     "events",
     "pin_limits",
     "relay",
+    "host_settings",
     "config"
   ],
   "additionalProperties": false

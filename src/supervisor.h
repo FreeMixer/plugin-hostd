@@ -111,6 +111,8 @@ char *sup_remove(int id);
 char *sup_remove_all(void);
 char *sup_connect(const char *verb, const char *line, const char *port_a, const char *port_b);
 char *sup_broadcast(const char *line);
+/* a command every worker shares: kept when it is one of PHD_HOST_SETTINGS and its words are its grammar */
+void sup_host_setting(const char *line, char **tok, int ntok);
 /* a verb of PHD_INSTANCE_VERBS: routed to a CLAP worker, answered here for an LV2 instance */
 char *sup_instance_verb(const char *line, int ledger);
 
@@ -122,6 +124,8 @@ char *sup_policy_set(const char *format, const char *place);
 /* pin_accept: the plugin's files as they are now become its pin; only under pin_mode first-use */
 char *sup_pin_accept(const char *uri);
 char *sup_pool_config(const char *name, int max);
+/* lv2_worker_set: the worker of one LV2 plugin, for its adds from now on */
+char *sup_lv2_worker_set(const char *uri, const char *worker);
 char *sup_worker_env(const char *format, const char *cpus, const char *nice);
 
 /* the idle tick: reap the dead, respawn the due, checkpoint the quiet */

@@ -187,7 +187,16 @@ static void json(void)
     sep = ",\n";
     PHD_RELAY(X)
 #undef X
-    printf("\n    ]\n  },\n  \"config\": [");
+    printf("\n    ]\n  },\n  \"host_settings\": [");
+    sep = "\n";
+#define X(id, meaning) \
+    printf("%s    {\"name\": \"" #id "\", \"meaning\": ", sep); \
+    jstr(meaning); \
+    printf("}"); \
+    sep = ",\n";
+    PHD_HOST_SETTINGS(X)
+#undef X
+    printf("\n  ],\n  \"config\": [");
     sep = "\n";
 #define X(key, size, def, env, meaning) \
     printf("%s    {\"key\": \"" #key "\", \"type\": \"string\", \"default\": ", sep); \
@@ -320,7 +329,7 @@ static void region_instance_verbs(void)
     if (PHD_LEDGER_##ledger == PHD_LEDGER_REPLACE) { printf("%s`%s`", sep, name); sep = ", "; }
     PHD_INSTANCE_VERBS(X)
 #undef X
-    printf(" of an instance and replays it after the add; the others are queries. A `<scale>` is ");
+    printf(" of an instance and replays it after the add; the others are never replayed. A `<scale>` is ");
     sep = "";
 #define X(id, name, meaning) printf("%s`%s` (%s)", sep, name, meaning); sep = ", ";
     PHD_PARAM_SCALES(X)
@@ -368,6 +377,20 @@ static void region_relay(void)
     printf("Every worker is started as `<program> %s`.\n\n", PHD_WORKER_ARGUMENTS);
 #define X(id, meaning) printf("- %s.\n", meaning);
     PHD_RELAY(X)
+#undef X
+}
+
+static void region_host_settings(void)
+{
+#define X(id, meaning) printf("- %s.\n", meaning);
+    PHD_HOST_SETTINGS(X)
+#undef X
+}
+
+static void region_man_host_settings(void)
+{
+#define X(id, meaning) printf(".IP \\(bu 2\n"); roff_escape(meaning); printf(".\n");
+    PHD_HOST_SETTINGS(X)
 #undef X
 }
 
@@ -440,7 +463,8 @@ static const struct {
     { "pin-limits", region_pin_limits }, { "man-pin-limits", region_man_pin_limits },
     { "readiness", region_readiness }, { "worker-ready", region_worker_ready },
     { "man-keys", region_man_keys }, { "man-ready", region_man_ready }, { "man-port", region_man_port },
-    { "relay", region_relay }, { "man-relay", region_man_relay },
+    { "relay", region_relay }, { "man-relay", region_man_relay }, { "host-settings", region_host_settings },
+    { "man-host-settings", region_man_host_settings },
 };
 
 static int splice(const char *path)

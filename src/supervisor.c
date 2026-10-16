@@ -95,6 +95,13 @@ static const struct { const char *format; int kind; int key_arg; } g_recorded[] 
     { CV_UNMAP, KIND_HOST, 0 },
 };
 
+/* the commands every worker shares that the daemon keeps (PHD_HOST_SETTINGS), and the latest line of each, in the order
+ * they were last sent: a transport line after a set_bpm wins over it, and a set_bpm after that wins again */
+static const char *const g_host_setting_verbs[] = { EFFECT_SET_BPM, EFFECT_SET_BPB, TRANSPORT, TRANSPORT_SYNC };
+#define HOST_SETTINGS (sizeof(g_host_setting_verbs) / sizeof(g_host_setting_verbs[0]))
+static char *g_host_settings[HOST_SETTINGS];
+static int g_nhost_settings;
+
 static void event(const char *fmt, ...)
 {
     char line[1024];
@@ -407,6 +414,62 @@ static char *narrow_world(worker_t *w, const char *uri)
 /* how many times one start asks for ports before it is a failed spawn */
 #define SPAWN_ATTEMPTS 3
 
+static int replay_line_code(worker_t *w, const char *line, int *code);
+
+/* whether the words of a line are the grammar of a mod-host format: as many, a %i a whole number, a %f a number */
+static int format_words(const char *format, char **tok, int ntok)
+{
+    char *copy = strdup(format), *save = NULL, *t;
+    int n = 0, ok = 1;
+
+    for (t = strtok_r(copy, " ", &save); t && ok; t = strtok_r(NULL, " ", &save), n++)
+    {
+        char *end;
+
+        if (n >= ntok)
+            ok = 0;
+        else if (!strcmp(t, "%i"))
+            ok = (strtol(tok[n], &end, 10), *tok[n] && !*end);
+        else if (!strcmp(t, "%f"))
+            ok = (strtod(tok[n], &end), *tok[n] && !*end);
+    }
+    free(copy);
+    return ok && n == ntok;
+}
+
+void sup_host_setting(const char *line, char **tok, int ntok)
+{
+    size_t v;
+    int n;
+
+    for (v = 0; v < HOST_SETTINGS; v++)
+        if (verb_is(tok[0], g_host_setting_verbs[v]))
+            break;
+    if (v == HOST_SETTINGS || !format_words(g_host_setting_verbs[v], tok, ntok))
+        return;
+    for (n = 0; n < g_nhost_settings; n++)
+        if (verb_is(g_host_settings[n], g_host_setting_verbs[v]))
+        {
+            free(g_host_settings[n]);
+            memmove(&g_host_settings[n], &g_host_settings[n + 1], (g_nhost_settings - n - 1) * sizeof(char *));
+            g_nhost_settings--;
+            break;
+        }
+    if (g_nhost_settings < (int)HOST_SETTINGS)
+        g_host_settings[g_nhost_settings++] = strdup(line);
+}
+
+/* a worker that just started is handed the host settings before anything else; its refusal of one is only written */
+static int host_settings_replay(worker_t *w)
+{
+    int n, code;
+
+    for (n = 0; n < g_nhost_settings; n++)
+        if (replay_line_code(w, g_host_settings[n], &code) != RPC_OK)
+            return -1;
+    return 0;
+}
+
 static int worker_start(worker_t *w, const char *uri)
 {
     char logfile[PATH_MAX];
@@ -437,6 +500,14 @@ static int worker_start(worker_t *w, const char *uri)
     free(world);
     if (w->fd < 0)
     {
+        proc_stop(w->pid);
+        w->pid = 0;
+        return PHD_ERR_WORKER_SPAWN;
+    }
+    if (host_settings_replay(w) != 0)
+    {
+        close(w->fd);
+        close(w->fb_fd);
         proc_stop(w->pid);
         w->pid = 0;
         return PHD_ERR_WORKER_SPAWN;
@@ -1038,11 +1109,32 @@ static void learn_layout(worker_t *w, int id, const char *uri)
     free(reply);
 }
 
+static char *add(const char *uri, int id, const char *placement, const char *client, int row);
+
+/* the adapter of a worker refused the add of `uri`, for the reason `why`: say so on the feedback port; under auto the plugin
+ * goes to the lv2 row from now on and this add is made again there, otherwise the add answers PHD_ERR_LV2_ADAPTER_REFUSED */
+static char *adapter_refused(const char *uri, const char *why, int id, const char *placement, const char *client)
+{
+    int automatic = lv2_worker_is_auto(&g_conf, uri);
+
+    event(PHD_EVENT_LV2_ADAPTER_REFUSED_FMT, uri, why, automatic ? PHD_LV2_WORKER_AUTO : PHD_LV2_WORKER_CLAP_HOST);
+    if (!automatic)
+        return sup_resp(PHD_ERR_LV2_ADAPTER_REFUSED);
+    lv2_adapter_refused(uri);
+    return sup_add(uri, id, placement, client);
+}
+
 char *sup_add(const char *uri, int id, const char *placement, const char *client)
+{
+    return add(uri, id, placement, client, -1);
+}
+
+/* the add on the row `row`, or on the row the uri is routed to when it is -1 */
+static char *add(const char *uri, int id, const char *placement, const char *client, int row)
 {
     const char *fwd;
     int fmt = format_of_uri(uri, &fwd);
-    const format_t *format = format_at(fmt);
+    const format_t *format;
     char place[48], line[PATH_MAX + 128], *reply = NULL;
     const char *layout = NULL;
     worker_t *w = NULL;
@@ -1051,6 +1143,12 @@ char *sup_add(const char *uri, int id, const char *placement, const char *client
     int rc, is_new = 0, full, unavailable, code = ERR_HOST_INSTANTIATION;
     instance_t *i;
 
+    /* the format may hand the uri to another row: which worker runs an LV2 plugin is a setting, not the uri's */
+    fmt = row >= 0 ? row : format_route(&g_conf, fmt, fwd);
+    /* auto without the adapter's worker installed is the lv2 row, for this add only */
+    if (format_at(fmt)->adapter && !proc_have_binary(bin_of(fmt)) && lv2_worker_is_auto(&g_conf, fwd))
+        fmt = format_by_name(PHD_FORMAT_LV2);
+    format = format_at(fmt);
     if (id < 0 || id >= MAX_INSTANCE)
         return sup_resp(ERR_INSTANCE_INVALID);
     if (g_inst[id])
@@ -1148,8 +1246,8 @@ char *sup_add(const char *uri, int id, const char *placement, const char *client
             code = PHD_ERR_VERB_DROPPED;
         }
     }
-    snprintf(line, sizeof(line), "%.*s %s %d%s%s", verb_len(EFFECT_ADD), EFFECT_ADD, fwd, id, client ? " " : "",
-             client ? client : "");
+    snprintf(line, sizeof(line), "%.*s %s%s %d%s%s", verb_len(EFFECT_ADD), EFFECT_ADD,
+             format->worker_prefix ? format->worker_prefix : "", fwd, id, client ? " " : "", client ? client : "");
     if (rc == RPC_OK && !reply)
         rc = proc_rpc(&g_conf, w->pid, w->fd, line, &reply);
     if (rc != RPC_OK)
@@ -1167,9 +1265,28 @@ char *sup_add(const char *uri, int id, const char *placement, const char *client
     }
     if (resp_code(reply) < 0)
     {
+        /* the adapter refuses a plugin with the instantiation error and the hosting.* code after it on the reply line; the
+         * invalid uri is a plugin no bundle of its world holds, which is no refusal and carries no code */
+        int refused = format->adapter && resp_code(reply) == ERR_HOST_INSTANTIATION;
+        int absent = format->adapter && resp_code(reply) == ERR_HOST_INVALID_URI;
+        char why[128] = PHD_WORD_NONE;
+
+        if (refused)
+            lv2_refusal_reason(reply, why, sizeof(why));
         pin_changed_event(fwd, resp_code(reply));
         if (w->ninst == 0)
             worker_retire(w);
+        if (refused)
+        {
+            free(reply);
+            return adapter_refused(fwd, why, id, placement, client);
+        }
+        /* under auto, a plugin the adapter does not find is looked for by mod-host, for this add only */
+        if (absent && lv2_worker_is_auto(&g_conf, fwd))
+        {
+            free(reply);
+            return add(fwd, id, placement, client, format_by_name(PHD_FORMAT_LV2));
+        }
         return reply;
     }
     if (g_conf.require_pins && !layout && format->layout_check)
@@ -1312,6 +1429,7 @@ char *sup_remove(int id)
         else
             free(reply);
     }
+    relay_instance_gone(id);
     worker_detach(w, i);
     g_inst[id] = NULL;
     ckpt_forget(id);
@@ -1440,6 +1558,8 @@ char *sup_instance_verb(const char *line, int ledger)
         reply = sup_resp(ERR_INSTANCE_NON_EXISTS);
     else if (!strcmp(word[0], PHD_VERB_TRACK_INFO) && !phd_track_info_valid(word, count))
         reply = sup_resp(ERR_INVALID_OPERATION);
+    else if (phd_is_note_verb(word[0]) && !phd_note_valid(word, count))
+        reply = sup_resp(ERR_INVALID_OPERATION);
     else if (format_at(i->fmt)->native_instance_verbs)
     {
         reply = sup_call(id, line);
@@ -1460,6 +1580,10 @@ char *sup_instance_verb(const char *line, int ledger)
         reply = sup_resp(count == 2 ? 0 : ERR_INVALID_OPERATION);
     else if (!strcmp(word[0], PHD_VERB_PARAM_INFO))
         reply = count == 3 ? format_at(i->fmt)->param_info(id, word[2]) : sup_resp(ERR_INVALID_OPERATION);
+    else if (phd_is_note_verb(word[0]))
+        reply = sup_resp(PHD_ERR_NOTES_BY_JACK);
+    else if (!strcmp(word[0], PHD_VERB_PRESET_LIST) || !strcmp(word[0], PHD_VERB_PRESET_GET))
+        reply = sup_resp(PHD_ERR_NO_PRESET_LIST);
     else
         reply = sup_resp(ERR_INVALID_OPERATION);
     free(word);
@@ -1587,11 +1711,16 @@ char *sup_quarantine_clear(const char *which)
 char *sup_pin_accept(const char *uri)
 {
     const char *fwd;
+    int rc;
     int fmt = format_of_uri(uri, &fwd);
 
     if (!g_conf.require_pins || !conf_pins_first_use(&g_conf))
         return sup_resp(ERR_INVALID_OPERATION);
-    return sup_resp(pins_accept(format_at(fmt), fwd, search_of(fmt)));
+    rc = pins_accept(format_at(fmt), fwd, search_of(fmt));
+    /* the files of an accepted plugin may now be ones the adapter takes */
+    if (rc == SUCCESS)
+        lv2_refusals_forget(NULL);
+    return sup_resp(rc);
 }
 
 char *sup_policy_set(const char *format, const char *place)
@@ -1610,6 +1739,17 @@ char *sup_policy_set(const char *format, const char *place)
     if (f < 0)
         return sup_resp(ERR_INVALID_OPERATION);
     snprintf(g_policy[f], sizeof(g_policy[f]), "%s", place);
+    return sup_resp(SUCCESS);
+}
+
+char *sup_lv2_worker_set(const char *uri, const char *worker)
+{
+    const char *fwd;
+
+    format_of_uri(uri, &fwd);
+    if (lv2_worker_pick(fwd, worker) != 0)
+        return sup_resp(ERR_INVALID_OPERATION);
+    lv2_refusals_forget(fwd);
     return sup_resp(SUCCESS);
 }
 

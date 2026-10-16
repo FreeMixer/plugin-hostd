@@ -94,7 +94,9 @@ else:
     routed |= instance_info
     handled = {commands["EFFECT_ADD"], commands["EFFECT_REMOVE"]} | events
     missing = grammar - handled - routed
-    extra = routed - grammar
+    # the verbs protocol.h adds that mod-host's README does not list (the notes) are the daemon's own: for an LV2
+    # instance on mod-host the daemon answers them and never forwards them, so mod-host's grammar need not hold them
+    extra = routed - grammar - (instance_info - grammar)
     if len(grammar) < 15:
         fail("found only %d verbs in %s" % (len(grammar), readme))
     elif missing:

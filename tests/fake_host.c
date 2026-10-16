@@ -22,7 +22,12 @@
  * its parameters as text, saves and loads them as state, and dies or hangs on cue.
  *
  *   add <uri> <n> [client]      "crash_on_add" in the uri aborts, "refuse" in it answers -101,
- *                               "nostate" in it makes an instance that never writes state
+ *                               "nostate" in it makes an instance that never writes state; an lv2: uri is the
+ *                               adapter's (mod-host is given it bare), and the fake answers it as omx-clap-host does:
+ *                               "adapter_midi", "adapter_missing", "adapter_wide" or "adapter_unrealised" in it is a
+ *                               plugin the adapter refuses, "resp -102 <hosting code>" and "<uri>: <hosting code>" on
+ *                               stderr; "adapter_nocode" is a refusal that names no code, "resp -102" alone;
+ *                               "absent" in it is a plugin no bundle of the world holds, "resp -101" and no code
  *   param_set <n> crash <v>     v other than 0 aborts 30 ms after the reply (FAKE_CRASH_AFTER_MS to say another), as a
  *                               plugin does in a callback
  *                               (once only when FAKE_CRASH_ONCE names a file: it is created by the crash)
@@ -39,9 +44,20 @@
  *   param_set <n> pages_changed <v>   v other than 0 writes "remote_pages_changed <n>" on the feedback port, as a CLAP
  *                               worker does when its plugin changes its remote pages
  *   param_set <n> long_line <v>   writes a feedback line of v bytes of 'x' (v > 0), then "remote_pages_changed <n>"
+ *   param_set <n> gesture <v>   v other than 0 writes what a CLAP worker relays when the user turns a knob of the plugin's
+ *                               own: "param_gesture <n> 0 begin", "param_set <n> 0 <v>" (v as sent), "param_gesture <n> 0 end", then
+ *                               "remote_page_suggest <n> 8", in that order
+ *   param_set <n> hold <v>      v other than 0 writes "param_gesture <n> 0 begin" and never its end
+ *   preset_list <n>             "resp 2", and preset_get <n> <0|1> one preset each, -902 for any other index
  *   track_info <n> ...          "resp 0"; the fake keeps nothing of it (FAKE_LOG shows what it was sent)
+ *   note_input <n>              "resp 0 midi_in" for an instance whose uri holds "synth", "resp 0 -" for any other
+ *   note_on, note_off, all_notes_off <n> ...   "resp 0" for a synth, PHD_ERR_NO_NOTE_INPUT for any other; the fake
+ *                               plays nothing (FAKE_LOG shows what it was sent)
+ *   set_bpm, set_bpb, transport, transport_sync   "resp 0", as mod-host answers them, -902 with FAKE_REFUSE_SETTINGS, as
+ *                               omx-clap-host answers them; the fake keeps nothing of them
  *   remote_pages <n>            "resp 2", and remote_page_get <n> <0|1> one page each, -902 for any other page
- *   param_info <n> <sym>        for the symbol 0 the worked vector of the param contract, -103 for any other
+ *   param_info <n> <sym>        for the symbol 0 the worked vector of the param contract, for the symbol 1 -511 (a parameter
+ *                               the worker holds no contract for, as the released omx-clap-host answers every one), -103 for any other
  *   monitor_output <n> <sym>    "resp 1", or "resp 0" for the symbol "none"; from then on, every 20 ms, the feedback port
  *                               carries "output_set <n> <sym> <k>", k counting 0, 1, 2 ... for that output of this
  *                               process: a line lost, doubled or out of order shows as a gap or a repeat in k.
@@ -66,6 +82,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <host-errors.h>
 #include <mod-host.h>
 #include <plugin-hostd/pin.h>
 #include <plugin-hostd/protocol.h>
@@ -82,6 +99,7 @@
 typedef struct INST_T {
     int exists;
     int nostate;
+    int synth;
     char client[64];
     char name[MAX_PARAMS][64];
     char text[MAX_PARAMS][128];
@@ -193,6 +211,25 @@ static void answer(int fd, const char *fmt, ...)
     socket_send(fd, buffer, strlen(buffer) + 1);
 }
 
+/* the hosting code omx-clap-host's LV2 adapter refuses a plugin with, by a word in its uri: "" for a refusal that
+ * names none, NULL for a plugin it takes */
+static const char *adapter_refusal(const char *uri)
+{
+    static const char *const refusal[][2] = {
+        { "adapter_midi", "hosting.features.midi-in-fed-empty" },
+        { "adapter_missing", "hosting.features.missing" },
+        { "adapter_wide", "hosting.topology.wider-than-strip" },
+        { "adapter_unrealised", "hosting.no-realisation" },
+        { "adapter_nocode", "" },
+    };
+    size_t n;
+
+    for (n = 0; n < sizeof(refusal) / sizeof(refusal[0]); n++)
+        if (strstr(uri, refusal[n][0]))
+            return refusal[n][1];
+    return NULL;
+}
+
 static void receive(msg_t *msg)
 {
     char *line = strndup(msg->data, msg->data_size), *copy = strdup(line), *tok[16], *save = NULL, *t;
@@ -236,7 +273,26 @@ static void receive(msg_t *msg)
         layout_pin(mine, sizeof(mine));
         if (strstr(tok[1], "crash_on_add"))
             crash();
-        if (strstr(tok[1], "refuse"))
+        if (!strncmp(tok[1], "lv2:", 4) && adapter_refusal(tok[1]))
+        {
+            /* what omx-clap-host does for a plugin its LV2 adapter cannot run: the code on stderr and after the error */
+            const char *code = adapter_refusal(tok[1]);
+
+            fprintf(stderr, "%s: %s\n", tok[1] + 4, *code ? code : "its parameters cannot be read");
+            fflush(stderr);
+            if (*code)
+                answer(fd, "resp %d %s", ERR_HOST_INSTANTIATION, code);
+            else
+                answer(fd, "resp %d", ERR_HOST_INSTANTIATION);
+        }
+        else if (!strncmp(tok[1], "lv2:", 4) && strstr(tok[1], "absent"))
+        {
+            /* and for a uri no bundle on its LV2_PATH holds: the invalid uri, with no code */
+            fprintf(stderr, "%s: no bundle on the LV2 path holds it\n", tok[1] + 4);
+            fflush(stderr);
+            answer(fd, "resp %d", ERR_HOST_INVALID_URI);
+        }
+        else if (strstr(tok[1], "refuse"))
             answer(fd, "resp -101");
         else if (id >= 0 && id < MAX_INST && g_expect[id][0] && strcmp(g_expect[id], mine))
         {
@@ -251,6 +307,7 @@ static void receive(msg_t *msg)
             g_inst[id].exists = 1;
             g_expect[id][0] = '\0';
             g_inst[id].nostate = strstr(tok[1], "nostate") != NULL;
+            g_inst[id].synth = strstr(tok[1], "synth") != NULL;
             snprintf(g_inst[id].client, sizeof(g_inst[id].client), "%s", ntok > 3 ? tok[3] : "");
             answer(fd, "resp %d", id);
         }
@@ -271,6 +328,9 @@ static void receive(msg_t *msg)
                 g_out[k--] = g_out[--g_nout];
         answer(fd, "resp 0");
     }
+    else if (verb_is(verb, EFFECT_SET_BPM) || verb_is(verb, EFFECT_SET_BPB) || verb_is(verb, TRANSPORT) ||
+             verb_is(verb, TRANSPORT_SYNC))
+        answer(fd, getenv("FAKE_REFUSE_SETTINGS") ? "resp -902" : "resp 0");
     else if (n >= 0 && n < MAX_INST && !g_inst[n].exists && !verb_is(verb, STATE_SAVE) && !verb_is(verb, STATE_LOAD) &&
              !verb_is(verb, EFFECT_CONNECT) && !verb_is(verb, EFFECT_DISCONNECT) && strcmp(verb, "list_connections") &&
              !verb_is(verb, QUIT))
@@ -299,6 +359,26 @@ static void receive(msg_t *msg)
             socket_send_feedback(line);
             free(line);
             snprintf(event, sizeof(event), PHD_EVENT_REMOTE_PAGES_CHANGED_FMT, n);
+            socket_send_feedback(event);
+        }
+        if (!strcmp(tok[2], "gesture") && atof(tok[3]) != 0.0)
+        {
+            char event[128];
+
+            snprintf(event, sizeof(event), PHD_EVENT_PARAM_GESTURE_FMT, n, "0", PHD_GESTURE_BEGIN);
+            socket_send_feedback(event);
+            snprintf(event, sizeof(event), EFFECT_PARAM_SET, n, "0", tok[3]);
+            socket_send_feedback(event);
+            snprintf(event, sizeof(event), PHD_EVENT_PARAM_GESTURE_FMT, n, "0", PHD_GESTURE_END);
+            socket_send_feedback(event);
+            snprintf(event, sizeof(event), PHD_EVENT_REMOTE_PAGE_SUGGEST_FMT, n, 8u);
+            socket_send_feedback(event);
+        }
+        if (!strcmp(tok[2], "hold") && atof(tok[3]) != 0.0)
+        {
+            char event[128];
+
+            snprintf(event, sizeof(event), PHD_EVENT_PARAM_GESTURE_FMT, n, "0", PHD_GESTURE_BEGIN);
             socket_send_feedback(event);
         }
         if (!strcmp(tok[2], "crash") && atof(tok[3]) != 0.0)
@@ -364,6 +444,10 @@ static void receive(msg_t *msg)
     }
     else if (!strcmp(verb, PHD_VERB_TRACK_INFO))
         answer(fd, "resp 0");
+    else if (!strcmp(verb, PHD_VERB_NOTE_INPUT) && ntok == 2)
+        answer(fd, "resp 0 %s", g_inst[n].synth ? "midi_in" : PHD_NO_NOTE_INPUT);
+    else if (!strcmp(verb, PHD_VERB_NOTE_ON) || !strcmp(verb, PHD_VERB_NOTE_OFF) || !strcmp(verb, PHD_VERB_ALL_NOTES_OFF))
+        answer(fd, "resp %d", g_inst[n].synth ? 0 : PHD_ERR_NO_NOTE_INPUT);
     else if (!strcmp(verb, PHD_VERB_REMOTE_PAGES) && ntok == 2)
         answer(fd, "resp 2");
     else if (!strcmp(verb, PHD_VERB_REMOTE_PAGE_GET) && ntok == 3 && !strcmp(tok[2], "0"))
@@ -372,8 +456,16 @@ static void receive(msg_t *msg)
         answer(fd, "resp 0 8 \"\" \"Two\" 2 - - - - - - -");
     else if (!strcmp(verb, PHD_VERB_REMOTE_PAGE_GET) && ntok == 3)
         answer(fd, "resp -902");
+    else if (!strcmp(verb, PHD_VERB_PRESET_LIST) && ntok == 2)
+        answer(fd, "resp 2");
+    else if (!strcmp(verb, PHD_VERB_PRESET_GET) && ntok == 3 && !strcmp(tok[2], "0"))
+        answer(fd, "resp 0 \"file:///presets/warm.clap-preset\" \"Warm\"");
+    else if (!strcmp(verb, PHD_VERB_PRESET_GET) && ntok == 3 && !strcmp(tok[2], "1"))
+        answer(fd, "resp 0 urn:fake:bright \"Bright \\\"B\\\"\"");
+    else if (!strcmp(verb, PHD_VERB_PRESET_GET) && ntok == 3)
+        answer(fd, "resp -902");
     else if (!strcmp(verb, PHD_VERB_PARAM_INFO) && ntok == 3)
-        answer(fd, !strcmp(tok[2], "0") ? "resp 0 ms linear 1 2000 350 1 time_ms" : "resp -103");
+        answer(fd, !strcmp(tok[2], "0") ? "resp 0 ms linear 1 2000 350 1 time_ms" : !strcmp(tok[2], "1") ? "resp -511" : "resp -103");
     else if (verb_is(verb, EFFECT_PATCH_SET) && ntok == 4)
     {
         char key[80];
