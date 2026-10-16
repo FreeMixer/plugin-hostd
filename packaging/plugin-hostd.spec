@@ -1,5 +1,5 @@
 Name: plugin-hostd
-Version: 0.2.1
+Version: 0.3.0
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -18,7 +18,7 @@ BuildRequires: omx-clap-host-tests >= 0.7.0
 
 # the workers: a format whose worker is not installed refuses its adds (-503), the other format is unaffected
 Recommends: mod-host
-Recommends: omx-clap-host
+Recommends: omx-clap-host >= 0.9.0
 
 %description
 plugin-hostd keeps your effects and instruments running when one of them
@@ -92,6 +92,16 @@ make test-daemon check-generated
 %{_datadir}/plugin-hostd/protocol.schema.json
 
 %changelog
+* Fri Oct 16 2026 Pau Aliagas <linuxnow@gmail.com> - 0.3.0-1
+- You choose which program runs LV2 plugins: mod-host, omx-clap-host or auto
+  (the setting lv2_worker, changed with the lv2_worker_set command). A host
+  that cannot take LV2 plugins now answers with a new error (-512) and the
+  daemon announces the refusal with the lv2_adapter_refused event.
+- omx-clap-host 0.9.0 or newer is recommended: older versions do not load LV2
+  plugins, so with the default auto choice everything would run on mod-host.
+- A new page explains how to use plugin-hostd in your own host.
+- Fixed a build failure of programs that include pin.h with gcc -O3 -Werror.
+
 * Thu Oct 15 2026 Pau Aliagas <linuxnow@gmail.com> - 0.2.1-1
 - New package plugin-hostd-tests ships the fake worker (fake-host) in
   /usr/libexec/plugin-hostd/tests/, so the CI of other repositories can run
