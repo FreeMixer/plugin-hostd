@@ -30,6 +30,8 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include <plugin-hostd/protocol.h>
+
 #include "relay.h"
 
 /* a worker line longer than this, with no NUL in it, is not a line of the protocol: it is dropped */
@@ -40,6 +42,9 @@ typedef struct SOURCE_T {
     int eof;                    /* the worker closed it: not polled again, closed when the supervisor says so */
     char *buf;
     size_t used, cap;
+    /* the gestures the worker began and has not ended, each its line up to the last word */
+    char **held;
+    int nheld;
 } source_t;
 
 static pthread_mutex_t g_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -76,6 +81,78 @@ static void send_line(const char *line, size_t len)
     }
 }
 
+/* a param_gesture line the worker wrote: a begin is held until its end; any other line is none of this */
+static void gesture_seen(source_t *s, const char *line)
+{
+    size_t verb = strlen(PHD_EVENT_PARAM_GESTURE);
+    const char *last = strrchr(line, ' ');
+    int n, begin;
+
+    if (strncmp(line, PHD_EVENT_PARAM_GESTURE, verb) || line[verb] != ' ' || !last || last == line + verb)
+        return;
+    begin = !strcmp(last + 1, PHD_GESTURE_BEGIN);
+    if (!begin && strcmp(last + 1, PHD_GESTURE_END))
+        return;
+    for (n = 0; n < s->nheld; n++)
+        if (strlen(s->held[n]) == (size_t)(last - line) && !strncmp(s->held[n], line, last - line))
+            break;
+    if (begin && n == s->nheld)
+    {
+        s->held = realloc(s->held, (s->nheld + 1) * sizeof(char *));
+        s->held[s->nheld++] = strndup(line, last - line);
+    }
+    else if (!begin && n < s->nheld)
+    {
+        free(s->held[n]);
+        s->held[n] = s->held[--s->nheld];
+    }
+}
+
+/* a worker that is gone ends every gesture it held, so no control stays held at the controller; g_lock is held */
+static void gestures_end(source_t *s)
+{
+    int n;
+
+    for (n = 0; n < s->nheld; n++)
+    {
+        char line[1024];
+
+        snprintf(line, sizeof(line), "%s " PHD_GESTURE_END, s->held[n]);
+        send_line(line, strlen(line) + 1);
+        free(s->held[n]);
+    }
+    free(s->held);
+    s->held = NULL;
+    s->nheld = 0;
+}
+
+static void drain(source_t *s);
+
+/* an instance removed ends the gestures it held, once each, whichever worker held them; g_lock is held */
+static void gestures_end_instance(source_t *s, int id)
+{
+    char prefix[48];
+    size_t plen;
+    int n = 0;
+
+    snprintf(prefix, sizeof(prefix), "%s %d ", PHD_EVENT_PARAM_GESTURE, id);
+    plen = strlen(prefix);
+    while (n < s->nheld)
+    {
+        char line[1024];
+
+        if (strncmp(s->held[n], prefix, plen))
+        {
+            n++;
+            continue;
+        }
+        snprintf(line, sizeof(line), "%s " PHD_GESTURE_END, s->held[n]);
+        send_line(line, strlen(line) + 1);
+        free(s->held[n]);
+        s->held[n] = s->held[--s->nheld];
+    }
+}
+
 /* everything the worker has written so far, its complete lines sent in order; g_lock is held */
 static void drain(source_t *s)
 {
@@ -101,6 +178,7 @@ static void drain(source_t *s)
         while ((nul = memchr(start, '\0', s->used - (start - s->buf))))
         {
             send_line(start, nul - start + 1);
+            gesture_seen(s, start);
             start = nul + 1;
         }
         s->used -= start - s->buf;
@@ -222,6 +300,7 @@ void relay_finish(void)
     {
         close(g_src[i].fd);
         free(g_src[i].buf);
+        gestures_end(&g_src[i]);
     }
     g_nsrc = 0;
     if (g_client >= 0)
@@ -293,6 +372,20 @@ void relay_add(int fd)
     wake();
 }
 
+void relay_instance_gone(int id)
+{
+    int i;
+
+    pthread_mutex_lock(&g_lock);
+    for (i = 0; i < g_nsrc; i++)
+    {
+        if (!g_src[i].eof)
+            drain(&g_src[i]);
+        gestures_end_instance(&g_src[i], id);
+    }
+    pthread_mutex_unlock(&g_lock);
+}
+
 void relay_remove(int fd)
 {
     int i;
@@ -305,6 +398,7 @@ void relay_remove(int fd)
         {
             if (!g_src[i].eof)
                 drain(&g_src[i]);
+            gestures_end(&g_src[i]);
             free(g_src[i].buf);
             g_src[i] = g_src[--g_nsrc];
             break;

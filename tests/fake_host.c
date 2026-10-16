@@ -43,6 +43,11 @@
  *                               FAKE_PIN_EXPECT_HANG: it is never answered)
  *   param_set <n> pages_changed <v>   v other than 0 writes "remote_pages_changed <n>" on the feedback port, as a CLAP
  *                               worker does when its plugin changes its remote pages
+ *   param_set <n> gesture <v>   v other than 0 writes what a CLAP worker relays when the user turns a knob of the plugin's
+ *                               own: "param_gesture <n> 0 begin", "param_set <n> 0 <v>" (v as sent), "param_gesture <n> 0 end", then
+ *                               "remote_page_suggest <n> 8", in that order
+ *   param_set <n> hold <v>      v other than 0 writes "param_gesture <n> 0 begin" and never its end
+ *   preset_list <n>             "resp 2", and preset_get <n> <0|1> one preset each, -902 for any other index
  *   track_info <n> ...          "resp 0"; the fake keeps nothing of it (FAKE_LOG shows what it was sent)
  *   note_input <n>              "resp 0 midi_in" for an instance whose uri holds "synth", "resp 0 -" for any other
  *   note_on, note_off, all_notes_off <n> ...   "resp 0" for a synth, PHD_ERR_NO_NOTE_INPUT for any other; the fake
@@ -343,6 +348,26 @@ static void receive(msg_t *msg)
             snprintf(event, sizeof(event), PHD_EVENT_REMOTE_PAGES_CHANGED_FMT, n);
             socket_send_feedback(event);
         }
+        if (!strcmp(tok[2], "gesture") && atof(tok[3]) != 0.0)
+        {
+            char event[128];
+
+            snprintf(event, sizeof(event), PHD_EVENT_PARAM_GESTURE_FMT, n, "0", PHD_GESTURE_BEGIN);
+            socket_send_feedback(event);
+            snprintf(event, sizeof(event), EFFECT_PARAM_SET, n, "0", tok[3]);
+            socket_send_feedback(event);
+            snprintf(event, sizeof(event), PHD_EVENT_PARAM_GESTURE_FMT, n, "0", PHD_GESTURE_END);
+            socket_send_feedback(event);
+            snprintf(event, sizeof(event), PHD_EVENT_REMOTE_PAGE_SUGGEST_FMT, n, 8u);
+            socket_send_feedback(event);
+        }
+        if (!strcmp(tok[2], "hold") && atof(tok[3]) != 0.0)
+        {
+            char event[128];
+
+            snprintf(event, sizeof(event), PHD_EVENT_PARAM_GESTURE_FMT, n, "0", PHD_GESTURE_BEGIN);
+            socket_send_feedback(event);
+        }
         if (!strcmp(tok[2], "crash") && atof(tok[3]) != 0.0)
         {
             const char *once = getenv("FAKE_CRASH_ONCE");
@@ -417,6 +442,14 @@ static void receive(msg_t *msg)
     else if (!strcmp(verb, PHD_VERB_REMOTE_PAGE_GET) && ntok == 3 && !strcmp(tok[2], "1"))
         answer(fd, "resp 0 8 \"\" \"Two\" 2 - - - - - - -");
     else if (!strcmp(verb, PHD_VERB_REMOTE_PAGE_GET) && ntok == 3)
+        answer(fd, "resp -902");
+    else if (!strcmp(verb, PHD_VERB_PRESET_LIST) && ntok == 2)
+        answer(fd, "resp 2");
+    else if (!strcmp(verb, PHD_VERB_PRESET_GET) && ntok == 3 && !strcmp(tok[2], "0"))
+        answer(fd, "resp 0 \"file:///presets/warm.clap-preset\" \"Warm\"");
+    else if (!strcmp(verb, PHD_VERB_PRESET_GET) && ntok == 3 && !strcmp(tok[2], "1"))
+        answer(fd, "resp 0 urn:fake:bright \"Bright \\\"B\\\"\"");
+    else if (!strcmp(verb, PHD_VERB_PRESET_GET) && ntok == 3)
         answer(fd, "resp -902");
     else if (!strcmp(verb, PHD_VERB_PARAM_INFO) && ntok == 3)
         answer(fd, !strcmp(tok[2], "0") ? "resp 0 ms linear 1 2000 350 1 time_ms" : !strcmp(tok[2], "1") ? "resp -511" : "resp -103");
