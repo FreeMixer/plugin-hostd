@@ -354,7 +354,10 @@ An adapter handles a subset of LV2. When it refuses a plugin, the worker answers
 `hosting.no-realisation`). The add under `omx-clap-host` then answers `-512` (`LV2_ADAPTER_REFUSED`) and the
 `lv2_adapter_refused` event carries that code, read from the reply to that add and never from the worker's log, which a
 pool worker shares with other plugins (`-` when the reply named none). Under `auto` the add is made again on the `lv2`
-row, the plugin stays there, the event is sent once, and the controller never sees `-512`.
+row, the plugin stays there, the event is sent once, and the controller never sees `-512`. The daemon remembers the refusal until
+the adapter has a reason to take the plugin again: `lv2_worker_set` of that uri (to any word, `-` included) forgets it, and
+so does a change of pins (`pin_set`, `pin_accept`, `pin_clear`) for every plugin; the next add under `auto` asks the
+adapter once more.
 
 A plugin that no bundle of the worker's world holds is not a refusal: the worker answers `resp -101` with no code. Under
 `omx-clap-host` the add answers that `-101`, with no event. Under `auto` the same add is made on the `lv2` row, so mod-host

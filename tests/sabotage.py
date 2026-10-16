@@ -274,6 +274,14 @@ SABOTAGE = [
      "      - uses: actions/checkout@v4\n\n      # the FreeMixer channel: where the BuildRequires Fedora does not carry (omx-clap-host-tests) come from\n      - name: Add the FreeMixer channel\n        run: dnf config-manager addrepo --setopt=retries=10 --from-repofile=https://freemixer.github.io/rpm/freemixer.repo\n\n      # the worker and the fixtures",
      "      - uses: actions/checkout@v4\n        with:\n          repository: FreeMixer/omx-clap-core\n\n      # the FreeMixer channel: where the BuildRequires Fedora does not carry (omx-clap-host-tests) come from\n      - name: Add the FreeMixer channel\n        run: dnf config-manager addrepo --setopt=retries=10 --from-repofile=https://freemixer.github.io/rpm/freemixer.repo\n\n      # the worker and the fixtures",
      "no pin anywhere", "nopins"),
+    ("lv2_worker_set leaves the adapter's refusal in place", "src/supervisor.c", "    lv2_refusals_forget(fwd);\n", "",
+     "lv2_worker_set_makes_the_adapter_be_asked_again_about_that_plugin_only"),
+    ("pin_set leaves the adapter's refusals in place", "src/verbs.c", "    if (rc == SUCCESS)\n        lv2_refusals_forget(NULL);\n    return rc;",
+     "    return rc;", "pin_set_and_pin_clear_make_the_adapter_be_asked_again"),
+    ("pin_clear leaves the adapter's refusals in place", "src/verbs.c", "        if (rc == SUCCESS)\n            lv2_refusals_forget(NULL);\n        return sup_resp(rc);",
+     "        return sup_resp(rc);", "pin_set_and_pin_clear_make_the_adapter_be_asked_again"),
+    ("pin_accept leaves the adapter's refusals in place", "src/supervisor.c", "    if (rc == SUCCESS)\n        lv2_refusals_forget(NULL);\n    return sup_resp(rc);",
+     "    return sup_resp(rc);", "pin_accept_makes_the_adapter_be_asked_again"),
 ]
 
 

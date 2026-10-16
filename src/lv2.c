@@ -503,6 +503,21 @@ void lv2_adapter_refused(const char *uri)
     g_refused[g_nrefused++] = strdup(uri);
 }
 
+/* the adapter may be asked again: about `uri`, or about every plugin when it is NULL */
+void lv2_refusals_forget(const char *uri)
+{
+    int n = 0;
+
+    while (n < g_nrefused)
+        if (!uri || !strcmp(g_refused[n], uri))
+        {
+            free(g_refused[n]);
+            g_refused[n] = g_refused[--g_nrefused];
+        }
+        else
+            n++;
+}
+
 /* the adapter answers its refusal "resp <code> <hosting code>": the word after the code, PHD_WORD_NONE when there is none */
 void lv2_refusal_reason(const char *reply, char *buf, size_t size)
 {
