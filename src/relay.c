@@ -38,6 +38,7 @@
 typedef struct SOURCE_T {
     int fd;
     int eof;                    /* the worker closed it: not polled again, closed when the supervisor says so */
+    int skip;                   /* the start of the line being read was dropped as too long: drop its end too */
     char *buf;
     size_t used, cap;
 } source_t;
@@ -100,13 +101,19 @@ static void drain(source_t *s)
         start = s->buf;
         while ((nul = memchr(start, '\0', s->used - (start - s->buf))))
         {
-            send_line(start, nul - start + 1);
+            if (s->skip)
+                s->skip = 0;
+            else
+                send_line(start, nul - start + 1);
             start = nul + 1;
         }
         s->used -= start - s->buf;
         memmove(s->buf, start, s->used);
         if (s->used > LINE_LIMIT)
+        {
             s->used = 0;
+            s->skip = 1;
+        }
     }
 }
 

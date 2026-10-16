@@ -38,6 +38,8 @@
  *                               FAKE_PIN_EXPECT_HANG: it is never answered)
  *   param_set <n> pages_changed <v>   v other than 0 writes "remote_pages_changed <n>" on the feedback port, as a CLAP
  *                               worker does when its plugin changes its remote pages
+ *   param_set <n> long_line <v>   v other than 0 writes a feedback line longer than the daemon relays (2 MiB of 'x'),
+ *                               then "remote_pages_changed <n>"
  *   track_info <n> ...          "resp 0"; the fake keeps nothing of it (FAKE_LOG shows what it was sent)
  *   remote_pages <n>            "resp 2", and remote_page_get <n> <0|1> one page each, -902 for any other page
  *   param_info <n> <sym>        for the symbol 0 the worked vector of the param contract, -103 for any other
@@ -285,6 +287,18 @@ static void receive(msg_t *msg)
         {
             char event[64];
 
+            snprintf(event, sizeof(event), PHD_EVENT_REMOTE_PAGES_CHANGED_FMT, n);
+            socket_send_feedback(event);
+        }
+        if (!strcmp(tok[2], "long_line") && atof(tok[3]) != 0.0)
+        {
+            size_t size = 2 * 1024 * 1024;
+            char *line = malloc(size + 1), event[64];
+
+            memset(line, 'x', size);
+            line[size] = '\0';
+            socket_send_feedback(line);
+            free(line);
             snprintf(event, sizeof(event), PHD_EVENT_REMOTE_PAGES_CHANGED_FMT, n);
             socket_send_feedback(event);
         }

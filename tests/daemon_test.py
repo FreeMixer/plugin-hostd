@@ -846,6 +846,22 @@ def remote_pages_changed_from_a_worker_reaches_the_controller():
         d.close()
 
 
+@test
+def a_worker_line_too_long_to_relay_is_dropped_whole():
+    d = daemon()
+    try:
+        d.expect("add clap:fake#a 3", "resp 3")
+        mark = d.mark()
+        d.expect("param_set 3 long_line 1", "resp 0")
+        check(d.wait_event("remote_pages_changed ", since=mark) == "remote_pages_changed 3",
+              "the line after the long one, unchanged")
+        with d.lock:
+            pieces = [e[:20] + "... (%d bytes)" % len(e) for e in d.events[mark:] if e.startswith("x")]
+        check(not pieces, "no piece of the long line reaches the controller: %s" % pieces)
+    finally:
+        d.close()
+
+
 # ---------------------------------------------------------------- pins (one-contract §10, supervisor §5.8)
 
 MANIFEST = """@prefix lv2: <http://lv2plug.in/ns/lv2core#> .
