@@ -87,8 +87,17 @@ static void drain(source_t *s)
 
         if (s->cap - s->used < 4096)
         {
-            s->cap = s->cap ? s->cap * 2 : 8192;
-            s->buf = realloc(s->buf, s->cap);
+            size_t cap = s->cap ? s->cap * 2 : 8192;
+            char *buf = realloc(s->buf, cap);
+
+            if (buf == NULL)
+            {
+                /* no memory to read the worker into: read it no more, as for a worker that closed it */
+                s->eof = 1;
+                return;
+            }
+            s->buf = buf;
+            s->cap = cap;
         }
         n = recv(s->fd, s->buf + s->used, s->cap - s->used, MSG_DONTWAIT);
         if (n < 0 && errno == EINTR)
@@ -291,8 +300,17 @@ void relay_add(int fd)
     pthread_mutex_lock(&g_lock);
     if (g_nsrc == g_capsrc)
     {
-        g_capsrc = g_capsrc ? g_capsrc * 2 : 16;
-        g_src = realloc(g_src, g_capsrc * sizeof(source_t));
+        int cap = g_capsrc ? g_capsrc * 2 : 16;
+        source_t *src = realloc(g_src, cap * sizeof(source_t));
+
+        if (src == NULL)
+        {
+            pthread_mutex_unlock(&g_lock);
+            fprintf(stderr, "relay: no memory to follow the feedback of fd %d\n", fd);
+            return;
+        }
+        g_src = src;
+        g_capsrc = cap;
     }
     memset(&g_src[g_nsrc], 0, sizeof(source_t));
     g_src[g_nsrc++].fd = fd;
