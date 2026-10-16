@@ -854,7 +854,7 @@ def remote_pages_changed_from_a_worker_reaches_the_controller():
 NOTES = ["note_on 0 0 60 100", "note_on 0 15 127 127", "note_off 0 0 60 0", "note_off 0 15 127 64", "all_notes_off 0"]
 BAD_NOTES = ["note_on 0 16 60 100", "note_on 0 0 128 100", "note_on 0 0 60 0", "note_on 0 0 60 128", "note_on 0 -1 60 100",
              "note_on 0 0 60", "note_on 0 0 60 100 1", "note_on 0 0 6x 100", "note_on 0 0 60 +100", "note_off 0 0 60 128",
-             "note_off 0 0 60", "all_notes_off 0 0", "note_input 0 midi_in", "note_on x 0 60 100"]
+             "note_on 0 -0 60 100", "note_on 0 0 -0 100", "note_off 0 0 60 -0", "note_on -0 0 60 100", "note_off 0 0 60", "all_notes_off 0 0", "note_input 0 midi_in", "note_on x 0 60 100"]
 NOTE_VERBS = ("note_input", "note_on", "note_off", "all_notes_off")
 
 

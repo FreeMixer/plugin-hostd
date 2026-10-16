@@ -454,7 +454,7 @@ static inline int phd_track_info_valid(char *const *word, int count)
            phd_track_kind(count == 5 ? word[4] : NULL) >= 0;
 }
 
-/* whether word is a whole number from lo to hi, in decimal with no sign but a leading '-' */
+/* whether word is a whole number from lo to hi, in decimal with no sign but a leading '-' ('-0' is not a number: zero has one spelling) */
 static inline int phd_number_in(const char *word, int lo, int hi)
 {
     long v = 0;
@@ -469,7 +469,11 @@ static inline int phd_number_in(const char *word, int lo, int hi)
         v = v * 10 + (word[n] - '0');
     }
     if (word[0] == '-')
+    {
+        if (v == 0)
+            return 0;
         v = -v;
+    }
     return v >= lo && v <= hi;
 }
 

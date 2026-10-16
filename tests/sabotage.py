@@ -295,6 +295,8 @@ SABOTAGE = [
     ("a note's words are not checked", "src/supervisor.c",
      "    else if (phd_is_note_verb(word[0]) && !phd_note_valid(word, count))\n", "    else if (0)\n",
      "notes_reach_a_clap_worker_unchanged_and_an_effect_refuses_them"),
+    ("a negative zero is a number", "include/plugin-hostd/protocol.h", "        if (v == 0)\n            return 0;\n        v = -v;",
+     "        v = -v;", "notes_reach_a_clap_worker_unchanged_and_an_effect_refuses_them"),
     ("a note's velocity range is not checked", "include/plugin-hostd/protocol.h",
      "phd_number_in(word[4], on ? 1 : 0, PHD_NOTE_VELOCITY_MAX)", "phd_number_in(word[4], 0, 1000)",
      "notes_reach_a_clap_worker_unchanged_and_an_effect_refuses_them"),
