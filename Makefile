@@ -105,6 +105,13 @@ install_man:
 	install -d $(DESTDIR)$(MANDIR)
 	install -m 644 doc/*.1 $(DESTDIR)$(MANDIR)
 
+# No tracked file points into a private repository, issue, branch or path (tools/private-refs-check.sh, with its
+# --self-test, which turns each kind of pointer red in each kind of file).
+.PHONY: private-refs
+private-refs:
+	tools/private-refs-check.sh
+	tools/private-refs-check.sh --self-test
+
 # clean rule
 clean:
 	@rm -f src/*.o $(PROG) $(FAKE) $(PIN_TEST) $(FORMAT_TEST) $(GEN) tests/stress.clap tests/jack_levels tests/host_scenarios $(LV2_FIXTURE)
