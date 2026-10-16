@@ -35,7 +35,9 @@
     {"name": "PIN_BINARY_MISMATCH", "macro": "PHD_ERR_PIN_BINARY_MISMATCH", "code": -509, "meaning": "a pinned file is missing or its SHA-256 differs, or the plugin's manifest names a file the pin does not hold: add is refused and no worker sees it"},
     {"name": "PIN_LAYOUT_MISMATCH", "macro": "PHD_ERR_PIN_LAYOUT_MISMATCH", "code": -510, "meaning": "the worker found the parameter layout after init differs from the layout pin: the instance is destroyed before activate"},
     {"name": "NO_PARAM_CONTRACT", "macro": "PHD_ERR_NO_PARAM_CONTRACT", "code": -511, "meaning": "the host holds no checked unit and scale for this parameter: fall back to qualification"},
-    {"name": "LV2_ADAPTER_REFUSED", "macro": "PHD_ERR_LV2_ADAPTER_REFUSED", "code": -512, "meaning": "the lv2-clap worker's LV2 adapter cannot run this plugin (MIDI it does not feed, a required feature it lacks, a layout it does not take): the worker answered the add -102, the lv2_adapter_refused event carries the hosting.* code of that reply, and under lv2_worker auto the plugin is run by the lv2 row instead and this code is never answered; a plugin no bundle of the worker's world holds is no refusal: the worker's -101 is answered"}
+    {"name": "LV2_ADAPTER_REFUSED", "macro": "PHD_ERR_LV2_ADAPTER_REFUSED", "code": -512, "meaning": "the lv2-clap worker's LV2 adapter cannot run this plugin (MIDI it does not feed, a required feature it lacks, a layout it does not take): the worker answered the add -102, the lv2_adapter_refused event carries the hosting.* code of that reply, and under lv2_worker auto the plugin is run by the lv2 row instead and this code is never answered; a plugin no bundle of the worker's world holds is no refusal: the worker's -101 is answered"},
+    {"name": "NO_NOTE_INPUT", "macro": "PHD_ERR_NO_NOTE_INPUT", "code": -513, "meaning": "the instance's plugin takes no notes (an effect): its worker answers note_on, note_off and all_notes_off with this code"},
+    {"name": "NOTES_BY_JACK", "macro": "PHD_ERR_NOTES_BY_JACK", "code": -514, "meaning": "the instance's worker takes no notes on its socket (mod-host): the daemon answers the note verbs and note_input with this code, and the plugin is played through its jack MIDI input with connect"}
   ],
   "verbs": [
     {"name": "add", "arguments": "<uri> <instance> [own | pool:<name> | default] [client_name]", "reply": "resp <instance>", "meaning": "mod-host's add with a placement; a token after the instance that is not a placement is the jack client name"},
@@ -57,7 +59,11 @@
     {"name": "track_info", "arguments": "<instance> <name> <#RRGGBB | -> [bus | return | master]", "reply": "resp 0", "ledger": "replace", "meaning": "the strip's name (\"\" for none), colour and kind, absent for an input channel; a worker whose plugin format has a track-info extension passes them on; any other word is -902"},
     {"name": "remote_pages", "arguments": "<instance>", "reply": "resp <count>", "ledger": "none", "meaning": "the plugin's remote-control pages, from clap.remote-controls; 0 for an instance of a format whose worker has none"},
     {"name": "remote_page_get", "arguments": "<instance> <page>", "reply": "resp 0 <page_id> <section> <page_name> <s1> <s2> <s3> <s4> <s5> <s6> <s7> <s8>", "ledger": "none", "meaning": "one page, 0 to count - 1: each slot the symbol param_set takes, - for an empty one; -902 for a page that is not one"},
-    {"name": "param_info", "arguments": "<instance> <symbol>", "reply": "resp 0 <unit> <scale> <min> <max> <default> <step> <stable_symbol>", "ledger": "none", "meaning": "what a parameter's value means: its unit, its scale, and the symbol it keeps across hosts and versions; -103 for a symbol that is not a parameter, the plugin's own bypass and :bypass included; -511 for a parameter whose unit and scale the worker holds no checked contract for"}
+    {"name": "param_info", "arguments": "<instance> <symbol>", "reply": "resp 0 <unit> <scale> <min> <max> <default> <step> <stable_symbol>", "ledger": "none", "meaning": "what a parameter's value means: its unit, its scale, and the symbol it keeps across hosts and versions; -103 for a symbol that is not a parameter, the plugin's own bypass and :bypass included; -511 for a parameter whose unit and scale the worker holds no checked contract for"},
+    {"name": "note_input", "arguments": "<instance>", "reply": "resp 0 <port | ->", "ledger": "none", "meaning": "whether the instance takes notes: the name of its note input on its worker's jack client, - for a plugin that takes none; (-514) for an instance of a worker that cannot say"},
+    {"name": "note_on", "arguments": "<instance> <channel> <key> <velocity>", "reply": "resp 0", "ledger": "none", "meaning": "play a key: channel 0 to 15, key 0 to 127, velocity 1 to 127, a MIDI note on at the start of the worker's next cycle; (-513) for a plugin that takes no notes, (-514) for an instance of a worker that takes none on its socket, -902 for a word out of its range"},
+    {"name": "note_off", "arguments": "<instance> <channel> <key> <velocity>", "reply": "resp 0", "ledger": "none", "meaning": "release a key, velocity 0 to 127, a MIDI note off; answered as note_on is"},
+    {"name": "all_notes_off", "arguments": "<instance>", "reply": "resp 0", "ledger": "none", "meaning": "release every key of every channel, MIDI's all notes off (controller 123) on each; answered as note_on is"}
   ],
   "track_kinds": ["bus", "return", "master"],
   "param_scales": [
@@ -97,6 +103,11 @@
       {"name": "NO_CONTROLLER", "meaning": "with no feedback port, or no controller on it, a line is dropped, as mod-host drops it; the daemon reads every worker's feedback all the time, so no worker waits on it"}
     ]
   },
+  "host_settings": [
+    {"name": "TEMPO", "meaning": "the tempo, the metre and the transport a controller sets (mod-host's set_bpm, set_bpb, transport and transport_sync) are kept, the latest line of each as it was sent, in the order they were last sent"},
+    {"name": "REPLAY", "meaning": "a worker is handed them before anything else: a respawned one before its first add, and a worker started later, of a new placement, as well; a worker's refusal of one is written to stderr and is no failure"},
+    {"name": "GRAMMAR", "meaning": "a line whose words are not that command's grammar is passed on and not kept"}
+  ],
   "config": [
     {"key": "mod_host", "type": "string", "default": "mod-host", "env": "", "meaning": "worker for lv2 (a name on PATH or a path)"},
     {"key": "clap_host", "type": "string", "default": "omx-clap-host", "env": "", "meaning": "worker for clap"},

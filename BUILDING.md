@@ -63,7 +63,11 @@ that `lv2_worker omx-clap-host` runs an LV2 plugin through the adapter; that a p
 `-512`, with the event naming the `hosting.*` code from the reply to that add, also in a pool worker whose log several
 plugins share; that `auto` runs a refused plugin on mod-host; and that a plugin no bundle holds for the adapter, which
 it answers `-101`, is not found under `omx-clap-host` and is looked for by mod-host under `auto`, with no event in
-either case. Without `OMX_CLAP_HOST_SRC` the target prints `skip test-lv2-adapter` and does nothing else.
+either case. It also checks that a tempo set before a kill is handed to the respawned omx-clap-host, and that the note
+verbs reach it and come back as it answered them, and are answered `-514` by the daemon for a plugin on mod-host. Where
+omx-clap-host does not take them yet (a tempo, FreeMixer/omx-clap-core#88; the notes, FreeMixer/omx-clap-core#122) the
+case prints `PENDING` with the issue and checks what the worker answers today. Without `OMX_CLAP_HOST_SRC` the target
+prints `skip test-lv2-adapter` and does nothing else.
 
 `make sabotage` (`tests/sabotage.py`) breaks the daemon on purpose, one guard at a time, and
 requires the named test to go red.
@@ -80,6 +84,10 @@ After a `preset_load` or `patch_set`, and after a quiet interval, it asks the
 worker for `state_save <dir>` into one checkpoint directory of its own and,
 for an instance whose state file is there, drops the verbs the state now
 holds.
+
+The tempo, the metre and the transport (`set_bpm`, `set_bpb`, `transport`, `transport_sync`) are the daemon's, not an
+instance's: the latest line of each is kept, and every worker is handed them before anything else, when it is first
+started and when it is respawned. Notes (`note_on` and the rest) are never kept.
 
 A worker that dies is respawned after a backoff, and each instance is put
 back: `add`, one `state_load` of the checkpoint directory, the verb tail,

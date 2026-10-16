@@ -98,6 +98,7 @@ static void reply(int fd, char *text)
 static char *handle(char *line, char **tok, int ntok)
 {
     const char *verb = tok[0];
+    char *reply_text;
 
     if (!strcmp(verb, PHD_VERB_ADD))
     {
@@ -160,7 +161,9 @@ static char *handle(char *line, char **tok, int ntok)
         return sup_call(atoi(tok[1]), line);
     if ((verb_is(verb, EFFECT_CONNECT) || verb_is(verb, EFFECT_DISCONNECT)) && ntok == 3)
         return sup_connect(verb, line, tok[1], tok[2]);
-    return sup_broadcast(line);
+    reply_text = sup_broadcast(line);
+    sup_host_setting(line, tok, ntok);
+    return reply_text;
 }
 
 void verbs_receive(msg_t *msg)

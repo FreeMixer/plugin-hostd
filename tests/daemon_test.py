@@ -743,7 +743,8 @@ def an_lv2_instance_is_answered_by_the_daemon_and_its_worker_never_sees_the_verb
     log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log})
     try:
-        check(set(VERBS) == {"track_info", "remote_pages", "remote_page_get", "param_info"}, "declared: %s" % VERBS)
+        check(set(VERBS) == {"track_info", "remote_pages", "remote_page_get", "param_info", "note_input", "note_on", "note_off",
+                             "all_notes_off"}, "declared: %s" % VERBS)
         d.expect("add fake:a 0", "resp 0")
         d.expect(TRACK, "resp 0")
         d.expect('track_info 0 "" -', "resp 0")
@@ -846,6 +847,141 @@ def remote_pages_changed_from_a_worker_reaches_the_controller():
               "the worker's line, unchanged: %s" % d.events[mark:])
     finally:
         d.close()
+
+
+# ---------------------------------------------------------------- notes, and the tempo across a respawn
+
+NOTES = ["note_on 0 0 60 100", "note_on 0 15 127 127", "note_off 0 0 60 0", "note_off 0 15 127 64", "all_notes_off 0"]
+BAD_NOTES = ["note_on 0 16 60 100", "note_on 0 0 128 100", "note_on 0 0 60 0", "note_on 0 0 60 128", "note_on 0 -1 60 100",
+             "note_on 0 0 60", "note_on 0 0 60 100 1", "note_on 0 0 6x 100", "note_on 0 0 60 +100", "note_off 0 0 60 128",
+             "note_off 0 0 60", "all_notes_off 0 0", "note_input 0 midi_in", "note_on x 0 60 100"]
+NOTE_VERBS = ("note_input", "note_on", "note_off", "all_notes_off")
+
+
+@test
+def notes_reach_a_clap_worker_unchanged_and_an_effect_refuses_them():
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(env={"FAKE_LOG": log})
+    try:
+        d.expect("add clap:fake#synth 0", "resp 0")
+        d.expect("add clap:fake#a 1", "resp 1")
+        d.expect("note_input 0", "resp 0 midi_in")
+        d.expect("note_input 1", "resp 0 -")
+        for line in NOTES:
+            d.expect(line, "resp 0")
+        for bad in BAD_NOTES:
+            d.expect(bad, "resp -902")
+        d.expect("note_on 1 0 60 100", resp("NO_NOTE_INPUT"))
+        d.expect("all_notes_off 1", resp("NO_NOTE_INPUT"))
+        d.expect("note_on 9 0 60 100", "resp -3")
+        d.expect("note_input 9", "resp -3")
+        got = [c for c in sent_to(log) if c.split(" ", 1)[0] in NOTE_VERBS]
+        check(got == ["note_input 0", "note_input 1"] + NOTES + ["note_on 1 0 60 100", "all_notes_off 1"],
+              "each note as sent, in order, and no line the daemon refused: %s" % got)
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
+
+
+@test
+def notes_are_never_replayed():
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(env={"FAKE_LOG": log})
+    try:
+        d.expect("add clap:fake#synth 0", "resp 0")
+        d.expect("note_on 0 0 60 100", "resp 0")
+        d.expect("param_set 0 gain 0.2500", "resp 0")
+        _, w = d.holder(0)
+        mark = d.mark()
+        os.kill(w["pid"], signal.SIGKILL)
+        d.wait_event("instance_restored 0 ", since=mark)
+        sent = sent_to(log, d.holder(0)[1]["pid"])
+        check("param_set 0 gain 0.2500" in sent, "the setting is replayed: %s" % sent)
+        check(not [c for c in sent if c.split(" ", 1)[0] in NOTE_VERBS], "a note is never replayed: %s" % sent)
+        d.expect("note_off 0 0 60 0", "resp 0")
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
+
+
+@test
+def an_lv2_instance_on_mod_host_answers_notes_by_jack_and_mod_host_never_sees_them():
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(env={"FAKE_LOG": log})
+    try:
+        d.expect("add fake:synth 0", "resp 0")
+        d.expect("note_input 0", resp("NOTES_BY_JACK"))
+        for line in NOTES:
+            d.expect(line, resp("NOTES_BY_JACK"))
+        for bad in BAD_NOTES:
+            d.expect(bad, "resp -902")
+        got = [c for c in sent_to(log) if c.split(" ", 1)[0] in NOTE_VERBS]
+        check(got == [], "mod-host is sent no note: %s" % got)
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
+
+
+SETTINGS = ["set_bpb 3", "transport 1 4 140", "set_bpm 133", "transport_sync none"]
+
+
+@test
+def tempo_and_transport_are_handed_to_a_respawned_worker_before_its_add():
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(env={"FAKE_LOG": log})
+    try:
+        # before any worker: kept for the first one
+        d.expect("set_bpm 99", "resp 0")
+        d.expect("add clap:fake#a 0", "resp 0")
+        first = sent_to(log, d.holder(0)[1]["pid"])
+        check(first[:2] == ["set_bpm 99", "add clap:fake#a 0"], "a worker's first lines: the tempo, then its add: %s" % first)
+        d.expect("set_bpm 120", "resp 0")
+        for line in SETTINGS:
+            d.expect(line, "resp 0")
+        # not the grammar: passed on, answered by the worker, never kept
+        for bad in ("set_bpm fast", "set_bpm", "transport 1 4", "transport x 4 120", "set_bpb 3 4"):
+            d.expect(bad, "resp 0")
+        _, w = d.holder(0)
+        mark = d.mark()
+        os.kill(w["pid"], signal.SIGKILL)
+        d.wait_event("instance_restored 0 ", since=mark)
+        sent = sent_to(log, d.holder(0)[1]["pid"])
+        check(sent[:len(SETTINGS) + 1] == SETTINGS + ["add clap:fake#a 0"],
+              "the latest of each, in the order last sent, before the add: %s" % sent)
+        check(sum(1 for c in sent if c.startswith(("set_b", "transport"))) == len(SETTINGS), "each once: %s" % sent)
+        # a worker of a new placement is handed them too
+        d.expect("add clap:fake#b 1", "resp 1")
+        sent = sent_to(log, d.holder(1)[1]["pid"])
+        check(sent[:len(SETTINGS) + 1] == SETTINGS + ["add clap:fake#b 1"], "a new worker gets them first: %s" % sent)
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
+
+
+@test
+def a_tempo_the_worker_refuses_is_kept_written_and_the_worker_still_comes_back():
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(env={"FAKE_LOG": log, "FAKE_REFUSE_SETTINGS": "1"})
+    try:
+        d.expect("add clap:fake#a 0", "resp 0")
+        d.expect("set_bpm 133", "resp -902")
+        _, w = d.holder(0)
+        mark = d.mark()
+        os.kill(w["pid"], signal.SIGKILL)
+        d.wait_event("instance_restored 0 ", since=mark)
+        sent = sent_to(log, d.holder(0)[1]["pid"])
+        check(sent[:2] == ["set_bpm 133", "add clap:fake#a 0"], "kept though refused, and handed again: %s" % sent)
+        check(d.holder(0)[1]["state"] == "up", "the worker is up: %s" % d.workers())
+        check("refused 'set_bpm 133': resp -902" in d.log(), "the refusal is written: %s" % d.log()[-400:])
+        d.expect("param_get 0 gain", "resp -103")
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
 
 
 # ---------------------------------------------------------------- pins (one-contract §10, supervisor §5.8)

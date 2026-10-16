@@ -95,6 +95,13 @@ static const struct { const char *format; int kind; int key_arg; } g_recorded[] 
     { CV_UNMAP, KIND_HOST, 0 },
 };
 
+/* the commands every worker shares that the daemon keeps (PHD_HOST_SETTINGS), and the latest line of each, in the order
+ * they were last sent: a transport line after a set_bpm wins over it, and a set_bpm after that wins again */
+static const char *const g_host_setting_verbs[] = { EFFECT_SET_BPM, EFFECT_SET_BPB, TRANSPORT, TRANSPORT_SYNC };
+#define HOST_SETTINGS (sizeof(g_host_setting_verbs) / sizeof(g_host_setting_verbs[0]))
+static char *g_host_settings[HOST_SETTINGS];
+static int g_nhost_settings;
+
 static void event(const char *fmt, ...)
 {
     char line[1024];
@@ -407,6 +414,62 @@ static char *narrow_world(worker_t *w, const char *uri)
 /* how many times one start asks for ports before it is a failed spawn */
 #define SPAWN_ATTEMPTS 3
 
+static int replay_line_code(worker_t *w, const char *line, int *code);
+
+/* whether the words of a line are the grammar of a mod-host format: as many, a %i a whole number, a %f a number */
+static int format_words(const char *format, char **tok, int ntok)
+{
+    char *copy = strdup(format), *save = NULL, *t;
+    int n = 0, ok = 1;
+
+    for (t = strtok_r(copy, " ", &save); t && ok; t = strtok_r(NULL, " ", &save), n++)
+    {
+        char *end;
+
+        if (n >= ntok)
+            ok = 0;
+        else if (!strcmp(t, "%i"))
+            ok = (strtol(tok[n], &end, 10), *tok[n] && !*end);
+        else if (!strcmp(t, "%f"))
+            ok = (strtod(tok[n], &end), *tok[n] && !*end);
+    }
+    free(copy);
+    return ok && n == ntok;
+}
+
+void sup_host_setting(const char *line, char **tok, int ntok)
+{
+    size_t v;
+    int n;
+
+    for (v = 0; v < HOST_SETTINGS; v++)
+        if (verb_is(tok[0], g_host_setting_verbs[v]))
+            break;
+    if (v == HOST_SETTINGS || !format_words(g_host_setting_verbs[v], tok, ntok))
+        return;
+    for (n = 0; n < g_nhost_settings; n++)
+        if (verb_is(g_host_settings[n], g_host_setting_verbs[v]))
+        {
+            free(g_host_settings[n]);
+            memmove(&g_host_settings[n], &g_host_settings[n + 1], (g_nhost_settings - n - 1) * sizeof(char *));
+            g_nhost_settings--;
+            break;
+        }
+    if (g_nhost_settings < (int)HOST_SETTINGS)
+        g_host_settings[g_nhost_settings++] = strdup(line);
+}
+
+/* a worker that just started is handed the host settings before anything else; its refusal of one is only written */
+static int host_settings_replay(worker_t *w)
+{
+    int n, code;
+
+    for (n = 0; n < g_nhost_settings; n++)
+        if (replay_line_code(w, g_host_settings[n], &code) != RPC_OK)
+            return -1;
+    return 0;
+}
+
 static int worker_start(worker_t *w, const char *uri)
 {
     char logfile[PATH_MAX];
@@ -437,6 +500,14 @@ static int worker_start(worker_t *w, const char *uri)
     free(world);
     if (w->fd < 0)
     {
+        proc_stop(w->pid);
+        w->pid = 0;
+        return PHD_ERR_WORKER_SPAWN;
+    }
+    if (host_settings_replay(w) != 0)
+    {
+        close(w->fd);
+        close(w->fb_fd);
         proc_stop(w->pid);
         w->pid = 0;
         return PHD_ERR_WORKER_SPAWN;
@@ -1486,6 +1557,8 @@ char *sup_instance_verb(const char *line, int ledger)
         reply = sup_resp(ERR_INSTANCE_NON_EXISTS);
     else if (!strcmp(word[0], PHD_VERB_TRACK_INFO) && !phd_track_info_valid(word, count))
         reply = sup_resp(ERR_INVALID_OPERATION);
+    else if (phd_is_note_verb(word[0]) && !phd_note_valid(word, count))
+        reply = sup_resp(ERR_INVALID_OPERATION);
     else if (format_at(i->fmt)->native_instance_verbs)
     {
         reply = sup_call(id, line);
@@ -1506,6 +1579,8 @@ char *sup_instance_verb(const char *line, int ledger)
         reply = sup_resp(count == 2 ? 0 : ERR_INVALID_OPERATION);
     else if (!strcmp(word[0], PHD_VERB_PARAM_INFO))
         reply = count == 3 ? format_at(i->fmt)->param_info(id, word[2]) : sup_resp(ERR_INVALID_OPERATION);
+    else if (phd_is_note_verb(word[0]))
+        reply = sup_resp(PHD_ERR_NOTES_BY_JACK);
     else
         reply = sup_resp(ERR_INVALID_OPERATION);
     free(word);

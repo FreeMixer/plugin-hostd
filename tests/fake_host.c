@@ -44,6 +44,11 @@
  *   param_set <n> pages_changed <v>   v other than 0 writes "remote_pages_changed <n>" on the feedback port, as a CLAP
  *                               worker does when its plugin changes its remote pages
  *   track_info <n> ...          "resp 0"; the fake keeps nothing of it (FAKE_LOG shows what it was sent)
+ *   note_input <n>              "resp 0 midi_in" for an instance whose uri holds "synth", "resp 0 -" for any other
+ *   note_on, note_off, all_notes_off <n> ...   "resp 0" for a synth, PHD_ERR_NO_NOTE_INPUT for any other; the fake
+ *                               plays nothing (FAKE_LOG shows what it was sent)
+ *   set_bpm, set_bpb, transport, transport_sync   "resp 0", as mod-host answers them, -902 with FAKE_REFUSE_SETTINGS, as
+ *                               omx-clap-host answers them; the fake keeps nothing of them
  *   remote_pages <n>            "resp 2", and remote_page_get <n> <0|1> one page each, -902 for any other page
  *   param_info <n> <sym>        for the symbol 0 the worked vector of the param contract, for the symbol 1 -511 (a parameter
  *                               the worker holds no contract for, as the released omx-clap-host answers every one), -103 for any other
@@ -88,6 +93,7 @@
 typedef struct INST_T {
     int exists;
     int nostate;
+    int synth;
     char client[64];
     char name[MAX_PARAMS][64];
     char text[MAX_PARAMS][128];
@@ -295,6 +301,7 @@ static void receive(msg_t *msg)
             g_inst[id].exists = 1;
             g_expect[id][0] = '\0';
             g_inst[id].nostate = strstr(tok[1], "nostate") != NULL;
+            g_inst[id].synth = strstr(tok[1], "synth") != NULL;
             snprintf(g_inst[id].client, sizeof(g_inst[id].client), "%s", ntok > 3 ? tok[3] : "");
             answer(fd, "resp %d", id);
         }
@@ -315,6 +322,9 @@ static void receive(msg_t *msg)
                 g_out[k--] = g_out[--g_nout];
         answer(fd, "resp 0");
     }
+    else if (verb_is(verb, EFFECT_SET_BPM) || verb_is(verb, EFFECT_SET_BPB) || verb_is(verb, TRANSPORT) ||
+             verb_is(verb, TRANSPORT_SYNC))
+        answer(fd, getenv("FAKE_REFUSE_SETTINGS") ? "resp -902" : "resp 0");
     else if (n >= 0 && n < MAX_INST && !g_inst[n].exists && !verb_is(verb, STATE_SAVE) && !verb_is(verb, STATE_LOAD) &&
              !verb_is(verb, EFFECT_CONNECT) && !verb_is(verb, EFFECT_DISCONNECT) && strcmp(verb, "list_connections") &&
              !verb_is(verb, QUIT))
@@ -396,6 +406,10 @@ static void receive(msg_t *msg)
     }
     else if (!strcmp(verb, PHD_VERB_TRACK_INFO))
         answer(fd, "resp 0");
+    else if (!strcmp(verb, PHD_VERB_NOTE_INPUT) && ntok == 2)
+        answer(fd, "resp 0 %s", g_inst[n].synth ? "midi_in" : PHD_NO_NOTE_INPUT);
+    else if (!strcmp(verb, PHD_VERB_NOTE_ON) || !strcmp(verb, PHD_VERB_NOTE_OFF) || !strcmp(verb, PHD_VERB_ALL_NOTES_OFF))
+        answer(fd, "resp %d", g_inst[n].synth ? 0 : PHD_ERR_NO_NOTE_INPUT);
     else if (!strcmp(verb, PHD_VERB_REMOTE_PAGES) && ntok == 2)
         answer(fd, "resp 2");
     else if (!strcmp(verb, PHD_VERB_REMOTE_PAGE_GET) && ntok == 3 && !strcmp(tok[2], "0"))
