@@ -110,7 +110,8 @@ static void drain(source_t *s)
         start = s->buf;
         while ((nul = memchr(start, '\0', s->used - (start - s->buf))))
         {
-            if (s->skip)
+            /* a line too long to relay is dropped whole: its end after a dropped start, or all of it at once */
+            if (s->skip || (size_t)(nul - start) > LINE_LIMIT)
                 s->skip = 0;
             else
                 send_line(start, nul - start + 1);
