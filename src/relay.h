@@ -45,4 +45,7 @@ void relay_add(int fd);
 /* A worker's feedback socket, closed: what the worker wrote before it is read and sent first. */
 void relay_remove(int fd);
 
+/* An instance removed: every gesture it held is ended at the controller, once, whichever worker the instance was on. */
+void relay_instance_gone(int id);
+
 #endif
