@@ -190,6 +190,16 @@ worker unchanged once the daemon has checked their words. A worker answers them 
 takes no notes on its socket, so for an LV2 instance on mod-host the daemon answers all four `-514`, and the plugin is
 played through its jack MIDI input with `connect`. omx-clap-host does not answer them yet (FreeMixer/omx-clap-core#122).
 
+`preset_list` and `preset_get` list a plugin's presets the way `remote_pages` and `remote_page_get` list its pages; the
+key `preset_get` gives is the one `preset_load` takes. mod-host cannot list presets, so for an LV2 instance on mod-host
+the daemon answers both `-515`. omx-clap-host does not list them yet (FreeMixer/omx-clap-core#95).
+
+A plugin with a window or a surface of its own tells its host when the user takes hold of one of its knobs and lets go,
+moves values by itself, and suggests a remote page. Its worker writes `param_gesture`, mod-host's `param_set` and
+`remote_page_suggest` on its feedback port, and the daemon relays them as written, in order (events below). If the
+worker dies, or the instance is removed, while a gesture is held, the daemon ends the gesture itself, so no control
+stays held at the controller. omx-clap-host writes these lines from FreeMixer/omx-clap-core#87 on.
+
 <!-- BEGIN GENERATED protocol:instance-verbs -->
 | verb | arguments | reply | meaning |
 |---|---|---|---|
@@ -197,6 +207,8 @@ played through its jack MIDI input with `connect`. omx-clap-host does not answer
 | `remote_pages` | `<instance>` | `resp <count>` | the plugin's remote-control pages, from clap.remote-controls; 0 for an instance of a format whose worker has none |
 | `remote_page_get` | `<instance> <page>` | `resp 0 <page_id> <section> <page_name> <s1> <s2> <s3> <s4> <s5> <s6> <s7> <s8>` | one page, 0 to count - 1: each slot the symbol param_set takes, - for an empty one; -902 for a page that is not one |
 | `param_info` | `<instance> <symbol>` | `resp 0 <unit> <scale> <min> <max> <default> <step> <stable_symbol>` | what a parameter's value means: its unit, its scale, and the symbol it keeps across hosts and versions; -103 for a symbol that is not a parameter, the plugin's own bypass and :bypass included; -511 for a parameter whose unit and scale the worker holds no checked contract for |
+| `preset_list` | `<instance>` | `resp <count>` | the plugin's presets, the ones its preset discovery or its bundle lists; (-515) for an instance of a worker that cannot list them |
+| `preset_get` | `<instance> <index>` | `resp 0 <load_key> <name>` | one preset, 0 to count - 1: the key preset_load takes for it, and its name; -902 for an index that is not one |
 | `note_input` | `<instance>` | `resp 0 <port \| ->` | whether the instance takes notes: the name of its note input on its worker's jack client, - for a plugin that takes none; (-514) for an instance of a worker that cannot say |
 | `note_on` | `<instance> <channel> <key> <velocity>` | `resp 0` | play a key: channel 0 to 15, key 0 to 127, velocity 1 to 127, a MIDI note on at the start of the worker's next cycle; (-513) for a plugin that takes no notes, (-514) for an instance of a worker that takes none on its socket, -902 for a word out of its range |
 | `note_off` | `<instance> <channel> <key> <velocity>` | `resp 0` | release a key, velocity 0 to 127, a MIDI note off; answered as note_on is |
@@ -224,6 +236,7 @@ Error codes the daemon adds to mod-host's:
 | `-512` | `PHD_ERR_LV2_ADAPTER_REFUSED` | the lv2-clap worker's LV2 adapter cannot run this plugin (MIDI it does not feed, a required feature it lacks, a layout it does not take): the worker answered the add -102, the lv2_adapter_refused event carries the hosting.* code of that reply, and under lv2_worker auto the plugin is run by the lv2 row instead and this code is never answered; a plugin no bundle of the worker's world holds is no refusal: the worker's -101 is answered |
 | `-513` | `PHD_ERR_NO_NOTE_INPUT` | the instance's plugin takes no notes (an effect): its worker answers note_on, note_off and all_notes_off with this code |
 | `-514` | `PHD_ERR_NOTES_BY_JACK` | the instance's worker takes no notes on its socket (mod-host): the daemon answers the note verbs and note_input with this code, and the plugin is played through its jack MIDI input with connect |
+| `-515` | `PHD_ERR_NO_PRESET_LIST` | the instance's worker cannot list the plugin's presets (mod-host): the daemon answers preset_list and preset_get with this code; preset_load still takes a preset the controller knows |
 <!-- END GENERATED protocol:errors -->
 
 A worker's own refusal is returned as it said it. An `add` that killed its worker answers mod-host's `-102`.
@@ -255,6 +268,8 @@ Events on the feedback port, one NUL-terminated line each:
 | `pin_changed` | `<uri> files \| layout` | an add or a replay of a plugin was refused because its files, or the layout the worker found, differ from its pin; the pin is as it was until pin_accept or pin_set |
 | `lv2_adapter_refused` | `<uri> <reason> auto \| omx-clap-host` | the LV2 adapter of the lv2-clap worker refused a plugin: <reason> is the hosting.* code after -102 on the worker's reply to that add (- when it named none); the last word is the lv2_worker in force, auto for a plugin the lv2 row runs from now on, omx-clap-host for an add answered (-512) |
 | `remote_pages_changed` | `<instance>` | relayed from a worker: the plugin changed its remote pages; read them again |
+| `remote_page_suggest` | `<instance> <page_id>` | relayed from a worker: the plugin suggests the remote page of that id (a page_id of remote_page_get); a surface may follow it |
+| `param_gesture` | `<instance> <symbol> begin \| end` | relayed from a worker: the user took hold of a control of the plugin's own, or let it go; a controller writes no automation of that parameter in between. The values the plugin moves meanwhile, or at any time by itself, are mod-host's param_set feedback lines, relayed as written. A gesture whose worker died, or whose instance was removed, before its end is ended by the daemon, before the worker_died event |
 <!-- END GENERATED protocol:events -->
 
 The workers' own feedback

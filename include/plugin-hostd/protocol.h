@@ -152,6 +152,7 @@ static inline int phd_pool_name_valid(const char *name)
 #define PHD_ERR_LV2_ADAPTER_REFUSED (-512)
 #define PHD_ERR_NO_NOTE_INPUT       (-513)
 #define PHD_ERR_NOTES_BY_JACK       (-514)
+#define PHD_ERR_NO_PRESET_LIST      (-515)
 
 /* X(id, meaning) */
 #define PHD_ERRORS(X) \
@@ -183,7 +184,10 @@ static inline int phd_pool_name_valid(const char *name)
                      PHD_VERB_NOTE_OFF " and " PHD_VERB_ALL_NOTES_OFF " with this code") \
     X(NOTES_BY_JACK, "the instance's worker takes no notes on its socket (mod-host): the daemon answers the note verbs " \
                      "and " PHD_VERB_NOTE_INPUT " with this code, and the plugin is played through its jack MIDI input " \
-                     "with connect")
+                     "with connect") \
+    X(NO_PRESET_LIST, "the instance's worker cannot list the plugin's presets (mod-host): the daemon answers " \
+                      PHD_VERB_PRESET_LIST " and " PHD_VERB_PRESET_GET " with this code; preset_load still takes a preset " \
+                      "the controller knows")
 
 /* ---------------------------------------------------------------- verbs */
 
@@ -301,12 +305,16 @@ static inline int phd_pool_name_valid(const char *name)
 #define PHD_VERB_REMOTE_PAGES    "remote_pages"
 #define PHD_VERB_REMOTE_PAGE_GET "remote_page_get"
 #define PHD_VERB_PARAM_INFO      "param_info"
+#define PHD_VERB_PRESET_LIST     "preset_list"
+#define PHD_VERB_PRESET_GET      "preset_get"
 
 /* the same verbs as a host registers them with protocol_add_command */
 #define PHD_VERB_TRACK_INFO_FMT      PHD_VERB_TRACK_INFO " %i %s %s ..."
 #define PHD_VERB_REMOTE_PAGES_FMT    PHD_VERB_REMOTE_PAGES " %i"
 #define PHD_VERB_REMOTE_PAGE_GET_FMT PHD_VERB_REMOTE_PAGE_GET " %i %i"
 #define PHD_VERB_PARAM_INFO_FMT      PHD_VERB_PARAM_INFO " %i %s"
+#define PHD_VERB_PRESET_LIST_FMT     PHD_VERB_PRESET_LIST " %i"
+#define PHD_VERB_PRESET_GET_FMT      PHD_VERB_PRESET_GET " %i %i"
 
 /* Notes, played on an instance by a controller that is not a jack client: the worker delivers each one as a MIDI
  * message at the start of its next cycle, on the plugin's note input. Nothing of them is kept: a note is an act, not a
@@ -366,6 +374,11 @@ static inline int phd_pool_name_valid(const char *name)
       "what a parameter's value means: its unit, its scale, and the symbol it keeps across hosts and versions; -103 " \
       "for a symbol that is not a parameter, the plugin's own bypass and :bypass included; " \
       "-511 for a parameter whose unit and scale the worker holds no checked contract for") \
+    X(PRESET_LIST, PHD_VERB_PRESET_LIST, "<instance>", "resp <count>", NONE, \
+      "the plugin's presets, the ones its preset discovery or its bundle lists; " PHD_STR(PHD_ERR_NO_PRESET_LIST) \
+      " for an instance of a worker that cannot list them") \
+    X(PRESET_GET, PHD_VERB_PRESET_GET, "<instance> <index>", "resp 0 <load_key> <name>", NONE, \
+      "one preset, 0 to count - 1: the key preset_load takes for it, and its name; -902 for an index that is not one") \
     X(NOTE_INPUT, PHD_VERB_NOTE_INPUT, "<instance>", "resp 0 <port | " PHD_NO_NOTE_INPUT ">", NONE, \
       "whether the instance takes notes: the name of its note input on its worker's jack client, " PHD_NO_NOTE_INPUT \
       " for a plugin that takes none; " PHD_STR(PHD_ERR_NOTES_BY_JACK) " for an instance of a worker that cannot say") \
@@ -520,6 +533,12 @@ static inline int phd_is_note_verb(const char *verb)
 #define PHD_EVENT_LV2_ADAPTER_REFUSED     "lv2_adapter_refused"
 /* written by a worker, relayed as it wrote it */
 #define PHD_EVENT_REMOTE_PAGES_CHANGED    "remote_pages_changed"
+#define PHD_EVENT_REMOTE_PAGE_SUGGEST     "remote_page_suggest"
+#define PHD_EVENT_PARAM_GESTURE           "param_gesture"
+
+/* the last word of a param_gesture line */
+#define PHD_GESTURE_BEGIN "begin"
+#define PHD_GESTURE_END   "end"
 
 #define PHD_EVENT_SUSPECT_PREFIX "suspect:"
 
@@ -534,6 +553,8 @@ static inline int phd_is_note_verb(const char *verb)
 #define PHD_EVENT_INSTANCE_QUARANTINED_FMT  PHD_EVENT_INSTANCE_QUARANTINED " %d w%d"
 #define PHD_EVENT_SUPERVISOR_GAVE_UP_FMT    PHD_EVENT_SUPERVISOR_GAVE_UP " w%d %d %d"
 #define PHD_EVENT_REMOTE_PAGES_CHANGED_FMT  PHD_EVENT_REMOTE_PAGES_CHANGED " %d"
+#define PHD_EVENT_REMOTE_PAGE_SUGGEST_FMT   PHD_EVENT_REMOTE_PAGE_SUGGEST " %d %u"
+#define PHD_EVENT_PARAM_GESTURE_FMT         PHD_EVENT_PARAM_GESTURE " %d %s %s"
 #define PHD_EVENT_PIN_CHANGED_FMT           PHD_EVENT_PIN_CHANGED " %s %s"
 #define PHD_EVENT_LV2_ADAPTER_REFUSED_FMT   PHD_EVENT_LV2_ADAPTER_REFUSED " %s %s %s"
 
@@ -562,7 +583,15 @@ static inline int phd_is_note_verb(const char *verb)
       "the " PHD_FORMAT_LV2 " row runs from now on, " PHD_LV2_WORKER_CLAP_HOST " for an add answered " \
       PHD_STR(PHD_ERR_LV2_ADAPTER_REFUSED)) \
     X(PHD_EVENT_REMOTE_PAGES_CHANGED, "<instance>", \
-      "relayed from a worker: the plugin changed its remote pages; read them again")
+      "relayed from a worker: the plugin changed its remote pages; read them again") \
+    X(PHD_EVENT_REMOTE_PAGE_SUGGEST, "<instance> <page_id>", \
+      "relayed from a worker: the plugin suggests the remote page of that id (a page_id of " PHD_VERB_REMOTE_PAGE_GET \
+      "); a surface may follow it") \
+    X(PHD_EVENT_PARAM_GESTURE, "<instance> <symbol> " PHD_GESTURE_BEGIN " | " PHD_GESTURE_END, \
+      "relayed from a worker: the user took hold of a control of the plugin's own, or let it go; a controller writes no " \
+      "automation of that parameter in between. The values the plugin moves meanwhile, or at any time by itself, are " \
+      "mod-host's param_set feedback lines, relayed as written. A gesture whose worker died, or whose instance was " \
+      "removed, before its " PHD_GESTURE_END " is ended by the daemon, before the worker_died event")
 
 /* ---------------------------------------------------------------- worker feedback, relayed */
 

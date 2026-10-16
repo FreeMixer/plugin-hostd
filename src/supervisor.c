@@ -1581,6 +1581,8 @@ char *sup_instance_verb(const char *line, int ledger)
         reply = count == 3 ? format_at(i->fmt)->param_info(id, word[2]) : sup_resp(ERR_INVALID_OPERATION);
     else if (phd_is_note_verb(word[0]))
         reply = sup_resp(PHD_ERR_NOTES_BY_JACK);
+    else if (!strcmp(word[0], PHD_VERB_PRESET_LIST) || !strcmp(word[0], PHD_VERB_PRESET_GET))
+        reply = sup_resp(PHD_ERR_NO_PRESET_LIST);
     else
         reply = sup_resp(ERR_INVALID_OPERATION);
     free(word);

@@ -744,7 +744,7 @@ def an_lv2_instance_is_answered_by_the_daemon_and_its_worker_never_sees_the_verb
     d = daemon(env={"FAKE_LOG": log})
     try:
         check(set(VERBS) == {"track_info", "remote_pages", "remote_page_get", "param_info", "note_input", "note_on", "note_off",
-                             "all_notes_off"}, "declared: %s" % VERBS)
+                             "all_notes_off", "preset_list", "preset_get"}, "declared: %s" % VERBS)
         d.expect("add fake:a 0", "resp 0")
         d.expect(TRACK, "resp 0")
         d.expect('track_info 0 "" -', "resp 0")
@@ -845,6 +845,87 @@ def remote_pages_changed_from_a_worker_reaches_the_controller():
         d.expect("param_set 3 pages_changed 1", "resp 0")
         check(d.wait_event("remote_pages_changed ", since=mark) == "remote_pages_changed 3",
               "the worker's line, unchanged: %s" % d.events[mark:])
+    finally:
+        d.close()
+
+
+# ---------------------------------------------------------------- presets, gestures, values the plugin moved, suggested pages
+
+FROM_PLUGIN = ("param_gesture ", "param_set ", "remote_page_suggest ")
+
+
+def from_plugin(d, since):
+    return [e for e in d.events[since:] if e.startswith(FROM_PLUGIN)]
+
+
+@test
+def presets_are_listed_by_a_clap_worker_and_an_lv2_instance_on_mod_host_answers_no_list():
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(env={"FAKE_LOG": log})
+    try:
+        d.expect("add clap:fake#a 0", "resp 0")
+        d.expect("preset_list 0", "resp 2")
+        d.expect("preset_get 0 0", 'resp 0 "file:///presets/warm.clap-preset" "Warm"')
+        d.expect("preset_get 0 1", 'resp 0 urn:fake:bright "Bright \\"B\\""')
+        d.expect("preset_get 0 2", "resp -902")
+        d.expect("preset_list 9", "resp -3")
+        d.expect("add fake:a 1", "resp 1")
+        d.expect("preset_list 1", resp("NO_PRESET_LIST"))
+        d.expect("preset_get 1 0", resp("NO_PRESET_LIST"))
+        got = [c for c in sent_to(log) if c.startswith("preset_")]
+        check(got == ["preset_list 0", "preset_get 0 0", "preset_get 0 1", "preset_get 0 2"],
+              "the clap worker gets each as sent, mod-host none: %s" % got)
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
+
+
+@test
+def a_gesture_the_value_it_moved_and_a_suggested_page_reach_the_controller_unchanged_and_in_order():
+    d = daemon()
+    try:
+        d.expect("add clap:fake#a 3", "resp 3")
+        mark = d.mark()
+        d.expect("param_set 3 gesture 0.7000", "resp 0")
+        wait_for(lambda: len(from_plugin(d, mark)) >= 4, "the plugin's four lines")
+        check(from_plugin(d, mark) == ["param_gesture 3 0 begin", "param_set 3 0 0.7000", "param_gesture 3 0 end",
+                                       "remote_page_suggest 3 8"], "as the worker wrote them: %s" % d.events[mark:])
+        # an ended gesture is not ended again when its worker dies
+        _, w = d.holder(3)
+        mark = d.mark()
+        os.kill(w["pid"], signal.SIGKILL)
+        d.wait_event("instance_restored 3 ", since=mark)
+        # (the replay of the cue writes its own begin and end again: only an end without its begin is the daemon's)
+        seen = d.events[mark:]
+        check(seen.count("param_gesture 3 0 end") == seen.count("param_gesture 3 0 begin"), "no gesture to end: %s" % seen)
+    finally:
+        d.close()
+
+
+@test
+def a_gesture_its_worker_did_not_end_is_ended_by_the_daemon_before_worker_died():
+    d = daemon()
+    try:
+        d.expect("add clap:fake#a 3", "resp 3")
+        d.expect("add clap:fake#b 4", "resp 4")
+        mark = d.mark()
+        d.expect("param_set 3 hold 1", "resp 0")
+        d.expect("param_set 4 hold 1", "resp 0")
+        d.wait_event("param_gesture 4 0 begin", since=mark)
+        d.wait_event("param_gesture 3 0 begin", since=mark)
+        _, w = d.holder(3)
+        mark = d.mark()
+        os.kill(w["pid"], signal.SIGKILL)
+        died = d.wait_event("worker_died ", since=mark)
+        seen = d.events[mark:]
+        check("param_gesture 3 0 end" in seen and seen.index("param_gesture 3 0 end") < seen.index(died),
+              "the held gesture ends before the death is told: %s" % seen)
+        check("param_gesture 4 0 end" not in seen, "another worker's gesture is not touched: %s" % seen)
+        # a removed instance's worker goes too: its held gesture ends
+        mark = d.mark()
+        d.expect("remove 4", "resp 0")
+        d.wait_event("param_gesture 4 0 end", since=mark)
     finally:
         d.close()
 
