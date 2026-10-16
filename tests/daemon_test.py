@@ -784,13 +784,15 @@ def a_clap_instance_is_routed_to_its_worker_and_its_reply_passed_through():
         d.expect("remote_page_get 0 0", 'resp 0 7 "Main" "Page \\"A\\"" 0 2 - - - - - -')
         d.expect("remote_page_get 0 2", "resp -902")
         d.expect("param_info 0 0", "resp 0 ms linear 1 2000 350 1 time_ms")
-        d.expect("param_info 0 1", "resp -103")
+        # a parameter the worker holds no contract for is -511, passed through as the worker said it; a symbol that is no parameter is -103
+        d.expect("param_info 0 1", resp("NO_PARAM_CONTRACT"))
+        d.expect("param_info 0 2", "resp -103")
         for bad in BAD_TRACK:
             d.expect(bad, "resp -902")
         d.expect("remote_pages 9", "resp -3")
         got = [c for c in sent_to(log) if c.split(" ", 1)[0] in VERBS]
         check(got == [TRACK, "remote_pages 0", "remote_page_get 0 0", "remote_page_get 0 2", "param_info 0 0",
-                      "param_info 0 1"], "the worker gets each verb as sent, and no line the daemon refused: %s" % got)
+                      "param_info 0 1", "param_info 0 2"], "the worker gets each verb as sent, and no line the daemon refused: %s" % got)
     finally:
         d.close()
         if os.path.exists(log):

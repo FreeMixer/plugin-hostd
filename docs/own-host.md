@@ -61,8 +61,9 @@ trixie container:
 - LV2 needs mod-host, which neither Debian nor the FreeMixer channel packages. Zynthian's plugins are mostly LV2, so
   until the channel carries an LV2 worker (mod-host, or `omx-clap-host` with `libomx-clap-lv2`, issue #45) the page
   above only covers CLAP.
-- `param_info` answers `-511` for a CLAP instance with the released worker, so a host reads ranges and defaults from
-  `omx-clap-scan` (or `omx-clap-scan --json`) and not from the socket.
+- `param_info` answers `-511` (the worker holds no checked unit and scale) for every parameter of a CLAP instance with
+  the released worker, 0.8.0; the daemon passes the answer through. A host reads ranges and defaults from
+  `omx-clap-scan` (or `omx-clap-scan --json`) and not from the socket, until a worker answers `resp 0`.
 - Parameters are named by their CLAP number (`0`, `1`, ...), not by a name; a host maps names to numbers from the scan.
 - No Zynthian image was available to CI: the check is on plain Debian arm64, not on Zynthian's own userland (its jackd,
   its audio configuration, its realtime limits).
