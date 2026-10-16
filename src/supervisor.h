@@ -111,6 +111,8 @@ char *sup_remove(int id);
 char *sup_remove_all(void);
 char *sup_connect(const char *verb, const char *line, const char *port_a, const char *port_b);
 char *sup_broadcast(const char *line);
+/* a command every worker shares: kept when it is one of PHD_HOST_SETTINGS and its words are its grammar */
+void sup_host_setting(const char *line, char **tok, int ntok);
 /* a verb of PHD_INSTANCE_VERBS: routed to a CLAP worker, answered here for an LV2 instance */
 char *sup_instance_verb(const char *line, int ledger);
 

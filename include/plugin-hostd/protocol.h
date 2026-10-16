@@ -150,6 +150,8 @@ static inline int phd_pool_name_valid(const char *name)
 #define PHD_ERR_PIN_LAYOUT_MISMATCH (-510)
 #define PHD_ERR_NO_PARAM_CONTRACT   (-511)
 #define PHD_ERR_LV2_ADAPTER_REFUSED (-512)
+#define PHD_ERR_NO_NOTE_INPUT       (-513)
+#define PHD_ERR_NOTES_BY_JACK       (-514)
 
 /* X(id, meaning) */
 #define PHD_ERRORS(X) \
@@ -176,7 +178,12 @@ static inline int phd_pool_name_valid(const char *name)
                            "required feature it lacks, a layout it does not take): the worker answered the add -102, the " \
                            PHD_EVENT_LV2_ADAPTER_REFUSED " event carries the hosting.* code of that reply, and under lv2_worker " \
                            PHD_LV2_WORKER_AUTO " the plugin is run by the " PHD_FORMAT_LV2 " row instead and this code is never " \
-                           "answered; a plugin no bundle of the worker's world holds is no refusal: the worker's -101 is answered")
+                           "answered; a plugin no bundle of the worker's world holds is no refusal: the worker's -101 is answered") \
+    X(NO_NOTE_INPUT, "the instance's plugin takes no notes (an effect): its worker answers " PHD_VERB_NOTE_ON ", " \
+                     PHD_VERB_NOTE_OFF " and " PHD_VERB_ALL_NOTES_OFF " with this code") \
+    X(NOTES_BY_JACK, "the instance's worker takes no notes on its socket (mod-host): the daemon answers the note verbs " \
+                     "and " PHD_VERB_NOTE_INPUT " with this code, and the plugin is played through its jack MIDI input " \
+                     "with connect")
 
 /* ---------------------------------------------------------------- verbs */
 
@@ -301,6 +308,26 @@ static inline int phd_pool_name_valid(const char *name)
 #define PHD_VERB_REMOTE_PAGE_GET_FMT PHD_VERB_REMOTE_PAGE_GET " %i %i"
 #define PHD_VERB_PARAM_INFO_FMT      PHD_VERB_PARAM_INFO " %i %s"
 
+/* Notes, played on an instance by a controller that is not a jack client: the worker delivers each one as a MIDI
+ * message at the start of its next cycle, on the plugin's note input. Nothing of them is kept: a note is an act, not a
+ * setting, and a respawned instance starts silent. */
+#define PHD_VERB_NOTE_INPUT     "note_input"
+#define PHD_VERB_NOTE_ON        "note_on"
+#define PHD_VERB_NOTE_OFF       "note_off"
+#define PHD_VERB_ALL_NOTES_OFF  "all_notes_off"
+
+#define PHD_VERB_NOTE_INPUT_FMT    PHD_VERB_NOTE_INPUT " %i"
+#define PHD_VERB_NOTE_ON_FMT       PHD_VERB_NOTE_ON " %i %i %i %i"
+#define PHD_VERB_NOTE_OFF_FMT      PHD_VERB_NOTE_OFF " %i %i %i %i"
+#define PHD_VERB_ALL_NOTES_OFF_FMT PHD_VERB_ALL_NOTES_OFF " %i"
+
+/* the ranges of a note's words: MIDI's */
+#define PHD_NOTE_CHANNEL_MAX  15
+#define PHD_NOTE_KEY_MAX      127
+#define PHD_NOTE_VELOCITY_MAX 127
+/* the word note_input answers for a plugin that takes no notes */
+#define PHD_NO_NOTE_INPUT     PHD_WORD_NONE
+
 /* the longest string word, in bytes: CLAP_NAME_SIZE - 1 */
 #define PHD_STRING_MAX 255
 /* the parameters on one remote page, and the word of an empty slot */
@@ -338,7 +365,19 @@ static inline int phd_pool_name_valid(const char *name)
       "resp 0 <unit> <scale> <min> <max> <default> <step> <stable_symbol>", NONE, \
       "what a parameter's value means: its unit, its scale, and the symbol it keeps across hosts and versions; -103 " \
       "for a symbol that is not a parameter, the plugin's own bypass and :bypass included; " \
-      "-511 for a parameter whose unit and scale the worker holds no checked contract for")
+      "-511 for a parameter whose unit and scale the worker holds no checked contract for") \
+    X(NOTE_INPUT, PHD_VERB_NOTE_INPUT, "<instance>", "resp 0 <port | " PHD_NO_NOTE_INPUT ">", NONE, \
+      "whether the instance takes notes: the name of its note input on its worker's jack client, " PHD_NO_NOTE_INPUT \
+      " for a plugin that takes none; " PHD_STR(PHD_ERR_NOTES_BY_JACK) " for an instance of a worker that cannot say") \
+    X(NOTE_ON, PHD_VERB_NOTE_ON, "<instance> <channel> <key> <velocity>", "resp 0", NONE, \
+      "play a key: channel 0 to " PHD_STR(PHD_NOTE_CHANNEL_MAX) ", key 0 to " PHD_STR(PHD_NOTE_KEY_MAX) ", velocity 1 to " \
+      PHD_STR(PHD_NOTE_VELOCITY_MAX) ", a MIDI note on at the start of the worker's next cycle; " \
+      PHD_STR(PHD_ERR_NO_NOTE_INPUT) " for a plugin that takes no notes, " PHD_STR(PHD_ERR_NOTES_BY_JACK) \
+      " for an instance of a worker that takes none on its socket, -902 for a word out of its range") \
+    X(NOTE_OFF, PHD_VERB_NOTE_OFF, "<instance> <channel> <key> <velocity>", "resp 0", NONE, \
+      "release a key, velocity 0 to " PHD_STR(PHD_NOTE_VELOCITY_MAX) ", a MIDI note off; answered as " PHD_VERB_NOTE_ON " is") \
+    X(ALL_NOTES_OFF, PHD_VERB_ALL_NOTES_OFF, "<instance>", "resp 0", NONE, \
+      "release every key of every channel, MIDI's all notes off (controller 123) on each; answered as " PHD_VERB_NOTE_ON " is")
 
 /* whether s is a string word: valid UTF-8, at most PHD_STRING_MAX bytes, no byte below 0x20 */
 static inline int phd_string_valid(const char *s)
@@ -414,6 +453,57 @@ static inline int phd_track_info_valid(char *const *word, int count)
     return (count == 4 || count == 5) && phd_string_valid(word[2]) && phd_color_valid(word[3]) &&
            phd_track_kind(count == 5 ? word[4] : NULL) >= 0;
 }
+
+/* whether word is a whole number from lo to hi, in decimal with no sign but a leading '-' */
+static inline int phd_number_in(const char *word, int lo, int hi)
+{
+    long v = 0;
+    int n = word[0] == '-' ? 1 : 0;
+
+    if (!word[n])
+        return 0;
+    for (; word[n]; n++)
+    {
+        if (word[n] < '0' || word[n] > '9' || v > 100000)
+            return 0;
+        v = v * 10 + (word[n] - '0');
+    }
+    if (word[0] == '-')
+        v = -v;
+    return v >= lo && v <= hi;
+}
+
+/* whether the words of a note verb's line, the verb first, are its grammar; 0 for a line of another verb */
+static inline int phd_note_valid(char *const *word, int count)
+{
+    int on = !strcmp(word[0], PHD_VERB_NOTE_ON);
+
+    if (count < 2 || !phd_number_in(word[1], 0, 1 << 20))
+        return 0;
+    if (on || !strcmp(word[0], PHD_VERB_NOTE_OFF))
+        return count == 5 && phd_number_in(word[2], 0, PHD_NOTE_CHANNEL_MAX) && phd_number_in(word[3], 0, PHD_NOTE_KEY_MAX) &&
+               phd_number_in(word[4], on ? 1 : 0, PHD_NOTE_VELOCITY_MAX);
+    if (!strcmp(word[0], PHD_VERB_ALL_NOTES_OFF) || !strcmp(word[0], PHD_VERB_NOTE_INPUT))
+        return count == 2;
+    return 0;
+}
+
+/* whether a verb is one of the note verbs */
+static inline int phd_is_note_verb(const char *verb)
+{
+    return !strcmp(verb, PHD_VERB_NOTE_ON) || !strcmp(verb, PHD_VERB_NOTE_OFF) || !strcmp(verb, PHD_VERB_ALL_NOTES_OFF) ||
+           !strcmp(verb, PHD_VERB_NOTE_INPUT);
+}
+
+/* ---------------------------------------------------------------- host settings */
+
+/* what the daemon keeps of a command that names no instance and is broadcast to every worker: X(id, meaning) */
+#define PHD_HOST_SETTINGS(X) \
+    X(TEMPO, "the tempo, the metre and the transport a controller sets (mod-host's set_bpm, set_bpb, transport and " \
+             "transport_sync) are kept, the latest line of each as it was sent, in the order they were last sent") \
+    X(REPLAY, "a worker is handed them before anything else: a respawned one before its first add, and a worker " \
+              "started later, of a new placement, as well; a worker's refusal of one is written to stderr and is no failure") \
+    X(GRAMMAR, "a line whose words are not that command's grammar is passed on and not kept")
 
 /* ---------------------------------------------------------------- feedback events */
 

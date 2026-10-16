@@ -194,4 +194,63 @@ def a_plugin_the_adapter_does_not_find_is_not_found_and_under_auto_mod_host_look
         shutil.rmtree(world, ignore_errors=True)
 
 
+def code_of(reply):
+    words = reply.split()
+    return int(words[1]) if len(words) > 1 and words[0] == "resp" and words[1].lstrip("-").isdigit() else None
+
+
+@test
+def the_tempo_is_handed_again_to_a_respawned_real_worker():
+    r = Run(both(), lv2_worker="omx-clap-host")
+    try:
+        r.d.expect("add lv2:%s 0" % GAIN, "resp 0")
+        r.d.expect("param_set 0 gain 0.5", "resp 0")
+        answer = r.d.send("set_bpm 133")
+        check(code_of(answer) is not None, "the worker's answer to set_bpm, passed through: %r" % answer)
+        pid = r.d.holder(0)[1]["pid"]
+        mark = r.d.mark()
+        os.kill(pid, 9)
+        r.d.wait_event("instance_restored 0 ", since=mark, timeout=20)
+        check(r.d.holder(0)[1]["pid"] != pid and r.d.holder(0)[1]["state"] == "up", "a new worker is up: %s" % r.d.workers())
+        r.d.expect("param_get 0 gain", "resp 0 0.5000")
+        if code_of(answer) < 0:
+            # omx-clap-host does not take a tempo yet: its refusal of the replayed line is what shows it was handed again
+            check("refused 'set_bpm 133': %s" % answer in r.d.log(), "the respawned worker was handed set_bpm 133: %s" % r.d.log()[-600:])
+            print("PENDING FreeMixer/omx-clap-core#88: omx-clap-host answers set_bpm %r; the respawned worker was handed it again" % answer)
+    finally:
+        r.close()
+
+
+@test
+def notes_through_the_daemon_reach_the_real_workers_as_declared():
+    r = Run(both(), lv2_worker="omx-clap-host")
+    try:
+        r.d.expect("add lv2:%s 0" % GAIN, "resp 0")
+        pid = r.d.holder(0)[1]["pid"]
+        r.d.expect("note_on 0 16 60 100", "resp -902")
+        answer = r.d.send("note_input 0")
+        if answer.startswith("resp 0 "):
+            check(answer == "resp 0 -", "a gain plugin takes no notes: %r" % answer)
+            r.d.expect("note_on 0 0 60 100", resp("NO_NOTE_INPUT"))
+        else:
+            # omx-clap-host does not know the note verbs yet: its protocol's own "not found" is passed through and the
+            # worker lives on
+            note = r.d.send("note_on 0 0 60 100")
+            check(answer == note == "not found", "the worker's answers, passed through: %r %r" % (answer, note))
+            print("PENDING FreeMixer/omx-clap-core#122: omx-clap-host answers note_input %r and note_on %r" % (answer, note))
+        check(r.d.holder(0)[1]["pid"] == pid and r.d.holder(0)[1]["state"] == "up", "the worker lives on: %s" % r.d.workers())
+    finally:
+        r.close()
+    r = Run(both(), lv2_worker="mod-host")
+    try:
+        r.d.expect("add lv2:%s 0" % ATOM_IN, "resp 0")
+        check(r.program(0) == "mod-host", "mod-host runs the MIDI plugin: %s" % r.started())
+        r.d.expect("note_input 0", resp("NOTES_BY_JACK"))
+        r.d.expect("note_on 0 0 60 100", resp("NOTES_BY_JACK"))
+        r.d.expect("all_notes_off 0", resp("NOTES_BY_JACK"))
+        wait_for(lambda: client_ports(0), "effect_0's ports on the graph")
+    finally:
+        r.close()
+
+
 sys.exit(run_tests(TESTS))

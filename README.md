@@ -184,6 +184,12 @@ mod-host learns none of them: `track_info` is kept and answered `resp 0`, an LV2
 `param_info` answers `-511` until the daemon reads the bundle's port data. When a CLAP plugin changes its pages, its
 worker writes `remote_pages_changed <instance>` on its feedback port and the daemon relays it.
 
+Notes are played the same way, by a controller that is not a jack client (a web console, a test, a MIDI surface on the
+network): `note_input` says whether an instance takes notes, and `note_on`, `note_off` and `all_notes_off` reach its
+worker unchanged once the daemon has checked their words. A worker answers them from the plugin's note input. mod-host
+takes no notes on its socket, so for an LV2 instance on mod-host the daemon answers all four `-514`, and the plugin is
+played through its jack MIDI input with `connect`. omx-clap-host does not answer them yet (FreeMixer/omx-clap-core#122).
+
 <!-- BEGIN GENERATED protocol:instance-verbs -->
 | verb | arguments | reply | meaning |
 |---|---|---|---|
@@ -191,8 +197,12 @@ worker writes `remote_pages_changed <instance>` on its feedback port and the dae
 | `remote_pages` | `<instance>` | `resp <count>` | the plugin's remote-control pages, from clap.remote-controls; 0 for an instance of a format whose worker has none |
 | `remote_page_get` | `<instance> <page>` | `resp 0 <page_id> <section> <page_name> <s1> <s2> <s3> <s4> <s5> <s6> <s7> <s8>` | one page, 0 to count - 1: each slot the symbol param_set takes, - for an empty one; -902 for a page that is not one |
 | `param_info` | `<instance> <symbol>` | `resp 0 <unit> <scale> <min> <max> <default> <step> <stable_symbol>` | what a parameter's value means: its unit, its scale, and the symbol it keeps across hosts and versions; -103 for a symbol that is not a parameter, the plugin's own bypass and :bypass included; -511 for a parameter whose unit and scale the worker holds no checked contract for |
+| `note_input` | `<instance>` | `resp 0 <port \| ->` | whether the instance takes notes: the name of its note input on its worker's jack client, - for a plugin that takes none; (-514) for an instance of a worker that cannot say |
+| `note_on` | `<instance> <channel> <key> <velocity>` | `resp 0` | play a key: channel 0 to 15, key 0 to 127, velocity 1 to 127, a MIDI note on at the start of the worker's next cycle; (-513) for a plugin that takes no notes, (-514) for an instance of a worker that takes none on its socket, -902 for a word out of its range |
+| `note_off` | `<instance> <channel> <key> <velocity>` | `resp 0` | release a key, velocity 0 to 127, a MIDI note off; answered as note_on is |
+| `all_notes_off` | `<instance>` | `resp 0` | release every key of every channel, MIDI's all notes off (controller 123) on each; answered as note_on is |
 
-The ledger keeps the latest `track_info` of an instance and replays it after the add; the others are queries. A `<scale>` is `linear` (the value is linear in position), `log` (the value is geometric in position; both bounds are positive), `stepped` (the whole numbers from min to max, step 1). A string word is at most 255 bytes of UTF-8 with no control character.
+The ledger keeps the latest `track_info` of an instance and replays it after the add; the others are never replayed. A `<scale>` is `linear` (the value is linear in position), `log` (the value is geometric in position; both bounds are positive), `stepped` (the whole numbers from min to max, step 1). A string word is at most 255 bytes of UTF-8 with no control character.
 <!-- END GENERATED protocol:instance-verbs -->
 
 Error codes the daemon adds to mod-host's:
@@ -212,6 +222,8 @@ Error codes the daemon adds to mod-host's:
 | `-510` | `PHD_ERR_PIN_LAYOUT_MISMATCH` | the worker found the parameter layout after init differs from the layout pin: the instance is destroyed before activate |
 | `-511` | `PHD_ERR_NO_PARAM_CONTRACT` | the host holds no checked unit and scale for this parameter: fall back to qualification |
 | `-512` | `PHD_ERR_LV2_ADAPTER_REFUSED` | the lv2-clap worker's LV2 adapter cannot run this plugin (MIDI it does not feed, a required feature it lacks, a layout it does not take): the worker answered the add -102, the lv2_adapter_refused event carries the hosting.* code of that reply, and under lv2_worker auto the plugin is run by the lv2 row instead and this code is never answered; a plugin no bundle of the worker's world holds is no refusal: the worker's -101 is answered |
+| `-513` | `PHD_ERR_NO_NOTE_INPUT` | the instance's plugin takes no notes (an effect): its worker answers note_on, note_off and all_notes_off with this code |
+| `-514` | `PHD_ERR_NOTES_BY_JACK` | the instance's worker takes no notes on its socket (mod-host): the daemon answers the note verbs and note_input with this code, and the plugin is played through its jack MIDI input with connect |
 <!-- END GENERATED protocol:errors -->
 
 A worker's own refusal is returned as it said it. An `add` that killed its worker answers mod-host's `-102`.
@@ -262,6 +274,15 @@ Every worker is started as `<program> -n -p <command port> -f <feedback port>`.
 - output_data_ready names no instance and goes to every worker; each worker's data_finish is relayed.
 - with no feedback port, or no controller on it, a line is dropped, as mod-host drops it; the daemon reads every worker's feedback all the time, so no worker waits on it.
 <!-- END GENERATED protocol:relay -->
+
+A synced delay or an arpeggiator comes back at the right tempo after a crash. What the daemon keeps of the commands
+every worker shares:
+
+<!-- BEGIN GENERATED protocol:host-settings -->
+- the tempo, the metre and the transport a controller sets (mod-host's set_bpm, set_bpb, transport and transport_sync) are kept, the latest line of each as it was sent, in the order they were last sent.
+- a worker is handed them before anything else: a respawned one before its first add, and a worker started later, of a new placement, as well; a worker's refusal of one is written to stderr and is no failure.
+- a line whose words are not that command's grammar is passed on and not kept.
+<!-- END GENERATED protocol:host-settings -->
 
 Pins
 ----
