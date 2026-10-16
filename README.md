@@ -64,6 +64,9 @@ In another terminal, add an LV2 plugin, set its gain and ask where it runs
 The plugin now runs as JACK client `effect_0` in its own process. Link it in your graph as
 you would a mod-host plugin. `man plugin-hostd` has the options; the full protocol is below.
 
+Using it from your own host (Zynthian, a Raspberry Pi, any Debian): [docs/own-host.md](docs/own-host.md), nine commands from
+nothing to a plugin running.
+
 Building from source: see [BUILDING.md](BUILDING.md). More about FreeMixer at <https://freemixer.github.io>.
 
 Protocol
