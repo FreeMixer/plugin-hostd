@@ -54,6 +54,17 @@ Zynthian runs. `JACK_SERVER=jackd` makes `tests/jack_e2e.sh` start a private `ja
 wait for it with `jack_lsp`, and export `JACK_DEFAULT_SERVER` to it, before running the same `tests/jack_e2e.py`.
 `JACK_SERVER=pipewire`, the default, is `test-jack` unchanged.
 
+    make test-lv2-adapter OMX_CLAP_HOST_SRC=<omx-clap-core checkout> [MOD_HOST=<mod-host>]
+
+runs `tests/lv2_adapter_e2e.py` in the same private namespace: the daemon in front of a real omx-clap-host and a real
+mod-host (the one on `PATH` unless `MOD_HOST` names another). It builds `omx-clap-host` and its LV2 fixture bundle in
+the checkout against this tree's headers, and `tests/lv2_fixture.c` into `tests/plugin-hostd-fixture.lv2`. It checks
+that `lv2_worker omx-clap-host` runs an LV2 plugin through the adapter; that a plugin the adapter refuses answers
+`-512`, with the event naming the `hosting.*` code from the reply to that add, also in a pool worker whose log several
+plugins share; that `auto` runs a refused plugin on mod-host; and that a plugin no bundle holds for the adapter, which
+it answers `-101`, is not found under `omx-clap-host` and is looked for by mod-host under `auto`, with no event in
+either case. Without `OMX_CLAP_HOST_SRC` the target prints `skip test-lv2-adapter` and does nothing else.
+
 `make sabotage` (`tests/sabotage.py`) breaks the daemon on purpose, one guard at a time, and
 requires the named test to go red.
 

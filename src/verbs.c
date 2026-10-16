@@ -124,6 +124,8 @@ static char *handle(char *line, char **tok, int ntok)
         return ntok == 2 ? sup_quarantine_clear(tok[1]) : sup_resp(ERR_INVALID_OPERATION);
     if (!strcmp(verb, PHD_VERB_POLICY_SET))
         return ntok == 3 ? sup_policy_set(tok[1], tok[2]) : sup_resp(ERR_INVALID_OPERATION);
+    if (!strcmp(verb, PHD_VERB_LV2_WORKER_SET))
+        return ntok == 3 ? sup_lv2_worker_set(tok[1], tok[2]) : sup_resp(ERR_INVALID_OPERATION);
     if (!strcmp(verb, PHD_VERB_POOL_CONFIG))
         return ntok == 3 ? sup_pool_config(tok[1], atoi(tok[2])) : sup_resp(ERR_INVALID_OPERATION);
     if (!strcmp(verb, PHD_VERB_WORKER_ENV))

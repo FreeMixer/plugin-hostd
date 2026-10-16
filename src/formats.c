@@ -36,7 +36,7 @@ static const char *clap_worker(const conf_t *conf)
     return conf->clap_host;
 }
 
-static const char *lv2_worker(const conf_t *conf)
+static const char *lv2_worker_program(const conf_t *conf)
 {
     return conf->mod_host;
 }
@@ -69,11 +69,12 @@ static const format_t g_builtin[] = {
         .prefix = LV2_PREFIX,
         .strip_prefix = 1,
         .fallback = 1,
-        .worker = lv2_worker,
+        .worker = lv2_worker_program,
         .search = lv2_search,
         .world_env = "LV2_PATH",
         .narrow_world = lv2_narrow_world,
         .pin_collect = lv2_pin_collect,
+        .route = lv2_route,
         .layout_check = 0,
         .pinned_own_only = 1,
         .native_instance_verbs = 0,
@@ -89,6 +90,27 @@ static const format_t g_builtin[] = {
         .layout_check = 1,
         .pinned_own_only = 0,
         .native_instance_verbs = 1,
+    },
+    /* LV2 plugins through omx-clap-host's adapter. What differs from the lv2 row: the worker is clap_host, it takes the uri with
+     * its lv2: prefix (a bare uri would be nobody's), it answers the instance verbs from the plugin, and an instantiation
+     * error of its add is the adapter's refusal. What does not: the adapter opens the bundle through the LV2 world, so the pin
+     * holds only in a world narrowed to the plugin's bundle (pinned_own_only, narrow_world, world_env, pin_collect), and the
+     * layout is not checked: the pin of an LV2 plugin is the layout of its ports, which is not the layout of the CLAP
+     * parameters the adapter presents, so a pin_expect would refuse every pin plugin-qualify wrote. */
+    {
+        .name = PHD_FORMAT_LV2_CLAP,
+        .routed = 1,
+        .strip_prefix = 0,
+        .worker_prefix = LV2_PREFIX,
+        .worker = clap_worker,
+        .search = lv2_search,
+        .world_env = "LV2_PATH",
+        .narrow_world = lv2_narrow_world,
+        .pin_collect = lv2_pin_collect,
+        .layout_check = 0,
+        .pinned_own_only = 1,
+        .native_instance_verbs = 1,
+        .adapter = 1,
     },
 };
 
@@ -125,8 +147,12 @@ int formats_register(const format_t *f)
         return reject(f, "has no worker program");
     if (!f->pin_collect)
         return reject(f, "has no pin_collect: it does not say which files a pin holds");
-    if (!f->prefix && !f->fallback)
-        return reject(f, "has no prefix and is not the fallback: no uri could reach it");
+    if (!f->prefix && !f->fallback && !f->routed)
+        return reject(f, "has no prefix, is not the fallback and is not routed to: no uri could reach it");
+    if (f->routed && (f->prefix || f->fallback))
+        return reject(f, "is routed to and also claims uris by itself: a uri would reach it two ways");
+    if (f->worker_prefix && !*f->worker_prefix)
+        return reject(f, "has an empty worker_prefix");
     if (f->prefix && !*f->prefix)
         return reject(f, "has an empty prefix");
     if (f->narrow_world && !f->world_env)
@@ -192,4 +218,12 @@ int format_of_uri(const char *uri, const char **worker_uri)
                           ? uri + strlen(g_format[found].prefix)
                           : uri;
     return found;
+}
+
+int format_route(const conf_t *conf, int format, const char *uri)
+{
+    const format_t *f = format_at(format);
+    const char *name = f && f->route ? f->route(conf, uri) : NULL;
+
+    return name ? format_by_name(name) : format;
 }
