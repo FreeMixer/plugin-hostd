@@ -930,6 +930,27 @@ def a_gesture_its_worker_did_not_end_is_ended_by_the_daemon_before_worker_died()
         d.close()
 
 
+@test
+def a_gesture_of_a_removed_instance_is_ended_once_though_its_pool_worker_stays():
+    d = daemon()
+    try:
+        d.expect("add clap:fake#a 3 pool:p", "resp 3")
+        d.expect("add clap:fake#a 5 pool:p", "resp 5")
+        mark = d.mark()
+        d.expect("param_set 5 hold 1", "resp 0")
+        d.wait_event("param_gesture 5 0 begin", since=mark)
+        pid = d.holder(5)[1]["pid"]
+        mark = d.mark()
+        d.expect("remove 5", "resp 0")
+        d.wait_event("param_gesture 5 0 end", since=mark)
+        check(d.holder(3)[1]["pid"] == pid, "the pool worker stays")
+        mark = d.mark()
+        d.expect("remove 3", "resp 0")
+        check("param_gesture 5 0 end" not in d.events[mark:], "ended once: %s" % d.events[mark:])
+    finally:
+        d.close()
+
+
 # ---------------------------------------------------------------- notes, and the tempo across a respawn
 
 NOTES = ["note_on 0 0 60 100", "note_on 0 15 127 127", "note_off 0 0 60 0", "note_off 0 15 127 64", "all_notes_off 0"]

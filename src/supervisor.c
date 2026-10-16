@@ -1429,6 +1429,7 @@ char *sup_remove(int id)
         else
             free(reply);
     }
+    relay_instance_gone(id);
     worker_detach(w, i);
     g_inst[id] = NULL;
     ckpt_forget(id);

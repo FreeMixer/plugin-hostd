@@ -126,6 +126,33 @@ static void gestures_end(source_t *s)
     s->nheld = 0;
 }
 
+static void drain(source_t *s);
+
+/* an instance removed ends the gestures it held, once each, whichever worker held them; g_lock is held */
+static void gestures_end_instance(source_t *s, int id)
+{
+    char prefix[48];
+    size_t plen;
+    int n = 0;
+
+    snprintf(prefix, sizeof(prefix), "%s %d ", PHD_EVENT_PARAM_GESTURE, id);
+    plen = strlen(prefix);
+    while (n < s->nheld)
+    {
+        char line[1024];
+
+        if (strncmp(s->held[n], prefix, plen))
+        {
+            n++;
+            continue;
+        }
+        snprintf(line, sizeof(line), "%s " PHD_GESTURE_END, s->held[n]);
+        send_line(line, strlen(line) + 1);
+        free(s->held[n]);
+        s->held[n] = s->held[--s->nheld];
+    }
+}
+
 /* everything the worker has written so far, its complete lines sent in order; g_lock is held */
 static void drain(source_t *s)
 {
@@ -343,6 +370,20 @@ void relay_add(int fd)
     g_src[g_nsrc++].fd = fd;
     pthread_mutex_unlock(&g_lock);
     wake();
+}
+
+void relay_instance_gone(int id)
+{
+    int i;
+
+    pthread_mutex_lock(&g_lock);
+    for (i = 0; i < g_nsrc; i++)
+    {
+        if (!g_src[i].eof)
+            drain(&g_src[i]);
+        gestures_end_instance(&g_src[i], id);
+    }
+    pthread_mutex_unlock(&g_lock);
 }
 
 void relay_remove(int fd)
