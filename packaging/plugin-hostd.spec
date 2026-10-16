@@ -12,6 +12,9 @@ BuildRequires: make
 BuildRequires: diffutils
 BuildRequires: python3
 BuildRequires: pkgconfig(mod-host-protocol)
+# a command of exactly the socket's buffer size, or several commands in one read, needs mod-audio/mod-host#113:
+# FreeMixer's build carrying it (11.1.fmx) or audinux's once it carries it (12); a floor only
+Requires: mod-host-protocol%{?_isa} >= 0.10.6.f14a230-11.1
 # the CLAP worker and the fixtures the real-worker tests drive: the lowest release with what this build needs
 # (omx-clap-core 0.7); a floor only, minor and patch releases stay compatible
 BuildRequires: omx-clap-host-tests >= 0.7.0
