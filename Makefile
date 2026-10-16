@@ -121,8 +121,10 @@ test-daemon: $(PROG) $(FAKE)
 $(FAKE): tests/fake_host.c src/verbs.h $(PROTOCOL_LIB)
 	$(CC) $(INCS) $(CFLAGS) -Werror -o $@ $< $(PROTOCOL_LIBS) -lm
 
-# the command socket's framing, by omx-clap-core's socket_conformance.py (omx-clap-host-tests installs it; an
-# omx-clap-core checkout beside this one is used first)
+# the command socket's framing, by omx-clap-core's socket_conformance.py. Which copy runs, in this order: the one
+# SOCKET_CONFORMANCE names; ../omx-clap-core/tests/socket_conformance.py when an omx-clap-core checkout sits beside
+# this one (a developer working on both runs the script being changed); else the one omx-clap-host-tests installs.
+# The run prints the path it used.
 SOCKET_CONFORMANCE ?= $(firstword $(wildcard ../omx-clap-core/tests/socket_conformance.py) /usr/libexec/omx-clap-host/tests/socket_conformance.py)
 test-socket: $(PROG)
 	PLUGIN_HOSTD=./$(PROG) SOCKET_CONFORMANCE=$(SOCKET_CONFORMANCE) ./tests/socket_e2e.sh
