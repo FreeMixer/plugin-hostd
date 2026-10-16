@@ -1689,6 +1689,86 @@ def a_plugin_the_adapter_does_not_find_is_not_found_and_no_refusal():
         programs.close()
 
 
+def adapter_asked(log, uri="urn:test:adapter_midi"):
+    """how many times the adapter was sent an add of the uri"""
+    return len([c for c in sent_to(log) if c.startswith("add lv2:%s " % uri)])
+
+
+def refuse_once(d, log, uri="urn:test:adapter_midi"):
+    """under auto: the adapter refuses the uri once, mod-host runs it, and the adapter is not asked on the next add"""
+    d.expect("add lv2:%s 0" % uri, "resp 0")
+    check(d.holder(0)[1]["fmt"] == "lv2", "the refused plugin runs on mod-host: %s" % d.workers())
+    d.expect("add lv2:%s 1" % uri, "resp 1")
+    check(adapter_asked(log, uri) == 1, "the adapter is asked once: %s" % sent_to(log))
+    d.expect("remove -1", "resp 0")
+
+
+def asked_again(d, log, uri="urn:test:adapter_midi"):
+    before = adapter_asked(log, uri)
+    d.expect("add lv2:%s 2" % uri, "resp 2")
+    check(adapter_asked(log, uri) == before + 1, "the adapter is asked once more: %s" % sent_to(log))
+    d.expect("remove -1", "resp 0")
+
+
+@test
+def lv2_worker_set_makes_the_adapter_be_asked_again_about_that_plugin_only():
+    d, programs, log = lv2_run(lv2_worker="auto")
+    try:
+        refuse_once(d, log)
+        d.expect("add lv2:urn:test:adapter_wide 3", "resp 3")
+        d.expect("remove -1", "resp 0")
+        d.expect("lv2_worker_set urn:test:adapter_wide auto", "resp 0")
+        # the other plugin keeps its refusal
+        d.expect("add lv2:urn:test:adapter_midi 4", "resp 4")
+        check(adapter_asked(log) == 1, "the other plugin's refusal stands: %s" % sent_to(log))
+        d.expect("remove -1", "resp 0")
+        d.expect("lv2_worker_set lv2:urn:test:adapter_midi -", "resp 0")
+        asked_again(d, log)
+    finally:
+        d.close()
+        programs.close()
+
+
+@test
+def pin_set_and_pin_clear_make_the_adapter_be_asked_again():
+    d, programs, log = lv2_run(lv2_worker="auto")
+    try:
+        refuse_once(d, log)
+        d.expect("pin_set urn:test:adapter_midi pinned.so=%s %s" % ("0" * 64, fake_layout()), "resp 0")
+        asked_again(d, log)
+        # it refused again, and that is remembered again until the next change
+        d.expect("pin_clear urn:test:adapter_midi", "resp 0")
+        asked_again(d, log)
+    finally:
+        d.close()
+        programs.close()
+
+
+@test
+def pin_accept_makes_the_adapter_be_asked_again():
+    plugins = Plugins()
+    uri = "urn:test:adapter_midi"
+    bundle = os.path.join(plugins.lv2_dir, "adapter.lv2")
+    os.makedirs(bundle)
+    write(os.path.join(bundle, "manifest.ttl"), (MANIFEST % uri).encode())
+    write(os.path.join(bundle, "pinned.so"), b"lv2 binary")
+    write(os.path.join(bundle, "pinned.ttl"), b"lv2:port [ lv2:index 0 ; lv2:symbol \"gain\" ] .")
+    programs = Programs()
+    d = Daemon(EXE, FAKE, conf=programs.conf(lv2_worker="auto", require_pins=1, pin_mode="first-use", lv2_path=plugins.lv2_dir,
+                                              pin_store=plugins.store), env={"FAKE_LOG": plugins.log})
+    try:
+        refuse_once(d, plugins.log, uri)
+        write(os.path.join(bundle, "pinned.so"), b"lv2 binary, rebuilt")
+        d.expect("add lv2:%s 3" % uri, resp("PIN_BINARY_MISMATCH"))
+        check(adapter_asked(plugins.log, uri) == 1, "the changed plugin reached no worker: %s" % sent_to(plugins.log))
+        d.expect("pin_accept lv2:%s" % uri, "resp 0")
+        asked_again(d, plugins.log, uri)
+    finally:
+        d.close()
+        programs.close()
+        plugins.close()
+
+
 @test
 def lv2_worker_must_be_one_of_the_declared_values():
     programs = Programs()

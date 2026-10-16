@@ -1633,11 +1633,16 @@ char *sup_quarantine_clear(const char *which)
 char *sup_pin_accept(const char *uri)
 {
     const char *fwd;
+    int rc;
     int fmt = format_of_uri(uri, &fwd);
 
     if (!g_conf.require_pins || !conf_pins_first_use(&g_conf))
         return sup_resp(ERR_INVALID_OPERATION);
-    return sup_resp(pins_accept(format_at(fmt), fwd, search_of(fmt)));
+    rc = pins_accept(format_at(fmt), fwd, search_of(fmt));
+    /* the files of an accepted plugin may now be ones the adapter takes */
+    if (rc == SUCCESS)
+        lv2_refusals_forget(NULL);
+    return sup_resp(rc);
 }
 
 char *sup_policy_set(const char *format, const char *place)
@@ -1664,7 +1669,10 @@ char *sup_lv2_worker_set(const char *uri, const char *worker)
     const char *fwd;
 
     format_of_uri(uri, &fwd);
-    return sup_resp(lv2_worker_pick(fwd, worker) == 0 ? SUCCESS : ERR_INVALID_OPERATION);
+    if (lv2_worker_pick(fwd, worker) != 0)
+        return sup_resp(ERR_INVALID_OPERATION);
+    lv2_refusals_forget(fwd);
+    return sup_resp(SUCCESS);
 }
 
 char *sup_pool_config(const char *name, int max)

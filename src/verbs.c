@@ -27,6 +27,7 @@
 #include <mod-host.h>
 #include <socket.h>
 
+#include "formats.h"
 #include "pins.h"
 #include "supervisor.h"
 #include "verbs.h"
@@ -71,6 +72,7 @@ static int pin_set_words(const char *line, char **tok, int ntok)
 {
     const char *verdict = NULL;
     size_t key = strlen(PHD_PIN_VERDICT_KEY);
+    int rc;
 
     if ((ntok != 4 && ntok != 5) || strlen(line) > PHD_LINE_MAX || !strcmp(tok[3], PHD_PIN_LAYOUT_UNKNOWN))
         return ERR_INVALID_OPERATION;
@@ -80,7 +82,11 @@ static int pin_set_words(const char *line, char **tok, int ntok)
             return ERR_INVALID_OPERATION;
         verdict = tok[4] + key;
     }
-    return pins_set(tok[1], tok[2], tok[3], verdict);
+    rc = pins_set(tok[1], tok[2], tok[3], verdict);
+    /* the files of the plugin changed: the adapter may now take one it refused */
+    if (rc == SUCCESS)
+        lv2_refusals_forget(NULL);
+    return rc;
 }
 
 static void reply(int fd, char *text)
@@ -135,7 +141,13 @@ static char *handle(char *line, char **tok, int ntok)
     if (!strcmp(verb, PHD_VERB_PIN_ACCEPT))
         return ntok == 2 ? sup_pin_accept(tok[1]) : sup_resp(ERR_INVALID_OPERATION);
     if (!strcmp(verb, PHD_VERB_PIN_CLEAR))
-        return sup_resp(ntok == 2 ? pins_clear(tok[1]) : ERR_INVALID_OPERATION);
+    {
+        int rc = ntok == 2 ? pins_clear(tok[1]) : ERR_INVALID_OPERATION;
+
+        if (rc == SUCCESS)
+            lv2_refusals_forget(NULL);
+        return sup_resp(rc);
+    }
     if (verb_is(verb, QUIT))
     {
         g_quitting = 1;
