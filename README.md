@@ -176,7 +176,10 @@ Verbs a worker answers, by instance
 
 What a host knows of a strip and of a plugin's controls. For a CLAP instance the daemon routes them like mod-host's
 instance verbs and passes the worker's reply through; the worker answers them from the plugin (`clap.track-info`,
-`clap.remote-controls`, `clap.params`). For an LV2 instance the daemon answers them itself, never forwarding them, so
+`clap.remote-controls`, `clap.params`), except `param_info`: omx-clap-host 0.8.0 answers it `-511` for every parameter
+(and `-103` for a symbol that is no parameter), because it holds no checked unit and scale for any of them. `-511` is
+the stable answer to read as "no contract; fall back to the layout from `omx-clap-scan`"; the daemon passes it through
+and drops nothing. For an LV2 instance the daemon answers them itself, never forwarding them, so
 mod-host learns none of them: `track_info` is kept and answered `resp 0`, an LV2 plugin has no remote pages, and
 `param_info` answers `-511` until the daemon reads the bundle's port data. When a CLAP plugin changes its pages, its
 worker writes `remote_pages_changed <instance>` on its feedback port and the daemon relays it.
@@ -187,7 +190,7 @@ worker writes `remote_pages_changed <instance>` on its feedback port and the dae
 | `track_info` | `<instance> <name> <#RRGGBB \| -> [bus \| return \| master]` | `resp 0` | the strip's name ("" for none), colour and kind, absent for an input channel; a worker whose plugin format has a track-info extension passes them on; any other word is -902 |
 | `remote_pages` | `<instance>` | `resp <count>` | the plugin's remote-control pages, from clap.remote-controls; 0 for an instance of a format whose worker has none |
 | `remote_page_get` | `<instance> <page>` | `resp 0 <page_id> <section> <page_name> <s1> <s2> <s3> <s4> <s5> <s6> <s7> <s8>` | one page, 0 to count - 1: each slot the symbol param_set takes, - for an empty one; -902 for a page that is not one |
-| `param_info` | `<instance> <symbol>` | `resp 0 <unit> <scale> <min> <max> <default> <step> <stable_symbol>` | what a parameter's value means: its unit, its scale, and the symbol it keeps across hosts and versions; -103 for a symbol that is not a parameter, the plugin's own bypass and :bypass included |
+| `param_info` | `<instance> <symbol>` | `resp 0 <unit> <scale> <min> <max> <default> <step> <stable_symbol>` | what a parameter's value means: its unit, its scale, and the symbol it keeps across hosts and versions; -103 for a symbol that is not a parameter, the plugin's own bypass and :bypass included; -511 for a parameter whose unit and scale the worker holds no checked contract for |
 
 The ledger keeps the latest `track_info` of an instance and replays it after the add; the others are queries. A `<scale>` is `linear` (the value is linear in position), `log` (the value is geometric in position; both bounds are positive), `stepped` (the whole numbers from min to max, step 1). A string word is at most 255 bytes of UTF-8 with no control character.
 <!-- END GENERATED protocol:instance-verbs -->

@@ -57,7 +57,7 @@
     {"name": "track_info", "arguments": "<instance> <name> <#RRGGBB | -> [bus | return | master]", "reply": "resp 0", "ledger": "replace", "meaning": "the strip's name (\"\" for none), colour and kind, absent for an input channel; a worker whose plugin format has a track-info extension passes them on; any other word is -902"},
     {"name": "remote_pages", "arguments": "<instance>", "reply": "resp <count>", "ledger": "none", "meaning": "the plugin's remote-control pages, from clap.remote-controls; 0 for an instance of a format whose worker has none"},
     {"name": "remote_page_get", "arguments": "<instance> <page>", "reply": "resp 0 <page_id> <section> <page_name> <s1> <s2> <s3> <s4> <s5> <s6> <s7> <s8>", "ledger": "none", "meaning": "one page, 0 to count - 1: each slot the symbol param_set takes, - for an empty one; -902 for a page that is not one"},
-    {"name": "param_info", "arguments": "<instance> <symbol>", "reply": "resp 0 <unit> <scale> <min> <max> <default> <step> <stable_symbol>", "ledger": "none", "meaning": "what a parameter's value means: its unit, its scale, and the symbol it keeps across hosts and versions; -103 for a symbol that is not a parameter, the plugin's own bypass and :bypass included"}
+    {"name": "param_info", "arguments": "<instance> <symbol>", "reply": "resp 0 <unit> <scale> <min> <max> <default> <step> <stable_symbol>", "ledger": "none", "meaning": "what a parameter's value means: its unit, its scale, and the symbol it keeps across hosts and versions; -103 for a symbol that is not a parameter, the plugin's own bypass and :bypass included; -511 for a parameter whose unit and scale the worker holds no checked contract for"}
   ],
   "track_kinds": ["bus", "return", "master"],
   "param_scales": [

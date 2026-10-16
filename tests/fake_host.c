@@ -45,7 +45,8 @@
  *                               worker does when its plugin changes its remote pages
  *   track_info <n> ...          "resp 0"; the fake keeps nothing of it (FAKE_LOG shows what it was sent)
  *   remote_pages <n>            "resp 2", and remote_page_get <n> <0|1> one page each, -902 for any other page
- *   param_info <n> <sym>        for the symbol 0 the worked vector of the param contract, -103 for any other
+ *   param_info <n> <sym>        for the symbol 0 the worked vector of the param contract, for the symbol 1 -511 (a parameter
+ *                               the worker holds no contract for, as the released omx-clap-host answers every one), -103 for any other
  *   monitor_output <n> <sym>    "resp 1", or "resp 0" for the symbol "none"; from then on, every 20 ms, the feedback port
  *                               carries "output_set <n> <sym> <k>", k counting 0, 1, 2 ... for that output of this
  *                               process: a line lost, doubled or out of order shows as a gap or a repeat in k.
@@ -404,7 +405,7 @@ static void receive(msg_t *msg)
     else if (!strcmp(verb, PHD_VERB_REMOTE_PAGE_GET) && ntok == 3)
         answer(fd, "resp -902");
     else if (!strcmp(verb, PHD_VERB_PARAM_INFO) && ntok == 3)
-        answer(fd, !strcmp(tok[2], "0") ? "resp 0 ms linear 1 2000 350 1 time_ms" : "resp -103");
+        answer(fd, !strcmp(tok[2], "0") ? "resp 0 ms linear 1 2000 350 1 time_ms" : !strcmp(tok[2], "1") ? "resp -511" : "resp -103");
     else if (verb_is(verb, EFFECT_PATCH_SET) && ntok == 4)
     {
         char key[80];

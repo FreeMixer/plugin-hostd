@@ -337,7 +337,8 @@ static inline int phd_pool_name_valid(const char *name)
     X(PARAM_INFO, PHD_VERB_PARAM_INFO, "<instance> <symbol>", \
       "resp 0 <unit> <scale> <min> <max> <default> <step> <stable_symbol>", NONE, \
       "what a parameter's value means: its unit, its scale, and the symbol it keeps across hosts and versions; -103 " \
-      "for a symbol that is not a parameter, the plugin's own bypass and :bypass included")
+      "for a symbol that is not a parameter, the plugin's own bypass and :bypass included; " \
+      "-511 for a parameter whose unit and scale the worker holds no checked contract for")
 
 /* whether s is a string word: valid UTF-8, at most PHD_STRING_MAX bytes, no byte below 0x20 */
 static inline int phd_string_valid(const char *s)
