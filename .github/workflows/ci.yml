@@ -18,6 +18,16 @@ permissions:
   contents: read
 
 jobs:
+  private-refs:
+    name: no tracked file points into a private repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: make private-refs
+        run: make private-refs
+
   test:
     name: build and test
     runs-on: ubuntu-latest
