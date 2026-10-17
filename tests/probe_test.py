@@ -78,6 +78,17 @@ def a_run_that_ends_well_is_a_complete_document():
 
 
 @test
+def the_run_id_carries_no_host_name_and_the_runner_names_the_package_version():
+    import re, socket
+    code, doc, _, _, _ = run()
+    rid = doc["run"]["id"]
+    check(socket.gethostname() not in rid, "the run id %s carries the host name" % rid)
+    check(re.fullmatch(r"\d{8}T\d{6}Z-[0-9a-f]+-[0-9a-f]{8}", rid) is not None, "the run id %s is not utc-pid-random" % rid)
+    want = re.search(r"^Version:\s*(\S+)", open(os.path.join(ROOT, "packaging/plugin-hostd.spec")).read(), re.M).group(1)
+    check(doc["run"]["tools"]["runner"] == "plugin-hostd-probe " + want, "runner %s, package %s" % (doc["run"]["tools"]["runner"], want))
+
+
+@test
 def a_crash_keeps_the_steps_before_it():
     code, doc, _, _, _ = run("crash")
     check(code == 1, "exit status %d, a crash is 1" % code)

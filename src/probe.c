@@ -56,6 +56,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/prctl.h>
+#include <sys/random.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -68,6 +69,9 @@
 #include <plugin-hostd/protocol.h>
 
 #define RUNNER_NAME "plugin-hostd-probe"
+#ifndef PROBE_VERSION
+#define PROBE_VERSION "unknown"
+#endif
 #define LINE_MAX_BYTES (4 * 1024 * 1024)
 #define MAX_STEPS 256
 #define MAX_POINTS 64
@@ -1289,7 +1293,6 @@ int main(int argc, char **argv)
     jnode_t *line = NULL;
     const char *run_outcome = OUT_OK;
     int complete = 1, fd;
-    char hostname[64] = "host";
 
     if (argc < 2 || strcmp(argv[1], "run"))
     {
@@ -1402,16 +1405,19 @@ int main(int argc, char **argv)
     }
     prctl(PR_SET_CHILD_SUBREAPER, 1);
 
-    gethostname(hostname, sizeof(hostname) - 1);
     started_at = time(NULL);
     iso_time(started_at, started, sizeof(started));
     {
         struct tm tm;
         char compact[24];
+        unsigned salt = 0;
 
         gmtime_r(&started_at, &tm);
         strftime(compact, sizeof(compact), "%Y%m%dT%H%M%SZ", &tm);
-        snprintf(run_id, sizeof(run_id), "%s-%s-%x", hostname, compact, (unsigned)getpid());
+        /* no host name: the id leaves the machine in the document */
+        if (getrandom(&salt, sizeof(salt), 0) != (ssize_t)sizeof(salt))
+            salt = (unsigned)now_ms();
+        snprintf(run_id, sizeof(run_id), "%s-%x-%08x", compact, (unsigned)getpid(), salt);
     }
 
     t0 = now_ms();
@@ -1552,7 +1558,7 @@ int main(int argc, char **argv)
             sb_printf(&doc, "    \"cancelledBy\": \"client\",\n");
         sb_printf(&doc, "    \"reason\": \"%s\",\n    \"protocol\": {\"name\": \"%s\", \"version\": %d},\n", o.reason, PHD_PROBE_PROTOCOL_NAME,
                   PHD_PROBE_PROTOCOL_VERSION);
-        sb_printf(&doc, "    \"tools\": {\"runner\": \"" RUNNER_NAME " %s\", \"child\": ", "0.1.0");
+        sb_printf(&doc, "    \"tools\": {\"runner\": \"" RUNNER_NAME " %s\", \"child\": ", PROBE_VERSION);
         sb_str(&doc, base_name(o.child));
         sb_printf(&doc, "},\n    \"via\": \"runner\"\n  },\n  \"plugin\": {\"format\": \"clap\", \"id\": ");
         sb_str(&doc, plugin_id ? plugin_id : o.id ? o.id : base_name(realpath_buf));

@@ -59,7 +59,7 @@ $(PROG): $(OBJ) $(PROTOCOL_LIB)
 
 # the probe runner: it loads no plugin and links nothing of the daemon or of mod-host
 $(PROBE): src/probe.c include/plugin-hostd/protocol.h include/plugin-hostd/pin.h
-	$(CC) -Iinclude $(CFLAGS) -D_GNU_SOURCE -o $@ src/probe.c
+	$(CC) -Iinclude $(CFLAGS) -D_GNU_SOURCE -DPROBE_VERSION='"$(VERSION)"' -o $@ src/probe.c
 
 ifneq ($(PROTOCOL_LIB),)
 $(PROTOCOL_LIB):
