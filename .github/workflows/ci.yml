@@ -52,10 +52,9 @@ jobs:
       - name: Install the build dependencies from the channel
         run: dnf builddep -y --setopt=retries=10 packaging/plugin-hostd.spec
 
-      # the library, corpus and README of mod-host 0.10.6-3-fmx, which carry track_info, remote pages and param_info
+      # the library, corpus and README of mod-host with the patches FreeMixer/.github carries (packaging/mod-host),
+      # the same code as the mod-host-protocol packages: track_info, remote pages, param_info, NUL-framed commands
       - uses: FreeMixer/.github/.github/actions/mod-host-protocol@v1
-        with:
-          ref: ce0d247dce860051456e45d5e4e4e70d5884629f
 
       - name: Build
         run: make
@@ -117,10 +116,9 @@ jobs:
       - name: Install the build dependencies from the channel
         run: apt-get build-dep -y --no-install-recommends ./
 
-      # the library, corpus and README of mod-host 0.10.6-3-fmx, which carry track_info, remote pages and param_info
+      # the library, corpus and README of mod-host with the patches FreeMixer/.github carries (packaging/mod-host),
+      # the same code as the mod-host-protocol packages: track_info, remote pages, param_info, NUL-framed commands
       - uses: FreeMixer/.github/.github/actions/mod-host-protocol@v1
-        with:
-          ref: ce0d247dce860051456e45d5e4e4e70d5884629f
 
       # the CLAP headers, which Debian does not package either: built and installed from the pin of
       # FreeMixer/.github, the same one the RPM and DEB builds of the CLAP worker use
@@ -190,6 +188,7 @@ jobs:
             diff -u expected.txt files.txt
             rpm -qp --requires "$rpm" | tee requires.txt
             grep -q 'libmod-host-protocol.so.0' requires.txt
+            grep -qx 'mod-host-protocol(.*) >= 0.10.6.f14a230-11.1' requires.txt
             rpm -qp --recommends "$rpm" | tee recommends.txt
             grep -q '^mod-host' recommends.txt
             grep -q '^omx-clap-host' recommends.txt
@@ -352,6 +351,8 @@ jobs:
           dpkg -L plugin-hostd-tests | tee tests.txt
           grep -qx /usr/libexec/plugin-hostd/tests/fake-host tests.txt
           dpkg -s libmod-host-protocol0 | grep '^Status: install ok installed'
+          dpkg-deb -f debs/plugin-hostd_*.deb Depends | tee depends.txt
+          grep -qF 'libmod-host-protocol0 (>= 0.1.0-6~fmx)' depends.txt
 
       - name: The installed fake worker prints its layout
         run: |

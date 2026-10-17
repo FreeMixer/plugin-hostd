@@ -13,7 +13,7 @@ Rules-Requires-Root: no
 
 Package: plugin-hostd
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: libmod-host-protocol0 (>= 0.1.0-6~fmx), ${shlibs:Depends}, ${misc:Depends}
 Recommends: omx-clap-host (>= 0.9.0)
 Suggests: mod-host
 Description: run LV2 and CLAP plugins so that one crash cannot stop the show
