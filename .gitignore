@@ -10,3 +10,5 @@ tools/protocol-gen
 tests/pin-test
 tests/format-test
 tests/plugin-hostd-fixture.lv2/*.so
+/plugin-hostd-probe
+tests/probe-child
