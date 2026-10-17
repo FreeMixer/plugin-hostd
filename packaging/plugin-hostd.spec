@@ -82,6 +82,7 @@ make test-daemon check-generated
 %license COPYING
 %doc README.md
 %{_bindir}/plugin-hostd
+%{_bindir}/plugin-hostd-probe
 %{_mandir}/man1/plugin-hostd.1*
 %{_datadir}/plugin-hostd/protocol.json
 %{_datadir}/plugin-hostd/mod-host.json
