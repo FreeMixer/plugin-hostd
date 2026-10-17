@@ -184,7 +184,8 @@ jobs:
           for rpm in rpms/plugin-hostd-[0-9]*.${{ matrix.arch }}.rpm; do
             rpm -qlp "$rpm"
             rpm -qp --qf '[%{FILEMODES:perms} %{FILENAMES}\n]' "$rpm" | grep -v -e '^d' -e '/\.build-id/' | cut -d' ' -f2 | sort > files.txt
-            printf '%s\n' /usr/bin/plugin-hostd /usr/share/man/man1/plugin-hostd.1.gz \
+            printf '%s\n' /usr/bin/plugin-hostd /usr/bin/plugin-hostd-probe /usr/share/man/man1/plugin-hostd.1.gz \
+              /usr/share/man/man1/plugin-hostd-probe.1.gz \
               /usr/share/doc/plugin-hostd/README.md /usr/share/licenses/plugin-hostd/COPYING \
               /usr/share/plugin-hostd/protocol.json /usr/share/plugin-hostd/mod-host.json | sort > expected.txt
             diff -u expected.txt files.txt
@@ -199,7 +200,8 @@ jobs:
             rpm -qlp "$rpm"
             rpm -qp --qf '[%{FILEMODES:perms} %{FILENAMES}\n]' "$rpm" | grep -v '^d' | cut -d' ' -f2 | sort > files.txt
             printf '%s\n' /usr/include/plugin-hostd/protocol.h /usr/include/plugin-hostd/pin.h /usr/share/pkgconfig/plugin-hostd.pc \
-              /usr/share/plugin-hostd/protocol.schema.json /usr/share/licenses/plugin-hostd-devel/COPYING | sort > expected.txt
+              /usr/share/plugin-hostd/protocol.schema.json /usr/share/plugin-hostd/probe-output.schema.json \
+              /usr/share/licenses/plugin-hostd-devel/COPYING | sort > expected.txt
             diff -u expected.txt files.txt
           done
           # the tests package: the fake worker, where plugin-qualify's pins-file test finds it
