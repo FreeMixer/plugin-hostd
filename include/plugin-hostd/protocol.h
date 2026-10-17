@@ -108,6 +108,108 @@
     X(BACKOFF, "backoff", "dead, waiting to be respawned") \
     X(GIVEN_UP, "given-up", "the storm bound is spent for its placement")
 
+/* ---------------------------------------------------------------- the probe output
+ *
+ * What plugin-hostd-probe writes about one plugin binary and one offer: facts only, no verdict. The document's schema
+ * (protocol/probe-output.schema.json) is generated from the lists below, so a code is declared here once. A code is
+ * never reworded: a new one is a minor release of the format, a removed or changed one a major. */
+
+#define PHD_PROBE_FORMAT "plugin-hostd.probe-output"
+#define PHD_PROBE_FORMAT_MAJOR 1
+#define PHD_PROBE_FORMAT_MINOR 0
+#define PHD_PROBE_PROTOCOL_NAME "plugin-hostd.probe-protocol"
+#define PHD_PROBE_PROTOCOL_VERSION 1
+
+/* how a step, a grid point or the whole run ended: X(id, code, meaning) */
+#define PHD_PROBE_OUTCOMES(X) \
+    X(OK, "probe.ok", "the step ran to its end") \
+    X(CRASHED, "probe.crashed", "the child died of a signal not caused by a limit") \
+    X(TIMEOUT, "probe.timeout", "the supervisor's wall-clock deadline passed") \
+    X(CPU_LIMIT, "probe.cpu-limit", "the CPU-time limit was hit") \
+    X(MEMORY_LIMIT, "probe.memory-limit", "the memory limit was hit, known from the cgroup's oom_kill count") \
+    X(TASKS_LIMIT, "probe.tasks-limit", "the plugin tried to start more tasks than allowed, known from the cgroup's pids.events") \
+    X(OUTPUT_LIMIT, "probe.output-limit", "the plugin wrote a file past the size limit") \
+    X(SANDBOX_DENIED, "probe.sandbox-denied", "a syscall on the kill list was made") \
+    X(REFUSED_INSTANTIATION, "probe.refused-instantiation", "create, init or instantiate returned failure") \
+    X(REFUSED_BY_HOST, "probe.refused-by-host", "the host or its LV2 adapter refused the plugin; hostingCode holds its code unchanged") \
+    X(NOT_FOUND, "probe.not-found", "no such plugin in the files named") \
+    X(UNPINNABLE, "probe.unpinnable", "the files cannot be pinned") \
+    X(NON_FINITE_OUTPUT, "probe.non-finite-output", "NaN or infinity came out") \
+    X(SILENT_OUTPUT, "probe.silent-output", "silence under a stimulus that should pass") \
+    X(CANCELLED, "probe.cancelled", "stopped by the busy signal, a client or shutdown") \
+    X(NOT_ATTEMPTED, "probe.not-attempted", "the protocol did not ask for this step, or it does not apply") \
+    X(CHILD_PROTOCOL, "probe.child-protocol", "the child wrote a record outside the step grammar") \
+    X(ERROR, "probe.error", "anything else; detail keeps the words")
+
+/* why a run was made, the document's run.reason: X(id, name, meaning) */
+#define PHD_PROBE_REASONS(X) \
+    X(ADD, "add", "a user added the plugin") \
+    X(RESCAN, "rescan", "the plugin was offered for a rescan") \
+    X(BINARY_CHANGED, "binary-changed", "the files the host loads changed") \
+    X(ON_REQUEST, "on-request", "a client asked") \
+    X(AUTO_MEASURE, "auto-measure", "the machine measures what has no figures when it is idle") \
+    X(REFERENCE, "reference", "a reference run on the named rig") \
+    X(CI, "ci", "a continuous integration run")
+
+/* the limits a set can ask for: X(id, name, meaning) */
+#define PHD_PROBE_LIMIT_NAMES(X) \
+    X(WALL_CLOCK, "wall-clock", "the supervisor's deadline; the whole process tree is killed at it") \
+    X(CPU_TIME, "cpu-time", "RLIMIT_CPU") \
+    X(MEMORY, "memory", "cgroup memory.max, else RLIMIT_DATA") \
+    X(TASKS, "tasks", "cgroup pids.max") \
+    X(FILES, "files", "RLIMIT_NOFILE") \
+    X(FILE_SIZE, "file-size", "RLIMIT_FSIZE") \
+    X(CORE_DUMP, "core-dump", "RLIMIT_CORE 0") \
+    X(RT_PRIORITY, "rt-priority", "RLIMIT_RTPRIO 0") \
+    X(RT_TIME, "rt-time", "RLIMIT_RTTIME") \
+    X(CPUS, "cpus", "sched_setaffinity") \
+    X(NICE, "nice", "the child's nice value") \
+    X(NO_NEW_PRIVS, "no-new-privs", "PR_SET_NO_NEW_PRIVS") \
+    X(NETWORK, "network", "an unprivileged user and network namespace") \
+    X(FILESYSTEM, "filesystem", "Landlock") \
+    X(SYSCALLS, "syscalls", "a seccomp kill list")
+
+/* what enforced a limit: X(id, name, meaning) */
+#define PHD_PROBE_LIMIT_MECHANISMS(X) \
+    X(SUPERVISOR, "supervisor", "the runner's own timer and tree kill") \
+    X(RLIMIT, "rlimit", "setrlimit") \
+    X(CGROUP, "cgroup", "a cgroup v2 controller") \
+    X(AFFINITY, "affinity", "sched_setaffinity") \
+    X(PRCTL, "prctl", "prctl") \
+    X(NETNS, "netns", "a network namespace") \
+    X(USERNS, "userns", "a user namespace") \
+    X(LANDLOCK, "landlock", "Landlock") \
+    X(SECCOMP, "seccomp", "seccomp-bpf")
+
+/* a limit the set asked for and this machine could not apply: X(id, code, meaning) */
+#define PHD_PROBE_LIMIT_CODES(X) \
+    X(CGROUP_ABSENT, "probe.limit.cgroup-absent", "no cgroup v2 hierarchy to use") \
+    X(CONTROLLER_NOT_DELEGATED, "probe.limit.controller-not-delegated", "the controller is not delegated to this user") \
+    X(USERNS_DENIED, "probe.limit.userns-denied", "unprivileged user namespaces are refused") \
+    X(LANDLOCK_ABSENT, "probe.limit.landlock-absent", "the kernel offers no Landlock") \
+    X(SECCOMP_ABSENT, "probe.limit.seccomp-absent", "the kernel offers no seccomp filter") \
+    X(NOT_IMPLEMENTED, "probe.limit.not-implemented", "the runner of this version does not apply the limit")
+
+/* the machine profile read back and not meeting the protocol: X(id, code, meaning) */
+#define PHD_PROBE_PROFILE_CODES(X) \
+    X(GOVERNOR, "probe.profile.governor", "the cpu governor is not the one the protocol names") \
+    X(DEEP_IDLE_ENTERED, "probe.profile.deep-idle-entered", "a deep idle state was entered during the run") \
+    X(TURBO_UNKNOWN, "probe.profile.turbo-unknown", "whether turbo is on could not be read") \
+    X(SMT_ON, "probe.profile.smt-on", "SMT siblings are on") \
+    X(NOT_PINNED, "probe.profile.not-pinned", "the child was not pinned to cpus")
+
+/* the steps of the protocol, in the order they are run: X(id, name, meaning) */
+#define PHD_PROBE_STEPS(X) \
+    X(HASH, "hash", "the files the host loads, pinned") \
+    X(SCAN, "scan", "the plugin's descriptor read") \
+    X(INSTANTIATE, "instantiate", "created and initialised") \
+    X(LIFECYCLE, "lifecycle", "created, activated, processed and destroyed") \
+    X(LATENCY, "latency", "latency per rate") \
+    X(COST, "cost", "cost per rate and quantum") \
+    X(RT_SAFETY, "rt-safety", "what process() does under the interposer") \
+    X(NOTE_SWEEP, "note-sweep", "a note input played") \
+    X(SOAK, "soak", "a long render")
+
 /* whether name is a pool name, by PHD_POOL_NAME_CLASS and the limits above */
 static inline int phd_pool_name_valid(const char *name)
 {

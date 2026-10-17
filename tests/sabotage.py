@@ -12,7 +12,8 @@ FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "
 # omx-clap-host's FAKE_COMPRESSOR_CLAP and JACK_METER_SOURCE and is skipped without them; "info" one that needs its FAKE_CLAP; "lv2" is a jack test that also needs mod-host and
 # an LV2 bundle (MOD_HOST, LV2_DIR, LV2_URI, LV2_BUNDLE, LV2_PARAM) and is skipped without them; "pin" breaks
 # include/plugin-hostd/pin.h and runs tests/pin_test.c; "readme" breaks README.md or BUILDING.md and runs
-# tests/readme_build.py, with no daemon to build; "nopins" breaks the packaging or a workflow and runs tests/no_pins.py
+# tests/readme_build.py, with no daemon to build; "probeschema" breaks protocol/probe-output.schema.json and runs
+# tests/probe_schema.py; "probe" breaks src/probe.c and runs tests/probe_test.py; "nopins" breaks the packaging or a workflow and runs tests/no_pins.py
 SABOTAGE = [
     ("the verb tail is not replayed", "src/supervisor.c",
      "if (replay_line(w, i->tail[m].line) != RPC_OK)", "if (0 && replay_line(w, i->tail[m].line) != RPC_OK)",
@@ -328,12 +329,47 @@ SABOTAGE = [
      "presets_are_listed_by_a_clap_worker_and_an_lv2_instance_on_mod_host_answers_no_list"),
     ("pin_accept leaves the adapter's refusals in place", "src/supervisor.c", "    if (rc == SUCCESS)\n        lv2_refusals_forget(NULL);\n    return sup_resp(rc);",
      "    return sup_resp(rc);", "pin_accept_makes_the_adapter_be_asked_again"),
+    ("the probe document is written only when the child ended well", "src/probe.c", "    if (o.out)\n    {\n        char tmp[PATH_MAX];",
+     "    if (o.out && exit_code == 0)\n    {\n        char tmp[PATH_MAX];", "a_crash_keeps_the_steps_before_it", "probe"),
+    ("the wall clock never passes", "src/probe.c", "        if (left <= 0)\n        {\n            r->killed_by_deadline = 1;",
+     "        if (0)\n        {\n            r->killed_by_deadline = 1;", "a_plugin_that_hangs_ends_at_the_wall_clock_and_the_tree_is_killed", "probe"),
+    ("what the plugin left behind is not killed", "src/probe.c", "            int n = kill_tree(r->pid, SIGKILL);",
+     "            int n = 0;", "a_process_the_plugin_left_in_its_own_session_is_gone_after_the_run", "probe"),
+    ("a limit not applied is not listed", "src/probe.c", "        note_unavailable(NOT_APPLIED[i], LIMIT_NOT_IMPLEMENTED);",
+     "        (void)NOT_APPLIED;", "every_limit_the_set_asks_for_is_applied_or_listed_unavailable", "probe"),
+    ("--require is ignored", "src/probe.c", "        if (!met)\n        {\n            fprintf(stderr, RUNNER_NAME \": --require",
+     "        if (0)\n        {\n            fprintf(stderr, RUNNER_NAME \": --require",
+     "a_limit_that_was_required_and_is_not_applied_refuses_the_run_and_writes_no_document", "probe"),
+    ("the child's file size limit is not set", "src/probe.c", "    put_rlimit(RLIMIT_FSIZE, (rlim_t)o->file_bytes, (rlim_t)o->file_bytes);\n",
+     "", "the_limits_reach_the_child", "probe"),
+    ("the child may gain privileges", "src/probe.c", "    if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0)\n        _exit(120);\n",
+     "", "the_limits_reach_the_child", "probe"),
+    ("the child is not made to die with the runner", "src/probe.c", "    prctl(PR_SET_PDEATHSIG, SIGKILL);\n", "",
+     "the_limits_reach_the_child", "probe"),
+    ("the child is not pinned", "src/probe.c", "    if (pin_option && sched_setaffinity(0, sizeof(*pinned), pinned) != 0)\n        _exit(120);\n",
+     "", "the_limits_reach_the_child", "probe"),
+    ("the probe schema accepts a verdict", "protocol/probe-output.schema.json", '          "verdict"\n', '          "verdict-"\n',
+     "success-msi validates", "probeschema"),
+    ("the probe schema does not require binary.sha256", "protocol/probe-output.schema.json",
+     '      "required": [\n        "path",\n        "sha256",\n        "files"\n      ],', '      "required": [\n        "path",\n        "files"\n      ],',
+     "success-msi validates", "probeschema"),
+    ("the probe schema takes any outcome", "protocol/probe-output.schema.json", '"enum": ["probe.ok", "probe.crashed"',
+     '"enum": ["probe.exploded", "probe.ok", "probe.crashed"', "success-msi validates", "probeschema"),
+    ("the probe schema takes another major", "protocol/probe-output.schema.json", '"pattern": "^1\\\\.[0-9]+$"', '"pattern": "^[0-9]+\\\\.[0-9]+$"',
+     "success-msi validates", "probeschema"),
+    ("the probe schema takes a percentile of 50", "protocol/probe-output.schema.json", '"exclusiveMinimum": 50', '"exclusiveMinimum": 0',
+     "success-msi validates", "probeschema"),
 ]
 
 
 def build(tree):
     subprocess.run(["make", "-s", "MOD_HOST_DIR=" + MOD_HOST_DIR, "plugin-hostd"], cwd=tree, check=True,
                    stdout=subprocess.DEVNULL)
+
+
+def build_probe(tree):
+    subprocess.run(["cc", "-I" + os.path.join(tree, "include"), "-O2", "-Wall", "-Wextra", "-std=gnu99", "-Wno-format-truncation",
+                    "-D_GNU_SOURCE", "-o", os.path.join(tree, "plugin-hostd-probe"), os.path.join(tree, "src", "probe.c")], check=True)
 
 
 def run_pin_test(tree):
@@ -365,6 +401,15 @@ def run_test(tree, name, jack=False):
         return run_pin_test(tree)
     if jack == "readme":
         p = subprocess.run([sys.executable, os.path.join(ROOT, "tests", "readme_build.py"), tree], capture_output=True,
+                           text=True, timeout=60)
+        return p.returncode, p.stdout
+    if jack == "probe":
+        env = dict(os.environ, ONLY=name, PROBE=os.path.join(tree, "plugin-hostd-probe"))
+        p = subprocess.run([sys.executable, os.path.join(ROOT, "tests", "probe_test.py")], env=env, capture_output=True, text=True,
+                           timeout=300)
+        return p.returncode, p.stdout
+    if jack == "probeschema":
+        p = subprocess.run([sys.executable, os.path.join(ROOT, "tests", "probe_schema.py"), tree], capture_output=True,
                            text=True, timeout=60)
         return p.returncode, p.stdout
     if jack == "nopins":
@@ -401,6 +446,14 @@ try:
             os.makedirs(tree)
             for f in ("README.md", "BUILDING.md"):
                 shutil.copy(os.path.join(ROOT, f), tree)
+        elif jack == "probe":
+            os.makedirs(os.path.join(tree, "src"))
+            shutil.copy(os.path.join(ROOT, "src", "probe.c"), os.path.join(tree, "src"))
+            shutil.copytree(os.path.join(ROOT, "include"), os.path.join(tree, "include"))
+            build_probe(tree)
+        elif jack == "probeschema":
+            os.makedirs(os.path.join(tree, "protocol"))
+            shutil.copy(os.path.join(ROOT, "protocol", "probe-output.schema.json"), os.path.join(tree, "protocol"))
         elif jack == "nopins":
             for f in ("packaging/plugin-hostd.spec", "debian/control", ".github/workflows/ci.yml"):
                 os.makedirs(os.path.dirname(os.path.join(tree, f)), exist_ok=True)
@@ -421,7 +474,9 @@ try:
             failed += 1
             continue
         open(os.path.join(tree, path), "w").write(src.replace(text, repl))
-        if jack not in ("readme", "nopins", "format"):
+        if jack == "probe":
+            build_probe(tree)
+        elif jack not in ("readme", "nopins", "format", "probeschema"):
             for f in os.listdir(os.path.join(tree, "src")):
                 if f.endswith(".o"):
                     os.unlink(os.path.join(tree, "src", f))
