@@ -1,0 +1,70 @@
+.TH PLUGIN\-HOSTD\-PROBE 1 "October 2026" "plugin-hostd 0.3.0" "User Commands"
+.SH NAME
+plugin\-hostd\-probe \- run a plugin prober under limits and write what happened
+.SH SYNOPSIS
+.B plugin\-hostd\-probe run
+.RI [ options ]
+.I plugin.clap
+.RI [ "clap id" ]
+.SH DESCRIPTION
+.B plugin\-hostd\-probe
+starts a program that loads a plugin (clap\-qualify by default) in its own process group, with the portable
+limits applied before the exec, and writes the facts of the run as a JSON document: the steps the child reached, how
+each ended and the limits that were applied. It gives no verdict. The runner never loads plugin code itself. On the
+deadline, on a cancel or when the child is done it kills the whole process tree, including a process the plugin
+started and orphaned.
+.PP
+The document follows
+.IR plugin\-hostd/probe\-output.schema.json .
+Nothing a plugin prints can enter it.
+.SH OPTIONS
+.TP
+.BI \-\-child " program"
+The program that loads the plugin. Default clap\-qualify.
+.TP
+.BI \-\-rates " R,R,..."
+Sample rates to run at. Default 44100,48000,96000,192000.
+.TP
+.BI \-\-quantum " n"
+Block size in frames. Default 512.
+.TP
+.BI \-\-blocks " n"
+Blocks to process per rate.
+.TP
+.BI \-\-offer " EXT,..."
+Host extensions to offer on top of the child's own.
+.TP
+.BI \-\-out " file"
+Where to write the document, atomically. Default standard output.
+.TP
+.BI \-\-log " file"
+Where to write the child's standard error. Default discarded.
+.TP
+.BI \-\-reason " why"
+One of add, rescan, binary\-changed, on\-request, auto\-measure, reference, ci.
+.TP
+.BI \-\-wall\-s " n" "\fR, \fB\-\-cpu\-s " n "\fR, \fB\-\-data\-bytes " n "\fR, \fB\-\-files " n "\fR, \fB\-\-file\-bytes " n "\fR, \fB\-\-grace\-ms " n
+The limits: wall clock and CPU seconds, data segment size, open files, file size, and the grace between the
+terminate and the kill.
+.TP
+.BI \-\-cpus " list"
+Pin the child to these cpus, for example "0\-3,8".
+.TP
+.BI \-\-require " limit"
+Refuse to run unless the limit is applied. May be repeated. A limit that is asked for and not applied by this
+version is listed in the document, never skipped in silence.
+.SH EXIT STATUS
+.TP
+.B 0
+A document was written, the run is complete and every step ended ok or was not attempted.
+.TP
+.B 1
+A document was written and some step ended otherwise.
+.TP
+.B 2
+No document: usage, a required limit unavailable, or the output not writable.
+.TP
+.B 3
+No such plugin.
+.SH SEE ALSO
+.BR plugin\-hostd (1)
