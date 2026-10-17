@@ -119,7 +119,7 @@ clean:
 
 # the daemon against workers that are not plugin hosts at all (tests/fake-host speaks the same protocol and can be
 # made to die on cue): placement, forwarding, ledger, replay, attribution, the storm bound; no jack, no plugin
-test: test-pin test-format test-daemon check-generated check-schema test-consumer test-perturbation check-readme check-own-host-page check-no-pins test-mod-host-json
+test: test-pin test-format test-daemon check-generated check-schema test-probe-schema test-consumer test-perturbation check-readme check-own-host-page check-no-pins test-mod-host-json
 	MOD_HOST_DIR=$(MOD_HOST_DIR) python3 tests/verbs_contract.py
 
 # the same without the verb table, which is read from a mod-host checkout's README
@@ -244,6 +244,10 @@ test-mod-host-json:
 # the JSON against its schema, for which the jsonschema module is needed
 check-schema:
 	python3 tests/protocol_schema.py protocol/plugin-hostd.json protocol/plugin-hostd.schema.json
+
+# the probe output: its three fixtures validate and five broken copies of the first are refused
+test-probe-schema:
+	python3 tests/probe_schema.py
 
 # the declaration is the one copy: change values in a scratch copy of it, regenerate, rebuild, and the daemon and the docs follow
 test-perturbation: $(PROG) $(FAKE) $(GEN)

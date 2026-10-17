@@ -12,7 +12,8 @@ FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "
 # omx-clap-host's FAKE_COMPRESSOR_CLAP and JACK_METER_SOURCE and is skipped without them; "info" one that needs its FAKE_CLAP; "lv2" is a jack test that also needs mod-host and
 # an LV2 bundle (MOD_HOST, LV2_DIR, LV2_URI, LV2_BUNDLE, LV2_PARAM) and is skipped without them; "pin" breaks
 # include/plugin-hostd/pin.h and runs tests/pin_test.c; "readme" breaks README.md or BUILDING.md and runs
-# tests/readme_build.py, with no daemon to build; "nopins" breaks the packaging or a workflow and runs tests/no_pins.py
+# tests/readme_build.py, with no daemon to build; "probeschema" breaks protocol/probe-output.schema.json and runs
+# tests/probe_schema.py; "nopins" breaks the packaging or a workflow and runs tests/no_pins.py
 SABOTAGE = [
     ("the verb tail is not replayed", "src/supervisor.c",
      "if (replay_line(w, i->tail[m].line) != RPC_OK)", "if (0 && replay_line(w, i->tail[m].line) != RPC_OK)",
@@ -322,6 +323,17 @@ SABOTAGE = [
      "presets_are_listed_by_a_clap_worker_and_an_lv2_instance_on_mod_host_answers_no_list"),
     ("pin_accept leaves the adapter's refusals in place", "src/supervisor.c", "    if (rc == SUCCESS)\n        lv2_refusals_forget(NULL);\n    return sup_resp(rc);",
      "    return sup_resp(rc);", "pin_accept_makes_the_adapter_be_asked_again"),
+    ("the probe schema accepts a verdict", "protocol/probe-output.schema.json", '          "verdict"\n', '          "verdict-"\n',
+     "success-msi validates", "probeschema"),
+    ("the probe schema does not require binary.sha256", "protocol/probe-output.schema.json",
+     '      "required": [\n        "path",\n        "sha256",\n        "files"\n      ],', '      "required": [\n        "path",\n        "files"\n      ],',
+     "success-msi validates", "probeschema"),
+    ("the probe schema takes any outcome", "protocol/probe-output.schema.json", '"enum": ["probe.ok", "probe.crashed"',
+     '"enum": ["probe.exploded", "probe.ok", "probe.crashed"', "success-msi validates", "probeschema"),
+    ("the probe schema takes another major", "protocol/probe-output.schema.json", '"pattern": "^1\\\\.[0-9]+$"', '"pattern": "^[0-9]+\\\\.[0-9]+$"',
+     "success-msi validates", "probeschema"),
+    ("the probe schema takes a percentile of 50", "protocol/probe-output.schema.json", '"exclusiveMinimum": 50', '"exclusiveMinimum": 0',
+     "success-msi validates", "probeschema"),
 ]
 
 
@@ -361,6 +373,10 @@ def run_test(tree, name, jack=False):
         p = subprocess.run([sys.executable, os.path.join(ROOT, "tests", "readme_build.py"), tree], capture_output=True,
                            text=True, timeout=60)
         return p.returncode, p.stdout
+    if jack == "probeschema":
+        p = subprocess.run([sys.executable, os.path.join(ROOT, "tests", "probe_schema.py"), tree], capture_output=True,
+                           text=True, timeout=60)
+        return p.returncode, p.stdout
     if jack == "nopins":
         p = subprocess.run([sys.executable, os.path.join(ROOT, "tests", "no_pins.py"), tree], capture_output=True,
                            text=True, timeout=60)
@@ -395,6 +411,9 @@ try:
             os.makedirs(tree)
             for f in ("README.md", "BUILDING.md"):
                 shutil.copy(os.path.join(ROOT, f), tree)
+        elif jack == "probeschema":
+            os.makedirs(os.path.join(tree, "protocol"))
+            shutil.copy(os.path.join(ROOT, "protocol", "probe-output.schema.json"), os.path.join(tree, "protocol"))
         elif jack == "nopins":
             for f in ("packaging/plugin-hostd.spec", "debian/control", ".github/workflows/ci.yml"):
                 os.makedirs(os.path.dirname(os.path.join(tree, f)), exist_ok=True)
@@ -415,7 +434,7 @@ try:
             failed += 1
             continue
         open(os.path.join(tree, path), "w").write(src.replace(text, repl))
-        if jack not in ("readme", "nopins", "format"):
+        if jack not in ("readme", "nopins", "format", "probeschema"):
             for f in os.listdir(os.path.join(tree, "src")):
                 if f.endswith(".o"):
                     os.unlink(os.path.join(tree, "src", f))
