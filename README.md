@@ -299,6 +299,26 @@ every worker shares:
 - a line whose words are not that command's grammar is passed on and not kept.
 <!-- END GENERATED protocol:host-settings -->
 
+Probing a plugin
+----------------
+
+`plugin-hostd-probe run` loads a plugin in a child process under limits and writes down what happened, as facts only: no
+verdict. The child is clap-qualify today; the runner never loads plugin code itself.
+
+    plugin-hostd-probe run --out probe.json --log probe.stderr.log /usr/lib64/clap/plate.clap org.example.plate
+
+The runner kills the whole process tree of the child at its wall clock, and again when the child is done, so a process a
+plugin started in a session of its own does not outlive the run. It applies these limits on every Linux: the wall clock,
+the CPU time, the data size, the open files, the file size, no core dump, no real-time priority, no new privileges, the
+child dying with the runner, and the cpus the child may use (`--cpus`). A limit the set asks for and this version does not
+apply (the number of tasks, namespaces, Landlock, seccomp) is listed in the document under `limits.unavailable` with its
+code, and `--require tasks` makes the run refuse instead.
+
+A crash, a hang and a timeout are outcomes in the document, never a missing document: the steps the child finished before
+dying stay in it. The exit status says whether there is one: 0 a complete run, 1 a document with some step that ended
+otherwise, 2 no document, 3 no such plugin. The document is described by `probe-output.schema.json`, generated from the
+codes in `protocol.h`, and installed with the protocol.
+
 Pins
 ----
 

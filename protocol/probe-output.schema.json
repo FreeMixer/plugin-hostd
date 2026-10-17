@@ -1,0 +1,930 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/FreeMixer/plugin-hostd/protocol/probe-output.schema.json",
+  "title": "What one probe run of one plugin binary observed",
+  "description": "Facts only. A verdict, a rating or a classification is never a field here: plugin-qualify writes those in the qualification record.",
+  "type": "object",
+  "required": [
+    "format",
+    "formatVersion",
+    "run",
+    "plugin",
+    "binary",
+    "machine",
+    "offer",
+    "limits",
+    "steps"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "format": {
+      "const": "plugin-hostd.probe-output"
+    },
+    "formatVersion": {
+      "type": "string",
+      "pattern": "^1\\.[0-9]+$"
+    },
+    "run": {
+      "type": "object",
+      "required": [
+        "id",
+        "startedAt",
+        "elapsedMs",
+        "complete",
+        "outcome",
+        "protocol",
+        "tools",
+        "via"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "startedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "elapsedMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "complete": {
+          "type": "boolean"
+        },
+        "outcome": {
+          "$ref": "#/$defs/outcome"
+        },
+        "cancelledBy": {
+          "enum": [
+            "busy",
+            "client",
+            "shutdown"
+          ]
+        },
+        "reason": {
+          "enum": ["add", "rescan", "binary-changed", "on-request", "auto-measure", "reference", "ci"]
+        },
+        "protocol": {
+          "type": "object",
+          "required": [
+            "name",
+            "version"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "const": "plugin-hostd.probe-protocol"
+            },
+            "version": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        "tools": {
+          "type": "object",
+          "required": [
+            "runner",
+            "child"
+          ],
+          "additionalProperties": {
+            "type": "string"
+          },
+          "properties": {
+            "runner": {
+              "type": "string"
+            },
+            "child": {
+              "type": "string"
+            },
+            "clapCore": {
+              "type": "string"
+            },
+            "interposer": {
+              "type": "string"
+            }
+          }
+        },
+        "via": {
+          "enum": [
+            "daemon",
+            "runner"
+          ]
+        }
+      }
+    },
+    "plugin": {
+      "type": "object",
+      "required": [
+        "format",
+        "id"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "format": {
+          "enum": [
+            "clap",
+            "lv2"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string"
+        },
+        "vendor": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "ownerPackage": {
+          "type": "string"
+        }
+      }
+    },
+    "binary": {
+      "type": "object",
+      "required": [
+        "path",
+        "sha256",
+        "files"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "path",
+              "sha256"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "sha256": {
+                "$ref": "#/$defs/sha256"
+              }
+            }
+          }
+        },
+        "layout": {
+          "type": "object",
+          "required": [
+            "scheme",
+            "sha256"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "scheme": {
+              "type": "string"
+            },
+            "sha256": {
+              "$ref": "#/$defs/sha256"
+            }
+          }
+        },
+        "unpinnable": {
+          "type": "string"
+        }
+      }
+    },
+    "descriptor": {
+      "$ref": "#/$defs/fileRef"
+    },
+    "machine": {
+      "type": "object",
+      "required": [
+        "class",
+        "profile",
+        "pinnedCpus"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "class": {
+          "type": "object",
+          "required": [
+            "arch",
+            "family",
+            "coreBand",
+            "clockBand",
+            "preemptRt",
+            "cstatesLimited"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "arch": {
+              "type": "string"
+            },
+            "family": {
+              "type": "string"
+            },
+            "coreBand": {
+              "enum": [
+                "1-2",
+                "3-4",
+                "5-8",
+                "9-16",
+                "17-32",
+                "33+"
+              ]
+            },
+            "clockBand": {
+              "enum": [
+                "<1.5GHz",
+                "1.5-2.5GHz",
+                "2.5-3.5GHz",
+                "3.5-4.5GHz",
+                "4.5GHz+"
+              ]
+            },
+            "preemptRt": {
+              "type": "boolean"
+            },
+            "cstatesLimited": {
+              "type": "boolean"
+            }
+          }
+        },
+        "profile": {
+          "type": "object",
+          "required": [
+            "governor",
+            "cpuidle",
+            "meetsProtocol"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "governor": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "turbo": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "smt": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "preempt": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "cpuidle": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "cpu",
+                  "state",
+                  "latencyUs",
+                  "disabled",
+                  "usageDelta"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "cpu": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "state": {
+                    "type": "string"
+                  },
+                  "latencyUs": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "disabled": {
+                    "type": "boolean"
+                  },
+                  "usageDelta": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                }
+              }
+            },
+            "meetsProtocol": {
+              "type": "boolean"
+            },
+            "unmet": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": ["probe.profile.governor", "probe.profile.deep-idle-entered", "probe.profile.turbo-unknown", "probe.profile.smt-on", "probe.profile.not-pinned"]
+              }
+            },
+            "declaredName": {
+              "type": "string"
+            }
+          }
+        },
+        "pinnedCpus": {
+          "type": "string",
+          "pattern": "^[0-9]+(-[0-9]+)?(,[0-9]+(-[0-9]+)?)*$"
+        },
+        "reference": {
+          "type": "object",
+          "required": [
+            "rig",
+            "image"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "rig": {
+              "type": "string"
+            },
+            "image": {
+              "type": "string"
+            }
+          }
+        },
+        "local": {
+          "description": "Never leaves the machine: an export drops this block.",
+          "type": "object",
+          "additionalProperties": {
+            "type": [
+              "string",
+              "integer"
+            ]
+          }
+        }
+      }
+    },
+    "offer": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "clapExtensions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "lv2Features": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "lv2Options": {
+          "type": "object"
+        },
+        "realtime": {
+          "enum": [
+            "none",
+            "fifo"
+          ]
+        }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "required": [
+        "set",
+        "applied",
+        "unavailable"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "set": {
+          "type": "string"
+        },
+        "applied": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/limit"
+          }
+        },
+        "unavailable": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "limit",
+              "code"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "limit": {
+                "$ref": "#/$defs/limitName"
+              },
+              "code": {
+                "type": "string",
+                "enum": ["probe.limit.cgroup-absent", "probe.limit.controller-not-delegated", "probe.limit.userns-denied", "probe.limit.landlock-absent", "probe.limit.seccomp-absent", "probe.limit.not-implemented"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/step"
+      }
+    },
+    "grid": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/point"
+      }
+    },
+    "behaviour": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "lifecycle": {
+          "type": "object",
+          "required": [
+            "cycles",
+            "instantiated",
+            "failed"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "instantiated": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "failed": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "threads": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "before": {
+              "type": "integer"
+            },
+            "afterFirstInstantiate": {
+              "type": "integer"
+            },
+            "afterAllFreed": {
+              "type": "integer"
+            }
+          }
+        },
+        "memory": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "rssStartKb": {
+              "type": "integer"
+            },
+            "rssMaxKb": {
+              "type": "integer"
+            },
+            "peakBytes": {
+              "type": "integer"
+            }
+          }
+        },
+        "features": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "required": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "requiredNotOffered": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "extensionsAsked": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "soak": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "rate",
+              "quantum",
+              "seconds"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "rate": {
+                "type": "integer"
+              },
+              "quantum": {
+                "type": "integer"
+              },
+              "seconds": {
+                "type": "number"
+              },
+              "windows": {
+                "type": "integer"
+              },
+              "nonFiniteWindows": {
+                "type": "integer"
+              },
+              "silentWindows": {
+                "type": "integer"
+              },
+              "rssGrowthKb": {
+                "type": "integer"
+              }
+            }
+          }
+        }
+      }
+    },
+    "crash": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "signal": {
+          "type": "string"
+        },
+        "topFrame": {
+          "type": "string"
+        },
+        "frameObject": {
+          "type": "string"
+        },
+        "sanitizer": {
+          "type": "string"
+        }
+      }
+    },
+    "logs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/fileRef"
+      }
+    }
+  },
+  "not": {
+    "anyOf": [
+      {
+        "required": [
+          "verdict"
+        ]
+      },
+      {
+        "required": [
+          "verdicts"
+        ]
+      },
+      {
+        "required": [
+          "rating"
+        ]
+      },
+      {
+        "required": [
+          "hosting"
+        ]
+      }
+    ]
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "outcome": {
+      "enum": ["probe.ok", "probe.crashed", "probe.timeout", "probe.cpu-limit", "probe.memory-limit", "probe.tasks-limit", "probe.output-limit", "probe.sandbox-denied", "probe.refused-instantiation", "probe.refused-by-host", "probe.not-found", "probe.unpinnable", "probe.non-finite-output", "probe.silent-output", "probe.cancelled", "probe.not-attempted", "probe.child-protocol", "probe.error"]
+    },
+    "limitName": {
+      "enum": ["wall-clock", "cpu-time", "memory", "tasks", "files", "file-size", "core-dump", "rt-priority", "rt-time", "cpus", "nice", "no-new-privs", "network", "filesystem", "syscalls"]
+    },
+    "limit": {
+      "type": "object",
+      "required": [
+        "limit",
+        "by"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "limit": {
+          "$ref": "#/$defs/limitName"
+        },
+        "value": {
+          "type": [
+            "integer",
+            "string"
+          ]
+        },
+        "unit": {
+          "enum": [
+            "s",
+            "ms",
+            "bytes",
+            "count",
+            "us"
+          ]
+        },
+        "by": {
+          "enum": ["supervisor", "rlimit", "cgroup", "affinity", "prctl", "netns", "userns", "landlock", "seccomp"]
+        }
+      }
+    },
+    "step": {
+      "type": "object",
+      "required": [
+        "step",
+        "outcome",
+        "elapsedMs"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "step": {
+          "enum": ["hash", "scan", "instantiate", "lifecycle", "latency", "cost", "rt-safety", "note-sweep", "soak"]
+        },
+        "rate": {
+          "type": "integer"
+        },
+        "quantum": {
+          "type": "integer"
+        },
+        "outcome": {
+          "$ref": "#/$defs/outcome"
+        },
+        "elapsedMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "signal": {
+          "type": "string"
+        },
+        "exitStatus": {
+          "type": "integer"
+        },
+        "limit": {
+          "$ref": "#/$defs/limitName"
+        },
+        "hostingCode": {
+          "type": "string",
+          "pattern": "^hosting\\.[a-z0-9.-]+$"
+        },
+        "detail": {
+          "type": "string"
+        }
+      }
+    },
+    "point": {
+      "type": "object",
+      "required": [
+        "rate",
+        "quantum",
+        "outcome"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "rate": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "quantum": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "outcome": {
+          "$ref": "#/$defs/outcome"
+        },
+        "latency": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "declaredFrames": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "measuredFrames": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "method": {
+              "enum": [
+                "impulse-onset",
+                "declared-port"
+              ]
+            }
+          }
+        },
+        "cost": {
+          "type": "object",
+          "required": [
+            "unit",
+            "median",
+            "percentile",
+            "blocks",
+            "warmupBlocks"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "unit": {
+              "const": "ns-per-sample"
+            },
+            "median": {
+              "type": "number",
+              "minimum": 0
+            },
+            "percentile": {
+              "type": "object",
+              "required": [
+                "p",
+                "value"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "p": {
+                  "type": "number",
+                  "exclusiveMinimum": 50,
+                  "maximum": 100
+                },
+                "value": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              }
+            },
+            "min": {
+              "type": "number",
+              "minimum": 0
+            },
+            "max": {
+              "type": "number",
+              "minimum": 0
+            },
+            "iqr": {
+              "type": "number",
+              "minimum": 0
+            },
+            "blocks": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "warmupBlocks": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "warmupMedian": {
+              "type": "number",
+              "minimum": 0
+            },
+            "timingFloorNsPerBlock": {
+              "type": "number",
+              "minimum": 0
+            },
+            "silentOutput": {
+              "type": "boolean"
+            },
+            "samples": {
+              "$ref": "#/$defs/fileRef"
+            }
+          }
+        },
+        "rtSafety": {
+          "type": "object",
+          "required": [
+            "interposer"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "interposer": {
+              "type": "boolean"
+            },
+            "swept": {
+              "type": "boolean"
+            },
+            "sweepApplicable": {
+              "type": "boolean"
+            },
+            "blocks": {
+              "type": "integer"
+            },
+            "allocations": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "locks": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "syscalls": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "threadViolations": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "processErrors": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "events": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "noteSweep": {
+          "type": "object",
+          "required": [
+            "applicable"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "applicable": {
+              "type": "boolean"
+            },
+            "dialect": {
+              "type": "string"
+            },
+            "allocations": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "locks": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "syscalls": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    "fileRef": {
+      "type": "object",
+      "required": [
+        "path",
+        "sha256",
+        "bytes"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

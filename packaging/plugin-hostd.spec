@@ -85,7 +85,9 @@ make test-daemon check-generated
 %license COPYING
 %doc README.md
 %{_bindir}/plugin-hostd
+%{_bindir}/plugin-hostd-probe
 %{_mandir}/man1/plugin-hostd.1*
+%{_mandir}/man1/plugin-hostd-probe.1*
 %{_datadir}/plugin-hostd/protocol.json
 %{_datadir}/plugin-hostd/mod-host.json
 
@@ -99,6 +101,7 @@ make test-daemon check-generated
 %{_includedir}/plugin-hostd/pin.h
 %{_datadir}/pkgconfig/plugin-hostd.pc
 %{_datadir}/plugin-hostd/protocol.schema.json
+%{_datadir}/plugin-hostd/probe-output.schema.json
 
 %changelog
 * Fri Oct 16 2026 Pau Aliagas <linuxnow@gmail.com> - 0.3.0-1

@@ -18,6 +18,13 @@
  * Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
  */
 
+/* A stereo passthrough .clap the daemon's tests break on purpose (the probe runner's tests break it from outside, with
+ * STRESS_FAULT, so that a prober which sets no parameter meets the fault all the same):
+ *   STRESS_FAULT=crash          the first process call aborts
+ *   STRESS_FAULT=hang           the first process call never returns
+ *   STRESS_FAULT=fork           the first process call leaves a process behind that starts its own session and sleeps a
+ *                               minute; its pid is written to the file STRESS_FORK_PIDFILE names
+ */
 /* A stereo passthrough .clap the daemon's tests break on purpose:
  *   org.plugin-hostd.test.stress        parameters
  *                                         0 crash   a write above 0.5 aborts inside process; with STRESS_CRASH_ONCE
@@ -34,6 +41,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/prctl.h>
+#include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
 #include <clap/clap.h>
@@ -289,8 +297,48 @@ static void spin_us(double us)
     } while ((t.tv_sec - t0.tv_sec) * 1e6 + (t.tv_nsec - t0.tv_nsec) / 1e3 < us);
 }
 
+/* the fault STRESS_FAULT names, on the first process call of the process */
+static void fault_once(void)
+{
+    static int done;
+    const char *fault = getenv("STRESS_FAULT");
+
+    if (done || !fault)
+        return;
+    done = 1;
+    if (!strcmp(fault, "crash"))
+        crash();
+    if (!strcmp(fault, "hang"))
+        for (;;)
+            ;
+    if (!strcmp(fault, "fork"))
+    {
+        pid_t pid = fork();
+
+        if (pid == 0)
+        {
+            const char *pidfile = getenv("STRESS_FORK_PIDFILE");
+
+            setsid();
+            if (pidfile)
+            {
+                FILE *f = fopen(pidfile, "w");
+
+                if (f)
+                {
+                    fprintf(f, "%d\n", (int)getpid());
+                    fclose(f);
+                }
+            }
+            sleep(60);
+            _exit(0);
+        }
+    }
+}
+
 static clap_process_status plugin_process(const clap_plugin_t *plugin, const clap_process_t *process)
 {
+    fault_once();
     stress_t *stress = plugin->plugin_data;
     const clap_audio_buffer_t *in = &process->audio_inputs[0];
     clap_audio_buffer_t *out = &process->audio_outputs[0];

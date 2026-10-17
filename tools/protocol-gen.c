@@ -22,6 +22,7 @@
  *
  *   protocol-gen json          protocol/plugin-hostd.json on stdout
  *   protocol-gen regions       the name of every region, one per line
+ *   protocol-gen probe-schema TEMPLATE   TEMPLATE on stdout with each @PHD_PROBE_...@ token replaced by that list of the header
  *   protocol-gen splice FILE   FILE on stdout with every generated region replaced; a region is the lines between
  *                              "BEGIN GENERATED protocol:<name>" and "END GENERATED protocol:<name>" */
 
@@ -520,6 +521,109 @@ static int splice(const char *path)
     return 0;
 }
 
+/* ---------------------------------------------------------------- probe output schema */
+
+/* the code or name of each entry of a PHD_PROBE_* list: the second argument of X(id, code, meaning) */
+static const char *const PROBE_OUTCOMES[] = {
+#define X(id, code, meaning) code,
+    PHD_PROBE_OUTCOMES(X)
+#undef X
+};
+static const char *const PROBE_LIMIT_NAMES[] = {
+#define X(id, code, meaning) code,
+    PHD_PROBE_LIMIT_NAMES(X)
+#undef X
+};
+static const char *const PROBE_LIMIT_MECHANISMS[] = {
+#define X(id, code, meaning) code,
+    PHD_PROBE_LIMIT_MECHANISMS(X)
+#undef X
+};
+static const char *const PROBE_LIMIT_CODES[] = {
+#define X(id, code, meaning) code,
+    PHD_PROBE_LIMIT_CODES(X)
+#undef X
+};
+static const char *const PROBE_PROFILE_CODES[] = {
+#define X(id, code, meaning) code,
+    PHD_PROBE_PROFILE_CODES(X)
+#undef X
+};
+static const char *const PROBE_REASONS[] = {
+#define X(id, code, meaning) code,
+    PHD_PROBE_REASONS(X)
+#undef X
+};
+static const char *const PROBE_STEPS[] = {
+#define X(id, code, meaning) code,
+    PHD_PROBE_STEPS(X)
+#undef X
+};
+
+#define PROBE_LIST(token, list) { "@" token "@", list, sizeof(list) / sizeof(*list) }
+
+/* TEMPLATE on stdout with each @PHD_PROBE_...@ token replaced by the quoted codes of that list of the header, so the
+ * schema's enumerations are the header's own; a token the template holds and the generator does not know is an error */
+static int probe_schema(const char *path)
+{
+    static const struct
+    {
+        const char *token;
+        const char *const *codes;
+        size_t count;
+    } LISTS[] = {
+        PROBE_LIST("PHD_PROBE_OUTCOMES", PROBE_OUTCOMES),
+        PROBE_LIST("PHD_PROBE_LIMIT_NAMES", PROBE_LIMIT_NAMES),
+        PROBE_LIST("PHD_PROBE_LIMIT_MECHANISMS", PROBE_LIMIT_MECHANISMS),
+        PROBE_LIST("PHD_PROBE_LIMIT_CODES", PROBE_LIMIT_CODES),
+        PROBE_LIST("PHD_PROBE_PROFILE_CODES", PROBE_PROFILE_CODES),
+        PROBE_LIST("PHD_PROBE_STEPS", PROBE_STEPS),
+        PROBE_LIST("PHD_PROBE_REASONS", PROBE_REASONS),
+    };
+    FILE *f = fopen(path, "r");
+    char line[512];
+
+    if (f == NULL)
+    {
+        perror(path);
+        return 1;
+    }
+    while (fgets(line, sizeof(line), f))
+    {
+        char *at = strchr(line, '@');
+        size_t n;
+
+        if (at == NULL)
+        {
+            fputs(line, stdout);
+            continue;
+        }
+        for (n = 0; n < sizeof(LISTS) / sizeof(*LISTS); n++)
+        {
+            size_t k, len = strlen(LISTS[n].token);
+
+            if (strncmp(at, LISTS[n].token, len))
+                continue;
+            fwrite(line, 1, (size_t)(at - line), stdout);
+            for (k = 0; k < LISTS[n].count; k++)
+            {
+                printf("%s", k ? ", " : "");
+                jstr(LISTS[n].codes[k]);
+            }
+            fputs(at + len, stdout);
+            break;
+        }
+        if (n == sizeof(LISTS) / sizeof(*LISTS))
+        {
+            fprintf(stderr, "%s: no list of the header is called %s", path, at);
+            fclose(f);
+            return 1;
+        }
+    }
+    fclose(f);
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     if (argc == 2 && !strcmp(argv[1], "json"))
@@ -529,6 +633,8 @@ int main(int argc, char **argv)
     }
     if (argc == 3 && !strcmp(argv[1], "splice"))
         return splice(argv[2]);
+    if (argc == 3 && !strcmp(argv[1], "probe-schema"))
+        return probe_schema(argv[2]);
     if (argc == 2 && !strcmp(argv[1], "regions"))
     {
         size_t n;
@@ -537,6 +643,6 @@ int main(int argc, char **argv)
             puts(REGIONS[n].name);
         return 0;
     }
-    fprintf(stderr, "usage: protocol-gen json | regions | splice FILE\n");
+    fprintf(stderr, "usage: protocol-gen json | regions | splice FILE | probe-schema TEMPLATE\n");
     return 2;
 }
