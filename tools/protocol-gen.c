@@ -549,6 +549,11 @@ static const char *const PROBE_PROFILE_CODES[] = {
     PHD_PROBE_PROFILE_CODES(X)
 #undef X
 };
+static const char *const PROBE_REASONS[] = {
+#define X(id, code, meaning) code,
+    PHD_PROBE_REASONS(X)
+#undef X
+};
 static const char *const PROBE_STEPS[] = {
 #define X(id, code, meaning) code,
     PHD_PROBE_STEPS(X)
@@ -573,6 +578,7 @@ static int probe_schema(const char *path)
         PROBE_LIST("PHD_PROBE_LIMIT_CODES", PROBE_LIMIT_CODES),
         PROBE_LIST("PHD_PROBE_PROFILE_CODES", PROBE_PROFILE_CODES),
         PROBE_LIST("PHD_PROBE_STEPS", PROBE_STEPS),
+        PROBE_LIST("PHD_PROBE_REASONS", PROBE_REASONS),
     };
     FILE *f = fopen(path, "r");
     char line[512];

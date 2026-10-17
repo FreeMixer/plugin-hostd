@@ -64,15 +64,7 @@
           ]
         },
         "reason": {
-          "enum": [
-            "add",
-            "rescan",
-            "binary-changed",
-            "on-request",
-            "auto-measure",
-            "reference",
-            "ci"
-          ]
+          "enum": ["add", "rescan", "binary-changed", "on-request", "auto-measure", "reference", "ci"]
         },
         "protocol": {
           "type": "object",
@@ -447,7 +439,7 @@
               },
               "code": {
                 "type": "string",
-                "enum": ["probe.limit.cgroup-absent", "probe.limit.controller-not-delegated", "probe.limit.userns-denied", "probe.limit.landlock-absent", "probe.limit.seccomp-absent"]
+                "enum": ["probe.limit.cgroup-absent", "probe.limit.controller-not-delegated", "probe.limit.userns-denied", "probe.limit.landlock-absent", "probe.limit.seccomp-absent", "probe.limit.not-implemented"]
               }
             }
           }

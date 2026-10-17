@@ -141,6 +141,16 @@
     X(CHILD_PROTOCOL, "probe.child-protocol", "the child wrote a record outside the step grammar") \
     X(ERROR, "probe.error", "anything else; detail keeps the words")
 
+/* why a run was made, the document's run.reason: X(id, name, meaning) */
+#define PHD_PROBE_REASONS(X) \
+    X(ADD, "add", "a user added the plugin") \
+    X(RESCAN, "rescan", "the plugin was offered for a rescan") \
+    X(BINARY_CHANGED, "binary-changed", "the files the host loads changed") \
+    X(ON_REQUEST, "on-request", "a client asked") \
+    X(AUTO_MEASURE, "auto-measure", "the machine measures what has no figures when it is idle") \
+    X(REFERENCE, "reference", "a reference run on the named rig") \
+    X(CI, "ci", "a continuous integration run")
+
 /* the limits a set can ask for: X(id, name, meaning) */
 #define PHD_PROBE_LIMIT_NAMES(X) \
     X(WALL_CLOCK, "wall-clock", "the supervisor's deadline; the whole process tree is killed at it") \
@@ -177,7 +187,8 @@
     X(CONTROLLER_NOT_DELEGATED, "probe.limit.controller-not-delegated", "the controller is not delegated to this user") \
     X(USERNS_DENIED, "probe.limit.userns-denied", "unprivileged user namespaces are refused") \
     X(LANDLOCK_ABSENT, "probe.limit.landlock-absent", "the kernel offers no Landlock") \
-    X(SECCOMP_ABSENT, "probe.limit.seccomp-absent", "the kernel offers no seccomp filter")
+    X(SECCOMP_ABSENT, "probe.limit.seccomp-absent", "the kernel offers no seccomp filter") \
+    X(NOT_IMPLEMENTED, "probe.limit.not-implemented", "the runner of this version does not apply the limit")
 
 /* the machine profile read back and not meeting the protocol: X(id, code, meaning) */
 #define PHD_PROBE_PROFILE_CODES(X) \

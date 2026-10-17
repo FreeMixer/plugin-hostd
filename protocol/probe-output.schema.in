@@ -64,15 +64,7 @@
           ]
         },
         "reason": {
-          "enum": [
-            "add",
-            "rescan",
-            "binary-changed",
-            "on-request",
-            "auto-measure",
-            "reference",
-            "ci"
-          ]
+          "enum": [@PHD_PROBE_REASONS@]
         },
         "protocol": {
           "type": "object",

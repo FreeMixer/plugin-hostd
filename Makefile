@@ -7,6 +7,7 @@ VERSION = $(shell sed -n "s/^Version: *//p" packaging/plugin-hostd.spec)
 FAKE = tests/fake-host
 FORMAT_TEST = tests/format-test
 PIN_TEST = tests/pin-test
+PROBE = plugin-hostd-probe
 
 PKG_CONFIG ?= pkg-config
 
@@ -51,10 +52,14 @@ SRC = src/main.c src/conf.c src/proc.c src/supervisor.c src/verbs.c src/pins.c s
 OBJ = $(SRC:.c=.o)
 
 # default build
-all: $(PROG)
+all: $(PROG) $(PROBE)
 
 $(PROG): $(OBJ) $(PROTOCOL_LIB)
 	$(CC) $(OBJ) $(PROTOCOL_LIBS) $(LDFLAGS) -pthread -o $@
+
+# the probe runner: it loads no plugin and links nothing of the daemon or of mod-host
+$(PROBE): src/probe.c include/plugin-hostd/protocol.h include/plugin-hostd/pin.h
+	$(CC) -Iinclude $(CFLAGS) -D_GNU_SOURCE -o $@ src/probe.c
 
 ifneq ($(PROTOCOL_LIB),)
 $(PROTOCOL_LIB):
@@ -81,6 +86,7 @@ LIBEXECDIR = $(PREFIX)/libexec
 install: $(PROG) install_man install_protocol install_tests
 	install -d $(DESTDIR)$(BINDIR)
 	install -m 755 $(PROG) $(DESTDIR)$(BINDIR)
+	install -m 755 $(PROBE) $(DESTDIR)$(BINDIR)
 
 # the declared protocol: the JSON for readers that are not C, which the package carries; the header, its pkg-config
 # file and the schema of the JSON, which the development package carries
@@ -115,11 +121,11 @@ private-refs:
 
 # clean rule
 clean:
-	@rm -f src/*.o $(PROG) $(FAKE) $(PIN_TEST) $(FORMAT_TEST) $(GEN) tests/stress.clap tests/jack_levels tests/host_scenarios $(LV2_FIXTURE)
+	@rm -f src/*.o $(PROG) $(PROBE) tests/probe-child $(FAKE) $(PIN_TEST) $(FORMAT_TEST) $(GEN) tests/stress.clap tests/jack_levels tests/host_scenarios $(LV2_FIXTURE)
 
 # the daemon against workers that are not plugin hosts at all (tests/fake-host speaks the same protocol and can be
 # made to die on cue): placement, forwarding, ledger, replay, attribution, the storm bound; no jack, no plugin
-test: test-pin test-format test-daemon check-generated check-schema test-probe-schema test-consumer test-perturbation check-readme check-own-host-page check-no-pins test-mod-host-json
+test: test-pin test-format test-daemon check-generated check-schema test-probe-schema test-probe test-consumer test-perturbation check-readme check-own-host-page check-no-pins test-mod-host-json
 	MOD_HOST_DIR=$(MOD_HOST_DIR) python3 tests/verbs_contract.py
 
 # the same without the verb table, which is read from a mod-host checkout's README
@@ -244,6 +250,14 @@ test-mod-host-json:
 # the JSON against its schema, for which the jsonschema module is needed
 check-schema:
 	python3 tests/protocol_schema.py protocol/plugin-hostd.json protocol/plugin-hostd.schema.json
+
+# the probe runner over the stress plugin: crash, hang and a process left behind each give the named outcome in a document
+# that validates
+test-probe: $(PROBE) tests/probe-child tests/stress.clap
+	python3 tests/probe_test.py
+
+tests/probe-child: tests/probe_child.c
+	$(CC) $(CLAP_CFLAGS) $(CFLAGS) -Wall -Wextra -Werror -o $@ $< -ldl
 
 # the probe output: its three fixtures validate and five broken copies of the first are refused
 test-probe-schema:
