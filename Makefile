@@ -89,6 +89,7 @@ install_protocol:
 	install -m 644 protocol/plugin-hostd.json $(DESTDIR)$(DATADIR)/plugin-hostd/protocol.json
 	install -m 644 protocol/mod-host.json $(DESTDIR)$(DATADIR)/plugin-hostd/mod-host.json
 	install -m 644 protocol/plugin-hostd.schema.json $(DESTDIR)$(DATADIR)/plugin-hostd/protocol.schema.json
+	install -m 644 protocol/probe-output.schema.json $(DESTDIR)$(DATADIR)/plugin-hostd/probe-output.schema.json
 	install -d $(DESTDIR)$(INCLUDEDIR)/plugin-hostd
 	install -m 644 include/plugin-hostd/protocol.h $(DESTDIR)$(INCLUDEDIR)/plugin-hostd/protocol.h
 	install -m 644 include/plugin-hostd/pin.h $(DESTDIR)$(INCLUDEDIR)/plugin-hostd/pin.h
@@ -200,13 +201,14 @@ tests/jack_levels: tests/jack_levels.c
 # protocol/plugin-hostd.json, the same for readers that are not C; and protocol/mod-host.json, the protocol of the
 # worker this daemon serves LV2 with, read from the mod-host headers it compiles against
 GEN = tools/protocol-gen
-GENERATED = README.md doc/plugin-hostd.1 protocol/plugin-hostd.json protocol/mod-host.json
+GENERATED = README.md doc/plugin-hostd.1 protocol/plugin-hostd.json protocol/mod-host.json protocol/probe-output.schema.json
 
 $(GEN): tools/protocol-gen.c include/plugin-hostd/protocol.h
 	$(CC) -Wall -Wextra -Werror -std=gnu99 -Iinclude -o $@ tools/protocol-gen.c
 
 gen: $(GEN)
 	$(GEN) json > protocol/plugin-hostd.json.new && mv protocol/plugin-hostd.json.new protocol/plugin-hostd.json
+	$(GEN) probe-schema protocol/probe-output.schema.in > protocol/probe-output.schema.json.new && mv protocol/probe-output.schema.json.new protocol/probe-output.schema.json
 	python3 tools/mod-host-json.py $(MOD_HOST_INCLUDE) > protocol/mod-host.json.new && mv protocol/mod-host.json.new protocol/mod-host.json
 	for f in README.md doc/plugin-hostd.1; do $(GEN) splice $$f > $$f.new && mv $$f.new $$f || exit 1; done
 
@@ -215,6 +217,7 @@ gen: $(GEN)
 check-generated: $(GEN)
 	@set -e; tmp=$$(mktemp -d); trap 'rm -rf $$tmp' EXIT; \
 	$(GEN) json > $$tmp/json; cmp $$tmp/json protocol/plugin-hostd.json; \
+	$(GEN) probe-schema protocol/probe-output.schema.in > $$tmp/probe; cmp $$tmp/probe protocol/probe-output.schema.json; \
 	python3 tools/mod-host-json.py $(MOD_HOST_INCLUDE) > $$tmp/mod-host.json; cmp $$tmp/mod-host.json protocol/mod-host.json; \
 	for f in README.md doc/plugin-hostd.1; do $(GEN) splice $$f > $$tmp/out; cmp $$tmp/out $$f; done; \
 	$(GEN) regions > $$tmp/regions; test -s $$tmp/regions; \
