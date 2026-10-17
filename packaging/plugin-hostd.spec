@@ -19,9 +19,9 @@ BuildRequires: pkgconfig(mod-host-protocol)
 Requires: mod-host-protocol%{?_isa} >= 0.10.6.f14a230-11.1
 # omx-clap-core is a build dependency of the check stage only: the CLAP worker and the fixtures the real-worker
 # tests drive. A build with `--without check` needs nothing of omx-clap-core, so plugin-hostd and omx-clap-core
-# do not build-depend on each other. A floor only: the lowest release with what the tests need (omx-clap-core 0.7)
+# do not build-depend on each other. A floor only: the lowest release with what the tests need (omx-clap-core 0.9)
 %if %{with check}
-BuildRequires: omx-clap-host-tests >= 0.7.0
+BuildRequires: omx-clap-host-tests >= 0.9.0
 %endif
 
 # the workers: a format whose worker is not installed refuses its adds (-503), the other format is unaffected

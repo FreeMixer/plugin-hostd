@@ -40,6 +40,7 @@
 typedef struct SOURCE_T {
     int fd;
     int eof;                    /* the worker closed it: not polled again, closed when the supervisor says so */
+    int skip;                   /* the start of the line being read was dropped as too long: drop its end too */
     char *buf;
     size_t used, cap;
     /* the gestures the worker began and has not ended, each its line up to the last word */
@@ -163,8 +164,17 @@ static void drain(source_t *s)
 
         if (s->cap - s->used < 4096)
         {
-            s->cap = s->cap ? s->cap * 2 : 8192;
-            s->buf = realloc(s->buf, s->cap);
+            size_t cap = s->cap ? s->cap * 2 : 8192;
+            char *buf = realloc(s->buf, cap);
+
+            if (buf == NULL)
+            {
+                /* no memory to read the worker into: read it no more, as for a worker that closed it */
+                s->eof = 1;
+                return;
+            }
+            s->buf = buf;
+            s->cap = cap;
         }
         n = recv(s->fd, s->buf + s->used, s->cap - s->used, MSG_DONTWAIT);
         if (n < 0 && errno == EINTR)
@@ -177,14 +187,23 @@ static void drain(source_t *s)
         start = s->buf;
         while ((nul = memchr(start, '\0', s->used - (start - s->buf))))
         {
-            send_line(start, nul - start + 1);
-            gesture_seen(s, start);
+            /* a line too long to relay is dropped whole: its end after a dropped start, or all of it at once */
+            if (s->skip || (size_t)(nul - start) > LINE_LIMIT)
+                s->skip = 0;
+            else
+            {
+                send_line(start, nul - start + 1);
+                gesture_seen(s, start);
+            }
             start = nul + 1;
         }
         s->used -= start - s->buf;
         memmove(s->buf, start, s->used);
         if (s->used > LINE_LIMIT)
+        {
             s->used = 0;
+            s->skip = 1;
+        }
     }
 }
 
@@ -363,8 +382,17 @@ void relay_add(int fd)
     pthread_mutex_lock(&g_lock);
     if (g_nsrc == g_capsrc)
     {
-        g_capsrc = g_capsrc ? g_capsrc * 2 : 16;
-        g_src = realloc(g_src, g_capsrc * sizeof(source_t));
+        int cap = g_capsrc ? g_capsrc * 2 : 16;
+        source_t *src = realloc(g_src, cap * sizeof(source_t));
+
+        if (src == NULL)
+        {
+            pthread_mutex_unlock(&g_lock);
+            fprintf(stderr, "relay: no memory to follow the feedback of fd %d\n", fd);
+            return;
+        }
+        g_src = src;
+        g_capsrc = cap;
     }
     memset(&g_src[g_nsrc], 0, sizeof(source_t));
     g_src[g_nsrc++].fd = fd;

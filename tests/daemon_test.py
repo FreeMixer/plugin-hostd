@@ -849,6 +849,36 @@ def remote_pages_changed_from_a_worker_reaches_the_controller():
         d.close()
 
 
+LINE_LIMIT = 1024 * 1024  # src/relay.c: the longest worker line the relay passes on
+
+
+@test
+def a_worker_line_too_long_to_relay_is_dropped_whole():
+    d = daemon()
+    try:
+        d.expect("add clap:fake#a 3", "resp 3")
+        # just over the limit, and sizes that do and do not land on the relay buffer's doubling
+        for size in (LINE_LIMIT + 1, LINE_LIMIT + 32 * 1024, LINE_LIMIT + 200 * 1024, LINE_LIMIT + 600 * 1024,
+                     LINE_LIMIT * 3 // 2, 2 * LINE_LIMIT):
+            mark = d.mark()
+            d.expect("param_set 3 long_line %d" % size, "resp 0")
+            check(d.wait_event("remote_pages_changed ", since=mark) == "remote_pages_changed 3",
+                  "the line after the %d-byte one, unchanged" % size)
+            with d.lock:
+                pieces = ["%d bytes" % len(e) for e in d.events[mark:] if e.startswith("x")]
+            check(not pieces, "no piece of a %d-byte line reaches the controller: %s" % (size, pieces))
+        # the longest line relayed arrives whole
+        mark = d.mark()
+        d.expect("param_set 3 long_line %d" % LINE_LIMIT, "resp 0")
+        check(d.wait_event("remote_pages_changed ", since=mark) == "remote_pages_changed 3",
+              "the line after the %d-byte one, unchanged" % LINE_LIMIT)
+        with d.lock:
+            lines = [len(e) for e in d.events[mark:] if e.startswith("x")]
+        check(lines == [LINE_LIMIT], "a line of exactly %d bytes arrives whole: %s" % (LINE_LIMIT, lines))
+    finally:
+        d.close()
+
+
 # ---------------------------------------------------------------- presets, gestures, values the plugin moved, suggested pages
 
 FROM_PLUGIN = ("param_gesture ", "param_set ", "remote_page_suggest ")

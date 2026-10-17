@@ -307,6 +307,11 @@ int proc_rpc(const conf_t *conf, pid_t pid, int fd, const char *msg, char **repl
     if (send(fd, msg, len, MSG_NOSIGNAL) != (ssize_t)len)
         return RPC_DIED;
     buffer = malloc(cap);
+    if (buffer == NULL)
+    {
+        kill(pid, SIGKILL);
+        return RPC_DIED;
+    }
     start = proc_now_ms();
     for (;;)
     {
@@ -321,7 +326,19 @@ int proc_rpc(const conf_t *conf, pid_t pid, int fd, const char *msg, char **repl
             return RPC_DIED;
         }
         if (used + 1024 > cap)
-            buffer = realloc(buffer, cap *= 2);
+        {
+            char *bigger = realloc(buffer, cap * 2);
+
+            if (bigger == NULL)
+            {
+                /* no memory for the rest of the reply: the worker cannot be followed any more, as on a timeout */
+                free(buffer);
+                kill(pid, SIGKILL);
+                return RPC_DIED;
+            }
+            buffer = bigger;
+            cap *= 2;
+        }
         n = recv(fd, buffer + used, cap - used, 0);
         if (n <= 0)
         {
