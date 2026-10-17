@@ -1,3 +1,5 @@
+%bcond_without check
+
 Name: plugin-hostd
 Version: 0.3.0
 Release: 1%{?dist}
@@ -12,9 +14,15 @@ BuildRequires: make
 BuildRequires: diffutils
 BuildRequires: python3
 BuildRequires: pkgconfig(mod-host-protocol)
-# the CLAP worker and the fixtures the real-worker tests drive: the lowest release with what this build needs
-# (omx-clap-core 0.7); a floor only, minor and patch releases stay compatible
+# a command of exactly the socket's buffer size, or several commands in one read, needs mod-audio/mod-host#113:
+# FreeMixer's build carrying it (11.1.fmx) or audinux's once it carries it (12); a floor only
+Requires: mod-host-protocol%{?_isa} >= 0.10.6.f14a230-11.1
+# omx-clap-core is a build dependency of the check stage only: the CLAP worker and the fixtures the real-worker
+# tests drive. A build with `--without check` needs nothing of omx-clap-core, so plugin-hostd and omx-clap-core
+# do not build-depend on each other. A floor only: the lowest release with what the tests need (omx-clap-core 0.9)
+%if %{with check}
 BuildRequires: omx-clap-host-tests >= 0.9.0
+%endif
 
 # the workers: a format whose worker is not installed refuses its adds (-503), the other format is unaffected
 Recommends: mod-host
@@ -69,8 +77,9 @@ sed -i 's,LDFLAGS += -s,LDFLAGS +=,g' Makefile
 
 # the verb table is checked against mod-host's README, which a build does not have
 %check
-
+%if %{with check}
 make test-daemon check-generated
+%endif
 
 %files
 %license COPYING

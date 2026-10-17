@@ -8,6 +8,18 @@ mod-host-protocol` when it is installed (mod-host's `make install-lib`),
 otherwise from `MOD_HOST_DIR`, a mod-host tree where the library is built if
 missing. The daemon needs libc and that library and nothing else.
 
+Building without omx-clap-core
+------------------------------
+
+Nothing of omx-clap-core is needed to build the packages, only to run their checks: `omx-clap-host-tests` is a
+`BuildRequires` inside `%if %{with check}` in the spec and a `Build-Depends` marked `<!nocheck>` in `debian/control`.
+
+    rpmbuild -ba --without check packaging/plugin-hostd.spec
+    dpkg-buildpackage -us -uc -b -Pnocheck
+
+(`dnf builddep --without check` and `apt-get build-dep --build-profiles=nocheck` install the matching set.) `make
+check-no-pins` fails if a build dependency on omx-clap-core appears outside the check stage.
+
 Regenerating the protocol tables
 --------------------------------
 
@@ -43,7 +55,7 @@ exit), with `tests/stress.clap` (a passthrough that crashes on a parameter
 write, spins, keeps state). It kills workers and reads the graph and the audio
 level of a neighbouring chain across the kill. Given omx-clap-host's meter fixtures
 (`FAKE_COMPRESSOR_CLAP=/usr/libexec/omx-clap-host/tests/fake_compressor.clap JACK_METER_SOURCE=/usr/libexec/omx-clap-host/tests/jack_meter_source`,
-installed by the omx-clap-host-tests package, which the spec and `debian/control` name as a build dependency with a floor), it
+installed by the omx-clap-host-tests package, which the spec and `debian/control` name as a build dependency of the check stage only, with a floor), it
 also reads the meters of a CLAP compressor as `output_set` on the daemon's feedback port, before and after its
 worker is killed.
 

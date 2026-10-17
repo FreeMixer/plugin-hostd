@@ -4,7 +4,7 @@ Priority: optional
 Maintainer: Pau Aliagas <linuxnow@gmail.com>
 Build-Depends: debhelper-compat (= 13),
                libmod-host-protocol-dev,
-               omx-clap-host-tests (>= 0.9.0~),
+               omx-clap-host-tests (>= 0.9.0~) <!nocheck>,
                pkgconf,
                python3
 Standards-Version: 4.6.2
@@ -13,7 +13,7 @@ Rules-Requires-Root: no
 
 Package: plugin-hostd
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: libmod-host-protocol0 (>= 0.1.0-6~fmx), ${shlibs:Depends}, ${misc:Depends}
 Recommends: omx-clap-host (>= 0.9.0)
 Suggests: mod-host
 Description: run LV2 and CLAP plugins so that one crash cannot stop the show
