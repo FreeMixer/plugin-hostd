@@ -23,7 +23,9 @@
  * through process() and prints one JSON line of facts. A plugin that crashes, hangs or leaves a process behind in
  * process() (tests/stress_plugin.c, STRESS_FAULT) leaves the records written before. */
 
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#endif
 #include <dlfcn.h>
 #include <sched.h>
 #include <signal.h>
