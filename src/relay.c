@@ -99,8 +99,16 @@ static void gesture_seen(source_t *s, const char *line)
             break;
     if (begin && n == s->nheld)
     {
-        s->held = realloc(s->held, (s->nheld + 1) * sizeof(char *));
-        s->held[s->nheld++] = strndup(line, last - line);
+        /* no memory for one more: the table keeps what it holds and this gesture is not remembered */
+        char **held = realloc(s->held, (s->nheld + 1) * sizeof(char *));
+        char *copy;
+
+        if (held == NULL)
+            return;
+        s->held = held;
+        copy = strndup(line, last - line);
+        if (copy != NULL)
+            s->held[s->nheld++] = copy;
     }
     else if (!begin && n < s->nheld)
     {

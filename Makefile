@@ -7,6 +7,8 @@ VERSION = $(shell sed -n "s/^Version: *//p" packaging/plugin-hostd.spec)
 FAKE = tests/fake-host
 FORMAT_TEST = tests/format-test
 PIN_TEST = tests/pin-test
+GESTURE_ALLOC_TEST = tests/gesture-alloc-test
+LV2_ALLOC_TEST = tests/lv2-alloc-test
 PROBE = plugin-hostd-probe
 
 PKG_CONFIG ?= pkg-config
@@ -121,11 +123,11 @@ private-refs:
 
 # clean rule
 clean:
-	@rm -f src/*.o $(PROG) $(PROBE) tests/probe-child tests/lv2-probe-child tests/rt_interpose.so $(FAKE) $(PIN_TEST) $(FORMAT_TEST) $(GEN) tests/stress.clap tests/jack_levels tests/host_scenarios $(LV2_FIXTURE)
+	@rm -f src/*.o $(PROG) $(PROBE) tests/probe-child tests/lv2-probe-child tests/rt_interpose.so $(FAKE) $(PIN_TEST) $(FORMAT_TEST) $(GESTURE_ALLOC_TEST) $(LV2_ALLOC_TEST) tests/lv2-alloc-lv2.o $(GEN) tests/stress.clap tests/jack_levels tests/host_scenarios $(LV2_FIXTURE)
 
 # the daemon against workers that are not plugin hosts at all (tests/fake-host speaks the same protocol and can be
 # made to die on cue): placement, forwarding, ledger, replay, attribution, the storm bound; no jack, no plugin
-test: test-pin test-format test-daemon check-generated check-schema test-probe-schema test-probe test-consumer test-perturbation check-readme check-own-host-page check-no-pins test-mod-host-json test-socket
+test: test-pin test-alloc test-format test-daemon check-generated check-schema test-probe-schema test-probe test-consumer test-perturbation check-readme check-own-host-page check-no-pins test-mod-host-json test-socket
 	MOD_HOST_DIR=$(MOD_HOST_DIR) python3 tests/verbs_contract.py
 
 # the same without the verb table, which is read from a mod-host checkout's README
@@ -159,6 +161,19 @@ test-pin: $(PIN_TEST)
 
 $(PIN_TEST): tests/pin_test.c include/plugin-hostd/pin.h
 	$(CC) -Iinclude $(CFLAGS) -Werror -o $@ tests/pin_test.c
+
+# the relay's gesture table and lv2.c's refusal and pick tables when memory runs out: each is built with its realloc
+# calls renamed, so the test picks the one that fails
+test-alloc: $(GESTURE_ALLOC_TEST) $(LV2_ALLOC_TEST)
+	./$(GESTURE_ALLOC_TEST)
+	./$(LV2_ALLOC_TEST)
+
+$(GESTURE_ALLOC_TEST): tests/gesture_alloc_test.c src/relay.c src/relay.h include/plugin-hostd/protocol.h
+	$(CC) -Iinclude -Isrc $(CFLAGS) -Werror -Drealloc=alloc_test_realloc -o $@ tests/gesture_alloc_test.c -pthread
+
+$(LV2_ALLOC_TEST): tests/lv2_alloc_test.c src/lv2.c src/formats.h
+	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -Drealloc=alloc_test_realloc -c -o tests/lv2-alloc-lv2.o src/lv2.c
+	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -o $@ tests/lv2_alloc_test.c tests/lv2-alloc-lv2.o
 
 tests/stress.clap: tests/stress_plugin.c
 	$(CC) $(CLAP_CFLAGS) $(CFLAGS) -Werror -shared -o $@ $<

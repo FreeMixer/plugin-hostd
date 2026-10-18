@@ -492,8 +492,17 @@ int lv2_worker_pick(const char *uri, const char *worker)
     }
     if (n == g_npick)
     {
-        g_pick = realloc(g_pick, (g_npick + 1) * sizeof(*g_pick));
-        g_pick[n].uri = strdup(uri);
+        pick_t *grown = realloc(g_pick, (g_npick + 1) * sizeof(*g_pick));
+        char *copy;
+
+        /* no memory for one more: the table keeps what it holds and this override is refused */
+        if (grown == NULL)
+            return -1;
+        g_pick = grown;
+        copy = strdup(uri);
+        if (copy == NULL)
+            return -1;
+        g_pick[n].uri = copy;
         g_npick++;
     }
     snprintf(g_pick[n].worker, sizeof(g_pick[n].worker), "%s", worker);
@@ -502,10 +511,19 @@ int lv2_worker_pick(const char *uri, const char *worker)
 
 void lv2_adapter_refused(const char *uri)
 {
+    char **grown;
+    char *copy;
+
     if (refused(uri))
         return;
-    g_refused = realloc(g_refused, (g_nrefused + 1) * sizeof(*g_refused));
-    g_refused[g_nrefused++] = strdup(uri);
+    /* no memory for one more: the table keeps what it holds and this refusal is not remembered, so the adapter is asked again */
+    grown = realloc(g_refused, (g_nrefused + 1) * sizeof(*g_refused));
+    if (grown == NULL)
+        return;
+    g_refused = grown;
+    copy = strdup(uri);
+    if (copy != NULL)
+        g_refused[g_nrefused++] = copy;
 }
 
 /* the adapter may be asked again: about `uri`, or about every plugin when it is NULL */
