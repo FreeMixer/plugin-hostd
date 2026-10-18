@@ -78,6 +78,8 @@ class Daemon:
             # the tests of placement, replay and attribution add plugins no one pinned; the pin tests turn it back on,
             # and a None leaves a setting out of the file, so the daemon's own default holds
             "require_pins": 0,
+            # no package's pins: the system's pins_dir is not the test's
+            "pins_dir": "",
         }
         settings.update(conf or {})
         self.conf = os.path.join(self.tmp, "plugin-hostd.conf")

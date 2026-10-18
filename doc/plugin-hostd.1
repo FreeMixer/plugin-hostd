@@ -72,7 +72,7 @@ or in
 one
 .\" BEGIN GENERATED protocol:man-keys
 .RI \(dq key " value" \(dq
-per line: mod_host, clap_host, lv2_worker, lv2_path, state_root, pin_mode, pin_store, pin_file, ready_timeout_ms, rpc_timeout_ms, backoff_base_ms, backoff_max_ms, storm_deaths, storm_window_ms, suspect_window_ms, checkpoint_ms, idle_ms, pool_max, require_pins.
+per line: mod_host, clap_host, lv2_worker, lv2_path, state_root, pin_mode, pin_store, pin_file, pins_dir, ready_timeout_ms, rpc_timeout_ms, backoff_base_ms, backoff_max_ms, storm_deaths, storm_window_ms, suspect_window_ms, checkpoint_ms, idle_ms, pool_max, require_pins.
 .\" END GENERATED protocol:man-keys
 .SH PINS
 With require_pins on,
@@ -90,6 +90,33 @@ A change after that is refused and announced by the
 event until
 .B pin_accept
 takes the new pin.
+.PP
+Packages ship pins in a read\-only layer: every
+.I *.pins
+file of
+.B pins_dir
+(by default
+.IR /usr/share/plugin\-hostd/pins.d )
+is read at start, in name order, in the same line format.
+A pin there with verdict=refused always holds: neither the pin store, the
+.B pin_file
+nor
+.B pin_set
+overrides it, and
+.B pin_set
+and
+.B pin_accept
+of its uri answer \-516.
+Any other package pin is under the host's: a pin of the same uri in the store, the
+.B pin_file
+or from
+.B pin_set
+holds over it, and
+.B pin_clear
+lets the package pin hold again.
+When two files hold the same uri a refusal wins, otherwise the last file by name.
+A bad line is skipped and named on stderr; a missing or empty directory holds no pins.
+.PP
 What cannot be pinned:
 .\" BEGIN GENERATED protocol:man-pin-limits
 .IP \(bu 2

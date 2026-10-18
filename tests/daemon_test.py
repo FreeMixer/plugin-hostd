@@ -1211,6 +1211,7 @@ class Plugins:
         write(os.path.join(self.bundle, "pinned.ttl"), b"lv2:port [ lv2:index 0 ; lv2:symbol \"gain\" ] .")
         self.log = os.path.join(self.dir, "commands.log")
         self.store = os.path.join(self.dir, "state", "plugin-hostd", "pins")
+        self.pins_dir = os.path.join(self.dir, "pins.d")
 
     def clap_pin(self, layout=None):
         return "pin_set %s omx-fault.clap=%s %s" % (self.clap_uri, sha(self.clap), layout or fake_layout())
@@ -1220,8 +1221,10 @@ class Plugins:
                                      fake_layout())
 
     def daemon(self, conf=None, env=None):
-        # strict unless a test asks for first-use; the store is the test's own, never the user's
-        c = {"require_pins": 1, "pin_mode": "strict", "lv2_path": self.lv2_dir, "pin_store": self.store}
+        # strict unless a test asks for first-use; the store and the pins_dir are the test's own, never the user's or
+        # the system's
+        c = {"require_pins": 1, "pin_mode": "strict", "lv2_path": self.lv2_dir, "pin_store": self.store,
+             "pins_dir": self.pins_dir}
         c.update(conf or {})
         e = {"FAKE_LOG": self.log}
         e.update(env or {})
@@ -1553,6 +1556,213 @@ def a_pin_whose_verdict_is_refused_refuses_the_add_with_its_own_code():
         check(store_lines(p) == [], "and the refused plugin is not learned into the store")
     finally:
         d.close()
+        p.close()
+
+
+def pin_line(p, verdict=None, good=True, uri=None, clap=None):
+    """a pin line as a pins.d file holds it, no verb: the CLAP's real digest, or one that is not its own"""
+    clap = clap or p.clap
+    digest = sha(clap) if good else "0" * 64
+    line = "%s %s=%s %s" % (uri or p.clap_uri, os.path.basename(clap), digest, fake_layout())
+    return line + (" verdict=%s" % verdict if verdict else "")
+
+
+def pins_d(p, files):
+    """the test's pins_dir holding exactly these files, written in reverse name order so the directory's own order is
+    not the order of their names"""
+    shutil.rmtree(p.pins_dir, ignore_errors=True)
+    os.makedirs(p.pins_dir)
+    for name in sorted(files, reverse=True):
+        write(os.path.join(p.pins_dir, name), "".join(l + "\n" for l in files[name]).encode())
+
+
+def other_clap(p):
+    """a second CLAP beside the first, for a uri that is not the one under test"""
+    path = os.path.join(os.path.dirname(p.clap), "omx-other.clap")
+    write(path, b"another clean build")
+    return path, "clap:%s#org.openmixer.other" % path
+
+
+def add_answer(p, conf, inst=0, uri=None):
+    """the reply to one add of a fresh daemon over the test's pins_dir"""
+    d = p.daemon(conf=conf)
+    try:
+        return d.send("add %s %d" % (uri or p.clap_uri, inst))
+    finally:
+        d.close()
+
+
+@test
+def a_pins_d_pin_admits_its_plugin_and_of_two_files_the_last_by_name_wins():
+    """issue 42: the *.pins files of pins_dir are read at start in name order; a pin there admits its plugin under
+    strict, and of two pins of one uri that are not refusals the file last by name, or the later line, holds"""
+    p = Plugins()
+    try:
+        pins_d(p, {"10-a.pins": [pin_line(p, good=False)], "20-b.pins": [pin_line(p)]})
+        r = add_answer(p, {})
+        check(r == "resp 0", "the later file's good pin holds over the earlier bad one: %r" % r)
+        pins_d(p, {"10-a.pins": [pin_line(p)], "20-b.pins": [pin_line(p, good=False)]})
+        r = add_answer(p, {})
+        check(r == resp("PIN_BINARY_MISMATCH"), "the later file's bad pin holds over the earlier good one: %r" % r)
+        pins_d(p, {"10-a.pins": [pin_line(p, good=False), pin_line(p)]})
+        r = add_answer(p, {})
+        check(r == "resp 0", "in one file the later line holds: %r" % r)
+        # only *.pins files that are not hidden are read: a package manager's leftovers and an editor's are not pins (the
+        # hidden one is a refusal, which would win whatever its place in name order)
+        pins_d(p, {"10-a.pins": [pin_line(p)], "20-b.pins.rpmnew": [pin_line(p, good=False)],
+                   ".30-c.pins": [pin_line(p, "refused")], "README": [pin_line(p, good=False)]})
+        r = add_answer(p, {})
+        check(r == "resp 0", "a file that is not a .pins file holds no pin: %r" % r)
+        # first-use trusts a package pin as it is: nothing is learned into the store
+        d = p.daemon(conf={"pin_mode": "first-use"})
+        try:
+            d.expect("add %s 0" % p.clap_uri, "resp 0")
+            check(store_lines(p) == [], "a package pin is not copied into the store: %s" % store_lines(p))
+        finally:
+            d.close()
+    finally:
+        p.close()
+
+
+@test
+def a_pins_d_refusal_wins_over_any_other_pins_d_pin_and_over_the_host():
+    """issue 42, decisions of 2026-10-18: a pins.d pin of verdict=refused wins over another pins.d pin of its uri in
+    either name order, and nothing of the host overrides it: not the store, not a pin_file, not pin_set, not
+    pin_accept, not pin_clear"""
+    p = Plugins()
+    refused = resp("PIN_REFUSED")
+    try:
+        other, other_uri = other_clap(p)
+        for files in ({"10-a.pins": [pin_line(p, "refused")], "20-b.pins": [pin_line(p, "isolated")]},
+                      {"10-a.pins": [pin_line(p, "isolated")], "20-b.pins": [pin_line(p, "refused")]},
+                      {"10-a.pins": [pin_line(p, "refused"), pin_line(p, "isolated")]}):
+            pins_d(p, files)
+            r = add_answer(p, {})
+            check(r == refused, "a refusal wins whichever file or line comes last (%s): %r" % (sorted(files), r))
+        pins_d(p, {"10-a.pins": [pin_line(p, "refused"), pin_line(p, "isolated", uri=other_uri, clap=other)]})
+        # the store and a pin_file both hold the same files as isolated
+        os.makedirs(os.path.dirname(p.store), exist_ok=True)
+        write(p.store, ("pin_set %s\n" % pin_line(p, "isolated")).encode())
+        pins = os.path.join(p.dir, "pins.txt")
+        write(pins, (pin_line(p, "isolated") + "\n").encode())
+        d = p.daemon(conf={"pin_mode": "first-use", "pin_file": pins})
+        try:
+            r = d.send("add %s 0" % p.clap_uri)
+            check(r == refused, "the store and the pin_file do not override a pins.d refusal: %r" % r)
+            r = d.send("pin_set %s" % pin_line(p, "isolated"))
+            check(r == refused, "pin_set of a uri a pins.d pin refuses answers PIN_REFUSED: %r" % r)
+            r = d.send("pin_accept %s" % p.clap_uri)
+            check(r == refused, "pin_accept of it answers PIN_REFUSED: %r" % r)
+            d.expect("pin_clear %s" % p.clap_uri, "resp 0")
+            d.expect("pin_clear all", "resp 0")
+            r = d.send("add %s 0" % p.clap_uri)
+            check(r == refused, "after pin_set, pin_accept and pin_clear the refusal still holds: %r" % r)
+            check(d.workers() == {} and p.received() == [], "no worker saw it: %s %s" % (d.workers(), p.received()))
+            # positive control: the other plugin of the same file runs
+            d.expect("add %s 1" % other_uri, "resp 1")
+            check("which the pin of the pin_file does not override" in d.log(),
+                  "stderr names the pin_file line that has no effect: %s" % d.log())
+        finally:
+            d.close()
+        # the store alone: its line has no effect and is not dropped from the store either
+        write(p.store, ("pin_set %s\n" % pin_line(p, "isolated")).encode())
+        d = p.daemon(conf={"pin_mode": "first-use"})
+        try:
+            r = d.send("add %s 0" % p.clap_uri)
+            check(r == refused, "the store does not override a pins.d refusal: %r" % r)
+            check("which the pin of the pin store does not override" in d.log(), "stderr names the store line")
+            d.expect("add %s 1" % other_uri, "resp 1")
+            check([l[1] for l in store_lines(p)] == [p.clap_uri], "the store line is kept: %s" % store_lines(p))
+        finally:
+            d.close()
+    finally:
+        p.close()
+
+
+@test
+def the_host_holds_over_a_pins_d_pin_that_is_not_a_refusal():
+    """issue 42: a pins.d pin that is not a refusal is under the host's layer: pin_set holds over it, a change of the
+    files is announced by pin_changed until pin_accept records the new files in the store, which then hold across a
+    restart, and pin_clear lets the package pin hold again"""
+    p = Plugins()
+    try:
+        pins_d(p, {"50-pkg.pins": [pin_line(p, "isolated", good=False)]})
+        d = p.daemon(conf={"pin_mode": "first-use"})
+        try:
+            mark = d.mark()
+            d.expect("add %s 0" % p.clap_uri, resp("PIN_BINARY_MISMATCH"))
+            d.wait_event("pin_changed %s files" % p.clap_uri, since=mark)
+            check(store_lines(p) == [], "a plugin with a package pin is not learned: %s" % store_lines(p))
+            d.expect("pin_accept %s" % p.clap_uri, "resp 0")
+            d.expect("add %s 0" % p.clap_uri, "resp 0")
+            check([l for l in store_lines(p) if l[1] == p.clap_uri][0][2] == "omx-fault.clap=%s" % sha(p.clap),
+                  "the accepted files are in the store: %s" % store_lines(p))
+        finally:
+            d.close()
+        d = p.daemon(conf={"pin_mode": "first-use"})
+        try:
+            d.expect("add %s 0" % p.clap_uri, "resp 0")
+            d.expect("remove 0", "resp 0")
+            d.expect("pin_clear %s" % p.clap_uri, "resp 0")
+            d.expect("add %s 0" % p.clap_uri, resp("PIN_BINARY_MISMATCH"))
+        finally:
+            d.close()
+        d = p.daemon()
+        try:
+            d.expect("add %s 0" % p.clap_uri, resp("PIN_BINARY_MISMATCH"))
+            d.expect("pin_set %s" % pin_line(p), "resp 0")
+            d.expect("add %s 0" % p.clap_uri, "resp 0")
+        finally:
+            d.close()
+    finally:
+        p.close()
+
+
+@test
+def a_bad_pins_d_line_or_file_is_skipped_and_the_rest_is_read():
+    """issue 42: a line outside the grammar, a line longer than a pin line can be and a file that cannot be read are
+    named on stderr and skipped; the daemon starts and the good lines hold"""
+    p = Plugins()
+    try:
+        long_refusal = pin_line(p, "refused") + " " * 9000
+        pins_d(p, {"10-a.pins": ["this is not a pin", long_refusal, pin_line(p)]})
+        os.makedirs(os.path.join(p.pins_dir, "20-dir.pins"))
+        d = p.daemon()
+        try:
+            d.expect("add %s 0" % p.clap_uri, "resp 0")
+            log = d.log()
+            path = os.path.join(p.pins_dir, "10-a.pins")
+            check("%s:1: not a pin; the line is skipped" % path in log, "the bad line is named: %s" % log)
+            check("%s:2: not a pin (the line is too long); the line is skipped" % path in log, "the long line is named")
+            check("can't read the pins.d file %s" % os.path.join(p.pins_dir, "20-dir.pins") in log,
+                  "the file that cannot be read is named: %s" % log)
+        finally:
+            d.close()
+    finally:
+        p.close()
+
+
+@test
+def an_empty_or_missing_pins_dir_holds_no_pins():
+    """issue 42: a pins_dir that is missing, empty or not set holds no pins and is no error"""
+    p = Plugins()
+    try:
+        for what, conf in (("missing", {}), ("empty", {}), ("not set", {"pins_dir": ""})):
+            if what == "empty":
+                os.makedirs(p.pins_dir)
+            d = p.daemon(conf=conf)
+            try:
+                d.expect("add %s 0" % p.clap_uri, resp("PIN_ABSENT"))
+                check("pins directory" not in d.log(), "a %s pins_dir is no error: %s" % (what, d.log()))
+            finally:
+                d.close()
+        d = p.daemon(conf={"pin_mode": "first-use"})
+        try:
+            d.expect("add %s 0" % p.clap_uri, "resp 0")
+            check(len(store_lines(p)) == 1, "first-use learns as before: %s" % store_lines(p))
+        finally:
+            d.close()
+    finally:
         p.close()
 
 

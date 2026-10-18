@@ -103,9 +103,10 @@ The settings live in a file, `-c`, `$PLUGIN_HOSTD_CONF` or
 | `lv2_worker` | `mod-host` | who runs an LV2 plugin: mod-host (the mod_host program), omx-clap-host (the clap_host program, through its LV2 adapter, a plugin it cannot run refused with a code) or auto (the adapter first, mod-host for what it refuses, each such plugin in a worker of its own unless its add names a placement); lv2_worker_set overrides it for one plugin |
 | `lv2_path` | `$LV2_PATH`, else `/usr/lib64/lv2:/usr/lib/lv2:/usr/local/lib/lv2` | where bundles are searched |
 | `state_root` | `$XDG_RUNTIME_DIR`, else `/tmp` | the daemon's checkpoints and worker logs |
-| `pin_mode` | `first-use` | strict or first-use, while require_pins is 1: first-use records the pin of a plugin on its first add, strict admits only a plugin a controller or a pin_file pinned |
+| `pin_mode` | `first-use` | strict or first-use, while require_pins is 1: first-use records the pin of a plugin on its first add, strict admits only a plugin a controller, a pin_file or pins_dir pinned |
 | `pin_store` | `` | the file first-use pins are kept in; empty is $XDG_STATE_HOME/plugin-hostd/pins, else $HOME/.local/state/plugin-hostd/pins |
 | `pin_file` | `` | a file of pin lines loaded at start, as plugin-qualify --all --pins writes it; empty is none |
+| `pins_dir` | `/usr/share/plugin-hostd/pins.d` | the read-only pins of packages: every file in it whose name ends in .pins, read at start in name order, under the store, the pin_file and pin_set, except that a pin of verdict=refused there always holds; empty is none |
 | `ready_timeout_ms` | 5000 ms | a worker that does not accept in this long is a failed spawn |
 | `rpc_timeout_ms` | 5000 ms | a worker that does not answer in this long is killed |
 | `backoff_base_ms` | 250 ms | respawn backoff, doubling per death in the window |
@@ -158,10 +159,10 @@ Verbs the daemon adds
 | `policy_set` | `<format \| *> own \| pool:<name>` | `resp 0` | the placement of an add that says default |
 | `pool_config` | `<name> <max_instances>` | `resp 0` | the instances a pool holds before a sibling opens |
 | `worker_env` | `<format \| *> <cpu-list\|-> <nice\|->` | `resp 0` | the cpu list and the nice value of the workers of a format, at spawn and on the ones running |
-| `pin_set` | `<uri> <path>=<sha256>[,<path>=<sha256>...] <scheme>:<sha256> [verdict=<verdict>]` | `resp 0` | the pin of one plugin: the SHA-256 of every file the host loads for it, a path relative to the bundle (the directory of a single-file format's file), its layout fingerprint and, when it is known, the verdict of its qualification; it replaces an earlier pin of the uri. The pin store and a pin_file hold the same line, with or without the verb |
-| `pin_clear` | `<uri> \| all` | `resp 0` | forget the pin of one plugin, or of every one |
+| `pin_set` | `<uri> <path>=<sha256>[,<path>=<sha256>...] <scheme>:<sha256> [verdict=<verdict>]` | `resp 0` | the pin of one plugin: the SHA-256 of every file the host loads for it, a path relative to the bundle (the directory of a single-file format's file), its layout fingerprint and, when it is known, the verdict of its qualification; it replaces an earlier pin of the uri; -516 for a plugin whose pins_dir pin carries verdict=refused, which nothing overrides. The pin store, a pin_file and a pins_dir file hold the same line, with or without the verb |
+| `pin_clear` | `<uri> \| all` | `resp 0` | forget the pin of one plugin, or of every one; a pins_dir pin is read-only and holds again |
 | `lv2_worker_set` | `<uri> <mod-host \| omx-clap-host \| auto \| ->` | `resp 0` | the worker of one LV2 plugin, for its adds from now on: it overrides the lv2_worker setting, - takes the override back; -902 for a word that is none of these. Like policy_set it is the controller's, not in the ledger, gone with the daemon |
-| `pin_accept` | `<uri>` | `resp 0` | pin_mode first-use only: take the plugin's files as they are now as its pin, after a pin_changed event; the layout is learned again by the next add and the verdict is dropped; -508 when the plugin has no pin, -509 when its files cannot be collected, -902 under pin_mode strict |
+| `pin_accept` | `<uri>` | `resp 0` | pin_mode first-use only: take the plugin's files as they are now as its pin, after a pin_changed event; the layout is learned again by the next add and the verdict is dropped; -508 when the plugin has no pin, -509 when its files cannot be collected, -516 when its pins_dir pin carries verdict=refused, -902 under pin_mode strict |
 | `pin_layout` | `<instance>` | `resp 0 <scheme>:<sha256>` | sent by the daemon to a worker of a format that checks layouts, after it accepted the add of a plugin whose layout pin is still unknown: the layout the worker found after init, which the daemon records in the pin |
 | `pin_expect` | `<instance> <scheme>:<sha256>` | `resp 0` | sent by the daemon to a worker of a format that checks layouts, just before the instance's add: the layout pin that add checks after init and before activate; any other reply than resp 0 refuses the add with that code, and the add is never forwarded |
 
@@ -237,7 +238,7 @@ Error codes the daemon adds to mod-host's:
 | `-513` | `PHD_ERR_NO_NOTE_INPUT` | the instance's plugin takes no notes (an effect): its worker answers note_on, note_off and all_notes_off with this code |
 | `-514` | `PHD_ERR_NOTES_BY_JACK` | the instance's worker takes no notes on its socket (mod-host): the daemon answers the note verbs and note_input with this code, and the plugin is played through its jack MIDI input with connect |
 | `-515` | `PHD_ERR_NO_PRESET_LIST` | the instance's worker cannot list the plugin's presets (mod-host): the daemon answers preset_list and preset_get with this code; preset_load still takes a preset the controller knows |
-| `-516` | `PHD_ERR_PIN_REFUSED` | the plugin's pin carries verdict=refused: its files are the ones that failed qualification, so add is refused and no worker sees it, and a replayed add is refused the same way; files that differ from the pin answer (-509) first |
+| `-516` | `PHD_ERR_PIN_REFUSED` | the plugin's pin carries verdict=refused: its files are the ones that failed qualification, so add is refused and no worker sees it, and a replayed add is refused the same way; files that differ from the pin answer (-509) first. A pins_dir pin of that verdict is never overridden: pin_set and pin_accept of its plugin answer this code |
 | `-517` | `PHD_ERR_NOTE_QUEUE_FULL` | the instance's worker has no room for this note_on, note_off or all_notes_off before its next block: the line was not taken and nothing of it is kept; the controller may send it again |
 <!-- END GENERATED protocol:errors -->
 
@@ -373,6 +374,24 @@ share a worker. A pin with `verdict=refused` names files that failed qualificati
 the instance runs takes effect at its next replay. Files that differ from the pin answer `-509` first, because the
 verdict was given for the pinned files only. A plugin that changed since it was pinned is refused (-509, or -510 from the worker), the
 `pin_changed <uri> files|layout` event names what changed, and `pin_accept <uri>` takes the new pin.
+
+Pins that ship with packages live in a read-only layer of their own, under the host's. At start the daemon reads
+every `*.pins` file of `pins_dir` (`/usr/share/plugin-hostd/pins.d` by default; empty is none), in byte order of
+their names, in the same line format. A package drops its own file there, so its plugins and their pins are replaced
+in one transaction and removed together; plugin-hostd owns the directory and another package may co-own it. The
+daemon never writes it. A pin from this layer is trusted as it is, in both pin modes. The rules:
+
+- A pins.d pin with `verdict=refused` always holds. The pin store, a `pin_file` and `pin_set` never override it:
+  `pin_set` and `pin_accept` of its uri answer `-516` (`PIN_REFUSED`), and a line of the store or of the `pin_file`
+  for it is kept but has no effect, which stderr says at start.
+- Any other pins.d pin is under the host's layer. A pin of the same uri in the store, the `pin_file` or from
+  `pin_set` holds over it, and `pin_accept` of a plugin whose files differ from its package pin records the new files
+  in the store, which then hold. `pin_clear` forgets the host's pin only: the package pin holds again.
+- When two pins.d files hold the same uri, a refusal wins; otherwise the file last in name order wins. Two lines of
+  one file follow the same rule, the later line in place of the later file.
+- A line outside the grammar, or longer than a pin line can be, is skipped and named on stderr; the rest of the file
+  is read. A file that cannot be read is named on stderr and skipped. A directory that is missing or empty holds no
+  pins and is no error.
 
 What cannot be pinned:
 

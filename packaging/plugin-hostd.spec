@@ -92,6 +92,8 @@ make test-daemon check-generated
 %{_mandir}/man1/plugin-hostd-probe.1*
 %{_datadir}/plugin-hostd/protocol.json
 %{_datadir}/plugin-hostd/mod-host.json
+# the read-only pins of packages: a package that ships pins co-owns it with %dir
+%dir %{_datadir}/plugin-hostd/pins.d
 
 %files tests
 %license COPYING
