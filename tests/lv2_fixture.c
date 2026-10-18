@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 
 /* The LV2 plugin of the real-worker test of the adapter (tests/lv2_adapter_e2e.py): a mono gain that every LV2 host
- * runs, under three URIs. "gain" is the one omx-clap-host's adapter takes; "atom-in" adds an atom input that supports
- * no MIDI, which the adapter refuses (hosting.features.midi-in-fed-empty) and mod-host runs; "based" is "gain" again
+ * runs, under these URIs. "gain" is the one omx-clap-host's adapter takes; "atom-in" adds an atom input that supports
+ * no MIDI, which the adapter takes too (it feeds the input empty sequences) and mod-host runs with the notes by jack;
+ * "fixed-block" requires the host feature buf-size#fixedBlockLength, which the adapter lacks and refuses
+ * (hosting.features.missing) and mod-host provides; "based" is "gain" again
  * under http://plugin-hostd.invalid/fixture/based, named in a manifest the test writes with an @base, so lilv finds it
  * and the adapter's search of the manifest text does not (resp -101). "stress" is "gain" that breaks on cue, for the
  * probe runner's LV2 tests (tests/probe_test.py). The ports, by index: 0 in, 1 out, 2 gain (a factor), 3 events
@@ -110,6 +112,7 @@ static void cleanup(LV2_Handle instance)
 static const LV2_Descriptor DESCRIPTORS[] = {
     { FIXTURE_URI "gain", instantiate, connect_port, NULL, run, NULL, cleanup, NULL },
     { FIXTURE_URI "atom-in", instantiate, connect_port, NULL, run, NULL, cleanup, NULL },
+    { FIXTURE_URI "fixed-block", instantiate, connect_port, NULL, run, NULL, cleanup, NULL },
     { FIXTURE_URI "stress", instantiate, connect_port, NULL, run_stress, NULL, cleanup, NULL },
     { FIXTURE_BASE "based", instantiate, connect_port, NULL, run, NULL, cleanup, NULL },
 };
