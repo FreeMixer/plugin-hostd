@@ -29,7 +29,8 @@ Nothing a plugin prints can enter it.
 The program that loads the plugin. Default clap\-qualify, and /usr/libexec/plugin\-qualify/lv2_measure for an LV2.
 .TP
 .BI \-\-rates " R,R,..."
-Sample rates to run at. Default 44100,48000,96000,192000.
+Sample rates to run at. Default: omx\-contract's ORACLE_FLOOR_RATES, the rates every kernel oracle runs at, as the
+runner's usage prints them.
 .TP
 .BI \-\-quantum " n"
 Block size in frames. Default 512.
