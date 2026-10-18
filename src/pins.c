@@ -18,6 +18,7 @@
  * Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
  */
 
+#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
@@ -41,6 +42,7 @@
 #define LINE_MAX_PIN (PHD_LINE_MAX * 2)
 /* what a line grows by when its layout (omx-layout/1:<sha256>) and a verdict are added */
 #define LINE_RESERVE 128
+#define PINS_SUFFIX  ".pins"
 
 typedef struct PIN_T {
     char *uri;
@@ -53,9 +55,14 @@ typedef struct PIN_T {
     int learned;                /* the daemon recorded it: the store keeps it */
 } pin_t;
 
+/* The host's pins: the store, the pin_file and pin_set, the one table the daemon writes and saves from */
 static pin_t *g_pins;
 static int g_npins;
 static char g_store[PATH_MAX];
+
+/* The packages' pins: the *.pins files of pins_dir, read at start and never written */
+static pin_t *g_pkg;
+static int g_npkg;
 
 /* the uri as the worker is given it: the key of a pin, whichever way a controller wrote it */
 static const char *bare(const char *uri)
@@ -78,14 +85,37 @@ static void pin_free(pin_t *p)
     free(p->layout);
 }
 
-static pin_t *find(const char *uri)
+static pin_t *find_in(pin_t *table, int count, const char *uri)
 {
     int n;
 
-    for (n = 0; n < g_npins; n++)
-        if (!strcmp(g_pins[n].uri, uri))
-            return &g_pins[n];
+    for (n = 0; n < count; n++)
+        if (!strcmp(table[n].uri, uri))
+            return &table[n];
     return NULL;
+}
+
+static int refused(const pin_t *p)
+{
+    return !strcmp(p->verdict, PHD_PIN_VERDICT_REFUSED);
+}
+
+/* the package pin of the uri when it carries verdict=refused, which nothing overrides */
+static pin_t *pkg_refusal(const char *uri)
+{
+    pin_t *p = find_in(g_pkg, g_npkg, uri);
+
+    return p && refused(p) ? p : NULL;
+}
+
+/* the pin that holds for a uri: a package refusal, else the host's pin, else the package's */
+static pin_t *find(const char *uri)
+{
+    pin_t *p = pkg_refusal(uri);
+
+    if (!p)
+        p = find_in(g_pins, g_npins, uri);
+    return p ? p : find_in(g_pkg, g_npkg, uri);
 }
 
 /* a path of a pin: relative to the bundle, never out of it, and none of the separators of pin_set's words */
@@ -171,10 +201,10 @@ invalid:
     return ERR_INVALID_OPERATION;
 }
 
-/* the pin in the table, replacing the one of its uri */
+/* the pin in the host's table, replacing the one of its uri */
 static void pin_put(pin_t *pin)
 {
-    pin_t *old = find(pin->uri);
+    pin_t *old = find_in(g_pins, g_npins, pin->uri);
 
     if (old)
     {
@@ -185,6 +215,30 @@ static void pin_put(pin_t *pin)
     {
         g_pins = realloc(g_pins, (g_npins + 1) * sizeof(pin_t));
         g_pins[g_npins++] = *pin;
+    }
+}
+
+/* the pin in the packages' table: of two pins of one uri a refusal wins, else the later one, read from the file later in
+ * name order or the later line of one file */
+static void pkg_put(pin_t *pin, const char *path, int lineno)
+{
+    pin_t *old = find_in(g_pkg, g_npkg, pin->uri);
+
+    if (old && refused(old) && !refused(pin))
+    {
+        fprintf(stderr, "plugin-hostd: %s:%d: %s keeps the " PHD_PIN_VERDICT_KEY PHD_PIN_VERDICT_REFUSED " of an earlier "
+                        "pins.d line\n", path, lineno, pin->uri);
+        pin_free(pin);
+    }
+    else if (old)
+    {
+        pin_free(old);
+        *old = *pin;
+    }
+    else
+    {
+        g_pkg = realloc(g_pkg, (g_npkg + 1) * sizeof(pin_t));
+        g_pkg[g_npkg++] = *pin;
     }
 }
 
@@ -372,8 +426,11 @@ static void store_save(void)
     sync_dir(g_store);
 }
 
+/* where a file of pin lines goes, and what a line outside the grammar costs there */
+typedef enum { LAYER_STORE, LAYER_FILE, LAYER_PKG } layer_t;
+
 /* one line: the words of pin_set, the verb in front or not; a blank or comment line is SUCCESS and records nothing */
-static int line_read(char *line, int learned)
+static int line_read(char *line, layer_t layer, const char *path, int lineno)
 {
     char *tok[8], *save = NULL, *t;
     int ntok = 0, first = 0, rc;
@@ -393,13 +450,22 @@ static int line_read(char *line, int learned)
                    ntok - first == 4 ? tok[first + 3] + strlen(PHD_PIN_VERDICT_KEY) : NULL, 1);
     if (rc != SUCCESS)
         return rc;
-    pin.learned = learned;
+    if (layer == LAYER_PKG)
+    {
+        pkg_put(&pin, path, lineno);
+        return SUCCESS;
+    }
+    pin.learned = layer == LAYER_STORE;
     pin_put(&pin);
     return SUCCESS;
 }
 
-static int file_read(const char *path, int learned, int strict)
+/* a pin_file is strict: a bad line ends the start. The store keeps a bad line verbatim and blocks its uri; a pins.d file
+ * skips it. Either names it on stderr */
+static int file_read(const char *path, layer_t layer)
 {
+    int strict = layer == LAYER_FILE, learned = layer == LAYER_STORE;
+
     char *line = NULL;
     size_t cap = 0;
     ssize_t len;
@@ -410,6 +476,9 @@ static int file_read(const char *path, int learned, int strict)
     {
         if (strict)
             fprintf(stderr, "plugin-hostd: can't open the pin file %s: %s\n", path, strerror(errno));
+        else if (layer == LAYER_PKG)
+            fprintf(stderr, "plugin-hostd: can't open the pins.d file %s: %s; its pins are skipped\n", path,
+                    strerror(errno));
         else if (errno != ENOENT && errno != ENOTDIR)
         {
             /* a store that exists and can't be opened is not a first run */
@@ -428,11 +497,12 @@ static int file_read(const char *path, int learned, int strict)
         /* a line longer than the buffer is one line: never cut into pieces that parse on their own */
         if (!too_long)
             memcpy(buf, line, len + 1);
-        if (too_long || line_read(buf, learned) != SUCCESS)
+        if (too_long || line_read(buf, layer, path, lineno) != SUCCESS)
         {
             fprintf(stderr, "plugin-hostd: %s:%d: not a pin%s%s\n", path, lineno, too_long ? " (the line is too long)" : "",
-                    strict ? "" : "; the line is kept as it is and its plugin is not learned again until the operator "
-                                  "repairs or removes it");
+                    strict ? "" : layer == LAYER_PKG ? "; the line is skipped"
+                    : "; the line is kept as it is and its plugin is not learned again until the operator repairs or "
+                      "removes it");
             if (strict)
             {
                 free(line);
@@ -444,7 +514,10 @@ static int file_read(const char *path, int learned, int strict)
         }
     }
     free(line);
-    if (ferror(file) && !strict)
+    if (ferror(file) && layer == LAYER_PKG)
+        fprintf(stderr, "plugin-hostd: can't read the pins.d file %s: %s; the pins after line %d are skipped\n", path,
+                strerror(errno), lineno);
+    else if (ferror(file) && !strict)
     {
         fprintf(stderr, "plugin-hostd: can't read the pin store %s: %s; learning and saving are blocked until it is "
                         "repaired\n", path, strerror(errno));
@@ -454,12 +527,67 @@ static int file_read(const char *path, int learned, int strict)
     return 0;
 }
 
-int pins_init(const char *store, const char *file)
+/* a *.pins file, by its name: a hidden one (an editor's or a package manager's temporary) is not one */
+static int pins_name(const struct dirent *entry)
 {
+    size_t n = strlen(entry->d_name), suffix = strlen(PINS_SUFFIX);
+
+    return entry->d_name[0] != '.' && n > suffix && !strcmp(entry->d_name + n - suffix, PINS_SUFFIX);
+}
+
+/* byte order, whatever the locale */
+static int name_order(const struct dirent **a, const struct dirent **b)
+{
+    return strcmp((*a)->d_name, (*b)->d_name);
+}
+
+static void pkg_read(const char *dir)
+{
+    struct dirent **names;
+    char path[PATH_MAX * 2];
+    int n, count = scandir(dir, &names, pins_name, name_order);
+
+    if (count < 0)
+    {
+        if (errno != ENOENT && errno != ENOTDIR)
+            fprintf(stderr, "plugin-hostd: can't read the pins directory %s: %s; its pins are skipped\n", dir,
+                    strerror(errno));
+        return;
+    }
+    for (n = 0; n < count; n++)
+    {
+        snprintf(path, sizeof(path), "%s/%s", dir, names[n]->d_name);
+        file_read(path, LAYER_PKG);
+        free(names[n]);
+    }
+    free(names);
+}
+
+static void pkg_free(void)
+{
+    while (g_npkg)
+        pin_free(&g_pkg[--g_npkg]);
+    free(g_pkg);
+    g_pkg = NULL;
+}
+
+int pins_init(const char *store, const char *file, const char *dir)
+{
+    int n, rc;
+
     held_free();
+    pkg_free();
+    if (*dir)
+        pkg_read(dir);
     if (*store_path(store))
-        file_read(g_store, 1, 0);
-    return *file ? file_read(file, 0, 1) : 0;
+        file_read(g_store, LAYER_STORE);
+    rc = *file ? file_read(file, LAYER_FILE) : 0;
+    for (n = 0; n < g_npins; n++)
+        if (pkg_refusal(g_pins[n].uri))
+            fprintf(stderr, "plugin-hostd: %s: its pins.d pin carries " PHD_PIN_VERDICT_KEY PHD_PIN_VERDICT_REFUSED
+                            ", which the pin of the %s does not override\n", g_pins[n].uri,
+                    g_pins[n].learned ? "pin store" : "pin_file");
+    return rc;
 }
 
 int pins_set(const char *uri, const char *files, const char *layout, const char *verdict)
@@ -469,8 +597,23 @@ int pins_set(const char *uri, const char *files, const char *layout, const char 
 
     if (rc != SUCCESS)
         return rc;
+    if (pkg_refusal(pin.uri))
+    {
+        fprintf(stderr, "plugin-hostd: %s: its pins.d pin carries " PHD_PIN_VERDICT_KEY PHD_PIN_VERDICT_REFUSED
+                        ", which pin_set does not override\n", pin.uri);
+        pin_free(&pin);
+        return PHD_ERR_PIN_REFUSED;
+    }
     pin_put(&pin);
     return SUCCESS;
+}
+
+static void own_free(void)
+{
+    while (g_npins)
+        pin_free(&g_pins[--g_npins]);
+    free(g_pins);
+    g_pins = NULL;
 }
 
 int pins_known(const char *uri)
@@ -494,12 +637,13 @@ int pins_clear(const char *uri)
     {
         for (p = g_pins; p < g_pins + g_npins; p++)
             learned |= p->learned;
-        pins_finish();
+        own_free();
         if (learned)
             store_save();
         return SUCCESS;
     }
-    p = find(bare(uri));
+    /* the host's pin: a package pin is read-only and holds again */
+    p = find_in(g_pins, g_npins, bare(uri));
     if (p)
     {
         learned = p->learned;
@@ -513,10 +657,8 @@ int pins_clear(const char *uri)
 
 void pins_finish(void)
 {
-    while (g_npins)
-        pin_free(&g_pins[--g_npins]);
-    free(g_pins);
-    g_pins = NULL;
+    own_free();
+    pkg_free();
 }
 
 /* ---------------------------------------------------------------- the check */
@@ -624,6 +766,12 @@ int pins_accept(const format_t *format, const char *uri, const char *search)
 {
     if (!find(bare(uri)))
         return PHD_ERR_PIN_ABSENT;
+    if (pkg_refusal(bare(uri)))
+    {
+        fprintf(stderr, "plugin-hostd: %s: its pins.d pin carries " PHD_PIN_VERDICT_KEY PHD_PIN_VERDICT_REFUSED
+                        ", which pin_accept does not override\n", uri);
+        return PHD_ERR_PIN_REFUSED;
+    }
     return record(format, uri, search);
 }
 

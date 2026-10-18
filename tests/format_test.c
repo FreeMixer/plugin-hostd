@@ -244,7 +244,7 @@ int main(int argc, char **argv)
     conf.require_pins = 1;
     conf.ready_timeout_ms = 4000;
     check(conf_check(&conf) == 0, "the settings are consistent");
-    check(pins_init(conf.pin_store, "") == 0, "the pin store starts empty");
+    check(pins_init(conf.pin_store, "", "") == 0, "the pin store starts empty");
     sup_init(&conf);
 
     write_file(plugin, "third format, build one");

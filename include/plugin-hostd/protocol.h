@@ -298,7 +298,9 @@ static inline int phd_pool_name_valid(const char *name)
                       "the controller knows") \
     X(PIN_REFUSED, "the plugin's pin carries " PHD_PIN_VERDICT_KEY PHD_PIN_VERDICT_REFUSED ": its files are the ones that " \
                    "failed qualification, so add is refused and no worker sees it, and a replayed add is refused the " \
-                   "same way; files that differ from the pin answer " PHD_STR(PHD_ERR_PIN_BINARY_MISMATCH) " first")
+                   "same way; files that differ from the pin answer " PHD_STR(PHD_ERR_PIN_BINARY_MISMATCH) " first. A pins_dir " \
+                   "pin of that verdict is never overridden: " PHD_VERB_PIN_SET " and " PHD_VERB_PIN_ACCEPT " of its plugin " \
+                   "answer this code")
 
 /* ---------------------------------------------------------------- verbs */
 
@@ -346,7 +348,7 @@ static inline int phd_pool_name_valid(const char *name)
 #define PHD_PIN_MODE_STRICT    "strict"
 #define PHD_PIN_MODE_FIRST_USE "first-use"
 #define PHD_PIN_MODES(X) \
-    X(STRICT, PHD_PIN_MODE_STRICT, "add admits only a plugin that has a pin; a pin comes from pin_set or pin_file") \
+    X(STRICT, PHD_PIN_MODE_STRICT, "add admits only a plugin that has a pin; a pin comes from pin_set, pin_file or pins_dir") \
     X(FIRST_USE, PHD_PIN_MODE_FIRST_USE, "add of a plugin with no pin records its pin, keeps it in the pin store and places " \
                               "the instance " PHD_PLACE_OWN "; a later change is refused until pin_accept")
 
@@ -388,8 +390,11 @@ static inline int phd_pool_name_valid(const char *name)
       "<verdict>]", "resp 0", \
       "the pin of one plugin: the SHA-256 of every file the host loads for it, a path relative to the bundle (the " \
       "directory of a single-file format's file), its layout fingerprint and, when it is known, the verdict of its qualification; " \
-      "it replaces an earlier pin of the uri. The pin store and a pin_file hold the same line, with or without the verb") \
-    X(PIN_CLEAR, PHD_VERB_PIN_CLEAR, "<uri> | " PHD_WORD_ALL, "resp 0", "forget the pin of one plugin, or of every one") \
+      "it replaces an earlier pin of the uri; -516 for a plugin whose pins_dir pin carries " PHD_PIN_VERDICT_KEY \
+      PHD_PIN_VERDICT_REFUSED ", which nothing overrides. The pin store, a pin_file and a pins_dir file hold the same " \
+      "line, with or without the verb") \
+    X(PIN_CLEAR, PHD_VERB_PIN_CLEAR, "<uri> | " PHD_WORD_ALL, "resp 0", "forget the pin of one plugin, or of every one; a pins_dir " \
+      "pin is read-only and holds again") \
     X(LV2_WORKER_SET, PHD_VERB_LV2_WORKER_SET, "<uri> <" PHD_LV2_WORKER_MOD_HOST " | " PHD_LV2_WORKER_CLAP_HOST " | " \
       PHD_LV2_WORKER_AUTO " | " PHD_WORD_NONE ">", "resp 0", \
       "the worker of one LV2 plugin, for its adds from now on: it overrides the lv2_worker setting, " PHD_WORD_NONE " takes the " \
@@ -397,7 +402,8 @@ static inline int phd_pool_name_valid(const char *name)
     X(PIN_ACCEPT, PHD_VERB_PIN_ACCEPT, "<uri>", "resp 0", \
       "pin_mode " PHD_PIN_MODE_FIRST_USE " only: take the plugin's files as they are now as its pin, after a " \
       PHD_EVENT_PIN_CHANGED " event; the layout is learned again by the next add and the verdict is dropped; -508 when " \
-      "the plugin has no pin, -509 when its files cannot be collected, -902 under pin_mode strict") \
+      "the plugin has no pin, -509 when its files cannot be collected, -516 when its pins_dir pin carries " \
+      PHD_PIN_VERDICT_KEY PHD_PIN_VERDICT_REFUSED ", -902 under pin_mode strict") \
     X(PIN_LAYOUT, PHD_VERB_PIN_LAYOUT, "<instance>", "resp 0 <scheme>" PHD_PIN_SCHEME_SEPARATOR "<sha256>", \
       "sent by the daemon to a worker of a format that checks layouts, after it accepted the add of a plugin whose layout pin is " \
       "still unknown: the layout the worker found after init, which the daemon records in the pin") \
@@ -750,6 +756,7 @@ static inline int phd_is_note_verb(const char *verb)
 #define PHD_DEFAULT_POOL_MAX          8
 #define PHD_DEFAULT_REQUIRE_PINS      1
 #define PHD_DEFAULT_PIN_MODE          PHD_PIN_MODE_FIRST_USE
+#define PHD_DEFAULT_PINS_DIR          "/usr/share/plugin-hostd/pins.d"
 
 /* the settings file: one "key value" per line, '#' starts a comment.
  * A string setting: X(key, size, default, env, meaning); env names the variable that stands in for the default when
@@ -764,10 +771,13 @@ static inline int phd_is_note_verb(const char *verb)
     X(lv2_path, pathlist, PHD_DEFAULT_LV2_PATH, "LV2_PATH", "where bundles are searched") \
     X(state_root, path, PHD_DEFAULT_STATE_ROOT, "XDG_RUNTIME_DIR", "the daemon's checkpoints and worker logs") \
     X(pin_mode, word, PHD_DEFAULT_PIN_MODE, "", "strict or first-use, while require_pins is 1: first-use records the pin " \
-      "of a plugin on its first add, strict admits only a plugin a controller or a pin_file pinned") \
+      "of a plugin on its first add, strict admits only a plugin a controller, a pin_file or pins_dir pinned") \
     X(pin_store, path, "", "", "the file first-use pins are kept in; empty is $XDG_STATE_HOME/plugin-hostd/pins, " \
       "else $HOME/.local/state/plugin-hostd/pins") \
-    X(pin_file, path, "", "", "a file of pin lines loaded at start, as plugin-qualify --all --pins writes it; empty is none")
+    X(pin_file, path, "", "", "a file of pin lines loaded at start, as plugin-qualify --all --pins writes it; empty is none") \
+    X(pins_dir, path, PHD_DEFAULT_PINS_DIR, "", "the read-only pins of packages: every file in it whose name ends in .pins, read at start " \
+      "in name order, under the store, the pin_file and pin_set, except that a pin of verdict=refused there always holds; " \
+      "empty is none")
 
 /* A whole-number setting: X(key, default, unit, meaning); 0 turns off where the meaning says so */
 #define PHD_CONF_INTS(X) \
