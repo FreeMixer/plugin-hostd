@@ -12,3 +12,5 @@ tests/format-test
 tests/plugin-hostd-fixture.lv2/*.so
 /plugin-hostd-probe
 tests/probe-child
+tests/lv2-probe-child
+tests/rt_interpose.so
