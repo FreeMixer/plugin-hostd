@@ -512,8 +512,17 @@ static int worker_start(worker_t *w, const char *uri)
         w->pid = 0;
         return PHD_ERR_WORKER_SPAWN;
     }
-    /* what the worker reports goes to the controller from now on, the lines of its replay among them */
-    relay_add(w->fb_fd);
+    /* what the worker reports goes to the controller from now on, the lines of its replay among them; with no memory
+     * to follow it the relay has closed its feedback socket, and a worker whose reports go nowhere is not started */
+    if (relay_add(w->fb_fd) != 0)
+    {
+        w->fb_fd = -1;
+        close(w->fd);
+        w->fd = -1;
+        proc_stop(w->pid);
+        w->pid = 0;
+        return PHD_ERR_WORKER_SPAWN;
+    }
     w->state = W_UP;
     return SUCCESS;
 }
