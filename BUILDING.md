@@ -8,6 +8,16 @@ mod-host-protocol` when it is installed (mod-host's `make install-lib`),
 otherwise from `MOD_HOST_DIR`, a mod-host tree where the library is built if
 missing. The daemon needs libc and that library and nothing else.
 
+The probe runner and the protocol generator also read omx-contract's C header,
+`<omxcontract/omx_contract_limits.h>`, from `pkg-config omx-contract`
+(`omx-contract-devel`, `libomx-contract-dev`; `CONTRACT_CFLAGS=-I<dir>` for one
+that is not installed). The runner's default rates are the contract's
+`ORACLE_FLOOR_RATES`, and the generator refuses to build or run when the
+protocol's parameter scales are not the contract's `PARAM_SCALES`. `make
+test-contract` checks both, against the installed contract and against a copy
+of its header with the values changed. Nothing is linked: the header holds
+values only.
+
 Building without omx-clap-core
 ------------------------------
 

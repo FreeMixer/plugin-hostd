@@ -66,6 +66,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#include <omxcontract/omx_contract_limits.h>
 #include <plugin-hostd/pin.h>
 #include <plugin-hostd/protocol.h>
 
@@ -1516,6 +1517,19 @@ static void put_lv2_measure(sb_t *b, const jnode_t *m, long rate, unsigned quant
     sb_printf(b, "]}}");
 }
 
+/* the rates a run measures at when it is given none: omx-contract's ORACLE_FLOOR_RATES, every kernel oracle's floor */
+static const unsigned g_floor_rates[] = OMX_ORACLE_FLOOR_RATES_INIT;
+
+static const char *floor_rates(void)
+{
+    static char text[16 * sizeof(g_floor_rates) / sizeof(g_floor_rates[0])];
+    size_t n, used = 0;
+
+    for (n = 0; n < sizeof(g_floor_rates) / sizeof(g_floor_rates[0]) && used < sizeof(text); n++)
+        used += snprintf(text + used, sizeof(text) - used, "%s%u", n ? "," : "", g_floor_rates[n]);
+    return text;
+}
+
 static const char *base_name(const char *path)
 {
     const char *s = strrchr(path, '/');
@@ -1525,7 +1539,7 @@ static const char *base_name(const char *path)
 
 int main(int argc, char **argv)
 {
-    options_t o = { .child = "clap-qualify", .rates = "44100,48000,96000,192000", .quantum = 512, .reason = "on-request",
+    options_t o = { .child = "clap-qualify", .rates = floor_rates(), .quantum = 512, .reason = "on-request",
                     .set = "default", .wall_s = 600, .cpu_s = 540, .files = 256, .data_bytes = 4LL << 30,
                     .file_bytes = 64LL << 20, .grace_ms = 300 };
     int a = 1, pin_option = 0, exit_code = 0, i, rc;
@@ -1551,7 +1565,7 @@ int main(int argc, char **argv)
         fprintf(stderr, "usage: " RUNNER_NAME " run [options] <plugin.clap> [<clap id>]\n"
                         "       " RUNNER_NAME " run [options] lv2:<uri>\n"
                         "  --child PROGRAM      the program that loads the plugin (default clap-qualify; " PROBE_LV2_CHILD " for lv2:)\n"
-                        "  --rates R,R,...      sample rates (default 44100,48000,96000,192000)\n"
+                        "  --rates R,R,...      sample rates (default %s)\n"
                         "  --quantum N          block size in frames (default 512)     --blocks N   blocks per rate\n"
                         "  --offer EXT,...      host extensions to offer on top of the child's own\n"
                         "  --out FILE           the document, written atomically (default stdout)\n"
@@ -1559,7 +1573,7 @@ int main(int argc, char **argv)
                         "  --reason WHY         add, rescan, binary-changed, on-request, auto-measure, reference, ci\n"
                         "  --wall-s N  --cpu-s N  --data-bytes N  --files N  --file-bytes N  --grace-ms N\n"
                         "  --cpus LIST          pin the child to these cpus (\"0-3,8\")\n"
-                        "  --require LIMIT      refuse to run unless the limit is applied (repeatable)\n");
+                        "  --require LIMIT      refuse to run unless the limit is applied (repeatable)\n", floor_rates());
         return 2;
     }
     for (a = 2; a < argc; a++)

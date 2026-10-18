@@ -58,7 +58,8 @@ int pins_set_layout(const char *uri, const char *layout);
  * loads for it (format->pin_collect, searched in `search`) all held by the pin, then every file the pin names hashed
  * over one open descriptor. SUCCESS, with *layout the
  * layout pin "<scheme>:<sha256>" (the table's, valid until the next pin verb) or NULL while the pin's layout is
- * unknown, or PHD_ERR_PIN_ABSENT or PHD_ERR_PIN_BINARY_MISMATCH. */
+ * unknown, or PHD_ERR_PIN_ABSENT or PHD_ERR_PIN_BINARY_MISMATCH, or PHD_ERR_PIN_REFUSED for the pinned files under a
+ * verdict of refused. */
 int pins_check(const format_t *format, const char *uri, const char *search, const char **layout);
 
 /* a refusal of a pin, with the reason on stderr: PHD_ERR_PIN_BINARY_MISMATCH */

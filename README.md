@@ -237,6 +237,7 @@ Error codes the daemon adds to mod-host's:
 | `-513` | `PHD_ERR_NO_NOTE_INPUT` | the instance's plugin takes no notes (an effect): its worker answers note_on, note_off and all_notes_off with this code |
 | `-514` | `PHD_ERR_NOTES_BY_JACK` | the instance's worker takes no notes on its socket (mod-host): the daemon answers the note verbs and note_input with this code, and the plugin is played through its jack MIDI input with connect |
 | `-515` | `PHD_ERR_NO_PRESET_LIST` | the instance's worker cannot list the plugin's presets (mod-host): the daemon answers preset_list and preset_get with this code; preset_load still takes a preset the controller knows |
+| `-516` | `PHD_ERR_PIN_REFUSED` | the plugin's pin carries verdict=refused: its files are the ones that failed qualification, so add is refused and no worker sees it, and a replayed add is refused the same way; files that differ from the pin answer (-509) first |
 <!-- END GENERATED protocol:errors -->
 
 A worker's own refusal is returned as it said it. An `add` that killed its worker answers mod-host's `-102`.
@@ -362,7 +363,10 @@ files, keeps the pin in the pin store (`$XDG_STATE_HOME/plugin-hostd/pins`) and 
 asked of the worker after the add (`pin_layout`) and recorded too. A host that pins by itself sets `pin_mode strict`.
 The store, a `pin_file` and `pin_set` carry one line format, `pin_set <uri> <files> <layout> [verdict=<word>]` with the
 verb optional in a file. In `first-use` only a pin with `verdict=in-process`, which plugin-qualify writes, lets a plugin
-share a worker. A plugin that changed since it was pinned is refused (-509, or -510 from the worker), the
+share a worker. A pin with `verdict=refused` names files that failed qualification. Their `add` answers `-516`
+(`PIN_REFUSED`), no worker sees it, and a replay is refused with the same code. A pin that changes to `refused` while
+the instance runs takes effect at its next replay. Files that differ from the pin answer `-509` first, because the
+verdict was given for the pinned files only. A plugin that changed since it was pinned is refused (-509, or -510 from the worker), the
 `pin_changed <uri> files|layout` event names what changed, and `pin_accept <uri>` takes the new pin.
 
 What cannot be pinned:

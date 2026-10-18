@@ -43,15 +43,16 @@ def scan(root):
 
 
 def declared(root):
-    """the floors and ceilings of DEP in the spec and in debian/control"""
+    """the floors and ceilings of DEP in the spec and in debian/control; a ceiling is any `<`, `<=` or `=` (an exact pin
+    caps the range as much as a `<` does; debian `<<`, `<=`, `<` and `=` likewise)"""
     out = []
     spec = open(os.path.join(root, "packaging", "plugin-hostd.spec")).read()
     fl = re.findall(r"^BuildRequires:\s*%s\s*>=\s*(\S+)" % re.escape(DEP), spec, re.M)
-    ce = re.findall(r"^BuildRequires:\s*%s\s*<\s*(\S+)" % re.escape(DEP), spec, re.M)
+    ce = re.findall(r"^BuildRequires:\s*%s\s*(?:<=|<|=)\s*(\S+)" % re.escape(DEP), spec, re.M)
     out.append(("packaging/plugin-hostd.spec", fl, ce))
     ctl = open(os.path.join(root, "debian", "control")).read()
     fl = re.findall(r"%s\s*\(>=\s*([^)~\s]+)~?\)" % re.escape(DEP), ctl)
-    ce = re.findall(r"%s\s*\(<<\s*([^)~\s]+)~?\)" % re.escape(DEP), ctl)
+    ce = re.findall(r"%s\s*\((?:<<|<=|<|=)\s*([^)~\s]+)~?\)" % re.escape(DEP), ctl)
     out.append(("debian/control", fl, ce))
     return out
 
@@ -64,7 +65,7 @@ def check_declared(root):
             bad.append("%s declares %s with %d floors (one is the rule)" % (where, DEP, len(fl)))
             continue
         if ce:
-            bad.append("%s caps %s below %s: a dependency is a floor only, never a ceiling" % (where, DEP, ce[0]))
+            bad.append("%s caps or pins %s at %s: a dependency is a floor only, never a ceiling" % (where, DEP, ce[0]))
         pairs.append(fl[0])
     if len(set(pairs)) > 1:
         bad.append("the spec and debian/control disagree on the floor: %s" % pairs)
