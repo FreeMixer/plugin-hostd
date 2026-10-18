@@ -13,7 +13,7 @@ FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "
 # an LV2 bundle (MOD_HOST, LV2_DIR, LV2_URI, LV2_BUNDLE, LV2_PARAM) and is skipped without them; "pin" breaks
 # include/plugin-hostd/pin.h and runs tests/pin_test.c; "readme" breaks README.md or BUILDING.md and runs
 # tests/readme_build.py, with no daemon to build; "probeschema" breaks protocol/probe-output.schema.json and runs
-# tests/probe_schema.py; "relay" breaks src/relay.c and runs tests/relay_test.c; "contract" breaks the probe runner or the generator and runs tests/contract_derived.py; "probe" breaks src/probe.c and runs tests/probe_test.py; "nopins" breaks the packaging or a workflow and runs tests/no_pins.py
+# tests/probe_schema.py; "relay" breaks src/relay.c and runs tests/relay_test.c; "contract" breaks the probe runner or the generator and runs tests/contract_derived.py; "consumer" breaks the header and compiles tests/consumer.c against it; "probe" breaks src/probe.c and runs tests/probe_test.py; "nopins" breaks the packaging or a workflow and runs tests/no_pins.py
 SABOTAGE = [
     ("the verb tail is not replayed", "src/supervisor.c",
      "if (replay_line(w, i->tail[m].line) != RPC_OK)", "if (0 && replay_line(w, i->tail[m].line) != RPC_OK)",
@@ -282,6 +282,8 @@ SABOTAGE = [
      "PHD_PARAM_SCALES(X)\n#undef X\n_Static_assert(", "#undef X\n_Static_assert(", "contract", "contract"),
     ("the generator takes a scale word that is not the contract's", "tools/protocol-gen.c",
      "    if (!scales_are_the_contracts())\n        return 1;\n", "", "contract", "contract"),
+    ("two errors share a code", "include/plugin-hostd/protocol.h", "#define PHD_ERR_NOTE_QUEUE_FULL     (-517)",
+     "#define PHD_ERR_NOTE_QUEUE_FULL     (-516)", "consumer", "consumer"),
     ("the build steps are back on the README", "README.md", "Building from source: see [BUILDING.md](BUILDING.md).",
      "Building from source:\n\n    make\n\nsee [BUILDING.md](BUILDING.md).", "README.md runs no build tool", "readme"),
     ("BUILDING.md lost its build command", "BUILDING.md", "    make [MOD_HOST_DIR=<mod-host checkout>]\n", "",
@@ -448,9 +450,18 @@ def run_contract_test(tree):
     p = subprocess.run([sys.executable, os.path.join(tree, "tests", "contract_derived.py")], cwd=tree, capture_output=True,
                        text=True, timeout=300, env=dict(os.environ, PROBE=os.path.join(tree, "plugin-hostd-probe")))
     return p.returncode, p.stdout + ("ok   contract\n" if p.returncode == 0 else "")
+def run_consumer_test(tree):
+    """tests/consumer.c against the tree's header, as a consumer compiles it; "ok   consumer" when it passes"""
+    exe = os.path.join(tree, "consumer")
+    subprocess.run(["cc", "-I" + os.path.join(tree, "include"), "-std=c99", "-Wall", "-Wextra", "-o", exe,
+                    os.path.join(ROOT, "tests", "consumer.c")], check=True)
+    p = subprocess.run([exe], capture_output=True, text=True, timeout=60)
+    return p.returncode, p.stdout + ("ok   consumer\n" if p.returncode == 0 else "")
 
 
 def run_test(tree, name, jack=False):
+    if jack == "consumer":
+        return run_consumer_test(tree)
     if jack == "format":
         return run_format_test(tree)
     if jack == "relay":
@@ -523,6 +534,8 @@ try:
                 shutil.copy(os.path.join(ROOT, f), tree)
             os.makedirs(os.path.join(tree, "packaging"))
             shutil.copy(os.path.join(ROOT, "packaging", "plugin-hostd.spec"), os.path.join(tree, "packaging"))
+        elif jack == "consumer":
+            shutil.copytree(os.path.join(ROOT, "include"), os.path.join(tree, "include"))
         elif jack == "nopins":
             for f in ("packaging/plugin-hostd.spec", "debian/control", ".github/workflows/ci.yml"):
                 os.makedirs(os.path.dirname(os.path.join(tree, f)), exist_ok=True)
@@ -545,7 +558,7 @@ try:
         open(os.path.join(tree, path), "w").write(src.replace(text, repl))
         if jack == "probe":
             build_probe(tree)
-        elif jack not in ("readme", "nopins", "format", "relay", "contract", "probeschema"):
+        elif jack not in ("readme", "nopins", "format", "relay", "contract", "consumer", "probeschema"):
             for f in os.listdir(os.path.join(tree, "src")):
                 if f.endswith(".o"):
                     os.unlink(os.path.join(tree, "src", f))

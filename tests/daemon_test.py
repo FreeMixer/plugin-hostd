@@ -1017,6 +1017,23 @@ def notes_reach_a_clap_worker_unchanged_and_an_effect_refuses_them():
 
 
 @test
+def a_worker_whose_note_queue_is_full_answers_the_declared_code_and_the_daemon_passes_it():
+    """omx-clap-host refuses a note it has no room for in the block with NOTE_QUEUE_FULL; the daemon hands the code to the
+    controller unchanged and keeps nothing of the note"""
+    d = daemon()
+    try:
+        full = resp("NOTE_QUEUE_FULL")
+        check(full != resp("NO_NOTE_INPUT") and int(full.split()[1]) <= -501, "a code of its own: %s" % full)
+        d.expect("add clap:fake#synth_full 0", "resp 0")
+        d.expect("note_on 0 0 60 100", full)
+        d.expect("note_off 0 0 60 0", full)
+        d.expect("all_notes_off 0", full)
+        d.expect("note_input 0", "resp 0 midi_in")
+    finally:
+        d.close()
+
+
+@test
 def notes_are_never_replayed():
     log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log})

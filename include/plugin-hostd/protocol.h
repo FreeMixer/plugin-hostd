@@ -261,6 +261,7 @@ static inline int phd_pool_name_valid(const char *name)
 #define PHD_ERR_NOTES_BY_JACK       (-514)
 #define PHD_ERR_NO_PRESET_LIST      (-515)
 #define PHD_ERR_PIN_REFUSED         (-516)
+#define PHD_ERR_NOTE_QUEUE_FULL     (-517)
 
 /* X(id, meaning) */
 #define PHD_ERRORS(X) \
@@ -298,7 +299,10 @@ static inline int phd_pool_name_valid(const char *name)
                       "the controller knows") \
     X(PIN_REFUSED, "the plugin's pin carries " PHD_PIN_VERDICT_KEY PHD_PIN_VERDICT_REFUSED ": its files are the ones that " \
                    "failed qualification, so add is refused and no worker sees it, and a replayed add is refused the " \
-                   "same way; files that differ from the pin answer " PHD_STR(PHD_ERR_PIN_BINARY_MISMATCH) " first")
+                   "same way; files that differ from the pin answer " PHD_STR(PHD_ERR_PIN_BINARY_MISMATCH) " first") \
+    X(NOTE_QUEUE_FULL, "the instance's worker has no room for this " PHD_VERB_NOTE_ON ", " PHD_VERB_NOTE_OFF " or " \
+                       PHD_VERB_ALL_NOTES_OFF " before its next block: the line was not taken and nothing of it is kept; the " \
+                       "controller may send it again")
 
 /* ---------------------------------------------------------------- verbs */
 

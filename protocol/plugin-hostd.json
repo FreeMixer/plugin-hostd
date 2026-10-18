@@ -39,7 +39,8 @@
     {"name": "NO_NOTE_INPUT", "macro": "PHD_ERR_NO_NOTE_INPUT", "code": -513, "meaning": "the instance's plugin takes no notes (an effect): its worker answers note_on, note_off and all_notes_off with this code"},
     {"name": "NOTES_BY_JACK", "macro": "PHD_ERR_NOTES_BY_JACK", "code": -514, "meaning": "the instance's worker takes no notes on its socket (mod-host): the daemon answers the note verbs and note_input with this code, and the plugin is played through its jack MIDI input with connect"},
     {"name": "NO_PRESET_LIST", "macro": "PHD_ERR_NO_PRESET_LIST", "code": -515, "meaning": "the instance's worker cannot list the plugin's presets (mod-host): the daemon answers preset_list and preset_get with this code; preset_load still takes a preset the controller knows"},
-    {"name": "PIN_REFUSED", "macro": "PHD_ERR_PIN_REFUSED", "code": -516, "meaning": "the plugin's pin carries verdict=refused: its files are the ones that failed qualification, so add is refused and no worker sees it, and a replayed add is refused the same way; files that differ from the pin answer (-509) first"}
+    {"name": "PIN_REFUSED", "macro": "PHD_ERR_PIN_REFUSED", "code": -516, "meaning": "the plugin's pin carries verdict=refused: its files are the ones that failed qualification, so add is refused and no worker sees it, and a replayed add is refused the same way; files that differ from the pin answer (-509) first"},
+    {"name": "NOTE_QUEUE_FULL", "macro": "PHD_ERR_NOTE_QUEUE_FULL", "code": -517, "meaning": "the instance's worker has no room for this note_on, note_off or all_notes_off before its next block: the line was not taken and nothing of it is kept; the controller may send it again"}
   ],
   "verbs": [
     {"name": "add", "arguments": "<uri> <instance> [own | pool:<name> | default] [client_name]", "reply": "resp <instance>", "meaning": "mod-host's add with a placement; a token after the instance that is not a placement is the jack client name"},
