@@ -598,9 +598,29 @@ def policy_and_pool_config():
         d.close()
 
 
+def can_lower():
+    """whether this identity may give a process a nice below the one it has (CAP_SYS_NICE, or RLIMIT_NICE reaching it),
+    asked of the kernel: a root without CAP_SYS_NICE, as in a container, cannot"""
+    p = subprocess.Popen(["sleep", "30"])
+    try:
+        os.setpriority(os.PRIO_PROCESS, p.pid, os.getpriority(os.PRIO_PROCESS, p.pid) - 1)
+        return True
+    except PermissionError:
+        return False
+    finally:
+        p.kill()
+        p.wait()
+
+
 @test
 def worker_env_reaches_new_and_running_workers():
     cpus = sorted(os.sched_getaffinity(0))
+    own = os.getpriority(os.PRIO_PROCESS, 0)   # the daemon's nice is the test's
+
+    def applied(nice, current=own):
+        """a daemon that cannot lower a nice cannot give a worker one below the one the worker has: its own, for a new worker"""
+        return nice if can_lower() else max(nice, current)
+
     d = daemon()
     try:
         d.expect("worker_env lv2 %d 5" % cpus[0], "resp 0")
@@ -611,9 +631,19 @@ def worker_env_reaches_new_and_running_workers():
             f = open("/proc/%d/stat" % pid).read().rsplit(")", 1)[1].split()
             allowed = [l for l in open("/proc/%d/status" % pid) if l.startswith("Cpus_allowed_list")][0].split()[1]
             return int(f[16]), allowed
-        check(stat() == (5, str(cpus[0])), "a new worker has nice 5 and cpu %d: %s" % (cpus[0], stat()))
+        check(stat() == (applied(5), str(cpus[0])), "a new worker has nice %d and cpu %d: %s" % (applied(5), cpus[0], stat()))
+        # the daemon says so when a nice is not applied, and only then
+        kept = "worker_env: worker %d keeps nice" % pid
+        check((kept in d.log()) == (applied(5) != 5), "a nice 5 not applied is logged, one applied is not: %r" % d.log())
         d.expect("worker_env lv2 - 7", "resp 0")
-        check(stat()[0] == 7, "a running worker follows: %s" % (stat(),))
+        check(stat()[0] == applied(7, applied(5)), "a running worker follows: %s" % (stat(),))
+        check((kept in d.log()) == (applied(5) != 5 or applied(7, applied(5)) != 7), "the nice of a running worker is logged the same way")
+        # lower than the worker has: only a privileged daemon can, and one that cannot says so
+        have = stat()[0]
+        d.expect("worker_env lv2 - %d" % (have - 1), "resp 0")
+        check(stat()[0] == applied(have - 1, have), "a nice below the worker's: %s" % (stat(),))
+        check(("keeps nice %d, the nice %d was not applied" % (have, have - 1) in d.log()) == (applied(have - 1, have) != have - 1),
+              "a nice below the worker's is logged when it is not applied: %r" % d.log())
         d.expect("worker_env lv2 abc -", "resp -902")
         d.expect("worker_env lv2 - 99", "resp -902")
         d.expect("worker_env lv2 - - 50", "resp -902")   # no fifth word: a priority is not offered

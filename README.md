@@ -247,6 +247,10 @@ A worker's own refusal is returned as it said it. An `add` that killed its worke
 driver it ran at 55, unasked), and a FIFO priority given to the whole process puts the plugin's own threads above
 it, where a busy thread starves the graph.
 
+A daemon without privilege cannot give a worker a nice lower than the worker has (a new worker has the daemon's own). The
+verb still answers `resp 0`, the worker keeps its nice, and the daemon logs `worker_env: worker <pid> keeps nice <n>, the
+nice <m> was not applied` on stderr.
+
 Like mod-host, the daemon serves one controller at a time, and `remove` of an instance it does not hold answers
 `resp 0`. With `-n` and no `-f` there is no feedback port (mod-host's own rule), and a controller need not open
 one; without `-n`, or with `-f`, the daemon waits for the controller to open both. A command that finds its
