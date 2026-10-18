@@ -13,7 +13,7 @@ FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "
 # an LV2 bundle (MOD_HOST, LV2_DIR, LV2_URI, LV2_BUNDLE, LV2_PARAM) and is skipped without them; "pin" breaks
 # include/plugin-hostd/pin.h and runs tests/pin_test.c; "readme" breaks README.md or BUILDING.md and runs
 # tests/readme_build.py, with no daemon to build; "probeschema" breaks protocol/probe-output.schema.json and runs
-# tests/probe_schema.py; "relay" breaks src/relay.c and runs tests/relay_test.c; "contract" breaks the probe runner or the generator and runs tests/contract_derived.py; "consumer" breaks the header and compiles tests/consumer.c against it; "probe" breaks src/probe.c and runs tests/probe_test.py; "nopins" breaks the packaging or a workflow and runs tests/no_pins.py
+# tests/probe_schema.py; "relay" breaks src/relay.c and runs tests/relay_test.c; "alloc" breaks src/relay.c or src/lv2.c and runs make test-alloc; "contract" breaks the probe runner or the generator and runs tests/contract_derived.py; "consumer" breaks the header and compiles tests/consumer.c against it; "probe" breaks src/probe.c and runs tests/probe_test.py; "nopins" breaks the packaging or a workflow and runs tests/no_pins.py
 SABOTAGE = [
     ("the verb tail is not replayed", "src/supervisor.c",
      "if (replay_line(w, i->tail[m].line) != RPC_OK)", "if (0 && replay_line(w, i->tail[m].line) != RPC_OK)",
@@ -284,6 +284,12 @@ SABOTAGE = [
      "    if (!scales_are_the_contracts())\n        return 1;\n", "", "contract", "contract"),
     ("two errors share a code", "include/plugin-hostd/protocol.h", "#define PHD_ERR_NOTE_QUEUE_FULL     (-517)",
      "#define PHD_ERR_NOTE_QUEUE_FULL     (-516)", "consumer", "consumer"),
+    ("a gesture the relay has no memory to hold takes the table with it", "src/relay.c",
+     "        if (held == NULL)\n            return;\n", "", "alloc_test", "alloc"),
+    ("a refusal the lv2 table has no memory for takes the table with it", "src/lv2.c",
+     "    if (grown == NULL)\n        return;\n", "", "alloc_test", "alloc"),
+    ("a pick the lv2 table has no memory for takes the table with it", "src/lv2.c",
+     "        if (grown == NULL)\n            return -1;\n", "", "alloc_test", "alloc"),
     ("the build steps are back on the README", "README.md", "Building from source: see [BUILDING.md](BUILDING.md).",
      "Building from source:\n\n    make\n\nsee [BUILDING.md](BUILDING.md).", "README.md runs no build tool", "readme"),
     ("BUILDING.md lost its build command", "BUILDING.md", "    make [MOD_HOST_DIR=<mod-host checkout>]\n", "",
@@ -476,10 +482,21 @@ def run_consumer_test(tree):
     p = subprocess.run([exe], capture_output=True, text=True, timeout=60)
     return p.returncode, p.stdout + ("ok   consumer\n" if p.returncode == 0 else "")
 
+def run_alloc_test(tree):
+    """make test-alloc: the tables of src/relay.c and src/lv2.c when realloc fails; prints "ok   alloc_test" when no check failed"""
+    for f in ("tests/gesture-alloc-test", "tests/lv2-alloc-test", "tests/lv2-alloc-lv2.o"):
+        if os.path.exists(os.path.join(tree, f)):
+            os.unlink(os.path.join(tree, f))
+    p = subprocess.run(["make", "-s", "MOD_HOST_DIR=" + MOD_HOST_DIR, "test-alloc"], cwd=tree, capture_output=True, text=True,
+                       timeout=120)
+    return p.returncode, p.stdout + p.stderr + ("ok   alloc_test\n" if p.returncode == 0 else "")
+
 
 def run_test(tree, name, jack=False):
     if jack == "consumer":
         return run_consumer_test(tree)
+    if jack == "alloc":
+        return run_alloc_test(tree)
     if jack == "format":
         return run_format_test(tree)
     if jack == "relay":
@@ -535,6 +552,13 @@ try:
             os.makedirs(tree)
             for f in ("README.md", "BUILDING.md"):
                 shutil.copy(os.path.join(ROOT, f), tree)
+        elif jack == "alloc":
+            shutil.copytree(os.path.join(ROOT, "src"), os.path.join(tree, "src"))
+            shutil.copytree(os.path.join(ROOT, "include"), os.path.join(tree, "include"))
+            shutil.copy(os.path.join(ROOT, "Makefile"), tree)
+            os.makedirs(os.path.join(tree, "tests"))
+            for f in ("gesture_alloc_test.c", "lv2_alloc_test.c"):
+                shutil.copy(os.path.join(ROOT, "tests", f), os.path.join(tree, "tests"))
         elif jack == "probe":
             os.makedirs(os.path.join(tree, "src"))
             shutil.copy(os.path.join(ROOT, "src", "probe.c"), os.path.join(tree, "src"))
@@ -576,7 +600,7 @@ try:
         open(os.path.join(tree, path), "w").write(src.replace(text, repl))
         if jack == "probe":
             build_probe(tree)
-        elif jack not in ("readme", "nopins", "format", "relay", "contract", "consumer", "probeschema"):
+        elif jack not in ("readme", "nopins", "format", "relay", "contract", "consumer", "probeschema", "alloc"):
             for f in os.listdir(os.path.join(tree, "src")):
                 if f.endswith(".o"):
                     os.unlink(os.path.join(tree, "src", f))

@@ -16,3 +16,6 @@ tests/plugin-hostd-fixture.lv2/*.so
 tests/probe-child
 tests/lv2-probe-child
 tests/rt_interpose.so
+tests/gesture-alloc-test
+tests/lv2-alloc-test
+tests/lv2-alloc-lv2.o

@@ -85,7 +85,7 @@ char *lv2_param_info(int id, const char *symbol);
 /* which LV2 row runs a uri: the lv2_worker_set override of the uri, else the lv2_worker setting; auto is the adapter's row
  * until the adapter has refused the uri. NULL names the lv2 row itself. */
 const char *lv2_route(const conf_t *conf, const char *uri);
-/* lv2_worker_set: the worker of one uri, or PHD_WORD_NONE to take the override back; -1 for a word that is no worker */
+/* lv2_worker_set: the worker of one uri, or PHD_WORD_NONE to take the override back; -1 for a word that is no worker, or when there is no memory to record it */
 int lv2_worker_pick(const char *uri, const char *worker);
 /* the adapter refused the uri: auto runs it by the lv2 row from now on */
 void lv2_adapter_refused(const char *uri);
