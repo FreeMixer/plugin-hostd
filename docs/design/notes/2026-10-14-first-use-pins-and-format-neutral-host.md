@@ -1,6 +1,10 @@
 # First-use pins, one pins format, a format-neutral host
 
-Status: proposed, 2026-10-14. Covers plugin-hostd#25 and #26 and plugin-qualify#55.
+Status: built, released in v0.3.0 (2026-10-16). Covers plugin-hostd#25 and #26 (PRs #30 and #31) and plugin-qualify#55.
+One question is open: openmixer ruled on 2026-10-17 that an external plugin carries no pins and that its
+qualification record is evidence only (openmixer `docs/design/specs/2026-10-17-contract-definitions-installed-by-owners.md`,
+the "Pins for external plugins" ruling). Whether first-use pins stay for third-party plugins, and with them #42
+(pins.d) and #71 (`verdict=refused`), waits on the operator reconciling that ruling with this note.
 
 ## Why
 
