@@ -512,6 +512,7 @@ static int worker_start(worker_t *w, const char *uri)
         w->pid = 0;
         return PHD_ERR_WORKER_SPAWN;
     }
+    proc_env_report(w->pid, &g_env[w->fmt]);
     /* what the worker reports goes to the controller from now on, the lines of its replay among them */
     relay_add(w->fb_fd);
     w->state = W_UP;
@@ -1806,7 +1807,10 @@ char *sup_worker_env(const char *format, const char *cpus, const char *nice)
             g_env[f].nice = atoi(nice);
         for (n = 0; n < g_nworkers; n++)
             if (g_workers[n]->fmt == f && g_workers[n]->state == W_UP)
+            {
                 proc_apply_env(g_workers[n]->pid, &g_env[f]);
+                proc_env_report(g_workers[n]->pid, &g_env[f]);
+            }
     }
     return sup_resp(SUCCESS);
 }

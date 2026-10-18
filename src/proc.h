@@ -63,6 +63,10 @@ void proc_stop(pid_t pid);
 
 void proc_apply_env(pid_t pid, const worker_env_t *env);
 
+/* Logs on stderr a nice of `env` that the worker `pid` does not have: setpriority is refused to a process without
+ * privilege that lowers a nice below its own. */
+void proc_env_report(pid_t pid, const worker_env_t *env);
+
 /* The directory of LV2_PATH holding the bundle whose manifest names `uri`; malloc'd, NULL if none. */
 char *proc_find_lv2_bundle(const char *lv2_path, const char *uri);
 

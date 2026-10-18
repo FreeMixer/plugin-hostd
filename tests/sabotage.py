@@ -56,6 +56,8 @@ SABOTAGE = [
      "a_command_whose_first_argument_is_a_uri_reaches_every_worker"),
     ("a reply is not passed through", "src/supervisor.c", "    return reply;\n}\n\nchar *sup_remove(int id)",
      "    free(reply);\n    return sup_resp(0);\n}\n\nchar *sup_remove(int id)", "plain_verbs_pass_through_unchanged"),
+    ("a nice the daemon could not apply is not logged", "src/proc.c", "    if (errno == 0 && have != env->nice)\n",
+     "    if (0)\n", "worker_env_reaches_new_and_running_workers"),
     ("worker_env is not applied to a running worker", "src/supervisor.c", "proc_apply_env(g_workers[n]->pid, &g_env[f]);", ";",
      "worker_env_reaches_new_and_running_workers"),
     ("a refused connect is never asked again", "src/supervisor.c", "        else if (w->state == W_UP && w->npend)\n            pend_retry(w, now);",
