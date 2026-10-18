@@ -59,7 +59,7 @@ can be made to die on cue, so a program that talks to plugin-hostd can be
 tested against a real daemon without a plugin, a JACK server or any audio.
 Run it with -L to print the layout it reports. It is installed in
 %{_libexecdir}/plugin-hostd/tests, away from the directories programs run
-from, and is of no use to anyone else.
+from.
 
 %prep
 %autosetup

@@ -209,7 +209,10 @@ jobs:
             rpm -qp --qf '[%{FILEMODES:perms} %{FILENAMES}\n]' "$rpm" | grep -v -e '^d' -e '/\.build-id/' | cut -d' ' -f2 | sort > files.txt
             printf '%s\n' /usr/libexec/plugin-hostd/tests/fake-host /usr/share/licenses/plugin-hostd-tests/COPYING | sort > expected.txt
             diff -u expected.txt files.txt
-            rpm -qp --requires "$rpm" | grep -q '^plugin-hostd'
+            # tied to the same build: the requirement names the exact version-release and the isa of this very package
+            case "${{ matrix.arch }}" in x86_64) isa=x86-64 ;; aarch64) isa=aarch-64 ;; *) echo "no isa for ${{ matrix.arch }}"; exit 1 ;; esac
+            vr=$(rpm -qp --qf '%{VERSION}-%{RELEASE}' "$rpm")
+            rpm -qp --requires "$rpm" | grep -qxF "plugin-hostd($isa) = $vr"
           done
           ls rpms/plugin-hostd-tests-[0-9]*.${{ matrix.arch }}.rpm
           ls rpms/plugin-hostd-*.src.rpm
