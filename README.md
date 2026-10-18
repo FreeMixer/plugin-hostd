@@ -317,7 +317,9 @@ and 3 swept rt-safety runs. It runs under plugin-qualify's interposer (`rt_inter
 stimulus. The document's binary is the plugin's library, with every pinned file of the bundle listed. The rate's grid
 point carries what run() did under the interposer, and `behaviour` carries the lifecycles, the threads and the features
 the plugin requires. A plugin no bundle holds exits 3 with no document. A plugin of which nothing could be pinned exits 2
-with no document, because the document has no binary to name.
+with no document, because the document has no binary to name. Its refusal is a code on stderr: `<plugin>: <code>: <why>`,
+`probe.unpinnable` for a bundle the pin cannot cover. Version 1 runs the quick measurement only: the deep lifecycle pass
+and the soak stay plugin-qualify's until the probe protocol says which plugins get them and for how long.
 
 The runner kills the whole process tree of the child at its wall clock, and again when the child is done, so a process a
 plugin started in a session of its own does not outlive the run. It applies these limits on every Linux: the wall clock,

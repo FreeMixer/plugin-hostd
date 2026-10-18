@@ -265,6 +265,13 @@ def an_lv2_plugin_no_bundle_holds_is_3_and_has_no_document():
 
 
 @test
+def an_lv2_plugin_of_which_nothing_is_pinned_is_refused_by_code_with_no_document():
+    code, doc, _, _, err = run_lv2(uri=LV2_STRESS + "-unpinnable")
+    check(code == 2 and doc is None, "exit %d, document %s" % (code, doc is not None))
+    check("lv2:%s-unpinnable: probe.unpinnable: " % LV2_STRESS in err, "the refusal names its code: %r" % err)
+
+
+@test
 def the_real_lv2_measure_is_translated_when_it_is_installed():
     if not os.access(REAL_LV2_MEASURE, os.X_OK):
         print("skip the_real_lv2_measure_is_translated_when_it_is_installed: %s is not installed" % REAL_LV2_MEASURE)

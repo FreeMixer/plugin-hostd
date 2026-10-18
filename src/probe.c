@@ -1716,8 +1716,9 @@ int main(int argc, char **argv)
             return 3;
         if (lv2_library == NULL)
         {
-            fprintf(stderr, RUNNER_NAME ": %s: no file of the plugin was pinned, so the document has no binary (%s)\n",
-                    o.plugin, run_outcome);
+            /* the document needs a binary with its digest and none can be named: refused by its code, never a guess */
+            fprintf(stderr, RUNNER_NAME ": %s: %s: %s; no document, it would have no binary\n", o.plugin, run_outcome,
+                    g_nsteps && g_steps[g_nsteps - 1].detail[0] ? g_steps[g_nsteps - 1].detail : "nothing was pinned");
             return 2;
         }
     }

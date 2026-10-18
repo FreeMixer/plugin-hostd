@@ -122,11 +122,21 @@ static int pin_only(const char *uri)
     char *names[FILES_MAX];
     int n = 0, i;
 
-    printf("{\"uri\":\"%s\",\"found\":%s", uri, find(uri) ? "true" : "false");
+    char base[1024];
+    const char *cut = strstr(uri, "-unpinnable");
+
+    /* "<uri>-unpinnable" is <uri>'s bundle, of which lv2_measure could pin nothing */
+    snprintf(base, sizeof(base), "%.*s", cut ? (int)(cut - uri) : (int)strlen(uri), uri);
+    printf("{\"uri\":\"%s\",\"found\":%s", uri, find(base) ? "true" : "false");
     if (!g_bundle[0])
     {
         printf("}\n");
         return 3;
+    }
+    if (cut)
+    {
+        printf(",\"integrity\":{\"unmeasuredReason\":\"unpinnable\",\"unmeasuredDetail\":\"the manifest sets @base\"}}\n");
+        return 0;
     }
     d = opendir(g_bundle);
     while (d && (e = readdir(d)) && n < FILES_MAX)
