@@ -70,6 +70,8 @@ def main():
     state["measuring"] = False
     if state["cycles"] == 0:
         sys.exit("own_host_lv2_probe: JACK ran no process cycle")
+    # the tolerance: float32 and the plugin's own smoothing leave the measured gain within about 0.005 of the set one
+    # (1.9953 measured), while the nearest wrong value, an unprocessed signal, measures 1.0 and silence 0.0
     ratios = [p / state["in_peak"] for p in state["out_peak"]]
     print("own_host_lv2_probe: %s in peak %.4f, out peak %s, gain %s (wanted %.4f +- %.4f)"
           % (target, state["in_peak"], ["%.4f" % p for p in state["out_peak"]], ["%.4f" % r for r in ratios], want, tol))

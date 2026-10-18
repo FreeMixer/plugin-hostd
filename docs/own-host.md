@@ -87,8 +87,9 @@ consumer can include `plugin-hostd/protocol.h` (`pkg-config --cflags plugin-host
 What a Zynthian integration still needs from us
 -----------------------------------------------
 
-Checked against the published packages (0.2.1 of the daemon, 0.8.0 of the worker and plugins) in a clean Debian
-trixie container:
+Checked in a clean Debian container against published packages. The first item against 0.4.0 of the daemon and 0.10.0 of
+the worker and plugins (the page's CI); the others against 0.2.1 of the daemon and 0.8.0 of the worker and plugins, on
+trixie, and not re-checked since:
 
 - An LV2 plugin that the LV2 adapter of `omx-clap-host` refuses needs mod-host, which neither Debian nor the FreeMixer
   channel packages. The add answers `-512`; `lv2_worker auto` runs such a plugin in mod-host when one is installed.
