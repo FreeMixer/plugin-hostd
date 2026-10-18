@@ -169,7 +169,10 @@ static void drain(source_t *s)
 
             if (buf == NULL)
             {
-                /* no memory to read the worker into: read it no more, as for a worker that closed it */
+                /* no memory to read the worker into: read it no more, as for a worker that closed it, and say so to
+                 * the worker, whose writes now fail instead of blocking on a full socket; the socket stays open
+                 * until the supervisor removes it */
+                shutdown(s->fd, SHUT_RDWR);
                 s->eof = 1;
                 return;
             }
@@ -219,28 +222,45 @@ static void wake(void)
 static void *relay_thread(void *arg)
 {
     struct pollfd *pfd = NULL;
-    int cap = 0;
+    int cap = 0, first = 0;
 
     (void)arg;
     while (!g_stop)
     {
-        int n, count = 1, i;
+        int n, count = 1, i, j;
 
         pthread_mutex_lock(&g_lock);
         if (cap < g_nsrc + 1)
         {
-            cap = g_nsrc + 16;
-            pfd = realloc(pfd, cap * sizeof(*pfd));
+            struct pollfd *bigger = realloc(pfd, (g_nsrc + 16) * sizeof(*pfd));
+
+            if (bigger)
+            {
+                pfd = bigger;
+                cap = g_nsrc + 16;
+            }
+        }
+        if (cap == 0)
+        {
+            /* no memory for even the wake-up: try again in a while */
+            pthread_mutex_unlock(&g_lock);
+            usleep(10000);
+            continue;
         }
         pfd[0].fd = g_wake[0];
         pfd[0].events = POLLIN;
-        for (i = 0; i < g_nsrc; i++)
+        /* with no memory for a bigger set, the sources that fit are read this round and the next ones on the next */
+        for (j = 0; j < g_nsrc && count < cap; j++)
+        {
+            i = (first + j) % g_nsrc;
             if (!g_src[i].eof)
             {
                 pfd[count].fd = g_src[i].fd;
                 pfd[count].events = POLLIN;
                 count++;
             }
+        }
+        first = g_nsrc ? (first + j) % g_nsrc : 0;
         pthread_mutex_unlock(&g_lock);
 
         n = poll(pfd, count, -1);
@@ -374,10 +394,10 @@ void relay_event(const char *line)
     pthread_mutex_unlock(&g_lock);
 }
 
-void relay_add(int fd)
+int relay_add(int fd)
 {
     if (fd < 0)
-        return;
+        return -1;
     fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK);
     pthread_mutex_lock(&g_lock);
     if (g_nsrc == g_capsrc)
@@ -387,9 +407,11 @@ void relay_add(int fd)
 
         if (src == NULL)
         {
+            /* a socket left open and unread would block the worker on its next write: close it, so the write fails */
             pthread_mutex_unlock(&g_lock);
             fprintf(stderr, "relay: no memory to follow the feedback of fd %d\n", fd);
-            return;
+            close(fd);
+            return -1;
         }
         g_src = src;
         g_capsrc = cap;
@@ -398,6 +420,7 @@ void relay_add(int fd)
     g_src[g_nsrc++].fd = fd;
     pthread_mutex_unlock(&g_lock);
     wake();
+    return 0;
 }
 
 void relay_instance_gone(int id)
