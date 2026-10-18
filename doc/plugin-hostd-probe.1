@@ -6,9 +6,15 @@ plugin\-hostd\-probe \- run a plugin prober under limits and write what happened
 .RI [ options ]
 .I plugin.clap
 .RI [ "clap id" ]
+.br
+.B plugin\-hostd\-probe run
+.RI [ options ]
+.BI lv2: uri
 .SH DESCRIPTION
 .B plugin\-hostd\-probe
-starts a program that loads a plugin (clap\-qualify by default) in its own process group, with the portable
+starts a program that loads a plugin (clap\-qualify for a CLAP, plugin\-qualify's lv2_measure for an LV2 named
+.BI lv2: uri ,
+the pin pass and then the measurement at the highest rate, under its interposer) in its own process group, with the portable
 limits applied before the exec, and writes the facts of the run as a JSON document: the steps the child reached, how
 each ended and the limits that were applied. It gives no verdict. The runner never loads plugin code itself. On the
 deadline, on a cancel or when the child is done it kills the whole process tree, including a process the plugin
@@ -20,7 +26,7 @@ Nothing a plugin prints can enter it.
 .SH OPTIONS
 .TP
 .BI \-\-child " program"
-The program that loads the plugin. Default clap\-qualify.
+The program that loads the plugin. Default clap\-qualify, and /usr/libexec/plugin\-qualify/lv2_measure for an LV2.
 .TP
 .BI \-\-rates " R,R,..."
 Sample rates to run at. Default 44100,48000,96000,192000.

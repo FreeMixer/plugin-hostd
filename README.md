@@ -303,9 +303,21 @@ Probing a plugin
 ----------------
 
 `plugin-hostd-probe run` loads a plugin in a child process under limits and writes down what happened, as facts only: no
-verdict. The child is clap-qualify today; the runner never loads plugin code itself.
+verdict. The child is clap-qualify for a CLAP plugin. For an LV2 plugin, named `lv2:<uri>`, the child is plugin-qualify's
+`lv2_measure`, found at run time in `/usr/libexec/plugin-qualify` (plugin-qualify is not a dependency of this package).
+The runner never loads plugin code itself.
 
     plugin-hostd-probe run --out probe.json --log probe.stderr.log /usr/lib64/clap/plate.clap org.example.plate
+    plugin-hostd-probe run --out probe.json lv2:http://example.org/plate
+
+An LV2 plugin is measured the way plugin-qualify's LV2 hosting pass measures it today, in two children under the same
+limits and the same wall clock. The first child (`lv2_measure --pin`) pins the bundle's files without instantiating the
+plugin. The second measures at the highest of `--rates`, in blocks of `--quantum`, with 30 instantiate and destroy cycles
+and 3 swept rt-safety runs. It runs under plugin-qualify's interposer (`rt_interpose.so` beside the child) and the noise
+stimulus. The document's binary is the plugin's library, with every pinned file of the bundle listed. The rate's grid
+point carries what run() did under the interposer, and `behaviour` carries the lifecycles, the threads and the features
+the plugin requires. A plugin no bundle holds exits 3 with no document. A plugin of which nothing could be pinned exits 2
+with no document, because the document has no binary to name.
 
 The runner kills the whole process tree of the child at its wall clock, and again when the child is done, so a process a
 plugin started in a session of its own does not outlive the run. It applies these limits on every Linux: the wall clock,

@@ -22,6 +22,7 @@
  * the probe output (protocol/probe-output.schema.json): facts only, no verdict.
  *
  *   plugin-hostd-probe run [options] <plugin.clap> [<clap id>]
+ *   plugin-hostd-probe run [options] lv2:<uri>          plugin-qualify's lv2_measure, its pin pass then its measurement
  *
  * The runner never loads plugin code. It starts the child in its own process group, with the portable limits below
  * applied before the exec, keeps the wall clock, and on the deadline, on a cancel or when the child is done kills the
@@ -1070,21 +1071,11 @@ static void take_step_records(run_t *r)
     r->steps.s[r->steps.len] = '\0';
 }
 
-static void run_child(const options_t *o, const cpu_set_t *pinned, int pin_option, run_t *r)
+/* clap-qualify's arguments: the rates, the block, the offer, the file and the id */
+static void clap_argv(const options_t *o, char **argv)
 {
-    int out_pipe[2], steps_pipe[2], status_pipe[2];
-    char *argv[32];
-    int argc = 0, devnull;
-    long deadline;
-    int log_fd = -1;
+    int argc = 0;
 
-    if (pipe2(out_pipe, O_CLOEXEC) || pipe2(steps_pipe, O_CLOEXEC) || pipe2(status_pipe, O_CLOEXEC))
-    {
-        perror("pipe");
-        exit(2);
-    }
-    if (o->log)
-        log_fd = open(o->log, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
     argv[argc++] = (char *)o->child;
     argv[argc++] = "--rates";
     argv[argc++] = (char *)o->rates;
@@ -1110,6 +1101,22 @@ static void run_child(const options_t *o, const cpu_set_t *pinned, int pin_optio
     if (o->id)
         argv[argc++] = (char *)o->id;
     argv[argc] = NULL;
+}
+
+/* the child `argv` under the limits, until it ends or `deadline` (ms of now_ms) passes; its log is appended to */
+static void run_child(const options_t *o, char **argv, const cpu_set_t *pinned, int pin_option, run_t *r, long deadline)
+{
+    int out_pipe[2], steps_pipe[2], status_pipe[2];
+    int devnull;
+    int log_fd = -1;
+
+    if (pipe2(out_pipe, O_CLOEXEC) || pipe2(steps_pipe, O_CLOEXEC) || pipe2(status_pipe, O_CLOEXEC))
+    {
+        perror("pipe");
+        exit(2);
+    }
+    if (o->log)
+        log_fd = open(o->log, O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC, 0644);
 
     r->started_ms = now_ms();
     r->pid = fork();
@@ -1159,7 +1166,6 @@ static void run_child(const options_t *o, const cpu_set_t *pinned, int pin_optio
         close(status_pipe[0]);
     }
 
-    deadline = r->started_ms + o->wall_s * 1000;
     while (!r->exited)
     {
         struct pollfd p[2];
@@ -1270,6 +1276,246 @@ static int outcome_ok(const char *code)
     return !strcmp(code, OUT_OK) || !strcmp(code, OUT_NOT_ATTEMPTED);
 }
 
+/* how the child ended, as the step `name`: its outcome, and whether the run may still be complete */
+static const char *child_end(const char *name, const options_t *o, const run_t *r, int *complete)
+{
+    {
+        const char *code = OUT_OK;
+        step_t *s = add_step(name, OUT_OK, now_ms() - r->started_ms);
+
+        if (r->protocol_error)
+            code = OUT_CHILD_PROTOCOL;
+        else if (r->cancelled)
+            code = OUT_CANCELLED;
+        else if (r->killed_by_deadline)
+            code = OUT_TIMEOUT;
+        else if (WIFSIGNALED(r->status))
+        {
+            int sig = WTERMSIG(r->status);
+
+            snprintf(s->signal, sizeof(s->signal), "%s", signal_name(sig));
+            code = sig == SIGXCPU ? OUT_CPU_LIMIT : sig == SIGXFSZ ? OUT_OUTPUT_LIMIT : sig == SIGSYS ? OUT_SANDBOX_DENIED : OUT_CRASHED;
+        }
+        else if (WIFEXITED(r->status))
+        {
+            s->exit_status = WEXITSTATUS(r->status);
+            if (s->exit_status == 120)
+            {
+                code = OUT_ERROR;
+                set_detail(s, "a limit could not be applied in the child");
+            }
+            else if (s->exit_status != 0 && r->out.len == 0)
+                code = OUT_ERROR;
+        }
+        s->outcome = code;
+        if (r->killed_by_deadline)
+            set_detail(s, "the wall clock of %ld s passed; the process tree was killed", o->wall_s);
+        if (r->cancelled)
+            set_detail(s, "the runner was told to stop; the process tree was killed");
+        if (r->leftovers && !s->detail[0])
+            set_detail(s, "%d process(es) left behind were killed", r->leftovers);
+        else if (r->leftovers)
+            snprintf(s->detail + strlen(s->detail), sizeof(s->detail) - strlen(s->detail), "; %d process(es) left behind were killed", r->leftovers);
+        /* a crash keeps the steps before it; the run is complete only when the child finished */
+        *complete = !strcmp(code, OUT_OK) && WIFEXITED(r->status);
+        return code;
+    }
+}
+
+/* an LV2 plugin is named lv2:<uri>, and measured by plugin-qualify's lv2_measure, looked up where plugin-qualify installs
+ * it; plugin-qualify is no dependency of this package (it builds against it), so the program is looked for at run time */
+#define PROBE_LV2_PREFIX "lv2:"
+#define PROBE_LV2_CHILD "/usr/libexec/plugin-qualify/lv2_measure"
+/* the measurement runs as plugin-qualify runs it: under its allocation-and-syscall interposer, the file of this name
+ * beside the child (none beside it: rtSafety says interposer false), and the noise stimulus */
+#define PROBE_LV2_INTERPOSER "rt_interpose.so"
+#define PROBE_LV2_STIMULUS_ENV "OMX_STIM"
+#define PROBE_LV2_STIMULUS "noise"
+
+static char g_interposer[PATH_MAX];
+
+static jnode_t *first_line(sb_t *out)
+{
+    if (out->len == 0)
+        return NULL;
+    out->s[strcspn(out->s, "\n")] = '\0';
+    return jparse(out->s);
+}
+
+static int has_suffix(const char *s, const char *suffix)
+{
+    size_t n = strlen(s), m = strlen(suffix);
+
+    return n >= m && !strcmp(s + n - m, suffix);
+}
+
+/* lv2_measure's passes as today's LV2 hosting pass runs them: the pin (--pin, nothing instantiated), then one measurement
+ * at `rate` in blocks of the run's quantum, PHD_PROBE_LV2_LIFECYCLES instantiate/destroy cycles and
+ * PHD_PROBE_LV2_REPEATS swept rt-safety runs. Each pass is a child of its own under the same limits and the one wall
+ * clock. 3 when no bundle holds the plugin (no document); else 0, with *library the pinned file that is the plugin's
+ * library, NULL when nothing was pinned. */
+static int run_lv2(const options_t *o, const char *uri, long rate, const cpu_set_t *pinned, int pin_option, long deadline, run_t *r,
+                   jnode_t **pin, jnode_t **measure, const jnode_t **library, const char **outcome, int *complete)
+{
+    char *argv[8], rate_s[24], block_s[24], cycles_s[24], repeats_s[24];
+    const jnode_t *integrity, *files;
+    size_t k;
+
+    argv[0] = (char *)o->child;
+    argv[1] = "--pin";
+    argv[2] = (char *)uri;
+    argv[3] = NULL;
+    run_child(o, argv, pinned, pin_option, r, deadline);
+    *pin = first_line(&r->out);
+    if (!r->killed_by_deadline && !r->cancelled && WIFEXITED(r->status) && WEXITSTATUS(r->status) == 3 &&
+        !jbool(*pin, "found", 1))
+    {
+        fprintf(stderr, RUNNER_NAME ": %s%s: %s\n", PROBE_LV2_PREFIX, uri, OUT_NOT_FOUND);
+        return 3;
+    }
+    *outcome = child_end("hash", o, r, complete);
+    integrity = jget(*pin, "integrity");
+    files = jget(integrity, "files");
+    for (k = 0; files && files->type == J_ARR && k < files->n; k++)
+        if (jstr(files->kid[k], "path") && !has_suffix(jstr(files->kid[k], "path"), ".ttl"))
+        {
+            *library = files->kid[k];
+            break;
+        }
+    if (!strcmp(*outcome, OUT_OK) && *library == NULL)
+    {
+        step_t *s = &g_steps[g_nsteps - 1];
+        const char *reason = jstr(integrity, "unmeasuredReason"), *detail = jstr(integrity, "unmeasuredDetail");
+
+        s->outcome = *outcome = reason && !strcmp(reason, "unpinnable") ? OUT_UNPINNABLE : OUT_ERROR;
+        set_detail(s, "%s", detail ? detail : "the child pinned no library of the plugin");
+        *complete = 0;
+    }
+    if (strcmp(*outcome, OUT_OK))
+        return 0;
+
+    snprintf(rate_s, sizeof(rate_s), "%ld", rate);
+    snprintf(block_s, sizeof(block_s), "%u", o->quantum);
+    snprintf(cycles_s, sizeof(cycles_s), "%d", PHD_PROBE_LV2_LIFECYCLES);
+    snprintf(repeats_s, sizeof(repeats_s), "%d", PHD_PROBE_LV2_REPEATS);
+    argv[1] = (char *)uri;
+    argv[2] = rate_s;
+    argv[3] = block_s;
+    argv[4] = cycles_s;
+    argv[5] = repeats_s;
+    argv[6] = NULL;
+    {
+        char dir[PATH_MAX];
+        const char *slash;
+
+        snprintf(dir, sizeof(dir), "%s", o->child);
+        slash = strrchr(dir, '/');
+        if (slash)
+        {
+            snprintf(g_interposer, sizeof(g_interposer), "%.*s/" PROBE_LV2_INTERPOSER, (int)(slash - dir), dir);
+            if (access(g_interposer, R_OK) == 0)
+                setenv("LD_PRELOAD", g_interposer, 1);
+            else
+                g_interposer[0] = '\0';
+        }
+        setenv(PROBE_LV2_STIMULUS_ENV, PROBE_LV2_STIMULUS, 1);
+    }
+    memset(r, 0, sizeof(*r));
+    run_child(o, argv, pinned, pin_option, r, deadline);
+    unsetenv("LD_PRELOAD");
+    *measure = first_line(&r->out);
+    if (*measure && jbool(*measure, "instantiated", 0))
+    {
+        const jnode_t *rt = jget(*measure, "rtSafety");
+        step_t *s = add_step("instantiate", OUT_OK, 0);
+
+        set_detail(s, "read from the child's line");
+        s = add_step("rt-safety", jbool(rt, "interposer", 0) ? OUT_OK : OUT_NOT_ATTEMPTED, 0);
+        s->rate = rate;
+        s->quantum = o->quantum;
+        set_detail(s, jbool(rt, "interposer", 0) ? "read from the child's line" : "no interposer was loaded");
+    }
+    else if (*measure && jbool(*measure, "found", 0))
+    {
+        step_t *s = add_step("instantiate", OUT_REFUSED_INSTANTIATION, 0);
+
+        set_detail(s, "the child could not instantiate the plugin");
+    }
+    *outcome = child_end("lifecycle", o, r, complete);
+    return 0;
+}
+
+static void put_count(sb_t *b, const jnode_t *o, const char *from, const char *to)
+{
+    double v;
+
+    if (jnum(o, from, &v))
+        sb_printf(b, ", \"%s\": %.0f", to, v);
+}
+
+/* lv2_measure's measurement line: the grid point of its rate and block, with what run() did under the interposer, and
+ * the plugin's behaviour over the pass (lifecycles, threads, the features it requires); a translation, no judgement */
+static void put_lv2_measure(sb_t *b, const jnode_t *m, long rate, unsigned quantum)
+{
+    const jnode_t *rt = jget(m, "rtSafety"), *ev = jget(rt, "events"), *life = jget(m, "lifecycle"), *th = jget(m, "threads"),
+                  *req = jget(m, "requiredFeatures");
+    size_t k;
+
+    sb_printf(b, ",\n  \"grid\": [\n    {\"rate\": %ld, \"quantum\": %u, \"outcome\": \"%s\"", rate, quantum, OUT_OK);
+    if (rt)
+    {
+        sb_printf(b, ", \"rtSafety\": {\"interposer\": %s", jbool(rt, "interposer", 0) ? "true" : "false");
+        sb_printf(b, ", \"swept\": %s, \"sweepApplicable\": %s", jbool(rt, "swept", 0) ? "true" : "false",
+                  jbool(rt, "sweepApplicable", 0) ? "true" : "false");
+        put_count(b, rt, "blocks", "blocks");
+        put_count(b, rt, "allocationsInRun", "allocations");
+        put_count(b, rt, "locksInRun", "locks");
+        put_count(b, rt, "syscallsInRun", "syscalls");
+        if (ev && ev->type == J_ARR)
+        {
+            sb_printf(b, ", \"events\": [");
+            for (k = 0; k < ev->n; k++)
+            {
+                char text[512];
+                const char *kind = jstr(ev->kid[k], "kind"), *module = jstr(ev->kid[k], "module"), *symbol = jstr(ev->kid[k], "symbol");
+
+                snprintf(text, sizeof(text), "%s %s %s", kind ? kind : "?", module ? module : "?", symbol ? symbol : "?");
+                sb_printf(b, "%s", k ? ", " : "");
+                sb_str(b, text);
+            }
+            sb_printf(b, "]");
+        }
+        sb_printf(b, "}");
+    }
+    sb_printf(b, "}\n  ],\n  \"behaviour\": {");
+    if (life)
+    {
+        double c = 0, i = 0, f = 0;
+
+        jnum(life, "cycles", &c);
+        jnum(life, "instantiated", &i);
+        jnum(life, "failed", &f);
+        sb_printf(b, "\"lifecycle\": {\"cycles\": %.0f, \"instantiated\": %.0f, \"failed\": %.0f}, ", c, i, f);
+    }
+    sb_printf(b, "\"threads\": {");
+    {
+        sb_t t = { 0 };
+
+        put_count(&t, th, "before", "before");
+        put_count(&t, th, "afterFirstInstantiate", "afterFirstInstantiate");
+        put_count(&t, th, "afterAllFreed", "afterAllFreed");
+        sb_printf(b, "%s", t.len > 2 ? t.s + 2 : "");
+        free(t.s);
+    }
+    sb_printf(b, "}, \"features\": {\"required\": [");
+    for (k = 0; req && req->type == J_ARR && k < req->n; k++)
+    {
+        sb_printf(b, "%s", k ? ", " : "");
+        sb_str(b, req->kid[k]->str ? req->kid[k]->str : "");
+    }
+    sb_printf(b, "]}}");
+}
+
 static const char *base_name(const char *path)
 {
     const char *s = strrchr(path, '/');
@@ -1292,12 +1538,19 @@ int main(int argc, char **argv)
     sb_t doc = { 0 };
     jnode_t *line = NULL;
     const char *run_outcome = OUT_OK;
+    /* an LV2 plugin, lv2:<uri>: the runner runs lv2_measure's passes, the pin then the measurement */
+    const char *lv2_uri = NULL;
+    jnode_t *pin_line = NULL, *measure_line = NULL;
+    const jnode_t *lv2_library = NULL;
+    long lv2_rate = 0;
+    int child_set = 0;
     int complete = 1, fd;
 
     if (argc < 2 || strcmp(argv[1], "run"))
     {
         fprintf(stderr, "usage: " RUNNER_NAME " run [options] <plugin.clap> [<clap id>]\n"
-                        "  --child PROGRAM      the program that loads the plugin (default clap-qualify)\n"
+                        "       " RUNNER_NAME " run [options] lv2:<uri>\n"
+                        "  --child PROGRAM      the program that loads the plugin (default clap-qualify; " PROBE_LV2_CHILD " for lv2:)\n"
                         "  --rates R,R,...      sample rates (default 44100,48000,96000,192000)\n"
                         "  --quantum N          block size in frames (default 512)     --blocks N   blocks per rate\n"
                         "  --offer EXT,...      host extensions to offer on top of the child's own\n"
@@ -1322,7 +1575,7 @@ int main(int argc, char **argv)
             return 2;
         }
         a++;
-        if (!strcmp(k, "--child")) o.child = v;
+        if (!strcmp(k, "--child")) o.child = v, child_set = 1;
         else if (!strcmp(k, "--rates")) o.rates = v;
         else if (!strcmp(k, "--quantum")) o.quantum = (unsigned)atoi(v);
         else if (!strcmp(k, "--blocks")) o.blocks = (unsigned)atoi(v);
@@ -1362,18 +1615,44 @@ int main(int argc, char **argv)
         fprintf(stderr, RUNNER_NAME ": --reason %s is not one of the reasons of the format\n", o.reason);
         return 2;
     }
-    if (stat(o.plugin, &st) != 0 || !S_ISREG(st.st_mode) || realpath(o.plugin, realpath_buf) == NULL)
+    if (!strncmp(o.plugin, PROBE_LV2_PREFIX, strlen(PROBE_LV2_PREFIX)))
+    {
+        char *end;
+
+        lv2_uri = o.plugin + strlen(PROBE_LV2_PREFIX);
+        if (!child_set)
+            o.child = PROBE_LV2_CHILD;
+        /* today's LV2 pass measures at the highest rate asked for */
+        for (end = (char *)o.rates; *end;)
+        {
+            long v = strtol(end, &end, 10);
+
+            if (v > lv2_rate)
+                lv2_rate = v;
+            if (*end == ',')
+                end++;
+            else if (*end)
+                break;
+        }
+        if (!*lv2_uri || lv2_rate <= 0)
+        {
+            fprintf(stderr, RUNNER_NAME ": %s: an LV2 plugin is lv2:<uri>, measured at a positive rate\n", o.plugin);
+            return 2;
+        }
+    }
+    else if (stat(o.plugin, &st) != 0 || !S_ISREG(st.st_mode) || realpath(o.plugin, realpath_buf) == NULL)
     {
         fprintf(stderr, RUNNER_NAME ": %s: " "%s\n", o.plugin, OUT_NOT_FOUND);
         return 3;
     }
-    fd = open(realpath_buf, O_RDONLY | O_CLOEXEC);
-    if (fd < 0 || phd_pin_fd_digest(fd, sha) != 0)
+    fd = lv2_uri ? -1 : open(realpath_buf, O_RDONLY | O_CLOEXEC);
+    if (!lv2_uri && (fd < 0 || phd_pin_fd_digest(fd, sha) != 0))
     {
         fprintf(stderr, RUNNER_NAME ": %s: cannot be read\n", realpath_buf);
         return 2;
     }
-    close(fd);
+    if (fd >= 0)
+        close(fd);
 
     sched_getaffinity(0, sizeof(pinned), &pinned);
     if (o.cpus)
@@ -1421,62 +1700,40 @@ int main(int argc, char **argv)
     }
 
     t0 = now_ms();
+    if (o.log)
     {
-        step_t *s = add_step("hash", OUT_OK, now_ms() - t0);
+        int lfd = open(o.log, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
 
-        (void)s;
+        if (lfd >= 0)
+            close(lfd);
     }
-
     memset(&r, 0, sizeof(r));
     read_idle(g_idle_before, &g_nidle, &pinned);
-    run_child(&o, &pinned, pin_option, &r);
+    if (lv2_uri)
+    {
+        if (run_lv2(&o, lv2_uri, lv2_rate, &pinned, pin_option, t0 + o.wall_s * 1000, &r, &pin_line, &measure_line,
+                    &lv2_library, &run_outcome, &complete) == 3)
+            return 3;
+        if (lv2_library == NULL)
+        {
+            fprintf(stderr, RUNNER_NAME ": %s: no file of the plugin was pinned, so the document has no binary (%s)\n",
+                    o.plugin, run_outcome);
+            return 2;
+        }
+    }
+    else
+    {
+        char *argv_child[32];
+
+        add_step("hash", OUT_OK, now_ms() - t0);
+        clap_argv(&o, argv_child);
+        run_child(&o, argv_child, &pinned, pin_option, &r, t0 + o.wall_s * 1000);
+        run_outcome = child_end("lifecycle", &o, &r, &complete);
+    }
     read_idle(g_idle_after, &g_nidle, &pinned);
 
-    /* how the child ended */
-    {
-        const char *code = OUT_OK;
-        step_t *s = add_step("lifecycle", OUT_OK, now_ms() - r.started_ms);
-
-        if (r.protocol_error)
-            code = OUT_CHILD_PROTOCOL;
-        else if (r.cancelled)
-            code = OUT_CANCELLED;
-        else if (r.killed_by_deadline)
-            code = OUT_TIMEOUT;
-        else if (WIFSIGNALED(r.status))
-        {
-            int sig = WTERMSIG(r.status);
-
-            snprintf(s->signal, sizeof(s->signal), "%s", signal_name(sig));
-            code = sig == SIGXCPU ? OUT_CPU_LIMIT : sig == SIGXFSZ ? OUT_OUTPUT_LIMIT : sig == SIGSYS ? OUT_SANDBOX_DENIED : OUT_CRASHED;
-        }
-        else if (WIFEXITED(r.status))
-        {
-            s->exit_status = WEXITSTATUS(r.status);
-            if (s->exit_status == 120)
-            {
-                code = OUT_ERROR;
-                set_detail(s, "a limit could not be applied in the child");
-            }
-            else if (s->exit_status != 0 && r.out.len == 0)
-                code = OUT_ERROR;
-        }
-        s->outcome = code;
-        if (r.killed_by_deadline)
-            set_detail(s, "the wall clock of %ld s passed; the process tree was killed", o.wall_s);
-        if (r.cancelled)
-            set_detail(s, "the runner was told to stop; the process tree was killed");
-        if (r.leftovers && !s->detail[0])
-            set_detail(s, "%d process(es) left behind were killed", r.leftovers);
-        else if (r.leftovers)
-            snprintf(s->detail + strlen(s->detail), sizeof(s->detail) - strlen(s->detail), "; %d process(es) left behind were killed", r.leftovers);
-        run_outcome = code;
-        /* a crash keeps the steps before it; the run is complete only when the child finished */
-        complete = !strcmp(code, OUT_OK) && WIFEXITED(r.status);
-    }
-
     /* the child's facts, when it printed them */
-    if (r.out.len > 0)
+    if (!lv2_uri && r.out.len > 0)
     {
         r.out.s[strcspn(r.out.s, "\n")] = '\0';
         line = jparse(r.out.s);
@@ -1560,13 +1817,48 @@ int main(int argc, char **argv)
                   PHD_PROBE_PROTOCOL_VERSION);
         sb_printf(&doc, "    \"tools\": {\"runner\": \"" RUNNER_NAME " %s\", \"child\": ", PROBE_VERSION);
         sb_str(&doc, base_name(o.child));
-        sb_printf(&doc, "},\n    \"via\": \"runner\"\n  },\n  \"plugin\": {\"format\": \"clap\", \"id\": ");
-        sb_str(&doc, plugin_id ? plugin_id : o.id ? o.id : base_name(realpath_buf));
-        sb_printf(&doc, "},\n  \"binary\": {\"path\": ");
-        sb_str(&doc, realpath_buf);
-        sb_printf(&doc, ", \"sha256\": \"%s\", \"files\": [{\"path\": ", sha);
-        sb_str(&doc, base_name(o.plugin));
-        sb_printf(&doc, ", \"sha256\": \"%s\"}]", sha);
+        if (g_interposer[0])
+        {
+            sb_printf(&doc, ", \"interposer\": ");
+            sb_str(&doc, base_name(g_interposer));
+        }
+        sb_printf(&doc, "},\n    \"via\": \"runner\"\n  },\n  \"plugin\": {\"format\": \"%s\", \"id\": ", lv2_uri ? "lv2" : "clap");
+        if (lv2_uri)
+        {
+            const jnode_t *integ_lv2 = jget(pin_line, "integrity"), *files = jget(integ_lv2, "files");
+
+            sb_str(&doc, lv2_uri);
+            if (jstr(pin_line, "version"))
+            {
+                sb_printf(&doc, ", \"version\": ");
+                sb_str(&doc, jstr(pin_line, "version"));
+            }
+            /* the plugin's library is the binary; every file of the pin is listed, each with its digest */
+            sb_printf(&doc, "},\n  \"binary\": {\"path\": ");
+            sb_str(&doc, jstr(lv2_library, "path"));
+            sb_printf(&doc, ", \"sha256\": ");
+            sb_str(&doc, jstr(lv2_library, "sha256"));
+            sb_printf(&doc, ", \"files\": [");
+            for (k = 0; files && k < files->n; k++)
+            {
+                sb_printf(&doc, "%s{\"path\": ", k ? ", " : "");
+                sb_str(&doc, jstr(files->kid[k], "path") ? jstr(files->kid[k], "path") : "");
+                sb_printf(&doc, ", \"sha256\": ");
+                sb_str(&doc, jstr(files->kid[k], "sha256") ? jstr(files->kid[k], "sha256") : "");
+                sb_printf(&doc, "}");
+            }
+            sb_printf(&doc, "]");
+            layout_sha = jstr(jget(integ_lv2, "layout"), "sha256");
+        }
+        else
+        {
+            sb_str(&doc, plugin_id ? plugin_id : o.id ? o.id : base_name(realpath_buf));
+            sb_printf(&doc, "},\n  \"binary\": {\"path\": ");
+            sb_str(&doc, realpath_buf);
+            sb_printf(&doc, ", \"sha256\": \"%s\", \"files\": [{\"path\": ", sha);
+            sb_str(&doc, base_name(o.plugin));
+            sb_printf(&doc, ", \"sha256\": \"%s\"}]", sha);
+        }
         if (layout_sha && strlen(layout_sha) == PHD_SHA256_HEX_LEN)
             sb_printf(&doc, ", \"layout\": {\"scheme\": \"%s\", \"sha256\": \"%s\"}", PHD_PIN_LAYOUT_SCHEME, layout_sha);
         if (unmeasured && !strcmp(unmeasured, "unpinnable"))
@@ -1683,6 +1975,8 @@ int main(int argc, char **argv)
             }
             sb_printf(&doc, "\n  ]");
         }
+        if (lv2_uri && measure_line && jbool(measure_line, "instantiated", 0))
+            put_lv2_measure(&doc, measure_line, lv2_rate, o.quantum);
         if (WIFSIGNALED(r.status) && !r.killed_by_deadline && !r.cancelled)
         {
             sb_printf(&doc, ",\n  \"crash\": {\"signal\": \"%s\"}", signal_name(WTERMSIG(r.status)));

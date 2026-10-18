@@ -169,6 +169,117 @@ def the_limits_reach_the_child():
     check(doc["machine"]["pinnedCpus"] == str(cpus[0]), "pinnedCpus %s" % doc["machine"]["pinnedCpus"])
 
 
+# ---------------------------------------------------------------- LV2: the runner drives lv2_measure's passes
+
+LV2_CHILD = os.path.abspath(os.environ.get("PROBE_LV2_CHILD", os.path.join(ROOT, "tests", "lv2-probe-child")))
+LV2_BUNDLES = os.path.abspath(os.environ.get("LV2_FIXTURE_DIR", os.path.join(ROOT, "tests")))
+LV2_STRESS = "urn:plugin-hostd:test:stress"
+REAL_LV2_MEASURE = "/usr/libexec/plugin-qualify/lv2_measure"
+
+
+def run_lv2(fault=None, uri=LV2_STRESS, child=LV2_CHILD, wall=5, timeout=30, rates="48000,96000"):
+    """the runner over the LV2 stress fixture with the fake lv2_measure (or the real one)"""
+    work = tempfile.mkdtemp(prefix="plugin-hostd-probe-lv2.")
+    out = os.path.join(work, "probe.json")
+    pidfile = os.path.join(work, "forkpid")
+    e = dict(os.environ, STRESS_FORK_PIDFILE=pidfile, LV2_PATH=LV2_BUNDLES)
+    if fault:
+        e["STRESS_FAULT"] = fault
+    else:
+        e.pop("STRESS_FAULT", None)
+    cmd = [PROBE, "run", "--child", child, "--rates", rates, "--quantum", "256", "--wall-s", str(wall), "--grace-ms", "200",
+           "--log", os.path.join(work, "child.log"), "--out", out, "lv2:" + uri]
+    start = time.monotonic()
+    try:
+        p = subprocess.run(cmd, env=e, capture_output=True, text=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        kill_leftover(pidfile)
+        raise AssertionError("the runner did not return within %d s" % timeout)
+    took = time.monotonic() - start
+    doc = json.load(open(out)) if os.path.exists(out) else None
+    return p.returncode, doc, took, pidfile, p.stderr
+
+
+@test
+def an_lv2_plugin_is_pinned_then_measured_at_the_highest_rate():
+    code, doc, _, _, err = run_lv2()
+    check(doc is not None, "no document: exit %d %s" % (code, err))
+    valid(doc)
+    check(code == 0 and doc["run"]["complete"] and doc["run"]["outcome"] == "probe.ok", "exit %d run %s" % (code, doc["run"]))
+    check(doc["plugin"]["format"] == "lv2" and doc["plugin"]["id"] == LV2_STRESS, "plugin %s" % doc["plugin"])
+    files = {f["path"] for f in doc["binary"]["files"]}
+    check({"manifest.ttl", "plugin-hostd-fixture.so"} <= files, "the bundle's files are pinned: %s" % files)
+    check(doc["binary"]["path"] == "plugin-hostd-fixture.so", "binary is the library: %s" % doc["binary"]["path"])
+    check([s["step"] for s in doc["steps"]][:1] == ["hash"] and "rt-safety" in [s["step"] for s in doc["steps"]],
+          "steps %s" % [s["step"] for s in doc["steps"]])
+    check([(g["rate"], g["quantum"]) for g in doc["grid"]] == [(96000, 256)], "one point, the highest rate: %s" % doc["grid"])
+    rt = doc["grid"][0]["rtSafety"]
+    check(rt["blocks"] > 0 and "allocations" in rt and "locks" in rt and "syscalls" in rt, "rtSafety %s" % rt)
+    check(doc["run"]["tools"].get("interposer") == "rt_interpose.so" and rt["interposer"],
+          "measured under the interposer beside the child: %s %s" % (doc["run"]["tools"], rt))
+    b = doc["behaviour"]
+    check(b["lifecycle"]["cycles"] == b["lifecycle"]["instantiated"] > 0 and b["lifecycle"]["failed"] == 0, "lifecycle %s" % b)
+    check("threads" in b and "required" in b["features"], "threads and features %s" % b)
+
+
+@test
+def an_lv2_crash_keeps_the_pin_and_names_the_signal():
+    code, doc, _, _, err = run_lv2("crash")
+    check(doc is not None, "no document after a crash: %s" % err)
+    valid(doc)
+    check(code == 1, "exit status %d, a crash is 1" % code)
+    steps = doc["steps"]
+    check(steps[0]["step"] == "hash" and steps[0]["outcome"] == "probe.ok", "the pin pass before the crash is kept: %s" % steps)
+    check(steps[-1]["outcome"] == "probe.crashed" and steps[-1]["signal"] == "SIGABRT", "the step it died in: %s" % steps[-1])
+    check(doc["run"]["outcome"] == "probe.crashed" and not doc["run"]["complete"], "the run: %s" % doc["run"])
+    check(doc["crash"]["signal"] == "SIGABRT", "the crash block names the signal")
+
+
+@test
+def an_lv2_plugin_that_hangs_ends_at_the_wall_clock():
+    code, doc, took, _, _ = run_lv2("hang", wall=2, timeout=20)
+    check(code == 1, "exit status %d" % code)
+    valid(doc)
+    check(doc["run"]["outcome"] == "probe.timeout", "outcome %s" % doc["run"]["outcome"])
+    check(took < 2 + 0.2 + 1.5, "ended in %.1f s, the deadline and the grace being 2.2 s" % took)
+
+
+@test
+def a_process_an_lv2_plugin_left_in_its_own_session_is_gone_after_the_run():
+    code, doc, _, pidfile, _ = run_lv2("fork")
+    try:
+        check(os.path.exists(pidfile), "the stress plugin did not leave its process")
+        pid = int(open(pidfile).read())
+        time.sleep(0.2)
+        check(not os.path.exists("/proc/%d" % pid), "pid %d, the plugin's own-session process, is still alive" % pid)
+        valid(doc)
+        check("left behind were killed" in " ".join(s.get("detail", "") for s in doc["steps"]), "the document says it killed a leftover")
+    finally:
+        kill_leftover(pidfile)
+
+
+@test
+def an_lv2_plugin_no_bundle_holds_is_3_and_has_no_document():
+    code, doc, _, _, _ = run_lv2(uri="urn:plugin-hostd:test:nowhere")
+    check(code == 3 and doc is None, "exit %d, document %s" % (code, doc is not None))
+
+
+@test
+def the_real_lv2_measure_is_translated_when_it_is_installed():
+    if not os.access(REAL_LV2_MEASURE, os.X_OK):
+        print("skip the_real_lv2_measure_is_translated_when_it_is_installed: %s is not installed" % REAL_LV2_MEASURE)
+        return
+    code, doc, _, _, err = run_lv2(uri="urn:plugin-hostd:test:gain", child=REAL_LV2_MEASURE, wall=60, timeout=120)
+    check(doc is not None, "no document: exit %d %s" % (code, err))
+    valid(doc)
+    check(doc["run"]["outcome"] == "probe.ok", "the gain fixture measures: %s %s" % (doc["run"], doc["steps"]))
+    check(doc["binary"]["layout"]["scheme"] == "omx-layout/1", "the real child's layout pin is kept: %s" % doc["binary"])
+    check(doc["grid"][0]["rtSafety"]["blocks"] > 0, "rtSafety %s" % doc["grid"])
+    if os.path.exists(os.path.join(os.path.dirname(REAL_LV2_MEASURE), "rt_interpose.so")):
+        check(doc["run"]["tools"].get("interposer") == "rt_interpose.so" and doc["grid"][0]["rtSafety"]["interposer"],
+              "the measurement ran under plugin-qualify's interposer: %s %s" % (doc["run"]["tools"], doc["grid"][0]["rtSafety"]))
+
+
 for t in tests:
     if ONLY and t.__name__ != ONLY:
         continue
