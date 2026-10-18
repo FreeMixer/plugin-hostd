@@ -369,6 +369,24 @@ the instance runs takes effect at its next replay. Files that differ from the pi
 verdict was given for the pinned files only. A plugin that changed since it was pinned is refused (-509, or -510 from the worker), the
 `pin_changed <uri> files|layout` event names what changed, and `pin_accept <uri>` takes the new pin.
 
+Pins that ship with packages live in a read-only layer of their own, under the host's. At start the daemon reads
+every `*.pins` file of `pins_dir` (`/usr/share/plugin-hostd/pins.d` by default; empty is none), in byte order of
+their names, in the same line format. A package drops its own file there, so its plugins and their pins are replaced
+in one transaction and removed together; plugin-hostd owns the directory and another package may co-own it. The
+daemon never writes it. A pin from this layer is trusted as it is, in both pin modes. The rules:
+
+- A pins.d pin with `verdict=refused` always holds. The pin store, a `pin_file` and `pin_set` never override it:
+  `pin_set` and `pin_accept` of its uri answer `-516` (`PIN_REFUSED`), and a line of the store or of the `pin_file`
+  for it is kept but has no effect, which stderr says at start.
+- Any other pins.d pin is under the host's layer. A pin of the same uri in the store, the `pin_file` or from
+  `pin_set` holds over it, and `pin_accept` of a plugin whose files differ from its package pin records the new files
+  in the store, which then hold. `pin_clear` forgets the host's pin only: the package pin holds again.
+- When two pins.d files hold the same uri, a refusal wins; otherwise the file last in name order wins. Two lines of
+  one file follow the same rule, the later line in place of the later file.
+- A line outside the grammar, or longer than a pin line can be, is skipped and named on stderr; the rest of the file
+  is read. A file that cannot be read is named on stderr and skipped. A directory that is missing or empty holds no
+  pins and is no error.
+
 What cannot be pinned:
 
 <!-- BEGIN GENERATED protocol:pin-limits -->
