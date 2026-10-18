@@ -121,7 +121,7 @@ private-refs:
 
 # clean rule
 clean:
-	@rm -f src/*.o $(PROG) $(PROBE) tests/probe-child $(FAKE) $(PIN_TEST) $(FORMAT_TEST) $(GEN) tests/stress.clap tests/jack_levels tests/host_scenarios $(LV2_FIXTURE)
+	@rm -f src/*.o $(PROG) $(PROBE) tests/probe-child tests/lv2-probe-child tests/rt_interpose.so $(FAKE) $(PIN_TEST) $(FORMAT_TEST) $(GEN) tests/stress.clap tests/jack_levels tests/host_scenarios $(LV2_FIXTURE)
 
 # the daemon against workers that are not plugin hosts at all (tests/fake-host speaks the same protocol and can be
 # made to die on cue): placement, forwarding, ledger, replay, attribution, the storm bound; no jack, no plugin
@@ -164,7 +164,7 @@ tests/stress.clap: tests/stress_plugin.c
 	$(CC) $(CLAP_CFLAGS) $(CFLAGS) -Werror -shared -o $@ $<
 
 # every guard broken on purpose, one at a time: its test must go red
-sabotage: $(PROG) $(FAKE)
+sabotage: $(PROG) $(FAKE) tests/lv2-probe-child tests/rt_interpose.so $(LV2_FIXTURE)
 	MOD_HOST_DIR=$(MOD_HOST_DIR) FAKE_HOST=./$(FAKE) python3 tests/sabotage.py
 
 # the jack server the real-worker tests run over: pipewire's own jack implementation (default) or JACK2's jackd
@@ -261,8 +261,15 @@ check-schema:
 
 # the probe runner over the stress plugin: crash, hang and a process left behind each give the named outcome in a document
 # that validates
-test-probe: $(PROBE) tests/probe-child tests/stress.clap
+test-probe: $(PROBE) tests/probe-child tests/stress.clap tests/lv2-probe-child tests/rt_interpose.so $(LV2_FIXTURE)
 	python3 tests/probe_test.py
+
+# lv2_measure's arguments and lines, with no lilv and no interposer: the LV2 tests of the runner load the fixture with it
+tests/lv2-probe-child: tests/lv2_probe_child.c include/plugin-hostd/pin.h
+	$(CC) -Iinclude $(shell $(PKG_CONFIG) --cflags lv2) $(CFLAGS) -Wall -Wextra -Werror -o $@ $< -ldl
+
+tests/rt_interpose.so: tests/rt_interpose_stub.c
+	$(CC) $(CFLAGS) -Werror -shared -o $@ $<
 
 tests/probe-child: tests/probe_child.c
 	$(CC) $(CLAP_CFLAGS) $(CFLAGS) -Wall -Wextra -Werror -o $@ $< -ldl

@@ -4,12 +4,16 @@
  * runs, under three URIs. "gain" is the one omx-clap-host's adapter takes; "atom-in" adds an atom input that supports
  * no MIDI, which the adapter refuses (hosting.features.midi-in-fed-empty) and mod-host runs; "based" is "gain" again
  * under http://plugin-hostd.invalid/fixture/based, named in a manifest the test writes with an @base, so lilv finds it
- * and the adapter's search of the manifest text does not (resp -101). The ports, by index: 0 in, 1 out, 2 gain (a
- * factor), 3 events (atom-in only). */
+ * and the adapter's search of the manifest text does not (resp -101). "stress" is "gain" that breaks on cue, for the
+ * probe runner's LV2 tests (tests/probe_test.py). The ports, by index: 0 in, 1 out, 2 gain (a factor), 3 events
+ * (atom-in only). */
 
+#include <signal.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include <lv2/core/lv2.h>
 
@@ -56,6 +60,48 @@ static void run(LV2_Handle instance, uint32_t frames)
         f->out[n] = f->in[n] * gain;
 }
 
+/* stress: the gain, with the fault STRESS_FAULT names on its first run() in the process, as tests/stress_plugin.c does
+ * for CLAP: crash aborts, hang spins forever, fork leaves a process of its own session behind (its pid written to the
+ * file STRESS_FORK_PIDFILE names) */
+static void fault_once(void)
+{
+    static int done;
+    const char *fault = getenv("STRESS_FAULT");
+
+    if (done || !fault)
+        return;
+    done = 1;
+    if (!strcmp(fault, "crash"))
+        abort();
+    if (!strcmp(fault, "hang"))
+        for (;;)
+            ;
+    if (!strcmp(fault, "fork") && fork() == 0)
+    {
+        const char *pidfile = getenv("STRESS_FORK_PIDFILE");
+
+        setsid();
+        if (pidfile)
+        {
+            FILE *f = fopen(pidfile, "w");
+
+            if (f)
+            {
+                fprintf(f, "%d\n", (int)getpid());
+                fclose(f);
+            }
+        }
+        sleep(60);
+        _exit(0);
+    }
+}
+
+static void run_stress(LV2_Handle instance, uint32_t frames)
+{
+    fault_once();
+    run(instance, frames);
+}
+
 static void cleanup(LV2_Handle instance)
 {
     free(instance);
@@ -64,6 +110,7 @@ static void cleanup(LV2_Handle instance)
 static const LV2_Descriptor DESCRIPTORS[] = {
     { FIXTURE_URI "gain", instantiate, connect_port, NULL, run, NULL, cleanup, NULL },
     { FIXTURE_URI "atom-in", instantiate, connect_port, NULL, run, NULL, cleanup, NULL },
+    { FIXTURE_URI "stress", instantiate, connect_port, NULL, run_stress, NULL, cleanup, NULL },
     { FIXTURE_BASE "based", instantiate, connect_port, NULL, run, NULL, cleanup, NULL },
 };
 

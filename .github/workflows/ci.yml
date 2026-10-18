@@ -39,7 +39,7 @@ jobs:
     steps:
       - name: Install the build tools
         run: |
-          dnf install -y --setopt=install_weak_deps=False git dnf5-plugins gcc make python3 pkgconf-pkg-config clap-devel \
+          dnf install -y --setopt=install_weak_deps=False git dnf5-plugins gcc make python3 pkgconf-pkg-config clap-devel lv2-devel \
             pipewire-jack-audio-connection-kit-devel pipewire pipewire-utils iproute util-linux procps-ng diffutils python3-jsonschema
 
       - uses: actions/checkout@v4

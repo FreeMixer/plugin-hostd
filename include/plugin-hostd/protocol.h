@@ -119,6 +119,11 @@
 #define PHD_PROBE_FORMAT_MINOR 0
 #define PHD_PROBE_PROTOCOL_NAME "plugin-hostd.probe-protocol"
 #define PHD_PROBE_PROTOCOL_VERSION 1
+/* version 1 of the probe protocol runs an LV2 plugin as plugin-qualify's LV2 hosting pass does today
+ * (LV2_HOSTING_LIFECYCLES, LV2_HOSTING_REPEATS), so the verdicts from its documents equal today's: this many
+ * instantiate/destroy cycles and swept rt-safety runs, at the highest rate asked for */
+#define PHD_PROBE_LV2_LIFECYCLES 30
+#define PHD_PROBE_LV2_REPEATS 3
 
 /* how a step, a grid point or the whole run ended: X(id, code, meaning) */
 #define PHD_PROBE_OUTCOMES(X) \
