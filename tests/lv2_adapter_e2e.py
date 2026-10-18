@@ -13,7 +13,9 @@ MOD_HOST = os.environ["MOD_HOST"]
 FIXTURE = os.environ["LV2_FIXTURE"]            # the directory of plugin-hostd-fixture.lv2, built
 ADAPTER_BUNDLES = os.environ["ADAPTER_BUNDLES"]  # omx-clap-core's build/lv2: omx-host-fixture.lv2 and its refused twins
 GAIN = "urn:plugin-hostd:test:gain"
-ATOM_IN = "urn:plugin-hostd:test:atom-in"
+ATOM_IN = "urn:plugin-hostd:test:atom-in"            # the adapter takes it; mod-host runs it with the notes by jack
+FIXED_BLOCK = "urn:plugin-hostd:test:fixed-block"    # requires a host feature the adapter lacks
+MISSING = "hosting.features.missing"
 BASED = "http://plugin-hostd.invalid/fixture/based"
 BASE = "http://plugin-hostd.invalid/fixture/"
 HOST_FIXTURE = "urn:openmixer:test:host-fixture"
@@ -101,7 +103,7 @@ def lv2_worker_omx_clap_host_runs_an_lv2_plugin_through_the_adapter():
 def a_plugin_the_adapter_refuses_answers_512_and_the_event_carries_the_code_of_its_reply():
     r = Run(both(), lv2_worker="omx-clap-host")
     try:
-        for i, (uri, code) in enumerate(((ATOM_IN, "hosting.features.midi-in-fed-empty"),
+        for i, (uri, code) in enumerate(((FIXED_BLOCK, MISSING),
                                          (HOST_FIXTURE + "#wide", "hosting.topology.wider-than-strip"),
                                          (HOST_FIXTURE + "#fixed", "hosting.features.missing"))):
             mark = r.d.mark()
@@ -113,7 +115,7 @@ def a_plugin_the_adapter_refuses_answers_512_and_the_event_carries_the_code_of_i
         r.d.expect("add lv2:%s 0 pool:fx" % GAIN, "resp 0")
         for i, (uri, code) in enumerate(((HOST_FIXTURE + "#fixed", "hosting.features.missing"),
                                          (HOST_FIXTURE + "#wide", "hosting.topology.wider-than-strip"),
-                                         (ATOM_IN, "hosting.features.midi-in-fed-empty")), 1):
+                                         (FIXED_BLOCK, MISSING)), 1):
             mark = r.d.mark()
             r.d.expect("add lv2:%s %d pool:fx" % (uri, i), resp("LV2_ADAPTER_REFUSED"))
             event = r.d.wait_event(REFUSED + " ", since=mark)
@@ -130,15 +132,15 @@ def under_auto_a_plugin_the_adapter_refuses_runs_on_mod_host():
         r.d.expect("add lv2:%s 0" % GAIN, "resp 0")
         check(r.program(0) == "omx-clap-host", "auto asks the adapter first: %s" % r.d.workers())
         mark = r.d.mark()
-        r.d.expect("add lv2:%s 1" % ATOM_IN, "resp 1")
+        r.d.expect("add lv2:%s 1" % FIXED_BLOCK, "resp 1")
         event = r.d.wait_event(REFUSED + " ", since=mark)
-        check(event == "%s %s hosting.features.midi-in-fed-empty auto" % (REFUSED, ATOM_IN), "the event: %r" % event)
+        check(event == "%s %s %s auto" % (REFUSED, FIXED_BLOCK, MISSING), "the event: %r" % event)
         check(r.d.holder(1)[1]["fmt"] == "lv2" and r.program(1) == "mod-host", "mod-host runs it: %s" % r.d.workers())
         wait_for(lambda: client_ports(1), "effect_1's ports on the graph")
         r.d.expect("param_set 1 gain 0.25", "resp 0")
         r.d.expect("param_get 1 gain", "resp 0 0.2500")
         before = r.started().count("omx-clap-host")
-        r.d.expect("add lv2:%s 2" % ATOM_IN, "resp 2")
+        r.d.expect("add lv2:%s 2" % FIXED_BLOCK, "resp 2")
         check(r.program(2) == "mod-host" and r.started().count("omx-clap-host") == before,
               "the next add goes straight to mod-host: %s" % r.started())
         check(len(r.refusals(mark)) == 1, "and the event was sent once: %s" % r.refusals(mark))
