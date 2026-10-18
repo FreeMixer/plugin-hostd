@@ -1159,6 +1159,10 @@ static char *add(const char *uri, int id, const char *placement, const char *cli
         snprintf(place, sizeof(place), "%s", g_policy[fmt]);
     else
         snprintf(place, sizeof(place), "%s", placement);
+    /* a plugin the adapter refused under auto was never run by it: one that dies in instantiate (a Qt body with no
+     * display) must not take a shared worker with it, so unless the caller named a placement it gets one of its own */
+    if ((!placement || !strcmp(placement, PHD_PLACE_DEFAULT)) && lv2_refused_under_auto(&g_conf, fmt, fwd))
+        snprintf(place, sizeof(place), PHD_PLACE_OWN);
     m = meta_of(id);
     if (m->quarantined)
         snprintf(place, sizeof(place), PHD_PLACE_OWN);
@@ -1252,7 +1256,10 @@ static char *add(const char *uri, int id, const char *placement, const char *cli
         rc = proc_rpc(&g_conf, w->pid, w->fd, line, &reply);
     if (rc != RPC_OK)
     {
-        /* the worker went with `add` or its pin_expect on the wire: the instance is the suspect */
+        /* the worker went with `add` or its pin_expect on the wire: the instance is the suspect, and the event names
+         * the plugin it died adding (the pin_expect's own was sent above) */
+        if (code != PHD_ERR_VERB_DROPPED)
+            event(PHD_EVENT_VERB_DROPPED_FMT, id, line);
         m->crashes++;
         note_death(m->deaths, &m->ndeaths, now);
         if (w->pool)
