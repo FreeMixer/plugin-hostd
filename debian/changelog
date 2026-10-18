@@ -1,3 +1,24 @@
+plugin-hostd (0.5.0) unstable; urgency=medium
+
+  * plugin-hostd-probe runs LV2 plugins too: `run lv2:<uri>` measures a
+    plugin through plugin-qualify's lv2_measure, the pin pass and then the
+    measurement, each a child under the same limits and wall clock. The
+    bundle's files become the document's binary. A plugin of which nothing
+    can be pinned exits 2 with no document, and stderr starts with its
+    outcome code (probe.unpinnable).
+  * A pin whose verdict is refused refuses the add with the new code
+    PIN_REFUSED (-516), after the files are checked against the pin; an
+    instance whose pin turns refused is refused at its next replay.
+  * Under lv2_worker auto, a plugin the LV2 adapter refused gets a worker of
+    its own unless the add names a placement, so a plugin that aborts on
+    mod-host no longer takes a pool's other instances with it. An add whose
+    worker dies on it also sends instance_verb_dropped, which names it.
+  * A worker whose feedback the relay cannot follow is not started: the add
+    answers -503. With no memory the relay closes a worker's socket instead
+    of leaving it unread, and its poll set no longer crashes the daemon.
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Sun, 18 Oct 2026 20:00:00 +0000
+
 plugin-hostd (0.4.0) unstable; urgency=medium
 
   * New tool plugin-hostd-probe: it starts a program that loads a plugin

@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.4.0
+Version: 0.5.0
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -104,6 +104,24 @@ make test-daemon check-generated
 %{_datadir}/plugin-hostd/probe-output.schema.json
 
 %changelog
+* Sun Oct 18 2026 Pau Aliagas <linuxnow@gmail.com> - 0.5.0-1
+- plugin-hostd-probe runs LV2 plugins too: `run lv2:<uri>` measures a
+  plugin through plugin-qualify's lv2_measure, the pin pass and then the
+  measurement, each a child under the same limits and wall clock. The
+  bundle's files become the document's binary. A plugin of which nothing
+  can be pinned exits 2 with no document, and stderr starts with its
+  outcome code (probe.unpinnable).
+- A pin whose verdict is refused refuses the add with the new code
+  PIN_REFUSED (-516), after the files are checked against the pin; an
+  instance whose pin turns refused is refused at its next replay.
+- Under lv2_worker auto, a plugin the LV2 adapter refused gets a worker of
+  its own unless the add names a placement, so a plugin that aborts on
+  mod-host no longer takes a pool's other instances with it. An add whose
+  worker dies on it also sends instance_verb_dropped, which names it.
+- A worker whose feedback the relay cannot follow is not started: the add
+  answers -503. With no memory the relay closes a worker's socket instead
+  of leaving it unread, and its poll set no longer crashes the daemon.
+
 * Sun Oct 18 2026 Pau Aliagas <linuxnow@gmail.com> - 0.4.0-1
 - New tool plugin-hostd-probe: it starts a program that loads a plugin
   (clap-qualify by default) under limits of CPU time, memory, open files,
