@@ -52,7 +52,8 @@
  *   preset_list <n>             "resp 2", and preset_get <n> <0|1> one preset each, -902 for any other index
  *   track_info <n> ...          "resp 0"; the fake keeps nothing of it (FAKE_LOG shows what it was sent)
  *   note_input <n>              "resp 0 midi_in" for an instance whose uri holds "synth", "resp 0 -" for any other
- *   note_on, note_off, all_notes_off <n> ...   "resp 0" for a synth, PHD_ERR_NO_NOTE_INPUT for any other; the fake
+ *   note_on, note_off, all_notes_off <n> ...   "resp 0" for a synth, PHD_ERR_NOTE_QUEUE_FULL for one whose uri holds
+ *                               "synth_full", PHD_ERR_NO_NOTE_INPUT for any other; the fake
  *                               plays nothing (FAKE_LOG shows what it was sent)
  *   set_bpm, set_bpb, transport, transport_sync   "resp 0", as mod-host answers them, -902 with FAKE_REFUSE_SETTINGS, as
  *                               omx-clap-host answers them; the fake keeps nothing of them
@@ -101,6 +102,7 @@ typedef struct INST_T {
     int exists;
     int nostate;
     int synth;
+    int full;   /* a synth whose note queue is always full */
     char client[64];
     char name[MAX_PARAMS][64];
     char text[MAX_PARAMS][128];
@@ -310,6 +312,7 @@ static void receive(msg_t *msg)
             g_expect[id][0] = '\0';
             g_inst[id].nostate = strstr(tok[1], "nostate") != NULL;
             g_inst[id].synth = strstr(tok[1], "synth") != NULL;
+            g_inst[id].full = strstr(tok[1], "synth_full") != NULL;
             snprintf(g_inst[id].client, sizeof(g_inst[id].client), "%s", ntok > 3 ? tok[3] : "");
             answer(fd, "resp %d", id);
         }
@@ -449,7 +452,7 @@ static void receive(msg_t *msg)
     else if (!strcmp(verb, PHD_VERB_NOTE_INPUT) && ntok == 2)
         answer(fd, "resp 0 %s", g_inst[n].synth ? "midi_in" : PHD_NO_NOTE_INPUT);
     else if (!strcmp(verb, PHD_VERB_NOTE_ON) || !strcmp(verb, PHD_VERB_NOTE_OFF) || !strcmp(verb, PHD_VERB_ALL_NOTES_OFF))
-        answer(fd, "resp %d", g_inst[n].synth ? 0 : PHD_ERR_NO_NOTE_INPUT);
+        answer(fd, "resp %d", !g_inst[n].synth ? PHD_ERR_NO_NOTE_INPUT : g_inst[n].full ? PHD_ERR_NOTE_QUEUE_FULL : 0);
     else if (!strcmp(verb, PHD_VERB_REMOTE_PAGES) && ntok == 2)
         answer(fd, "resp 2");
     else if (!strcmp(verb, PHD_VERB_REMOTE_PAGE_GET) && ntok == 3 && !strcmp(tok[2], "0"))

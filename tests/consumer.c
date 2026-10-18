@@ -26,6 +26,26 @@ int main(void)
 #define X(id, meaning) errors++; check(PHD_ERR_##id < 0, #id " is a refusal");
     PHD_ERRORS(X)
 #undef X
+    /* each code is the supervisor's own, in its hundred, and no two rows share one: a reply names one refusal */
+    {
+        static const int codes[] = {
+#define X(id, meaning) PHD_ERR_##id,
+            PHD_ERRORS(X)
+#undef X
+        };
+        size_t a, b;
+
+        for (a = 0; a < sizeof(codes) / sizeof(codes[0]); a++)
+        {
+            check(codes[a] <= -501 && codes[a] >= -599, "every code is in the -5xx hundred");
+            for (b = a + 1; b < sizeof(codes) / sizeof(codes[0]); b++)
+                if (codes[a] == codes[b])
+                {
+                    printf("FAIL two errors share the code %d\n", codes[a]);
+                    failures++;
+                }
+        }
+    }
 #define X(id, name, args, rep, meaning) verbs++; check(*name && *rep, #id " is named and answers");
     PHD_VERBS(X)
 #undef X
