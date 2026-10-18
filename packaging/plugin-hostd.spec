@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.3.0
+Version: 0.4.0
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -104,6 +104,37 @@ make test-daemon check-generated
 %{_datadir}/plugin-hostd/probe-output.schema.json
 
 %changelog
+* Sun Oct 18 2026 Pau Aliagas <linuxnow@gmail.com> - 0.4.0-1
+- New tool plugin-hostd-probe: it starts a program that loads a plugin
+  (clap-qualify by default) under limits of CPU time, memory, open files,
+  file size and real-time priority, kills the whole process tree on the
+  deadline, and writes the facts of the run as a JSON document. Its manual
+  page is installed, and plugin-hostd-devel ships the document's schema in
+  /usr/share/plugin-hostd/probe-output.schema.json.
+- Notes: the instance verbs note_input, note_on, note_off and
+  all_notes_off pass notes to a worker that takes them; an effect answers
+  -513, and an LV2 instance on mod-host answers -514 (play it through its
+  JACK MIDI port).
+- The tempo and transport (set_bpm, set_bpb, transport, transport_sync) are
+  kept by the daemon and handed to every worker when it starts or restarts.
+- Presets: preset_list and preset_get list an instance's presets by the key
+  preset_load takes; an LV2 instance on mod-host answers -515.
+- The events param_gesture and remote_page_suggest are relayed. When a
+  worker dies or an instance is removed in the middle of a gesture, the
+  daemon sends the gesture's end itself.
+- Under lv2_worker auto, a plugin the adapter refused is asked again after
+  lv2_worker_set, pin_set, pin_accept or pin_clear.
+- param_info on a CLAP instance passes the worker's answer through; -511
+  (no checked unit and scale) is documented.
+- mod-host-protocol 0.10.6.f14a230-11.1 or newer is required: older builds
+  hang on a command of exactly the socket's buffer size and run only the
+  first of several commands that arrive in one read.
+- A worker line too long to relay is now dropped whole; before, its tail
+  reached the controller as a line of its own.
+- Numbers are refused when written as -0, so zero has a single spelling.
+- The package builds without omx-clap-core; omx-clap-host-tests is needed
+  only to run the tests.
+
 * Fri Oct 16 2026 Pau Aliagas <linuxnow@gmail.com> - 0.3.0-1
 - You choose which program runs LV2 plugins: mod-host, omx-clap-host or auto
   (the setting lv2_worker, changed with the lv2_worker_set command). A host
