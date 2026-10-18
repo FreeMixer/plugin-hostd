@@ -78,7 +78,7 @@
   "string_max": 255,
   "events": [
     {"name": "worker_died", "fields": "<worker> <pid> <exit:N | signal:N> <instance>,...", "meaning": "a worker died; the instances it held, or - for none"},
-    {"name": "instance_verb_dropped", "fields": "<instance> <the command as sent>", "meaning": "the command a worker died on, dropped from the ledger, or the pin_expect of an add it died on"},
+    {"name": "instance_verb_dropped", "fields": "<instance> <the command as sent>", "meaning": "the command a worker died on, dropped from the ledger; or the add it died on, the add as the worker was given it, which names the plugin, or the pin_expect of that add"},
     {"name": "instance_verb_dropped", "fields": "<instance> suspect:<ms> <the command as sent>", "meaning": "the last verb a worker answered when it died inside suspect_window_ms, <ms> the age of the reply"},
     {"name": "worker_backoff", "fields": "<worker> <ms>", "meaning": "the respawn waits this long"},
     {"name": "worker_respawned", "fields": "<worker> <pid> <replayed_count> <ms>", "meaning": "a worker is back and its ledger replayed"},
@@ -116,7 +116,7 @@
   "config": [
     {"key": "mod_host", "type": "string", "default": "mod-host", "env": "", "meaning": "worker for lv2 (a name on PATH or a path)"},
     {"key": "clap_host", "type": "string", "default": "omx-clap-host", "env": "", "meaning": "worker for clap"},
-    {"key": "lv2_worker", "type": "string", "default": "mod-host", "env": "", "meaning": "who runs an LV2 plugin: mod-host (the mod_host program), omx-clap-host (the clap_host program, through its LV2 adapter, a plugin it cannot run refused with a code) or auto (the adapter first, mod-host for what it refuses); lv2_worker_set overrides it for one plugin"},
+    {"key": "lv2_worker", "type": "string", "default": "mod-host", "env": "", "meaning": "who runs an LV2 plugin: mod-host (the mod_host program), omx-clap-host (the clap_host program, through its LV2 adapter, a plugin it cannot run refused with a code) or auto (the adapter first, mod-host for what it refuses, each such plugin in a worker of its own unless its add names a placement); lv2_worker_set overrides it for one plugin"},
     {"key": "lv2_path", "type": "string", "default": "/usr/lib64/lv2:/usr/lib/lv2:/usr/local/lib/lv2", "env": "LV2_PATH", "meaning": "where bundles are searched"},
     {"key": "state_root", "type": "string", "default": "/tmp", "env": "XDG_RUNTIME_DIR", "meaning": "the daemon's checkpoints and worker logs"},
     {"key": "pin_mode", "type": "string", "default": "first-use", "env": "", "meaning": "strict or first-use, while require_pins is 1: first-use records the pin of a plugin on its first add, strict admits only a plugin a controller or a pin_file pinned"},

@@ -94,6 +94,8 @@ void lv2_adapter_refused(const char *uri);
 void lv2_refusals_forget(const char *uri);
 /* whether the lv2_worker in force for the uri is auto */
 int lv2_worker_is_auto(const conf_t *conf, const char *uri);
+/* whether `format` is the lv2 row running the uri because the adapter refused it under auto */
+int lv2_refused_under_auto(const conf_t *conf, int format, const char *uri);
 /* the hosting.* code an adapter's refusal carries after the error code on its reply line, "-" for none, in buf */
 void lv2_refusal_reason(const char *reply, char *buf, size_t size);
 

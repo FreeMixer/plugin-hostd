@@ -100,7 +100,7 @@ The settings live in a file, `-c`, `$PLUGIN_HOSTD_CONF` or
 |---|---|---|
 | `mod_host` | `mod-host` | worker for lv2 (a name on PATH or a path) |
 | `clap_host` | `omx-clap-host` | worker for clap |
-| `lv2_worker` | `mod-host` | who runs an LV2 plugin: mod-host (the mod_host program), omx-clap-host (the clap_host program, through its LV2 adapter, a plugin it cannot run refused with a code) or auto (the adapter first, mod-host for what it refuses); lv2_worker_set overrides it for one plugin |
+| `lv2_worker` | `mod-host` | who runs an LV2 plugin: mod-host (the mod_host program), omx-clap-host (the clap_host program, through its LV2 adapter, a plugin it cannot run refused with a code) or auto (the adapter first, mod-host for what it refuses, each such plugin in a worker of its own unless its add names a placement); lv2_worker_set overrides it for one plugin |
 | `lv2_path` | `$LV2_PATH`, else `/usr/lib64/lv2:/usr/lib/lv2:/usr/local/lib/lv2` | where bundles are searched |
 | `state_root` | `$XDG_RUNTIME_DIR`, else `/tmp` | the daemon's checkpoints and worker logs |
 | `pin_mode` | `first-use` | strict or first-use, while require_pins is 1: first-use records the pin of a plugin on its first add, strict admits only a plugin a controller or a pin_file pinned |
@@ -257,7 +257,7 @@ Events on the feedback port, one NUL-terminated line each:
 | event | fields | meaning |
 |---|---|---|
 | `worker_died` | `<worker> <pid> <exit:N \| signal:N> <instance>,...` | a worker died; the instances it held, or - for none |
-| `instance_verb_dropped` | `<instance> <the command as sent>` | the command a worker died on, dropped from the ledger, or the pin_expect of an add it died on |
+| `instance_verb_dropped` | `<instance> <the command as sent>` | the command a worker died on, dropped from the ledger; or the add it died on, the add as the worker was given it, which names the plugin, or the pin_expect of that add |
 | `instance_verb_dropped` | `<instance> suspect:<ms> <the command as sent>` | the last verb a worker answered when it died inside suspect_window_ms, <ms> the age of the reply |
 | `worker_backoff` | `<worker> <ms>` | the respawn waits this long |
 | `worker_respawned` | `<worker> <pid> <replayed_count> <ms>` | a worker is back and its ledger replayed |
@@ -431,6 +431,11 @@ row, the plugin stays there, the event is sent once, and the controller never se
 the adapter has a reason to take the plugin again: `lv2_worker_set` of that uri (to any word, `-` included) forgets it, and
 so does a change of pins (`pin_set`, `pin_accept`, `pin_clear`) for every plugin; the next add under `auto` asks the
 adapter once more.
+
+A plugin the adapter refused under `auto` runs on the `lv2` row in a worker of its own, whatever the policy says, unless
+its add names a placement. The adapter never ran it, so nothing says it is safe in a shared worker. Some plugins abort
+in instantiate: drumkv1, samplv1 and synthv1 do, through Qt, when no display is set. Such a plugin takes down only
+its own worker. The add answers `-102`, and an `instance_verb_dropped` event names the add with its uri.
 
 A plugin that no bundle of the worker's world holds is not a refusal: the worker answers `resp -101` with no code. Under
 `omx-clap-host` the add answers that `-101`, with no event. Under `auto` the same add is made on the `lv2` row, so mod-host
