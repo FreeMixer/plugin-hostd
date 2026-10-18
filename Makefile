@@ -7,6 +7,7 @@ VERSION = $(shell sed -n "s/^Version: *//p" packaging/plugin-hostd.spec)
 FAKE = tests/fake-host
 FORMAT_TEST = tests/format-test
 PIN_TEST = tests/pin-test
+RELAY_TEST = tests/relay-test
 PROBE = plugin-hostd-probe
 
 PKG_CONFIG ?= pkg-config
@@ -28,6 +29,10 @@ endif
 # the directory holding mod-host's protocol headers, which protocol/mod-host.json is written from: the -I of the
 # protocol's flags (mod-host-protocol.pc names <includedir>/mod-host), or MOD_HOST_INCLUDE=<dir> on the command line
 MOD_HOST_INCLUDE ?= $(patsubst -I%,%,$(firstword $(filter -I%,$(PROTOCOL_CFLAGS))))
+
+# omx-contract's C header (omx-contract-devel, libomx-contract-dev): the probe runner's default rates and the protocol's
+# parameter scales are read from it; CONTRACT_CFLAGS=-I<dir> for a header that is not installed
+CONTRACT_CFLAGS ?= $(shell $(PKG_CONFIG) --cflags omx-contract 2>/dev/null)
 
 # CLAP headers for the test plugin: pkg-config when clap-devel is installed, CLAP_CFLAGS=-I<dir> otherwise
 CLAP_CFLAGS ?= $(shell $(PKG_CONFIG) --cflags clap 2>/dev/null)
@@ -59,7 +64,7 @@ $(PROG): $(OBJ) $(PROTOCOL_LIB)
 
 # the probe runner: it loads no plugin and links nothing of the daemon or of mod-host
 $(PROBE): src/probe.c include/plugin-hostd/protocol.h include/plugin-hostd/pin.h
-	$(CC) -Iinclude $(CFLAGS) -D_GNU_SOURCE -DPROBE_VERSION='"$(VERSION)"' -o $@ src/probe.c
+	$(CC) -Iinclude $(CONTRACT_CFLAGS) $(CFLAGS) -D_GNU_SOURCE -DPROBE_VERSION='"$(VERSION)"' -o $@ src/probe.c
 
 ifneq ($(PROTOCOL_LIB),)
 $(PROTOCOL_LIB):
@@ -121,11 +126,11 @@ private-refs:
 
 # clean rule
 clean:
-	@rm -f src/*.o $(PROG) $(PROBE) tests/probe-child tests/lv2-probe-child tests/rt_interpose.so $(FAKE) $(PIN_TEST) $(FORMAT_TEST) $(GEN) tests/stress.clap tests/jack_levels tests/host_scenarios $(LV2_FIXTURE)
+	@rm -f src/*.o $(PROG) $(PROBE) tests/probe-child tests/lv2-probe-child tests/rt_interpose.so $(FAKE) $(PIN_TEST) $(RELAY_TEST) tests/relay-test-relay.o $(FORMAT_TEST) $(GEN) tests/stress.clap tests/jack_levels tests/host_scenarios $(LV2_FIXTURE)
 
 # the daemon against workers that are not plugin hosts at all (tests/fake-host speaks the same protocol and can be
 # made to die on cue): placement, forwarding, ledger, replay, attribution, the storm bound; no jack, no plugin
-test: test-pin test-format test-daemon check-generated check-schema test-probe-schema test-probe test-consumer test-perturbation check-readme check-own-host-page check-no-pins test-mod-host-json test-socket
+test: test-pin test-relay test-format test-daemon check-generated check-schema test-probe-schema test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins test-mod-host-json test-socket
 	MOD_HOST_DIR=$(MOD_HOST_DIR) python3 tests/verbs_contract.py
 
 # the same without the verb table, which is read from a mod-host checkout's README
@@ -159,6 +164,14 @@ test-pin: $(PIN_TEST)
 
 $(PIN_TEST): tests/pin_test.c include/plugin-hostd/pin.h
 	$(CC) -Iinclude $(CFLAGS) -Werror -o $@ tests/pin_test.c
+
+# src/relay.c when memory runs out: built here with its realloc calls renamed, so the test picks the one that fails
+test-relay: $(RELAY_TEST)
+	./$(RELAY_TEST)
+
+$(RELAY_TEST): tests/relay_test.c src/relay.c src/relay.h include/plugin-hostd/protocol.h
+	$(CC) -Iinclude $(CFLAGS) -Werror -Drealloc=relay_test_realloc -c -o tests/relay-test-relay.o src/relay.c
+	$(CC) -Isrc $(CFLAGS) -Werror -o $@ tests/relay_test.c tests/relay-test-relay.o -pthread
 
 tests/stress.clap: tests/stress_plugin.c
 	$(CC) $(CLAP_CFLAGS) $(CFLAGS) -Werror -shared -o $@ $<
@@ -218,7 +231,7 @@ GEN = tools/protocol-gen
 GENERATED = README.md doc/plugin-hostd.1 protocol/plugin-hostd.json protocol/mod-host.json protocol/probe-output.schema.json
 
 $(GEN): tools/protocol-gen.c include/plugin-hostd/protocol.h
-	$(CC) -Wall -Wextra -Werror -std=gnu99 -Iinclude -o $@ tools/protocol-gen.c
+	$(CC) -Wall -Wextra -Werror -std=gnu99 -Iinclude $(CONTRACT_CFLAGS) -o $@ tools/protocol-gen.c
 
 gen: $(GEN)
 	$(GEN) json > protocol/plugin-hostd.json.new && mv protocol/plugin-hostd.json.new protocol/plugin-hostd.json
@@ -273,6 +286,11 @@ tests/rt_interpose.so: tests/rt_interpose_stub.c
 
 tests/probe-child: tests/probe_child.c
 	$(CC) $(CLAP_CFLAGS) $(CFLAGS) -Wall -Wextra -Werror -o $@ $< -ldl
+
+# what is omx-contract's is read from it: the runner's default rates and the protocol's parameter scales follow a
+# scratch copy of its header with other values
+test-contract: $(PROBE)
+	PROBE=./$(PROBE) python3 tests/contract_derived.py
 
 # the probe output: its three fixtures validate and five broken copies of the first are refused
 test-probe-schema:

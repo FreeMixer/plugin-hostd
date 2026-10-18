@@ -260,6 +260,7 @@ static inline int phd_pool_name_valid(const char *name)
 #define PHD_ERR_NO_NOTE_INPUT       (-513)
 #define PHD_ERR_NOTES_BY_JACK       (-514)
 #define PHD_ERR_NO_PRESET_LIST      (-515)
+#define PHD_ERR_PIN_REFUSED         (-516)
 
 /* X(id, meaning) */
 #define PHD_ERRORS(X) \
@@ -294,7 +295,10 @@ static inline int phd_pool_name_valid(const char *name)
                      "with connect") \
     X(NO_PRESET_LIST, "the instance's worker cannot list the plugin's presets (mod-host): the daemon answers " \
                       PHD_VERB_PRESET_LIST " and " PHD_VERB_PRESET_GET " with this code; preset_load still takes a preset " \
-                      "the controller knows")
+                      "the controller knows") \
+    X(PIN_REFUSED, "the plugin's pin carries " PHD_PIN_VERDICT_KEY PHD_PIN_VERDICT_REFUSED ": its files are the ones that " \
+                   "failed qualification, so add is refused and no worker sees it, and a replayed add is refused the " \
+                   "same way; files that differ from the pin answer " PHD_STR(PHD_ERR_PIN_BINARY_MISMATCH) " first")
 
 /* ---------------------------------------------------------------- verbs */
 

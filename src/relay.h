@@ -39,8 +39,9 @@ void relay_controller_gone(void);
 /* One line of the daemon's own, an event, to the controller. */
 void relay_event(const char *line);
 
-/* A worker's feedback socket: read from now on. */
-void relay_add(int fd);
+/* A worker's feedback socket: read from now on. -1 when there is no memory to follow it: the socket is closed then,
+ * so the worker's writes fail instead of blocking, and the caller no longer holds it. */
+int relay_add(int fd);
 
 /* A worker's feedback socket, closed: what the worker wrote before it is read and sent first. */
 void relay_remove(int fd);

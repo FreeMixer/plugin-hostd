@@ -13,7 +13,7 @@ FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "
 # an LV2 bundle (MOD_HOST, LV2_DIR, LV2_URI, LV2_BUNDLE, LV2_PARAM) and is skipped without them; "pin" breaks
 # include/plugin-hostd/pin.h and runs tests/pin_test.c; "readme" breaks README.md or BUILDING.md and runs
 # tests/readme_build.py, with no daemon to build; "probeschema" breaks protocol/probe-output.schema.json and runs
-# tests/probe_schema.py; "probe" breaks src/probe.c and runs tests/probe_test.py; "nopins" breaks the packaging or a workflow and runs tests/no_pins.py
+# tests/probe_schema.py; "relay" breaks src/relay.c and runs tests/relay_test.c; "contract" breaks the probe runner or the generator and runs tests/contract_derived.py; "probe" breaks src/probe.c and runs tests/probe_test.py; "nopins" breaks the packaging or a workflow and runs tests/no_pins.py
 SABOTAGE = [
     ("the verb tail is not replayed", "src/supervisor.c",
      "if (replay_line(w, i->tail[m].line) != RPC_OK)", "if (0 && replay_line(w, i->tail[m].line) != RPC_OK)",
@@ -149,7 +149,7 @@ SABOTAGE = [
     ("a worker's refusal of a replayed add is taken for the instance", "src/supervisor.c",
      "        if (code < 0)\n        {\n            replay_refused(w, i, add, code);\n            continue;\n        }\n", "",
      "a_layout_pinned_again_while_its_worker_was_down_is_refused_by_the_replayed_add"),
-    ("a worker's feedback is not read", "src/supervisor.c", "    relay_add(w->fb_fd);\n", "",
+    ("a worker's feedback is not read", "src/supervisor.c", "    if (relay_add(w->fb_fd) != 0)\n", "    if (0)\n",
      "worker_feedback_reaches_the_controller_verbatim_and_in_order"),
     ("the relay writes nothing to the controller", "src/relay.c",
      "            send_line(start, nul - start + 1);\n", "",
@@ -159,8 +159,8 @@ SABOTAGE = [
     ("a repeated monitor_output is replayed twice", "src/supervisor.c", "    { MONITOR_OUTPUT, KIND_HOST, 2 },",
      "    { MONITOR_OUTPUT, KIND_HOST, 0 },", "a_respawned_worker_reports_the_same_outputs_once_each"),
     ("a worker is read only while a controller listens", "src/relay.c",
-     "        for (i = 0; i < g_nsrc; i++)\n            if (!g_src[i].eof)\n",
-     "        for (i = 0; i < g_nsrc; i++)\n            if (!g_src[i].eof && g_client >= 0)\n",
+     "            i = (first + j) % g_nsrc;\n            if (!g_src[i].eof)\n",
+     "            i = (first + j) % g_nsrc;\n            if (!g_src[i].eof && g_client >= 0)\n",
      "a_worker_is_read_when_no_controller_reads_the_feedback"),
     ("an LV2 instance's track_info and queries go to mod-host", "src/supervisor.c", "    else if (format_at(i->fmt)->native_instance_verbs)\n",
      "    else if (1)\n", "an_lv2_instance_is_answered_by_the_daemon_and_its_worker_never_sees_the_verbs"),
@@ -251,7 +251,7 @@ SABOTAGE = [
     ("a CLAP worker is not told track_info again after a kill", "src/supervisor.c",
      "if (i->track_info && format_at(i->fmt)->native_instance_verbs && replay_line(", "if (0 && replay_line(",
      "clap_track_info_and_remote_pages_reach_the_plugin_through_the_daemon", "info"),
-    ("meters behind the daemon never reach the controller", "src/supervisor.c", "    relay_add(w->fb_fd);\n", "",
+    ("meters behind the daemon never reach the controller", "src/supervisor.c", "    if (relay_add(w->fb_fd) != 0)\n", "    if (0)\n",
      "clap_meters_reach_the_controller_through_the_daemon_and_survive_a_kill", "meters"),
     ("a SHA-256 round constant is wrong", "include/plugin-hostd/pin.h", "0x428a2f98, 0x71374491", "0x428a2f98, 0x71374490",
      "pin.h", "pin"),
@@ -266,6 +266,22 @@ SABOTAGE = [
     ("an add the worker died on is not named by an event", "src/supervisor.c",
      "        if (code != PHD_ERR_VERB_DROPPED)\n            event(PHD_EVENT_VERB_DROPPED_FMT, id, line);\n", "",
      "under_auto_a_refused_plugin_that_kills_mod_host_on_add_costs_only_its_own_worker"),
+    ("a feedback socket the relay has no memory to follow is left open", "src/relay.c",
+     "            fprintf(stderr, \"relay: no memory to follow the feedback of fd %d\\n\", fd);\n            close(fd);\n",
+     "            fprintf(stderr, \"relay: no memory to follow the feedback of fd %d\\n\", fd);\n", "relay_test", "relay"),
+    ("a worker the relay has no memory to read is left to fill its socket", "src/relay.c",
+     "                shutdown(s->fd, SHUT_RDWR);\n", "", "relay_test", "relay"),
+    ("the relay thread polls a set it had no memory for", "src/relay.c", "        if (cap == 0)\n", "        if (0)\n",
+     "relay_test", "relay"),
+    ("a pin whose verdict is refused admits the add", "src/pins.c",
+     "    if (rc == SUCCESS && !strcmp(p->verdict, PHD_PIN_VERDICT_REFUSED))\n", "    if (0)\n",
+     "a_pin_whose_verdict_is_refused_refuses_the_add_with_its_own_code"),
+    ("the runner's default rates are typed by hand again", "src/probe.c", ".rates = floor_rates(),",
+     ".rates = \"44100,48000,96000,192000\",", "contract", "contract"),
+    ("the generator does not hold the scales to the contract's order", "tools/protocol-gen.c",
+     "PHD_PARAM_SCALES(X)\n#undef X\n_Static_assert(", "#undef X\n_Static_assert(", "contract", "contract"),
+    ("the generator takes a scale word that is not the contract's", "tools/protocol-gen.c",
+     "    if (!scales_are_the_contracts())\n        return 1;\n", "", "contract", "contract"),
     ("the build steps are back on the README", "README.md", "Building from source: see [BUILDING.md](BUILDING.md).",
      "Building from source:\n\n    make\n\nsee [BUILDING.md](BUILDING.md).", "README.md runs no build tool", "readme"),
     ("BUILDING.md lost its build command", "BUILDING.md", "    make [MOD_HOST_DIR=<mod-host checkout>]\n", "",
@@ -435,9 +451,30 @@ def run_format_test(tree):
     return p.returncode, p.stdout + ("ok   format_test\n" if p.returncode == 0 else "")
 
 
+def run_relay_test(tree):
+    """tests/relay_test.c against the tree's src/relay.c; it prints "ok   relay_test" when no check failed"""
+    os.makedirs(os.path.join(tree, "tests"), exist_ok=True)
+    shutil.copy(os.path.join(ROOT, "tests", "relay_test.c"), os.path.join(tree, "tests"))
+    subprocess.run(["make", "-s", "-B", "MOD_HOST_DIR=" + MOD_HOST_DIR, "tests/relay-test"], cwd=tree, check=True,
+                   stdout=subprocess.DEVNULL)
+    p = subprocess.run([os.path.join(tree, "tests", "relay-test")], capture_output=True, text=True, timeout=60)
+    return p.returncode, p.stdout + ("ok   relay_test\n" if p.returncode == 0 else "")
+def run_contract_test(tree):
+    """tests/contract_derived.py against the tree's probe runner and generator; "ok   contract" when it passes"""
+    subprocess.run(["make", "-s", "-B", "MOD_HOST_DIR=" + MOD_HOST_DIR, "plugin-hostd-probe"], cwd=tree, check=True,
+                   stdout=subprocess.DEVNULL)
+    p = subprocess.run([sys.executable, os.path.join(tree, "tests", "contract_derived.py")], cwd=tree, capture_output=True,
+                       text=True, timeout=300, env=dict(os.environ, PROBE=os.path.join(tree, "plugin-hostd-probe")))
+    return p.returncode, p.stdout + ("ok   contract\n" if p.returncode == 0 else "")
+
+
 def run_test(tree, name, jack=False):
     if jack == "format":
         return run_format_test(tree)
+    if jack == "relay":
+        return run_relay_test(tree)
+    if jack == "contract":
+        return run_contract_test(tree)
     if jack == "pin":
         return run_pin_test(tree)
     if jack == "readme":
@@ -495,6 +532,15 @@ try:
         elif jack == "probeschema":
             os.makedirs(os.path.join(tree, "protocol"))
             shutil.copy(os.path.join(ROOT, "protocol", "probe-output.schema.json"), os.path.join(tree, "protocol"))
+        elif jack == "contract":
+            for d in ("src", "include", "tools", "protocol"):
+                shutil.copytree(os.path.join(ROOT, d), os.path.join(tree, d))
+            os.makedirs(os.path.join(tree, "tests"))
+            shutil.copy(os.path.join(ROOT, "tests", "contract_derived.py"), os.path.join(tree, "tests"))
+            for f in ("Makefile",):
+                shutil.copy(os.path.join(ROOT, f), tree)
+            os.makedirs(os.path.join(tree, "packaging"))
+            shutil.copy(os.path.join(ROOT, "packaging", "plugin-hostd.spec"), os.path.join(tree, "packaging"))
         elif jack == "nopins":
             for f in ("packaging/plugin-hostd.spec", "debian/control", ".github/workflows/ci.yml"):
                 os.makedirs(os.path.dirname(os.path.join(tree, f)), exist_ok=True)
@@ -517,7 +563,7 @@ try:
         open(os.path.join(tree, path), "w").write(src.replace(text, repl))
         if jack == "probe":
             build_probe(tree)
-        elif jack not in ("readme", "nopins", "format", "probeschema"):
+        elif jack not in ("readme", "nopins", "format", "relay", "contract", "probeschema"):
             for f in os.listdir(os.path.join(tree, "src")):
                 if f.endswith(".o"):
                     os.unlink(os.path.join(tree, "src", f))
