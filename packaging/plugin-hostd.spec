@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.4.0
+Version: 0.5.0
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -108,6 +108,47 @@ make test-daemon check-generated
 %{_datadir}/plugin-hostd/probe-output.schema.json
 
 %changelog
+* Mon Oct 19 2026 Pau Aliagas <linuxnow@gmail.com> - 0.5.0-1
+- plugin-hostd-probe runs LV2 plugins too: `run lv2:<uri>` measures a
+  plugin through plugin-qualify's lv2_measure, the pin pass and then the
+  measurement, each a child under the same limits and wall clock. The
+  bundle's files become the document's binary. A plugin of which nothing
+  can be pinned exits 2 with no document, and stderr starts with its
+  outcome code (probe.unpinnable).
+- A pin whose verdict is refused refuses the add with the new code
+  PIN_REFUSED (-516), after the files are checked against the pin; an
+  instance whose pin turns refused is refused at its next replay.
+- Packages ship pins: the new key pins_dir (default
+  /usr/share/plugin-hostd/pins.d, which the packages own) names a
+  directory whose *.pins files the daemon reads at start, in name order,
+  as a read-only layer under the host's pins. A refused pin there always
+  holds, and pin_set and pin_accept of its plugin answer -516; any other
+  package pin gives way to a host pin of the same plugin.
+- New code NOTE_QUEUE_FULL (-517): the worker had no room for a note_on,
+  note_off or all_notes_off before its next block, and nothing of the line
+  was kept. The daemon passes it to the controller.
+- Under lv2_worker auto, a plugin the LV2 adapter refused gets a worker of
+  its own unless the add names a placement, so a plugin that aborts on
+  mod-host no longer takes a pool's other instances with it. An add whose
+  worker dies on it also sends instance_verb_dropped, which names it.
+- A worker whose feedback the relay cannot follow is not started: the add
+  answers -503. With no memory the relay closes a worker's socket instead
+  of leaving it unread, and its poll set no longer crashes the daemon. A
+  failed realloc no longer loses the relay's gesture table or the LV2
+  adapter's refusal and pick tables: only the one entry is dropped.
+- A worker_env nice the daemon cannot apply is logged on stderr; the reply
+  stays resp 0.
+- The probe runner's default rates and the protocol's parameter scales are
+  read from omx-contract's C header (ORACLE_FLOOR_RATES, PARAM_SCALES), so
+  the build now requires omx-contract-devel >= 2.16.0 (libomx-contract-dev
+  >= 2.16.0 on Debian). Nothing is linked.
+- plugin-hostd-tests requires plugin-hostd of the same build, and CI
+  checks it. The packaging check refuses any ceiling on
+  omx-clap-host-tests ('<=', '=' or '<').
+- The own-host page gains an LV2 block run through omx-clap-host, and CI
+  measures the audio through the plugin on Debian bookworm and trixie. The
+  LV2 adapter tests' refusal arms use a fixture the adapter still refuses.
+
 * Sun Oct 18 2026 Pau Aliagas <linuxnow@gmail.com> - 0.4.0-1
 - New tool plugin-hostd-probe: it starts a program that loads a plugin
   (clap-qualify by default) under limits of CPU time, memory, open files,
