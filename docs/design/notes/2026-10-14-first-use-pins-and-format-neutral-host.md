@@ -1,6 +1,9 @@
 # First-use pins, one pins format, a format-neutral host
 
-Status: proposed, 2026-10-14. Covers plugin-hostd#25 and #26 and plugin-qualify#55.
+Status: built, released in v0.3.0 (2026-10-16). Covers plugin-hostd#25 and #26 (PRs #30 and #31) and plugin-qualify#55.
+An external plugin carries no pins and its qualification record is evidence only (ruled 2026-10-17). First-use pins
+therefore stop for third-party plugins. A pins.d stays only for the binaries of our own packages (#42), and a record
+whose verdict is `refused` refuses an add (#71). Decided 2026-10-18 by recommendation; the operator reviews it after.
 
 ## Why
 
