@@ -1901,6 +1901,43 @@ def under_auto_a_plugin_the_adapter_refuses_runs_on_mod_host_and_the_adapter_is_
 
 
 @test
+def under_auto_a_refused_plugin_that_kills_mod_host_on_add_costs_only_its_own_worker():
+    """issue 66: drumkv1 and its kin abort in instantiate with no display. The adapter refuses them, mod-host runs them,
+    and the abort must not take the instances of a shared mod-host worker with it"""
+    d, programs, log = lv2_run(lv2_worker="auto")
+    try:
+        d.expect("policy_set lv2 pool:fx", "resp 0")
+        d.expect("lv2_worker_set urn:test:plain mod-host", "resp 0")
+        d.expect("add lv2:urn:test:plain 0", "resp 0")
+        k0, w0 = d.holder(0)
+        check(w0["fmt"] == "lv2" and w0["place"] == "pool:fx", "positive control: the policy puts mod-host's plugins in the pool: %s" % w0)
+        mark = d.mark()
+        d.expect("add lv2:urn:test:adapter_midi_abort_on_mod_host 1", "resp -102")
+        dropped = d.wait_event("instance_verb_dropped 1 ", since=mark)
+        check(dropped == "instance_verb_dropped 1 add urn:test:adapter_midi_abort_on_mod_host 1",
+              "the event names the instance and the plugin it died adding: %r" % dropped)
+        died = d.wait_event("worker_died ", since=mark)
+        check(not died.startswith("worker_died %s " % k0), "the pool's worker did not die: %s" % died)
+        k, w = d.holder(0)
+        check(k == k0 and w["pid"] == w0["pid"] and w["state"] == "up", "instance 0 kept its process: %s" % d.workers())
+        check(not [e for e in d.events[mark:] if e.startswith(("instance_restored 0", "instance_quarantined"))],
+              "nothing was restored or quarantined: %s" % d.events[mark:])
+        d.expect("instance_info 1", "resp -3")
+        # the adapter is not asked again, and the plugin is still not put in the pool
+        d.expect("add lv2:urn:test:adapter_midi_abort_on_mod_host 3", "resp -102")
+        k, w = d.holder(0)
+        check(w["pid"] == w0["pid"], "a second add of it spares the pool too: %s" % d.workers())
+        d.expect("add lv2:urn:test:adapter_midi 4", "resp 4")
+        check(d.holder(4)[1]["place"] == "own", "a refused plugin that runs is placed own: %s" % d.workers())
+        # an explicit placement is the caller's: it is kept
+        d.expect("add lv2:urn:test:adapter_midi 2 pool:fx", "resp 2")
+        check(d.holder(2)[0] == k0, "an explicit pool is honoured: %s" % d.workers())
+    finally:
+        d.close()
+        programs.close()
+
+
+@test
 def the_code_of_a_refusal_is_the_one_on_the_reply_of_its_own_add():
     # one pool worker, one log: each refusal is named by its own reply, never by what an earlier one wrote on stderr
     d, programs, log = lv2_run(lv2_worker="omx-clap-host")

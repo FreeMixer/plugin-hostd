@@ -669,7 +669,8 @@ static inline int phd_is_note_verb(const char *verb)
     X(PHD_EVENT_WORKER_DIED, "<worker> <pid> <exit:N | signal:N> <instance>,...", \
       "a worker died; the instances it held, or - for none") \
     X(PHD_EVENT_INSTANCE_VERB_DROPPED, "<instance> <the command as sent>", \
-      "the command a worker died on, dropped from the ledger, or the " PHD_VERB_PIN_EXPECT " of an add it died on") \
+      "the command a worker died on, dropped from the ledger; or the add it died on, the add as the worker was given it, " \
+      "which names the plugin, or the " PHD_VERB_PIN_EXPECT " of that add") \
     X(PHD_EVENT_INSTANCE_VERB_DROPPED, "<instance> " PHD_EVENT_SUSPECT_PREFIX "<ms> <the command as sent>", \
       "the last verb a worker answered when it died inside suspect_window_ms, <ms> the age of the reply") \
     X(PHD_EVENT_WORKER_BACKOFF, "<worker> <ms>", "the respawn waits this long") \
@@ -749,7 +750,8 @@ static inline int phd_is_note_verb(const char *verb)
     X(clap_host, path, PHD_DEFAULT_CLAP_HOST, "", "worker for " PHD_FORMAT_CLAP) \
     X(lv2_worker, word, PHD_DEFAULT_LV2_WORKER, "", "who runs an LV2 plugin: mod-host (the mod_host program), omx-clap-host " \
       "(the clap_host program, through its LV2 adapter, a plugin it cannot run refused with a code) or auto (the adapter " \
-      "first, mod-host for what it refuses); lv2_worker_set overrides it for one plugin") \
+      "first, mod-host for what it refuses, each such plugin in a worker of its own unless its add names a placement); " \
+      "lv2_worker_set overrides it for one plugin") \
     X(lv2_path, pathlist, PHD_DEFAULT_LV2_PATH, "LV2_PATH", "where bundles are searched") \
     X(state_root, path, PHD_DEFAULT_STATE_ROOT, "XDG_RUNTIME_DIR", "the daemon's checkpoints and worker logs") \
     X(pin_mode, word, PHD_DEFAULT_PIN_MODE, "", "strict or first-use, while require_pins is 1: first-use records the pin " \

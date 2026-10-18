@@ -467,6 +467,11 @@ int lv2_worker_is_auto(const conf_t *conf, const char *uri)
     return !strcmp(worker_in_force(conf, uri), PHD_LV2_WORKER_AUTO);
 }
 
+int lv2_refused_under_auto(const conf_t *conf, int format, const char *uri)
+{
+    return format == format_by_name(PHD_FORMAT_LV2) && lv2_worker_is_auto(conf, uri) && refused(uri);
+}
+
 int lv2_worker_pick(const char *uri, const char *worker)
 {
     int n;

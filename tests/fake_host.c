@@ -27,7 +27,8 @@
  *                               "adapter_midi", "adapter_missing", "adapter_wide" or "adapter_unrealised" in it is a
  *                               plugin the adapter refuses, "resp -102 <hosting code>" and "<uri>: <hosting code>" on
  *                               stderr; "adapter_nocode" is a refusal that names no code, "resp -102" alone;
- *                               "absent" in it is a plugin no bundle of the world holds, "resp -101" and no code
+ *                               "absent" in it is a plugin no bundle of the world holds, "resp -101" and no code;
+ *                               "abort_on_mod_host" in a bare uri aborts, as a plugin that dies in instantiate does
  *   param_set <n> crash <v>     v other than 0 aborts 30 ms after the reply (FAKE_CRASH_AFTER_MS to say another), as a
  *                               plugin does in a callback
  *                               (once only when FAKE_CRASH_ONCE names a file: it is created by the crash)
@@ -271,7 +272,8 @@ static void receive(msg_t *msg)
         char mine[PHD_SHA256_HEX_LEN + 64];
 
         layout_pin(mine, sizeof(mine));
-        if (strstr(tok[1], "crash_on_add"))
+        /* a plugin that aborts in instantiate on mod-host (a Qt body with no display): the adapter refuses it first */
+        if (strstr(tok[1], "crash_on_add") || (strncmp(tok[1], "lv2:", 4) && strstr(tok[1], "abort_on_mod_host")))
             crash();
         if (!strncmp(tok[1], "lv2:", 4) && adapter_refusal(tok[1]))
         {
