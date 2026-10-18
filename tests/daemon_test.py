@@ -1464,6 +1464,51 @@ def a_layout_pinned_again_while_its_worker_was_down_is_refused_by_the_replayed_a
         p.close()
 
 
+@test
+def a_pin_whose_verdict_is_refused_refuses_the_add_with_its_own_code():
+    """issue 71: verdict=refused names bytes that failed qualification; an add of them is refused by code, no worker
+    sees it, and a replay of an instance whose pin turned refused is refused the same way"""
+    p = Plugins()
+    d = p.daemon()
+    refused = harness.CODE.get("PIN_REFUSED")
+    try:
+        check(refused is not None, "the protocol declares PIN_REFUSED: %s" % sorted(harness.CODE))
+        d.expect(p.clap_pin() + " verdict=refused", "resp 0")
+        r = d.send("add %s 0" % p.clap_uri)
+        check(r == "resp %d" % refused, "the add of a refused plugin answers PIN_REFUSED: %r" % r)
+        check(d.workers() == {} and p.received() == [], "no worker started, none was told: %s %s" % (d.workers(), p.received()))
+        # positive control: the same bytes qualified again run
+        d.expect(p.clap_pin() + " verdict=isolated", "resp 0")
+        d.expect("add %s 0" % p.clap_uri, "resp 0")
+        # a pin turned refused while the instance runs: its replay is refused with the same code
+        _, w = d.holder(0)
+        d.expect(p.clap_pin() + " verdict=refused", "resp 0")
+        mark = d.mark()
+        os.kill(w["pid"], signal.SIGKILL)
+        d.wait_event("instance_replay_refused 0 %d" % refused, since=mark)
+        check(not [e for e in d.events[mark:] if e.startswith("pin_changed")], "a refusal is no change of the files")
+    finally:
+        d.close()
+    # bytes that changed are a mismatch first: a verdict is about the bytes it was given for
+    d = p.daemon()
+    try:
+        d.expect(p.clap_pin().replace(sha(p.clap)[:8], "00000000") + " verdict=refused", "resp 0")
+        d.expect("add %s 1" % p.clap_uri, resp("PIN_BINARY_MISMATCH"))
+    finally:
+        d.close()
+    # a pin_file carries the verdict as pin_set does
+    pins = os.path.join(p.dir, "pins.txt")
+    write(pins, ("%s verdict=refused\n" % p.clap_pin().split(" ", 1)[1]).encode())
+    d = p.daemon(conf={"pin_mode": "first-use", "pin_file": pins})
+    try:
+        r = d.send("add %s 2" % p.clap_uri)
+        check(r == "resp %d" % refused, "a pin_file's refused verdict refuses the add: %r" % r)
+        check(store_lines(p) == [], "and the refused plugin is not learned into the store")
+    finally:
+        d.close()
+        p.close()
+
+
 def own_worker_of(d, inst):
     return d.holder(inst)[1]["place"] == "own"
 

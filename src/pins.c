@@ -663,6 +663,12 @@ int pins_check(const format_t *format, const char *uri, const char *search, cons
     names_free(&files);
     for (n = 0; n < p->nfiles && rc == SUCCESS; n++)
         rc = hash_file(root, p->path[n], p->digest[n], uri);
+    /* the verdict is about these very files: only once they are the pinned ones does a refused one refuse the add */
+    if (rc == SUCCESS && !strcmp(p->verdict, PHD_PIN_VERDICT_REFUSED))
+    {
+        fprintf(stderr, "plugin-hostd: %s: its pin carries " PHD_PIN_VERDICT_KEY PHD_PIN_VERDICT_REFUSED "\n", uri);
+        rc = PHD_ERR_PIN_REFUSED;
+    }
     if (rc == SUCCESS)
         *layout = strcmp(p->layout, PHD_PIN_LAYOUT_UNKNOWN) ? p->layout : NULL;
     return rc;
