@@ -89,13 +89,15 @@ install: $(PROG) install_man install_protocol install_tests
 	install -m 755 $(PROBE) $(DESTDIR)$(BINDIR)
 
 # the declared protocol: the JSON for readers that are not C, which the package carries; the header, its pkg-config
-# file and the schema of the JSON, which the development package carries
+# file and the schema of the JSON, which the development package carries; and the pins_dir other packages drop their
+# pins in
 install_protocol:
 	install -d $(DESTDIR)$(DATADIR)/plugin-hostd
 	install -m 644 protocol/plugin-hostd.json $(DESTDIR)$(DATADIR)/plugin-hostd/protocol.json
 	install -m 644 protocol/mod-host.json $(DESTDIR)$(DATADIR)/plugin-hostd/mod-host.json
 	install -m 644 protocol/plugin-hostd.schema.json $(DESTDIR)$(DATADIR)/plugin-hostd/protocol.schema.json
 	install -m 644 protocol/probe-output.schema.json $(DESTDIR)$(DATADIR)/plugin-hostd/probe-output.schema.json
+	install -d $(DESTDIR)$(DATADIR)/plugin-hostd/pins.d
 	install -d $(DESTDIR)$(INCLUDEDIR)/plugin-hostd
 	install -m 644 include/plugin-hostd/protocol.h $(DESTDIR)$(INCLUDEDIR)/plugin-hostd/protocol.h
 	install -m 644 include/plugin-hostd/pin.h $(DESTDIR)$(INCLUDEDIR)/plugin-hostd/pin.h
