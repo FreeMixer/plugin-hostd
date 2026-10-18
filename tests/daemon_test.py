@@ -598,14 +598,28 @@ def policy_and_pool_config():
         d.close()
 
 
+def can_lower():
+    """whether this identity may give a process a nice below the one it has (CAP_SYS_NICE, or RLIMIT_NICE reaching it),
+    asked of the kernel: a root without CAP_SYS_NICE, as in a container, cannot"""
+    p = subprocess.Popen(["sleep", "30"])
+    try:
+        os.setpriority(os.PRIO_PROCESS, p.pid, os.getpriority(os.PRIO_PROCESS, p.pid) - 1)
+        return True
+    except PermissionError:
+        return False
+    finally:
+        p.kill()
+        p.wait()
+
+
 @test
 def worker_env_reaches_new_and_running_workers():
     cpus = sorted(os.sched_getaffinity(0))
     own = os.getpriority(os.PRIO_PROCESS, 0)   # the daemon's nice is the test's
 
     def applied(nice, current=own):
-        """a daemon without privilege cannot lower a worker's nice below the one the worker has: its own, for a new worker"""
-        return nice if os.geteuid() == 0 else max(nice, current)
+        """a daemon that cannot lower a nice cannot give a worker one below the one the worker has: its own, for a new worker"""
+        return nice if can_lower() else max(nice, current)
 
     d = daemon()
     try:
