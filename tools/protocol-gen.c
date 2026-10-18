@@ -26,11 +26,46 @@
  *   protocol-gen splice FILE   FILE on stdout with every generated region replaced; a region is the lines between
  *                              "BEGIN GENERATED protocol:<name>" and "END GENERATED protocol:<name>" */
 
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include <omxcontract/omx_contract_limits.h>
 #include <plugin-hostd/protocol.h>
+
+/* The parameter scales are omx-contract's PARAM_SCALES, whose words the contract declares for this protocol: the same
+ * ids in the same order, or nothing generated from the header builds. The contract renders an id as its word in
+ * capitals, which scales_are_the_contracts() checks of every word at run time. */
+enum {
+#define X(id, name, meaning) PHD_SCALE_AT_##id,
+    PHD_PARAM_SCALES(X)
+#undef X
+    PHD_SCALE_COUNT
+};
+#define X(id, name, meaning) \
+    _Static_assert((int)PHD_SCALE_AT_##id == (int)OMX_PARAM_SCALES_##id, "PHD_PARAM_SCALES: " #id " is not where omx-contract's PARAM_SCALES has it");
+PHD_PARAM_SCALES(X)
+#undef X
+_Static_assert((unsigned)PHD_SCALE_COUNT == OMX_PARAM_SCALES_COUNT, "PHD_PARAM_SCALES: not as many scales as omx-contract's PARAM_SCALES");
+
+static int scales_are_the_contracts(void)
+{
+    int ok = 1;
+    size_t n;
+
+#define X(id, name, meaning) \
+    for (n = 0; n <= strlen(name); n++) \
+        if (toupper((unsigned char)name[n]) != #id[n]) \
+        { \
+            fprintf(stderr, "protocol-gen: PHD_PARAM_SCALES: the word \"%s\" is not omx-contract's PARAM_SCALES id " #id "\n", name); \
+            ok = 0; \
+            break; \
+        }
+    PHD_PARAM_SCALES(X)
+#undef X
+    return ok;
+}
 
 #define PATH_MAX_DOC 512
 
@@ -626,6 +661,8 @@ static int probe_schema(const char *path)
 
 int main(int argc, char **argv)
 {
+    if (!scales_are_the_contracts())
+        return 1;
     if (argc == 2 && !strcmp(argv[1], "json"))
     {
         json();
