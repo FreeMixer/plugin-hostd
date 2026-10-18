@@ -13,7 +13,7 @@ FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "
 # an LV2 bundle (MOD_HOST, LV2_DIR, LV2_URI, LV2_BUNDLE, LV2_PARAM) and is skipped without them; "pin" breaks
 # include/plugin-hostd/pin.h and runs tests/pin_test.c; "readme" breaks README.md or BUILDING.md and runs
 # tests/readme_build.py, with no daemon to build; "probeschema" breaks protocol/probe-output.schema.json and runs
-# tests/probe_schema.py; "relay" breaks src/relay.c and runs tests/relay_test.c; "probe" breaks src/probe.c and runs tests/probe_test.py; "nopins" breaks the packaging or a workflow and runs tests/no_pins.py
+# tests/probe_schema.py; "relay" breaks src/relay.c and runs tests/relay_test.c; "contract" breaks the probe runner or the generator and runs tests/contract_derived.py; "probe" breaks src/probe.c and runs tests/probe_test.py; "nopins" breaks the packaging or a workflow and runs tests/no_pins.py
 SABOTAGE = [
     ("the verb tail is not replayed", "src/supervisor.c",
      "if (replay_line(w, i->tail[m].line) != RPC_OK)", "if (0 && replay_line(w, i->tail[m].line) != RPC_OK)",
@@ -276,6 +276,12 @@ SABOTAGE = [
     ("a pin whose verdict is refused admits the add", "src/pins.c",
      "    if (rc == SUCCESS && !strcmp(p->verdict, PHD_PIN_VERDICT_REFUSED))\n", "    if (0)\n",
      "a_pin_whose_verdict_is_refused_refuses_the_add_with_its_own_code"),
+    ("the runner's default rates are typed by hand again", "src/probe.c", ".rates = floor_rates(),",
+     ".rates = \"44100,48000,96000,192000\",", "contract", "contract"),
+    ("the generator does not hold the scales to the contract's order", "tools/protocol-gen.c",
+     "PHD_PARAM_SCALES(X)\n#undef X\n_Static_assert(", "#undef X\n_Static_assert(", "contract", "contract"),
+    ("the generator takes a scale word that is not the contract's", "tools/protocol-gen.c",
+     "    if (!scales_are_the_contracts())\n        return 1;\n", "", "contract", "contract"),
     ("the build steps are back on the README", "README.md", "Building from source: see [BUILDING.md](BUILDING.md).",
      "Building from source:\n\n    make\n\nsee [BUILDING.md](BUILDING.md).", "README.md runs no build tool", "readme"),
     ("BUILDING.md lost its build command", "BUILDING.md", "    make [MOD_HOST_DIR=<mod-host checkout>]\n", "",
@@ -435,6 +441,13 @@ def run_relay_test(tree):
                    stdout=subprocess.DEVNULL)
     p = subprocess.run([os.path.join(tree, "tests", "relay-test")], capture_output=True, text=True, timeout=60)
     return p.returncode, p.stdout + ("ok   relay_test\n" if p.returncode == 0 else "")
+def run_contract_test(tree):
+    """tests/contract_derived.py against the tree's probe runner and generator; "ok   contract" when it passes"""
+    subprocess.run(["make", "-s", "-B", "MOD_HOST_DIR=" + MOD_HOST_DIR, "plugin-hostd-probe"], cwd=tree, check=True,
+                   stdout=subprocess.DEVNULL)
+    p = subprocess.run([sys.executable, os.path.join(tree, "tests", "contract_derived.py")], cwd=tree, capture_output=True,
+                       text=True, timeout=300, env=dict(os.environ, PROBE=os.path.join(tree, "plugin-hostd-probe")))
+    return p.returncode, p.stdout + ("ok   contract\n" if p.returncode == 0 else "")
 
 
 def run_test(tree, name, jack=False):
@@ -442,6 +455,8 @@ def run_test(tree, name, jack=False):
         return run_format_test(tree)
     if jack == "relay":
         return run_relay_test(tree)
+    if jack == "contract":
+        return run_contract_test(tree)
     if jack == "pin":
         return run_pin_test(tree)
     if jack == "readme":
@@ -499,6 +514,15 @@ try:
         elif jack == "probeschema":
             os.makedirs(os.path.join(tree, "protocol"))
             shutil.copy(os.path.join(ROOT, "protocol", "probe-output.schema.json"), os.path.join(tree, "protocol"))
+        elif jack == "contract":
+            for d in ("src", "include", "tools", "protocol"):
+                shutil.copytree(os.path.join(ROOT, d), os.path.join(tree, d))
+            os.makedirs(os.path.join(tree, "tests"))
+            shutil.copy(os.path.join(ROOT, "tests", "contract_derived.py"), os.path.join(tree, "tests"))
+            for f in ("Makefile",):
+                shutil.copy(os.path.join(ROOT, f), tree)
+            os.makedirs(os.path.join(tree, "packaging"))
+            shutil.copy(os.path.join(ROOT, "packaging", "plugin-hostd.spec"), os.path.join(tree, "packaging"))
         elif jack == "nopins":
             for f in ("packaging/plugin-hostd.spec", "debian/control", ".github/workflows/ci.yml"):
                 os.makedirs(os.path.dirname(os.path.join(tree, f)), exist_ok=True)
@@ -521,7 +545,7 @@ try:
         open(os.path.join(tree, path), "w").write(src.replace(text, repl))
         if jack == "probe":
             build_probe(tree)
-        elif jack not in ("readme", "nopins", "format", "relay", "probeschema"):
+        elif jack not in ("readme", "nopins", "format", "relay", "contract", "probeschema"):
             for f in os.listdir(os.path.join(tree, "src")):
                 if f.endswith(".o"):
                     os.unlink(os.path.join(tree, "src", f))
