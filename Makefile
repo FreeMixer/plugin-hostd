@@ -134,7 +134,7 @@ clean:
 
 # the daemon against workers that are not plugin hosts at all (tests/fake-host speaks the same protocol and can be
 # made to die on cue): placement, forwarding, ledger, replay, attribution, the storm bound; no jack, no plugin
-test: test-pin test-relay test-alloc test-format test-daemon check-generated check-schema test-probe-schema test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins test-mod-host-json test-socket
+test: test-pin test-relay test-alloc test-format test-daemon check-generated check-schema test-probe-schema test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-mod-host-json test-socket
 	MOD_HOST_DIR=$(MOD_HOST_DIR) python3 tests/verbs_contract.py
 
 # the same without the verb table, which is read from a mod-host checkout's README
@@ -278,6 +278,10 @@ check-own-host-page:
 # no pin: a dependency is declared in the spec and debian/control with a floor (no ceiling), nowhere else
 check-no-pins:
 	python3 tests/no_pins.py
+
+# a workflow step the runner may be unable to run fails where it cannot run it (#107)
+check-ci-guards:
+	python3 tests/ci_guards.py
 
 # mod-host.json follows its headers: a moved verb, code or message in a scratch copy moves the JSON, and a header it
 # cannot read is refused

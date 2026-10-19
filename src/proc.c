@@ -205,20 +205,36 @@ int proc_spawn(const conf_t *conf, const char *bin, const char *world_env, const
     return 0;
 }
 
+/* whether the worker's log carries the ready marker yet: the whole log, a page at a time, the tail of each page kept in
+ * front of the next so that a marker split across two reads is still found. A worker says ready after it has set up
+ * its world, and what it says about the world comes first: mod-host's lilv writes a warning line for every entry of
+ * LV2_PATH that is no bundle, so a world of a few dozen stray files puts the marker past the first page (#105) */
 static int log_has_ready(const char *logfile)
 {
     char buffer[4096];
+    size_t keep = strlen(PHD_WORKER_READY_MARKER) - 1, held = 0;
     ssize_t n;
-    int fd = open(logfile, O_RDONLY);
+    int fd = open(logfile, O_RDONLY), found = 0;
 
     if (fd < 0)
         return 0;
-    n = read(fd, buffer, sizeof(buffer) - 1);
+    while (!found && (n = read(fd, buffer + held, sizeof(buffer) - 1 - held)) > 0)
+    {
+        held += n;
+        buffer[held] = '\0';
+        /* a NUL inside the page would stop strstr short of the rest of it */
+        for (size_t i = 0; i < held; i++)
+            if (buffer[i] == '\0')
+                buffer[i] = ' ';
+        found = strstr(buffer, PHD_WORKER_READY_MARKER) != NULL;
+        if (held > keep)
+        {
+            memmove(buffer, buffer + held - keep, keep);
+            held = keep;
+        }
+    }
     close(fd);
-    if (n <= 0)
-        return 0;
-    buffer[n] = '\0';
-    return strstr(buffer, PHD_WORKER_READY_MARKER) != NULL;
+    return found;
 }
 
 static int connect_loopback(int port)

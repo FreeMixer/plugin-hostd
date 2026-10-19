@@ -71,9 +71,10 @@ worker is killed.
 
 Given `MOD_HOST` and a bundle, it also runs mod-host's scenario corpus against the daemon with an LV2 worker, and kills
 an LV2 worker to read the graph and a parameter back. The CI job does this with the mod-host package of the FreeMixer
-channel and this repository's fixture bundle: build `tests/plugin-hostd-fixture.lv2/plugin-hostd-fixture.so`, copy the
-bundle into a directory of its own, and give `MOD_HOST=/usr/bin/mod-host LV2_DIR=<that directory>
-LV2_URI=urn:plugin-hostd:test:stereo LV2_BUNDLE=plugin-hostd-fixture.lv2 LV2_PARAM=gain`.
+channel and this repository's fixture bundle: build `tests/plugin-hostd-fixture.lv2/plugin-hostd-fixture.so` and give
+`MOD_HOST=/usr/bin/mod-host LV2_DIR=$PWD/tests LV2_URI=urn:plugin-hostd:test:stereo LV2_BUNDLE=plugin-hostd-fixture.lv2
+LV2_PARAM=gain`. The world is the whole `tests/` directory on purpose: lilv warns about every entry that is no bundle
+before mod-host says ready, and a worker must start behind that (#105).
 
     make test-jack2 OMX_CLAP_HOST=<omx-clap-host> [...]
 

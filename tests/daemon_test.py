@@ -161,6 +161,21 @@ def a_worker_that_never_listens_is_refused_after_a_bounded_number_of_starts():
 
 
 @test
+def a_worker_that_warns_more_than_a_page_before_ready_still_starts():
+    """lilv writes a warning line for every entry of the world that is no bundle, before mod-host says ready: a world
+    of a few dozen stray files puts the marker past the first 4 KB of the log (plugin-hostd#105, resp -503)"""
+    d = daemon(env={"FAKE_WARN_BEFORE_READY": "64"})
+    try:
+        t0 = time.time()
+        d.expect("add fake:a 0", "resp 0")
+        check(time.time() - t0 < 3, "the start saw the ready line, it did not wait out the ready timeout (%.1fs)" % (time.time() - t0))
+        log = open(os.path.join(d.tmp, "plugin-hostd", str(d.proc.pid), "%s.log" % d.holder(0)[0])).read()
+        check(log.index("ready!") > 4096, "positive control: the ready line sits past the first page of the log (%d)" % log.index("ready!"))
+    finally:
+        d.close()
+
+
+@test
 def own_crash_respawns_only_that_instance_and_replays_it():
     d = daemon()
     try:
