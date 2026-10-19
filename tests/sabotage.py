@@ -15,6 +15,10 @@ FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "
 # tests/readme_build.py, with no daemon to build; "probeschema" breaks protocol/probe-output.schema.json and runs
 # tests/probe_schema.py; "relay" breaks src/relay.c and runs tests/relay_test.c; "alloc" breaks src/relay.c or src/lv2.c and runs make test-alloc; "contract" breaks the probe runner or the generator and runs tests/contract_derived.py; "consumer" breaks the header and compiles tests/consumer.c against it; "probe" breaks src/probe.c and runs tests/probe_test.py; "nopins" breaks the packaging or a workflow and runs tests/no_pins.py
 SABOTAGE = [
+    ("the ready marker is looked for in the first page of the worker's log only", "src/proc.c",
+     "while (!found && (n = read(fd, buffer + held, sizeof(buffer) - 1 - held)) > 0)",
+     "while (!found && held == 0 && (n = read(fd, buffer + held, sizeof(buffer) - 1 - held)) > 0)",
+     "a_worker_that_warns_more_than_a_page_before_ready_still_starts"),
     ("the verb tail is not replayed", "src/supervisor.c",
      "if (replay_line(w, i->tail[m].line) != RPC_OK)", "if (0 && replay_line(w, i->tail[m].line) != RPC_OK)",
      "own_crash_respawns_only_that_instance_and_replays_it"),

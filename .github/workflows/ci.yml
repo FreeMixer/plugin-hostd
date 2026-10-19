@@ -78,8 +78,9 @@ jobs:
           test "$(printf '%s\n%s\n' "$floor" "$have" | sort -V | head -n 1)" = "$floor" || { echo "mod-host $have is below the floor $floor"; exit 1; }
 
       # The daemon with the installed workers over jack, in a PipeWire of its own: omx-clap-host for CLAP and mod-host
-      # for LV2, driving the fixture bundle of this repository (a stereo gain, tests/lv2_fixture.c) from a world of its
-      # own, so that the worker's bundle set is one directory. It needs a private user namespace with its own /proc; a
+      # for LV2, driving the fixture bundle of this repository (a stereo gain, tests/lv2_fixture.c) with the whole tests/
+      # directory as the world: a few dozen files that are no bundle, which lilv warns about one by one before mod-host
+      # says ready, and a pool worker must still start under that (#105). It needs a private user namespace with its own /proc; a
       # runner that refuses one cannot run it, and the step says so. The LV2 steps are required to have run: a run that
       # skipped them fails here.
       - name: Test the daemon with real workers over jack, CLAP and LV2, then break every guard on purpose
@@ -89,9 +90,7 @@ jobs:
           export JACK_METER_SOURCE=/usr/libexec/omx-clap-host/tests/jack_meter_source
           export FAKE_CLAP=/usr/libexec/omx-clap-host/tests/fake.clap
           make tests/plugin-hostd-fixture.lv2/plugin-hostd-fixture.so
-          mkdir -p "$PWD/lv2-world"
-          cp -r tests/plugin-hostd-fixture.lv2 "$PWD/lv2-world/"
-          export MOD_HOST=/usr/bin/mod-host LV2_DIR=$PWD/lv2-world LV2_URI=urn:plugin-hostd:test:stereo
+          export MOD_HOST=/usr/bin/mod-host LV2_DIR=$PWD/tests LV2_URI=urn:plugin-hostd:test:stereo
           export LV2_BUNDLE=plugin-hostd-fixture.lv2 LV2_PARAM=gain
           if unshare --user --map-root-user --net --pid --fork --mount-proc true; then
             make test-jack OMX_CLAP_HOST=/usr/bin/omx-clap-host 2>&1 | tee test-jack.log
