@@ -41,6 +41,13 @@ Blocks to process per rate.
 .BI \-\-offer " EXT,..."
 Host extensions to offer on top of the child's own.
 .TP
+.BI \-\-probe\-notes " n"
+The notes a CLAP instrument that declares no voice capacity is timed holding. Passed to clap\-qualify; without it such
+an instrument has no cost.
+.TP
+.BI \-\-hold " n"
+The notes a CLAP instrument is timed holding, whatever voice capacity it declares. Passed to clap\-qualify.
+.TP
 .BI \-\-out " file"
 Where to write the document, atomically. Default standard output.
 .TP

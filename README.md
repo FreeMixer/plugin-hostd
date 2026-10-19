@@ -317,6 +317,9 @@ The runner never loads plugin code itself.
     plugin-hostd-probe run --out probe.json --log probe.stderr.log /usr/lib64/clap/plate.clap org.example.plate
     plugin-hostd-probe run --out probe.json lv2:http://example.org/plate
 
+A CLAP instrument is timed holding notes down: as many as the voice capacity it declares, or, when it declares none,
+the count `--probe-notes N` gives; `--hold N` holds that count whatever it declares. Both are passed to clap-qualify.
+
 An LV2 plugin is measured the way plugin-qualify's LV2 hosting pass measures it today, in two children under the same
 limits and the same wall clock. The first child (`lv2_measure --pin`) pins the bundle's files without instantiating the
 plugin. The second measures at the highest of `--rates`, in blocks of `--quantum`, with 30 instantiate and destroy cycles

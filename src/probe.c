@@ -414,6 +414,8 @@ typedef struct
     const char *offer;
     const char *set;
     unsigned quantum, blocks;
+    /* the notes a CLAP instrument is timed holding: when it declares no voice capacity, and whatever it declares */
+    unsigned probe_notes, hold;
     long wall_s, cpu_s, files;
     long long data_bytes, file_bytes;
     long grace_ms;
@@ -1072,7 +1074,7 @@ static void take_step_records(run_t *r)
     r->steps.s[r->steps.len] = '\0';
 }
 
-/* clap-qualify's arguments: the rates, the block, the offer, the file and the id */
+/* clap-qualify's arguments: the rates, the block, the offer, the notes an instrument holds, the file and the id */
 static void clap_argv(const options_t *o, char **argv)
 {
     int argc = 0;
@@ -1097,6 +1099,22 @@ static void clap_argv(const options_t *o, char **argv)
     {
         argv[argc++] = "--offer";
         argv[argc++] = (char *)o->offer;
+    }
+    {
+        static char notes[32], hold[32];
+
+        if (o->probe_notes)
+        {
+            snprintf(notes, sizeof(notes), "%u", o->probe_notes);
+            argv[argc++] = "--probe-notes";
+            argv[argc++] = notes;
+        }
+        if (o->hold)
+        {
+            snprintf(hold, sizeof(hold), "%u", o->hold);
+            argv[argc++] = "--hold";
+            argv[argc++] = hold;
+        }
     }
     argv[argc++] = (char *)o->plugin;
     if (o->id)
@@ -1568,6 +1586,8 @@ int main(int argc, char **argv)
                         "  --rates R,R,...      sample rates (default %s)\n"
                         "  --quantum N          block size in frames (default 512)     --blocks N   blocks per rate\n"
                         "  --offer EXT,...      host extensions to offer on top of the child's own\n"
+                        "  --probe-notes N      notes a CLAP instrument declaring no voice capacity is timed holding\n"
+                        "  --hold N             notes a CLAP instrument is timed holding, whatever it declares\n"
                         "  --out FILE           the document, written atomically (default stdout)\n"
                         "  --log FILE           the child's stderr (default discarded)\n"
                         "  --reason WHY         add, rescan, binary-changed, on-request, auto-measure, reference, ci\n"
@@ -1594,6 +1614,19 @@ int main(int argc, char **argv)
         else if (!strcmp(k, "--quantum")) o.quantum = (unsigned)atoi(v);
         else if (!strcmp(k, "--blocks")) o.blocks = (unsigned)atoi(v);
         else if (!strcmp(k, "--offer")) o.offer = v;
+        else if (!strcmp(k, "--probe-notes") || !strcmp(k, "--hold"))
+        {
+            char *end;
+            long n = strtol(v, &end, 10);
+
+            /* how many the prober can hold is the prober's to say: a count it refuses ends its run as any refusal does */
+            if (*end || n < 1 || n > INT_MAX)
+            {
+                fprintf(stderr, RUNNER_NAME ": %s takes a positive count of notes\n", k);
+                return 2;
+            }
+            *(k[2] == 'p' ? &o.probe_notes : &o.hold) = (unsigned)n;
+        }
         else if (!strcmp(k, "--out")) o.out = v;
         else if (!strcmp(k, "--log")) o.log = v;
         else if (!strcmp(k, "--reason")) o.reason = v;

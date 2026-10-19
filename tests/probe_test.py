@@ -169,6 +169,22 @@ def the_limits_reach_the_child():
     check(doc["machine"]["pinnedCpus"] == str(cpus[0]), "pinnedCpus %s" % doc["machine"]["pinnedCpus"])
 
 
+@test
+def the_notes_an_instrument_holds_reach_the_clap_child():
+    work = tempfile.mkdtemp(prefix="plugin-hostd-probe-argv.")
+    seen = os.path.join(work, "argv")
+    code, doc, _, _, _ = run(extra=("--probe-notes", "32", "--hold", "8"), env={"PROBE_CHILD_ARGV": seen})
+    check(code == 0, "exit status %d" % code)
+    args = open(seen).read().split("\n")
+    check(args[args.index("--probe-notes") + 1] == "32" if "--probe-notes" in args else False, "--probe-notes 32 reached the child: %s" % args)
+    check(args[args.index("--hold") + 1] == "8" if "--hold" in args else False, "--hold 8 reached the child: %s" % args)
+    code, doc, _, _, _ = run(env={"PROBE_CHILD_ARGV": seen})
+    args = open(seen).read().split("\n")
+    check("--probe-notes" not in args and "--hold" not in args, "no count is given when none was asked for: %s" % args)
+    for bad in ("0", "-3", "many"):
+        p = subprocess.run([PROBE, "run", "--child", CHILD, "--probe-notes", bad, CLAP], capture_output=True, text=True)
+        check(p.returncode == 2 and p.stdout == "", "--probe-notes %s is refused with no document: exit %d" % (bad, p.returncode))
+
 # ---------------------------------------------------------------- LV2: the runner drives lv2_measure's passes
 
 LV2_CHILD = os.path.abspath(os.environ.get("PROBE_LV2_CHILD", os.path.join(ROOT, "tests", "lv2-probe-child")))
