@@ -3,6 +3,8 @@
 # in process() gives the named outcome, in a document that validates, and the whole tree is gone afterwards.
 #   PROBE=<runner> PROBE_CHILD=<tests/probe-child> STRESS_CLAP=<tests/stress.clap> probe_test.py
 # ONLY=<test name> runs one test (tests/sabotage.py turns each guard off and runs the test that must go red).
+# PLUGIN_QUALIFY_BUILD=<a plugin-qualify checkout's native/build> also runs its real prober and lv2_measure over its own
+# instrument fixtures; without it those tests say they skipped.
 import json, os, signal, subprocess, sys, tempfile, time
 
 try:
@@ -31,8 +33,9 @@ def check(cond, what):
         raise AssertionError(what)
 
 
-def run(fault=None, wall=5, extra=(), timeout=30, env=None):
-    """the runner over the stress plugin; returns (exit status, document or None, seconds, the files it used)"""
+def run(fault=None, wall=5, extra=(), timeout=30, env=None, rates="48000"):
+    """the runner over the stress plugin; returns (exit status, document or None, seconds, the files it used); rates None
+    leaves the runner's default rates"""
     work = tempfile.mkdtemp(prefix="plugin-hostd-probe-test.")
     out = os.path.join(work, "probe.json")
     pidfile = os.path.join(work, "forkpid")
@@ -41,8 +44,8 @@ def run(fault=None, wall=5, extra=(), timeout=30, env=None):
         e["STRESS_FAULT"] = fault
     else:
         e.pop("STRESS_FAULT", None)
-    cmd = [PROBE, "run", "--child", CHILD, "--rates", "48000", "--quantum", "256", "--wall-s", str(wall), "--grace-ms", "200",
-           "--log", os.path.join(work, "child.log"), "--out", out, *extra, CLAP, ID]
+    cmd = [PROBE, "run", "--child", CHILD, *(("--rates", rates) if rates else ()), "--quantum", "256", "--wall-s", str(wall),
+           "--grace-ms", "200", "--log", os.path.join(work, "child.log"), "--out", out, *extra, CLAP, ID]
     start = time.monotonic()
     try:
         p = subprocess.run(cmd, env=e, capture_output=True, text=True, timeout=timeout)
@@ -59,6 +62,16 @@ def kill_leftover(pidfile):
         os.kill(int(open(pidfile).read()), signal.SIGKILL)
     except (OSError, ValueError):
         pass
+
+
+def floor_rates():
+    """omx-contract's ORACLE_FLOOR_RATES, the rates a run measures at by default, read from the installed contract"""
+    base = subprocess.run(["pkg-config", "--variable=contractdir", "omx-contract"], capture_output=True, text=True, check=True).stdout.strip()
+    for major in sorted(os.listdir(base), reverse=True):
+        rates = os.path.join(base, major, "omx-contract", "rates.json")
+        if os.path.exists(rates):
+            return json.load(open(rates))["ORACLE_FLOOR_RATES"]["values"]
+    raise AssertionError("omx-contract declares no ORACLE_FLOOR_RATES")
 
 
 def valid(doc):
@@ -169,6 +182,74 @@ def the_limits_reach_the_child():
     check(doc["machine"]["pinnedCpus"] == str(cpus[0]), "pinnedCpus %s" % doc["machine"]["pinnedCpus"])
 
 
+@test
+def the_notes_an_instrument_holds_reach_the_clap_child():
+    work = tempfile.mkdtemp(prefix="plugin-hostd-probe-argv.")
+    seen = os.path.join(work, "argv")
+    code, doc, _, _, _ = run(extra=("--probe-notes", "32", "--hold", "8"), env={"PROBE_CHILD_ARGV": seen})
+    check(code == 0, "exit status %d" % code)
+    args = open(seen).read().split("\n")
+    check(args[args.index("--probe-notes") + 1] == "32" if "--probe-notes" in args else False, "--probe-notes 32 reached the child: %s" % args)
+    check(args[args.index("--hold") + 1] == "8" if "--hold" in args else False, "--hold 8 reached the child: %s" % args)
+    code, doc, _, _, _ = run(env={"PROBE_CHILD_ARGV": seen})
+    args = open(seen).read().split("\n")
+    check("--probe-notes" not in args and "--hold" not in args, "no count is given when none was asked for: %s" % args)
+    for bad in ("0", "-3", "many"):
+        p = subprocess.run([PROBE, "run", "--child", CHILD, "--probe-notes", bad, CLAP], capture_output=True, text=True)
+        check(p.returncode == 2 and p.stdout == "", "--probe-notes %s is refused with no document: exit %d" % (bad, p.returncode))
+
+
+@test
+def every_point_carries_the_cost_timed_at_its_own_rate():
+    rates = floor_rates()
+    code, doc, _, _, _ = run(rates=None)
+    check(code == 0, "exit status %d" % code)
+    valid(doc)
+    check([g["rate"] for g in doc["grid"]] == rates, "a point per rate of omx-contract's floor %s: %s" % (rates, doc["grid"]))
+    for g in doc["grid"]:
+        c = g.get("cost", {})
+        want = {"unit": "ns-per-sample", "median": g["rate"] / 1000, "percentile": {"p": 95, "value": g["rate"] / 1000 + 1},
+                "min": g["rate"] / 1000 - 1, "max": g["rate"] / 1000 + 4, "blocks": 256, "warmupBlocks": 64}
+        check(c == want, "the point at %d carries the figures timed at %d, and no voices for an effect: %s" % (g["rate"], g["rate"], c))
+
+
+@test
+def a_latency_taken_from_a_note_says_so_and_whether_the_note_was_heard():
+    rates = floor_rates()
+    silent = rates[-1]
+    code, doc, _, _, _ = run(rates=None, env={"PROBE_CHILD_INSTRUMENT": "1", "PROBE_CHILD_SILENT_RATE": str(silent)})
+    valid(doc)
+    for g in doc["grid"]:
+        want = {"declaredFrames": 0, "measuredFrames": 1, "method": "note-onset", "heard": g["rate"] != silent}
+        check(g["latency"] == want, "the point at %d: %s, wanted %s" % (g["rate"], g["latency"], want))
+    code, doc, _, _, _ = run()
+    check(doc["grid"][0]["latency"] == {"declaredFrames": 0, "measuredFrames": 0, "method": "impulse-onset"},
+          "an effect's latency is an impulse's: %s" % doc["grid"][0]["latency"])
+
+@test
+def an_instrument_point_carries_the_notes_it_held_and_an_untimed_rate_has_no_cost():
+    rates = floor_rates()
+    untimed = rates[1]
+    code, doc, _, _, _ = run(rates=None, extra=("--probe-notes", "32"),
+                             env={"PROBE_CHILD_INSTRUMENT": "1", "PROBE_CHILD_UNMEASURED_RATE": str(untimed)})
+    check(code == 0, "exit status %d" % code)
+    valid(doc)
+    check(doc["formatVersion"] == "1.1", "formatVersion %s" % doc["formatVersion"])
+    check([g["rate"] for g in doc["grid"]] == rates, "a point per rate %s: %s" % (rates, [g["rate"] for g in doc["grid"]]))
+    for g in doc["grid"]:
+        if g["rate"] == untimed:
+            check("cost" not in g, "the rate the child did not time has no cost, not a neighbour's: %s" % g)
+            continue
+        c = g.get("cost", {})
+        check(c.get("median") == g["rate"] / 1000, "the point at %d carries its own median: %s" % (g["rate"], c))
+        check(c.get("voices") == {"held": 32, "basis": "probe"}, "the point at %d carries the notes held: %s" % (g["rate"], c))
+    code, doc, _, _, _ = run(env={"PROBE_CHILD_INSTRUMENT": "1"})
+    valid(doc)
+    check(all("cost" not in g for g in doc["grid"]), "an instrument with no count to hold has no cost: %s" % doc["grid"])
+    code, doc, _, _, _ = run(extra=("--hold", "8"), env={"PROBE_CHILD_INSTRUMENT": "1"})
+    valid(doc)
+    check(doc["grid"][0]["cost"]["voices"] == {"held": 8, "basis": "probe"}, "--hold 8 is the count held: %s" % doc["grid"][0])
+
 # ---------------------------------------------------------------- LV2: the runner drives lv2_measure's passes
 
 LV2_CHILD = os.path.abspath(os.environ.get("PROBE_LV2_CHILD", os.path.join(ROOT, "tests", "lv2-probe-child")))
@@ -177,12 +258,12 @@ LV2_STRESS = "urn:plugin-hostd:test:stress"
 REAL_LV2_MEASURE = "/usr/libexec/plugin-qualify/lv2_measure"
 
 
-def run_lv2(fault=None, uri=LV2_STRESS, child=LV2_CHILD, wall=5, timeout=30, rates="48000,96000"):
+def run_lv2(fault=None, uri=LV2_STRESS, child=LV2_CHILD, wall=5, timeout=30, rates="48000,96000", env=None, bundles=LV2_BUNDLES):
     """the runner over the LV2 stress fixture with the fake lv2_measure (or the real one)"""
     work = tempfile.mkdtemp(prefix="plugin-hostd-probe-lv2.")
     out = os.path.join(work, "probe.json")
     pidfile = os.path.join(work, "forkpid")
-    e = dict(os.environ, STRESS_FORK_PIDFILE=pidfile, LV2_PATH=LV2_BUNDLES)
+    e = dict(os.environ, STRESS_FORK_PIDFILE=pidfile, LV2_PATH=bundles, **(env or {}))
     if fault:
         e["STRESS_FAULT"] = fault
     else:
@@ -221,6 +302,25 @@ def an_lv2_plugin_is_pinned_then_measured_at_the_highest_rate():
     check(b["lifecycle"]["cycles"] == b["lifecycle"]["instantiated"] > 0 and b["lifecycle"]["failed"] == 0, "lifecycle %s" % b)
     check("threads" in b and "required" in b["features"], "threads and features %s" % b)
 
+
+@test
+def an_lv2_point_carries_the_note_sweep_and_what_run_did_while_the_notes_played():
+    code, doc, _, _, err = run_lv2(env={"PROBE_CHILD_NOTE_ALLOCATIONS": "7"})
+    check(doc is not None, "no document: exit %d %s" % (code, err))
+    valid(doc)
+    ns = doc["grid"][0].get("noteSweep")
+    check(ns == {"applicable": True, "dialect": "midi", "allocations": 7, "locks": 0, "syscalls": 0}, "noteSweep %s" % ns)
+    code, doc, _, _, _ = run_lv2()
+    valid(doc)
+    check(doc["grid"][0].get("noteSweep") == {"applicable": False}, "an effect's sweep does not apply: %s" % doc["grid"][0])
+
+
+@test
+def a_clap_point_carries_the_note_sweep_counts():
+    code, doc, _, _, _ = run(extra=("--probe-notes", "4"), env={"PROBE_CHILD_INSTRUMENT": "1", "PROBE_CHILD_NOTE_ALLOCATIONS": "3"})
+    valid(doc)
+    ns = doc["grid"][0].get("noteSweep")
+    check(ns == {"applicable": True, "dialect": "clap", "allocations": 3, "locks": 0, "syscalls": 0}, "noteSweep %s" % ns)
 
 @test
 def an_lv2_crash_keeps_the_pin_and_names_the_signal():
@@ -286,6 +386,70 @@ def the_real_lv2_measure_is_translated_when_it_is_installed():
         check(doc["run"]["tools"].get("interposer") == "rt_interpose.so" and doc["grid"][0]["rtSafety"]["interposer"],
               "the measurement ran under plugin-qualify's interposer: %s %s" % (doc["run"]["tools"], doc["grid"][0]["rtSafety"]))
 
+
+# ---------------------------------------------------------------- plugin-qualify's own prober and fixtures
+
+PQ_BUILD = os.environ.get("PLUGIN_QUALIFY_BUILD")
+
+
+def pq(what):
+    """a file of the plugin-qualify build, or None (the test says it skipped) when no build is named"""
+    if not PQ_BUILD:
+        print("skip %s: PLUGIN_QUALIFY_BUILD names no plugin-qualify native/build" % what)
+        return None
+    return os.path.abspath(PQ_BUILD)
+
+
+def run_pq_clap(build, plugin, extra=()):
+    work = tempfile.mkdtemp(prefix="plugin-hostd-probe-pq.")
+    out = os.path.join(work, "probe.json")
+    p = subprocess.run([PROBE, "run", "--child", os.path.join(build, "clap-qualify"), "--quantum", "512", "--wall-s", "300",
+                        "--out", out, *extra, os.path.join(build, "fixtures", plugin)], capture_output=True, text=True, timeout=600)
+    return p.returncode, json.load(open(out)) if os.path.exists(out) else None, p.stderr
+
+
+@test
+def the_real_prober_times_an_instrument_holding_the_probe_notes_at_every_floor_rate():
+    build = pq("the_real_prober_times_an_instrument_holding_the_probe_notes_at_every_floor_rate")
+    if not build:
+        return
+    rates = floor_rates()
+    code, doc, err = run_pq_clap(build, "synth.clap", ("--probe-notes", "32"))
+    check(doc is not None, "no document: exit %d %s" % (code, err))
+    valid(doc)
+    check([g["rate"] for g in doc["grid"]] == rates, "a point per floor rate %s: %s" % (rates, [g["rate"] for g in doc["grid"]]))
+    for g in doc["grid"]:
+        c = g.get("cost", {})
+        check(c.get("voices") == {"held": 32, "basis": "probe"} and c.get("median", 0) > 0 and c.get("blocks", 0) > 0,
+              "the point at %d carries the cost it was timed at, 32 notes held: %s" % (g["rate"], c))
+        check(g["latency"].get("method") == "note-onset" and g["latency"].get("heard") is True,
+              "the point at %d: a latency from a note that sounded: %s" % (g["rate"], g["latency"]))
+    code, doc, err = run_pq_clap(build, "synth.clap")
+    valid(doc)
+    check(all("cost" not in g for g in doc["grid"]), "with no count to hold, no rate has a cost: %s" % doc["grid"])
+    code, doc, err = run_pq_clap(build, "synth-voices.clap", ("--probe-notes", "32"))
+    valid(doc)
+    for g in doc["grid"]:
+        v = g.get("cost", {}).get("voices", {})
+        check(v.get("basis") == "declared" and v.get("held") == v.get("capacity"),
+              "an instrument declaring its voices holds that many at %d: %s" % (g["rate"], v))
+
+
+@test
+def the_real_lv2_measure_counts_what_run_does_while_notes_play():
+    build = pq("the_real_lv2_measure_counts_what_run_does_while_notes_play")
+    if not build:
+        return
+    seen = {}
+    for uri in ("urn:plugin-qualify:fixture:lv2-synth-alloc", "urn:plugin-qualify:fixture:lv2-synth"):
+        code, doc, _, _, err = run_lv2(uri=uri, child=os.path.join(build, "lv2_measure"), wall=120, timeout=300,
+                                       bundles=os.path.join(build, "fixtures", "lv2"))
+        check(doc is not None, "%s: no document: exit %d %s" % (uri, code, err))
+        valid(doc)
+        seen[uri] = doc["grid"][0].get("noteSweep", {})
+        check(seen[uri].get("applicable") is True and seen[uri].get("dialect") == "midi", "%s noteSweep %s" % (uri, seen[uri]))
+    check(seen["urn:plugin-qualify:fixture:lv2-synth-alloc"].get("allocations", 0) > 0, "the allocating synth: %s" % seen)
+    check(seen["urn:plugin-qualify:fixture:lv2-synth"].get("allocations") == 0, "its clean twin: %s" % seen)
 
 for t in tests:
     if ONLY and t.__name__ != ONLY:

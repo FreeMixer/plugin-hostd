@@ -317,12 +317,20 @@ The runner never loads plugin code itself.
     plugin-hostd-probe run --out probe.json --log probe.stderr.log /usr/lib64/clap/plate.clap org.example.plate
     plugin-hostd-probe run --out probe.json lv2:http://example.org/plate
 
+A CLAP instrument is timed holding notes down: as many as the voice capacity it declares, or, when it declares none,
+the count `--probe-notes N` gives; `--hold N` holds that count whatever it declares. Both are passed to clap-qualify.
+Each rate's grid point carries the cost clap-qualify timed at that rate, in nanoseconds per sample, and for an instrument
+`voices`, the notes it held and why that many (`declared` or `probe`). A rate it did not time has no cost. An instrument has
+no input for the impulse, so its latency is measured from a note (`method: note-onset`), with `heard: false` at a rate
+where the note did not sound.
+
 An LV2 plugin is measured the way plugin-qualify's LV2 hosting pass measures it today, in two children under the same
 limits and the same wall clock. The first child (`lv2_measure --pin`) pins the bundle's files without instantiating the
 plugin. The second measures at the highest of `--rates`, in blocks of `--quantum`, with 30 instantiate and destroy cycles
 and 3 swept rt-safety runs. It runs under plugin-qualify's interposer (`rt_interpose.so` beside the child) and the noise
 stimulus. The document's binary is the plugin's library, with every pinned file of the bundle listed. The rate's grid
-point carries what run() did under the interposer, and `behaviour` carries the lifecycles, the threads and the features
+point carries what run() did under the interposer and, for a plugin with a MIDI input, its note sweep (what run() did
+while notes played), and `behaviour` carries the lifecycles, the threads and the features
 the plugin requires. A plugin no bundle holds exits 3 with no document. A plugin of which nothing could be pinned exits 2
 with no document, because the document has no binary to name. Its refusal is a code on stderr: `<plugin>: <code>: <why>`,
 `probe.unpinnable` for a bundle the pin cannot cover. Version 1 runs the quick measurement only: the deep lifecycle pass

@@ -414,6 +414,8 @@ typedef struct
     const char *offer;
     const char *set;
     unsigned quantum, blocks;
+    /* the notes a CLAP instrument is timed holding: when it declares no voice capacity, and whatever it declares */
+    unsigned probe_notes, hold;
     long wall_s, cpu_s, files;
     long long data_bytes, file_bytes;
     long grace_ms;
@@ -1072,7 +1074,7 @@ static void take_step_records(run_t *r)
     r->steps.s[r->steps.len] = '\0';
 }
 
-/* clap-qualify's arguments: the rates, the block, the offer, the file and the id */
+/* clap-qualify's arguments: the rates, the block, the offer, the notes an instrument holds, the file and the id */
 static void clap_argv(const options_t *o, char **argv)
 {
     int argc = 0;
@@ -1097,6 +1099,22 @@ static void clap_argv(const options_t *o, char **argv)
     {
         argv[argc++] = "--offer";
         argv[argc++] = (char *)o->offer;
+    }
+    {
+        static char notes[32], hold[32];
+
+        if (o->probe_notes)
+        {
+            snprintf(notes, sizeof(notes), "%u", o->probe_notes);
+            argv[argc++] = "--probe-notes";
+            argv[argc++] = notes;
+        }
+        if (o->hold)
+        {
+            snprintf(hold, sizeof(hold), "%u", o->hold);
+            argv[argc++] = "--hold";
+            argv[argc++] = hold;
+        }
     }
     argv[argc++] = (char *)o->plugin;
     if (o->id)
@@ -1454,8 +1472,25 @@ static void put_count(sb_t *b, const jnode_t *o, const char *from, const char *t
         sb_printf(b, ", \"%s\": %.0f", to, v);
 }
 
+/* a prober's note sweep, as a point carries it: whether it applied, the dialect it played in, and what process() or run()
+ * did while it played when the interposer counted */
+static void put_note_sweep(sb_t *b, const jnode_t *ns)
+{
+    sb_printf(b, ", \"noteSweep\": {\"applicable\": %s", jbool(ns, "applicable", 0) ? "true" : "false");
+    if (jstr(ns, "dialect"))
+    {
+        sb_printf(b, ", \"dialect\": ");
+        sb_str(b, jstr(ns, "dialect"));
+    }
+    put_count(b, ns, "allocationsInRun", "allocations");
+    put_count(b, ns, "locksInRun", "locks");
+    put_count(b, ns, "syscallsInRun", "syscalls");
+    sb_printf(b, "}");
+}
+
 /* lv2_measure's measurement line: the grid point of its rate and block, with what run() did under the interposer, and
- * the plugin's behaviour over the pass (lifecycles, threads, the features it requires); a translation, no judgement */
+ * its note sweep, and the plugin's behaviour over the pass (lifecycles, threads, the features it requires); a
+ * translation, no judgement */
 static void put_lv2_measure(sb_t *b, const jnode_t *m, long rate, unsigned quantum)
 {
     const jnode_t *rt = jget(m, "rtSafety"), *ev = jget(rt, "events"), *life = jget(m, "lifecycle"), *th = jget(m, "threads"),
@@ -1487,6 +1522,8 @@ static void put_lv2_measure(sb_t *b, const jnode_t *m, long rate, unsigned quant
             sb_printf(b, "]");
         }
         sb_printf(b, "}");
+        if (jget(rt, "noteSweep"))
+            put_note_sweep(b, jget(rt, "noteSweep"));
     }
     sb_printf(b, "}\n  ],\n  \"behaviour\": {");
     if (life)
@@ -1515,6 +1552,32 @@ static void put_lv2_measure(sb_t *b, const jnode_t *m, long rate, unsigned quant
         sb_str(b, req->kid[k]->str ? req->kid[k]->str : "");
     }
     sb_printf(b, "]}}");
+}
+
+/* the cost arm's figures at one rate, as that rate's point carries them: nanoseconds per sample, and for an instrument
+ * the notes it held; a rate the arm did not time (an unmeasuredReason in place of the figures) gets no cost, never a
+ * neighbour's */
+static void put_cost(sb_t *b, const jnode_t *cost, const char *rate)
+{
+    const jnode_t *at = jget(jget(cost, "perRate"), rate), *voices = jget(at, "voices");
+    double median, p95, min, max, blocks, warmup, percentile, held, capacity;
+
+    if (!jnum(at, "nsPerSampleMedian", &median) || !jnum(at, "nsPerSampleP95", &p95) ||
+        !jnum(at, "nsPerSampleMin", &min) || !jnum(at, "nsPerSampleMax", &max) || !jnum(at, "blocks", &blocks) ||
+        !jnum(cost, "warmupBlocks", &warmup) || !jnum(cost, "percentile", &percentile))
+        return;
+    sb_printf(b, ", \"cost\": {\"unit\": \"ns-per-sample\", \"median\": %.9g, \"percentile\": {\"p\": %.9g, \"value\": %.9g}, "
+                 "\"min\": %.9g, \"max\": %.9g, \"blocks\": %.0f, \"warmupBlocks\": %.0f",
+              median, percentile, p95, min, max, blocks, warmup);
+    if (jnum(voices, "held", &held) && jstr(voices, "basis"))
+    {
+        sb_printf(b, ", \"voices\": {\"held\": %.0f, \"basis\": ", held);
+        sb_str(b, jstr(voices, "basis"));
+        if (jnum(voices, "capacity", &capacity))
+            sb_printf(b, ", \"capacity\": %.0f", capacity);
+        sb_printf(b, "}");
+    }
+    sb_printf(b, "}");
 }
 
 /* the rates a run measures at when it is given none: omx-contract's ORACLE_FLOOR_RATES, every kernel oracle's floor */
@@ -1568,6 +1631,8 @@ int main(int argc, char **argv)
                         "  --rates R,R,...      sample rates (default %s)\n"
                         "  --quantum N          block size in frames (default 512)     --blocks N   blocks per rate\n"
                         "  --offer EXT,...      host extensions to offer on top of the child's own\n"
+                        "  --probe-notes N      notes a CLAP instrument declaring no voice capacity is timed holding\n"
+                        "  --hold N             notes a CLAP instrument is timed holding, whatever it declares\n"
                         "  --out FILE           the document, written atomically (default stdout)\n"
                         "  --log FILE           the child's stderr (default discarded)\n"
                         "  --reason WHY         add, rescan, binary-changed, on-request, auto-measure, reference, ci\n"
@@ -1594,6 +1659,19 @@ int main(int argc, char **argv)
         else if (!strcmp(k, "--quantum")) o.quantum = (unsigned)atoi(v);
         else if (!strcmp(k, "--blocks")) o.blocks = (unsigned)atoi(v);
         else if (!strcmp(k, "--offer")) o.offer = v;
+        else if (!strcmp(k, "--probe-notes") || !strcmp(k, "--hold"))
+        {
+            char *end;
+            long n = strtol(v, &end, 10);
+
+            /* how many the prober can hold is the prober's to say: a count it refuses ends its run as any refusal does */
+            if (*end || n < 1 || n > INT_MAX)
+            {
+                fprintf(stderr, RUNNER_NAME ": %s takes a positive count of notes\n", k);
+                return 2;
+            }
+            *(k[2] == 'p' ? &o.probe_notes : &o.hold) = (unsigned)n;
+        }
         else if (!strcmp(k, "--out")) o.out = v;
         else if (!strcmp(k, "--log")) o.log = v;
         else if (!strcmp(k, "--reason")) o.reason = v;
@@ -1758,7 +1836,8 @@ int main(int argc, char **argv)
     {
         const char *plugin_id = line ? jstr(line, "id") : NULL;
         const jnode_t *clap = jget(line, "clap"), *integ = jget(line, "integrity"), *rt = jget(line, "rtSafety"),
-                      *notes = jget(line, "noteSweep"), *latency = jget(clap, "latency"), *ext = jget(line, "hostExtensions");
+                      *notes = jget(line, "noteSweep"), *latency = jget(clap, "latency"), *ext = jget(line, "hostExtensions"),
+                      *cost = jget(line, "cost");
         const char *layout_sha = NULL, *unmeasured = NULL;
         int firstpoint = 1;
         size_t k;
@@ -1925,19 +2004,26 @@ int main(int argc, char **argv)
             put_step(&doc, &g_steps[i]);
         }
         sb_printf(&doc, "\n  ]");
-        /* the grid: one point per rate the child reported a latency for */
+        /* the grid: one point per rate the child reported a latency for, with the cost the child timed at that rate */
         if (latency && latency->n)
         {
             sb_printf(&doc, ",\n  \"grid\": [");
             for (k = 0; k < latency->n && k < MAX_POINTS; k++)
             {
                 double decl = 0, meas = 0;
+                int from_note;
 
                 jnum(latency->kid[k], "declaredFrames", &decl);
                 jnum(latency->kid[k], "measuredFrames", &meas);
+                /* an instrument has no input for the impulse: its onset is measured from a note, which may not sound */
+                from_note = jstr(latency->kid[k], "from") && !strcmp(jstr(latency->kid[k], "from"), "note");
                 sb_printf(&doc, "%s\n    {\"rate\": %ld, \"quantum\": %u, \"outcome\": \"%s\", \"latency\": {\"declaredFrames\": %.0f, "
-                                "\"measuredFrames\": %.0f, \"method\": \"impulse-onset\"}",
-                          k ? "," : "", atol(latency->key[k]), o.quantum, OUT_OK, decl, meas);
+                                "\"measuredFrames\": %.0f, \"method\": \"%s\"",
+                          k ? "," : "", atol(latency->key[k]), o.quantum, OUT_OK, decl, meas, from_note ? "note-onset" : "impulse-onset");
+                if (from_note)
+                    sb_printf(&doc, ", \"heard\": %s", jbool(latency->kid[k], "heard", 1) ? "true" : "false");
+                sb_printf(&doc, "}");
+                put_cost(&doc, cost, latency->key[k]);
                 if (firstpoint && rt)
                 {
                     double v = 0;
@@ -1975,15 +2061,7 @@ int main(int argc, char **argv)
                     }
                     sb_printf(&doc, "}");
                     if (notes)
-                    {
-                        sb_printf(&doc, ", \"noteSweep\": {\"applicable\": %s", jbool(notes, "applicable", 0) ? "true" : "false");
-                        if (jstr(notes, "dialect"))
-                        {
-                            sb_printf(&doc, ", \"dialect\": ");
-                            sb_str(&doc, jstr(notes, "dialect"));
-                        }
-                        sb_printf(&doc, "}");
-                    }
+                        put_note_sweep(&doc, notes);
                     firstpoint = 0;
                 }
                 sb_printf(&doc, "}");

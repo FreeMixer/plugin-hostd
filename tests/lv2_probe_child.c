@@ -28,7 +28,8 @@
  * loaded with dlopen. The plugin's own code runs here: a plugin that crashes, hangs or leaves a process behind in run()
  * (tests/lv2_fixture.c's "stress", STRESS_FAULT) does it in this process, as it would in lv2_measure. The layout pin is
  * a fixed digest: the runner copies it and computes none. A measurement refuses to run without OMX_STIM=noise, and
- * reports the interposer as loaded when LD_PRELOAD names rt_interpose.so, so a test sees what the runner set. */
+ * reports the interposer as loaded when LD_PRELOAD names rt_interpose.so, so a test sees what the runner set. Its note
+ * sweep applies when PROBE_CHILD_NOTE_ALLOCATIONS gives the allocations run() made while the notes played. */
 
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
@@ -259,8 +260,15 @@ int main(int argc, char **argv)
            "\"threads\":{\"before\":%d,\"afterFirstInstantiate\":%d,\"afterAllFreed\":%d,\"leaked\":0},"
            "\"rtSafety\":{\"interposer\":%s,\"blocks\":64,\"repeats\":%d,\"swept\":false,\"sweepApplicable\":true,"
            "\"allocationsInRun\":0,\"allocationsMin\":0,\"variable\":false,\"locksInRun\":0,\"locksMin\":0,"
-           "\"syscallsInRun\":0,\"syscallsMin\":0,\"events\":[]}}\n",
+           "\"syscallsInRun\":0,\"syscallsMin\":0,\"events\":[]",
            uri, rate, block, cycles, instantiated, cycles - instantiated, before, after_first, threads(),
            getenv("LD_PRELOAD") && strstr(getenv("LD_PRELOAD"), "rt_interpose.so") ? "true" : "false", repeats);
+    if (getenv("PROBE_CHILD_NOTE_ALLOCATIONS"))
+        printf(",\"noteSweep\":{\"applicable\":true,\"dialect\":\"midi\",\"blocks\":64,\"blockFrames\":%u,\"noteEvents\":768,"
+               "\"processErrors\":0,\"nonFinite\":false,\"interposer\":true,\"allocationsInRun\":%ld,\"locksInRun\":0,"
+               "\"syscallsInRun\":0,\"events\":[]}", block, atol(getenv("PROBE_CHILD_NOTE_ALLOCATIONS")));
+    else
+        printf(",\"noteSweep\":{\"applicable\":false}");
+    printf("}}\n");
     return 0;
 }

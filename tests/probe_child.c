@@ -21,7 +21,14 @@
 /* The smallest child the probe runner's tests can run a plugin with: it takes clap-qualify's arguments, loads the
  * .clap, creates and activates the plugin, writes a step record on file descriptor 3 after each step, runs one block
  * through process() and prints one JSON line of facts. A plugin that crashes, hangs or leaves a process behind in
- * process() (tests/stress_plugin.c, STRESS_FAULT) leaves the records written before. */
+ * process() (tests/stress_plugin.c, STRESS_FAULT) leaves the records written before.
+ *
+ * The line carries a latency and a cost for every rate of --rates, of the shapes clap-qualify prints, with figures
+ * made from the rate (a median of rate / 1000 ns per sample), so a figure the runner put at another rate's point is
+ * seen. PROBE_CHILD_INSTRUMENT makes the plugin an instrument: its latency is taken from a note, its cost holds the
+ * notes --hold or --probe-notes give (no count: the rate is not timed) and it has a note sweep, counted under the
+ * interposer when PROBE_CHILD_NOTE_ALLOCATIONS gives the allocations it saw. PROBE_CHILD_SILENT_RATE is a rate where
+ * the note was not heard, PROBE_CHILD_UNMEASURED_RATE one the cost arm did not time. */
 
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
@@ -106,9 +113,51 @@ static void record(const char *step, long rate, long quantum, long since)
         _exit(2);
 }
 
+/* the per-rate facts of the line, for every rate of --rates */
+static void put_rates(const char *rates, long quantum, unsigned notes)
+{
+    const char *instrument = getenv("PROBE_CHILD_INSTRUMENT"), *note_allocs = getenv("PROBE_CHILD_NOTE_ALLOCATIONS");
+    long silent = getenv("PROBE_CHILD_SILENT_RATE") ? atol(getenv("PROBE_CHILD_SILENT_RATE")) : 0;
+    long unmeasured = getenv("PROBE_CHILD_UNMEASURED_RATE") ? atol(getenv("PROBE_CHILD_UNMEASURED_RATE")) : 0;
+    const char *p;
+    char *end;
+    long r;
+
+    printf("\"latency\":{");
+    for (p = rates; (r = strtol(p, &end, 10)) > 0; p = *end ? end + 1 : end)
+        printf("%s\"%ld\":{\"declaredFrames\":0,\"measuredFrames\":%d%s%s}", p == rates ? "" : ",", r, instrument ? 1 : 0,
+               instrument ? ",\"from\":\"note\"" : "", instrument && r == silent ? ",\"heard\":false" : "");
+    printf("},\"threadViolations\":0,\"processErrors\":0},\"rtSafety\":{\"interposer\":false}");
+    if (instrument && note_allocs)
+        printf(",\"noteSweep\":{\"applicable\":true,\"dialect\":\"clap\",\"interposer\":true,\"allocationsInRun\":%ld,"
+               "\"locksInRun\":0,\"syscallsInRun\":0,\"events\":[]}", atol(note_allocs));
+    else
+        printf(",\"noteSweep\":{\"applicable\":%s%s}", instrument ? "true" : "false", instrument ? ",\"dialect\":\"clap\",\"interposer\":false" : "");
+    printf(",\"cost\":{\"stimulus\":\"%s\",\"blockFrames\":%ld,\"warmupBlocks\":64,\"percentile\":95,\"perRate\":{",
+           instrument ? "notes-held" : "noise", quantum);
+    for (p = rates; (r = strtol(p, &end, 10)) > 0; p = *end ? end + 1 : end)
+    {
+        double ns = (double)r / 1000;
+
+        printf("%s\"%ld\":{", p == rates ? "" : ",", r);
+        if (r == unmeasured)
+            printf("\"unmeasuredReason\":\"no-figures\",\"unmeasuredDetail\":\"the test asked for none at this rate\"");
+        else if (instrument && !notes)
+            printf("\"unmeasuredReason\":\"voices-unknown\",\"unmeasuredDetail\":\"no voice-info and no --probe-notes count to hold\"");
+        else
+            printf("\"nsPerSampleMedian\":%g,\"nsPerSampleP95\":%g,\"nsPerSampleMin\":%g,\"nsPerSampleMax\":%g,"
+                   "\"warmupNsPerSampleMedian\":%g,\"blocks\":256", ns, ns + 1, ns - 1, ns + 4, ns + 2);
+        if (instrument && notes)
+            printf(",\"voices\":{\"held\":%u,\"basis\":\"probe\"}", notes);
+        printf("}");
+    }
+    printf("}}");
+}
+
 int main(int argc, char **argv)
 {
     const char *rates = "48000", *path = NULL, *id = NULL;
+    unsigned notes = 0, hold = 0;
     long rate, quantum = 256, t0 = now_ms();
     void *lib;
     const clap_plugin_entry_t *entry;
@@ -124,6 +173,10 @@ int main(int argc, char **argv)
             rates = argv[++a];
         else if (!strcmp(argv[a], "--block") && a + 1 < argc)
             quantum = atol(argv[++a]);
+        else if (!strcmp(argv[a], "--probe-notes") && a + 1 < argc)
+            notes = (unsigned)atoi(argv[++a]);
+        else if (!strcmp(argv[a], "--hold") && a + 1 < argc)
+            hold = (unsigned)atoi(argv[++a]);
         else if ((!strcmp(argv[a], "--blocks") || !strcmp(argv[a], "--offer")) && a + 1 < argc)
             a++;
         else if (!path)
@@ -135,6 +188,16 @@ int main(int argc, char **argv)
         return 2;
     if (getenv("PROBE_CHILD_LIMITS"))
         report_limits(getenv("PROBE_CHILD_LIMITS"));
+    /* PROBE_CHILD_ARGV names a file to write the arguments the runner gave, one to a line */
+    if (getenv("PROBE_CHILD_ARGV"))
+    {
+        FILE *f = fopen(getenv("PROBE_CHILD_ARGV"), "w");
+
+        for (a = 1; f && a < argc; a++)
+            fprintf(f, "%s\n", argv[a]);
+        if (f)
+            fclose(f);
+    }
     rate = atol(rates);
     lib = dlopen(path, RTLD_NOW | RTLD_LOCAL);
     entry = lib ? dlsym(lib, "clap_entry") : NULL;
@@ -167,8 +230,8 @@ int main(int argc, char **argv)
     plugin->stop_processing(plugin);
     plugin->deactivate(plugin);
     plugin->destroy(plugin);
-    printf("{\"id\":\"%s\",\"format\":\"clap\",\"hostExtensions\":[],\"clap\":{\"headlessOk\":true,\"latency\":{\"%ld\":"
-           "{\"declaredFrames\":0,\"measuredFrames\":0}},\"threadViolations\":0,\"processErrors\":0},\"rtSafety\":{\"interposer\":false}}\n",
-           id, rate);
+    printf("{\"id\":\"%s\",\"format\":\"clap\",\"hostExtensions\":[],\"clap\":{\"headlessOk\":true,", id);
+    put_rates(rates, quantum, hold ? hold : notes);
+    printf("}\n");
     return 0;
 }

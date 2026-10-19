@@ -745,8 +745,13 @@
             "method": {
               "enum": [
                 "impulse-onset",
-                "declared-port"
+                "declared-port",
+                "note-onset"
               ]
+            },
+            "heard": {
+              "description": "A note-onset latency's: whether the note sounded, so an onset that never came is not read as one.",
+              "type": "boolean"
             }
           }
         },
@@ -820,6 +825,31 @@
             },
             "samples": {
               "$ref": "#/$defs/fileRef"
+            },
+            "voices": {
+              "description": "An instrument's: the notes it held down while it was timed, and why that many.",
+              "type": "object",
+              "required": [
+                "held",
+                "basis"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "held": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "basis": {
+                  "enum": [
+                    "declared",
+                    "probe"
+                  ]
+                },
+                "capacity": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
             }
           }
         },
