@@ -1395,6 +1395,48 @@ static int interposer_beside(const char *child)
     return 0;
 }
 
+/* The measured child gets the interposer and nothing else: a preload the runner was started with (another malloc
+ * interposer would hide the allocations) is dropped for the measurement, the record says so, and the runner's own
+ * LD_PRELOAD is put back after the child */
+static int g_had_preload;
+static char g_saved_preload[PATH_MAX * 4];
+static char g_dropped_preload[PATH_MAX * 4];
+
+static void preload_for_measurement(const char *child)
+{
+    const char *was = getenv("LD_PRELOAD");
+
+    g_had_preload = was != NULL;
+    snprintf(g_saved_preload, sizeof(g_saved_preload), "%s", was ? was : "");
+    g_dropped_preload[0] = '\0';
+    if (interposer_beside(child))
+        setenv("LD_PRELOAD", g_interposer, 1);
+    else
+        unsetenv("LD_PRELOAD");
+    /* what the runner had and the child does not get is dropped */
+    if (g_saved_preload[0] && strcmp(g_saved_preload, g_interposer))
+        snprintf(g_dropped_preload, sizeof(g_dropped_preload), "%s", g_saved_preload);
+}
+
+static void preload_restore(void)
+{
+    if (g_had_preload)
+        setenv("LD_PRELOAD", g_saved_preload, 1);
+    else
+        unsetenv("LD_PRELOAD");
+}
+
+/* an rt-safety detail, with the preload that was dropped for the measurement when there was one */
+static const char *with_dropped(const char *text)
+{
+    static char out[512];
+
+    if (!g_dropped_preload[0])
+        return text;
+    snprintf(out, sizeof(out), "%s; dropped LD_PRELOAD=%s for the measurement", text, g_dropped_preload);
+    return out;
+}
+
 /* why a child's line says no interposer counted: none was found beside it, or the one preloaded did not load */
 static const char *no_interposer_reason(void)
 {
@@ -1476,12 +1518,11 @@ static int run_lv2(const options_t *o, const char *uri, long rate, const cpu_set
     argv[4] = cycles_s;
     argv[5] = repeats_s;
     argv[6] = NULL;
-    if (interposer_beside(o->child))
-        setenv("LD_PRELOAD", g_interposer, 1);
+    preload_for_measurement(o->child);
     setenv(PROBE_LV2_STIMULUS_ENV, PROBE_LV2_STIMULUS, 1);
     memset(r, 0, sizeof(*r));
     run_child(o, argv, pinned, pin_option, r, deadline);
-    unsetenv("LD_PRELOAD");
+    preload_restore();
     *measure = first_line(&r->out);
     if (*measure && jbool(*measure, "instantiated", 0))
     {
@@ -1492,7 +1533,7 @@ static int run_lv2(const options_t *o, const char *uri, long rate, const cpu_set
         s = add_step("rt-safety", jbool(rt, "interposer", 0) ? OUT_OK : OUT_NOT_ATTEMPTED, 0);
         s->rate = rate;
         s->quantum = o->quantum;
-        set_detail(s, "%s", jbool(rt, "interposer", 0) ? "read from the child's line" : no_interposer_reason());
+        set_detail(s, "%s", with_dropped(jbool(rt, "interposer", 0) ? "read from the child's line" : no_interposer_reason()));
     }
     else if (*measure && jbool(*measure, "found", 0))
     {
@@ -1864,10 +1905,9 @@ int main(int argc, char **argv)
         add_step("hash", OUT_OK, now_ms() - t0);
         clap_argv(&o, argv_child);
         /* the CLAP prober counts under the interposer beside it, as the LV2 measurement does */
-        if (interposer_beside(o.child))
-            setenv("LD_PRELOAD", g_interposer, 1);
+        preload_for_measurement(o.child);
         run_child(&o, argv_child, &pinned, pin_option, &r, t0 + o.wall_s * 1000);
-        unsetenv("LD_PRELOAD");
+        preload_restore();
         run_outcome = child_end("lifecycle", &o, &r, &complete);
     }
     read_idle(g_idle_after, &g_nidle, &pinned);
@@ -1922,13 +1962,13 @@ int main(int argc, char **argv)
             {
                 step_t *x = add_step("rt-safety", OUT_OK, 0);
 
-                set_detail(x, "counts are totals over every rate, read from the child's line");
+                set_detail(x, "%s", with_dropped("counts are totals over every rate, read from the child's line"));
             }
             else if (rt)
             {
                 step_t *x = add_step("rt-safety", OUT_NOT_ATTEMPTED, 0);
 
-                set_detail(x, "%s", no_interposer_reason());
+                set_detail(x, "%s", with_dropped(no_interposer_reason()));
             }
             {
                 int counted = jbool(notes, "applicable", 0) && jbool(notes, "interposer", 0);
@@ -1966,6 +2006,11 @@ int main(int argc, char **argv)
         {
             sb_printf(&doc, ", \"interposer\": ");
             sb_str(&doc, base_name(g_interposer));
+        }
+        if (g_dropped_preload[0])
+        {
+            sb_printf(&doc, ", \"droppedPreload\": ");
+            sb_str(&doc, g_dropped_preload);
         }
         sb_printf(&doc, "},\n    \"via\": \"runner\"\n  },\n  \"plugin\": {\"format\": \"%s\", \"id\": ", lv2_uri ? "lv2" : "clap");
         if (lv2_uri)

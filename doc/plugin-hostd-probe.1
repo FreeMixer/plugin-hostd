@@ -21,6 +21,13 @@ each ended and the limits that were applied. It gives no verdict. The runner nev
 deadline, on a cancel or when the child is done it kills the whole process tree, including a process the plugin
 started and orphaned.
 .PP
+A bare
+.B \-\-child
+is found as execvp finds it; name the child by path when PATH is unset or holds a directory of its name.
+The measured child gets the interposer and nothing else: an LD_PRELOAD the runner was started with is dropped for the
+measurement, named in run.tools.droppedPreload and in the rt\-safety step, and put back in the runner's environment after
+the child.
+.PP
 The document follows
 .IR plugin\-hostd/probe\-output.schema.json .
 Nothing a plugin prints can enter it.
