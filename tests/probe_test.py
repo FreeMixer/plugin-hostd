@@ -3,6 +3,8 @@
 # in process() gives the named outcome, in a document that validates, and the whole tree is gone afterwards.
 #   PROBE=<runner> PROBE_CHILD=<tests/probe-child> STRESS_CLAP=<tests/stress.clap> probe_test.py
 # ONLY=<test name> runs one test (tests/sabotage.py turns each guard off and runs the test that must go red).
+# PLUGIN_QUALIFY_BUILD=<a plugin-qualify checkout's native/build> also runs its real prober and lv2_measure over its own
+# instrument fixtures; without it those tests say they skipped.
 import json, os, signal, subprocess, sys, tempfile, time
 
 try:
@@ -384,6 +386,70 @@ def the_real_lv2_measure_is_translated_when_it_is_installed():
         check(doc["run"]["tools"].get("interposer") == "rt_interpose.so" and doc["grid"][0]["rtSafety"]["interposer"],
               "the measurement ran under plugin-qualify's interposer: %s %s" % (doc["run"]["tools"], doc["grid"][0]["rtSafety"]))
 
+
+# ---------------------------------------------------------------- plugin-qualify's own prober and fixtures
+
+PQ_BUILD = os.environ.get("PLUGIN_QUALIFY_BUILD")
+
+
+def pq(what):
+    """a file of the plugin-qualify build, or None (the test says it skipped) when no build is named"""
+    if not PQ_BUILD:
+        print("skip %s: PLUGIN_QUALIFY_BUILD names no plugin-qualify native/build" % what)
+        return None
+    return os.path.abspath(PQ_BUILD)
+
+
+def run_pq_clap(build, plugin, extra=()):
+    work = tempfile.mkdtemp(prefix="plugin-hostd-probe-pq.")
+    out = os.path.join(work, "probe.json")
+    p = subprocess.run([PROBE, "run", "--child", os.path.join(build, "clap-qualify"), "--quantum", "512", "--wall-s", "300",
+                        "--out", out, *extra, os.path.join(build, "fixtures", plugin)], capture_output=True, text=True, timeout=600)
+    return p.returncode, json.load(open(out)) if os.path.exists(out) else None, p.stderr
+
+
+@test
+def the_real_prober_times_an_instrument_holding_the_probe_notes_at_every_floor_rate():
+    build = pq("the_real_prober_times_an_instrument_holding_the_probe_notes_at_every_floor_rate")
+    if not build:
+        return
+    rates = floor_rates()
+    code, doc, err = run_pq_clap(build, "synth.clap", ("--probe-notes", "32"))
+    check(doc is not None, "no document: exit %d %s" % (code, err))
+    valid(doc)
+    check([g["rate"] for g in doc["grid"]] == rates, "a point per floor rate %s: %s" % (rates, [g["rate"] for g in doc["grid"]]))
+    for g in doc["grid"]:
+        c = g.get("cost", {})
+        check(c.get("voices") == {"held": 32, "basis": "probe"} and c.get("median", 0) > 0 and c.get("blocks", 0) > 0,
+              "the point at %d carries the cost it was timed at, 32 notes held: %s" % (g["rate"], c))
+        check(g["latency"].get("method") == "note-onset" and g["latency"].get("heard") is True,
+              "the point at %d: a latency from a note that sounded: %s" % (g["rate"], g["latency"]))
+    code, doc, err = run_pq_clap(build, "synth.clap")
+    valid(doc)
+    check(all("cost" not in g for g in doc["grid"]), "with no count to hold, no rate has a cost: %s" % doc["grid"])
+    code, doc, err = run_pq_clap(build, "synth-voices.clap", ("--probe-notes", "32"))
+    valid(doc)
+    for g in doc["grid"]:
+        v = g.get("cost", {}).get("voices", {})
+        check(v.get("basis") == "declared" and v.get("held") == v.get("capacity"),
+              "an instrument declaring its voices holds that many at %d: %s" % (g["rate"], v))
+
+
+@test
+def the_real_lv2_measure_counts_what_run_does_while_notes_play():
+    build = pq("the_real_lv2_measure_counts_what_run_does_while_notes_play")
+    if not build:
+        return
+    seen = {}
+    for uri in ("urn:plugin-qualify:fixture:lv2-synth-alloc", "urn:plugin-qualify:fixture:lv2-synth"):
+        code, doc, _, _, err = run_lv2(uri=uri, child=os.path.join(build, "lv2_measure"), wall=120, timeout=300,
+                                       bundles=os.path.join(build, "fixtures", "lv2"))
+        check(doc is not None, "%s: no document: exit %d %s" % (uri, code, err))
+        valid(doc)
+        seen[uri] = doc["grid"][0].get("noteSweep", {})
+        check(seen[uri].get("applicable") is True and seen[uri].get("dialect") == "midi", "%s noteSweep %s" % (uri, seen[uri]))
+    check(seen["urn:plugin-qualify:fixture:lv2-synth-alloc"].get("allocations", 0) > 0, "the allocating synth: %s" % seen)
+    check(seen["urn:plugin-qualify:fixture:lv2-synth"].get("allocations") == 0, "its clean twin: %s" % seen)
 
 for t in tests:
     if ONLY and t.__name__ != ONLY:

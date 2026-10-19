@@ -97,6 +97,12 @@ omx-clap-host does not take them yet (a tempo, FreeMixer/omx-clap-core#88; the n
 case prints `PENDING` with the issue and checks what the worker answers today. Without `OMX_CLAP_HOST_SRC` the target
 prints `skip test-lv2-adapter` and does nothing else.
 
+`make test-probe` runs the probe runner over `tests/probe-child` and `tests/lv2-probe-child`, stand-ins that print the
+lines of plugin-qualify's prober and `lv2_measure`. With `PLUGIN_QUALIFY_BUILD=<plugin-qualify checkout>/native/build`
+(`make -C native all` there) it also runs the real ones over plugin-qualify's instrument fixtures: a CLAP synth timed
+holding `--probe-notes` at every rate of omx-contract's `ORACLE_FLOOR_RATES`, and an LV2 synth that allocates on a note
+beside its clean twin. Without it those tests print `skip`.
+
 `make sabotage` (`tests/sabotage.py`) breaks the daemon on purpose, one guard at a time, and
 requires the named test to go red.
 
