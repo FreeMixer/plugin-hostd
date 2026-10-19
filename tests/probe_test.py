@@ -33,7 +33,7 @@ def check(cond, what):
         raise AssertionError(what)
 
 
-def run(fault=None, wall=5, extra=(), timeout=30, env=None, rates="48000"):
+def run(fault=None, wall=5, extra=(), timeout=30, env=None, rates="48000", child=CHILD):
     """the runner over the stress plugin; returns (exit status, document or None, seconds, the files it used); rates None
     leaves the runner's default rates"""
     work = tempfile.mkdtemp(prefix="plugin-hostd-probe-test.")
@@ -44,7 +44,7 @@ def run(fault=None, wall=5, extra=(), timeout=30, env=None, rates="48000"):
         e["STRESS_FAULT"] = fault
     else:
         e.pop("STRESS_FAULT", None)
-    cmd = [PROBE, "run", "--child", CHILD, *(("--rates", rates) if rates else ()), "--quantum", "256", "--wall-s", str(wall),
+    cmd = [PROBE, "run", "--child", child, *(("--rates", rates) if rates else ()), "--quantum", "256", "--wall-s", str(wall),
            "--grace-ms", "200", "--log", os.path.join(work, "child.log"), "--out", out, *extra, CLAP, ID]
     start = time.monotonic()
     try:
@@ -322,6 +322,115 @@ def a_clap_point_carries_the_note_sweep_counts():
     ns = doc["grid"][0].get("noteSweep")
     check(ns == {"applicable": True, "dialect": "clap", "allocations": 3, "locks": 0, "syscalls": 0}, "noteSweep %s" % ns)
 
+def child_alone(interposer=None):
+    """a copy of the fake CLAP child in a directory of its own, with no interposer beside it, or with `interposer`
+    (the bytes of a file named rt_interpose.so) beside it"""
+    work = tempfile.mkdtemp(prefix="plugin-hostd-probe-alone.")
+    child = os.path.join(work, "probe-child")
+    with open(CHILD, "rb") as src, open(child, "wb") as dst:
+        dst.write(src.read())
+    os.chmod(child, 0o755)
+    if interposer is not None:
+        open(os.path.join(work, "rt_interpose.so"), "wb").write(interposer)
+    return work, child
+
+
+def step(doc, name):
+    return next((s for s in doc["steps"] if s["step"] == name), None)
+
+
+@test
+def a_clap_child_runs_under_the_interposer_beside_it():
+    code, doc, _, _, err = run(rates=None, extra=("--probe-notes", "4"),
+                               env={"PROBE_CHILD_ALLOCATIONS": "5", "PROBE_CHILD_INSTRUMENT": "1", "PROBE_CHILD_NOTE_ALLOCATIONS": "3",
+                                    "PROBE_CHILD_NO_RECORDS": "1"})
+    check(doc is not None, "no document: exit %d %s" % (code, err))
+    valid(doc)
+    check(doc["run"]["tools"].get("interposer") == "rt_interpose.so", "the run names the interposer: %s" % doc["run"]["tools"])
+    rt = doc["grid"][0].get("rtSafety", {})
+    check(rt.get("interposer") is True and rt.get("allocations") == 5 and rt.get("locks") == 0 and rt.get("syscalls") == 0,
+          "the first point carries the counts taken under the interposer: %s" % rt)
+    ns = doc["grid"][0].get("noteSweep")
+    check(ns == {"applicable": True, "dialect": "clap", "allocations": 3, "locks": 0, "syscalls": 0}, "noteSweep %s" % ns)
+    for name in ("rt-safety", "note-sweep"):
+        s = step(doc, name)
+        check(s is not None and s["outcome"] == "probe.ok", "the %s step: %s" % (name, s))
+
+
+@test
+def a_bare_clap_child_is_found_on_path_and_runs_under_the_interposer_beside_it():
+    code, doc, _, _, err = run(child=os.path.basename(CHILD), env={"PATH": os.path.dirname(CHILD) + ":" + os.environ.get("PATH", ""),
+                                                                   "PROBE_CHILD_ALLOCATIONS": "2"})
+    check(doc is not None, "no document: exit %d %s" % (code, err))
+    check(doc["run"]["tools"].get("interposer") == "rt_interpose.so" and doc["grid"][0]["rtSafety"].get("allocations") == 2,
+          "the child named by PATH counts under the interposer beside it: %s %s" % (doc["run"]["tools"], doc["grid"][0]))
+
+
+@test
+def a_clap_child_with_no_interposer_beside_it_is_unmeasured_and_says_why():
+    work, child = child_alone()
+    code, doc, _, _, err = run(child=child, extra=("--probe-notes", "4"),
+                               env={"PROBE_CHILD_INSTRUMENT": "1", "PROBE_CHILD_NOTE_ALLOCATIONS": "3", "PROBE_CHILD_NO_RECORDS": "1"})
+    check(doc is not None, "no document: exit %d %s" % (code, err))
+    valid(doc)
+    check("interposer" not in doc["run"]["tools"], "no interposer is named: %s" % doc["run"]["tools"])
+    check(doc["grid"][0].get("rtSafety") == {"interposer": False}, "no counts without the interposer: %s" % doc["grid"][0])
+    check(doc["grid"][0].get("noteSweep") == {"applicable": True, "dialect": "clap"},
+          "a note sweep the interposer did not count carries no counts, whatever the child printed: %s" % doc["grid"][0].get("noteSweep"))
+    rt, ns = step(doc, "rt-safety"), step(doc, "note-sweep")
+    why = "no rt_interpose.so beside the child in %s" % work
+    check(rt is not None and rt["outcome"] == "probe.not-attempted" and rt.get("detail") == why, "the rt-safety step says why: %s" % rt)
+    check(ns is not None and ns["outcome"] == "probe.not-attempted" and why in ns.get("detail", ""), "the note-sweep step says why: %s" % ns)
+
+
+def child_env(path):
+    return dict(l.split("=", 1) for l in open(path).read().split("\n") if "=" in l)
+
+
+@test
+def a_preload_the_runner_had_is_dropped_for_the_measurement_and_recorded():
+    work = tempfile.mkdtemp(prefix="plugin-hostd-probe-env.")
+    seen = os.path.join(work, "env")
+    stub = os.path.join(os.path.dirname(CHILD), "rt_interpose.so")
+    # a library the runner itself was started under, which is no interposer of the measurement
+    foreign = CLAP
+    code, doc, _, _, err = run(env={"LD_PRELOAD": foreign, "PROBE_CHILD_ENV": seen, "PROBE_CHILD_NO_RECORDS": "1"})
+    check(doc is not None, "no document: exit %d %s" % (code, err))
+    valid(doc)
+    check(child_env(seen).get("LD_PRELOAD") == stub, "the measured child gets only the interposer: %s" % child_env(seen).get("LD_PRELOAD"))
+    check(doc["run"]["tools"].get("droppedPreload") == foreign, "the run records the preload it dropped: %s" % doc["run"]["tools"])
+    rt = step(doc, "rt-safety")
+    check(rt is not None and rt["outcome"] == "probe.ok" and ("dropped LD_PRELOAD=%s for the measurement" % foreign) in rt.get("detail", ""),
+          "the rt-safety step says what was dropped: %s" % rt)
+    # with no interposer beside the child, the foreign preload is dropped all the same
+    _, alone = child_alone()
+    code, doc, _, _, err = run(child=alone, env={"LD_PRELOAD": foreign, "PROBE_CHILD_ENV": seen, "PROBE_CHILD_NO_RECORDS": "1"})
+    check("LD_PRELOAD" not in child_env(seen), "a child with no interposer beside it gets no preload: %s" % child_env(seen).get("LD_PRELOAD"))
+    check(doc["run"]["tools"].get("droppedPreload") == foreign and "dropped LD_PRELOAD" in step(doc, "rt-safety").get("detail", ""),
+          "and the record says so: %s %s" % (doc["run"]["tools"], step(doc, "rt-safety")))
+    # the interposer itself, already preloaded (as plugin-qualify starts the runner), is not dropped
+    code, doc, _, _, err = run(env={"LD_PRELOAD": stub, "PROBE_CHILD_ENV": seen, "PROBE_CHILD_NO_RECORDS": "1"})
+    check(child_env(seen).get("LD_PRELOAD") == stub and "droppedPreload" not in doc["run"]["tools"],
+          "the interposer the child gets is not called dropped: %s" % doc["run"]["tools"])
+    code, doc, _, _, err = run_lv2(env={"LD_PRELOAD": foreign})
+    valid(doc)
+    check(doc["run"]["tools"].get("droppedPreload") == foreign and "dropped LD_PRELOAD" in step(doc, "rt-safety").get("detail", ""),
+          "an LV2 measurement records it too: %s %s" % (doc["run"]["tools"], step(doc, "rt-safety")))
+
+
+@test
+def an_interposer_that_does_not_load_is_not_named_and_the_record_says_so():
+    work, child = child_alone(interposer=b"not a library\n")
+    code, doc, _, _, err = run(child=child, env={"PROBE_CHILD_NO_RECORDS": "1"})
+    check(doc is not None, "no document: exit %d %s" % (code, err))
+    valid(doc)
+    check("interposer" not in doc["run"]["tools"], "an interposer that did not load is not named: %s" % doc["run"]["tools"])
+    check(doc["grid"][0].get("rtSafety") == {"interposer": False}, "no counts: %s" % doc["grid"][0])
+    rt = step(doc, "rt-safety")
+    want = "%s/rt_interpose.so was preloaded and the child says no interposer was loaded" % work
+    check(rt is not None and rt["outcome"] == "probe.not-attempted" and rt.get("detail") == want, "the rt-safety step: %s" % rt)
+
+
 @test
 def an_lv2_crash_keeps_the_pin_and_names_the_signal():
     code, doc, _, _, err = run_lv2("crash")
@@ -433,6 +542,33 @@ def the_real_prober_times_an_instrument_holding_the_probe_notes_at_every_floor_r
         v = g.get("cost", {}).get("voices", {})
         check(v.get("basis") == "declared" and v.get("held") == v.get("capacity"),
               "an instrument declaring its voices holds that many at %d: %s" % (g["rate"], v))
+
+
+@test
+def the_real_prober_counts_under_the_interposer_beside_it_at_every_floor_rate():
+    build = pq("the_real_prober_counts_under_the_interposer_beside_it_at_every_floor_rate")
+    if not build:
+        return
+    rates = floor_rates()
+    seen = {}
+    for plugin, extra in (("rt-safe.clap", ()), ("rt-unsafe.clap", ()), ("synth.clap", ("--probe-notes", "32")),
+                          ("synth-alloc.clap", ("--probe-notes", "32"))):
+        code, doc, err = run_pq_clap(build, plugin, extra)
+        check(doc is not None, "%s: no document: exit %d %s" % (plugin, code, err))
+        valid(doc)
+        check([g["rate"] for g in doc["grid"]] == rates, "%s: a point per floor rate %s: %s" % (plugin, rates, [g["rate"] for g in doc["grid"]]))
+        check(doc["run"]["tools"].get("interposer") == "rt_interpose.so", "%s: the run names the interposer: %s" % (plugin, doc["run"]["tools"]))
+        rt = doc["grid"][0].get("rtSafety", {})
+        check(rt.get("interposer") is True and rt.get("blocks", 0) > 0 and "allocations" in rt, "%s: rtSafety %s" % (plugin, rt))
+        check(step(doc, "rt-safety")["outcome"] == "probe.ok", "%s: the rt-safety step %s" % (plugin, step(doc, "rt-safety")))
+        seen[plugin] = (rt, doc["grid"][0].get("noteSweep", {}))
+    check(seen["rt-safe.clap"][0]["allocations"] == 0, "the clean effect allocates nothing: %s" % (seen["rt-safe.clap"],))
+    check(seen["rt-unsafe.clap"][0]["allocations"] > 0, "the allocating effect is counted: %s" % (seen["rt-unsafe.clap"],))
+    for plugin in ("synth.clap", "synth-alloc.clap"):
+        ns = seen[plugin][1]
+        check(ns.get("applicable") is True and ns.get("dialect") == "clap" and "allocations" in ns, "%s noteSweep %s" % (plugin, ns))
+    check(seen["synth.clap"][1]["allocations"] == 0, "the clean synth allocates nothing under the notes: %s" % (seen["synth.clap"],))
+    check(seen["synth-alloc.clap"][1]["allocations"] > 0, "the allocating synth is counted under the notes: %s" % (seen["synth-alloc.clap"],))
 
 
 @test

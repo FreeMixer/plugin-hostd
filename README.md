@@ -324,11 +324,19 @@ Each rate's grid point carries the cost clap-qualify timed at that rate, in nano
 no input for the impulse, so its latency is measured from a note (`method: note-onset`), with `heard: false` at a rate
 where the note did not sound.
 
+clap-qualify runs under plugin-qualify's interposer, `rt_interpose.so` beside the child. A bare `--child` is found as execvp
+finds it; name the child by path when PATH is unset or holds a directory of its name. The measured child gets the interposer
+and nothing else: an `LD_PRELOAD` the runner was started with is dropped for the measurement, named in `run.tools.droppedPreload`
+and in the `rt-safety` step, and put back in the runner's environment after the child. The first grid point carries what process() did under it, and an instrument's
+note sweep carries what process() did while notes played. `run.tools.interposer` names it once the child says it counted
+under it. With no interposer beside the child, or one that did not load, no count is written: rtSafety says
+`interposer: false`, and the `rt-safety` and `note-sweep` steps are `probe.not-attempted` and say why.
+
 An LV2 plugin is measured the way plugin-qualify's LV2 hosting pass measures it today, in two children under the same
 limits and the same wall clock. The first child (`lv2_measure --pin`) pins the bundle's files without instantiating the
 plugin. The second measures at the highest of `--rates`, in blocks of `--quantum`, with 30 instantiate and destroy cycles
-and 3 swept rt-safety runs. It runs under plugin-qualify's interposer (`rt_interpose.so` beside the child) and the noise
-stimulus. The document's binary is the plugin's library, with every pinned file of the bundle listed. The rate's grid
+and 3 swept rt-safety runs. It runs under plugin-qualify's interposer (`rt_interpose.so` beside the child, found and with any
+other preload dropped as for clap-qualify) and the noise stimulus. The document's binary is the plugin's library, with every pinned file of the bundle listed. The rate's grid
 point carries what run() did under the interposer and, for a plugin with a MIDI input, its note sweep (what run() did
 while notes played), and `behaviour` carries the lifecycles, the threads and the features
 the plugin requires. A plugin no bundle holds exits 3 with no document. A plugin of which nothing could be pinned exits 2

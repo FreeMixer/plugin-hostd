@@ -28,7 +28,14 @@
  * seen. PROBE_CHILD_INSTRUMENT makes the plugin an instrument: its latency is taken from a note, its cost holds the
  * notes --hold or --probe-notes give (no count: the rate is not timed) and it has a note sweep, counted under the
  * interposer when PROBE_CHILD_NOTE_ALLOCATIONS gives the allocations it saw. PROBE_CHILD_SILENT_RATE is a rate where
- * the note was not heard, PROBE_CHILD_UNMEASURED_RATE one the cost arm did not time. */
+ * the note was not heard, PROBE_CHILD_UNMEASURED_RATE one the cost arm did not time.
+ *
+ * As clap-qualify does, it says it ran under the interposer only when the interposer is in the process: the symbol of
+ * tests/rt_interpose_stub.c, which the runner preloads as the rt_interpose.so beside this program. Then its
+ * rtSafety carries counts, PROBE_CHILD_ALLOCATIONS allocations (0 when unset); without it rtSafety says interposer false
+ * and has none. Its note sweep says the same of the interposer but prints PROBE_CHILD_NOTE_ALLOCATIONS either way, so a
+ * runner that copies counts the interposer did not take is seen. PROBE_CHILD_NO_RECORDS writes no step records, as
+ * clap-qualify writes none, so the runner makes its steps from the line. */
 
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
@@ -104,7 +111,11 @@ static bool no_events_push(const clap_output_events_t *list, const clap_event_he
 static void record(const char *step, long rate, long quantum, long since)
 {
     char line[256];
-    int n = snprintf(line, sizeof(line), "{\"step\":\"%s\",\"outcome\":\"probe.ok\",\"elapsedMs\":%ld", step, now_ms() - since);
+    int n;
+
+    if (getenv("PROBE_CHILD_NO_RECORDS"))
+        return;
+    n = snprintf(line, sizeof(line), "{\"step\":\"%s\",\"outcome\":\"probe.ok\",\"elapsedMs\":%ld", step, now_ms() - since);
 
     if (rate)
         n += snprintf(line + n, sizeof(line) - (size_t)n, ",\"rate\":%ld,\"quantum\":%ld", rate, quantum);
@@ -117,6 +128,8 @@ static void record(const char *step, long rate, long quantum, long since)
 static void put_rates(const char *rates, long quantum, unsigned notes)
 {
     const char *instrument = getenv("PROBE_CHILD_INSTRUMENT"), *note_allocs = getenv("PROBE_CHILD_NOTE_ALLOCATIONS");
+    const char *allocs = getenv("PROBE_CHILD_ALLOCATIONS");
+    int interposed = dlsym(RTLD_DEFAULT, "plugin_hostd_rt_interpose_stub") != NULL;
     long silent = getenv("PROBE_CHILD_SILENT_RATE") ? atol(getenv("PROBE_CHILD_SILENT_RATE")) : 0;
     long unmeasured = getenv("PROBE_CHILD_UNMEASURED_RATE") ? atol(getenv("PROBE_CHILD_UNMEASURED_RATE")) : 0;
     const char *p;
@@ -127,12 +140,18 @@ static void put_rates(const char *rates, long quantum, unsigned notes)
     for (p = rates; (r = strtol(p, &end, 10)) > 0; p = *end ? end + 1 : end)
         printf("%s\"%ld\":{\"declaredFrames\":0,\"measuredFrames\":%d%s%s}", p == rates ? "" : ",", r, instrument ? 1 : 0,
                instrument ? ",\"from\":\"note\"" : "", instrument && r == silent ? ",\"heard\":false" : "");
-    printf("},\"threadViolations\":0,\"processErrors\":0},\"rtSafety\":{\"interposer\":false}");
-    if (instrument && note_allocs)
-        printf(",\"noteSweep\":{\"applicable\":true,\"dialect\":\"clap\",\"interposer\":true,\"allocationsInRun\":%ld,"
-               "\"locksInRun\":0,\"syscallsInRun\":0,\"events\":[]}", atol(note_allocs));
+    printf("},\"threadViolations\":0,\"processErrors\":0}");
+    if (interposed)
+        printf(",\"rtSafety\":{\"interposer\":true,\"swept\":false,\"sweepApplicable\":true,\"blocks\":64,\"allocationsInRun\":%ld,"
+               "\"locksInRun\":0,\"syscallsInRun\":0,\"events\":[]}", allocs ? atol(allocs) : 0L);
     else
-        printf(",\"noteSweep\":{\"applicable\":%s%s}", instrument ? "true" : "false", instrument ? ",\"dialect\":\"clap\",\"interposer\":false" : "");
+        printf(",\"rtSafety\":{\"interposer\":false}");
+    if (instrument && note_allocs)
+        printf(",\"noteSweep\":{\"applicable\":true,\"dialect\":\"clap\",\"interposer\":%s,\"allocationsInRun\":%ld,"
+               "\"locksInRun\":0,\"syscallsInRun\":0,\"events\":[]}", interposed ? "true" : "false", atol(note_allocs));
+    else
+        printf(",\"noteSweep\":{\"applicable\":%s%s%s}", instrument ? "true" : "false", instrument ? ",\"dialect\":\"clap\",\"interposer\":" : "",
+               instrument ? (interposed ? "true" : "false") : "");
     printf(",\"cost\":{\"stimulus\":\"%s\",\"blockFrames\":%ld,\"warmupBlocks\":64,\"percentile\":95,\"perRate\":{",
            instrument ? "notes-held" : "noise", quantum);
     for (p = rates; (r = strtol(p, &end, 10)) > 0; p = *end ? end + 1 : end)
@@ -195,6 +214,18 @@ int main(int argc, char **argv)
 
         for (a = 1; f && a < argc; a++)
             fprintf(f, "%s\n", argv[a]);
+        if (f)
+            fclose(f);
+    }
+    /* PROBE_CHILD_ENV names a file to write the environment the runner gave, one variable to a line */
+    if (getenv("PROBE_CHILD_ENV"))
+    {
+        extern char **environ;
+        FILE *f = fopen(getenv("PROBE_CHILD_ENV"), "w");
+        char **e;
+
+        for (e = environ; f && *e; e++)
+            fprintf(f, "%s\n", *e);
         if (f)
             fclose(f);
     }

@@ -14,11 +14,19 @@ plugin\-hostd\-probe \- run a plugin prober under limits and write what happened
 .B plugin\-hostd\-probe
 starts a program that loads a plugin (clap\-qualify for a CLAP, plugin\-qualify's lv2_measure for an LV2 named
 .BI lv2: uri ,
-the pin pass and then the measurement at the highest rate, under its interposer) in its own process group, with the portable
+the pin pass and then the measurement at the highest rate; both run under plugin\-qualify's interposer, rt_interpose.so beside
+the child) in its own process group, with the portable
 limits applied before the exec, and writes the facts of the run as a JSON document: the steps the child reached, how
 each ended and the limits that were applied. It gives no verdict. The runner never loads plugin code itself. On the
 deadline, on a cancel or when the child is done it kills the whole process tree, including a process the plugin
 started and orphaned.
+.PP
+A bare
+.B \-\-child
+is found as execvp finds it; name the child by path when PATH is unset or holds a directory of its name.
+The measured child gets the interposer and nothing else: an LD_PRELOAD the runner was started with is dropped for the
+measurement, named in run.tools.droppedPreload and in the rt\-safety step, and put back in the runner's environment after
+the child.
 .PP
 The document follows
 .IR plugin\-hostd/probe\-output.schema.json .
