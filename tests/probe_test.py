@@ -243,12 +243,12 @@ LV2_STRESS = "urn:plugin-hostd:test:stress"
 REAL_LV2_MEASURE = "/usr/libexec/plugin-qualify/lv2_measure"
 
 
-def run_lv2(fault=None, uri=LV2_STRESS, child=LV2_CHILD, wall=5, timeout=30, rates="48000,96000"):
+def run_lv2(fault=None, uri=LV2_STRESS, child=LV2_CHILD, wall=5, timeout=30, rates="48000,96000", env=None, bundles=LV2_BUNDLES):
     """the runner over the LV2 stress fixture with the fake lv2_measure (or the real one)"""
     work = tempfile.mkdtemp(prefix="plugin-hostd-probe-lv2.")
     out = os.path.join(work, "probe.json")
     pidfile = os.path.join(work, "forkpid")
-    e = dict(os.environ, STRESS_FORK_PIDFILE=pidfile, LV2_PATH=LV2_BUNDLES)
+    e = dict(os.environ, STRESS_FORK_PIDFILE=pidfile, LV2_PATH=bundles, **(env or {}))
     if fault:
         e["STRESS_FAULT"] = fault
     else:
@@ -287,6 +287,25 @@ def an_lv2_plugin_is_pinned_then_measured_at_the_highest_rate():
     check(b["lifecycle"]["cycles"] == b["lifecycle"]["instantiated"] > 0 and b["lifecycle"]["failed"] == 0, "lifecycle %s" % b)
     check("threads" in b and "required" in b["features"], "threads and features %s" % b)
 
+
+@test
+def an_lv2_point_carries_the_note_sweep_and_what_run_did_while_the_notes_played():
+    code, doc, _, _, err = run_lv2(env={"PROBE_CHILD_NOTE_ALLOCATIONS": "7"})
+    check(doc is not None, "no document: exit %d %s" % (code, err))
+    valid(doc)
+    ns = doc["grid"][0].get("noteSweep")
+    check(ns == {"applicable": True, "dialect": "midi", "allocations": 7, "locks": 0, "syscalls": 0}, "noteSweep %s" % ns)
+    code, doc, _, _, _ = run_lv2()
+    valid(doc)
+    check(doc["grid"][0].get("noteSweep") == {"applicable": False}, "an effect's sweep does not apply: %s" % doc["grid"][0])
+
+
+@test
+def a_clap_point_carries_the_note_sweep_counts():
+    code, doc, _, _, _ = run(extra=("--probe-notes", "4"), env={"PROBE_CHILD_INSTRUMENT": "1", "PROBE_CHILD_NOTE_ALLOCATIONS": "3"})
+    valid(doc)
+    ns = doc["grid"][0].get("noteSweep")
+    check(ns == {"applicable": True, "dialect": "clap", "allocations": 3, "locks": 0, "syscalls": 0}, "noteSweep %s" % ns)
 
 @test
 def an_lv2_crash_keeps_the_pin_and_names_the_signal():

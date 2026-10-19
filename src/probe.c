@@ -1472,8 +1472,25 @@ static void put_count(sb_t *b, const jnode_t *o, const char *from, const char *t
         sb_printf(b, ", \"%s\": %.0f", to, v);
 }
 
+/* a prober's note sweep, as a point carries it: whether it applied, the dialect it played in, and what process() or run()
+ * did while it played when the interposer counted */
+static void put_note_sweep(sb_t *b, const jnode_t *ns)
+{
+    sb_printf(b, ", \"noteSweep\": {\"applicable\": %s", jbool(ns, "applicable", 0) ? "true" : "false");
+    if (jstr(ns, "dialect"))
+    {
+        sb_printf(b, ", \"dialect\": ");
+        sb_str(b, jstr(ns, "dialect"));
+    }
+    put_count(b, ns, "allocationsInRun", "allocations");
+    put_count(b, ns, "locksInRun", "locks");
+    put_count(b, ns, "syscallsInRun", "syscalls");
+    sb_printf(b, "}");
+}
+
 /* lv2_measure's measurement line: the grid point of its rate and block, with what run() did under the interposer, and
- * the plugin's behaviour over the pass (lifecycles, threads, the features it requires); a translation, no judgement */
+ * its note sweep, and the plugin's behaviour over the pass (lifecycles, threads, the features it requires); a
+ * translation, no judgement */
 static void put_lv2_measure(sb_t *b, const jnode_t *m, long rate, unsigned quantum)
 {
     const jnode_t *rt = jget(m, "rtSafety"), *ev = jget(rt, "events"), *life = jget(m, "lifecycle"), *th = jget(m, "threads"),
@@ -1505,6 +1522,8 @@ static void put_lv2_measure(sb_t *b, const jnode_t *m, long rate, unsigned quant
             sb_printf(b, "]");
         }
         sb_printf(b, "}");
+        if (jget(rt, "noteSweep"))
+            put_note_sweep(b, jget(rt, "noteSweep"));
     }
     sb_printf(b, "}\n  ],\n  \"behaviour\": {");
     if (life)
@@ -2036,15 +2055,7 @@ int main(int argc, char **argv)
                     }
                     sb_printf(&doc, "}");
                     if (notes)
-                    {
-                        sb_printf(&doc, ", \"noteSweep\": {\"applicable\": %s", jbool(notes, "applicable", 0) ? "true" : "false");
-                        if (jstr(notes, "dialect"))
-                        {
-                            sb_printf(&doc, ", \"dialect\": ");
-                            sb_str(&doc, jstr(notes, "dialect"));
-                        }
-                        sb_printf(&doc, "}");
-                    }
+                        put_note_sweep(&doc, notes);
                     firstpoint = 0;
                 }
                 sb_printf(&doc, "}");

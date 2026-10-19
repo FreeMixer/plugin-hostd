@@ -327,7 +327,8 @@ limits and the same wall clock. The first child (`lv2_measure --pin`) pins the b
 plugin. The second measures at the highest of `--rates`, in blocks of `--quantum`, with 30 instantiate and destroy cycles
 and 3 swept rt-safety runs. It runs under plugin-qualify's interposer (`rt_interpose.so` beside the child) and the noise
 stimulus. The document's binary is the plugin's library, with every pinned file of the bundle listed. The rate's grid
-point carries what run() did under the interposer, and `behaviour` carries the lifecycles, the threads and the features
+point carries what run() did under the interposer and, for a plugin with a MIDI input, its note sweep (what run() did
+while notes played), and `behaviour` carries the lifecycles, the threads and the features
 the plugin requires. A plugin no bundle holds exits 3 with no document. A plugin of which nothing could be pinned exits 2
 with no document, because the document has no binary to name. Its refusal is a code on stderr: `<plugin>: <code>: <why>`,
 `probe.unpinnable` for a bundle the pin cannot cover. Version 1 runs the quick measurement only: the deep lifecycle pass
