@@ -324,6 +324,12 @@ Each rate's grid point carries the cost clap-qualify timed at that rate, in nano
 no input for the impulse, so its latency is measured from a note (`method: note-onset`), with `heard: false` at a rate
 where the note did not sound.
 
+clap-qualify runs under plugin-qualify's interposer, `rt_interpose.so` beside the child (a `--child` given as a bare name is
+looked for on PATH, as the exec finds it). The first grid point carries what process() did under it, and an instrument's
+note sweep carries what process() did while notes played. `run.tools.interposer` names it once the child says it counted
+under it. With no interposer beside the child, or one that did not load, no count is written: rtSafety says
+`interposer: false`, and the `rt-safety` and `note-sweep` steps are `probe.not-attempted` and say why.
+
 An LV2 plugin is measured the way plugin-qualify's LV2 hosting pass measures it today, in two children under the same
 limits and the same wall clock. The first child (`lv2_measure --pin`) pins the bundle's files without instantiating the
 plugin. The second measures at the highest of `--rates`, in blocks of `--quantum`, with 30 instantiate and destroy cycles

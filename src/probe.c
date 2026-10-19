@@ -1345,13 +1345,66 @@ static const char *child_end(const char *name, const options_t *o, const run_t *
  * it; plugin-qualify is no dependency of this package (it builds against it), so the program is looked for at run time */
 #define PROBE_LV2_PREFIX "lv2:"
 #define PROBE_LV2_CHILD "/usr/libexec/plugin-qualify/lv2_measure"
-/* the measurement runs as plugin-qualify runs it: under its allocation-and-syscall interposer, the file of this name
- * beside the child (none beside it: rtSafety says interposer false), and the noise stimulus */
-#define PROBE_LV2_INTERPOSER "rt_interpose.so"
+/* both measurements run as plugin-qualify runs them: under its allocation-and-syscall interposer, the file of this name
+ * beside the child (none beside it: rtSafety says interposer false, and the rt-safety step says why); an LV2 one also
+ * under the noise stimulus */
+#define PROBE_INTERPOSER "rt_interpose.so"
 #define PROBE_LV2_STIMULUS_ENV "OMX_STIM"
 #define PROBE_LV2_STIMULUS "noise"
 
+/* the interposer preloaded into the measuring child, or empty; when empty, why none was */
 static char g_interposer[PATH_MAX];
+static char g_no_interposer[PATH_MAX + 128];
+
+/* the interposer beside `child`, the child found as execvp finds it (a bare name on PATH): 1 with g_interposer its path,
+ * else 0 with g_no_interposer saying where none was found */
+static int interposer_beside(const char *child)
+{
+    char dir[PATH_MAX];
+    const char *slash = strrchr(child, '/');
+
+    g_interposer[0] = '\0';
+    if (slash)
+        snprintf(dir, sizeof(dir), "%.*s", (int)(slash - child), child);
+    else
+    {
+        const char *path = getenv("PATH"), *p;
+        int found = 0;
+
+        for (p = path ? path : ""; !found && *p;)
+        {
+            size_t n = strcspn(p, ":");
+            char exe[PATH_MAX];
+
+            snprintf(dir, sizeof(dir), "%.*s", (int)(n ? n : 1), n ? p : ".");
+            snprintf(exe, sizeof(exe), "%s/%s", dir, child);
+            found = access(exe, X_OK) == 0;
+            p += n + (p[n] == ':');
+        }
+        if (!found)
+        {
+            snprintf(g_no_interposer, sizeof(g_no_interposer), "%s is not on PATH, so no " PROBE_INTERPOSER " beside it was preloaded", child);
+            return 0;
+        }
+    }
+    snprintf(g_interposer, sizeof(g_interposer), "%s/" PROBE_INTERPOSER, dir);
+    if (access(g_interposer, R_OK) == 0)
+        return 1;
+    snprintf(g_no_interposer, sizeof(g_no_interposer), "no " PROBE_INTERPOSER " beside the child in %s", dir[0] ? dir : "/");
+    g_interposer[0] = '\0';
+    return 0;
+}
+
+/* why a child's line says no interposer counted: none was found beside it, or the one preloaded did not load */
+static const char *no_interposer_reason(void)
+{
+    static char text[PATH_MAX + 128];
+
+    if (!g_interposer[0])
+        return g_no_interposer[0] ? g_no_interposer : "no interposer was preloaded";
+    snprintf(text, sizeof(text), "%s was preloaded and the child says no interposer was loaded", g_interposer);
+    return text;
+}
 
 static jnode_t *first_line(sb_t *out)
 {
@@ -1423,22 +1476,9 @@ static int run_lv2(const options_t *o, const char *uri, long rate, const cpu_set
     argv[4] = cycles_s;
     argv[5] = repeats_s;
     argv[6] = NULL;
-    {
-        char dir[PATH_MAX];
-        const char *slash;
-
-        snprintf(dir, sizeof(dir), "%s", o->child);
-        slash = strrchr(dir, '/');
-        if (slash)
-        {
-            snprintf(g_interposer, sizeof(g_interposer), "%.*s/" PROBE_LV2_INTERPOSER, (int)(slash - dir), dir);
-            if (access(g_interposer, R_OK) == 0)
-                setenv("LD_PRELOAD", g_interposer, 1);
-            else
-                g_interposer[0] = '\0';
-        }
-        setenv(PROBE_LV2_STIMULUS_ENV, PROBE_LV2_STIMULUS, 1);
-    }
+    if (interposer_beside(o->child))
+        setenv("LD_PRELOAD", g_interposer, 1);
+    setenv(PROBE_LV2_STIMULUS_ENV, PROBE_LV2_STIMULUS, 1);
     memset(r, 0, sizeof(*r));
     run_child(o, argv, pinned, pin_option, r, deadline);
     unsetenv("LD_PRELOAD");
@@ -1452,7 +1492,7 @@ static int run_lv2(const options_t *o, const char *uri, long rate, const cpu_set
         s = add_step("rt-safety", jbool(rt, "interposer", 0) ? OUT_OK : OUT_NOT_ATTEMPTED, 0);
         s->rate = rate;
         s->quantum = o->quantum;
-        set_detail(s, jbool(rt, "interposer", 0) ? "read from the child's line" : "no interposer was loaded");
+        set_detail(s, "%s", jbool(rt, "interposer", 0) ? "read from the child's line" : no_interposer_reason());
     }
     else if (*measure && jbool(*measure, "found", 0))
     {
@@ -1473,7 +1513,7 @@ static void put_count(sb_t *b, const jnode_t *o, const char *from, const char *t
 }
 
 /* a prober's note sweep, as a point carries it: whether it applied, the dialect it played in, and what process() or run()
- * did while it played when the interposer counted */
+ * did while it played when the interposer counted; a sweep the interposer did not count carries no counts */
 static void put_note_sweep(sb_t *b, const jnode_t *ns)
 {
     sb_printf(b, ", \"noteSweep\": {\"applicable\": %s", jbool(ns, "applicable", 0) ? "true" : "false");
@@ -1482,9 +1522,12 @@ static void put_note_sweep(sb_t *b, const jnode_t *ns)
         sb_printf(b, ", \"dialect\": ");
         sb_str(b, jstr(ns, "dialect"));
     }
-    put_count(b, ns, "allocationsInRun", "allocations");
-    put_count(b, ns, "locksInRun", "locks");
-    put_count(b, ns, "syscallsInRun", "syscalls");
+    if (jbool(ns, "interposer", 0))
+    {
+        put_count(b, ns, "allocationsInRun", "allocations");
+        put_count(b, ns, "locksInRun", "locks");
+        put_count(b, ns, "syscallsInRun", "syscalls");
+    }
     sb_printf(b, "}");
 }
 
@@ -1820,7 +1863,11 @@ int main(int argc, char **argv)
 
         add_step("hash", OUT_OK, now_ms() - t0);
         clap_argv(&o, argv_child);
+        /* the CLAP prober counts under the interposer beside it, as the LV2 measurement does */
+        if (interposer_beside(o.child))
+            setenv("LD_PRELOAD", g_interposer, 1);
         run_child(&o, argv_child, &pinned, pin_option, &r, t0 + o.wall_s * 1000);
+        unsetenv("LD_PRELOAD");
         run_outcome = child_end("lifecycle", &o, &r, &complete);
     }
     read_idle(g_idle_after, &g_nidle, &pinned);
@@ -1881,15 +1928,18 @@ int main(int argc, char **argv)
             {
                 step_t *x = add_step("rt-safety", OUT_NOT_ATTEMPTED, 0);
 
-                set_detail(x, "no interposer was loaded");
+                set_detail(x, "%s", no_interposer_reason());
             }
             {
-                step_t *x = add_step("note-sweep", jbool(notes, "applicable", 0) ? OUT_OK : OUT_NOT_ATTEMPTED, 0);
+                int counted = jbool(notes, "applicable", 0) && jbool(notes, "interposer", 0);
+                step_t *x = add_step("note-sweep", counted ? OUT_OK : OUT_NOT_ATTEMPTED, 0);
 
                 if (!jbool(notes, "applicable", 0))
                     set_detail(x, "no note input");
-                else
+                else if (counted)
                     set_detail(x, "counts are totals over every rate, read from the child's line");
+                else
+                    set_detail(x, "the notes played uncounted: %s", no_interposer_reason());
             }
         }
         for (i = 0; i < g_nsteps; i++)
@@ -1911,7 +1961,8 @@ int main(int argc, char **argv)
                   PHD_PROBE_PROTOCOL_VERSION);
         sb_printf(&doc, "    \"tools\": {\"runner\": \"" RUNNER_NAME " %s\", \"child\": ", PROBE_VERSION);
         sb_str(&doc, base_name(o.child));
-        if (g_interposer[0])
+        /* the interposer is named when it was preloaded and the child says it counted under it */
+        if (g_interposer[0] && jbool(lv2_uri ? jget(measure_line, "rtSafety") : rt, "interposer", 0))
         {
             sb_printf(&doc, ", \"interposer\": ");
             sb_str(&doc, base_name(g_interposer));
