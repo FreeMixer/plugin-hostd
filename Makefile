@@ -193,7 +193,7 @@ tests/stress.clap: tests/stress_plugin.c
 	$(CC) $(CLAP_CFLAGS) $(CFLAGS) -Werror -shared -o $@ $<
 
 # every guard broken on purpose, one at a time: its test must go red
-sabotage: $(PROG) $(FAKE) tests/lv2-probe-child tests/rt_interpose.so $(LV2_FIXTURE)
+sabotage: $(PROG) $(FAKE) tests/probe-child tests/stress.clap tests/lv2-probe-child tests/rt_interpose.so $(LV2_FIXTURE)
 	MOD_HOST_DIR=$(MOD_HOST_DIR) FAKE_HOST=./$(FAKE) python3 tests/sabotage.py
 
 # the jack server the real-worker tests run over: pipewire's own jack implementation (default) or JACK2's jackd
