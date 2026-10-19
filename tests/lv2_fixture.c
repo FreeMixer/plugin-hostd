@@ -8,7 +8,8 @@
  * under http://plugin-hostd.invalid/fixture/based, named in a manifest the test writes with an @base, so lilv finds it
  * and the adapter's search of the manifest text does not (resp -101). "stress" is "gain" that breaks on cue, for the
  * probe runner's LV2 tests (tests/probe_test.py). The ports, by index: 0 in, 1 out, 2 gain (a factor), 3 events
- * (atom-in only). */
+ * (atom-in only). "stereo" is the stereo effect of the LV2 steps of tests/jack_e2e.py, which run it in mod-host: the
+ * gain on two channels, ports 0 and 1 in, 2 and 3 out, 4 gain. */
 
 #include <signal.h>
 #include <stdint.h>
@@ -48,6 +49,48 @@ static void connect_port(LV2_Handle instance, uint32_t port, void *data)
         f->out = data;
     else if (port == 2)
         f->gain = data;
+}
+
+typedef struct {
+    const float *in[2];
+    float *out[2];
+    const float *gain;
+} stereo_t;
+
+static LV2_Handle instantiate_stereo(const LV2_Descriptor *descriptor, double rate, const char *bundle, const LV2_Feature *const *features)
+{
+    (void)descriptor;
+    (void)rate;
+    (void)bundle;
+    (void)features;
+    return calloc(1, sizeof(stereo_t));
+}
+
+static void connect_port_stereo(LV2_Handle instance, uint32_t port, void *data)
+{
+    stereo_t *f = instance;
+
+    if (port < 2)
+        f->in[port] = data;
+    else if (port < 4)
+        f->out[port - 2] = data;
+    else if (port == 4)
+        f->gain = data;
+}
+
+static void run_stereo(LV2_Handle instance, uint32_t frames)
+{
+    stereo_t *f = instance;
+    float gain = f->gain ? *f->gain : 1.0f;
+    uint32_t c, n;
+
+    for (c = 0; c < 2; c++)
+    {
+        if (!f->in[c] || !f->out[c])
+            continue;
+        for (n = 0; n < frames; n++)
+            f->out[c][n] = f->in[c][n] * gain;
+    }
 }
 
 static void run(LV2_Handle instance, uint32_t frames)
@@ -114,6 +157,7 @@ static const LV2_Descriptor DESCRIPTORS[] = {
     { FIXTURE_URI "atom-in", instantiate, connect_port, NULL, run, NULL, cleanup, NULL },
     { FIXTURE_URI "fixed-block", instantiate, connect_port, NULL, run, NULL, cleanup, NULL },
     { FIXTURE_URI "stress", instantiate, connect_port, NULL, run_stress, NULL, cleanup, NULL },
+    { FIXTURE_URI "stereo", instantiate_stereo, connect_port_stereo, NULL, run_stereo, NULL, cleanup, NULL },
     { FIXTURE_BASE "based", instantiate, connect_port, NULL, run, NULL, cleanup, NULL },
 };
 

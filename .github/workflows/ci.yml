@@ -65,25 +65,45 @@ jobs:
       - name: Test the daemon against workers that die on cue, and the declared protocol
         run: make test
 
-      # The daemon with the installed worker over jack, in a PipeWire of its own. It needs a private user
-      # namespace with its own /proc; a runner that refuses one cannot run it, and the step says so.
-      - name: Test the daemon with a real worker over jack, then break every guard on purpose
+      # mod-host itself, the LV2 worker, from the FreeMixer channel: the build the RPM job packages, with the patches
+      # FreeMixer/.github carries. The floor is the one the spec requires of the protocol library.
+      - name: Install mod-host from the channel
         run: |
+          set -euo pipefail
+          dnf install -y --setopt=retries=10 mod-host
+          rpm -q mod-host mod-host-protocol
+          floor=$(sed -n 's/^Requires:.*mod-host-protocol.*>=[[:space:]]*\([^[:space:]]*\).*/\1/p' packaging/plugin-hostd.spec | head -n 1)
+          test -n "$floor"
+          have=$(rpm -q --qf '%{VERSION}-%{RELEASE}' mod-host)
+          test "$(printf '%s\n%s\n' "$floor" "$have" | sort -V | head -n 1)" = "$floor" || { echo "mod-host $have is below the floor $floor"; exit 1; }
+
+      # The daemon with the installed workers over jack, in a PipeWire of its own: omx-clap-host for CLAP and mod-host
+      # for LV2, driving the fixture bundle of this repository (a stereo gain, tests/lv2_fixture.c) from a world of its
+      # own, so that the worker's bundle set is one directory. It needs a private user namespace with its own /proc; a
+      # runner that refuses one cannot run it, and the step says so. The LV2 steps are required to have run: a run that
+      # skipped them fails here.
+      - name: Test the daemon with real workers over jack, CLAP and LV2, then break every guard on purpose
+        run: |
+          set -euo pipefail
           export FAKE_COMPRESSOR_CLAP=/usr/libexec/omx-clap-host/tests/fake_compressor.clap
           export JACK_METER_SOURCE=/usr/libexec/omx-clap-host/tests/jack_meter_source
           export FAKE_CLAP=/usr/libexec/omx-clap-host/tests/fake.clap
+          make tests/plugin-hostd-fixture.lv2/plugin-hostd-fixture.so
+          mkdir -p "$PWD/lv2-world"
+          cp -r tests/plugin-hostd-fixture.lv2 "$PWD/lv2-world/"
+          export MOD_HOST=/usr/bin/mod-host LV2_DIR=$PWD/lv2-world LV2_URI=urn:plugin-hostd:test:stereo
+          export LV2_BUNDLE=plugin-hostd-fixture.lv2 LV2_PARAM=gain
           if unshare --user --map-root-user --net --pid --fork --mount-proc true; then
-            make test-jack OMX_CLAP_HOST=/usr/bin/omx-clap-host
-            OMX_CLAP_HOST=/usr/bin/omx-clap-host make sabotage
+            make test-jack OMX_CLAP_HOST=/usr/bin/omx-clap-host 2>&1 | tee test-jack.log
+            for t in mod_host_scenarios_pass_unchanged_with_an_lv2_worker lv2_own_worker_sees_one_bundle_and_replays_after_a_kill; do
+              grep -qx "ok   $t" test-jack.log || { echo "the LV2 step $t did not run"; exit 1; }
+            done
+            OMX_CLAP_HOST=/usr/bin/omx-clap-host make sabotage 2>&1 | tee sabotage.log
+            if grep -q 'skip sabotage (no LV2 bundle' sabotage.log; then echo 'an LV2 sabotage was skipped'; exit 1; fi
           else
             echo "::warning::test-jack SKIPPED: this runner refuses a private user and pid namespace with its own /proc"
             make sabotage
           fi
-
-      - name: Name what this job does not run
-        run: |
-          echo "The LV2 steps of test-jack are NOT run here: they need mod-host and an LV2 bundle (MOD_HOST, LV2_DIR, LV2_URI, LV2_BUNDLE, LV2_PARAM)."
-          echo "They stay in the Makefile for the desk."
 
   jack2:
     name: build and test over JACK2's jackd (x86_64)

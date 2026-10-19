@@ -22,3 +22,8 @@
     a lv2:Plugin ;
     lv2:binary <plugin-hostd-fixture.so> ;
     rdfs:seeAlso <plugin-hostd-fixture.ttl> .
+
+<urn:plugin-hostd:test:stereo>
+    a lv2:Plugin ;
+    lv2:binary <plugin-hostd-fixture.so> ;
+    rdfs:seeAlso <plugin-hostd-fixture.ttl> .

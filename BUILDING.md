@@ -69,6 +69,12 @@ installed by the omx-clap-host-tests package, which the spec and `debian/control
 also reads the meters of a CLAP compressor as `output_set` on the daemon's feedback port, before and after its
 worker is killed.
 
+Given `MOD_HOST` and a bundle, it also runs mod-host's scenario corpus against the daemon with an LV2 worker, and kills
+an LV2 worker to read the graph and a parameter back. The CI job does this with the mod-host package of the FreeMixer
+channel and this repository's fixture bundle: build `tests/plugin-hostd-fixture.lv2/plugin-hostd-fixture.so`, copy the
+bundle into a directory of its own, and give `MOD_HOST=/usr/bin/mod-host LV2_DIR=<that directory>
+LV2_URI=urn:plugin-hostd:test:stereo LV2_BUNDLE=plugin-hostd-fixture.lv2 LV2_PARAM=gain`.
+
     make test-jack2 OMX_CLAP_HOST=<omx-clap-host> [...]
 
 is `test-jack` against JACK2's `jackd` (`-d dummy`) instead of pipewire's own jack implementation: the server
