@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# The probe output (protocol/probe-output.schema.json, generated from include/plugin-hostd/protocol.h) against its three
-# fixtures, and against five broken copies of the first: a guard that refuses nothing is decoration, so each
+# The probe output (protocol/probe-output.schema.json, generated from include/plugin-hostd/protocol.h) against its four
+# fixtures, and against broken copies of the first and of the instrument's: a guard that refuses nothing is decoration, so each
 # copy must be refused, and at the path the schema names.
 #   probe_schema.py [tree]   tree holds the schema (default: this checkout); the fixtures are always this checkout's
 import copy, json, os, sys
@@ -39,7 +39,7 @@ try:
 except jsonschema.SchemaError as e:
     check(False, "the schema is a valid draft 2020-12 schema: %s" % e.message)
 
-for name in ("success-msi", "plugin-crash", "memory-limit-refused"):
+for name in ("success-msi", "plugin-crash", "memory-limit-refused", "instrument-notes"):
     found = errors(fixture(name))
     check(not found, "%s validates%s" % (name, "" if not found else ": " + str(found[:3])))
 
@@ -60,13 +60,20 @@ def put(path, key, value):
     return go
 
 
-# (what is broken in a copy of the success document, the path the schema must refuse it at, the keyword that refuses)
+# (what is broken in a copy of the success document, the path the schema must refuse it at, the keyword that refuses[,
+# the fixture broken when it is not the success document])
 BROKEN = [
     ("a verdict block added", "/", "not", put([], "verdict", {"class": "in-process"})),
     ("binary.sha256 removed", "/binary", "required", drop(["binary"], "sha256")),
     ("a step outcome that is no code", "/steps/0/outcome", "enum", put(["steps", 0], "outcome", "probe.exploded")),
     ("a format version of another major", "/formatVersion", "pattern", put([], "formatVersion", "2.0")),
     ("a cost percentile of 50", "/grid/0/cost/percentile/p", "exclusiveMinimum", None),
+    ("an instrument timed holding no note", "/grid/0/cost/voices/held", "minimum",
+     put(["grid", 0, "cost", "voices"], "held", 0), "instrument-notes"),
+    ("held notes with a basis that is none of the format's", "/grid/1/cost/voices/basis", "enum",
+     put(["grid", 1, "cost", "voices"], "basis", "guess"), "instrument-notes"),
+    ("held notes that do not say why that many", "/grid/1/cost/voices", "required",
+     drop(["grid", 1, "cost", "voices"], "basis"), "instrument-notes"),
 ]
 
 
@@ -74,8 +81,8 @@ def percentile_50(d):
     d["grid"][0]["cost"]["percentile"]["p"] = 50
 
 
-for what, path, keyword, mutate in BROKEN:
-    d = copy.deepcopy(fixture("success-msi"))
+for what, path, keyword, mutate, *broken in BROKEN:
+    d = copy.deepcopy(fixture(broken[0] if broken else "success-msi"))
     (mutate or percentile_50)(d)
     found = errors(d)
     check((path, keyword) in found,

@@ -820,6 +820,31 @@
             },
             "samples": {
               "$ref": "#/$defs/fileRef"
+            },
+            "voices": {
+              "description": "An instrument's: the notes it held down while it was timed, and why that many.",
+              "type": "object",
+              "required": [
+                "held",
+                "basis"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "held": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "basis": {
+                  "enum": [
+                    "declared",
+                    "probe"
+                  ]
+                },
+                "capacity": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
             }
           }
         },

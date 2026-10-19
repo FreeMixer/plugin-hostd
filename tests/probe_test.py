@@ -31,8 +31,9 @@ def check(cond, what):
         raise AssertionError(what)
 
 
-def run(fault=None, wall=5, extra=(), timeout=30, env=None):
-    """the runner over the stress plugin; returns (exit status, document or None, seconds, the files it used)"""
+def run(fault=None, wall=5, extra=(), timeout=30, env=None, rates="48000"):
+    """the runner over the stress plugin; returns (exit status, document or None, seconds, the files it used); rates None
+    leaves the runner's default rates"""
     work = tempfile.mkdtemp(prefix="plugin-hostd-probe-test.")
     out = os.path.join(work, "probe.json")
     pidfile = os.path.join(work, "forkpid")
@@ -41,8 +42,8 @@ def run(fault=None, wall=5, extra=(), timeout=30, env=None):
         e["STRESS_FAULT"] = fault
     else:
         e.pop("STRESS_FAULT", None)
-    cmd = [PROBE, "run", "--child", CHILD, "--rates", "48000", "--quantum", "256", "--wall-s", str(wall), "--grace-ms", "200",
-           "--log", os.path.join(work, "child.log"), "--out", out, *extra, CLAP, ID]
+    cmd = [PROBE, "run", "--child", CHILD, *(("--rates", rates) if rates else ()), "--quantum", "256", "--wall-s", str(wall),
+           "--grace-ms", "200", "--log", os.path.join(work, "child.log"), "--out", out, *extra, CLAP, ID]
     start = time.monotonic()
     try:
         p = subprocess.run(cmd, env=e, capture_output=True, text=True, timeout=timeout)
@@ -59,6 +60,16 @@ def kill_leftover(pidfile):
         os.kill(int(open(pidfile).read()), signal.SIGKILL)
     except (OSError, ValueError):
         pass
+
+
+def floor_rates():
+    """omx-contract's ORACLE_FLOOR_RATES, the rates a run measures at by default, read from the installed contract"""
+    base = subprocess.run(["pkg-config", "--variable=contractdir", "omx-contract"], capture_output=True, text=True, check=True).stdout.strip()
+    for major in sorted(os.listdir(base), reverse=True):
+        rates = os.path.join(base, major, "omx-contract", "rates.json")
+        if os.path.exists(rates):
+            return json.load(open(rates))["ORACLE_FLOOR_RATES"]["values"]
+    raise AssertionError("omx-contract declares no ORACLE_FLOOR_RATES")
 
 
 def valid(doc):
@@ -184,6 +195,45 @@ def the_notes_an_instrument_holds_reach_the_clap_child():
     for bad in ("0", "-3", "many"):
         p = subprocess.run([PROBE, "run", "--child", CHILD, "--probe-notes", bad, CLAP], capture_output=True, text=True)
         check(p.returncode == 2 and p.stdout == "", "--probe-notes %s is refused with no document: exit %d" % (bad, p.returncode))
+
+
+@test
+def every_point_carries_the_cost_timed_at_its_own_rate():
+    rates = floor_rates()
+    code, doc, _, _, _ = run(rates=None)
+    check(code == 0, "exit status %d" % code)
+    valid(doc)
+    check([g["rate"] for g in doc["grid"]] == rates, "a point per rate of omx-contract's floor %s: %s" % (rates, doc["grid"]))
+    for g in doc["grid"]:
+        c = g.get("cost", {})
+        want = {"unit": "ns-per-sample", "median": g["rate"] / 1000, "percentile": {"p": 95, "value": g["rate"] / 1000 + 1},
+                "min": g["rate"] / 1000 - 1, "max": g["rate"] / 1000 + 4, "blocks": 256, "warmupBlocks": 64}
+        check(c == want, "the point at %d carries the figures timed at %d, and no voices for an effect: %s" % (g["rate"], g["rate"], c))
+
+
+@test
+def an_instrument_point_carries_the_notes_it_held_and_an_untimed_rate_has_no_cost():
+    rates = floor_rates()
+    untimed = rates[1]
+    code, doc, _, _, _ = run(rates=None, extra=("--probe-notes", "32"),
+                             env={"PROBE_CHILD_INSTRUMENT": "1", "PROBE_CHILD_UNMEASURED_RATE": str(untimed)})
+    check(code == 0, "exit status %d" % code)
+    valid(doc)
+    check(doc["formatVersion"] == "1.1", "formatVersion %s" % doc["formatVersion"])
+    check([g["rate"] for g in doc["grid"]] == rates, "a point per rate %s: %s" % (rates, [g["rate"] for g in doc["grid"]]))
+    for g in doc["grid"]:
+        if g["rate"] == untimed:
+            check("cost" not in g, "the rate the child did not time has no cost, not a neighbour's: %s" % g)
+            continue
+        c = g.get("cost", {})
+        check(c.get("median") == g["rate"] / 1000, "the point at %d carries its own median: %s" % (g["rate"], c))
+        check(c.get("voices") == {"held": 32, "basis": "probe"}, "the point at %d carries the notes held: %s" % (g["rate"], c))
+    code, doc, _, _, _ = run(env={"PROBE_CHILD_INSTRUMENT": "1"})
+    valid(doc)
+    check(all("cost" not in g for g in doc["grid"]), "an instrument with no count to hold has no cost: %s" % doc["grid"])
+    code, doc, _, _, _ = run(extra=("--hold", "8"), env={"PROBE_CHILD_INSTRUMENT": "1"})
+    valid(doc)
+    check(doc["grid"][0]["cost"]["voices"] == {"held": 8, "basis": "probe"}, "--hold 8 is the count held: %s" % doc["grid"][0])
 
 # ---------------------------------------------------------------- LV2: the runner drives lv2_measure's passes
 

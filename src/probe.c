@@ -1535,6 +1535,32 @@ static void put_lv2_measure(sb_t *b, const jnode_t *m, long rate, unsigned quant
     sb_printf(b, "]}}");
 }
 
+/* the cost arm's figures at one rate, as that rate's point carries them: nanoseconds per sample, and for an instrument
+ * the notes it held; a rate the arm did not time (an unmeasuredReason in place of the figures) gets no cost, never a
+ * neighbour's */
+static void put_cost(sb_t *b, const jnode_t *cost, const char *rate)
+{
+    const jnode_t *at = jget(jget(cost, "perRate"), rate), *voices = jget(at, "voices");
+    double median, p95, min, max, blocks, warmup, percentile, held, capacity;
+
+    if (!jnum(at, "nsPerSampleMedian", &median) || !jnum(at, "nsPerSampleP95", &p95) ||
+        !jnum(at, "nsPerSampleMin", &min) || !jnum(at, "nsPerSampleMax", &max) || !jnum(at, "blocks", &blocks) ||
+        !jnum(cost, "warmupBlocks", &warmup) || !jnum(cost, "percentile", &percentile))
+        return;
+    sb_printf(b, ", \"cost\": {\"unit\": \"ns-per-sample\", \"median\": %.9g, \"percentile\": {\"p\": %.9g, \"value\": %.9g}, "
+                 "\"min\": %.9g, \"max\": %.9g, \"blocks\": %.0f, \"warmupBlocks\": %.0f",
+              median, percentile, p95, min, max, blocks, warmup);
+    if (jnum(voices, "held", &held) && jstr(voices, "basis"))
+    {
+        sb_printf(b, ", \"voices\": {\"held\": %.0f, \"basis\": ", held);
+        sb_str(b, jstr(voices, "basis"));
+        if (jnum(voices, "capacity", &capacity))
+            sb_printf(b, ", \"capacity\": %.0f", capacity);
+        sb_printf(b, "}");
+    }
+    sb_printf(b, "}");
+}
+
 /* the rates a run measures at when it is given none: omx-contract's ORACLE_FLOOR_RATES, every kernel oracle's floor */
 static const unsigned g_floor_rates[] = OMX_ORACLE_FLOOR_RATES_INIT;
 
@@ -1791,7 +1817,8 @@ int main(int argc, char **argv)
     {
         const char *plugin_id = line ? jstr(line, "id") : NULL;
         const jnode_t *clap = jget(line, "clap"), *integ = jget(line, "integrity"), *rt = jget(line, "rtSafety"),
-                      *notes = jget(line, "noteSweep"), *latency = jget(clap, "latency"), *ext = jget(line, "hostExtensions");
+                      *notes = jget(line, "noteSweep"), *latency = jget(clap, "latency"), *ext = jget(line, "hostExtensions"),
+                      *cost = jget(line, "cost");
         const char *layout_sha = NULL, *unmeasured = NULL;
         int firstpoint = 1;
         size_t k;
@@ -1958,7 +1985,7 @@ int main(int argc, char **argv)
             put_step(&doc, &g_steps[i]);
         }
         sb_printf(&doc, "\n  ]");
-        /* the grid: one point per rate the child reported a latency for */
+        /* the grid: one point per rate the child reported a latency for, with the cost the child timed at that rate */
         if (latency && latency->n)
         {
             sb_printf(&doc, ",\n  \"grid\": [");
@@ -1971,6 +1998,7 @@ int main(int argc, char **argv)
                 sb_printf(&doc, "%s\n    {\"rate\": %ld, \"quantum\": %u, \"outcome\": \"%s\", \"latency\": {\"declaredFrames\": %.0f, "
                                 "\"measuredFrames\": %.0f, \"method\": \"impulse-onset\"}",
                           k ? "," : "", atol(latency->key[k]), o.quantum, OUT_OK, decl, meas);
+                put_cost(&doc, cost, latency->key[k]);
                 if (firstpoint && rt)
                 {
                     double v = 0;

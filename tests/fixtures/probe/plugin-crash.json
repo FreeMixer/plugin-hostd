@@ -1,6 +1,6 @@
 {
   "format": "plugin-hostd.probe-output",
-  "formatVersion": "1.0",
+  "formatVersion": "1.1",
   "run": {
     "id": "r1-20261017T231004Z-0b858f1",
     "startedAt": "2026-10-17T23:10:04+02:00",

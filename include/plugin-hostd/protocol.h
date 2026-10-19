@@ -116,7 +116,7 @@
 
 #define PHD_PROBE_FORMAT "plugin-hostd.probe-output"
 #define PHD_PROBE_FORMAT_MAJOR 1
-#define PHD_PROBE_FORMAT_MINOR 0
+#define PHD_PROBE_FORMAT_MINOR 1
 #define PHD_PROBE_PROTOCOL_NAME "plugin-hostd.probe-protocol"
 #define PHD_PROBE_PROTOCOL_VERSION 1
 /* version 1 of the probe protocol runs an LV2 plugin as plugin-qualify's LV2 hosting pass does today

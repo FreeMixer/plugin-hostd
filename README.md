@@ -319,6 +319,8 @@ The runner never loads plugin code itself.
 
 A CLAP instrument is timed holding notes down: as many as the voice capacity it declares, or, when it declares none,
 the count `--probe-notes N` gives; `--hold N` holds that count whatever it declares. Both are passed to clap-qualify.
+Each rate's grid point carries the cost clap-qualify timed at that rate, in nanoseconds per sample, and for an instrument
+`voices`, the notes it held and why that many (`declared` or `probe`). A rate it did not time has no cost.
 
 An LV2 plugin is measured the way plugin-qualify's LV2 hosting pass measures it today, in two children under the same
 limits and the same wall clock. The first child (`lv2_measure --pin`) pins the bundle's files without instantiating the
