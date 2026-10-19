@@ -383,6 +383,41 @@ def a_clap_child_with_no_interposer_beside_it_is_unmeasured_and_says_why():
     check(ns is not None and ns["outcome"] == "probe.not-attempted" and why in ns.get("detail", ""), "the note-sweep step says why: %s" % ns)
 
 
+def child_env(path):
+    return dict(l.split("=", 1) for l in open(path).read().split("\n") if "=" in l)
+
+
+@test
+def a_preload_the_runner_had_is_dropped_for_the_measurement_and_recorded():
+    work = tempfile.mkdtemp(prefix="plugin-hostd-probe-env.")
+    seen = os.path.join(work, "env")
+    stub = os.path.join(os.path.dirname(CHILD), "rt_interpose.so")
+    # a library the runner itself was started under, which is no interposer of the measurement
+    foreign = CLAP
+    code, doc, _, _, err = run(env={"LD_PRELOAD": foreign, "PROBE_CHILD_ENV": seen, "PROBE_CHILD_NO_RECORDS": "1"})
+    check(doc is not None, "no document: exit %d %s" % (code, err))
+    valid(doc)
+    check(child_env(seen).get("LD_PRELOAD") == stub, "the measured child gets only the interposer: %s" % child_env(seen).get("LD_PRELOAD"))
+    check(doc["run"]["tools"].get("droppedPreload") == foreign, "the run records the preload it dropped: %s" % doc["run"]["tools"])
+    rt = step(doc, "rt-safety")
+    check(rt is not None and rt["outcome"] == "probe.ok" and ("dropped LD_PRELOAD=%s for the measurement" % foreign) in rt.get("detail", ""),
+          "the rt-safety step says what was dropped: %s" % rt)
+    # with no interposer beside the child, the foreign preload is dropped all the same
+    _, alone = child_alone()
+    code, doc, _, _, err = run(child=alone, env={"LD_PRELOAD": foreign, "PROBE_CHILD_ENV": seen, "PROBE_CHILD_NO_RECORDS": "1"})
+    check("LD_PRELOAD" not in child_env(seen), "a child with no interposer beside it gets no preload: %s" % child_env(seen).get("LD_PRELOAD"))
+    check(doc["run"]["tools"].get("droppedPreload") == foreign and "dropped LD_PRELOAD" in step(doc, "rt-safety").get("detail", ""),
+          "and the record says so: %s %s" % (doc["run"]["tools"], step(doc, "rt-safety")))
+    # the interposer itself, already preloaded (as plugin-qualify starts the runner), is not dropped
+    code, doc, _, _, err = run(env={"LD_PRELOAD": stub, "PROBE_CHILD_ENV": seen, "PROBE_CHILD_NO_RECORDS": "1"})
+    check(child_env(seen).get("LD_PRELOAD") == stub and "droppedPreload" not in doc["run"]["tools"],
+          "the interposer the child gets is not called dropped: %s" % doc["run"]["tools"])
+    code, doc, _, _, err = run_lv2(env={"LD_PRELOAD": foreign})
+    valid(doc)
+    check(doc["run"]["tools"].get("droppedPreload") == foreign and "dropped LD_PRELOAD" in step(doc, "rt-safety").get("detail", ""),
+          "an LV2 measurement records it too: %s %s" % (doc["run"]["tools"], step(doc, "rt-safety")))
+
+
 @test
 def an_interposer_that_does_not_load_is_not_named_and_the_record_says_so():
     work, child = child_alone(interposer=b"not a library\n")

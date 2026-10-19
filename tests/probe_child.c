@@ -217,6 +217,18 @@ int main(int argc, char **argv)
         if (f)
             fclose(f);
     }
+    /* PROBE_CHILD_ENV names a file to write the environment the runner gave, one variable to a line */
+    if (getenv("PROBE_CHILD_ENV"))
+    {
+        extern char **environ;
+        FILE *f = fopen(getenv("PROBE_CHILD_ENV"), "w");
+        char **e;
+
+        for (e = environ; f && *e; e++)
+            fprintf(f, "%s\n", *e);
+        if (f)
+            fclose(f);
+    }
     rate = atol(rates);
     lib = dlopen(path, RTLD_NOW | RTLD_LOCAL);
     entry = lib ? dlsym(lib, "clap_entry") : NULL;
