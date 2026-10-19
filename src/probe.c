@@ -2011,12 +2011,18 @@ int main(int argc, char **argv)
             for (k = 0; k < latency->n && k < MAX_POINTS; k++)
             {
                 double decl = 0, meas = 0;
+                int from_note;
 
                 jnum(latency->kid[k], "declaredFrames", &decl);
                 jnum(latency->kid[k], "measuredFrames", &meas);
+                /* an instrument has no input for the impulse: its onset is measured from a note, which may not sound */
+                from_note = jstr(latency->kid[k], "from") && !strcmp(jstr(latency->kid[k], "from"), "note");
                 sb_printf(&doc, "%s\n    {\"rate\": %ld, \"quantum\": %u, \"outcome\": \"%s\", \"latency\": {\"declaredFrames\": %.0f, "
-                                "\"measuredFrames\": %.0f, \"method\": \"impulse-onset\"}",
-                          k ? "," : "", atol(latency->key[k]), o.quantum, OUT_OK, decl, meas);
+                                "\"measuredFrames\": %.0f, \"method\": \"%s\"",
+                          k ? "," : "", atol(latency->key[k]), o.quantum, OUT_OK, decl, meas, from_note ? "note-onset" : "impulse-onset");
+                if (from_note)
+                    sb_printf(&doc, ", \"heard\": %s", jbool(latency->kid[k], "heard", 1) ? "true" : "false");
+                sb_printf(&doc, "}");
                 put_cost(&doc, cost, latency->key[k]);
                 if (firstpoint && rt)
                 {

@@ -74,6 +74,10 @@ BROKEN = [
      put(["grid", 1, "cost", "voices"], "basis", "guess"), "instrument-notes"),
     ("held notes that do not say why that many", "/grid/1/cost/voices", "required",
      drop(["grid", 1, "cost", "voices"], "basis"), "instrument-notes"),
+    ("a latency taken by a method the format has no name for", "/grid/0/latency/method", "enum",
+     put(["grid", 0, "latency"], "method", "note-guess"), "instrument-notes"),
+    ("whether the note was heard written as a word", "/grid/2/latency/heard", "type",
+     put(["grid", 2, "latency"], "heard", "no"), "instrument-notes"),
 ]
 
 

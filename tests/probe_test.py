@@ -212,6 +212,19 @@ def every_point_carries_the_cost_timed_at_its_own_rate():
 
 
 @test
+def a_latency_taken_from_a_note_says_so_and_whether_the_note_was_heard():
+    rates = floor_rates()
+    silent = rates[-1]
+    code, doc, _, _, _ = run(rates=None, env={"PROBE_CHILD_INSTRUMENT": "1", "PROBE_CHILD_SILENT_RATE": str(silent)})
+    valid(doc)
+    for g in doc["grid"]:
+        want = {"declaredFrames": 0, "measuredFrames": 1, "method": "note-onset", "heard": g["rate"] != silent}
+        check(g["latency"] == want, "the point at %d: %s, wanted %s" % (g["rate"], g["latency"], want))
+    code, doc, _, _, _ = run()
+    check(doc["grid"][0]["latency"] == {"declaredFrames": 0, "measuredFrames": 0, "method": "impulse-onset"},
+          "an effect's latency is an impulse's: %s" % doc["grid"][0]["latency"])
+
+@test
 def an_instrument_point_carries_the_notes_it_held_and_an_untimed_rate_has_no_cost():
     rates = floor_rates()
     untimed = rates[1]

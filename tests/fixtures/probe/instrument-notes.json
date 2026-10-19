@@ -231,7 +231,9 @@
       "outcome": "probe.ok",
       "latency": {
         "declaredFrames": 0,
-        "measuredFrames": 1
+        "measuredFrames": 1,
+        "method": "note-onset",
+        "heard": true
       },
       "cost": {
         "unit": "ns-per-sample",
@@ -257,7 +259,9 @@
       "outcome": "probe.ok",
       "latency": {
         "declaredFrames": 0,
-        "measuredFrames": 1
+        "measuredFrames": 1,
+        "method": "note-onset",
+        "heard": true
       },
       "cost": {
         "unit": "ns-per-sample",
@@ -282,7 +286,9 @@
       "outcome": "probe.ok",
       "latency": {
         "declaredFrames": 0,
-        "measuredFrames": 1
+        "measuredFrames": 1,
+        "method": "note-onset",
+        "heard": false
       }
     }
   ],
