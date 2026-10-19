@@ -81,8 +81,8 @@ jobs:
       # for LV2, driving the fixture bundle of this repository (a stereo gain, tests/lv2_fixture.c) with the whole tests/
       # directory as the world: a few dozen files that are no bundle, which lilv warns about one by one before mod-host
       # says ready, and a pool worker must still start under that (#105). It needs a private user namespace with its own /proc; a
-      # runner that refuses one cannot run it, and the step says so. The LV2 steps are required to have run: a run that
-      # skipped them fails here.
+      # runner that refuses one cannot run it, and the step fails (tests/ci_guards.py holds both branches to that). The
+      # LV2 steps are required to have run: a run that skipped them fails here.
       - name: Test the daemon with real workers over jack, CLAP and LV2, then break every guard on purpose
         run: |
           set -euo pipefail
@@ -100,8 +100,8 @@ jobs:
             OMX_CLAP_HOST=/usr/bin/omx-clap-host make sabotage 2>&1 | tee sabotage.log
             if grep -q 'skip sabotage (no LV2 bundle' sabotage.log; then echo 'an LV2 sabotage was skipped'; exit 1; fi
           else
-            echo "::warning::test-jack SKIPPED: this runner refuses a private user and pid namespace with its own /proc"
-            make sabotage
+            echo "::error::test-jack did not run: this runner refuses a private user and pid namespace with its own /proc"
+            exit 1
           fi
 
   jack2:
@@ -150,7 +150,7 @@ jobs:
 
       # The daemon with the real worker over JACK2's own jackd, in the private namespace jack_e2e.sh builds.
       # It needs a private user namespace with its own /proc; a runner that refuses one cannot run it, and the
-      # step says so.
+      # step fails.
       - name: Test the daemon with a real worker over JACK2's jackd
         run: |
           export FAKE_COMPRESSOR_CLAP=/usr/libexec/omx-clap-host/tests/fake_compressor.clap
@@ -159,7 +159,8 @@ jobs:
           if unshare --user --map-root-user --net --pid --fork --mount-proc true; then
             make test-jack2 OMX_CLAP_HOST=/usr/bin/omx-clap-host
           else
-            echo "::warning::test-jack2 SKIPPED: this runner refuses a private user and pid namespace with its own /proc"
+            echo "::error::test-jack2 did not run: this runner refuses a private user and pid namespace with its own /proc"
+            exit 1
           fi
 
       - name: Name what this job does not run

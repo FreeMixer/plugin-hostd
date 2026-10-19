@@ -13,8 +13,11 @@ FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "
 # an LV2 bundle (MOD_HOST, LV2_DIR, LV2_URI, LV2_BUNDLE, LV2_PARAM) and is skipped without them; "pin" breaks
 # include/plugin-hostd/pin.h and runs tests/pin_test.c; "readme" breaks README.md or BUILDING.md and runs
 # tests/readme_build.py, with no daemon to build; "probeschema" breaks protocol/probe-output.schema.json and runs
-# tests/probe_schema.py; "relay" breaks src/relay.c and runs tests/relay_test.c; "alloc" breaks src/relay.c or src/lv2.c and runs make test-alloc; "contract" breaks the probe runner or the generator and runs tests/contract_derived.py; "consumer" breaks the header and compiles tests/consumer.c against it; "probe" breaks src/probe.c and runs tests/probe_test.py; "nopins" breaks the packaging or a workflow and runs tests/no_pins.py
+# tests/probe_schema.py; "relay" breaks src/relay.c and runs tests/relay_test.c; "alloc" breaks src/relay.c or src/lv2.c and runs make test-alloc; "contract" breaks the probe runner or the generator and runs tests/contract_derived.py; "consumer" breaks the header and compiles tests/consumer.c against it; "probe" breaks src/probe.c and runs tests/probe_test.py; "nopins" breaks the packaging or a workflow and runs tests/no_pins.py; "ciguards" breaks a workflow and runs tests/ci_guards.py
 SABOTAGE = [
+    ("a runner that refuses unshare passes build-and-test with a warning", ".github/workflows/ci.yml",
+     '            echo "::error::test-jack did not run: this runner refuses a private user and pid namespace with its own /proc"\n            exit 1\n',
+     '            echo "::warning::test-jack SKIPPED"\n', "every if unshare in the workflows fails", "ciguards"),
     ("the ready marker is looked for in the first page of the worker's log only", "src/proc.c",
      "while (!found && (n = read(fd, buffer + held, sizeof(buffer) - 1 - held)) > 0)",
      "while (!found && held == 0 && (n = read(fd, buffer + held, sizeof(buffer) - 1 - held)) > 0)",
@@ -575,8 +578,9 @@ def run_test(tree, name, jack=False):
         p = subprocess.run([sys.executable, os.path.join(ROOT, "tests", "probe_schema.py"), tree], capture_output=True,
                            text=True, timeout=60)
         return p.returncode, p.stdout
-    if jack == "nopins":
-        p = subprocess.run([sys.executable, os.path.join(ROOT, "tests", "no_pins.py"), tree], capture_output=True,
+    if jack in ("nopins", "ciguards"):
+        script = {"nopins": "no_pins.py", "ciguards": "ci_guards.py"}[jack]
+        p = subprocess.run([sys.executable, os.path.join(ROOT, "tests", script), tree], capture_output=True,
                            text=True, timeout=60)
         return p.returncode, p.stdout
     env = dict(os.environ, ONLY=name, PLUGIN_HOSTD=os.path.join(tree, "plugin-hostd"), FAKE_HOST=FAKE)
@@ -639,6 +643,8 @@ try:
             for f in ("packaging/plugin-hostd.spec", "debian/control", ".github/workflows/ci.yml"):
                 os.makedirs(os.path.dirname(os.path.join(tree, f)), exist_ok=True)
                 shutil.copy(os.path.join(ROOT, f), os.path.join(tree, f))
+        elif jack == "ciguards":
+            shutil.copytree(os.path.join(ROOT, ".github", "workflows"), os.path.join(tree, ".github", "workflows"))
         else:
             shutil.copytree(os.path.join(ROOT, "src"), os.path.join(tree, "src"))
             shutil.copytree(os.path.join(ROOT, "include"), os.path.join(tree, "include"))
@@ -657,7 +663,7 @@ try:
         open(os.path.join(tree, path), "w").write(src.replace(text, repl))
         if jack == "probe":
             build_probe(tree)
-        elif jack not in ("readme", "nopins", "format", "relay", "contract", "consumer", "probeschema", "alloc"):
+        elif jack not in ("readme", "nopins", "ciguards", "format", "relay", "contract", "consumer", "probeschema", "alloc"):
             for f in os.listdir(os.path.join(tree, "src")):
                 if f.endswith(".o"):
                     os.unlink(os.path.join(tree, "src", f))
