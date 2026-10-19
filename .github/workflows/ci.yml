@@ -209,7 +209,10 @@ jobs:
             rpm -qp --qf '[%{FILEMODES:perms} %{FILENAMES}\n]' "$rpm" | grep -v -e '^d' -e '/\.build-id/' | cut -d' ' -f2 | sort > files.txt
             printf '%s\n' /usr/libexec/plugin-hostd/tests/fake-host /usr/share/licenses/plugin-hostd-tests/COPYING | sort > expected.txt
             diff -u expected.txt files.txt
-            rpm -qp --requires "$rpm" | grep -q '^plugin-hostd'
+            # tied to the same build: the requirement names the exact version-release and the isa of this very package
+            case "${{ matrix.arch }}" in x86_64) isa=x86-64 ;; aarch64) isa=aarch-64 ;; *) echo "no isa for ${{ matrix.arch }}"; exit 1 ;; esac
+            vr=$(rpm -qp --qf '%{VERSION}-%{RELEASE}' "$rpm")
+            rpm -qp --requires "$rpm" | grep -qxF "plugin-hostd($isa) = $vr"
           done
           ls rpms/plugin-hostd-tests-[0-9]*.${{ matrix.arch }}.rpm
           ls rpms/plugin-hostd-*.src.rpm
@@ -383,7 +386,8 @@ jobs:
 
   # docs/own-host.md, command by command, as a reader would type it: a clean Debian with nothing but what the page
   # lists, the published packages of the FreeMixer channel, on both architectures (arm64 is a native runner).
-  # A step of the page that stops working fails this job.
+  # A step of the page that stops working fails this job. The page's LV2 block runs an LV2 URI with
+  # `lv2_worker omx-clap-host`, and --audio then measures the gain of a sine that went through that instance.
   own-host-page:
     name: own-host page (${{ matrix.suite }}, ${{ matrix.arch }}), run as written in a clean container
     runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
@@ -411,13 +415,13 @@ jobs:
       - name: The reader stops on a wrong reply
         run: python3 tests/own_host_page.py selftest
 
-      - name: The page's commands
+      - name: The page's commands, the LV2 plugin included, and its audio
         run: |
           set -euo pipefail
           export XDG_RUNTIME_DIR=/tmp/xdg XDG_STATE_HOME=/tmp/state
           mkdir -p "$XDG_RUNTIME_DIR" "$XDG_STATE_HOME" /tmp/own-host
           cd /tmp/own-host
-          python3 "$GITHUB_WORKSPACE/tests/own_host_page.py" run
+          python3 "$GITHUB_WORKSPACE/tests/own_host_page.py" run --audio
           test "$(dpkg --print-architecture)" = "${{ matrix.arch }}"
 
   # The release workflow as a tag would run it, publishing nothing: both architectures build through the

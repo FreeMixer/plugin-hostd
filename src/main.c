@@ -34,7 +34,7 @@
 #include "verbs.h"
 
 #ifndef VERSION
-#define VERSION "0.4.0"
+#define VERSION "0.5.0"
 #endif
 
 #define SOCKET_DEFAULT_PORT     PHD_DEFAULT_COMMAND_PORT
@@ -138,7 +138,7 @@ int main(int argc, char **argv)
 
     if (conf_check(&g_conf) != 0)
         return EXIT_FAILURE;
-    if (g_conf.require_pins && pins_init(g_conf.pin_store, g_conf.pin_file) != 0)
+    if (g_conf.require_pins && pins_init(g_conf.pin_store, g_conf.pin_file, g_conf.pins_dir) != 0)
         return EXIT_FAILURE;
 
     signal(SIGPIPE, SIG_IGN);

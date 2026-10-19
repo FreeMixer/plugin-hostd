@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 @prefix atom: <http://lv2plug.in/ns/ext/atom#> .
+@prefix bufsz: <http://lv2plug.in/ns/ext/buf-size#> .
 @prefix doap: <http://usefulinc.com/ns/doap#> .
 @prefix lv2:  <http://lv2plug.in/ns/lv2core#> .
 
@@ -28,6 +29,19 @@
     ] , [
         a atom:AtomPort , lv2:InputPort ; atom:bufferType atom:Sequence ;
         lv2:index 3 ; lv2:symbol "events" ; lv2:name "Events"
+    ] .
+
+<urn:plugin-hostd:test:fixed-block>
+    a lv2:Plugin , lv2:AmplifierPlugin ;
+    doap:name "plugin-hostd fixture gain that requires a fixed block length" ;
+    lv2:requiredFeature bufsz:fixedBlockLength ;
+    lv2:port [
+        a lv2:AudioPort , lv2:InputPort ; lv2:index 0 ; lv2:symbol "in" ; lv2:name "In"
+    ] , [
+        a lv2:AudioPort , lv2:OutputPort ; lv2:index 1 ; lv2:symbol "out" ; lv2:name "Out"
+    ] , [
+        a lv2:ControlPort , lv2:InputPort ; lv2:index 2 ; lv2:symbol "gain" ; lv2:name "Gain" ;
+        lv2:default 1.0 ; lv2:minimum 0.0 ; lv2:maximum 2.0
     ] .
 
 <urn:plugin-hostd:test:stress>

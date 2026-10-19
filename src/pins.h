@@ -23,20 +23,26 @@
 
 #include "formats.h"
 
-/* The pins by URI: policy, like placement, and not in the ledger. They come from pin_set, from a pin file at start, and
- * (pin_mode first-use) from the daemon itself, which keeps what it learned in the pin store. One line format for the
- * three: <uri> <path>=<sha256>[,...] <scheme>:<sha256> [verdict=<word>], the verb pin_set in front or not. */
+/* The pins by URI: policy, like placement, and not in the ledger. Two layers. The host's: pin_set, a pin file at start,
+ * and (pin_mode first-use) the daemon itself, which keeps what it learned in the pin store. The packages': the *.pins
+ * files of a directory, read at start and never written. The host's pin of a uri holds over the package's, except a
+ * package pin of verdict=refused, which always holds. One line format for all: <uri> <path>=<sha256>[,...]
+ * <scheme>:<sha256> [verdict=<word>], the verb pin_set in front or not. */
 
-/* start: the store (empty is the XDG default) is read, then `file` (empty is none), which wins. -1 with the line named on
- * stderr when `file` has a line outside the grammar; a bad line of the store is kept verbatim by every save, announced on
- * stderr, and its uri is not learned again; a store that can't be read blocks learning and saving */
-int pins_init(const char *store, const char *file);
+/* start: the *.pins files of `dir` (empty is none) in byte order of their names, of two pins of one uri a refusal
+ * winning, else the later; then the store (empty is the XDG default), then `file` (empty is none), which wins over the
+ * store. -1 with the line named on stderr when `file` has a line outside the grammar; a bad line of the store is kept
+ * verbatim by every save, announced on stderr, and its uri is not learned again; a store that can't be read blocks
+ * learning and saving; a bad line or an unreadable file of `dir` is announced and skipped, and a missing `dir` holds
+ * no pins */
+int pins_init(const char *store, const char *file, const char *dir);
 
-/* pin_set: SUCCESS, or ERR_INVALID_OPERATION for a word outside the grammar; it replaces an earlier pin of the uri.
- * `verdict` is NULL, or one of PHD_PIN_VERDICTS */
+/* pin_set: SUCCESS, or ERR_INVALID_OPERATION for a word outside the grammar, or PHD_ERR_PIN_REFUSED when the package pin
+ * of the uri carries verdict=refused; it replaces an earlier pin of the uri. `verdict` is NULL, or one of
+ * PHD_PIN_VERDICTS */
 int pins_set(const char *uri, const char *files, const char *layout, const char *verdict);
 
-/* pin_clear of one uri, or of every one for "all"; SUCCESS */
+/* pin_clear of the host's pin of one uri, or of every one for "all"; a package pin holds again. SUCCESS */
 int pins_clear(const char *uri);
 
 /* whether the uri has a pin, and whether it is one a verdict of in-process qualified */
@@ -48,7 +54,8 @@ int pins_in_process(const char *uri);
 int pins_learn(const format_t *format, const char *uri, const char *search);
 
 /* pin_accept: the same collection for a uri that has a pin, which it replaces; the layout is unknown again and the
- * verdict gone. PHD_ERR_PIN_ABSENT when there is no pin to replace */
+ * verdict gone; over a package pin it is the host's that then holds. PHD_ERR_PIN_ABSENT when there is no pin to replace,
+ * PHD_ERR_PIN_REFUSED when the package pin carries verdict=refused */
 int pins_accept(const format_t *format, const char *uri, const char *search);
 
 /* the layout a worker found after init, for a pin that has none; false for a layout that is not omx-layout/1 */

@@ -108,6 +108,19 @@ void proc_apply_env(pid_t pid, const worker_env_t *env)
     closedir(dir);
 }
 
+void proc_env_report(pid_t pid, const worker_env_t *env)
+{
+    int have;
+
+    if (env->nice == INT_MIN)
+        return;
+    errno = 0;
+    have = getpriority(PRIO_PROCESS, pid);
+    if (errno == 0 && have != env->nice)
+        fprintf(stderr, "worker_env: worker %d keeps nice %d, the nice %d was not applied (a daemon without privilege cannot lower "
+                "a worker's nice below its own)\n", (int)pid, have, env->nice);
+}
+
 int proc_have_binary(const char *bin)
 {
     char *path, *copy, *dir, *save = NULL;

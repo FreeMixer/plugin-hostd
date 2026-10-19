@@ -13,7 +13,7 @@ FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "
 # an LV2 bundle (MOD_HOST, LV2_DIR, LV2_URI, LV2_BUNDLE, LV2_PARAM) and is skipped without them; "pin" breaks
 # include/plugin-hostd/pin.h and runs tests/pin_test.c; "readme" breaks README.md or BUILDING.md and runs
 # tests/readme_build.py, with no daemon to build; "probeschema" breaks protocol/probe-output.schema.json and runs
-# tests/probe_schema.py; "relay" breaks src/relay.c and runs tests/relay_test.c; "contract" breaks the probe runner or the generator and runs tests/contract_derived.py; "probe" breaks src/probe.c and runs tests/probe_test.py; "nopins" breaks the packaging or a workflow and runs tests/no_pins.py
+# tests/probe_schema.py; "relay" breaks src/relay.c and runs tests/relay_test.c; "alloc" breaks src/relay.c or src/lv2.c and runs make test-alloc; "contract" breaks the probe runner or the generator and runs tests/contract_derived.py; "consumer" breaks the header and compiles tests/consumer.c against it; "probe" breaks src/probe.c and runs tests/probe_test.py; "nopins" breaks the packaging or a workflow and runs tests/no_pins.py
 SABOTAGE = [
     ("the verb tail is not replayed", "src/supervisor.c",
      "if (replay_line(w, i->tail[m].line) != RPC_OK)", "if (0 && replay_line(w, i->tail[m].line) != RPC_OK)",
@@ -56,6 +56,8 @@ SABOTAGE = [
      "a_command_whose_first_argument_is_a_uri_reaches_every_worker"),
     ("a reply is not passed through", "src/supervisor.c", "    return reply;\n}\n\nchar *sup_remove(int id)",
      "    free(reply);\n    return sup_resp(0);\n}\n\nchar *sup_remove(int id)", "plain_verbs_pass_through_unchanged"),
+    ("a nice the daemon could not apply is not logged", "src/proc.c", "    if (errno == 0 && have != env->nice)\n",
+     "    if (0)\n", "worker_env_reaches_new_and_running_workers"),
     ("worker_env is not applied to a running worker", "src/supervisor.c", "proc_apply_env(g_workers[n]->pid, &g_env[f]);", ";",
      "worker_env_reaches_new_and_running_workers"),
     ("a refused connect is never asked again", "src/supervisor.c", "        else if (w->state == W_UP && w->npend)\n            pend_retry(w, now);",
@@ -282,6 +284,35 @@ SABOTAGE = [
      "PHD_PARAM_SCALES(X)\n#undef X\n_Static_assert(", "#undef X\n_Static_assert(", "contract", "contract"),
     ("the generator takes a scale word that is not the contract's", "tools/protocol-gen.c",
      "    if (!scales_are_the_contracts())\n        return 1;\n", "", "contract", "contract"),
+    ("two errors share a code", "include/plugin-hostd/protocol.h", "#define PHD_ERR_NOTE_QUEUE_FULL     (-517)",
+     "#define PHD_ERR_NOTE_QUEUE_FULL     (-516)", "consumer", "consumer"),
+    ("a gesture the relay has no memory to hold takes the table with it", "src/relay.c",
+     "        if (held == NULL)\n            return;\n", "", "alloc_test", "alloc"),
+    ("a refusal the lv2 table has no memory for takes the table with it", "src/lv2.c",
+     "    if (grown == NULL)\n        return;\n", "", "alloc_test", "alloc"),
+    ("a pick the lv2 table has no memory for takes the table with it", "src/lv2.c",
+     "        if (grown == NULL)\n            return -1;\n", "", "alloc_test", "alloc"),
+    ("the host's pin overrides a pins.d refusal", "src/pins.c", "    pin_t *p = pkg_refusal(uri);\n\n    if (!p)\n",
+     "    pin_t *p = NULL;\n\n    if (!p)\n", "a_pins_d_refusal_wins_over_any_other_pins_d_pin_and_over_the_host"),
+    ("pin_set overrides a pins.d refusal", "src/pins.c", "    if (pkg_refusal(pin.uri))\n", "    if (0)\n", "a_pins_d_refusal_wins_over_any_other_pins_d_pin_and_over_the_host"),
+    ("pin_accept overrides a pins.d refusal", "src/pins.c", "    if (pkg_refusal(bare(uri)))\n", "    if (0)\n", "a_pins_d_refusal_wins_over_any_other_pins_d_pin_and_over_the_host"),
+    ("of two pins.d pins of one uri the later wins over a refusal", "src/pins.c",
+     "    if (old && refused(old) && !refused(pin))\n", "    if (0)\n", "a_pins_d_refusal_wins_over_any_other_pins_d_pin_and_over_the_host"),
+    ("pins.d files are read in reverse name order", "src/pins.c", "    return strcmp((*a)->d_name, (*b)->d_name);",
+     "    return strcmp((*b)->d_name, (*a)->d_name);", "a_pins_d_pin_admits_its_plugin_and_of_two_files_the_last_by_name_wins"),
+    ("a pins.d file need not end in .pins", "src/pins.c",
+     "n > suffix && !strcmp(entry->d_name + n - suffix, PINS_SUFFIX)", "n > 0",
+     "a_pins_d_pin_admits_its_plugin_and_of_two_files_the_last_by_name_wins"),
+    ("a package pin holds over the host's", "src/pins.c",
+     "        p = find_in(g_pins, g_npins, uri);\n    return p ? p : find_in(g_pkg, g_npkg, uri);",
+     "        p = find_in(g_pkg, g_npkg, uri);\n    return p ? p : find_in(g_pins, g_npins, uri);",
+     "the_host_holds_over_a_pins_d_pin_that_is_not_a_refusal"),
+    ("a bad pins.d line ends the start", "src/pins.c", "    int strict = layer == LAYER_FILE,",
+     "    int strict = layer != LAYER_STORE,", "a_bad_pins_d_line_or_file_is_skipped_and_the_rest_is_read"),
+    ("a hidden pins.d file is read", "src/pins.c", "entry->d_name[0] != '.' && ", "",
+     "a_pins_d_pin_admits_its_plugin_and_of_two_files_the_last_by_name_wins"),
+    ("pins_dir is not read", "src/pins.c", "    if (*dir)\n        pkg_read(dir);\n", "",
+     "a_pins_d_pin_admits_its_plugin_and_of_two_files_the_last_by_name_wins"),
     ("the build steps are back on the README", "README.md", "Building from source: see [BUILDING.md](BUILDING.md).",
      "Building from source:\n\n    make\n\nsee [BUILDING.md](BUILDING.md).", "README.md runs no build tool", "readme"),
     ("BUILDING.md lost its build command", "BUILDING.md", "    make [MOD_HOST_DIR=<mod-host checkout>]\n", "",
@@ -466,9 +497,29 @@ def run_contract_test(tree):
     p = subprocess.run([sys.executable, os.path.join(tree, "tests", "contract_derived.py")], cwd=tree, capture_output=True,
                        text=True, timeout=300, env=dict(os.environ, PROBE=os.path.join(tree, "plugin-hostd-probe")))
     return p.returncode, p.stdout + ("ok   contract\n" if p.returncode == 0 else "")
+def run_consumer_test(tree):
+    """tests/consumer.c against the tree's header, as a consumer compiles it; "ok   consumer" when it passes"""
+    exe = os.path.join(tree, "consumer")
+    subprocess.run(["cc", "-I" + os.path.join(tree, "include"), "-std=c99", "-Wall", "-Wextra", "-o", exe,
+                    os.path.join(ROOT, "tests", "consumer.c")], check=True)
+    p = subprocess.run([exe], capture_output=True, text=True, timeout=60)
+    return p.returncode, p.stdout + ("ok   consumer\n" if p.returncode == 0 else "")
+
+def run_alloc_test(tree):
+    """make test-alloc: the tables of src/relay.c and src/lv2.c when realloc fails; prints "ok   alloc_test" when no check failed"""
+    for f in ("tests/gesture-alloc-test", "tests/lv2-alloc-test", "tests/lv2-alloc-lv2.o"):
+        if os.path.exists(os.path.join(tree, f)):
+            os.unlink(os.path.join(tree, f))
+    p = subprocess.run(["make", "-s", "MOD_HOST_DIR=" + MOD_HOST_DIR, "test-alloc"], cwd=tree, capture_output=True, text=True,
+                       timeout=120)
+    return p.returncode, p.stdout + p.stderr + ("ok   alloc_test\n" if p.returncode == 0 else "")
 
 
 def run_test(tree, name, jack=False):
+    if jack == "consumer":
+        return run_consumer_test(tree)
+    if jack == "alloc":
+        return run_alloc_test(tree)
     if jack == "format":
         return run_format_test(tree)
     if jack == "relay":
@@ -524,6 +575,13 @@ try:
             os.makedirs(tree)
             for f in ("README.md", "BUILDING.md"):
                 shutil.copy(os.path.join(ROOT, f), tree)
+        elif jack == "alloc":
+            shutil.copytree(os.path.join(ROOT, "src"), os.path.join(tree, "src"))
+            shutil.copytree(os.path.join(ROOT, "include"), os.path.join(tree, "include"))
+            shutil.copy(os.path.join(ROOT, "Makefile"), tree)
+            os.makedirs(os.path.join(tree, "tests"))
+            for f in ("gesture_alloc_test.c", "lv2_alloc_test.c"):
+                shutil.copy(os.path.join(ROOT, "tests", f), os.path.join(tree, "tests"))
         elif jack == "probe":
             os.makedirs(os.path.join(tree, "src"))
             shutil.copy(os.path.join(ROOT, "src", "probe.c"), os.path.join(tree, "src"))
@@ -541,6 +599,8 @@ try:
                 shutil.copy(os.path.join(ROOT, f), tree)
             os.makedirs(os.path.join(tree, "packaging"))
             shutil.copy(os.path.join(ROOT, "packaging", "plugin-hostd.spec"), os.path.join(tree, "packaging"))
+        elif jack == "consumer":
+            shutil.copytree(os.path.join(ROOT, "include"), os.path.join(tree, "include"))
         elif jack == "nopins":
             for f in ("packaging/plugin-hostd.spec", "debian/control", ".github/workflows/ci.yml"):
                 os.makedirs(os.path.dirname(os.path.join(tree, f)), exist_ok=True)
@@ -563,7 +623,7 @@ try:
         open(os.path.join(tree, path), "w").write(src.replace(text, repl))
         if jack == "probe":
             build_probe(tree)
-        elif jack not in ("readme", "nopins", "format", "relay", "contract", "probeschema"):
+        elif jack not in ("readme", "nopins", "format", "relay", "contract", "consumer", "probeschema", "alloc"):
             for f in os.listdir(os.path.join(tree, "src")):
                 if f.endswith(".o"):
                     os.unlink(os.path.join(tree, "src", f))
