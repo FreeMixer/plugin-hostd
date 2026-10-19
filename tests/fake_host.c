@@ -68,6 +68,8 @@
  *
  * Its layout is one CLAP parameter whose default is FAKE_LAYOUT_DEFAULT (0.5 without it); "fake-host -L" prints its
  * layout pin. With FAKE_LOG set, every command received is appended to that file as "<pid> <command>".
+ * FAKE_WARN_BEFORE_READY=<n> writes n warning lines to stderr before "ready!", as lilv writes one for every entry of
+ * a world that is no bundle (plugin-hostd#105: a world of a few dozen stray files buries the marker under 5 KB).
  */
 
 #include <dirent.h>
@@ -625,6 +627,14 @@ int main(int argc, char **argv)
     sig.sa_handler = term_signal;
     sigemptyset(&sig.sa_mask);
     sigaction(SIGTERM, &sig, NULL);
+    if (getenv("FAKE_WARN_BEFORE_READY"))
+    {
+        int n = atoi(getenv("FAKE_WARN_BEFORE_READY")), i;
+
+        for (i = 0; i < n; i++)
+            fprintf(stderr, "load_dir_entry(): warning: Skipping non-directory `/a/world/of/stray/files/entry-%d.c' within path entry\n", i);
+        fflush(stderr);
+    }
     printf("fake-host ready!\n");
     fflush(stdout);
     while (running)
