@@ -10,6 +10,12 @@ plugin\-hostd\-probe \- run a plugin prober under limits and write what happened
 .B plugin\-hostd\-probe run
 .RI [ options ]
 .BI lv2: uri
+.br
+.B plugin\-hostd\-probe describe
+.RI [ options ]
+.BI clap: path # id
+|
+.BI lv2: uri
 .SH DESCRIPTION
 .B plugin\-hostd\-probe
 starts a program that loads a plugin (clap\-qualify for a CLAP, plugin\-qualify's lv2_measure for an LV2 named
@@ -31,6 +37,29 @@ the child.
 The document follows
 .IR plugin\-hostd/probe\-output.schema.json .
 Nothing a plugin prints can enter it.
+.SH DESCRIBE
+.B describe
+writes what a plugin states about itself as a scanned descriptor (omx\-contract's descriptors), on standard output.
+It runs omx\-clap\-scan \-\-fields on the plugin, under the same limits and in a process group of its own, and reads
+each field of the dump through the format's table, which plugin\-hostd\-devel installs in omx\-contract's contract
+directory (3/plugin\-hostd/formats/clap.json and lv2.json): each field becomes a descriptor word, goes verbatim into
+the descriptor's extensions, or is dropped by the ruling the table names. A field the table has no row for is refused.
+Its options:
+.TP
+.BI \-\-table " file"
+The format's table, in place of the installed one.
+.TP
+.BI \-\-fields\-from " file"
+A recorded dump, in place of running omx\-clap\-scan.
+.TP
+.BI \-\-child " program"
+The program that writes the dump. Default omx\-clap\-scan.
+.TP
+.BI \-\-log " file" "\fR, \fB\-\-wall\-s " n
+The child's standard error, and its wall clock in seconds (default 60).
+.PP
+It exits 0 with a descriptor, 2 with none (usage, a table it cannot read, a dump it refuses, named on standard error),
+and 3 when the child made no dump.
 .SH OPTIONS
 .TP
 .BI \-\-child " program"
