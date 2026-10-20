@@ -1,0 +1,36 @@
+verb	sent by mod-ui (zynthian/mod-ui 817a672 file:line; times in the session)	LV2 worker (plugin-hostd + mod-host 12335c2)	CLAP worker (plugin-hostd + omx-clap-host 0.12.0)	difference from mod-host (and: breaks a CLAP pedalboard?)	smallest fix and where
+add	mod/host.py:2581, :3849 (pedalboard load); 10	resp <n>, as mod-host	resp <n>	none; no	-
+remove	mod/host.py:1083 (remove -1), :2305; 7	resp 0, as mod-host	resp 0	none; no	-
+connect	mod/host.py:2218, :3409; 24	resp 0 between instance ports; resp -902 for system:capture_N -> mod-monitor:in_N (no instance owns either port; diff.txt); mod-monitor exists only while the first LV2 worker, the one JACK names mod-host, lives (mod-host src/effects.c:3922), -205 once it is removed (monitor-owner.txt)	resp -205 for 22 of 24 in the replay: mod-ui writes the LV2 port symbols, the CLAP worker's ports are named otherwise; -205 for mod-monitor (probe.tsv)	LV2: 2 replies differ, and the pedalboard's output path through mod-monitor hangs on one worker; CLAP: yes, no audio routing	plugin-hostd: open the JACK client named mod-host itself and load mod-host's mod-monitor.so (or run its monitor client), so no worker creates one; jack_connect ports no instance owns. CLAP: mod-ui reads port names from LV2 TTL, so a CLAP plugin needs an LV2 description first (omx-clap-host or a generator over omx-clap-scan --json)
+bypass	mod/host.py:2161, :2692; 10	resp 0, as mod-host	resp 0	none; no	-
+param_set	mod/host.py:2172, :2715; 40	resp 0, as mod-host	resp -103 for all 40 (LV2 symbols; the CLAP worker takes the parameter number); resp 0 with a number (probe.tsv)	CLAP: yes, every restored and moved parameter refused (pedalboard load ignores the code, mod/host.py:3849 has no callback)	omx-clap-host (or plugin-hostd from the scan): accept a symbol per CLAP parameter; the same symbols an LV2 description of the plugin would carry
+patch_get	mod/host.py:2720; 0	resp -902, as mod-host (the probe plugin has no patch parameter)	resp -902	none for the probe plugin; a plugin with patch parameters is untested; no	run the probe with a patch-parameter plugin (OWED)
+patch_set	mod/host.py:2189, :2730; 0	resp -902, as mod-host	resp -902	as patch_get	as patch_get
+preset_load	mod/host.py:2166, :3867; 5	resp 0 in one worker; resp -105 for a user preset when the instance's worker started after the preset's bundle_add (diff.txt, 2 of 5)	resp -902	LV2: user presets fail after a pedalboard reload; CLAP: yes, presets	plugin-hostd: keep bundle_add/bundle_remove lines and replay them to each new worker (src/supervisor.c:99 replays only set_bpm, set_bpb, transport, transport_sync). CLAP: omx-clap-host preset loading (CLAP preset-load ext)
+preset_save	mod/host.py:2925; 2	resp 0, as mod-host	resp -902	CLAP: user presets cannot be saved	omx-clap-host: write the plugin's state as a preset file
+preset_show	mod/host.py:2830; 2	the preset's Turtle, identical	resp -902	CLAP: no	omx-clap-host
+bundle_add	mod/host.py:2240; 2	resp 0, as mod-host (not replayed to later workers, see preset_load)	resp -902	CLAP: no (mod-ui ignores it)	plugin-hostd: answer 0 for a CLAP worker (LV2 bundles do not concern it) and replay to LV2 workers
+bundle_remove	mod/host.py:2260; 0	resp 0, as mod-host	resp -902	as bundle_add	as bundle_add
+state_load	mod/host.py:2145, :3665; 3	resp 0, as mod-host	resp -105 (2 of 3 in the replay); resp -105 in the probe	CLAP: yes, plugin state not restored with the pedalboard	omx-clap-host: load the instance's CLAP state from the pedalboard directory
+state_save	mod/host.py:4012; 2	resp 0, as mod-host	resp 0	none; no	-
+state_tmpdir	mod/host.py:1086; 1	resp 0, as mod-host	resp -902 in the probe (resp 0 in the replay, sent before any CLAP worker existed)	CLAP: no	omx-clap-host: take the directory (or plugin-hostd answers it)
+feature_enable	mod/host.py:3489 (aggregated-midi), :5689 (processing); 17	processing: resp 0; aggregated-midi: -202 from a worker, as mod-host here (the pod has no mod-midi-merger internal client); with no worker running the daemon answers 0 and keeps nothing	resp -902	LV2: a worker started later never hears it; CLAP: processing on/off refused	plugin-hostd: keep feature_enable as a host setting replayed to new workers; omx-clap-host: answer processing
+transport	mod/host.py:2028, :4656; 7	resp 0, as mod-host	resp 0	none, but the transport feedback comes once per worker (6 against 1 in the session)	plugin-hostd: relay host-wide feedback (transport) once
+transport_sync	mod/host.py:4565; 1	resp 0, as mod-host	resp 0	none; no	-
+monitor_output	mod/host.py:2180, :2565; 0	resp 1, as mod-host	resp 0 for any symbol	CLAP: no meters, and no refusal	omx-clap-host: refuse a symbol it does not have; CLAP has no output parameters, meters need a convention
+monitor_midi_program	mod/host.py:1126; 0	resp 0, as mod-host	resp -902	CLAP-only rig: pedalboard change by MIDI program lost	plugin-hostd: a host-wide verb, answered by the daemon (or an LV2 worker), not by a CLAP worker
+midi_learn	mod/host.py:4922; 0	resp 1, as mod-host	resp -902	CLAP: MIDI learn through mod-ui lost	omx-clap-host; on Zynthian's own engines its router does the learning
+midi_map	mod/host.py:764, :2164; 0	resp 1, as mod-host	resp -902	CLAP: saved MIDI maps not restored	omx-clap-host
+midi_unmap	mod/host.py:807; 0	resp 1, as mod-host	resp -902	as midi_map	omx-clap-host
+cc_map	mod/host.py:748; 0	resp -401, as mod-host (no Control Chain)	resp -902	none on Zynthian (no Control Chain hardware); no	-
+cc_value_set	mod/host.py:868; 0	resp -401, as mod-host	resp -902	as cc_map	-
+cc_unmap	mod/host.py:803; 0	resp -401, as mod-host	resp -902	as cc_map	-
+cv_map	mod/host.py:780, :2204; 0	resp 0, as mod-host	resp -902	CLAP: CV addressing lost	omx-clap-host
+cv_unmap	mod/host.py:811; 0	resp 0, as mod-host	resp -902	as cv_map	omx-clap-host
+hmi_map	mod/host.py:689; 0	resp -403, as mod-host (no HMI)	resp -902	none on Zynthian (no MOD HMI); no	-
+hmi_unmap	mod/host.py:694; 0	resp -403, as mod-host	resp -902	as hmi_map	-
+cpu_load	mod/host.py:5736, mod/session.py:354; 0	resp 0 ..., as mod-host	resp 0 ...	not compared beyond the code (a load figure is timing, OWED on hardware)	-
+output_data_ready	mod/host.py:1888; 2	resp 0, as mod-host	resp -902 in the probe (resp 0 in the replay, broadcast)	CLAP: no	omx-clap-host: answer 0 (flow control of the meter feedback)
+show_external_ui	mod/session.py:349; 0	resp -902, as mod-host	resp -902	none; no	-
+set_midi_program_change_pedalboard_bank_channel	mod/host.py:4735, commented out: never sent	-	-	dead code in Zynthian's mod-ui; the only verbs of mod-ui's source missing from protocol/mod-host.json	none
+set_midi_program_change_pedalboard_snapshot_channel	mod/host.py:4739, commented out: never sent	-	-	as above	none
