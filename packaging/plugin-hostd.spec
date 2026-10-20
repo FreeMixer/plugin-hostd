@@ -15,8 +15,9 @@ BuildRequires: diffutils
 BuildRequires: python3
 BuildRequires: pkgconfig(mod-host-protocol)
 # the probe runner's default rates, the protocol's parameter scales and the probe output's shared words are read from
-# omx-contract's C headers (2.18.0 is the first with omx_vocabulary.h); a floor only
-BuildRequires: omx-contract-devel >= 2.18.0
+# omx-contract's C headers, and the format tables are items of its schema 3 (3.0.0 is the first with the formatMap
+# kind, the extension bag and plugin.doc); a floor only
+BuildRequires: omx-contract-devel >= 3.0.0
 # a command of exactly the socket's buffer size, or several commands in one read, needs mod-audio/mod-host#113:
 # FreeMixer's build carrying it (11.1.fmx) or audinux's once it carries it (12); a floor only
 Requires: mod-host-protocol%{?_isa} >= 0.10.6.f14a230-11.1
