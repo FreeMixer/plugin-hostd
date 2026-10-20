@@ -1377,6 +1377,13 @@
         "from": "clap/ext/audio-ports.h#clap_audio_port_info.port_type",
         "extension": true
       },
+      "clap_entry": {
+        "from": "clap/entry.h#clap_entry",
+        "word": {
+          "word": "source.from",
+          "transform": "identity"
+        }
+      },
       "clap_note_port_info.id": {
         "from": "clap/ext/note-ports.h#clap_note_port_info.id",
         "word": {
