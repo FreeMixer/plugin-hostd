@@ -73,6 +73,27 @@ for m in names:
     if m in formats and formats[m].split()[1:2] != ["%i"]:
         fail("%s is routed by instance but its format \"%s\" does not take one first" % (m, formats[m]))
 
+# every verb protocol.h adds that a controller sends is answered by verbs.c through its declaration; the ones the daemon
+# sends a worker are not. A chain's first argument is a chain, not an instance: no table routes it by instance
+with open(os.path.join(ROOT, "include", "plugin-hostd", "protocol.h")) as f:
+    declared = f.read()
+block = declared[declared.index("#define PHD_VERBS(X)"):]
+block = block[:block.index("\n\n")]
+with open(os.path.join(ROOT, "src", "verbs.c")) as f:
+    dispatch = f.read()
+dispatch = dispatch[dispatch.index("static char *handle("):]
+own_verbs = 0
+for macro, row in re.findall(r"X\(\w+, (PHD_VERB_\w+),(.*?)(?=\n    X\(|\Z)", block, re.S):
+    if "sent by the daemon" in row:
+        continue
+    own_verbs += 1
+    if macro not in dispatch:
+        fail("%s is a verb of PHD_VERBS that verbs.c's handle() never answers" % macro)
+if own_verbs < 10 or "PHD_VERB_CHAIN" not in block:
+    fail("found only %d controller verbs in PHD_VERBS, or no chain among them" % own_verbs)
+if "PHD_VERB_CHAIN" in table or re.search(r"\bchain\b", " ".join(commands.values())):
+    fail("chain is routed by instance, or mod-host.h has a command of that name")
+
 readme = os.path.join(MOD_HOST_DIR, "README.md")
 if not os.path.exists(readme):
     print("skip verbs contract: no mod-host README at " + readme)
