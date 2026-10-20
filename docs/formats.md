@@ -26,7 +26,7 @@ A table's `rows` are keyed by the source field, and each row has exactly one cla
 | Class | Carries | Meaning |
 |---|---|---|
 | `word` | `{ word, transform, values? \| factor? }` | the descriptor word it becomes (`controls[].travel.unit`), the transform that converts it (a name of `TRANSFORMS(X)`) and that transform's data: `values` for `lookup`, `factor` for `scale-by`. Never code |
-| `extension` | `true` | carried verbatim into the descriptor's `extensions.<format>.<field>` |
+| `extension` | `true` | carried verbatim into the descriptor's `extensions.<format>.<field>` (a record of a control's or a port's scope under `<scope>/<field>`) |
 | `dropped` | `{ ruling }` | left out, by the ruling it names: a spec path and section, or the TERM's own `out-of-scope` ruling |
 
 Each row names what it covers, one of two: `term`, a TERM of omx-contract's format files (`LV2_UNITS_TERMS#unit`), or
@@ -126,9 +126,9 @@ one transform renamed) and each arm must go red naming the field.
 <scope>	<field>	<value>
 ```
 
-- `scope`: `plugin`; `param:<index>` (CLAP, in `clap_plugin_params.get_info` order); `audio-in:<index>`,
-  `audio-out:<index>`, `note-in:<index>`, `note-out:<index>` (CLAP ports); `port:<index>` (an LV2 port, by
-  `lv2:index`).
+- `scope`: `plugin`; `param:<index>` (CLAP, in `clap_plugin_params.get_info` order); `audio_in:<index>`,
+  `audio_out:<index>`, `note_in:<index>`, `note_out:<index>` (CLAP ports); `port:<index>` (an LV2 port, by
+  `lv2:index`). A scope is a source field's first segment, so a bag key `<scope>/<field>` is one too.
 - `field`: a row key, as named above.
 - `value`: the field's value as text. A number in `%.17g`; a CLAP constant (a flag bit, a port type, a note dialect,
   an extension id, a feature the headers define) by its macro name, one record per flag set or per item; an LV2 URI as
@@ -152,7 +152,12 @@ What the tables leave to `describe`:
 - an LV2 output control is `readonly`; an LV2 port that reports latency (`lv2:latency`) is no control;
 - consecutive LV2 audio ports of one direction, role and group are one port, its `channels` their count, its layout
   `mono` or `stereo` by that count;
-- a CLAP port that is not main is `aux`; a control's `unit` and `scale` are `unknown` when no row sets them; a
-  control with points is a `choice`, its `ids` taken from its labels;
-- an LV2 plugin no class of which maps to a feature is an `audio-effect`; `instrument` is written when the features
-  hold it.
+- a CLAP port that is not main is `aux`; a control's `unit` is `unknown` when no row sets it, its `scale` `unknown`
+  on CLAP and `linear` on LV2 (where a scale not stated is linear); its `meaning` is `unknown` when no row sets it; a
+  control with points is a `choice`, its `ids` taken from its labels and its default the id of the default's point, a
+  `toggle` defaults to its default being non-zero;
+- the bag holds a field's one value as it is, two or more as a list;
+- an LV2 plugin no class of which maps to a feature is an `audio-effect`, and its `id` and `uri` are the URI asked
+  for; `instrument` is written when the features hold it, `polyphonic` when it states more than one voice; `latency`
+  is always written, `reports` false when no row sets it.
+- a word of a table that `describe` does not write is refused with the table: a new word is code here first.
