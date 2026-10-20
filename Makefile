@@ -112,6 +112,19 @@ install_protocol:
 	sed -e 's,@PREFIX@,$(PREFIX),g' -e 's,@VERSION@,$(VERSION),g' protocol/plugin-hostd.pc.in > $(DESTDIR)$(DATADIR)/pkgconfig/plugin-hostd.pc
 	chmod 644 $(DESTDIR)$(DATADIR)/pkgconfig/plugin-hostd.pc
 
+# the format tables this tree owns (data/formats/, docs/formats.md), installed as the package plugin-hostd into
+# omx-contract's contract directory, <contractdir>/<schema major>/plugin-hostd/formats/{clap,lv2}.json, with a
+# MANIFEST.json naming this version and the tree they came from; plugin-hostd-devel ships them. contractdir and the
+# install script are omx-contract-devel's; a checkout of omx-contract (OMX_CONTRACT_DIR) stands in for the script when
+# it is not installed.
+CONTRACT_SCHEMA_MAJOR = 3
+CONTRACTDIR = $(or $(shell $(PKG_CONFIG) --variable=contractdir omx-contract 2>/dev/null),$(DATADIR)/omx-contract/contract.d)
+INSTALL_CONTRACT_DIR = $(firstword $(wildcard $(shell $(PKG_CONFIG) --variable=datadir omx-contract 2>/dev/null)/install-contract-dir.sh) $(wildcard $(OMX_CONTRACT_DIR)/tools/install-contract-dir.sh))
+.PHONY: install-contract
+install-contract:
+	@test -n "$(INSTALL_CONTRACT_DIR)" || { echo "install-contract: no install-contract-dir.sh: install omx-contract-devel, or set OMX_CONTRACT_DIR to a checkout" >&2; exit 1; }
+	sh $(INSTALL_CONTRACT_DIR) $(PROG) $(VERSION) $(CONTRACT_SCHEMA_MAJOR) data $(DESTDIR)$(CONTRACTDIR) data
+
 # the fake worker, for a program that drives plugin-hostd: away from $(BINDIR), where nothing runs it by chance
 install_tests: $(FAKE)
 	install -d $(DESTDIR)$(LIBEXECDIR)/plugin-hostd/tests

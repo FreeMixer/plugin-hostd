@@ -77,6 +77,8 @@ sed -i 's,LDFLAGS += -s,LDFLAGS +=,g' Makefile
 %install
 
 %make_install PREFIX=%{_prefix}
+# the format tables, as the package plugin-hostd of omx-contract's contract directory (docs/formats.md)
+%make_build install-contract DESTDIR=%{buildroot} PREFIX=%{_prefix}
 
 # the verb table is checked against mod-host's README, which a build does not have
 %check
@@ -107,6 +109,7 @@ make test-daemon check-generated
 %{_datadir}/pkgconfig/plugin-hostd.pc
 %{_datadir}/plugin-hostd/protocol.schema.json
 %{_datadir}/plugin-hostd/probe-output.schema.json
+%{_datadir}/omx-contract/contract.d/3/plugin-hostd/
 
 %changelog
 * Tue Oct 20 2026 Pau Aliagas <linuxnow@gmail.com> - 0.6.0-1

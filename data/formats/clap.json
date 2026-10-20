@@ -1,0 +1,1537 @@
+{
+  "$schema": "../../schema/omx-contract.schema.json",
+  "requires": {
+    "omx-contract-schema": ">= 3.0.0"
+  },
+  "PLUGIN_HOSTD_CLAP_MAP": {
+    "kind": "formatMap",
+    "since": "0.7.0",
+    "doc": "How a CLAP plugin's field dump (omx-clap-scan --fields) becomes a scanned descriptor, and, read backwards, what a generator writes a CLAP face from: every CLAP term and struct field, each mapped to a descriptor word, carried in the extension bag or dropped by its ruling (docs/formats.md).",
+    "format": "clap",
+    "rows": {
+      "CLAP_AMBISONIC_NORMALIZATION_MAXN": {
+        "term": "CLAP_EXT_AMBISONIC_TERMS#ambisonicNormalizationMaxn",
+        "extension": true
+      },
+      "CLAP_AMBISONIC_NORMALIZATION_N2D": {
+        "term": "CLAP_EXT_AMBISONIC_TERMS#ambisonicNormalizationN2d",
+        "extension": true
+      },
+      "CLAP_AMBISONIC_NORMALIZATION_N3D": {
+        "term": "CLAP_EXT_AMBISONIC_TERMS#ambisonicNormalizationN3d",
+        "extension": true
+      },
+      "CLAP_AMBISONIC_NORMALIZATION_SN2D": {
+        "term": "CLAP_EXT_AMBISONIC_TERMS#ambisonicNormalizationSn2d",
+        "extension": true
+      },
+      "CLAP_AMBISONIC_NORMALIZATION_SN3D": {
+        "term": "CLAP_EXT_AMBISONIC_TERMS#ambisonicNormalizationSn3d",
+        "extension": true
+      },
+      "CLAP_AMBISONIC_ORDERING_ACN": {
+        "term": "CLAP_EXT_AMBISONIC_TERMS#ambisonicOrderingAcn",
+        "extension": true
+      },
+      "CLAP_AMBISONIC_ORDERING_FUMA": {
+        "term": "CLAP_EXT_AMBISONIC_TERMS#ambisonicOrderingFuma",
+        "extension": true
+      },
+      "CLAP_AUDIO_PORTS_RESCAN_CHANNEL_COUNT": {
+        "term": "CLAP_EXT_AUDIO_PORTS_TERMS#audioPortsRescanChannelCount",
+        "extension": true
+      },
+      "CLAP_AUDIO_PORTS_RESCAN_FLAGS": {
+        "term": "CLAP_EXT_AUDIO_PORTS_TERMS#audioPortsRescanFlags",
+        "extension": true
+      },
+      "CLAP_AUDIO_PORTS_RESCAN_IN_PLACE_PAIR": {
+        "term": "CLAP_EXT_AUDIO_PORTS_TERMS#audioPortsRescanInPlacePair",
+        "extension": true
+      },
+      "CLAP_AUDIO_PORTS_RESCAN_LIST": {
+        "term": "CLAP_EXT_AUDIO_PORTS_TERMS#audioPortsRescanList",
+        "extension": true
+      },
+      "CLAP_AUDIO_PORTS_RESCAN_NAMES": {
+        "term": "CLAP_EXT_AUDIO_PORTS_TERMS#audioPortsRescanNames",
+        "extension": true
+      },
+      "CLAP_AUDIO_PORTS_RESCAN_PORT_TYPE": {
+        "term": "CLAP_EXT_AUDIO_PORTS_TERMS#audioPortsRescanPortType",
+        "extension": true
+      },
+      "CLAP_AUDIO_PORT_IS_MAIN": {
+        "term": "CLAP_EXT_AUDIO_PORTS_TERMS#audioPortIsMain",
+        "word": {
+          "word": "ports[].role",
+          "transform": "lookup",
+          "values": {
+            "CLAP_AUDIO_PORT_IS_MAIN": "main"
+          }
+        }
+      },
+      "CLAP_AUDIO_PORT_PREFERS_64BITS": {
+        "term": "CLAP_EXT_AUDIO_PORTS_TERMS#audioPortPrefers64bits",
+        "extension": true
+      },
+      "CLAP_AUDIO_PORT_REQUIRES_COMMON_SAMPLE_SIZE": {
+        "term": "CLAP_EXT_AUDIO_PORTS_TERMS#audioPortRequiresCommonSampleSize",
+        "extension": true
+      },
+      "CLAP_AUDIO_PORT_SUPPORTS_64BITS": {
+        "term": "CLAP_EXT_AUDIO_PORTS_TERMS#audioPortSupports64bits",
+        "extension": true
+      },
+      "CLAP_BEATTIME_FACTOR": {
+        "term": "CLAP_FIXEDPOINT_TERMS#beattimeFactor",
+        "extension": true
+      },
+      "CLAP_COLOR_TRANSPARENT": {
+        "term": "CLAP_COLOR_TERMS#colorTransparent",
+        "extension": true
+      },
+      "CLAP_CONTEXT_MENU_ITEM_BEGIN_SUBMENU": {
+        "term": "CLAP_EXT_CONTEXT_MENU_TERMS#contextMenuItemBeginSubmenu",
+        "dropped": {
+          "ruling": "CLAP_EXT_CONTEXT_MENU_TERMS#contextMenuItemBeginSubmenu out-of-scope: The console draws its own menus (ruled 2026-10-19, #95) (omx-clap-core doc/reference.md, FreeMixer/omx-clap-core#95)."
+        }
+      },
+      "CLAP_CONTEXT_MENU_ITEM_CHECK_ENTRY": {
+        "term": "CLAP_EXT_CONTEXT_MENU_TERMS#contextMenuItemCheckEntry",
+        "dropped": {
+          "ruling": "CLAP_EXT_CONTEXT_MENU_TERMS#contextMenuItemCheckEntry out-of-scope: The console draws its own menus (ruled 2026-10-19, #95) (omx-clap-core doc/reference.md, FreeMixer/omx-clap-core#95)."
+        }
+      },
+      "CLAP_CONTEXT_MENU_ITEM_END_SUBMENU": {
+        "term": "CLAP_EXT_CONTEXT_MENU_TERMS#contextMenuItemEndSubmenu",
+        "dropped": {
+          "ruling": "CLAP_EXT_CONTEXT_MENU_TERMS#contextMenuItemEndSubmenu out-of-scope: The console draws its own menus (ruled 2026-10-19, #95) (omx-clap-core doc/reference.md, FreeMixer/omx-clap-core#95)."
+        }
+      },
+      "CLAP_CONTEXT_MENU_ITEM_ENTRY": {
+        "term": "CLAP_EXT_CONTEXT_MENU_TERMS#contextMenuItemEntry",
+        "dropped": {
+          "ruling": "CLAP_EXT_CONTEXT_MENU_TERMS#contextMenuItemEntry out-of-scope: The console draws its own menus (ruled 2026-10-19, #95) (omx-clap-core doc/reference.md, FreeMixer/omx-clap-core#95)."
+        }
+      },
+      "CLAP_CONTEXT_MENU_ITEM_SEPARATOR": {
+        "term": "CLAP_EXT_CONTEXT_MENU_TERMS#contextMenuItemSeparator",
+        "dropped": {
+          "ruling": "CLAP_EXT_CONTEXT_MENU_TERMS#contextMenuItemSeparator out-of-scope: The console draws its own menus (ruled 2026-10-19, #95) (omx-clap-core doc/reference.md, FreeMixer/omx-clap-core#95)."
+        }
+      },
+      "CLAP_CONTEXT_MENU_ITEM_TITLE": {
+        "term": "CLAP_EXT_CONTEXT_MENU_TERMS#contextMenuItemTitle",
+        "dropped": {
+          "ruling": "CLAP_EXT_CONTEXT_MENU_TERMS#contextMenuItemTitle out-of-scope: The console draws its own menus (ruled 2026-10-19, #95) (omx-clap-core doc/reference.md, FreeMixer/omx-clap-core#95)."
+        }
+      },
+      "CLAP_CONTEXT_MENU_TARGET_KIND_GLOBAL": {
+        "term": "CLAP_EXT_CONTEXT_MENU_TERMS#contextMenuTargetKindGlobal",
+        "dropped": {
+          "ruling": "CLAP_EXT_CONTEXT_MENU_TERMS#contextMenuTargetKindGlobal out-of-scope: The console draws its own menus (ruled 2026-10-19, #95) (omx-clap-core doc/reference.md, FreeMixer/omx-clap-core#95)."
+        }
+      },
+      "CLAP_CONTEXT_MENU_TARGET_KIND_PARAM": {
+        "term": "CLAP_EXT_CONTEXT_MENU_TERMS#contextMenuTargetKindParam",
+        "dropped": {
+          "ruling": "CLAP_EXT_CONTEXT_MENU_TERMS#contextMenuTargetKindParam out-of-scope: The console draws its own menus (ruled 2026-10-19, #95) (omx-clap-core doc/reference.md, FreeMixer/omx-clap-core#95)."
+        }
+      },
+      "CLAP_CORE_EVENT_SPACE_ID": {
+        "term": "CLAP_EVENTS_TERMS#coreEventSpaceId",
+        "extension": true
+      },
+      "CLAP_EVENT_DONT_RECORD": {
+        "term": "CLAP_EVENTS_TERMS#eventDontRecord",
+        "extension": true
+      },
+      "CLAP_EVENT_IS_LIVE": {
+        "term": "CLAP_EVENTS_TERMS#eventIsLive",
+        "extension": true
+      },
+      "CLAP_EVENT_MIDI": {
+        "term": "CLAP_EVENTS_TERMS#eventMidi",
+        "extension": true
+      },
+      "CLAP_EVENT_MIDI2": {
+        "term": "CLAP_EVENTS_TERMS#eventMidi2",
+        "extension": true
+      },
+      "CLAP_EVENT_MIDI_SYSEX": {
+        "term": "CLAP_EVENTS_TERMS#eventMidiSysex",
+        "extension": true
+      },
+      "CLAP_EVENT_NOTE_CHOKE": {
+        "term": "CLAP_EVENTS_TERMS#eventNoteChoke",
+        "extension": true
+      },
+      "CLAP_EVENT_NOTE_END": {
+        "term": "CLAP_EVENTS_TERMS#eventNoteEnd",
+        "extension": true
+      },
+      "CLAP_EVENT_NOTE_EXPRESSION": {
+        "term": "CLAP_EVENTS_TERMS#eventNoteExpression",
+        "extension": true
+      },
+      "CLAP_EVENT_NOTE_OFF": {
+        "term": "CLAP_EVENTS_TERMS#eventNoteOff",
+        "extension": true
+      },
+      "CLAP_EVENT_NOTE_ON": {
+        "term": "CLAP_EVENTS_TERMS#eventNoteOn",
+        "extension": true
+      },
+      "CLAP_EVENT_PARAM_GESTURE_BEGIN": {
+        "term": "CLAP_EVENTS_TERMS#eventParamGestureBegin",
+        "extension": true
+      },
+      "CLAP_EVENT_PARAM_GESTURE_END": {
+        "term": "CLAP_EVENTS_TERMS#eventParamGestureEnd",
+        "extension": true
+      },
+      "CLAP_EVENT_PARAM_MOD": {
+        "term": "CLAP_EVENTS_TERMS#eventParamMod",
+        "extension": true
+      },
+      "CLAP_EVENT_PARAM_VALUE": {
+        "term": "CLAP_EVENTS_TERMS#eventParamValue",
+        "extension": true
+      },
+      "CLAP_EVENT_TRANSPORT": {
+        "term": "CLAP_EVENTS_TERMS#eventTransport",
+        "extension": true
+      },
+      "CLAP_EVENT_TRIGGER": {
+        "term": "CLAP_EXT_DRAFT_TRIGGERS_TERMS#eventTrigger",
+        "extension": true
+      },
+      "CLAP_EXT_AMBISONIC": {
+        "term": "CLAP_EXT_AMBISONIC_TERMS#ambisonic/3",
+        "extension": true
+      },
+      "CLAP_EXT_AMBISONIC_COMPAT": {
+        "term": "CLAP_EXT_AMBISONIC_TERMS#ambisonic.draft/3",
+        "extension": true
+      },
+      "CLAP_EXT_AUDIO_PORTS": {
+        "term": "CLAP_EXT_AUDIO_PORTS_TERMS#audio-ports",
+        "extension": true
+      },
+      "CLAP_EXT_AUDIO_PORTS_ACTIVATION": {
+        "term": "CLAP_EXT_AUDIO_PORTS_ACTIVATION_TERMS#audio-ports-activation/2",
+        "extension": true
+      },
+      "CLAP_EXT_AUDIO_PORTS_ACTIVATION_COMPAT": {
+        "term": "CLAP_EXT_AUDIO_PORTS_ACTIVATION_TERMS#audio-ports-activation/draft-2",
+        "extension": true
+      },
+      "CLAP_EXT_AUDIO_PORTS_CONFIG": {
+        "term": "CLAP_EXT_AUDIO_PORTS_CONFIG_TERMS#audio-ports-config",
+        "extension": true
+      },
+      "CLAP_EXT_AUDIO_PORTS_CONFIG_INFO": {
+        "term": "CLAP_EXT_AUDIO_PORTS_CONFIG_TERMS#audio-ports-config-info/1",
+        "extension": true
+      },
+      "CLAP_EXT_AUDIO_PORTS_CONFIG_INFO_COMPAT": {
+        "term": "CLAP_EXT_AUDIO_PORTS_CONFIG_TERMS#audio-ports-config-info/draft-0",
+        "extension": true
+      },
+      "CLAP_EXT_BACKGROUND_ACTIVATION": {
+        "term": "CLAP_EXT_DRAFT_BACKGROUND_ACTIVATION_TERMS#background-activation/1",
+        "extension": true
+      },
+      "CLAP_EXT_BACKGROUND_PROGRESS": {
+        "term": "CLAP_EXT_DRAFT_BACKGROUND_PROGRESS_TERMS#background-progress/1",
+        "extension": true
+      },
+      "CLAP_EXT_BACKGROUND_STATE_CONTEXT": {
+        "term": "CLAP_EXT_DRAFT_BACKGROUND_STATE_CONTEXT_TERMS#background-state-context/1",
+        "extension": true
+      },
+      "CLAP_EXT_CONFIGURABLE_AUDIO_PORTS": {
+        "term": "CLAP_EXT_CONFIGURABLE_AUDIO_PORTS_TERMS#configurable-audio-ports/1",
+        "extension": true
+      },
+      "CLAP_EXT_CONFIGURABLE_AUDIO_PORTS_COMPAT": {
+        "term": "CLAP_EXT_CONFIGURABLE_AUDIO_PORTS_TERMS#configurable-audio-ports.draft1",
+        "extension": true
+      },
+      "CLAP_EXT_CONTEXT_MENU": {
+        "term": "CLAP_EXT_CONTEXT_MENU_TERMS#context-menu/1",
+        "dropped": {
+          "ruling": "CLAP_EXT_CONTEXT_MENU_TERMS#context-menu/1 out-of-scope: The console draws its own menus (ruled 2026-10-19, #95) (omx-clap-core doc/reference.md, FreeMixer/omx-clap-core#95)."
+        }
+      },
+      "CLAP_EXT_CONTEXT_MENU_COMPAT": {
+        "term": "CLAP_EXT_CONTEXT_MENU_TERMS#context-menu.draft/0",
+        "dropped": {
+          "ruling": "CLAP_EXT_CONTEXT_MENU_TERMS#context-menu.draft/0 out-of-scope: The console draws its own menus (ruled 2026-10-19, #95) (omx-clap-core doc/reference.md, FreeMixer/omx-clap-core#95)."
+        }
+      },
+      "CLAP_EXT_EVENT_REGISTRY": {
+        "term": "CLAP_EXT_EVENT_REGISTRY_TERMS#event-registry",
+        "extension": true
+      },
+      "CLAP_EXT_EXTENSIBLE_AUDIO_PORTS": {
+        "term": "CLAP_EXT_DRAFT_EXTENSIBLE_AUDIO_PORTS_TERMS#extensible-audio-ports/1",
+        "extension": true
+      },
+      "CLAP_EXT_FLUSH_EVENTS": {
+        "term": "CLAP_EXT_DRAFT_FLUSH_EVENTS_TERMS#flush-events/1",
+        "extension": true
+      },
+      "CLAP_EXT_GAIN_ADJUSTMENT_METERING": {
+        "term": "CLAP_EXT_DRAFT_GAIN_ADJUSTMENT_METERING_TERMS#gain-adjustment-metering/0",
+        "extension": true
+      },
+      "CLAP_EXT_GUI": {
+        "term": "CLAP_EXT_GUI_TERMS#gui",
+        "dropped": {
+          "ruling": "CLAP_EXT_GUI_TERMS#gui out-of-scope: Never in the console (GUI ruling 2026-10-19); native windows in the standalone omx-clap-host are #180 (omx-clap-core doc/reference.md, FreeMixer/omx-clap-core#95)."
+        }
+      },
+      "CLAP_EXT_LATENCY": {
+        "term": "CLAP_EXT_LATENCY_TERMS#latency",
+        "word": {
+          "word": "latency.reports",
+          "transform": "flag"
+        }
+      },
+      "CLAP_EXT_LOG": {
+        "term": "CLAP_EXT_LOG_TERMS#log",
+        "extension": true
+      },
+      "CLAP_EXT_MINI_CURVE_DISPLAY": {
+        "term": "CLAP_EXT_DRAFT_MINI_CURVE_DISPLAY_TERMS#mini-curve-display/3",
+        "extension": true
+      },
+      "CLAP_EXT_NOTE_NAME": {
+        "term": "CLAP_EXT_NOTE_NAME_TERMS#note-name",
+        "extension": true
+      },
+      "CLAP_EXT_NOTE_PORTS": {
+        "term": "CLAP_EXT_NOTE_PORTS_TERMS#note-ports",
+        "extension": true
+      },
+      "CLAP_EXT_OCTAVE_NUMBER": {
+        "term": "CLAP_EXT_DRAFT_OCTAVE_NUMBER_TERMS#octave-number/1",
+        "extension": true
+      },
+      "CLAP_EXT_PARAMS": {
+        "term": "CLAP_EXT_PARAMS_TERMS#params",
+        "extension": true
+      },
+      "CLAP_EXT_PARAMS_ORIGIN": {
+        "term": "CLAP_EXT_DRAFT_PARAMS_ORIGIN_TERMS#params-origin/1",
+        "extension": true
+      },
+      "CLAP_EXT_PARAM_HOVERED": {
+        "term": "CLAP_EXT_DRAFT_PARAM_HOVERED_TERMS#param-hovered/1",
+        "extension": true
+      },
+      "CLAP_EXT_PARAM_INDICATION": {
+        "term": "CLAP_EXT_PARAM_INDICATION_TERMS#param-indication/4",
+        "extension": true
+      },
+      "CLAP_EXT_PARAM_INDICATION_COMPAT": {
+        "term": "CLAP_EXT_PARAM_INDICATION_TERMS#param-indication.draft/4",
+        "extension": true
+      },
+      "CLAP_EXT_POSIX_FD_SUPPORT": {
+        "term": "CLAP_EXT_POSIX_FD_SUPPORT_TERMS#posix-fd-support",
+        "extension": true
+      },
+      "CLAP_EXT_PRESET_LOAD": {
+        "term": "CLAP_EXT_PRESET_LOAD_TERMS#preset-load/2",
+        "extension": true
+      },
+      "CLAP_EXT_PRESET_LOAD_COMPAT": {
+        "term": "CLAP_EXT_PRESET_LOAD_TERMS#preset-load.draft/2",
+        "extension": true
+      },
+      "CLAP_EXT_PROJECT_LOCATION": {
+        "term": "CLAP_EXT_DRAFT_PROJECT_LOCATION_TERMS#project-location/2",
+        "extension": true
+      },
+      "CLAP_EXT_REMOTE_CONTROLS": {
+        "term": "CLAP_EXT_REMOTE_CONTROLS_TERMS#remote-controls/2",
+        "extension": true
+      },
+      "CLAP_EXT_REMOTE_CONTROLS_COMPAT": {
+        "term": "CLAP_EXT_REMOTE_CONTROLS_TERMS#remote-controls.draft/2",
+        "extension": true
+      },
+      "CLAP_EXT_RENDER": {
+        "term": "CLAP_EXT_RENDER_TERMS#render",
+        "extension": true
+      },
+      "CLAP_EXT_RESOURCE_DIRECTORY": {
+        "term": "CLAP_EXT_DRAFT_RESOURCE_DIRECTORY_TERMS#resource-directory/1",
+        "extension": true
+      },
+      "CLAP_EXT_SCRATCH_MEMORY": {
+        "term": "CLAP_EXT_DRAFT_SCRATCH_MEMORY_TERMS#scratch-memory/1",
+        "extension": true
+      },
+      "CLAP_EXT_STATE": {
+        "term": "CLAP_EXT_STATE_TERMS#state",
+        "extension": true
+      },
+      "CLAP_EXT_STATE_CONTEXT": {
+        "term": "CLAP_EXT_STATE_CONTEXT_TERMS#state-context/2",
+        "extension": true
+      },
+      "CLAP_EXT_SURROUND": {
+        "term": "CLAP_EXT_SURROUND_TERMS#surround/4",
+        "extension": true
+      },
+      "CLAP_EXT_SURROUND_COMPAT": {
+        "term": "CLAP_EXT_SURROUND_TERMS#surround.draft/4",
+        "extension": true
+      },
+      "CLAP_EXT_TAIL": {
+        "term": "CLAP_EXT_TAIL_TERMS#tail",
+        "extension": true
+      },
+      "CLAP_EXT_THREAD_CHECK": {
+        "term": "CLAP_EXT_THREAD_CHECK_TERMS#thread-check",
+        "extension": true
+      },
+      "CLAP_EXT_THREAD_POOL": {
+        "term": "CLAP_EXT_THREAD_POOL_TERMS#thread-pool",
+        "extension": true
+      },
+      "CLAP_EXT_TIMER_SUPPORT": {
+        "term": "CLAP_EXT_TIMER_SUPPORT_TERMS#timer-support",
+        "extension": true
+      },
+      "CLAP_EXT_TRACK_INFO": {
+        "term": "CLAP_EXT_TRACK_INFO_TERMS#track-info/1",
+        "extension": true
+      },
+      "CLAP_EXT_TRACK_INFO_COMPAT": {
+        "term": "CLAP_EXT_TRACK_INFO_TERMS#track-info.draft/1",
+        "extension": true
+      },
+      "CLAP_EXT_TRANSPORT_CONTROL": {
+        "term": "CLAP_EXT_DRAFT_TRANSPORT_CONTROL_TERMS#transport-control/2",
+        "extension": true
+      },
+      "CLAP_EXT_TRIGGERS": {
+        "term": "CLAP_EXT_DRAFT_TRIGGERS_TERMS#triggers/1",
+        "extension": true
+      },
+      "CLAP_EXT_TUNING": {
+        "term": "CLAP_EXT_DRAFT_TUNING_TERMS#tuning/2",
+        "extension": true
+      },
+      "CLAP_EXT_UNDO": {
+        "term": "CLAP_EXT_DRAFT_UNDO_TERMS#undo/4",
+        "dropped": {
+          "ruling": "CLAP_EXT_DRAFT_UNDO_TERMS#undo/4 out-of-scope: The console keeps its own undo (ruled 2026-10-19, #95) (omx-clap-core doc/reference.md, FreeMixer/omx-clap-core#95)."
+        }
+      },
+      "CLAP_EXT_UNDO_CONTEXT": {
+        "term": "CLAP_EXT_DRAFT_UNDO_TERMS#undo_context/4",
+        "dropped": {
+          "ruling": "CLAP_EXT_DRAFT_UNDO_TERMS#undo_context/4 out-of-scope: The console keeps its own undo (ruled 2026-10-19, #95) (omx-clap-core doc/reference.md, FreeMixer/omx-clap-core#95)."
+        }
+      },
+      "CLAP_EXT_UNDO_DELTA": {
+        "term": "CLAP_EXT_DRAFT_UNDO_TERMS#undo_delta/4",
+        "dropped": {
+          "ruling": "CLAP_EXT_DRAFT_UNDO_TERMS#undo_delta/4 out-of-scope: The console keeps its own undo (ruled 2026-10-19, #95) (omx-clap-core doc/reference.md, FreeMixer/omx-clap-core#95)."
+        }
+      },
+      "CLAP_EXT_VOICE_INFO": {
+        "term": "CLAP_EXT_VOICE_INFO_TERMS#voice-info",
+        "extension": true
+      },
+      "CLAP_EXT_WEBVIEW": {
+        "term": "CLAP_EXT_DRAFT_WEBVIEW_TERMS#webview/3",
+        "dropped": {
+          "ruling": "CLAP_EXT_DRAFT_WEBVIEW_TERMS#webview/3 out-of-scope: A plugin's own UI, as `gui` (GUI ruling 2026-10-19) (omx-clap-core doc/reference.md, FreeMixer/omx-clap-core#95)."
+        }
+      },
+      "CLAP_INVALID_ID": {
+        "term": "CLAP_ID_TERMS#invalidId",
+        "extension": true
+      },
+      "CLAP_LOG_DEBUG": {
+        "term": "CLAP_EXT_LOG_TERMS#logDebug",
+        "extension": true
+      },
+      "CLAP_LOG_ERROR": {
+        "term": "CLAP_EXT_LOG_TERMS#logError",
+        "extension": true
+      },
+      "CLAP_LOG_FATAL": {
+        "term": "CLAP_EXT_LOG_TERMS#logFatal",
+        "extension": true
+      },
+      "CLAP_LOG_HOST_MISBEHAVING": {
+        "term": "CLAP_EXT_LOG_TERMS#logHostMisbehaving",
+        "extension": true
+      },
+      "CLAP_LOG_INFO": {
+        "term": "CLAP_EXT_LOG_TERMS#logInfo",
+        "extension": true
+      },
+      "CLAP_LOG_PLUGIN_MISBEHAVING": {
+        "term": "CLAP_EXT_LOG_TERMS#logPluginMisbehaving",
+        "extension": true
+      },
+      "CLAP_LOG_WARNING": {
+        "term": "CLAP_EXT_LOG_TERMS#logWarning",
+        "extension": true
+      },
+      "CLAP_MINI_CURVE_DISPLAY_AXIS_NAME_CHANGED": {
+        "term": "CLAP_EXT_DRAFT_MINI_CURVE_DISPLAY_TERMS#miniCurveDisplayAxisNameChanged",
+        "extension": true
+      },
+      "CLAP_MINI_CURVE_DISPLAY_CURVE_CHANGED": {
+        "term": "CLAP_EXT_DRAFT_MINI_CURVE_DISPLAY_TERMS#miniCurveDisplayCurveChanged",
+        "extension": true
+      },
+      "CLAP_MINI_CURVE_DISPLAY_CURVE_KIND_GAIN_REDUCTION": {
+        "term": "CLAP_EXT_DRAFT_MINI_CURVE_DISPLAY_TERMS#miniCurveDisplayCurveKindGainReduction",
+        "extension": true
+      },
+      "CLAP_MINI_CURVE_DISPLAY_CURVE_KIND_GAIN_RESPONSE": {
+        "term": "CLAP_EXT_DRAFT_MINI_CURVE_DISPLAY_TERMS#miniCurveDisplayCurveKindGainResponse",
+        "extension": true
+      },
+      "CLAP_MINI_CURVE_DISPLAY_CURVE_KIND_PHASE_RESPONSE": {
+        "term": "CLAP_EXT_DRAFT_MINI_CURVE_DISPLAY_TERMS#miniCurveDisplayCurveKindPhaseResponse",
+        "extension": true
+      },
+      "CLAP_MINI_CURVE_DISPLAY_CURVE_KIND_TIME_SERIES": {
+        "term": "CLAP_EXT_DRAFT_MINI_CURVE_DISPLAY_TERMS#miniCurveDisplayCurveKindTimeSeries",
+        "extension": true
+      },
+      "CLAP_MINI_CURVE_DISPLAY_CURVE_KIND_TRANSFER_CURVE": {
+        "term": "CLAP_EXT_DRAFT_MINI_CURVE_DISPLAY_TERMS#miniCurveDisplayCurveKindTransferCurve",
+        "extension": true
+      },
+      "CLAP_MINI_CURVE_DISPLAY_CURVE_KIND_UNSPECIFIED": {
+        "term": "CLAP_EXT_DRAFT_MINI_CURVE_DISPLAY_TERMS#miniCurveDisplayCurveKindUnspecified",
+        "extension": true
+      },
+      "CLAP_NAME_SIZE": {
+        "term": "CLAP_STRING_SIZES_TERMS#nameSize",
+        "extension": true
+      },
+      "CLAP_NOTE_DIALECT_CLAP": {
+        "term": "CLAP_EXT_NOTE_PORTS_TERMS#noteDialectClap",
+        "word": {
+          "word": "ports[].dialects",
+          "transform": "lookup",
+          "values": {
+            "CLAP_NOTE_DIALECT_CLAP": "clap"
+          }
+        }
+      },
+      "CLAP_NOTE_DIALECT_MIDI": {
+        "term": "CLAP_EXT_NOTE_PORTS_TERMS#noteDialectMidi",
+        "word": {
+          "word": "ports[].dialects",
+          "transform": "lookup",
+          "values": {
+            "CLAP_NOTE_DIALECT_MIDI": "midi"
+          }
+        }
+      },
+      "CLAP_NOTE_DIALECT_MIDI2": {
+        "term": "CLAP_EXT_NOTE_PORTS_TERMS#noteDialectMidi2",
+        "word": {
+          "word": "ports[].dialects",
+          "transform": "lookup",
+          "values": {
+            "CLAP_NOTE_DIALECT_MIDI2": "midi2"
+          }
+        }
+      },
+      "CLAP_NOTE_DIALECT_MIDI_MPE": {
+        "term": "CLAP_EXT_NOTE_PORTS_TERMS#noteDialectMidiMpe",
+        "word": {
+          "word": "ports[].dialects",
+          "transform": "lookup",
+          "values": {
+            "CLAP_NOTE_DIALECT_MIDI_MPE": "midiMpe"
+          }
+        }
+      },
+      "CLAP_NOTE_EXPRESSION_BRIGHTNESS": {
+        "term": "CLAP_EVENTS_TERMS#noteExpressionBrightness",
+        "extension": true
+      },
+      "CLAP_NOTE_EXPRESSION_EXPRESSION": {
+        "term": "CLAP_EVENTS_TERMS#noteExpressionExpression",
+        "extension": true
+      },
+      "CLAP_NOTE_EXPRESSION_PAN": {
+        "term": "CLAP_EVENTS_TERMS#noteExpressionPan",
+        "extension": true
+      },
+      "CLAP_NOTE_EXPRESSION_PRESSURE": {
+        "term": "CLAP_EVENTS_TERMS#noteExpressionPressure",
+        "extension": true
+      },
+      "CLAP_NOTE_EXPRESSION_TUNING": {
+        "term": "CLAP_EVENTS_TERMS#noteExpressionTuning",
+        "extension": true
+      },
+      "CLAP_NOTE_EXPRESSION_VIBRATO": {
+        "term": "CLAP_EVENTS_TERMS#noteExpressionVibrato",
+        "extension": true
+      },
+      "CLAP_NOTE_EXPRESSION_VOLUME": {
+        "term": "CLAP_EVENTS_TERMS#noteExpressionVolume",
+        "extension": true
+      },
+      "CLAP_NOTE_PORTS_RESCAN_ALL": {
+        "term": "CLAP_EXT_NOTE_PORTS_TERMS#notePortsRescanAll",
+        "extension": true
+      },
+      "CLAP_NOTE_PORTS_RESCAN_NAMES": {
+        "term": "CLAP_EXT_NOTE_PORTS_TERMS#notePortsRescanNames",
+        "extension": true
+      },
+      "CLAP_PARAM_CLEAR_ALL": {
+        "term": "CLAP_EXT_PARAMS_TERMS#paramClearAll",
+        "extension": true
+      },
+      "CLAP_PARAM_CLEAR_AUTOMATIONS": {
+        "term": "CLAP_EXT_PARAMS_TERMS#paramClearAutomations",
+        "extension": true
+      },
+      "CLAP_PARAM_CLEAR_MODULATIONS": {
+        "term": "CLAP_EXT_PARAMS_TERMS#paramClearModulations",
+        "extension": true
+      },
+      "CLAP_PARAM_INDICATION_AUTOMATION_NONE": {
+        "term": "CLAP_EXT_PARAM_INDICATION_TERMS#paramIndicationAutomationNone",
+        "extension": true
+      },
+      "CLAP_PARAM_INDICATION_AUTOMATION_OVERRIDING": {
+        "term": "CLAP_EXT_PARAM_INDICATION_TERMS#paramIndicationAutomationOverriding",
+        "extension": true
+      },
+      "CLAP_PARAM_INDICATION_AUTOMATION_PLAYING": {
+        "term": "CLAP_EXT_PARAM_INDICATION_TERMS#paramIndicationAutomationPlaying",
+        "extension": true
+      },
+      "CLAP_PARAM_INDICATION_AUTOMATION_PRESENT": {
+        "term": "CLAP_EXT_PARAM_INDICATION_TERMS#paramIndicationAutomationPresent",
+        "extension": true
+      },
+      "CLAP_PARAM_INDICATION_AUTOMATION_RECORDING": {
+        "term": "CLAP_EXT_PARAM_INDICATION_TERMS#paramIndicationAutomationRecording",
+        "extension": true
+      },
+      "CLAP_PARAM_IS_AUTOMATABLE": {
+        "term": "CLAP_EXT_PARAMS_TERMS#paramIsAutomatable",
+        "word": {
+          "word": "controls[].automatable",
+          "transform": "lookup",
+          "values": {
+            "CLAP_PARAM_IS_AUTOMATABLE": true
+          }
+        }
+      },
+      "CLAP_PARAM_IS_AUTOMATABLE_PER_CHANNEL": {
+        "term": "CLAP_EXT_PARAMS_TERMS#paramIsAutomatablePerChannel",
+        "extension": true
+      },
+      "CLAP_PARAM_IS_AUTOMATABLE_PER_KEY": {
+        "term": "CLAP_EXT_PARAMS_TERMS#paramIsAutomatablePerKey",
+        "extension": true
+      },
+      "CLAP_PARAM_IS_AUTOMATABLE_PER_NOTE_ID": {
+        "term": "CLAP_EXT_PARAMS_TERMS#paramIsAutomatablePerNoteId",
+        "extension": true
+      },
+      "CLAP_PARAM_IS_AUTOMATABLE_PER_PORT": {
+        "term": "CLAP_EXT_PARAMS_TERMS#paramIsAutomatablePerPort",
+        "extension": true
+      },
+      "CLAP_PARAM_IS_BYPASS": {
+        "term": "CLAP_EXT_PARAMS_TERMS#paramIsBypass",
+        "word": {
+          "word": "controls[].meaning",
+          "transform": "lookup",
+          "values": {
+            "CLAP_PARAM_IS_BYPASS": "bypass"
+          }
+        }
+      },
+      "CLAP_PARAM_IS_ENUM": {
+        "term": "CLAP_EXT_PARAMS_TERMS#paramIsEnum",
+        "word": {
+          "word": "controls[].kind",
+          "transform": "lookup",
+          "values": {
+            "CLAP_PARAM_IS_ENUM": "choice"
+          }
+        }
+      },
+      "CLAP_PARAM_IS_HIDDEN": {
+        "term": "CLAP_EXT_PARAMS_TERMS#paramIsHidden",
+        "word": {
+          "word": "controls[].hidden",
+          "transform": "flag"
+        }
+      },
+      "CLAP_PARAM_IS_MODULATABLE": {
+        "term": "CLAP_EXT_PARAMS_TERMS#paramIsModulatable",
+        "extension": true
+      },
+      "CLAP_PARAM_IS_MODULATABLE_PER_CHANNEL": {
+        "term": "CLAP_EXT_PARAMS_TERMS#paramIsModulatablePerChannel",
+        "extension": true
+      },
+      "CLAP_PARAM_IS_MODULATABLE_PER_KEY": {
+        "term": "CLAP_EXT_PARAMS_TERMS#paramIsModulatablePerKey",
+        "extension": true
+      },
+      "CLAP_PARAM_IS_MODULATABLE_PER_NOTE_ID": {
+        "term": "CLAP_EXT_PARAMS_TERMS#paramIsModulatablePerNoteId",
+        "extension": true
+      },
+      "CLAP_PARAM_IS_MODULATABLE_PER_PORT": {
+        "term": "CLAP_EXT_PARAMS_TERMS#paramIsModulatablePerPort",
+        "extension": true
+      },
+      "CLAP_PARAM_IS_PERIODIC": {
+        "term": "CLAP_EXT_PARAMS_TERMS#paramIsPeriodic",
+        "extension": true
+      },
+      "CLAP_PARAM_IS_READONLY": {
+        "term": "CLAP_EXT_PARAMS_TERMS#paramIsReadonly",
+        "word": {
+          "word": "controls[].readonly",
+          "transform": "flag"
+        }
+      },
+      "CLAP_PARAM_IS_STEPPED": {
+        "term": "CLAP_EXT_PARAMS_TERMS#paramIsStepped",
+        "word": {
+          "word": "controls[].travel.scale",
+          "transform": "lookup",
+          "values": {
+            "CLAP_PARAM_IS_STEPPED": "stepped"
+          }
+        }
+      },
+      "CLAP_PARAM_REQUIRES_PROCESS": {
+        "term": "CLAP_EXT_PARAMS_TERMS#paramRequiresProcess",
+        "extension": true
+      },
+      "CLAP_PARAM_RESCAN_ALL": {
+        "term": "CLAP_EXT_PARAMS_TERMS#paramRescanAll",
+        "extension": true
+      },
+      "CLAP_PARAM_RESCAN_INFO": {
+        "term": "CLAP_EXT_PARAMS_TERMS#paramRescanInfo",
+        "extension": true
+      },
+      "CLAP_PARAM_RESCAN_TEXT": {
+        "term": "CLAP_EXT_PARAMS_TERMS#paramRescanText",
+        "extension": true
+      },
+      "CLAP_PARAM_RESCAN_VALUES": {
+        "term": "CLAP_EXT_PARAMS_TERMS#paramRescanValues",
+        "extension": true
+      },
+      "CLAP_PATH_SIZE": {
+        "term": "CLAP_STRING_SIZES_TERMS#pathSize",
+        "extension": true
+      },
+      "CLAP_PLUGIN_FACTORY_ID": {
+        "term": "CLAP_FACTORY_PLUGIN_FACTORY_TERMS#plugin-factory",
+        "extension": true
+      },
+      "CLAP_PLUGIN_FEATURE_AMBISONIC": {
+        "term": "CLAP_PLUGIN_FEATURES_TERMS#ambisonic",
+        "extension": true
+      },
+      "CLAP_PLUGIN_FEATURE_ANALYZER": {
+        "term": "CLAP_PLUGIN_FEATURES_TERMS#analyzer",
+        "word": {
+          "word": "plugin.features",
+          "transform": "lookup",
+          "values": {
+            "CLAP_PLUGIN_FEATURE_ANALYZER": "analyzer"
+          }
+        }
+      },
+      "CLAP_PLUGIN_FEATURE_AUDIO_EFFECT": {
+        "term": "CLAP_PLUGIN_FEATURES_TERMS#audio-effect",
+        "word": {
+          "word": "plugin.features",
+          "transform": "lookup",
+          "values": {
+            "CLAP_PLUGIN_FEATURE_AUDIO_EFFECT": "audio-effect"
+          }
+        }
+      },
+      "CLAP_PLUGIN_FEATURE_CHORUS": {
+        "term": "CLAP_PLUGIN_FEATURES_TERMS#chorus",
+        "extension": true
+      },
+      "CLAP_PLUGIN_FEATURE_COMPRESSOR": {
+        "term": "CLAP_PLUGIN_FEATURES_TERMS#compressor",
+        "extension": true
+      },
+      "CLAP_PLUGIN_FEATURE_DEESSER": {
+        "term": "CLAP_PLUGIN_FEATURES_TERMS#de-esser",
+        "extension": true
+      },
+      "CLAP_PLUGIN_FEATURE_DELAY": {
+        "term": "CLAP_PLUGIN_FEATURES_TERMS#delay",
+        "extension": true
+      },
+      "CLAP_PLUGIN_FEATURE_DISTORTION": {
+        "term": "CLAP_PLUGIN_FEATURES_TERMS#distortion",
+        "extension": true
+      },
+      "CLAP_PLUGIN_FEATURE_DRUM": {
+        "term": "CLAP_PLUGIN_FEATURES_TERMS#drum",
+        "extension": true
+      },
+      "CLAP_PLUGIN_FEATURE_DRUM_MACHINE": {
+        "term": "CLAP_PLUGIN_FEATURES_TERMS#drum-machine",
+        "extension": true
+      },
+      "CLAP_PLUGIN_FEATURE_EQUALIZER": {
+        "term": "CLAP_PLUGIN_FEATURES_TERMS#equalizer",
+        "extension": true
+      },
+      "CLAP_PLUGIN_FEATURE_EXPANDER": {
+        "term": "CLAP_PLUGIN_FEATURES_TERMS#expander",
+        "extension": true
+      },
+      "CLAP_PLUGIN_FEATURE_FILTER": {
+        "term": "CLAP_PLUGIN_FEATURES_TERMS#filter",
+        "extension": true
+      },
+      "CLAP_PLUGIN_FEATURE_FLANGER": {
+        "term": "CLAP_PLUGIN_FEATURES_TERMS#flanger",
+        "extension": true
+      },
+      "CLAP_PLUGIN_FEATURE_FREQUENCY_SHIFTER": {
+        "term": "CLAP_PLUGIN_FEATURES_TERMS#frequency-shifter",
+        "extension": true
+      },
+      "CLAP_PLUGIN_FEATURE_GATE": {
+        "term": "CLAP_PLUGIN_FEATURES_TERMS#gate",
+        "extension": true
+      },
+      "CLAP_PLUGIN_FEATURE_GLITCH": {
+        "term": "CLAP_PLUGIN_FEATURES_TERMS#glitch",
+        "extension": true
+      },
+      "CLAP_PLUGIN_FEATURE_GRANULAR": {
+        "term": "CLAP_PLUGIN_FEATURES_TERMS#granular",
+        "extension": true
+      },
+      "CLAP_PLUGIN_FEATURE_INSTRUMENT": {
+        "term": "CLAP_PLUGIN_FEATURES_TERMS#instrument",
+        "word": {
+          "word": "plugin.features",
+          "transform": "lookup",
+          "values": {
+            "CLAP_PLUGIN_FEATURE_INSTRUMENT": "instrument"
+          }
+        }
+      },
+      "CLAP_PLUGIN_FEATURE_LIMITER": {
+        "term": "CLAP_PLUGIN_FEATURES_TERMS#limiter",
+        "extension": true
+      },
+      "CLAP_PLUGIN_FEATURE_MASTERING": {
+        "term": "CLAP_PLUGIN_FEATURES_TERMS#mastering",
+        "extension": true
+      },
+      "CLAP_PLUGIN_FEATURE_MIXING": {
+        "term": "CLAP_PLUGIN_FEATURES_TERMS#mixing",
+        "extension": true
+      },
+      "CLAP_PLUGIN_FEATURE_MONO": {
+        "term": "CLAP_PLUGIN_FEATURES_TERMS#mono",
+        "extension": true
+      },
+      "CLAP_PLUGIN_FEATURE_MULTI_EFFECTS": {
+        "term": "CLAP_PLUGIN_FEATURES_TERMS#multi-effects",
+        "extension": true
+      },
+      "CLAP_PLUGIN_FEATURE_NOTE_DETECTOR": {
+        "term": "CLAP_PLUGIN_FEATURES_TERMS#note-detector",
+        "extension": true
+      },
+      "CLAP_PLUGIN_FEATURE_NOTE_EFFECT": {
+        "term": "CLAP_PLUGIN_FEATURES_TERMS#note-effect",
+        "word": {
+          "word": "plugin.features",
+          "transform": "lookup",
+          "values": {
+            "CLAP_PLUGIN_FEATURE_NOTE_EFFECT": "note-effect"
+          }
+        }
+      },
+      "CLAP_PLUGIN_FEATURE_PHASER": {
+        "term": "CLAP_PLUGIN_FEATURES_TERMS#phaser",
+        "extension": true
+      },
+      "CLAP_PLUGIN_FEATURE_PHASE_VOCODER": {
+        "term": "CLAP_PLUGIN_FEATURES_TERMS#phase-vocoder",
+        "extension": true
+      },
+      "CLAP_PLUGIN_FEATURE_PITCH_CORRECTION": {
+        "term": "CLAP_PLUGIN_FEATURES_TERMS#pitch-correction",
+        "extension": true
+      },
+      "CLAP_PLUGIN_FEATURE_PITCH_SHIFTER": {
+        "term": "CLAP_PLUGIN_FEATURES_TERMS#pitch-shifter",
+        "extension": true
+      },
+      "CLAP_PLUGIN_FEATURE_RESTORATION": {
+        "term": "CLAP_PLUGIN_FEATURES_TERMS#restoration",
+        "extension": true
+      },
+      "CLAP_PLUGIN_FEATURE_REVERB": {
+        "term": "CLAP_PLUGIN_FEATURES_TERMS#reverb",
+        "extension": true
+      },
+      "CLAP_PLUGIN_FEATURE_SAMPLER": {
+        "term": "CLAP_PLUGIN_FEATURES_TERMS#sampler",
+        "extension": true
+      },
+      "CLAP_PLUGIN_FEATURE_STEREO": {
+        "term": "CLAP_PLUGIN_FEATURES_TERMS#stereo",
+        "extension": true
+      },
+      "CLAP_PLUGIN_FEATURE_SURROUND": {
+        "term": "CLAP_PLUGIN_FEATURES_TERMS#surround",
+        "extension": true
+      },
+      "CLAP_PLUGIN_FEATURE_SYNTHESIZER": {
+        "term": "CLAP_PLUGIN_FEATURES_TERMS#synthesizer",
+        "extension": true
+      },
+      "CLAP_PLUGIN_FEATURE_TRANSIENT_SHAPER": {
+        "term": "CLAP_PLUGIN_FEATURES_TERMS#transient-shaper",
+        "extension": true
+      },
+      "CLAP_PLUGIN_FEATURE_TREMOLO": {
+        "term": "CLAP_PLUGIN_FEATURES_TERMS#tremolo",
+        "extension": true
+      },
+      "CLAP_PLUGIN_FEATURE_UTILITY": {
+        "term": "CLAP_PLUGIN_FEATURES_TERMS#utility",
+        "extension": true
+      },
+      "CLAP_PLUGIN_INVALIDATION_FACTORY_ID": {
+        "term": "CLAP_FACTORY_DRAFT_PLUGIN_INVALIDATION_TERMS#plugin-invalidation-factory/1",
+        "extension": true
+      },
+      "CLAP_PLUGIN_STATE_CONVERTER_FACTORY_ID": {
+        "term": "CLAP_FACTORY_DRAFT_PLUGIN_STATE_CONVERTER_TERMS#plugin-state-converter-factory/1",
+        "extension": true
+      },
+      "CLAP_PORT_AMBISONIC": {
+        "term": "CLAP_EXT_AMBISONIC_TERMS#ambisonic",
+        "extension": true
+      },
+      "CLAP_PORT_MONO": {
+        "term": "CLAP_EXT_AUDIO_PORTS_TERMS#mono",
+        "word": {
+          "word": "ports[].layout",
+          "transform": "lookup",
+          "values": {
+            "CLAP_PORT_MONO": "mono"
+          }
+        }
+      },
+      "CLAP_PORT_STEREO": {
+        "term": "CLAP_EXT_AUDIO_PORTS_TERMS#stereo",
+        "word": {
+          "word": "ports[].layout",
+          "transform": "lookup",
+          "values": {
+            "CLAP_PORT_STEREO": "stereo"
+          }
+        }
+      },
+      "CLAP_PORT_SURROUND": {
+        "term": "CLAP_EXT_SURROUND_TERMS#surround",
+        "word": {
+          "word": "ports[].layout",
+          "transform": "lookup",
+          "values": {
+            "CLAP_PORT_SURROUND": "surround"
+          }
+        }
+      },
+      "CLAP_POSIX_FD_ERROR": {
+        "term": "CLAP_EXT_POSIX_FD_SUPPORT_TERMS#posixFdError",
+        "extension": true
+      },
+      "CLAP_POSIX_FD_READ": {
+        "term": "CLAP_EXT_POSIX_FD_SUPPORT_TERMS#posixFdRead",
+        "extension": true
+      },
+      "CLAP_POSIX_FD_WRITE": {
+        "term": "CLAP_EXT_POSIX_FD_SUPPORT_TERMS#posixFdWrite",
+        "extension": true
+      },
+      "CLAP_PRESET_DISCOVERY_FACTORY_ID": {
+        "term": "CLAP_FACTORY_PRESET_DISCOVERY_TERMS#preset-discovery-factory/2",
+        "extension": true
+      },
+      "CLAP_PRESET_DISCOVERY_FACTORY_ID_COMPAT": {
+        "term": "CLAP_FACTORY_PRESET_DISCOVERY_TERMS#preset-discovery-factory/draft-2",
+        "extension": true
+      },
+      "CLAP_PRESET_DISCOVERY_IS_DEMO_CONTENT": {
+        "term": "CLAP_FACTORY_PRESET_DISCOVERY_TERMS#presetDiscoveryIsDemoContent",
+        "extension": true
+      },
+      "CLAP_PRESET_DISCOVERY_IS_FACTORY_CONTENT": {
+        "term": "CLAP_FACTORY_PRESET_DISCOVERY_TERMS#presetDiscoveryIsFactoryContent",
+        "extension": true
+      },
+      "CLAP_PRESET_DISCOVERY_IS_FAVORITE": {
+        "term": "CLAP_FACTORY_PRESET_DISCOVERY_TERMS#presetDiscoveryIsFavorite",
+        "extension": true
+      },
+      "CLAP_PRESET_DISCOVERY_IS_USER_CONTENT": {
+        "term": "CLAP_FACTORY_PRESET_DISCOVERY_TERMS#presetDiscoveryIsUserContent",
+        "extension": true
+      },
+      "CLAP_PRESET_DISCOVERY_LOCATION_FILE": {
+        "term": "CLAP_FACTORY_PRESET_DISCOVERY_TERMS#presetDiscoveryLocationFile",
+        "extension": true
+      },
+      "CLAP_PRESET_DISCOVERY_LOCATION_PLUGIN": {
+        "term": "CLAP_FACTORY_PRESET_DISCOVERY_TERMS#presetDiscoveryLocationPlugin",
+        "extension": true
+      },
+      "CLAP_PROCESS_CONTINUE": {
+        "term": "CLAP_PROCESS_TERMS#processContinue",
+        "extension": true
+      },
+      "CLAP_PROCESS_CONTINUE_IF_NOT_QUIET": {
+        "term": "CLAP_PROCESS_TERMS#processContinueIfNotQuiet",
+        "extension": true
+      },
+      "CLAP_PROCESS_ERROR": {
+        "term": "CLAP_PROCESS_TERMS#processError",
+        "extension": true
+      },
+      "CLAP_PROCESS_SLEEP": {
+        "term": "CLAP_PROCESS_TERMS#processSleep",
+        "extension": true
+      },
+      "CLAP_PROCESS_TAIL": {
+        "term": "CLAP_PROCESS_TERMS#processTail",
+        "extension": true
+      },
+      "CLAP_PROJECT_LOCATION_AUDIO_TRACK": {
+        "term": "CLAP_EXT_DRAFT_PROJECT_LOCATION_TERMS#projectLocationAudioTrack",
+        "extension": true
+      },
+      "CLAP_PROJECT_LOCATION_DEVICE": {
+        "term": "CLAP_EXT_DRAFT_PROJECT_LOCATION_TERMS#projectLocationDevice",
+        "extension": true
+      },
+      "CLAP_PROJECT_LOCATION_HAS_COLOR": {
+        "term": "CLAP_EXT_DRAFT_PROJECT_LOCATION_TERMS#projectLocationHasColor",
+        "extension": true
+      },
+      "CLAP_PROJECT_LOCATION_HAS_INDEX": {
+        "term": "CLAP_EXT_DRAFT_PROJECT_LOCATION_TERMS#projectLocationHasIndex",
+        "extension": true
+      },
+      "CLAP_PROJECT_LOCATION_HYBRID_TRACK": {
+        "term": "CLAP_EXT_DRAFT_PROJECT_LOCATION_TERMS#projectLocationHybridTrack",
+        "extension": true
+      },
+      "CLAP_PROJECT_LOCATION_INSTUMENT_TRACK": {
+        "term": "CLAP_EXT_DRAFT_PROJECT_LOCATION_TERMS#projectLocationInstumentTrack",
+        "extension": true
+      },
+      "CLAP_PROJECT_LOCATION_MASTER_TRACK": {
+        "term": "CLAP_EXT_DRAFT_PROJECT_LOCATION_TERMS#projectLocationMasterTrack",
+        "extension": true
+      },
+      "CLAP_PROJECT_LOCATION_NESTED_DEVICE_CHAIN": {
+        "term": "CLAP_EXT_DRAFT_PROJECT_LOCATION_TERMS#projectLocationNestedDeviceChain",
+        "extension": true
+      },
+      "CLAP_PROJECT_LOCATION_PROJECT": {
+        "term": "CLAP_EXT_DRAFT_PROJECT_LOCATION_TERMS#projectLocationProject",
+        "extension": true
+      },
+      "CLAP_PROJECT_LOCATION_RETURN_TRACK": {
+        "term": "CLAP_EXT_DRAFT_PROJECT_LOCATION_TERMS#projectLocationReturnTrack",
+        "extension": true
+      },
+      "CLAP_PROJECT_LOCATION_TRACK": {
+        "term": "CLAP_EXT_DRAFT_PROJECT_LOCATION_TERMS#projectLocationTrack",
+        "extension": true
+      },
+      "CLAP_PROJECT_LOCATION_TRACK_GROUP": {
+        "term": "CLAP_EXT_DRAFT_PROJECT_LOCATION_TERMS#projectLocationTrackGroup",
+        "extension": true
+      },
+      "CLAP_REMOTE_CONTROLS_COUNT": {
+        "term": "CLAP_EXT_REMOTE_CONTROLS_TERMS#remoteControlsCount",
+        "extension": true
+      },
+      "CLAP_RENDER_OFFLINE": {
+        "term": "CLAP_EXT_RENDER_TERMS#renderOffline",
+        "extension": true
+      },
+      "CLAP_RENDER_REALTIME": {
+        "term": "CLAP_EXT_RENDER_TERMS#renderRealtime",
+        "extension": true
+      },
+      "CLAP_SECTIME_FACTOR": {
+        "term": "CLAP_FIXEDPOINT_TERMS#sectimeFactor",
+        "extension": true
+      },
+      "CLAP_STATE_CONTEXT_FOR_DUPLICATE": {
+        "term": "CLAP_EXT_STATE_CONTEXT_TERMS#stateContextForDuplicate",
+        "extension": true
+      },
+      "CLAP_STATE_CONTEXT_FOR_PRESET": {
+        "term": "CLAP_EXT_STATE_CONTEXT_TERMS#stateContextForPreset",
+        "extension": true
+      },
+      "CLAP_STATE_CONTEXT_FOR_PROJECT": {
+        "term": "CLAP_EXT_STATE_CONTEXT_TERMS#stateContextForProject",
+        "extension": true
+      },
+      "CLAP_SURROUND_BC": {
+        "term": "CLAP_EXT_SURROUND_TERMS#surroundBc",
+        "extension": true
+      },
+      "CLAP_SURROUND_BL": {
+        "term": "CLAP_EXT_SURROUND_TERMS#surroundBl",
+        "extension": true
+      },
+      "CLAP_SURROUND_BR": {
+        "term": "CLAP_EXT_SURROUND_TERMS#surroundBr",
+        "extension": true
+      },
+      "CLAP_SURROUND_FC": {
+        "term": "CLAP_EXT_SURROUND_TERMS#surroundFc",
+        "extension": true
+      },
+      "CLAP_SURROUND_FL": {
+        "term": "CLAP_EXT_SURROUND_TERMS#surroundFl",
+        "extension": true
+      },
+      "CLAP_SURROUND_FLC": {
+        "term": "CLAP_EXT_SURROUND_TERMS#surroundFlc",
+        "extension": true
+      },
+      "CLAP_SURROUND_FR": {
+        "term": "CLAP_EXT_SURROUND_TERMS#surroundFr",
+        "extension": true
+      },
+      "CLAP_SURROUND_FRC": {
+        "term": "CLAP_EXT_SURROUND_TERMS#surroundFrc",
+        "extension": true
+      },
+      "CLAP_SURROUND_LFE": {
+        "term": "CLAP_EXT_SURROUND_TERMS#surroundLfe",
+        "extension": true
+      },
+      "CLAP_SURROUND_SL": {
+        "term": "CLAP_EXT_SURROUND_TERMS#surroundSl",
+        "extension": true
+      },
+      "CLAP_SURROUND_SR": {
+        "term": "CLAP_EXT_SURROUND_TERMS#surroundSr",
+        "extension": true
+      },
+      "CLAP_SURROUND_TBC": {
+        "term": "CLAP_EXT_SURROUND_TERMS#surroundTbc",
+        "extension": true
+      },
+      "CLAP_SURROUND_TBL": {
+        "term": "CLAP_EXT_SURROUND_TERMS#surroundTbl",
+        "extension": true
+      },
+      "CLAP_SURROUND_TBR": {
+        "term": "CLAP_EXT_SURROUND_TERMS#surroundTbr",
+        "extension": true
+      },
+      "CLAP_SURROUND_TC": {
+        "term": "CLAP_EXT_SURROUND_TERMS#surroundTc",
+        "extension": true
+      },
+      "CLAP_SURROUND_TFC": {
+        "term": "CLAP_EXT_SURROUND_TERMS#surroundTfc",
+        "extension": true
+      },
+      "CLAP_SURROUND_TFL": {
+        "term": "CLAP_EXT_SURROUND_TERMS#surroundTfl",
+        "extension": true
+      },
+      "CLAP_SURROUND_TFR": {
+        "term": "CLAP_EXT_SURROUND_TERMS#surroundTfr",
+        "extension": true
+      },
+      "CLAP_SURROUND_TSL": {
+        "term": "CLAP_EXT_SURROUND_TERMS#surroundTsl",
+        "extension": true
+      },
+      "CLAP_SURROUND_TSR": {
+        "term": "CLAP_EXT_SURROUND_TERMS#surroundTsr",
+        "extension": true
+      },
+      "CLAP_TIMESTAMP_UNKNOWN": {
+        "term": "CLAP_TIMESTAMP_TERMS#timestampUnknown",
+        "extension": true
+      },
+      "CLAP_TRACK_INFO_HAS_AUDIO_CHANNEL": {
+        "term": "CLAP_EXT_TRACK_INFO_TERMS#trackInfoHasAudioChannel",
+        "extension": true
+      },
+      "CLAP_TRACK_INFO_HAS_TRACK_COLOR": {
+        "term": "CLAP_EXT_TRACK_INFO_TERMS#trackInfoHasTrackColor",
+        "extension": true
+      },
+      "CLAP_TRACK_INFO_HAS_TRACK_NAME": {
+        "term": "CLAP_EXT_TRACK_INFO_TERMS#trackInfoHasTrackName",
+        "extension": true
+      },
+      "CLAP_TRACK_INFO_IS_FOR_BUS": {
+        "term": "CLAP_EXT_TRACK_INFO_TERMS#trackInfoIsForBus",
+        "extension": true
+      },
+      "CLAP_TRACK_INFO_IS_FOR_MASTER": {
+        "term": "CLAP_EXT_TRACK_INFO_TERMS#trackInfoIsForMaster",
+        "extension": true
+      },
+      "CLAP_TRACK_INFO_IS_FOR_RETURN_TRACK": {
+        "term": "CLAP_EXT_TRACK_INFO_TERMS#trackInfoIsForReturnTrack",
+        "extension": true
+      },
+      "CLAP_TRANSPORT_HAS_BEATS_TIMELINE": {
+        "term": "CLAP_EVENTS_TERMS#transportHasBeatsTimeline",
+        "extension": true
+      },
+      "CLAP_TRANSPORT_HAS_SECONDS_TIMELINE": {
+        "term": "CLAP_EVENTS_TERMS#transportHasSecondsTimeline",
+        "extension": true
+      },
+      "CLAP_TRANSPORT_HAS_TEMPO": {
+        "term": "CLAP_EVENTS_TERMS#transportHasTempo",
+        "extension": true
+      },
+      "CLAP_TRANSPORT_HAS_TIME_SIGNATURE": {
+        "term": "CLAP_EVENTS_TERMS#transportHasTimeSignature",
+        "extension": true
+      },
+      "CLAP_TRANSPORT_IS_LOOP_ACTIVE": {
+        "term": "CLAP_EVENTS_TERMS#transportIsLoopActive",
+        "extension": true
+      },
+      "CLAP_TRANSPORT_IS_PLAYING": {
+        "term": "CLAP_EVENTS_TERMS#transportIsPlaying",
+        "extension": true
+      },
+      "CLAP_TRANSPORT_IS_RECORDING": {
+        "term": "CLAP_EVENTS_TERMS#transportIsRecording",
+        "extension": true
+      },
+      "CLAP_TRANSPORT_IS_WITHIN_PRE_ROLL": {
+        "term": "CLAP_EVENTS_TERMS#transportIsWithinPreRoll",
+        "extension": true
+      },
+      "CLAP_TRIGGER_CLEAR_ALL": {
+        "term": "CLAP_EXT_DRAFT_TRIGGERS_TERMS#triggerClearAll",
+        "extension": true
+      },
+      "CLAP_TRIGGER_CLEAR_AUTOMATIONS": {
+        "term": "CLAP_EXT_DRAFT_TRIGGERS_TERMS#triggerClearAutomations",
+        "extension": true
+      },
+      "CLAP_TRIGGER_IS_AUTOMATABLE_PER_CHANNEL": {
+        "term": "CLAP_EXT_DRAFT_TRIGGERS_TERMS#triggerIsAutomatablePerChannel",
+        "extension": true
+      },
+      "CLAP_TRIGGER_IS_AUTOMATABLE_PER_KEY": {
+        "term": "CLAP_EXT_DRAFT_TRIGGERS_TERMS#triggerIsAutomatablePerKey",
+        "extension": true
+      },
+      "CLAP_TRIGGER_IS_AUTOMATABLE_PER_NOTE_ID": {
+        "term": "CLAP_EXT_DRAFT_TRIGGERS_TERMS#triggerIsAutomatablePerNoteId",
+        "extension": true
+      },
+      "CLAP_TRIGGER_IS_AUTOMATABLE_PER_PORT": {
+        "term": "CLAP_EXT_DRAFT_TRIGGERS_TERMS#triggerIsAutomatablePerPort",
+        "extension": true
+      },
+      "CLAP_TRIGGER_RESCAN_ALL": {
+        "term": "CLAP_EXT_DRAFT_TRIGGERS_TERMS#triggerRescanAll",
+        "extension": true
+      },
+      "CLAP_TRIGGER_RESCAN_INFO": {
+        "term": "CLAP_EXT_DRAFT_TRIGGERS_TERMS#triggerRescanInfo",
+        "extension": true
+      },
+      "CLAP_VERSION": {
+        "term": "CLAP_VERSION_TERMS#version",
+        "extension": true
+      },
+      "CLAP_VERSION_MAJOR": {
+        "term": "CLAP_VERSION_TERMS#versionMajor",
+        "extension": true
+      },
+      "CLAP_VERSION_MINOR": {
+        "term": "CLAP_VERSION_TERMS#versionMinor",
+        "extension": true
+      },
+      "CLAP_VERSION_REVISION": {
+        "term": "CLAP_VERSION_TERMS#versionRevision",
+        "extension": true
+      },
+      "CLAP_VOICE_INFO_SUPPORTS_OVERLAPPING_NOTES": {
+        "term": "CLAP_EXT_VOICE_INFO_TERMS#voiceInfoSupportsOverlappingNotes",
+        "extension": true
+      },
+      "CLAP_WINDOW_API_COCOA": {
+        "term": "CLAP_EXT_GUI_TERMS#cocoa",
+        "dropped": {
+          "ruling": "CLAP_EXT_GUI_TERMS#cocoa out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
+        }
+      },
+      "CLAP_WINDOW_API_UIKIT": {
+        "term": "CLAP_EXT_GUI_TERMS#uikit",
+        "dropped": {
+          "ruling": "CLAP_EXT_GUI_TERMS#uikit out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
+        }
+      },
+      "CLAP_WINDOW_API_WAYLAND": {
+        "term": "CLAP_EXT_GUI_TERMS#wayland",
+        "dropped": {
+          "ruling": "CLAP_EXT_GUI_TERMS#wayland out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
+        }
+      },
+      "CLAP_WINDOW_API_WEBVIEW": {
+        "term": "CLAP_EXT_DRAFT_WEBVIEW_TERMS#webview",
+        "dropped": {
+          "ruling": "CLAP_EXT_DRAFT_WEBVIEW_TERMS#webview out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
+        }
+      },
+      "CLAP_WINDOW_API_WIN32": {
+        "term": "CLAP_EXT_GUI_TERMS#win32",
+        "dropped": {
+          "ruling": "CLAP_EXT_GUI_TERMS#win32 out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
+        }
+      },
+      "CLAP_WINDOW_API_X11": {
+        "term": "CLAP_EXT_GUI_TERMS#x11",
+        "dropped": {
+          "ruling": "CLAP_EXT_GUI_TERMS#x11 out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
+        }
+      },
+      "clap_audio_port_info.channel_count": {
+        "from": "clap/ext/audio-ports.h#clap_audio_port_info.channel_count",
+        "word": {
+          "word": "ports[].channels",
+          "transform": "identity"
+        }
+      },
+      "clap_audio_port_info.flags": {
+        "from": "clap/ext/audio-ports.h#clap_audio_port_info.flags",
+        "extension": true
+      },
+      "clap_audio_port_info.id": {
+        "from": "clap/ext/audio-ports.h#clap_audio_port_info.id",
+        "word": {
+          "word": "ports[].id",
+          "transform": "identity"
+        }
+      },
+      "clap_audio_port_info.in_place_pair": {
+        "from": "clap/ext/audio-ports.h#clap_audio_port_info.in_place_pair",
+        "extension": true
+      },
+      "clap_audio_port_info.name": {
+        "from": "clap/ext/audio-ports.h#clap_audio_port_info.name",
+        "word": {
+          "word": "ports[].name",
+          "transform": "identity"
+        }
+      },
+      "clap_audio_port_info.port_type": {
+        "from": "clap/ext/audio-ports.h#clap_audio_port_info.port_type",
+        "extension": true
+      },
+      "clap_note_port_info.id": {
+        "from": "clap/ext/note-ports.h#clap_note_port_info.id",
+        "word": {
+          "word": "ports[].id",
+          "transform": "identity"
+        }
+      },
+      "clap_note_port_info.name": {
+        "from": "clap/ext/note-ports.h#clap_note_port_info.name",
+        "word": {
+          "word": "ports[].name",
+          "transform": "identity"
+        }
+      },
+      "clap_note_port_info.preferred_dialect": {
+        "from": "clap/ext/note-ports.h#clap_note_port_info.preferred_dialect",
+        "extension": true
+      },
+      "clap_note_port_info.supported_dialects": {
+        "from": "clap/ext/note-ports.h#clap_note_port_info.supported_dialects",
+        "extension": true
+      },
+      "clap_param_info.cookie": {
+        "from": "clap/ext/params.h#clap_param_info.cookie",
+        "dropped": {
+          "ruling": "docs/formats.md#what-a-table-drops: a runtime handle the host passes back, no fact of the plugin"
+        }
+      },
+      "clap_param_info.default_value": {
+        "from": "clap/ext/params.h#clap_param_info.default_value",
+        "word": {
+          "word": "controls[].travel.default",
+          "transform": "identity"
+        }
+      },
+      "clap_param_info.flags": {
+        "from": "clap/ext/params.h#clap_param_info.flags",
+        "extension": true
+      },
+      "clap_param_info.id": {
+        "from": "clap/ext/params.h#clap_param_info.id",
+        "word": {
+          "word": "controls[].id",
+          "transform": "identity"
+        }
+      },
+      "clap_param_info.max_value": {
+        "from": "clap/ext/params.h#clap_param_info.max_value",
+        "word": {
+          "word": "controls[].travel.max",
+          "transform": "identity"
+        }
+      },
+      "clap_param_info.min_value": {
+        "from": "clap/ext/params.h#clap_param_info.min_value",
+        "word": {
+          "word": "controls[].travel.min",
+          "transform": "identity"
+        }
+      },
+      "clap_param_info.module": {
+        "from": "clap/ext/params.h#clap_param_info.module",
+        "word": {
+          "word": "controls[].group",
+          "transform": "group-path"
+        }
+      },
+      "clap_param_info.name": {
+        "from": "clap/ext/params.h#clap_param_info.name",
+        "word": {
+          "word": "controls[].name",
+          "transform": "identity"
+        }
+      },
+      "clap_plugin.get_extension": {
+        "from": "clap/plugin.h#clap_plugin.get_extension",
+        "extension": true
+      },
+      "clap_plugin_descriptor.description": {
+        "from": "clap/plugin.h#clap_plugin_descriptor.description",
+        "word": {
+          "word": "plugin.doc",
+          "transform": "identity"
+        }
+      },
+      "clap_plugin_descriptor.features": {
+        "from": "clap/plugin.h#clap_plugin_descriptor.features",
+        "extension": true
+      },
+      "clap_plugin_descriptor.id": {
+        "from": "clap/plugin.h#clap_plugin_descriptor.id",
+        "word": {
+          "word": "plugin.id",
+          "transform": "identity"
+        }
+      },
+      "clap_plugin_descriptor.manual_url": {
+        "from": "clap/plugin.h#clap_plugin_descriptor.manual_url",
+        "extension": true
+      },
+      "clap_plugin_descriptor.name": {
+        "from": "clap/plugin.h#clap_plugin_descriptor.name",
+        "word": {
+          "word": "plugin.name",
+          "transform": "identity"
+        }
+      },
+      "clap_plugin_descriptor.support_url": {
+        "from": "clap/plugin.h#clap_plugin_descriptor.support_url",
+        "extension": true
+      },
+      "clap_plugin_descriptor.url": {
+        "from": "clap/plugin.h#clap_plugin_descriptor.url",
+        "extension": true
+      },
+      "clap_plugin_descriptor.vendor": {
+        "from": "clap/plugin.h#clap_plugin_descriptor.vendor",
+        "word": {
+          "word": "plugin.vendor",
+          "transform": "identity"
+        }
+      },
+      "clap_plugin_descriptor.version": {
+        "from": "clap/plugin.h#clap_plugin_descriptor.version",
+        "word": {
+          "word": "plugin.version",
+          "transform": "identity"
+        }
+      },
+      "clap_plugin_latency.get": {
+        "from": "clap/ext/latency.h#clap_plugin_latency.get",
+        "extension": true
+      },
+      "clap_plugin_params.value_to_text": {
+        "from": "clap/ext/params.h#clap_plugin_params.value_to_text",
+        "word": {
+          "word": "controls[].labels",
+          "transform": "scale-points"
+        }
+      },
+      "clap_voice_info.flags": {
+        "from": "clap/ext/voice-info.h#clap_voice_info.flags",
+        "extension": true
+      },
+      "clap_voice_info.voice_capacity": {
+        "from": "clap/ext/voice-info.h#clap_voice_info.voice_capacity",
+        "extension": true
+      },
+      "clap_voice_info.voice_count": {
+        "from": "clap/ext/voice-info.h#clap_voice_info.voice_count",
+        "word": {
+          "word": "instrument.voices",
+          "transform": "identity"
+        }
+      }
+    }
+  }
+}
