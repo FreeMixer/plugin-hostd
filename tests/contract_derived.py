@@ -67,9 +67,14 @@ def help_rates(probe):
     return m.group(1) if m else None
 
 
+# the probe runner's sources, as the Makefile's PROBE_SRC names them
+PROBE_SRC = re.search(r"^PROBE_SRC = (.*)$", open(os.path.join(ROOT, "Makefile")).read(), re.M).group(1).split()
+
+
 def build_probe(include_first, out):
     cmd = [CC, "-I" + include_first, "-I" + os.path.join(ROOT, "include")] + pkg("--cflags").split() + \
-          ["-O2", "-std=gnu99", "-D_GNU_SOURCE", "-DPROBE_VERSION=\"0\"", "-o", out, os.path.join(ROOT, "src", "probe.c")]
+          ["-I" + os.path.join(ROOT, "src"), "-O2", "-std=gnu99", "-D_GNU_SOURCE", "-DPROBE_VERSION=\"0\"", "-o", out] + \
+          [os.path.join(ROOT, f) for f in PROBE_SRC] + ["-lm"]
     return subprocess.run(cmd, capture_output=True, text=True)
 
 

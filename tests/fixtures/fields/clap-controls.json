@@ -1,0 +1,24 @@
+{
+  "$schema": "https://github.com/FreeMixer/omx-contract/raw/v3/schema/omx-contract.schema.json",
+  "requires": {"omx-contract-schema": ">= 3.0.0"},
+  "origin": "scanned",
+  "plugin": {"id": "org.freemixer.plugin-qualify.fixture.controls", "format": "clap", "name": "controls", "vendor": "plugin-qualify", "version": "1", "doc": "A filter with an oscillator, to test the scan.", "features": ["audio-effect"]},
+  "controls": [
+    {"id": 3, "name": "shape", "kind": "choice", "ids": ["Sine", "Square", "Saw"], "labels": ["Sine", "Square", "Saw"], "values": [0, 1, 2], "default": "Sine", "group": ["Oscillator"], "meaning": "unknown", "automatable": true},
+    {"id": 5, "name": "cutoff", "kind": "travel", "travel": {"min": 20, "max": 20000, "unit": "unknown", "default": 1000, "scale": "unknown"}, "group": ["Filter","Envelope"], "meaning": "unknown", "automatable": true},
+    {"id": 7, "name": "bypass", "kind": "travel", "travel": {"min": 0, "max": 1, "unit": "unknown", "default": 0, "scale": "stepped"}, "meaning": "bypass", "hidden": true}
+  ],
+  "ports": [
+    {"id": 0, "name": "in", "kind": "audio", "direction": "in", "role": "main", "channels": 2, "layout": "stereo"},
+    {"id": 0, "name": "out", "kind": "audio", "direction": "out", "role": "main", "channels": 2, "layout": "stereo"}
+  ],
+  "latency": {"reports": true},
+  "source": {"from": "controls.clap#clap_entry"},
+  "extensions": {"clap": {
+    "clap_plugin_descriptor.url": "https://example.org/controls",
+    "clap_plugin_descriptor.features": ["CLAP_PLUGIN_FEATURE_FILTER", "CLAP_PLUGIN_FEATURE_STEREO", "acme-wobble"],
+    "clap_plugin.get_extension": ["CLAP_EXT_PARAMS", "CLAP_EXT_AUDIO_PORTS", "org.openmixer.param-contract/1"],
+    "param:1/clap_param_info.flags": "CLAP_PARAM_IS_MODULATABLE",
+    "audio_out:0/clap_audio_port_info.in_place_pair": "0"
+  }}
+}
