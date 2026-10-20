@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.5.0
+Version: 0.6.0
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -108,6 +108,20 @@ make test-daemon check-generated
 %{_datadir}/plugin-hostd/probe-output.schema.json
 
 %changelog
+* Tue Oct 20 2026 Pau Aliagas <linuxnow@gmail.com> - 0.6.0-1
+- The probe runner passes --probe-notes and --hold to the CLAP prober and
+  carries what it measures: the cost with voices, the LV2 note sweep and the
+  note-onset latency.
+- The CLAP prober runs under the interposer beside it, and its child counts
+  only under the interposer it finds. A preload the runner was started with is
+  dropped for the measured child, named in run.tools.droppedPreload, and put
+  back after the child; a bare --child is found as execvp finds it.
+- The daemon finds a worker's ready line anywhere in its log, not in the first
+  4 KB: a second worker no longer answers 503 when LV2_PATH holds many entries
+  that are no bundle.
+- The CI runs mod-host, so the LV2 worker path is proven there, and a runner
+  that refuses unshare fails build-and-test and the JACK job, with a guard
+  that holds it.
 * Mon Oct 19 2026 Pau Aliagas <linuxnow@gmail.com> - 0.5.0-1
 - plugin-hostd-probe runs LV2 plugins too: `run lv2:<uri>` measures a
   plugin through plugin-qualify's lv2_measure, the pin pass and then the
