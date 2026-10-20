@@ -1392,6 +1392,48 @@ static char *add(const char *uri, int id, const char *placement, const char *cli
     return reply;
 }
 
+static void chain_free(chain_t *c)
+{
+    int n;
+
+    for (n = 0; n < c->n; n++)
+        if (g_inst[c->ids[n]] && g_inst[c->ids[n]]->chain == c)
+            g_inst[c->ids[n]]->chain = NULL;
+    if (c->w)
+        c->w->chain = NULL;
+    g_chain[c->id] = NULL;
+    g_nchains--;
+    free(c->ids);
+    free(c);
+}
+
+/* a member that is gone leaves the order; a chain with no member left is forgotten */
+static void chain_leave(instance_t *i)
+{
+    chain_t *c = i->chain;
+    int n, kept = 0;
+
+    if (!c)
+        return;
+    i->chain = NULL;
+    for (n = 0; n < c->n; n++)
+        if (c->ids[n] != i->id)
+            c->ids[kept++] = c->ids[n];
+    c->n = kept;
+    if (!c->n)
+        chain_free(c);
+}
+
+/* a chain's worker that is up and runs chains is told the order it holds now */
+static void chain_tell(worker_t *w)
+{
+    char line[1024];
+
+    if (w->state == W_UP && format_at(w->fmt)->native_chain && chain_line(w, line, sizeof(line)) &&
+        replay_line(w, line) != RPC_OK)
+        on_death(w, -1);
+}
+
 static char *refuse_worker(worker_t *w)
 {
     return sup_resp(w->state == W_GIVEN_UP ? PHD_ERR_GAVE_UP : PHD_ERR_WORKER_SPAWN);
@@ -1482,48 +1524,6 @@ char *sup_call(int id, const char *line)
     if (resp_code(reply) >= 0)
         ledger_verb(i, line);
     return reply;
-}
-
-static void chain_free(chain_t *c)
-{
-    int n;
-
-    for (n = 0; n < c->n; n++)
-        if (g_inst[c->ids[n]] && g_inst[c->ids[n]]->chain == c)
-            g_inst[c->ids[n]]->chain = NULL;
-    if (c->w)
-        c->w->chain = NULL;
-    g_chain[c->id] = NULL;
-    g_nchains--;
-    free(c->ids);
-    free(c);
-}
-
-/* a member that is gone leaves the order; a chain with no member left is forgotten */
-static void chain_leave(instance_t *i)
-{
-    chain_t *c = i->chain;
-    int n, kept = 0;
-
-    if (!c)
-        return;
-    i->chain = NULL;
-    for (n = 0; n < c->n; n++)
-        if (c->ids[n] != i->id)
-            c->ids[kept++] = c->ids[n];
-    c->n = kept;
-    if (!c->n)
-        chain_free(c);
-}
-
-/* a chain's worker that is up and runs chains is told the order it holds now */
-static void chain_tell(worker_t *w)
-{
-    char line[1024];
-
-    if (w->state == W_UP && format_at(w->fmt)->native_chain && chain_line(w, line, sizeof(line)) &&
-        replay_line(w, line) != RPC_OK)
-        on_death(w, -1);
 }
 
 char *sup_remove(int id)

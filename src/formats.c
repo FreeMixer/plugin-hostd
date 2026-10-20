@@ -111,8 +111,8 @@ static const format_t g_builtin[] = {
         .layout_check = 0,
         .pinned_own_only = 1,
         .native_instance_verbs = 1,
-        .native_chain = 1,
         .adapter = 1,
+        .native_chain = 1,
     },
 };
 
