@@ -8,7 +8,7 @@ patch_get	mod/host.py:2720; 0	resp -902, as mod-host (the probe plugin has no pa
 patch_set	mod/host.py:2189, :2730; 0	resp -902, as mod-host	resp -902	as patch_get	as patch_get
 preset_load	mod/host.py:2166, :3867; 5	resp 0 in one worker; resp -105 for a user preset when the instance's worker started after the preset's bundle_add (diff.txt, 2 of 5)	resp -902	LV2: user presets fail after a pedalboard reload; CLAP: yes, presets	plugin-hostd: keep bundle_add/bundle_remove lines and replay them to each new worker (src/supervisor.c:99 replays only set_bpm, set_bpb, transport, transport_sync). CLAP: omx-clap-host preset loading (CLAP preset-load ext)
 preset_save	mod/host.py:2925; 2	resp 0, as mod-host	resp -902	CLAP: user presets cannot be saved	omx-clap-host: write the plugin's state as a preset file
-preset_show	mod/host.py:2830; 2	the preset's Turtle, identical	resp -902	CLAP: no	omx-clap-host
+preset_show	mod/host.py:2829; 2	the preset's Turtle, identical	resp -902	CLAP: no	omx-clap-host
 bundle_add	mod/host.py:2240; 2	resp 0, as mod-host (not replayed to later workers, see preset_load)	resp -902	CLAP: no (mod-ui ignores it)	plugin-hostd: answer 0 for a CLAP worker (LV2 bundles do not concern it) and replay to LV2 workers
 bundle_remove	mod/host.py:2260; 0	resp 0, as mod-host	resp -902	as bundle_add	as bundle_add
 state_load	mod/host.py:2145, :3665; 3	resp 0, as mod-host	resp -105 (2 of 3 in the replay); resp -105 in the probe	CLAP: yes, plugin state not restored with the pedalboard	omx-clap-host: load the instance's CLAP state from the pedalboard directory
