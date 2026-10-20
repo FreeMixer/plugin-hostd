@@ -67,6 +67,7 @@
 #include <unistd.h>
 
 #include <omxcontract/omx_contract_limits.h>
+#include <omxcontract/omx_vocabulary.h>
 #include <plugin-hostd/pin.h>
 #include <plugin-hostd/protocol.h>
 
@@ -731,8 +732,13 @@ static void put_machine(sb_t *b, const cpu_set_t *pinned, int pinned_by_option)
         khz = atol(text);
     if (read_text("/sys/kernel/realtime", text, sizeof(text)) == 0)
         preempt_rt = atoi(text) == 1;
-    core_band = ncpu <= 2 ? "1-2" : ncpu <= 4 ? "3-4" : ncpu <= 8 ? "5-8" : ncpu <= 16 ? "9-16" : ncpu <= 32 ? "17-32" : "33+";
-    clock_band = khz < 1500000 ? "<1.5GHz" : khz < 2500000 ? "1.5-2.5GHz" : khz < 3500000 ? "2.5-3.5GHz" : khz < 4500000 ? "3.5-4.5GHz" : "4.5GHz+";
+    /* the bands are omx-contract's MACHINE_CORE_BANDS and MACHINE_CLOCK_BANDS */
+    core_band = ncpu <= 2 ? OMX_MACHINE_CORE_BANDS_CORES1_TO2 : ncpu <= 4 ? OMX_MACHINE_CORE_BANDS_CORES3_TO4 :
+                ncpu <= 8 ? OMX_MACHINE_CORE_BANDS_CORES5_TO8 : ncpu <= 16 ? OMX_MACHINE_CORE_BANDS_CORES9_TO16 :
+                ncpu <= 32 ? OMX_MACHINE_CORE_BANDS_CORES17_TO32 : OMX_MACHINE_CORE_BANDS_CORES33_UP;
+    clock_band = khz < 1500000 ? OMX_MACHINE_CLOCK_BANDS_UNDER1500_MHZ : khz < 2500000 ? OMX_MACHINE_CLOCK_BANDS_FROM1500_TO2500_MHZ :
+                 khz < 3500000 ? OMX_MACHINE_CLOCK_BANDS_FROM2500_TO3500_MHZ :
+                 khz < 4500000 ? OMX_MACHINE_CLOCK_BANDS_FROM3500_TO4500_MHZ : OMX_MACHINE_CLOCK_BANDS_FROM4500_MHZ;
     for (i = 0; i < g_nidle; i++)
     {
         if (g_idle_after[i].latency_us > DEEP_IDLE_US && !g_idle_after[i].disabled)
@@ -2071,7 +2077,7 @@ int main(int argc, char **argv)
             }
             sb_printf(&doc, "]");
         }
-        sb_printf(&doc, ", \"realtime\": \"none\"},\n  \"limits\": {\"set\": ");
+        sb_printf(&doc, ", \"realtime\": \"" OMX_RESOURCE_THREAD_SCHEDULING_NONE "\"},\n  \"limits\": {\"set\": ");
         sb_str(&doc, o.set);
         sb_printf(&doc, ",\n    \"applied\": [");
         for (i = 0; i < g_napplied; i++)
@@ -2115,7 +2121,8 @@ int main(int argc, char **argv)
                 from_note = jstr(latency->kid[k], "from") && !strcmp(jstr(latency->kid[k], "from"), "note");
                 sb_printf(&doc, "%s\n    {\"rate\": %ld, \"quantum\": %u, \"outcome\": \"%s\", \"latency\": {\"declaredFrames\": %.0f, "
                                 "\"measuredFrames\": %.0f, \"method\": \"%s\"",
-                          k ? "," : "", atol(latency->key[k]), o.quantum, OUT_OK, decl, meas, from_note ? "note-onset" : "impulse-onset");
+                          k ? "," : "", atol(latency->key[k]), o.quantum, OUT_OK, decl, meas,
+                          from_note ? OMX_MEASUREMENT_LATENCY_METHODS_NOTE_ONSET : OMX_MEASUREMENT_LATENCY_METHODS_IMPULSE_ONSET);
                 if (from_note)
                     sb_printf(&doc, ", \"heard\": %s", jbool(latency->kid[k], "heard", 1) ? "true" : "false");
                 sb_printf(&doc, "}");
