@@ -120,7 +120,7 @@ All at zynthian-ui `f46b0189b616`. No verdict or qualification concept exists th
 - (c) First use: `zyngine/zynthian_chain_manager.py` `add_processor()` `:1054-1110`, after the processor is made
   (`:1089`) and before `start_engine()` (`:1097`); or `start_engine()` `:1407-1443`, the branch that instantiates an
   engine class for the first time (`:1420-1434`).
-- An engine is registered in `engine2class` (`zynthian_chain_manager.py:65-87` with the patch) and, for a standalone
+- An engine is registered in `engine2class` (`zynthian_chain_manager.py:66-88` with the patch) and, for a standalone
   one, `standalone_engine_info` (`zynthian_lv2.py:163-178`); `PD` (PureData) is the precedent.
 
 OWED, not done here
