@@ -10,6 +10,7 @@ PIN_TEST = tests/pin-test
 RELAY_TEST = tests/relay-test
 GESTURE_ALLOC_TEST = tests/gesture-alloc-test
 LV2_ALLOC_TEST = tests/lv2-alloc-test
+TRANSFORMS_TEST = tests/transforms-test
 PROBE = plugin-hostd-probe
 
 PKG_CONFIG ?= pkg-config
@@ -143,11 +144,11 @@ private-refs:
 
 # clean rule
 clean:
-	@rm -f src/*.o $(PROG) $(PROBE) tests/probe-child tests/lv2-probe-child tests/rt_interpose.so $(FAKE) $(PIN_TEST) $(RELAY_TEST) tests/relay-test-relay.o $(FORMAT_TEST) $(GESTURE_ALLOC_TEST) $(LV2_ALLOC_TEST) tests/lv2-alloc-lv2.o $(GEN) tests/stress.clap tests/jack_levels tests/host_scenarios $(LV2_FIXTURE)
+	@rm -f src/*.o $(PROG) $(PROBE) tests/probe-child tests/lv2-probe-child tests/rt_interpose.so $(FAKE) $(PIN_TEST) $(RELAY_TEST) tests/relay-test-relay.o $(FORMAT_TEST) $(GESTURE_ALLOC_TEST) $(LV2_ALLOC_TEST) tests/lv2-alloc-lv2.o $(TRANSFORMS_TEST) $(GEN) tests/stress.clap tests/jack_levels tests/host_scenarios $(LV2_FIXTURE)
 
 # the daemon against workers that are not plugin hosts at all (tests/fake-host speaks the same protocol and can be
 # made to die on cue): placement, forwarding, ledger, replay, attribution, the storm bound; no jack, no plugin
-test: test-pin test-relay test-alloc test-format test-daemon check-generated check-schema test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-mod-host-json test-socket
+test: test-pin test-transforms test-relay test-alloc test-format test-daemon check-generated check-schema test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-mod-host-json test-socket
 	MOD_HOST_DIR=$(MOD_HOST_DIR) python3 tests/verbs_contract.py
 
 # the same without the verb table, which is read from a mod-host checkout's README
@@ -181,6 +182,14 @@ test-pin: $(PIN_TEST)
 
 $(PIN_TEST): tests/pin_test.c include/plugin-hostd/pin.h
 	$(CC) -Iinclude $(CFLAGS) -Werror -o $@ tests/pin_test.c
+
+# the transforms the format tables name (src/transforms.c, docs/formats.md): every one and its inverse over its vectors,
+# and a lookup that is not one to one refused
+test-transforms: $(TRANSFORMS_TEST)
+	./$(TRANSFORMS_TEST)
+
+$(TRANSFORMS_TEST): tests/transforms_test.c src/transforms.c src/transforms.h
+	$(CC) -Isrc $(CFLAGS) -Werror -o $@ tests/transforms_test.c src/transforms.c -lm
 
 # src/relay.c when memory runs out: built here with its realloc calls renamed, so the test picks the one that fails
 test-relay: $(RELAY_TEST)
