@@ -22,7 +22,8 @@
  *
  *   protocol-gen json          protocol/plugin-hostd.json on stdout
  *   protocol-gen regions       the name of every region, one per line
- *   protocol-gen probe-schema TEMPLATE   TEMPLATE on stdout with each @PHD_PROBE_...@ token replaced by that list of the header
+ *   protocol-gen probe-schema TEMPLATE   TEMPLATE on stdout with each @PHD_PROBE_...@ token replaced by that list of the header,
+ *                              and each @OMX_<ITEM>@ token by the words of omx-contract's <ITEM> (omx_vocabulary.h)
  *   protocol-gen splice FILE   FILE on stdout with every generated region replaced; a region is the lines between
  *                              "BEGIN GENERATED protocol:<name>" and "END GENERATED protocol:<name>" */
 
@@ -32,6 +33,7 @@
 #include <string.h>
 
 #include <omxcontract/omx_contract_limits.h>
+#include <omxcontract/omx_vocabulary.h>
 #include <plugin-hostd/protocol.h>
 
 /* The parameter scales are omx-contract's PARAM_SCALES, whose words the contract declares for this protocol: the same
@@ -595,10 +597,24 @@ static const char *const PROBE_STEPS[] = {
 #undef X
 };
 
-#define PROBE_LIST(token, list) { "@" token "@", list, sizeof(list) / sizeof(*list) }
+/* the words of the omx-contract items the probe output shares with the other readers of a measurement: the contract
+ * declares them once, and the schema takes them from it, in its order */
+#define VOCABULARY(item) \
+    static const char *const VOCAB_##item[] = OMX_##item##_INIT; \
+    _Static_assert(sizeof(VOCAB_##item) / sizeof(*VOCAB_##item) == OMX_##item##_COUNT, "omx-contract's " #item ": not as many words as its count");
+VOCABULARY(MEASUREMENT_LATENCY_METHODS)
+VOCABULARY(MEASUREMENT_VOICE_BASES)
+VOCABULARY(MACHINE_CORE_BANDS)
+VOCABULARY(MACHINE_CLOCK_BANDS)
+VOCABULARY(RESOURCE_THREAD_SCHEDULING)
+#undef VOCABULARY
 
-/* TEMPLATE on stdout with each @PHD_PROBE_...@ token replaced by the quoted codes of that list of the header, so the
- * schema's enumerations are the header's own; a token the template holds and the generator does not know is an error */
+#define PROBE_LIST(token, list) { "@" token "@", list, sizeof(list) / sizeof(*list) }
+#define VOCAB_LIST(item) PROBE_LIST("OMX_" #item, VOCAB_##item)
+
+/* TEMPLATE on stdout with each @PHD_PROBE_...@ token replaced by the quoted codes of that list of the header and each
+ * @OMX_<ITEM>@ token by the quoted words of that omx-contract item, so the schema's enumerations are the headers' own;
+ * a token the template holds and the generator does not know is an error */
 static int probe_schema(const char *path)
 {
     static const struct
@@ -614,6 +630,11 @@ static int probe_schema(const char *path)
         PROBE_LIST("PHD_PROBE_PROFILE_CODES", PROBE_PROFILE_CODES),
         PROBE_LIST("PHD_PROBE_STEPS", PROBE_STEPS),
         PROBE_LIST("PHD_PROBE_REASONS", PROBE_REASONS),
+        VOCAB_LIST(MEASUREMENT_LATENCY_METHODS),
+        VOCAB_LIST(MEASUREMENT_VOICE_BASES),
+        VOCAB_LIST(MACHINE_CORE_BANDS),
+        VOCAB_LIST(MACHINE_CLOCK_BANDS),
+        VOCAB_LIST(RESOURCE_THREAD_SCHEDULING),
     };
     FILE *f = fopen(path, "r");
     char line[512];
@@ -650,7 +671,7 @@ static int probe_schema(const char *path)
         }
         if (n == sizeof(LISTS) / sizeof(*LISTS))
         {
-            fprintf(stderr, "%s: no list of the header is called %s", path, at);
+            fprintf(stderr, "%s: no list of the headers is called %s", path, at);
             fclose(f);
             return 1;
         }

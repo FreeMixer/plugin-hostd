@@ -501,7 +501,7 @@ SABOTAGE = [
      "a_latency_taken_from_a_note_says_so_and_whether_the_note_was_heard", "probe"),
     ("the probe schema has no notes held in a cost", "protocol/probe-output.schema.json", '            "voices": {\n', '            "voices-": {\n',
      "instrument-notes validates", "probeschema"),
-    ("the probe schema has no note-onset latency", "protocol/probe-output.schema.json", '                "note-onset"\n', '                "note-guess"\n',
+    ("the probe schema has no note-onset latency", "protocol/probe-output.schema.json", '"declared-port", "note-onset"]', '"declared-port", "note-guess"]',
      "instrument-notes validates", "probeschema"),
     ("the probe schema accepts a verdict", "protocol/probe-output.schema.json", '          "verdict"\n', '          "verdict-"\n',
      "success-msi validates", "probeschema"),

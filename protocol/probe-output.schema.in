@@ -233,23 +233,10 @@
               "type": "string"
             },
             "coreBand": {
-              "enum": [
-                "1-2",
-                "3-4",
-                "5-8",
-                "9-16",
-                "17-32",
-                "33+"
-              ]
+              "enum": [@OMX_MACHINE_CORE_BANDS@]
             },
             "clockBand": {
-              "enum": [
-                "<1.5GHz",
-                "1.5-2.5GHz",
-                "2.5-3.5GHz",
-                "3.5-4.5GHz",
-                "4.5GHz+"
-              ]
+              "enum": [@OMX_MACHINE_CLOCK_BANDS@]
             },
             "preemptRt": {
               "type": "boolean"
@@ -399,10 +386,7 @@
           "type": "object"
         },
         "realtime": {
-          "enum": [
-            "none",
-            "fifo"
-          ]
+          "enum": [@OMX_RESOURCE_THREAD_SCHEDULING@]
         }
       }
     },
@@ -743,11 +727,7 @@
               "minimum": 0
             },
             "method": {
-              "enum": [
-                "impulse-onset",
-                "declared-port",
-                "note-onset"
-              ]
+              "enum": [@OMX_MEASUREMENT_LATENCY_METHODS@]
             },
             "heard": {
               "description": "A note-onset latency's: whether the note sounded, so an onset that never came is not read as one.",
@@ -840,10 +820,7 @@
                   "minimum": 1
                 },
                 "basis": {
-                  "enum": [
-                    "declared",
-                    "probe"
-                  ]
+                  "enum": [@OMX_MEASUREMENT_VOICE_BASES@]
                 },
                 "capacity": {
                   "type": "integer",
