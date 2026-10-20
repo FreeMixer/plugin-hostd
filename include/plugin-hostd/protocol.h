@@ -57,6 +57,8 @@
 #define PHD_PLACE_OWN           "own"
 #define PHD_PLACE_DEFAULT       "default"
 #define PHD_PLACE_POOL_PREFIX   "pool:"
+/* the place of a chain's worker in worker_list, chain:<chain>; no add names it, chain puts instances there */
+#define PHD_PLACE_CHAIN_PREFIX  "chain:"
 /* a full pool opens <name><separator><n>, n counting from 2 */
 #define PHD_POOL_SIBLING_SEPARATOR "#"
 
@@ -262,6 +264,11 @@ static inline int phd_pool_name_valid(const char *name)
 #define PHD_ERR_NO_PRESET_LIST      (-515)
 #define PHD_ERR_PIN_REFUSED         (-516)
 #define PHD_ERR_NOTE_QUEUE_FULL     (-517)
+#define PHD_ERR_CHAIN_UNKNOWN_INSTANCE (-518)
+#define PHD_ERR_CHAIN_DUPLICATE     (-519)
+#define PHD_ERR_CHAIN_INSTANCE_BUSY (-520)
+#define PHD_ERR_CHAIN_MIXED_FORMAT  (-521)
+#define PHD_ERR_NO_SUCH_CHAIN       (-522)
 
 /* X(id, meaning) */
 #define PHD_ERRORS(X) \
@@ -304,7 +311,14 @@ static inline int phd_pool_name_valid(const char *name)
                    "answer this code") \
     X(NOTE_QUEUE_FULL, "the instance's worker has no room for this " PHD_VERB_NOTE_ON ", " PHD_VERB_NOTE_OFF " or " \
                        PHD_VERB_ALL_NOTES_OFF " before its next block: the line was not taken and nothing of it is kept; the " \
-                       "controller may send it again")
+                       "controller may send it again") \
+    X(CHAIN_UNKNOWN_INSTANCE, "a member of " PHD_VERB_CHAIN " is an instance no add made: the chain is not declared") \
+    X(CHAIN_DUPLICATE, "an instance is named twice in one " PHD_VERB_CHAIN ": the chain is not declared") \
+    X(CHAIN_INSTANCE_BUSY, "a member of " PHD_VERB_CHAIN " is already in another chain: the chain is not declared; " \
+                           PHD_VERB_CHAIN_CLEAR " of the other chain frees it") \
+    X(CHAIN_MIXED_FORMAT, "the members of " PHD_VERB_CHAIN " are not all of one format of " PHD_VERB_WORKER_LIST \
+                          ", so no one worker runs them: the chain is not declared") \
+    X(NO_SUCH_CHAIN, PHD_VERB_CHAIN_CLEAR " of a chain no " PHD_VERB_CHAIN " declared")
 
 /* ---------------------------------------------------------------- verbs */
 
@@ -322,6 +336,8 @@ static inline int phd_pool_name_valid(const char *name)
 #define PHD_VERB_PIN_ACCEPT       "pin_accept"
 #define PHD_VERB_PIN_LAYOUT       "pin_layout"
 #define PHD_VERB_LV2_WORKER_SET   "lv2_worker_set"
+#define PHD_VERB_CHAIN            "chain"
+#define PHD_VERB_CHAIN_CLEAR      "chain_clear"
 
 /* the words of a pin: <path>=<sha256>, joined by ',', and <scheme>:<sha256> */
 #define PHD_PIN_FILE_SEPARATOR   ","
@@ -414,7 +430,20 @@ static inline int phd_pool_name_valid(const char *name)
     X(PIN_EXPECT, PHD_VERB_PIN_EXPECT, "<instance> <scheme>" PHD_PIN_SCHEME_SEPARATOR "<sha256>", "resp 0", \
       "sent by the daemon to a worker of a format that checks layouts, just before the instance's add: the layout pin that add " \
       "checks after init and before activate; any other reply than resp 0 refuses the add with that code, and the " \
-      "add is never forwarded")
+      "add is never forwarded") \
+    X(CHAIN, PHD_VERB_CHAIN, "<chain> <instance> <instance> [<instance> ...]", "resp 0", \
+      "the instances, in this order, are one chain, run in one worker of place " PHD_PLACE_CHAIN_PREFIX "<chain>: each " \
+      "member's state is saved, it is removed from the worker it was in and replayed in the chain's. A chain already " \
+      "declared takes the new order, and a member left out of it goes back to a worker of its own. A worker that runs " \
+      "chains in one client (" PHD_FORMAT_CLAP ", " PHD_FORMAT_LV2_CLAP ") is sent this line, with the members it holds, " \
+      "after the adds of its replay; one that does not (mod-host) never is, and a refusal of it is written to stderr " \
+      "and is no failure. Every instance verb still names one member by its own number. A member that crashes the " \
+      "worker is quarantined to a worker of its own and the chain goes on without it; quarantine_clear puts it back. " \
+      "-518 for an instance no add made, -519 for one named twice, -520 for one in another chain, -521 for members of " \
+      "more than one format, -501 for a plugin that may not share a worker while require_pins is on, -902 for a chain " \
+      "or an instance that is not a number, or fewer than two instances") \
+    X(CHAIN_CLEAR, PHD_VERB_CHAIN_CLEAR, "<chain>", "resp 0", \
+      "forget the chain: each member goes to a worker of its own; -522 for a chain no " PHD_VERB_CHAIN " declared")
 
 /* ---------------------------------------------------------------- instance verbs */
 
@@ -656,6 +685,7 @@ static inline int phd_is_note_verb(const char *verb)
 #define PHD_EVENT_SUPERVISOR_GAVE_UP      "supervisor_gave_up"
 #define PHD_EVENT_PIN_CHANGED             "pin_changed"
 #define PHD_EVENT_LV2_ADAPTER_REFUSED     "lv2_adapter_refused"
+#define PHD_EVENT_CHAIN_FORMED            "chain_formed"
 /* written by a worker, relayed as it wrote it */
 #define PHD_EVENT_REMOTE_PAGES_CHANGED    "remote_pages_changed"
 #define PHD_EVENT_REMOTE_PAGE_SUGGEST     "remote_page_suggest"
@@ -682,6 +712,7 @@ static inline int phd_is_note_verb(const char *verb)
 #define PHD_EVENT_PARAM_GESTURE_FMT         PHD_EVENT_PARAM_GESTURE " %d %s %s"
 #define PHD_EVENT_PIN_CHANGED_FMT           PHD_EVENT_PIN_CHANGED " %s %s"
 #define PHD_EVENT_LV2_ADAPTER_REFUSED_FMT   PHD_EVENT_LV2_ADAPTER_REFUSED " %s %s %s"
+#define PHD_EVENT_CHAIN_FORMED_FMT          PHD_EVENT_CHAIN_FORMED " %d w%d %s"
 
 /* the table of the docs: X(name, fields, meaning), one row per shape of a line */
 #define PHD_EVENTS(X) \
@@ -698,7 +729,11 @@ static inline int phd_is_note_verb(const char *verb)
     X(PHD_EVENT_INSTANCE_REPLAY_REFUSED, "<instance> <code>", \
       "a replayed add was refused, by its pin or by the worker, <code> the refusal's own: no worker holds the " \
       "instance until the next replay") \
-    X(PHD_EVENT_INSTANCE_QUARANTINED, "<instance> <worker>", "the culprit of a pool death, placed own until cleared") \
+    X(PHD_EVENT_INSTANCE_QUARANTINED, "<instance> <worker>", \
+      "the culprit of a pool or a chain death, placed own until cleared; a chain goes on without it") \
+    X(PHD_EVENT_CHAIN_FORMED, "<chain> <worker> <instance>,...", \
+      "a chain's worker is up with these members, in this order, after its declaration, a respawn or a member's " \
+      "quarantine; " PHD_WORD_NONE " for none") \
     X(PHD_EVENT_SUPERVISOR_GAVE_UP, "<worker> <deaths> <window_ms>", "the storm bound is spent; respawning ends") \
     X(PHD_EVENT_PIN_CHANGED, "<uri> " PHD_PIN_CHANGED_FILES " | " PHD_PIN_CHANGED_LAYOUT, \
       "an add or a replay of a plugin was refused because its files, or the layout the worker found, differ from its " \
