@@ -66,9 +66,11 @@ $(PROG): $(OBJ) $(PROTOCOL_LIB)
 	$(CC) $(OBJ) $(PROTOCOL_LIBS) $(LDFLAGS) -pthread -o $@
 
 # the probe runner: it loads no plugin and links nothing of the daemon or of mod-host
-PROBE_SRC = src/probe.c src/json.c
-$(PROBE): $(PROBE_SRC) src/json.h include/plugin-hostd/protocol.h include/plugin-hostd/pin.h
-	$(CC) -Iinclude -Isrc $(CONTRACT_CFLAGS) $(CFLAGS) -D_GNU_SOURCE -DPROBE_VERSION='"$(VERSION)"' -o $@ $(PROBE_SRC) -lm
+# describe reads the installed table of a format by default (docs/formats.md)
+PROBE_SRC = src/probe.c src/json.c src/describe.c src/transforms.c
+$(PROBE): $(PROBE_SRC) src/json.h src/describe.h src/transforms.h include/plugin-hostd/protocol.h include/plugin-hostd/pin.h
+	$(CC) -Iinclude -Isrc $(CONTRACT_CFLAGS) $(CFLAGS) -D_GNU_SOURCE -DPROBE_VERSION='"$(VERSION)"' \
+	  -DPROBE_CONTRACTDIR='"$(CONTRACTDIR)"' -DPROBE_CONTRACT_MAJOR='"$(CONTRACT_SCHEMA_MAJOR)"' -o $@ $(PROBE_SRC) -lm
 
 ifneq ($(PROTOCOL_LIB),)
 $(PROTOCOL_LIB):
@@ -158,7 +160,7 @@ clean:
 
 # the daemon against workers that are not plugin hosts at all (tests/fake-host speaks the same protocol and can be
 # made to die on cue): placement, forwarding, ledger, replay, attribution, the storm bound; no jack, no plugin
-test: test-pin test-transforms test-format-coverage test-relay test-alloc test-format test-daemon check-generated check-schema test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-mod-host-json test-socket
+test: test-pin test-transforms test-format-coverage test-describe test-relay test-alloc test-format test-daemon check-generated check-schema test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-mod-host-json test-socket
 	MOD_HOST_DIR=$(MOD_HOST_DIR) python3 tests/verbs_contract.py
 
 # the same without the verb table, which is read from a mod-host checkout's README
@@ -343,6 +345,11 @@ tests/rt_interpose.so: tests/rt_interpose_stub.c
 
 tests/probe-child: tests/probe_child.c
 	$(CC) $(CLAP_CFLAGS) $(CFLAGS) -Wall -Wextra -Werror -o $@ $< -ldl
+
+# describe over the recorded field dumps (tests/fixtures/fields/, docs/formats.md#the-field-dump): each gives its recorded
+# descriptor, which validates; each refusal names what it refuses; a stand-in child gives the same descriptor
+test-describe: $(PROBE)
+	PROBE=./$(PROBE) python3 tests/describe_test.py
 
 # what is omx-contract's is read from it: the runner's default rates, the protocol's parameter scales and the probe
 # schema's latency methods follow a scratch copy of its headers with other values
