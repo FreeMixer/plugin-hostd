@@ -30,8 +30,8 @@ A table's `rows` are keyed by the source field, and each row has exactly one cla
 | `dropped` | `{ ruling }` | left out, by the ruling it names: a spec path and section, or the TERM's own `out-of-scope` ruling |
 
 Each row names what it covers, one of two: `term`, a TERM of omx-contract's format files (`LV2_UNITS_TERMS#unit`), or
-`from`, the header or specification link of a field no TERM file lists (the CLAP struct fields, `rdf:type`,
-`rdfs:comment`, `doap:name`, `doap:license`).
+`from`, the header or specification link of a field no TERM file lists (the CLAP struct fields and `clap_entry`,
+`rdf:type`, `rdfs:comment`, `rdfs:seeAlso`, `doap:name`, `doap:license`).
 
 ### Field names
 
@@ -134,6 +134,8 @@ one transform renamed) and each arm must go red naming the field.
   an extension id, a feature the headers define) by its macro name, one record per flag set or per item; an LV2 URI as
   a CURIE under the prefixes above, a URI no prefix covers in full; a scale point or a CLAP value text as
   `<number> <label>`. A TAB or a newline in a text becomes a space.
+- the provenance: a CLAP dump writes `plugin	clap_entry	<file name of the .clap>`, an LV2 dump
+  `plugin	rdfs:seeAlso	<bundle directory>/<data file>`, the `.ttl` that describes the plugin.
 
 The first line is `# omx-clap-scan --fields 1`, the format's version; a dump with another version is refused.
 
@@ -157,7 +159,9 @@ What the tables leave to `describe`:
   control with points is a `choice`, its `ids` taken from its labels and its default the id of the default's point, a
   `toggle` defaults to its default being non-zero;
 - the bag holds a field's one value as it is, two or more as a list;
-- an LV2 plugin no class of which maps to a feature is an `audio-effect`, and its `id` and `uri` are the URI asked
-  for; `instrument` is written when the features hold it, `polyphonic` when it states more than one voice; `latency`
+- a plugin no feature of which maps is an `audio-effect`; an LV2 plugin's `id` and `uri` are the URI asked for;
+- the links a scanned descriptor needs (`source.from`): a CLAP descriptor's own, `<file>#clap_entry`; each LV2
+  control's, `<data file>#<symbol>`, from the row of `clap_entry` and of `rdfs:seeAlso`; a character a link cannot hold
+  becomes `_`; `instrument` is written when the features hold it, `polyphonic` when it states more than one voice; `latency`
   is always written, `reports` false when no row sets it.
 - a word of a table that `describe` does not write is refused with the table: a new word is code here first.
