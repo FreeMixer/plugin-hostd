@@ -70,8 +70,7 @@ which the coverage test holds.
 A row is `dropped` only by a ruling it names. The TERMs omx-contract marks `out-of-scope` are dropped by that ruling,
 which the row quotes. A field this section rules out is dropped by `docs/formats.md#what-a-table-drops`:
 
-- a runtime handle that is no fact of the plugin (`clap_param_info.cookie`, a pointer the host passes back);
-- a field the descriptor already carries from another field (`lv2:index`, the record's scope).
+- a runtime handle that is no fact of the plugin (`clap_param_info.cookie`, a pointer the host passes back).
 
 A TERM omx-contract marks `used` is never dropped: its row is a word or the bag.
 
