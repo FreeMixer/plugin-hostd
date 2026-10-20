@@ -41,7 +41,7 @@ Open questions for them:
 3. Should a verdict hide an unsuitable plugin, mark it, or only warn when chosen?
 4. Would they ship a signed data set in the image, and whose key do they trust for it?
 5. Is a first-use qualification run of tens of seconds acceptable when a user picks an unknown plugin?
-6. Do they pin mod-host to a commit for a release (the sha line in `install_mod-host.sh:10` is commented out)? A verdict
+6. Do they pin mod-host to a commit for a release (the sha line in `install_mod-host.sh:9` is commented out)? A verdict
    is measured against one worker build.
 
 Precomputed qualification
@@ -52,10 +52,13 @@ once per class and shipped; the device measures only what the data set does not 
 
 ### (a) The matrix
 
+zynthian-sys is cited at `f5e41b3b270a` and zynthian-webconf at `7c229b35f96f`, the commits the image carries
+(`evidence/image/inspect.txt`).
+
 | Axis | Values | Source |
 |---|---|---|
-| Board | Raspberry Pi 5, Pi 4 (and 400, CM4, which zynthian-sys still knows) | `zynthian-sys scripts/zynthian_envars_extended.sh:95-116`; V5 kit is Pi 5 based |
-| Card | V5 ADAC (V5/V5.1 kit), HifiBerry DAC+ ADC PRO (V4 kit), Z2 ADAC; others only on demand | `zynthian-webconf lib/audio_config_handler.py:46-252` (39 presets); `zynthian-sys config/zynthian_envars_V5.sh:40`, `_V4.sh:36`, `_Z2.sh:36` |
+| Board | Raspberry Pi 5, Pi 4 (and 400, CM4, which zynthian-sys still knows) | `zynthian-sys scripts/zynthian_envars_extended.sh:95-116`, `boot/config.txt:24` (`[cm4]`); V5 kit is Pi 5 based |
+| Card | V5 ADAC (V5/V5.1 kit), HifiBerry DAC+ ADC PRO (V4 kit), Z2 ADAC; others only on demand | `zynthian-webconf lib/audio_config_handler.py:46-252` (41 presets); `zynthian-sys config/zynthian_envars_V5.sh:40`, `_V4.sh:36`, `_Z2.sh:36` |
 | JACK | V5 on Pi 5: `-r 48000 -p 128 -n 2`; V5 on Pi 4, V4, Z2: `-r 48000 -p 256 -n 2`; all with `-P 70 -s -S -d alsa -d hw:sndrpihifiberry -X raw` | `config/zynthian_envars_V5_pi5.sh:43`, `_V5.sh:43`, `_V4.sh:39`, `_Z2.sh:39`; the Pi-5 variant chosen in `sbin/zynthian_autoconfig.py:177-180`; webconf's default `-p 128` on Pi 5, `-p 256` otherwise (`audio_config_handler.py:38-42`) |
 | Kernel | linux-image-rpi-2712 / -v8 6.18.50-1+rpt1, not PREEMPT_RT | image `dpkg-status`; no RT kernel in `setup_system_raspioslite_64bit_trixie.sh` |
 | Governor | performance, set before JACK starts | `sbin/cpu-performance.sh:3`, `etc/systemd/cpu-performance.service` |
@@ -70,34 +73,33 @@ rate, period and periods, the card, the worker (mod-host commit or omx-clap-host
 
 ### (b) The data file
 
-Not a new format: plugin-qualify's qualification record, schema `plugin-qualify.qualification-record/1`
-(plugin-qualify `src/qualification-record.ts:22-69`: plugin format and id, `testedVersion`, `binary`, `verdicts[]`
-with `host`, `rating`, `hosting`, `reasons`, `cost[]` per rate and quantum, `measurements`, `tool`, `measuredAt`, and
-`probe` with the protocol name and version, `machineClass`, `meetsProtocol`), one record per plugin and class, the way
-openmixer designs the catalog as an index over qualification records (openmixer#1859; spec
-`docs/design/specs/2026-10-17-contract-definitions-installed-by-owners.md` §6.6(c), §6.11). Looked up by
-(binary hash, board, card, rate, period): the record's `binary` and `paramsFingerprint` identify the plugin, so a
-user-built copy of the same plugin is not mistaken for the measured one.
+Not a new format: plugin-qualify's qualification record, schema `plugin-qualify.qualification-record/1` (plugin-qualify
+`src/qualification-record.ts:22-69`: plugin format and id, `testedVersion`, `binary`, `verdicts[]` with `host`,
+`rating`, `hosting`, `reasons`, `cost[]` per rate and quantum, `measurements`, `tool`, `measuredAt`, and `probe` with
+the protocol name and version, `machineClass`, `meetsProtocol`), one record per plugin and class; the data set is an
+index over those records, not a format of its own. Looked up by (binary hash, board, card, rate, period): the record's
+`binary` (path, `sha256` and the hash of every file of the bundle, plugin-qualify `src/probe-output.ts:135-141`)
+identifies the build, so a user-built copy of the same plugin is not mistaken for the measured one.
 
-What the record does not have yet, and the spike found Zynthian needs: board model and card are not machine-class
-fields in openmixer's design (D4 keeps the shared class to architecture, family, core band, clock band and RT flags,
-`...owners.md:632`); rate and period are per run. For Zynthian the lookup key adds board and card as declared fields
-of the data set's index, not of the shared machine class, so nothing identifying leaves a user's device. This is a
-schema question for plugin-qualify and openmixer before any file ships.
+What the record does not have yet, and the spike found Zynthian needs: board model and card are not machine-class fields
+in the planned design for shared measurements (the shared class is kept to architecture, family, core band, clock band
+and RT flags, so a shared figure does not identify a device); rate and period are per run. For Zynthian the lookup key
+adds board and card as declared fields of the data set's index, not of the shared machine class, so nothing identifying
+leaves a user's device. This is a schema question for plugin-qualify and openmixer before any file ships.
 
-Signing: openmixer's opt-in sharing (#1870, `...owners.md` §6.10, `:613-637`) signs figures with a per-console key and
-exports by hand, no network. For an image-shipped set the signer would be whoever measures the reference classes
-(us, or Zynthian), the key in the image, the set a file next to `engine_config.json`; a record that fails its
-signature is ignored and the plugin is treated as unknown.
+Signing: the planned opt-in sharing of measurements signs figures with a per-machine key and exports them by hand, over
+no network. For an image-shipped set the signer would be whoever measures the reference classes (us, or Zynthian), the
+key in the image, the set a file next to `engine_config.json`; a record that fails its signature is ignored and the
+plugin is treated as unknown.
 
 ### (c) Measuring it
 
-On real hardware only, one machine per class (the four above), at the reference measurement protocol (openmixer#1869,
-`docs/design/specs/2026-10-17-probe-output-interface.md` §5.5: every declared rate and quantum, 64 warm-up and 512
-measured blocks, a 1 kHz -6 dBFS stimulus, median and p95 per sample, the optimised profile, `meetsProtocol` false
-disqualifies a run). The protocol's profile is the console's; on a Pi it is Zynthian's own (performance governor, their
-clock), which the record carries. Emulation gives function, not timing: qemu or an x86 run can prove the engine and the
-verbs, never a verdict. The hardware list is OWED in the spike report.
+On real hardware only, one machine per class (the four above), at the reference measurement protocol (the one a record's
+`probe.protocol` names: every declared rate and quantum, 64 warm-up and 512 measured blocks, a 1 kHz -6 dBFS stimulus,
+median and p95 per sample, the optimised profile, `meetsProtocol` false disqualifies a run). The protocol's profile is
+the console's; on a Pi it is Zynthian's own (performance governor, their clock), which the record carries. Emulation
+gives function, not timing: qemu or an x86 run can prove the engine and the verbs, never a verdict. The hardware list is
+OWED in the spike report.
 
 Rerunning: a job that watches (1) Zynthian's default `engine_config.json` per release (the enabled plugins), (2) the
 kernel package version in their image, (3) a new plugin binary hash in their plugin packages, and requeues the
