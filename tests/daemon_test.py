@@ -2468,6 +2468,7 @@ def a_chain_is_declared_over_existing_instances_and_each_refusal_is_named():
         for bad in ("chain 1 1", "chain 1", "chain x 1 2", "chain 1 1 two", "chain -1 1 2", "chain_clear", "chain_clear x"):
             d.expect(bad, "resp -902")
         check(d.workers() == before, "a refused chain moves nothing: %s" % d.workers())
+        old = d.holder(1)[1]["pid"]
         mark = d.mark()
         d.expect("chain 1 1 2 3", "resp 0")
         formed = d.wait_event("chain_formed 1 ", since=mark)
@@ -2479,6 +2480,9 @@ def a_chain_is_declared_over_existing_instances_and_each_refusal_is_named():
         check(not any(1 in x["inst"] or 2 in x["inst"] or 3 in x["inst"] for kk, x in d.workers().items() if kk != k),
               "the members left their own workers: %s" % d.workers())
         gains(d, (1, 2, 3, 4))
+        was = sent_to(log, old)
+        check([c.split()[0] for c in was[-2:]] == ["state_save", "remove"] and was[-1] == "remove 1",
+              "the worker a member leaves saves its state, then removes it: %s" % was[-3:])
         got = sent_to(log, w["pid"])
         adds = [c.split()[2] for c in got if c.startswith("add ")]
         check(adds == ["1", "2", "3"] and "chain 1 1 2 3" in got and got.index("chain 1 1 2 3") > max(
@@ -2495,16 +2499,17 @@ def a_chain_is_declared_over_existing_instances_and_each_refusal_is_named():
         d.wait_event("chain_formed 2 ", since=mark)
         check(list(chain_of(d, 2).values())[0]["inst"] == [4, 3], "a freed member joins another chain: %s" % d.workers())
         # a declared chain takes a new order; the member it leaves out goes back to a worker of its own
-        d.expect("chain 2 3 1", "resp 0")
-        check(list(chain_of(d, 2).values())[0]["inst"] == [3, 1], "the new order: %s" % d.workers())
+        d.expect("chain 2 3 1 2", "resp 0")
+        check(list(chain_of(d, 2).values())[0]["inst"] == [3, 1, 2], "the new order: %s" % d.workers())
         _, w = d.wait_up(4)
         check(w["place"] == "own" and w["inst"] == [4], "the member left out is alone: %s" % w)
         # a removed member leaves the order and the worker is told the order without it
         k, w = list(chain_of(d, 2).items())[0]
         d.expect("remove 3", "resp 0")
-        check(chain_of(d, 2)[k]["inst"] == [1], "the chain goes on without it: %s" % d.workers())
-        check(sent_to(log, w["pid"])[-1] == "chain 2 1", "the worker is told: %s" % sent_to(log, w["pid"])[-3:])
+        check(chain_of(d, 2)[k]["inst"] == [1, 2], "the chain goes on without it, in order: %s" % d.workers())
+        check(sent_to(log, w["pid"])[-1] == "chain 2 1 2", "the worker is told: %s" % sent_to(log, w["pid"])[-3:])
         d.expect("remove 1", "resp 0")
+        d.expect("remove 2", "resp 0")
         d.expect("chain_clear 2", resp("NO_SUCH_CHAIN"))
         # mod-host runs no chain: its members share one worker and it is never sent the line
         d.expect("add fake:lv 8", "resp 8")
