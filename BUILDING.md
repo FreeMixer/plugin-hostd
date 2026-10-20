@@ -18,7 +18,9 @@ to build or run when the protocol's parameter scales are not the contract's
 contract (`MEASUREMENT_LATENCY_METHODS`, `MEASUREMENT_VOICE_BASES`,
 `MACHINE_CORE_BANDS`, `MACHINE_CLOCK_BANDS`, `RESOURCE_THREAD_SCHEDULING`) from
 the vocabulary header: `protocol/probe-output.schema.in` names each as an
-`@OMX_<ITEM>@` token and holds no list of its own. `make
+`@OMX_<ITEM>@` token and holds no list of its own. `make test-vocabulary` holds
+each of those enums of the generated schema to the installed contract's
+`omx-vocabulary.schema.json`, word for word and in order. `make
 test-contract` checks both, against the installed contract and against a copy
 of its header with the values changed. Nothing is linked: the header holds
 values only.
