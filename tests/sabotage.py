@@ -13,7 +13,9 @@ FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "
 # an LV2 bundle (MOD_HOST, LV2_DIR, LV2_URI, LV2_BUNDLE, LV2_PARAM) and is skipped without them; "pin" breaks
 # include/plugin-hostd/pin.h and runs tests/pin_test.c; "readme" breaks README.md or BUILDING.md and runs
 # tests/readme_build.py, with no daemon to build; "probeschema" breaks protocol/probe-output.schema.json and runs
-# tests/probe_schema.py; "relay" breaks src/relay.c and runs tests/relay_test.c; "alloc" breaks src/relay.c or src/lv2.c and runs make test-alloc; "contract" breaks the probe runner or the generator and runs tests/contract_derived.py; "consumer" breaks the header and compiles tests/consumer.c against it; "probe" breaks src/probe.c and runs tests/probe_test.py; "nopins" breaks the packaging or a workflow and runs tests/no_pins.py; "ciguards" breaks a workflow and runs tests/ci_guards.py
+# tests/probe_schema.py; "relay" breaks src/relay.c and runs tests/relay_test.c; "alloc" breaks src/relay.c or src/lv2.c and runs make test-alloc; "contract" breaks the probe runner or the generator and runs tests/contract_derived.py; "consumer" breaks the header and compiles tests/consumer.c against it; "probe" breaks src/probe.c and runs tests/probe_test.py; "nopins" breaks the packaging or a workflow and runs tests/no_pins.py; "ciguards" breaks a workflow and runs tests/ci_guards.py;
+# "vocabulary" breaks the probe schema, its template or a copy of omx-contract's omx-vocabulary.schema.json and runs
+# tests/vocabulary_derived.py
 SABOTAGE = [
     ("a runner that refuses unshare passes build-and-test with a warning", ".github/workflows/ci.yml",
      '            echo "::error::test-jack did not run: this runner refuses a private user and pid namespace with its own /proc"\n            exit 1\n',
@@ -295,6 +297,12 @@ SABOTAGE = [
      "PHD_PARAM_SCALES(X)\n#undef X\n_Static_assert(", "#undef X\n_Static_assert(", "contract", "contract"),
     ("the generator takes a scale word that is not the contract's", "tools/protocol-gen.c",
      "    if (!scales_are_the_contracts())\n        return 1;\n", "", "contract", "contract"),
+    ("the generator types the latency methods by hand", "tools/protocol-gen.c", "VOCABULARY(MEASUREMENT_LATENCY_METHODS)\n",
+     'static const char *const VOCAB_MEASUREMENT_LATENCY_METHODS[] = { "impulse-onset", "declared-port", "note-onset" };\n',
+     "contract", "contract"),
+    ("the generator does not hold a word list to its count", "tools/protocol-gen.c",
+     '    _Static_assert(sizeof(VOCAB_##item) / sizeof(*VOCAB_##item) == OMX_##item##_COUNT, "omx-contract\'s " #item ": not as many words as its count");\n',
+     "\n", "contract", "contract"),
     ("two errors share a code", "include/plugin-hostd/protocol.h", "#define PHD_ERR_NOTE_QUEUE_FULL     (-517)",
      "#define PHD_ERR_NOTE_QUEUE_FULL     (-516)", "consumer", "consumer"),
     ("a gesture the relay has no memory to hold takes the table with it", "src/relay.c",
@@ -495,13 +503,14 @@ SABOTAGE = [
      "an_lv2_point_carries_the_note_sweep_and_what_run_did_while_the_notes_played", "probe"),
     ("a note sweep leaves out its allocations", "src/probe.c", '    put_count(b, ns, "allocationsInRun", "allocations");\n', "",
      "a_clap_point_carries_the_note_sweep_counts", "probe"),
-    ("a latency from a note is called an impulse's", "src/probe.c", 'from_note ? "note-onset" : "impulse-onset"', '"impulse-onset"',
+    ("a latency from a note is called an impulse's", "src/probe.c", 'from_note ? OMX_MEASUREMENT_LATENCY_METHODS_NOTE_ONSET : OMX_MEASUREMENT_LATENCY_METHODS_IMPULSE_ONSET',
+     'OMX_MEASUREMENT_LATENCY_METHODS_IMPULSE_ONSET',
      "a_latency_taken_from_a_note_says_so_and_whether_the_note_was_heard", "probe"),
     ("a note that did not sound is heard", "src/probe.c", 'jbool(latency->kid[k], "heard", 1) ? "true" : "false"', '"true"',
      "a_latency_taken_from_a_note_says_so_and_whether_the_note_was_heard", "probe"),
     ("the probe schema has no notes held in a cost", "protocol/probe-output.schema.json", '            "voices": {\n', '            "voices-": {\n',
      "instrument-notes validates", "probeschema"),
-    ("the probe schema has no note-onset latency", "protocol/probe-output.schema.json", '                "note-onset"\n', '                "note-guess"\n',
+    ("the probe schema has no note-onset latency", "protocol/probe-output.schema.json", '"declared-port", "note-onset"]', '"declared-port", "note-guess"]',
      "instrument-notes validates", "probeschema"),
     ("the probe schema accepts a verdict", "protocol/probe-output.schema.json", '          "verdict"\n', '          "verdict-"\n',
      "success-msi validates", "probeschema"),
@@ -514,6 +523,21 @@ SABOTAGE = [
      "success-msi validates", "probeschema"),
     ("the probe schema takes a percentile of 50", "protocol/probe-output.schema.json", '"exclusiveMinimum": 50', '"exclusiveMinimum": 0',
      "success-msi validates", "probeschema"),
+    ("the generated schema lost a latency method the contract has", "protocol/probe-output.schema.json",
+     '"declared-port", "note-onset"]', '"declared-port"]',
+     "MEASUREMENT_LATENCY_METHODS at /$defs/point/properties/latency/properties/method is the contract's", "vocabulary"),
+    ("the generated schema has the clock bands in an order of its own", "protocol/probe-output.schema.json",
+     '"3.5-4.5GHz", "4.5GHz+"]', '"4.5GHz+", "3.5-4.5GHz"]',
+     "MACHINE_CLOCK_BANDS at /properties/machine/properties/class/properties/clockBand is the contract's", "vocabulary"),
+    ("the contract gives its hosts a scheduling class the schema does not have", "omx-vocabulary.schema.json",
+     '        "none",\n        "fifo"\n', '        "none",\n        "fifo",\n        "rr"\n',
+     "RESOURCE_THREAD_SCHEDULING at /properties/offer/properties/realtime is the contract's", "vocabulary"),
+    ("the template types the latency methods by hand again", "protocol/probe-output.schema.in",
+     '"enum": [@OMX_MEASUREMENT_LATENCY_METHODS@]', '"enum": ["impulse-onset", "declared-port", "note-onset"]',
+     "the template types no list of the contract's by hand", "vocabulary"),
+    ("the template takes the voice basis from nowhere", "protocol/probe-output.schema.in",
+     '"enum": [@OMX_MEASUREMENT_VOICE_BASES@]', '"type": "string"',
+     "the template takes MEASUREMENT_VOICE_BASES from the contract", "vocabulary"),
 ]
 
 
@@ -608,6 +632,10 @@ def run_test(tree, name, jack=False):
         p = subprocess.run([sys.executable, os.path.join(ROOT, "tests", "probe_schema.py"), tree], capture_output=True,
                            text=True, timeout=60)
         return p.returncode, p.stdout
+    if jack == "vocabulary":
+        p = subprocess.run([sys.executable, os.path.join(ROOT, "tests", "vocabulary_derived.py"), tree], capture_output=True,
+                           text=True, timeout=60, env=dict(os.environ, OMX_VOCABULARY=os.path.join(tree, "omx-vocabulary.schema.json")))
+        return p.returncode, p.stdout
     if jack in ("nopins", "ciguards"):
         script = {"nopins": "no_pins.py", "ciguards": "ci_guards.py"}[jack]
         p = subprocess.run([sys.executable, os.path.join(ROOT, "tests", script), tree], capture_output=True,
@@ -658,6 +686,11 @@ try:
         elif jack == "probeschema":
             os.makedirs(os.path.join(tree, "protocol"))
             shutil.copy(os.path.join(ROOT, "protocol", "probe-output.schema.json"), os.path.join(tree, "protocol"))
+        elif jack == "vocabulary":
+            shutil.copytree(os.path.join(ROOT, "protocol"), os.path.join(tree, "protocol"))
+            datadir = subprocess.run(["pkg-config", "--variable=datadir", "omx-contract"], capture_output=True, text=True,
+                                     check=True).stdout.strip()
+            shutil.copy(os.path.join(datadir, "omx-vocabulary.schema.json"), tree)
         elif jack == "contract":
             for d in ("src", "include", "tools", "protocol"):
                 shutil.copytree(os.path.join(ROOT, d), os.path.join(tree, d))
@@ -693,7 +726,7 @@ try:
         open(os.path.join(tree, path), "w").write(src.replace(text, repl))
         if jack == "probe":
             build_probe(tree)
-        elif jack not in ("readme", "nopins", "ciguards", "format", "relay", "contract", "consumer", "probeschema", "alloc"):
+        elif jack not in ("readme", "nopins", "ciguards", "format", "relay", "contract", "consumer", "probeschema", "vocabulary", "alloc"):
             for f in os.listdir(os.path.join(tree, "src")):
                 if f.endswith(".o"):
                     os.unlink(os.path.join(tree, "src", f))

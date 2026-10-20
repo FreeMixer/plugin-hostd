@@ -8,12 +8,19 @@ mod-host-protocol` when it is installed (mod-host's `make install-lib`),
 otherwise from `MOD_HOST_DIR`, a mod-host tree where the library is built if
 missing. The daemon needs libc and that library and nothing else.
 
-The probe runner and the protocol generator also read omx-contract's C header,
-`<omxcontract/omx_contract_limits.h>`, from `pkg-config omx-contract`
-(`omx-contract-devel`, `libomx-contract-dev`; `CONTRACT_CFLAGS=-I<dir>` for one
-that is not installed). The runner's default rates are the contract's
-`ORACLE_FLOOR_RATES`, and the generator refuses to build or run when the
-protocol's parameter scales are not the contract's `PARAM_SCALES`. `make
+The probe runner and the protocol generator also read omx-contract's C headers,
+`<omxcontract/omx_contract_limits.h>` and `<omxcontract/omx_vocabulary.h>`, from
+`pkg-config omx-contract` (`omx-contract-devel`, `libomx-contract-dev`, 2.18.0 or
+later; `CONTRACT_CFLAGS=-I<dir>` for one that is not installed). The runner's
+default rates are the contract's `ORACLE_FLOOR_RATES`, and the generator refuses
+to build or run when the protocol's parameter scales are not the contract's
+`PARAM_SCALES`. The probe output schema takes the words it shares with the
+contract (`MEASUREMENT_LATENCY_METHODS`, `MEASUREMENT_VOICE_BASES`,
+`MACHINE_CORE_BANDS`, `MACHINE_CLOCK_BANDS`, `RESOURCE_THREAD_SCHEDULING`) from
+the vocabulary header: `protocol/probe-output.schema.in` names each as an
+`@OMX_<ITEM>@` token and holds no list of its own. `make test-vocabulary` holds
+each of those enums of the generated schema to the installed contract's
+`omx-vocabulary.schema.json`, word for word and in order. `make
 test-contract` checks both, against the installed contract and against a copy
 of its header with the values changed. Nothing is linked: the header holds
 values only.

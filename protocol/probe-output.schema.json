@@ -233,23 +233,10 @@
               "type": "string"
             },
             "coreBand": {
-              "enum": [
-                "1-2",
-                "3-4",
-                "5-8",
-                "9-16",
-                "17-32",
-                "33+"
-              ]
+              "enum": ["1-2", "3-4", "5-8", "9-16", "17-32", "33+"]
             },
             "clockBand": {
-              "enum": [
-                "<1.5GHz",
-                "1.5-2.5GHz",
-                "2.5-3.5GHz",
-                "3.5-4.5GHz",
-                "4.5GHz+"
-              ]
+              "enum": ["<1.5GHz", "1.5-2.5GHz", "2.5-3.5GHz", "3.5-4.5GHz", "4.5GHz+"]
             },
             "preemptRt": {
               "type": "boolean"
@@ -399,10 +386,7 @@
           "type": "object"
         },
         "realtime": {
-          "enum": [
-            "none",
-            "fifo"
-          ]
+          "enum": ["none", "fifo"]
         }
       }
     },
@@ -743,11 +727,7 @@
               "minimum": 0
             },
             "method": {
-              "enum": [
-                "impulse-onset",
-                "declared-port",
-                "note-onset"
-              ]
+              "enum": ["impulse-onset", "declared-port", "note-onset"]
             },
             "heard": {
               "description": "A note-onset latency's: whether the note sounded, so an onset that never came is not read as one.",
@@ -840,10 +820,7 @@
                   "minimum": 1
                 },
                 "basis": {
-                  "enum": [
-                    "declared",
-                    "probe"
-                  ]
+                  "enum": ["declared", "probe"]
                 },
                 "capacity": {
                   "type": "integer",

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # What plugin-hostd shares with omx-contract is read from omx-contract, never typed again here: the probe runner's
-# default rates are ORACLE_FLOOR_RATES, and the parameter scales of the protocol are PARAM_SCALES, the same words in
-# the same order. Checked twice: against the installed contract (its data and its C header), and against a scratch
+# default rates are ORACLE_FLOOR_RATES, the parameter scales of the protocol are PARAM_SCALES, the same words in
+# the same order, and the probe output's shared enums are the words of omx_vocabulary.h. Checked twice: against the installed contract (its data and its C header), and against a scratch
 # copy of the header with the values changed, where the runner must follow and the generator must refuse to build.
 # Usage: contract_derived.py (run from the tree; CC, PKG_CONFIG and PROBE from the environment, or their defaults).
 import json, os, re, shutil, subprocess, sys, tempfile
@@ -37,13 +37,13 @@ def contract_data(name):
     raise SystemExit("omx-contract declares no %s" % name)
 
 
-def header():
+def header(name="omx_contract_limits.h"):
     for flag in pkg("--cflags").split() + ["-I/usr/include"]:
         if flag.startswith("-I"):
-            path = os.path.join(flag[2:], "omxcontract", "omx_contract_limits.h")
+            path = os.path.join(flag[2:], "omxcontract", name)
             if os.path.exists(path):
                 return path
-    raise SystemExit("omx-contract's C header is not installed")
+    raise SystemExit("omx-contract's C header %s is not installed" % name)
 
 
 def child_rates(probe, tmp):
@@ -82,6 +82,15 @@ def build_gen(include_first, out):
 def gen_json(gen):
     p = subprocess.run([gen, "json"], capture_output=True, text=True, timeout=30)
     return p.returncode, p.stdout, p.stderr
+
+
+def gen_methods(gen):
+    """the latency methods of the probe schema the generator writes from this tree's template"""
+    p = subprocess.run([gen, "probe-schema", os.path.join(ROOT, "protocol", "probe-output.schema.in")], capture_output=True,
+                       text=True, timeout=30)
+    if p.returncode != 0:
+        return None
+    return json.loads(p.stdout)["$defs"]["point"]["properties"]["latency"]["properties"]["method"]["enum"]
 
 
 def main():
@@ -142,6 +151,30 @@ def main():
         built = build_gen(scratch, os.path.join(tmp, "gen-swapped"))
         check(built.returncode != 0 and "PARAM_SCALES" in built.stderr,
               "the generator refuses scales the contract orders otherwise: rc %d %s" % (built.returncode, built.stderr[-300:]))
+
+        # a scratch vocabulary whose latency methods have a word more: the probe schema the generator writes has it
+        # too, and a word list longer than its count does not build
+        vocab = os.path.join(tmp, "vocab")
+        os.makedirs(os.path.join(vocab, "omxcontract"))
+        shutil.copy(header(), os.path.join(vocab, "omxcontract"))
+        vtext = open(header("omx_vocabulary.h")).read()
+        grown = re.sub(r'(#define OMX_MEASUREMENT_LATENCY_METHODS_INIT \{[^}]*)\s\}', r'\1, "x-onset" }', vtext)
+        check(grown != vtext, "positive control: the scratch vocabulary's latency methods were changed")
+        counted = re.sub(r"(#define OMX_MEASUREMENT_LATENCY_METHODS_COUNT )([0-9]+)u",
+                         lambda m: "%s%du" % (m.group(1), int(m.group(2)) + 1), grown)
+        with open(os.path.join(vocab, "omxcontract", "omx_vocabulary.h"), "w") as f:
+            f.write(counted)
+        built = build_gen(vocab, os.path.join(tmp, "gen-vocab"))
+        check(built.returncode == 0, "the generator builds against the scratch vocabulary: %s" % built.stderr[-400:])
+        if built.returncode == 0:
+            methods = gen_methods(os.path.join(tmp, "gen-vocab"))
+            check(methods is not None and methods[-1:] == ["x-onset"],
+                  "a word the contract adds to the latency methods is in the probe schema: %s" % methods)
+        with open(os.path.join(vocab, "omxcontract", "omx_vocabulary.h"), "w") as f:
+            f.write(grown)
+        built = build_gen(vocab, os.path.join(tmp, "gen-vocab-uncounted"))
+        check(built.returncode != 0 and "MEASUREMENT_LATENCY_METHODS" in built.stderr,
+              "the generator refuses a word list that is not its count: rc %d %s" % (built.returncode, built.stderr[-300:]))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     print("contract: %s" % ("FAILED (%d)" % failures if failures else "ok"))
