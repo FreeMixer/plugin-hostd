@@ -79,326 +79,8 @@
 #define MAX_STEPS 256
 #define MAX_POINTS 64
 
-/* ---------------------------------------------------------------- strings that grow */
-
-typedef struct
-{
-    char *s;
-    size_t len, cap;
-} sb_t;
-
-static void sb_put(sb_t *b, const char *data, size_t n)
-{
-    if (b->len + n + 1 > b->cap)
-    {
-        b->cap = (b->len + n + 1) * 2;
-        b->s = realloc(b->s, b->cap);
-        if (b->s == NULL)
-        {
-            fprintf(stderr, RUNNER_NAME ": out of memory\n");
-            exit(2);
-        }
-    }
-    memcpy(b->s + b->len, data, n);
-    b->len += n;
-    b->s[b->len] = '\0';
-}
-
-static void sb_printf(sb_t *b, const char *fmt, ...)
-{
-    char tmp[512];
-    va_list ap;
-    int n;
-
-    va_start(ap, fmt);
-    n = vsnprintf(tmp, sizeof(tmp), fmt, ap);
-    va_end(ap);
-    if (n < 0)
-        return;
-    if ((size_t)n < sizeof(tmp))
-    {
-        sb_put(b, tmp, (size_t)n);
-        return;
-    }
-    {
-        char *big = malloc((size_t)n + 1);
-
-        va_start(ap, fmt);
-        vsnprintf(big, (size_t)n + 1, fmt, ap);
-        va_end(ap);
-        sb_put(b, big, (size_t)n);
-        free(big);
-    }
-}
-
-/* a JSON string: the bytes of a valid UTF-8 text as they are, a control character or a byte that is not UTF-8 escaped */
-static void sb_str(sb_t *b, const char *s)
-{
-    const unsigned char *p = (const unsigned char *)s;
-
-    sb_put(b, "\"", 1);
-    for (; *p; p++)
-    {
-        if (*p == '"' || *p == '\\')
-        {
-            sb_put(b, "\\", 1);
-            sb_put(b, (const char *)p, 1);
-        }
-        else if (*p < 0x20 || *p == 0x7f)
-            sb_printf(b, "\\u%04x", *p);
-        else if (*p < 0x80)
-            sb_put(b, (const char *)p, 1);
-        else
-        {
-            int n = *p >= 0xf0 ? 4 : *p >= 0xe0 ? 3 : *p >= 0xc0 ? 2 : 0, k, ok = n > 0;
-
-            for (k = 1; ok && k < n; k++)
-                ok = (p[k] & 0xc0) == 0x80;
-            if (ok)
-            {
-                sb_put(b, (const char *)p, (size_t)n);
-                p += n - 1;
-            }
-            else
-                sb_printf(b, "\\u%04x", *p);
-        }
-    }
-    sb_put(b, "\"", 1);
-}
-
-/* ---------------------------------------------------------------- a small JSON reader for the child's line */
-
-typedef enum { J_NULL, J_BOOL, J_NUM, J_STR, J_ARR, J_OBJ } jtype_t;
-
-typedef struct jnode
-{
-    jtype_t type;
-    double num;
-    int boolean;
-    char *str;
-    struct jnode **kid; /* array items, or object values */
-    char **key;         /* object keys */
-    size_t n;
-} jnode_t;
-
-static jnode_t *jparse_value(const char **p, int depth);
-
-static void jskip(const char **p)
-{
-    while (**p == ' ' || **p == '\t' || **p == '\n' || **p == '\r')
-        (*p)++;
-}
-
-static char *jparse_string(const char **p)
-{
-    sb_t b = { 0 };
-
-    (*p)++;
-    while (**p && **p != '"')
-    {
-        if (**p == '\\' && (*p)[1])
-        {
-            char c = (*p)[1];
-
-            (*p) += 2;
-            if (c == 'n')
-                sb_put(&b, "\n", 1);
-            else if (c == 't')
-                sb_put(&b, "\t", 1);
-            else if (c == 'u')
-            {
-                unsigned v = 0;
-                int k;
-
-                for (k = 0; k < 4 && isxdigit((unsigned char)**p); k++, (*p)++)
-                    v = v * 16 + (unsigned)(isdigit((unsigned char)**p) ? **p - '0' : (tolower((unsigned char)**p) - 'a' + 10));
-                if (v < 0x80)
-                    sb_put(&b, (const char *)&(char){ (char)v }, 1);
-                else
-                    sb_put(&b, "?", 1);
-            }
-            else
-                sb_put(&b, &c, 1);
-        }
-        else
-        {
-            sb_put(&b, *p, 1);
-            (*p)++;
-        }
-    }
-    if (**p != '"')
-    {
-        free(b.s);
-        return NULL;
-    }
-    (*p)++;
-    return b.s ? b.s : strdup("");
-}
-
-static jnode_t *jnew(jtype_t t)
-{
-    jnode_t *n = calloc(1, sizeof(*n));
-
-    n->type = t;
-    return n;
-}
-
-static jnode_t *jparse_value(const char **p, int depth)
-{
-    jnode_t *n;
-
-    if (depth > 32)
-        return NULL;
-    jskip(p);
-    if (**p == '{')
-    {
-        n = jnew(J_OBJ);
-        (*p)++;
-        jskip(p);
-        if (**p == '}')
-        {
-            (*p)++;
-            return n;
-        }
-        for (;;)
-        {
-            char *key;
-            jnode_t *v;
-
-            jskip(p);
-            if (**p != '"' || (key = jparse_string(p)) == NULL)
-                return NULL;
-            jskip(p);
-            if (*(*p)++ != ':' || (v = jparse_value(p, depth + 1)) == NULL)
-                return NULL;
-            n->kid = realloc(n->kid, (n->n + 1) * sizeof(*n->kid));
-            n->key = realloc(n->key, (n->n + 1) * sizeof(*n->key));
-            n->key[n->n] = key;
-            n->kid[n->n++] = v;
-            jskip(p);
-            if (**p == ',')
-            {
-                (*p)++;
-                continue;
-            }
-            if (**p == '}')
-            {
-                (*p)++;
-                return n;
-            }
-            return NULL;
-        }
-    }
-    if (**p == '[')
-    {
-        n = jnew(J_ARR);
-        (*p)++;
-        jskip(p);
-        if (**p == ']')
-        {
-            (*p)++;
-            return n;
-        }
-        for (;;)
-        {
-            jnode_t *v = jparse_value(p, depth + 1);
-
-            if (v == NULL)
-                return NULL;
-            n->kid = realloc(n->kid, (n->n + 1) * sizeof(*n->kid));
-            n->kid[n->n++] = v;
-            jskip(p);
-            if (**p == ',')
-            {
-                (*p)++;
-                continue;
-            }
-            if (**p == ']')
-            {
-                (*p)++;
-                return n;
-            }
-            return NULL;
-        }
-    }
-    if (**p == '"')
-    {
-        n = jnew(J_STR);
-        n->str = jparse_string(p);
-        return n->str ? n : NULL;
-    }
-    if (!strncmp(*p, "true", 4) || !strncmp(*p, "false", 5))
-    {
-        n = jnew(J_BOOL);
-        n->boolean = **p == 't';
-        *p += n->boolean ? 4 : 5;
-        return n;
-    }
-    if (!strncmp(*p, "null", 4))
-    {
-        *p += 4;
-        return jnew(J_NULL);
-    }
-    {
-        char *end;
-        double v = strtod(*p, &end);
-
-        if (end == *p)
-            return NULL;
-        n = jnew(J_NUM);
-        n->num = v;
-        *p = end;
-        return n;
-    }
-}
-
-/* the whole text is one value */
-static jnode_t *jparse(const char *text)
-{
-    const char *p = text;
-    jnode_t *n = jparse_value(&p, 0);
-
-    if (n == NULL)
-        return NULL;
-    jskip(&p);
-    return *p == '\0' ? n : NULL;
-}
-
-static jnode_t *jget(const jnode_t *o, const char *key)
-{
-    size_t i;
-
-    if (o == NULL || o->type != J_OBJ)
-        return NULL;
-    for (i = 0; i < o->n; i++)
-        if (!strcmp(o->key[i], key))
-            return o->kid[i];
-    return NULL;
-}
-
-static const char *jstr(const jnode_t *o, const char *key)
-{
-    jnode_t *v = jget(o, key);
-
-    return v && v->type == J_STR ? v->str : NULL;
-}
-
-static int jnum(const jnode_t *o, const char *key, double *out)
-{
-    jnode_t *v = jget(o, key);
-
-    if (v == NULL || v->type != J_NUM)
-        return 0;
-    *out = v->num;
-    return 1;
-}
-
-static int jbool(const jnode_t *o, const char *key, int def)
-{
-    jnode_t *v = jget(o, key);
-
-    return v && v->type == J_BOOL ? v->boolean : def;
-}
+#include "describe.h"
+#include "json.h"
 
 /* ---------------------------------------------------------------- options */
 
@@ -1690,6 +1372,114 @@ static const char *base_name(const char *path)
     return s ? s + 1 : path;
 }
 
+/* ---------------------------------------------------------------- describe */
+
+#ifndef PROBE_CONTRACTDIR
+#define PROBE_CONTRACTDIR "/usr/share/omx-contract/contract.d"
+#endif
+#ifndef PROBE_CONTRACT_MAJOR
+#define PROBE_CONTRACT_MAJOR "3"
+#endif
+#define DESCRIBE_CHILD "omx-clap-scan"
+
+static int read_file(const char *path, sb_t *b)
+{
+    char buf[65536];
+    ssize_t n;
+    int fd = open(path, O_RDONLY | O_CLOEXEC);
+
+    if (fd < 0)
+        return -1;
+    while ((n = read(fd, buf, sizeof(buf))) > 0)
+        sb_put(b, buf, (size_t)n);
+    close(fd);
+    if (b->s == NULL)
+        sb_put(b, "", 0);
+    return n < 0 ? -1 : 0;
+}
+
+/* plugin-hostd-probe describe: the field dump of a plugin, made by omx-clap-scan --fields in a child under the runner's
+ * limits or read from a recorded dump, through its format's table (docs/formats.md#the-descriptor-describe-writes) */
+static int describe_main(int argc, char **argv)
+{
+    options_t o = { .child = DESCRIBE_CHILD, .wall_s = 60, .cpu_s = 50, .files = 256, .data_bytes = 4LL << 30,
+                    .file_bytes = 64LL << 20, .grace_ms = 300 };
+    const char *table = NULL, *fields = NULL, *target, *format;
+    char path[PATH_MAX], why[512];
+    sb_t table_text = { 0 }, dump = { 0 }, out = { 0 };
+    int a;
+
+    for (a = 2; a + 1 < argc && argv[a][0] == '-'; a += 2)
+    {
+        if (!strcmp(argv[a], "--table")) table = argv[a + 1];
+        else if (!strcmp(argv[a], "--fields-from")) fields = argv[a + 1];
+        else if (!strcmp(argv[a], "--child")) o.child = argv[a + 1];
+        else if (!strcmp(argv[a], "--log")) o.log = argv[a + 1];
+        else if (!strcmp(argv[a], "--wall-s")) o.wall_s = atol(argv[a + 1]);
+        else
+            break;
+    }
+    if (a + 1 != argc || argv[a][0] == '-' || (format = describe_format(argv[a])) == NULL || o.wall_s <= 0)
+    {
+        fprintf(stderr, "usage: " RUNNER_NAME " describe [options] clap:<path>#<id> | lv2:<uri>\n"
+                        "  --table FILE         the format's table (default " PROBE_CONTRACTDIR "/" PROBE_CONTRACT_MAJOR
+                        "/plugin-hostd/formats/<format>.json)\n"
+                        "  --fields-from FILE   a recorded field dump, in place of running the child\n"
+                        "  --child PROGRAM      the program that writes the dump (default " DESCRIBE_CHILD ")\n"
+                        "  --log FILE           the child's stderr (default discarded)\n"
+                        "  --wall-s N           the child's wall clock (default 60)\n");
+        return 2;
+    }
+    target = argv[a];
+    if (table == NULL)
+    {
+        snprintf(path, sizeof(path), PROBE_CONTRACTDIR "/" PROBE_CONTRACT_MAJOR "/plugin-hostd/formats/%s.json", format);
+        table = path;
+    }
+    if (read_file(table, &table_text) != 0)
+    {
+        fprintf(stderr, RUNNER_NAME ": describe: cannot read the table %s: %s\n", table, strerror(errno));
+        return 2;
+    }
+    if (fields != NULL)
+    {
+        if (read_file(fields, &dump) != 0)
+        {
+            fprintf(stderr, RUNNER_NAME ": describe: cannot read the dump %s: %s\n", fields, strerror(errno));
+            return 2;
+        }
+    }
+    else
+    {
+        char *child_argv[] = { (char *)o.child, "--fields", (char *)target, NULL };
+        cpu_set_t none;
+        run_t r;
+
+        CPU_ZERO(&none);
+        memset(&r, 0, sizeof(r));
+        signal(SIGPIPE, SIG_IGN);
+        prctl(PR_SET_CHILD_SUBREAPER, 1);
+        run_child(&o, child_argv, &none, 0, &r, now_ms() + o.wall_s * 1000);
+        if (r.killed_by_deadline || r.cancelled || !WIFEXITED(r.status) || WEXITSTATUS(r.status) != 0)
+        {
+            fprintf(stderr, RUNNER_NAME ": describe: %s --fields %s made no dump (%s)\n", o.child, target,
+                    r.killed_by_deadline ? "the wall clock ran out" : r.cancelled ? "cancelled"
+                    : WIFSIGNALED(r.status) ? signal_name(WTERMSIG(r.status)) : "it exited non-zero");
+            return 3;
+        }
+        dump = r.out;
+        if (dump.s == NULL)
+            sb_put(&dump, "", 0);
+    }
+    if (describe_dump(table_text.s, dump.s, target, &out, why, sizeof(why)) != 0)
+    {
+        fprintf(stderr, RUNNER_NAME ": describe: %s: %s\n", target, why);
+        return 2;
+    }
+    fputs(out.s, stdout);
+    return fflush(stdout) == 0 ? 0 : 2;
+}
+
 int main(int argc, char **argv)
 {
     options_t o = { .child = "clap-qualify", .rates = floor_rates(), .quantum = 512, .reason = "on-request",
@@ -1713,10 +1503,13 @@ int main(int argc, char **argv)
     int child_set = 0;
     int complete = 1, fd;
 
+    if (argc >= 2 && !strcmp(argv[1], "describe"))
+        return describe_main(argc, argv);
     if (argc < 2 || strcmp(argv[1], "run"))
     {
         fprintf(stderr, "usage: " RUNNER_NAME " run [options] <plugin.clap> [<clap id>]\n"
                         "       " RUNNER_NAME " run [options] lv2:<uri>\n"
+                        "       " RUNNER_NAME " describe [options] clap:<path>#<id> | lv2:<uri>\n"
                         "  --child PROGRAM      the program that loads the plugin (default clap-qualify; " PROBE_LV2_CHILD " for lv2:)\n"
                         "  --rates R,R,...      sample rates (default %s)\n"
                         "  --quantum N          block size in frames (default 512)     --blocks N   blocks per rate\n"

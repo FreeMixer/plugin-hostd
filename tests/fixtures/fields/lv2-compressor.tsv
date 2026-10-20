@@ -1,0 +1,115 @@
+# omx-clap-scan --fields 1
+plugin	rdfs:seeAlso	compressor.lv2/compressor.ttl
+plugin	doap:name	Example Compressor
+plugin	doap:maintainer	example
+plugin	rdfs:comment	A compressor with a side-chain.
+plugin	doap:license	http://opensource.org/licenses/isc
+plugin	rdf:type	lv2:Plugin
+plugin	rdf:type	lv2:CompressorPlugin
+plugin	lv2:requiredFeature	urid:map
+plugin	lv2:optionalFeature	lv2:hardRTCapable
+plugin	lv2:minorVersion	3
+plugin	lv2:microVersion	1
+port:0	lv2:symbol	in_l
+port:0	lv2:name	Input L
+port:0	rdf:type	lv2:AudioPort
+port:0	rdf:type	lv2:InputPort
+port:0	pg:group	Input
+port:1	lv2:symbol	in_r
+port:1	lv2:name	Input R
+port:1	rdf:type	lv2:AudioPort
+port:1	rdf:type	lv2:InputPort
+port:1	pg:group	Input
+port:2	lv2:symbol	sc
+port:2	lv2:name	Side-chain
+port:2	rdf:type	lv2:AudioPort
+port:2	rdf:type	lv2:InputPort
+port:2	lv2:portProperty	lv2:isSideChain
+port:3	lv2:symbol	out_l
+port:3	lv2:name	Output L
+port:3	rdf:type	lv2:AudioPort
+port:3	rdf:type	lv2:OutputPort
+port:3	pg:group	Output
+port:4	lv2:symbol	out_r
+port:4	lv2:name	Output R
+port:4	rdf:type	lv2:AudioPort
+port:4	rdf:type	lv2:OutputPort
+port:4	pg:group	Output
+port:5	lv2:symbol	threshold
+port:5	lv2:name	Threshold
+port:5	rdf:type	lv2:ControlPort
+port:5	rdf:type	lv2:InputPort
+port:5	lv2:minimum	-60
+port:5	lv2:maximum	0
+port:5	lv2:default	-20
+port:5	units:unit	units:db
+port:5	lv2:designation	param:threshold
+port:5	pg:group	Detector
+port:6	lv2:symbol	ratio
+port:6	lv2:name	Ratio
+port:6	rdf:type	lv2:ControlPort
+port:6	rdf:type	lv2:InputPort
+port:6	lv2:minimum	1
+port:6	lv2:maximum	20
+port:6	lv2:default	4
+port:6	lv2:portProperty	pprops:logarithmic
+port:6	lv2:designation	param:ratio
+port:6	pg:group	Detector
+port:7	lv2:symbol	release_beats
+port:7	lv2:name	Release (beats)
+port:7	rdf:type	lv2:ControlPort
+port:7	rdf:type	lv2:InputPort
+port:7	lv2:minimum	0.25
+port:7	lv2:maximum	4
+port:7	lv2:default	1
+port:7	units:unit	units:beat
+port:8	lv2:symbol	knee_db
+port:8	lv2:name	Knee
+port:8	rdf:type	lv2:ControlPort
+port:8	rdf:type	lv2:InputPort
+port:8	lv2:minimum	0
+port:8	lv2:maximum	12
+port:8	lv2:default	6
+port:8	units:unit	urn:openmixer:unit#dBFS
+port:9	lv2:symbol	mode
+port:9	lv2:name	Mode
+port:9	rdf:type	lv2:ControlPort
+port:9	rdf:type	lv2:InputPort
+port:9	lv2:minimum	0
+port:9	lv2:maximum	2
+port:9	lv2:default	1
+port:9	lv2:portProperty	lv2:enumeration
+port:9	lv2:portProperty	lv2:integer
+port:9	lv2:scalePoint	0 Peak
+port:9	lv2:scalePoint	1 RMS
+port:9	lv2:scalePoint	2 Hybrid
+port:10	lv2:symbol	enable
+port:10	lv2:name	Enable
+port:10	rdf:type	lv2:ControlPort
+port:10	rdf:type	lv2:InputPort
+port:10	lv2:minimum	0
+port:10	lv2:maximum	1
+port:10	lv2:default	1
+port:10	lv2:portProperty	lv2:toggled
+port:10	lv2:designation	lv2:enabled
+port:11	lv2:symbol	gr
+port:11	lv2:name	Gain reduction
+port:11	rdf:type	lv2:ControlPort
+port:11	rdf:type	lv2:OutputPort
+port:11	lv2:minimum	0
+port:11	lv2:maximum	40
+port:11	units:unit	units:db
+port:11	lv2:portProperty	lv2:connectionOptional
+port:12	lv2:symbol	latency
+port:12	lv2:name	Latency
+port:12	rdf:type	lv2:ControlPort
+port:12	rdf:type	lv2:OutputPort
+port:12	lv2:designation	lv2:latency
+port:12	lv2:portProperty	lv2:reportsLatency
+port:13	lv2:symbol	control
+port:13	lv2:name	Control
+port:13	rdf:type	atom:AtomPort
+port:13	rdf:type	lv2:InputPort
+port:13	atom:bufferType	atom:Sequence
+port:13	atom:supports	time:Position
+port:13	atom:supports	midi:MidiEvent

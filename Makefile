@@ -10,6 +10,7 @@ PIN_TEST = tests/pin-test
 RELAY_TEST = tests/relay-test
 GESTURE_ALLOC_TEST = tests/gesture-alloc-test
 LV2_ALLOC_TEST = tests/lv2-alloc-test
+TRANSFORMS_TEST = tests/transforms-test
 PROBE = plugin-hostd-probe
 
 PKG_CONFIG ?= pkg-config
@@ -65,8 +66,11 @@ $(PROG): $(OBJ) $(PROTOCOL_LIB)
 	$(CC) $(OBJ) $(PROTOCOL_LIBS) $(LDFLAGS) -pthread -o $@
 
 # the probe runner: it loads no plugin and links nothing of the daemon or of mod-host
-$(PROBE): src/probe.c include/plugin-hostd/protocol.h include/plugin-hostd/pin.h
-	$(CC) -Iinclude $(CONTRACT_CFLAGS) $(CFLAGS) -D_GNU_SOURCE -DPROBE_VERSION='"$(VERSION)"' -o $@ src/probe.c
+# describe reads the installed table of a format by default (docs/formats.md)
+PROBE_SRC = src/probe.c src/json.c src/describe.c src/transforms.c
+$(PROBE): $(PROBE_SRC) src/json.h src/describe.h src/transforms.h include/plugin-hostd/protocol.h include/plugin-hostd/pin.h
+	$(CC) -Iinclude -Isrc $(CONTRACT_CFLAGS) $(CFLAGS) -D_GNU_SOURCE -DPROBE_VERSION='"$(VERSION)"' \
+	  -DPROBE_CONTRACTDIR='"$(CONTRACTDIR)"' -DPROBE_CONTRACT_MAJOR='"$(CONTRACT_SCHEMA_MAJOR)"' -o $@ $(PROBE_SRC) -lm
 
 ifneq ($(PROTOCOL_LIB),)
 $(PROTOCOL_LIB):
@@ -112,6 +116,28 @@ install_protocol:
 	sed -e 's,@PREFIX@,$(PREFIX),g' -e 's,@VERSION@,$(VERSION),g' protocol/plugin-hostd.pc.in > $(DESTDIR)$(DATADIR)/pkgconfig/plugin-hostd.pc
 	chmod 644 $(DESTDIR)$(DATADIR)/pkgconfig/plugin-hostd.pc
 
+# the format tables this tree owns (data/formats/, docs/formats.md), installed as the package plugin-hostd into
+# omx-contract's contract directory, <contractdir>/<schema major>/plugin-hostd/formats/{clap,lv2}.json, with a
+# MANIFEST.json naming this version and the tree they came from; plugin-hostd-devel ships them. contractdir and the
+# install script are omx-contract-devel's; a checkout of omx-contract (OMX_CONTRACT_DIR) stands in for the script when
+# it is not installed.
+CONTRACT_SCHEMA_MAJOR = 3
+CONTRACTDIR = $(or $(shell $(PKG_CONFIG) --variable=contractdir omx-contract 2>/dev/null),$(DATADIR)/omx-contract/contract.d)
+INSTALL_CONTRACT_DIR = $(firstword $(wildcard $(shell $(PKG_CONFIG) --variable=datadir omx-contract 2>/dev/null)/install-contract-dir.sh) $(wildcard $(OMX_CONTRACT_DIR)/tools/install-contract-dir.sh))
+.PHONY: install-contract
+install-contract:
+	@test -n "$(INSTALL_CONTRACT_DIR)" || { echo "install-contract: no install-contract-dir.sh: install omx-contract-devel, or set OMX_CONTRACT_DIR to a checkout" >&2; exit 1; }
+	sh $(INSTALL_CONTRACT_DIR) $(PROG) $(VERSION) $(CONTRACT_SCHEMA_MAJOR) data $(DESTDIR)$(CONTRACTDIR) data
+
+# the tables cover their format (tests/format_coverage.py, docs/formats.md#the-coverage-test): every term of
+# omx-contract's installed TERM files and every row with a from, once per format, each field one row; then its sabotage
+# arms, each red naming its field. CONTRACT_SCHEMA_MAJOR=<n> reads the TERM files of another major
+.PHONY: test-format-coverage
+test-format-coverage:
+	python3 tests/format_coverage.py --contract-dir $(CONTRACTDIR) --major $(CONTRACT_SCHEMA_MAJOR) clap
+	python3 tests/format_coverage.py --contract-dir $(CONTRACTDIR) --major $(CONTRACT_SCHEMA_MAJOR) lv2
+	python3 tests/format_coverage.py --contract-dir $(CONTRACTDIR) --major $(CONTRACT_SCHEMA_MAJOR) --self-test
+
 # the fake worker, for a program that drives plugin-hostd: away from $(BINDIR), where nothing runs it by chance
 install_tests: $(FAKE)
 	install -d $(DESTDIR)$(LIBEXECDIR)/plugin-hostd/tests
@@ -130,11 +156,11 @@ private-refs:
 
 # clean rule
 clean:
-	@rm -f src/*.o $(PROG) $(PROBE) tests/probe-child tests/lv2-probe-child tests/rt_interpose.so $(FAKE) $(PIN_TEST) $(RELAY_TEST) tests/relay-test-relay.o $(FORMAT_TEST) $(GESTURE_ALLOC_TEST) $(LV2_ALLOC_TEST) tests/lv2-alloc-lv2.o $(GEN) tests/stress.clap tests/jack_levels tests/host_scenarios $(LV2_FIXTURE)
+	@rm -f src/*.o $(PROG) $(PROBE) tests/probe-child tests/lv2-probe-child tests/rt_interpose.so $(FAKE) $(PIN_TEST) $(RELAY_TEST) tests/relay-test-relay.o $(FORMAT_TEST) $(GESTURE_ALLOC_TEST) $(LV2_ALLOC_TEST) tests/lv2-alloc-lv2.o $(TRANSFORMS_TEST) $(GEN) tests/stress.clap tests/jack_levels tests/host_scenarios $(LV2_FIXTURE)
 
 # the daemon against workers that are not plugin hosts at all (tests/fake-host speaks the same protocol and can be
 # made to die on cue): placement, forwarding, ledger, replay, attribution, the storm bound; no jack, no plugin
-test: test-pin test-relay test-alloc test-format test-daemon check-generated check-schema test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-mod-host-json test-socket
+test: test-pin test-transforms test-format-coverage test-describe test-relay test-alloc test-format test-daemon check-generated check-schema test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-mod-host-json test-socket
 	MOD_HOST_DIR=$(MOD_HOST_DIR) python3 tests/verbs_contract.py
 
 # the same without the verb table, which is read from a mod-host checkout's README
@@ -168,6 +194,14 @@ test-pin: $(PIN_TEST)
 
 $(PIN_TEST): tests/pin_test.c include/plugin-hostd/pin.h
 	$(CC) -Iinclude $(CFLAGS) -Werror -o $@ tests/pin_test.c
+
+# the transforms the format tables name (src/transforms.c, docs/formats.md): every one and its inverse over its vectors,
+# and a lookup that is not one to one refused
+test-transforms: $(TRANSFORMS_TEST)
+	./$(TRANSFORMS_TEST)
+
+$(TRANSFORMS_TEST): tests/transforms_test.c src/transforms.c src/transforms.h
+	$(CC) -Isrc $(CFLAGS) -Werror -o $@ tests/transforms_test.c src/transforms.c -lm
 
 # src/relay.c when memory runs out: built here with its realloc calls renamed, so the test picks the one that fails
 test-relay: $(RELAY_TEST)
@@ -311,6 +345,11 @@ tests/rt_interpose.so: tests/rt_interpose_stub.c
 
 tests/probe-child: tests/probe_child.c
 	$(CC) $(CLAP_CFLAGS) $(CFLAGS) -Wall -Wextra -Werror -o $@ $< -ldl
+
+# describe over the recorded field dumps (tests/fixtures/fields/, docs/formats.md#the-field-dump): each gives its recorded
+# descriptor, which validates; each refusal names what it refuses; a stand-in child gives the same descriptor
+test-describe: $(PROBE)
+	PROBE=./$(PROBE) python3 tests/describe_test.py
 
 # what is omx-contract's is read from it: the runner's default rates, the protocol's parameter scales and the probe
 # schema's latency methods follow a scratch copy of its headers with other values

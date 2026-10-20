@@ -1,0 +1,2275 @@
+{
+  "$schema": "../../schema/omx-contract.schema.json",
+  "requires": {
+    "omx-contract-schema": ">= 3.0.0"
+  },
+  "PLUGIN_HOSTD_LV2_MAP": {
+    "kind": "formatMap",
+    "since": "0.7.0",
+    "doc": "How an LV2 plugin's field dump (omx-clap-scan --fields) becomes a scanned descriptor, and, read backwards, what a generator writes an LV2 .ttl from: every LV2 term and the RDF and DOAP predicates a scan reads, each mapped to a descriptor word, carried in the extension bag or dropped by its ruling (docs/formats.md).",
+    "format": "lv2",
+    "rows": {
+      "atom:Atom": {
+        "term": "LV2_ATOM_TERMS#Atom",
+        "extension": true
+      },
+      "atom:AtomPort": {
+        "term": "LV2_ATOM_TERMS#AtomPort",
+        "extension": true
+      },
+      "atom:Blank": {
+        "term": "LV2_ATOM_TERMS#Blank",
+        "extension": true
+      },
+      "atom:Bool": {
+        "term": "LV2_ATOM_TERMS#Bool",
+        "extension": true
+      },
+      "atom:Chunk": {
+        "term": "LV2_ATOM_TERMS#Chunk",
+        "extension": true
+      },
+      "atom:Double": {
+        "term": "LV2_ATOM_TERMS#Double",
+        "extension": true
+      },
+      "atom:Event": {
+        "term": "LV2_ATOM_TERMS#Event",
+        "extension": true
+      },
+      "atom:Float": {
+        "term": "LV2_ATOM_TERMS#Float",
+        "extension": true
+      },
+      "atom:Int": {
+        "term": "LV2_ATOM_TERMS#Int",
+        "extension": true
+      },
+      "atom:Literal": {
+        "term": "LV2_ATOM_TERMS#Literal",
+        "extension": true
+      },
+      "atom:Long": {
+        "term": "LV2_ATOM_TERMS#Long",
+        "extension": true
+      },
+      "atom:Number": {
+        "term": "LV2_ATOM_TERMS#Number",
+        "extension": true
+      },
+      "atom:Object": {
+        "term": "LV2_ATOM_TERMS#Object",
+        "extension": true
+      },
+      "atom:Path": {
+        "term": "LV2_ATOM_TERMS#Path",
+        "extension": true
+      },
+      "atom:Property": {
+        "term": "LV2_ATOM_TERMS#Property",
+        "extension": true
+      },
+      "atom:Resource": {
+        "term": "LV2_ATOM_TERMS#Resource",
+        "dropped": {
+          "ruling": "LV2_ATOM_TERMS#Resource out-of-scope: LV2 deprecates the term (owl:deprecated)."
+        }
+      },
+      "atom:Sequence": {
+        "term": "LV2_ATOM_TERMS#Sequence",
+        "extension": true
+      },
+      "atom:Sound": {
+        "term": "LV2_ATOM_TERMS#Sound",
+        "extension": true
+      },
+      "atom:String": {
+        "term": "LV2_ATOM_TERMS#String",
+        "extension": true
+      },
+      "atom:Tuple": {
+        "term": "LV2_ATOM_TERMS#Tuple",
+        "extension": true
+      },
+      "atom:URI": {
+        "term": "LV2_ATOM_TERMS#URI",
+        "extension": true
+      },
+      "atom:URID": {
+        "term": "LV2_ATOM_TERMS#URID",
+        "extension": true
+      },
+      "atom:Vector": {
+        "term": "LV2_ATOM_TERMS#Vector",
+        "extension": true
+      },
+      "atom:atom.lv2": {
+        "term": "LV2_ATOM_TERMS#atom.lv2",
+        "extension": true
+      },
+      "atom:atomTransfer": {
+        "term": "LV2_ATOM_TERMS#atomTransfer",
+        "extension": true
+      },
+      "atom:beatTime": {
+        "term": "LV2_ATOM_TERMS#beatTime",
+        "extension": true
+      },
+      "atom:bufferType": {
+        "term": "LV2_ATOM_TERMS#bufferType",
+        "extension": true
+      },
+      "atom:cType": {
+        "term": "LV2_ATOM_TERMS#cType",
+        "extension": true
+      },
+      "atom:childType": {
+        "term": "LV2_ATOM_TERMS#childType",
+        "extension": true
+      },
+      "atom:eventTransfer": {
+        "term": "LV2_ATOM_TERMS#eventTransfer",
+        "extension": true
+      },
+      "atom:frameTime": {
+        "term": "LV2_ATOM_TERMS#frameTime",
+        "extension": true
+      },
+      "atom:supports": {
+        "term": "LV2_ATOM_TERMS#supports",
+        "extension": true
+      },
+      "bufsz:boundedBlockLength": {
+        "term": "LV2_BUF_SIZE_TERMS#boundedBlockLength",
+        "extension": true
+      },
+      "bufsz:buf-size.lv2": {
+        "term": "LV2_BUF_SIZE_TERMS#buf-size.lv2",
+        "extension": true
+      },
+      "bufsz:coarseBlockLength": {
+        "term": "LV2_BUF_SIZE_TERMS#coarseBlockLength",
+        "extension": true
+      },
+      "bufsz:fixedBlockLength": {
+        "term": "LV2_BUF_SIZE_TERMS#fixedBlockLength",
+        "extension": true
+      },
+      "bufsz:maxBlockLength": {
+        "term": "LV2_BUF_SIZE_TERMS#maxBlockLength",
+        "extension": true
+      },
+      "bufsz:minBlockLength": {
+        "term": "LV2_BUF_SIZE_TERMS#minBlockLength",
+        "extension": true
+      },
+      "bufsz:nominalBlockLength": {
+        "term": "LV2_BUF_SIZE_TERMS#nominalBlockLength",
+        "extension": true
+      },
+      "bufsz:powerOf2BlockLength": {
+        "term": "LV2_BUF_SIZE_TERMS#powerOf2BlockLength",
+        "extension": true
+      },
+      "bufsz:sequenceSize": {
+        "term": "LV2_BUF_SIZE_TERMS#sequenceSize",
+        "extension": true
+      },
+      "da:data-access.lv2": {
+        "term": "LV2_DATA_ACCESS_TERMS#data-access.lv2",
+        "extension": true
+      },
+      "dman:DynManifest": {
+        "term": "LV2_DYNMANIFEST_TERMS#DynManifest",
+        "extension": true
+      },
+      "dman:dynmanifest.lv2": {
+        "term": "LV2_DYNMANIFEST_TERMS#dynmanifest.lv2",
+        "extension": true
+      },
+      "doap:license": {
+        "from": "http://usefulinc.com/ns/doap#license",
+        "extension": true
+      },
+      "doap:maintainer": {
+        "from": "http://usefulinc.com/ns/doap#maintainer",
+        "word": {
+          "word": "plugin.vendor",
+          "transform": "identity"
+        }
+      },
+      "doap:name": {
+        "from": "http://usefulinc.com/ns/doap#name",
+        "word": {
+          "word": "plugin.name",
+          "transform": "identity"
+        }
+      },
+      "ev:Event": {
+        "term": "LV2_EVENT_TERMS#Event",
+        "dropped": {
+          "ruling": "LV2_EVENT_TERMS#Event out-of-scope: LV2 deprecates the event extension (owl:deprecated on http://lv2plug.in/ns/ext/event); a consumer that reads it does so to refuse it."
+        }
+      },
+      "ev:EventPort": {
+        "term": "LV2_EVENT_TERMS#EventPort",
+        "dropped": {
+          "ruling": "LV2_EVENT_TERMS#EventPort out-of-scope: LV2 deprecates the event extension (owl:deprecated on http://lv2plug.in/ns/ext/event); a consumer that reads it does so to refuse it."
+        }
+      },
+      "ev:FrameStamp": {
+        "term": "LV2_EVENT_TERMS#FrameStamp",
+        "dropped": {
+          "ruling": "LV2_EVENT_TERMS#FrameStamp out-of-scope: LV2 deprecates the event extension (owl:deprecated on http://lv2plug.in/ns/ext/event); a consumer that reads it does so to refuse it."
+        }
+      },
+      "ev:TimeStamp": {
+        "term": "LV2_EVENT_TERMS#TimeStamp",
+        "dropped": {
+          "ruling": "LV2_EVENT_TERMS#TimeStamp out-of-scope: LV2 deprecates the event extension (owl:deprecated on http://lv2plug.in/ns/ext/event); a consumer that reads it does so to refuse it."
+        }
+      },
+      "ev:event.lv2": {
+        "term": "LV2_EVENT_TERMS#event.lv2",
+        "dropped": {
+          "ruling": "LV2_EVENT_TERMS#event.lv2 out-of-scope: LV2 deprecates the event extension (owl:deprecated on http://lv2plug.in/ns/ext/event); a consumer that reads it does so to refuse it."
+        }
+      },
+      "ev:generatesTimeStamp": {
+        "term": "LV2_EVENT_TERMS#generatesTimeStamp",
+        "dropped": {
+          "ruling": "LV2_EVENT_TERMS#generatesTimeStamp out-of-scope: LV2 deprecates the event extension (owl:deprecated on http://lv2plug.in/ns/ext/event); a consumer that reads it does so to refuse it."
+        }
+      },
+      "ev:generic": {
+        "term": "LV2_EVENT_TERMS#generic",
+        "dropped": {
+          "ruling": "LV2_EVENT_TERMS#generic out-of-scope: LV2 deprecates the event extension (owl:deprecated on http://lv2plug.in/ns/ext/event); a consumer that reads it does so to refuse it."
+        }
+      },
+      "ev:inheritsEvent": {
+        "term": "LV2_EVENT_TERMS#inheritsEvent",
+        "dropped": {
+          "ruling": "LV2_EVENT_TERMS#inheritsEvent out-of-scope: LV2 deprecates the event extension (owl:deprecated on http://lv2plug.in/ns/ext/event); a consumer that reads it does so to refuse it."
+        }
+      },
+      "ev:inheritsTimeStamp": {
+        "term": "LV2_EVENT_TERMS#inheritsTimeStamp",
+        "dropped": {
+          "ruling": "LV2_EVENT_TERMS#inheritsTimeStamp out-of-scope: LV2 deprecates the event extension (owl:deprecated on http://lv2plug.in/ns/ext/event); a consumer that reads it does so to refuse it."
+        }
+      },
+      "ev:supportsEvent": {
+        "term": "LV2_EVENT_TERMS#supportsEvent",
+        "dropped": {
+          "ruling": "LV2_EVENT_TERMS#supportsEvent out-of-scope: LV2 deprecates the event extension (owl:deprecated on http://lv2plug.in/ns/ext/event); a consumer that reads it does so to refuse it."
+        }
+      },
+      "ev:supportsTimeStamp": {
+        "term": "LV2_EVENT_TERMS#supportsTimeStamp",
+        "dropped": {
+          "ruling": "LV2_EVENT_TERMS#supportsTimeStamp out-of-scope: LV2 deprecates the event extension (owl:deprecated on http://lv2plug.in/ns/ext/event); a consumer that reads it does so to refuse it."
+        }
+      },
+      "ia:instance-access.lv2": {
+        "term": "LV2_INSTANCE_ACCESS_TERMS#instance-access.lv2",
+        "extension": true
+      },
+      "log:Entry": {
+        "term": "LV2_LOG_TERMS#Entry",
+        "extension": true
+      },
+      "log:Error": {
+        "term": "LV2_LOG_TERMS#Error",
+        "extension": true
+      },
+      "log:Note": {
+        "term": "LV2_LOG_TERMS#Note",
+        "extension": true
+      },
+      "log:Trace": {
+        "term": "LV2_LOG_TERMS#Trace",
+        "extension": true
+      },
+      "log:Warning": {
+        "term": "LV2_LOG_TERMS#Warning",
+        "extension": true
+      },
+      "log:log": {
+        "term": "LV2_LOG_TERMS#log",
+        "extension": true
+      },
+      "log:log.lv2": {
+        "term": "LV2_LOG_TERMS#log.lv2",
+        "extension": true
+      },
+      "lv2:AllpassPlugin": {
+        "term": "LV2_CORE_TERMS#AllpassPlugin",
+        "extension": true
+      },
+      "lv2:AmplifierPlugin": {
+        "term": "LV2_CORE_TERMS#AmplifierPlugin",
+        "extension": true
+      },
+      "lv2:AnalyserPlugin": {
+        "term": "LV2_CORE_TERMS#AnalyserPlugin",
+        "word": {
+          "word": "plugin.features",
+          "transform": "lookup",
+          "values": {
+            "lv2:AnalyserPlugin": "analyzer"
+          }
+        }
+      },
+      "lv2:AudioPort": {
+        "term": "LV2_CORE_TERMS#AudioPort",
+        "word": {
+          "word": "ports[].kind",
+          "transform": "lookup",
+          "values": {
+            "lv2:AudioPort": "audio"
+          }
+        }
+      },
+      "lv2:BandpassPlugin": {
+        "term": "LV2_CORE_TERMS#BandpassPlugin",
+        "extension": true
+      },
+      "lv2:CVPort": {
+        "term": "LV2_CORE_TERMS#CVPort",
+        "word": {
+          "word": "ports[].kind",
+          "transform": "lookup",
+          "values": {
+            "lv2:CVPort": "cv"
+          }
+        }
+      },
+      "lv2:Channel": {
+        "term": "LV2_CORE_TERMS#Channel",
+        "extension": true
+      },
+      "lv2:ChorusPlugin": {
+        "term": "LV2_CORE_TERMS#ChorusPlugin",
+        "extension": true
+      },
+      "lv2:CombPlugin": {
+        "term": "LV2_CORE_TERMS#CombPlugin",
+        "extension": true
+      },
+      "lv2:CompressorPlugin": {
+        "term": "LV2_CORE_TERMS#CompressorPlugin",
+        "extension": true
+      },
+      "lv2:ConstantPlugin": {
+        "term": "LV2_CORE_TERMS#ConstantPlugin",
+        "extension": true
+      },
+      "lv2:ControlPort": {
+        "term": "LV2_CORE_TERMS#ControlPort",
+        "word": {
+          "word": "controls[].kind",
+          "transform": "lookup",
+          "values": {
+            "lv2:ControlPort": "travel"
+          }
+        }
+      },
+      "lv2:ConverterPlugin": {
+        "term": "LV2_CORE_TERMS#ConverterPlugin",
+        "extension": true
+      },
+      "lv2:DelayPlugin": {
+        "term": "LV2_CORE_TERMS#DelayPlugin",
+        "extension": true
+      },
+      "lv2:Designation": {
+        "term": "LV2_CORE_TERMS#Designation",
+        "extension": true
+      },
+      "lv2:DistortionPlugin": {
+        "term": "LV2_CORE_TERMS#DistortionPlugin",
+        "extension": true
+      },
+      "lv2:DynamicsPlugin": {
+        "term": "LV2_CORE_TERMS#DynamicsPlugin",
+        "extension": true
+      },
+      "lv2:EQPlugin": {
+        "term": "LV2_CORE_TERMS#EQPlugin",
+        "extension": true
+      },
+      "lv2:EnvelopePlugin": {
+        "term": "LV2_CORE_TERMS#EnvelopePlugin",
+        "extension": true
+      },
+      "lv2:ExpanderPlugin": {
+        "term": "LV2_CORE_TERMS#ExpanderPlugin",
+        "extension": true
+      },
+      "lv2:ExtensionData": {
+        "term": "LV2_CORE_TERMS#ExtensionData",
+        "extension": true
+      },
+      "lv2:Feature": {
+        "term": "LV2_CORE_TERMS#Feature",
+        "extension": true
+      },
+      "lv2:FilterPlugin": {
+        "term": "LV2_CORE_TERMS#FilterPlugin",
+        "extension": true
+      },
+      "lv2:FlangerPlugin": {
+        "term": "LV2_CORE_TERMS#FlangerPlugin",
+        "extension": true
+      },
+      "lv2:FunctionPlugin": {
+        "term": "LV2_CORE_TERMS#FunctionPlugin",
+        "extension": true
+      },
+      "lv2:GatePlugin": {
+        "term": "LV2_CORE_TERMS#GatePlugin",
+        "extension": true
+      },
+      "lv2:GeneratorPlugin": {
+        "term": "LV2_CORE_TERMS#GeneratorPlugin",
+        "extension": true
+      },
+      "lv2:HighpassPlugin": {
+        "term": "LV2_CORE_TERMS#HighpassPlugin",
+        "extension": true
+      },
+      "lv2:InputPort": {
+        "term": "LV2_CORE_TERMS#InputPort",
+        "word": {
+          "word": "ports[].direction",
+          "transform": "lookup",
+          "values": {
+            "lv2:InputPort": "in"
+          }
+        }
+      },
+      "lv2:InstrumentPlugin": {
+        "term": "LV2_CORE_TERMS#InstrumentPlugin",
+        "word": {
+          "word": "plugin.features",
+          "transform": "lookup",
+          "values": {
+            "lv2:InstrumentPlugin": "instrument"
+          }
+        }
+      },
+      "lv2:LimiterPlugin": {
+        "term": "LV2_CORE_TERMS#LimiterPlugin",
+        "extension": true
+      },
+      "lv2:LowpassPlugin": {
+        "term": "LV2_CORE_TERMS#LowpassPlugin",
+        "extension": true
+      },
+      "lv2:MIDIPlugin": {
+        "term": "LV2_CORE_TERMS#MIDIPlugin",
+        "extension": true
+      },
+      "lv2:Markdown": {
+        "term": "LV2_CORE_TERMS#Markdown",
+        "extension": true
+      },
+      "lv2:MixerPlugin": {
+        "term": "LV2_CORE_TERMS#MixerPlugin",
+        "extension": true
+      },
+      "lv2:ModulatorPlugin": {
+        "term": "LV2_CORE_TERMS#ModulatorPlugin",
+        "extension": true
+      },
+      "lv2:MultiEQPlugin": {
+        "term": "LV2_CORE_TERMS#MultiEQPlugin",
+        "extension": true
+      },
+      "lv2:OscillatorPlugin": {
+        "term": "LV2_CORE_TERMS#OscillatorPlugin",
+        "extension": true
+      },
+      "lv2:OutputPort": {
+        "term": "LV2_CORE_TERMS#OutputPort",
+        "word": {
+          "word": "ports[].direction",
+          "transform": "lookup",
+          "values": {
+            "lv2:OutputPort": "out"
+          }
+        }
+      },
+      "lv2:ParaEQPlugin": {
+        "term": "LV2_CORE_TERMS#ParaEQPlugin",
+        "extension": true
+      },
+      "lv2:Parameter": {
+        "term": "LV2_CORE_TERMS#Parameter",
+        "extension": true
+      },
+      "lv2:PhaserPlugin": {
+        "term": "LV2_CORE_TERMS#PhaserPlugin",
+        "extension": true
+      },
+      "lv2:PitchPlugin": {
+        "term": "LV2_CORE_TERMS#PitchPlugin",
+        "extension": true
+      },
+      "lv2:Plugin": {
+        "term": "LV2_CORE_TERMS#Plugin",
+        "extension": true
+      },
+      "lv2:PluginBase": {
+        "term": "LV2_CORE_TERMS#PluginBase",
+        "extension": true
+      },
+      "lv2:Point": {
+        "term": "LV2_CORE_TERMS#Point",
+        "extension": true
+      },
+      "lv2:Port": {
+        "term": "LV2_CORE_TERMS#Port",
+        "extension": true
+      },
+      "lv2:PortBase": {
+        "term": "LV2_CORE_TERMS#PortBase",
+        "extension": true
+      },
+      "lv2:PortProperty": {
+        "term": "LV2_CORE_TERMS#PortProperty",
+        "extension": true
+      },
+      "lv2:ReverbPlugin": {
+        "term": "LV2_CORE_TERMS#ReverbPlugin",
+        "extension": true
+      },
+      "lv2:ScalePoint": {
+        "term": "LV2_CORE_TERMS#ScalePoint",
+        "extension": true
+      },
+      "lv2:SimulatorPlugin": {
+        "term": "LV2_CORE_TERMS#SimulatorPlugin",
+        "extension": true
+      },
+      "lv2:SpatialPlugin": {
+        "term": "LV2_CORE_TERMS#SpatialPlugin",
+        "extension": true
+      },
+      "lv2:Specification": {
+        "term": "LV2_CORE_TERMS#Specification",
+        "extension": true
+      },
+      "lv2:SpectralPlugin": {
+        "term": "LV2_CORE_TERMS#SpectralPlugin",
+        "extension": true
+      },
+      "lv2:Symbol": {
+        "term": "LV2_CORE_TERMS#Symbol",
+        "extension": true
+      },
+      "lv2:UtilityPlugin": {
+        "term": "LV2_CORE_TERMS#UtilityPlugin",
+        "extension": true
+      },
+      "lv2:WaveshaperPlugin": {
+        "term": "LV2_CORE_TERMS#WaveshaperPlugin",
+        "extension": true
+      },
+      "lv2:appliesTo": {
+        "term": "LV2_CORE_TERMS#appliesTo",
+        "extension": true
+      },
+      "lv2:binary": {
+        "term": "LV2_CORE_TERMS#binary",
+        "extension": true
+      },
+      "lv2:connectionOptional": {
+        "term": "LV2_CORE_TERMS#connectionOptional",
+        "extension": true
+      },
+      "lv2:control": {
+        "term": "LV2_CORE_TERMS#control",
+        "extension": true
+      },
+      "lv2:core.lv2": {
+        "term": "LV2_CORE_TERMS#core.lv2",
+        "extension": true
+      },
+      "lv2:default": {
+        "term": "LV2_CORE_TERMS#default",
+        "word": {
+          "word": "controls[].travel.default",
+          "transform": "identity"
+        }
+      },
+      "lv2:designation": {
+        "term": "LV2_CORE_TERMS#designation",
+        "extension": true
+      },
+      "lv2:documentation": {
+        "term": "LV2_CORE_TERMS#documentation",
+        "extension": true
+      },
+      "lv2:enabled": {
+        "term": "LV2_CORE_TERMS#enabled",
+        "word": {
+          "word": "controls[].meaning",
+          "transform": "lookup",
+          "values": {
+            "lv2:enabled": "enabled"
+          }
+        }
+      },
+      "lv2:enumeration": {
+        "term": "LV2_CORE_TERMS#enumeration",
+        "word": {
+          "word": "controls[].kind",
+          "transform": "lookup",
+          "values": {
+            "lv2:enumeration": "choice"
+          }
+        }
+      },
+      "lv2:extensionData": {
+        "term": "LV2_CORE_TERMS#extensionData",
+        "extension": true
+      },
+      "lv2:freeWheeling": {
+        "term": "LV2_CORE_TERMS#freeWheeling",
+        "extension": true
+      },
+      "lv2:hardRTCapable": {
+        "term": "LV2_CORE_TERMS#hardRTCapable",
+        "extension": true
+      },
+      "lv2:inPlaceBroken": {
+        "term": "LV2_CORE_TERMS#inPlaceBroken",
+        "extension": true
+      },
+      "lv2:index": {
+        "term": "LV2_CORE_TERMS#index",
+        "extension": true
+      },
+      "lv2:integer": {
+        "term": "LV2_CORE_TERMS#integer",
+        "word": {
+          "word": "controls[].travel.scale",
+          "transform": "lookup",
+          "values": {
+            "lv2:integer": "stepped"
+          }
+        }
+      },
+      "lv2:isLive": {
+        "term": "LV2_CORE_TERMS#isLive",
+        "extension": true
+      },
+      "lv2:isSideChain": {
+        "term": "LV2_CORE_TERMS#isSideChain",
+        "word": {
+          "word": "ports[].role",
+          "transform": "lookup",
+          "values": {
+            "lv2:isSideChain": "sidechain"
+          }
+        }
+      },
+      "lv2:latency": {
+        "term": "LV2_CORE_TERMS#latency",
+        "word": {
+          "word": "latency.reports",
+          "transform": "lookup",
+          "values": {
+            "lv2:latency": true
+          }
+        }
+      },
+      "lv2:maximum": {
+        "term": "LV2_CORE_TERMS#maximum",
+        "word": {
+          "word": "controls[].travel.max",
+          "transform": "identity"
+        }
+      },
+      "lv2:microVersion": {
+        "term": "LV2_CORE_TERMS#microVersion",
+        "extension": true
+      },
+      "lv2:minimum": {
+        "term": "LV2_CORE_TERMS#minimum",
+        "word": {
+          "word": "controls[].travel.min",
+          "transform": "identity"
+        }
+      },
+      "lv2:minorVersion": {
+        "term": "LV2_CORE_TERMS#minorVersion",
+        "extension": true
+      },
+      "lv2:name": {
+        "term": "LV2_CORE_TERMS#name",
+        "word": {
+          "word": "controls[].name",
+          "transform": "identity"
+        }
+      },
+      "lv2:optionalFeature": {
+        "term": "LV2_CORE_TERMS#optionalFeature",
+        "word": {
+          "word": "needs.extensions.optional",
+          "transform": "identity"
+        }
+      },
+      "lv2:port": {
+        "term": "LV2_CORE_TERMS#port",
+        "extension": true
+      },
+      "lv2:portProperty": {
+        "term": "LV2_CORE_TERMS#portProperty",
+        "extension": true
+      },
+      "lv2:project": {
+        "term": "LV2_CORE_TERMS#project",
+        "extension": true
+      },
+      "lv2:prototype": {
+        "term": "LV2_CORE_TERMS#prototype",
+        "extension": true
+      },
+      "lv2:reportsLatency": {
+        "term": "LV2_CORE_TERMS#reportsLatency",
+        "word": {
+          "word": "latency.reports",
+          "transform": "lookup",
+          "values": {
+            "lv2:reportsLatency": true
+          }
+        }
+      },
+      "lv2:requiredFeature": {
+        "term": "LV2_CORE_TERMS#requiredFeature",
+        "word": {
+          "word": "needs.extensions.required",
+          "transform": "identity"
+        }
+      },
+      "lv2:sampleRate": {
+        "term": "LV2_CORE_TERMS#sampleRate",
+        "extension": true
+      },
+      "lv2:scalePoint": {
+        "term": "LV2_CORE_TERMS#scalePoint",
+        "word": {
+          "word": "controls[].labels",
+          "transform": "scale-points"
+        }
+      },
+      "lv2:shortName": {
+        "term": "LV2_CORE_TERMS#shortName",
+        "extension": true
+      },
+      "lv2:symbol": {
+        "term": "LV2_CORE_TERMS#symbol",
+        "word": {
+          "word": "controls[].id",
+          "transform": "identity"
+        }
+      },
+      "lv2:toggled": {
+        "term": "LV2_CORE_TERMS#toggled",
+        "word": {
+          "word": "controls[].kind",
+          "transform": "lookup",
+          "values": {
+            "lv2:toggled": "toggle"
+          }
+        }
+      },
+      "midi:ActiveSense": {
+        "term": "LV2_MIDI_TERMS#ActiveSense",
+        "extension": true
+      },
+      "midi:Aftertouch": {
+        "term": "LV2_MIDI_TERMS#Aftertouch",
+        "extension": true
+      },
+      "midi:Bender": {
+        "term": "LV2_MIDI_TERMS#Bender",
+        "extension": true
+      },
+      "midi:ChannelPressure": {
+        "term": "LV2_MIDI_TERMS#ChannelPressure",
+        "extension": true
+      },
+      "midi:Chunk": {
+        "term": "LV2_MIDI_TERMS#Chunk",
+        "extension": true
+      },
+      "midi:Clock": {
+        "term": "LV2_MIDI_TERMS#Clock",
+        "extension": true
+      },
+      "midi:Continue": {
+        "term": "LV2_MIDI_TERMS#Continue",
+        "extension": true
+      },
+      "midi:Controller": {
+        "term": "LV2_MIDI_TERMS#Controller",
+        "extension": true
+      },
+      "midi:HexByte": {
+        "term": "LV2_MIDI_TERMS#HexByte",
+        "extension": true
+      },
+      "midi:MidiEvent": {
+        "term": "LV2_MIDI_TERMS#MidiEvent",
+        "word": {
+          "word": "ports[].kind",
+          "transform": "lookup",
+          "values": {
+            "midi:MidiEvent": "midi"
+          }
+        }
+      },
+      "midi:NoteOff": {
+        "term": "LV2_MIDI_TERMS#NoteOff",
+        "extension": true
+      },
+      "midi:NoteOn": {
+        "term": "LV2_MIDI_TERMS#NoteOn",
+        "extension": true
+      },
+      "midi:ProgramChange": {
+        "term": "LV2_MIDI_TERMS#ProgramChange",
+        "extension": true
+      },
+      "midi:QuarterFrame": {
+        "term": "LV2_MIDI_TERMS#QuarterFrame",
+        "extension": true
+      },
+      "midi:Reset": {
+        "term": "LV2_MIDI_TERMS#Reset",
+        "extension": true
+      },
+      "midi:SongPosition": {
+        "term": "LV2_MIDI_TERMS#SongPosition",
+        "extension": true
+      },
+      "midi:SongSelect": {
+        "term": "LV2_MIDI_TERMS#SongSelect",
+        "extension": true
+      },
+      "midi:Start": {
+        "term": "LV2_MIDI_TERMS#Start",
+        "extension": true
+      },
+      "midi:Stop": {
+        "term": "LV2_MIDI_TERMS#Stop",
+        "extension": true
+      },
+      "midi:SystemCommon": {
+        "term": "LV2_MIDI_TERMS#SystemCommon",
+        "extension": true
+      },
+      "midi:SystemExclusive": {
+        "term": "LV2_MIDI_TERMS#SystemExclusive",
+        "extension": true
+      },
+      "midi:SystemMessage": {
+        "term": "LV2_MIDI_TERMS#SystemMessage",
+        "extension": true
+      },
+      "midi:SystemRealtime": {
+        "term": "LV2_MIDI_TERMS#SystemRealtime",
+        "extension": true
+      },
+      "midi:TuneRequest": {
+        "term": "LV2_MIDI_TERMS#TuneRequest",
+        "extension": true
+      },
+      "midi:VoiceMessage": {
+        "term": "LV2_MIDI_TERMS#VoiceMessage",
+        "extension": true
+      },
+      "midi:benderValue": {
+        "term": "LV2_MIDI_TERMS#benderValue",
+        "extension": true
+      },
+      "midi:binding": {
+        "term": "LV2_MIDI_TERMS#binding",
+        "extension": true
+      },
+      "midi:byteNumber": {
+        "term": "LV2_MIDI_TERMS#byteNumber",
+        "extension": true
+      },
+      "midi:channel": {
+        "term": "LV2_MIDI_TERMS#channel",
+        "extension": true
+      },
+      "midi:chunk": {
+        "term": "LV2_MIDI_TERMS#chunk",
+        "extension": true
+      },
+      "midi:controllerNumber": {
+        "term": "LV2_MIDI_TERMS#controllerNumber",
+        "extension": true
+      },
+      "midi:controllerValue": {
+        "term": "LV2_MIDI_TERMS#controllerValue",
+        "extension": true
+      },
+      "midi:midi.lv2": {
+        "term": "LV2_MIDI_TERMS#midi.lv2",
+        "extension": true
+      },
+      "midi:noteNumber": {
+        "term": "LV2_MIDI_TERMS#noteNumber",
+        "extension": true
+      },
+      "midi:pressure": {
+        "term": "LV2_MIDI_TERMS#pressure",
+        "extension": true
+      },
+      "midi:programNumber": {
+        "term": "LV2_MIDI_TERMS#programNumber",
+        "extension": true
+      },
+      "midi:property": {
+        "term": "LV2_MIDI_TERMS#property",
+        "extension": true
+      },
+      "midi:songNumber": {
+        "term": "LV2_MIDI_TERMS#songNumber",
+        "extension": true
+      },
+      "midi:songPosition": {
+        "term": "LV2_MIDI_TERMS#songPosition",
+        "extension": true
+      },
+      "midi:status": {
+        "term": "LV2_MIDI_TERMS#status",
+        "extension": true
+      },
+      "midi:statusMask": {
+        "term": "LV2_MIDI_TERMS#statusMask",
+        "extension": true
+      },
+      "midi:velocity": {
+        "term": "LV2_MIDI_TERMS#velocity",
+        "extension": true
+      },
+      "morph:AutoMorphPort": {
+        "term": "LV2_MORPH_TERMS#AutoMorphPort",
+        "extension": true
+      },
+      "morph:MorphPort": {
+        "term": "LV2_MORPH_TERMS#MorphPort",
+        "extension": true
+      },
+      "morph:currentType": {
+        "term": "LV2_MORPH_TERMS#currentType",
+        "extension": true
+      },
+      "morph:morph.lv2": {
+        "term": "LV2_MORPH_TERMS#morph.lv2",
+        "extension": true
+      },
+      "morph:supportsType": {
+        "term": "LV2_MORPH_TERMS#supportsType",
+        "extension": true
+      },
+      "opts:Option": {
+        "term": "LV2_OPTIONS_TERMS#Option",
+        "extension": true
+      },
+      "opts:interface": {
+        "term": "LV2_OPTIONS_TERMS#interface",
+        "extension": true
+      },
+      "opts:options": {
+        "term": "LV2_OPTIONS_TERMS#options",
+        "extension": true
+      },
+      "opts:options.lv2": {
+        "term": "LV2_OPTIONS_TERMS#options.lv2",
+        "extension": true
+      },
+      "opts:requiredOption": {
+        "term": "LV2_OPTIONS_TERMS#requiredOption",
+        "extension": true
+      },
+      "opts:supportedOption": {
+        "term": "LV2_OPTIONS_TERMS#supportedOption",
+        "extension": true
+      },
+      "param:CompressorControls": {
+        "term": "LV2_PARAMETERS_TERMS#CompressorControls",
+        "extension": true
+      },
+      "param:ControlGroup": {
+        "term": "LV2_PARAMETERS_TERMS#ControlGroup",
+        "extension": true
+      },
+      "param:EnvelopeControls": {
+        "term": "LV2_PARAMETERS_TERMS#EnvelopeControls",
+        "extension": true
+      },
+      "param:FilterControls": {
+        "term": "LV2_PARAMETERS_TERMS#FilterControls",
+        "extension": true
+      },
+      "param:OscillatorControls": {
+        "term": "LV2_PARAMETERS_TERMS#OscillatorControls",
+        "extension": true
+      },
+      "param:amplitude": {
+        "term": "LV2_PARAMETERS_TERMS#amplitude",
+        "extension": true
+      },
+      "param:attack": {
+        "term": "LV2_PARAMETERS_TERMS#attack",
+        "word": {
+          "word": "controls[].meaning",
+          "transform": "lookup",
+          "values": {
+            "param:attack": "attack"
+          }
+        }
+      },
+      "param:bypass": {
+        "term": "LV2_PARAMETERS_TERMS#bypass",
+        "word": {
+          "word": "controls[].meaning",
+          "transform": "lookup",
+          "values": {
+            "param:bypass": "bypass"
+          }
+        }
+      },
+      "param:cutoffFrequency": {
+        "term": "LV2_PARAMETERS_TERMS#cutoffFrequency",
+        "word": {
+          "word": "controls[].meaning",
+          "transform": "lookup",
+          "values": {
+            "param:cutoffFrequency": "cutoffFrequency"
+          }
+        }
+      },
+      "param:decay": {
+        "term": "LV2_PARAMETERS_TERMS#decay",
+        "word": {
+          "word": "controls[].meaning",
+          "transform": "lookup",
+          "values": {
+            "param:decay": "decay"
+          }
+        }
+      },
+      "param:delay": {
+        "term": "LV2_PARAMETERS_TERMS#delay",
+        "word": {
+          "word": "controls[].meaning",
+          "transform": "lookup",
+          "values": {
+            "param:delay": "delay"
+          }
+        }
+      },
+      "param:dryLevel": {
+        "term": "LV2_PARAMETERS_TERMS#dryLevel",
+        "extension": true
+      },
+      "param:frequency": {
+        "term": "LV2_PARAMETERS_TERMS#frequency",
+        "word": {
+          "word": "controls[].meaning",
+          "transform": "lookup",
+          "values": {
+            "param:frequency": "frequency"
+          }
+        }
+      },
+      "param:gain": {
+        "term": "LV2_PARAMETERS_TERMS#gain",
+        "word": {
+          "word": "controls[].meaning",
+          "transform": "lookup",
+          "values": {
+            "param:gain": "gain"
+          }
+        }
+      },
+      "param:hold": {
+        "term": "LV2_PARAMETERS_TERMS#hold",
+        "word": {
+          "word": "controls[].meaning",
+          "transform": "lookup",
+          "values": {
+            "param:hold": "hold"
+          }
+        }
+      },
+      "param:parameters.lv2": {
+        "term": "LV2_PARAMETERS_TERMS#parameters.lv2",
+        "extension": true
+      },
+      "param:pulseWidth": {
+        "term": "LV2_PARAMETERS_TERMS#pulseWidth",
+        "extension": true
+      },
+      "param:ratio": {
+        "term": "LV2_PARAMETERS_TERMS#ratio",
+        "word": {
+          "word": "controls[].meaning",
+          "transform": "lookup",
+          "values": {
+            "param:ratio": "ratio"
+          }
+        }
+      },
+      "param:release": {
+        "term": "LV2_PARAMETERS_TERMS#release",
+        "word": {
+          "word": "controls[].meaning",
+          "transform": "lookup",
+          "values": {
+            "param:release": "release"
+          }
+        }
+      },
+      "param:resonance": {
+        "term": "LV2_PARAMETERS_TERMS#resonance",
+        "word": {
+          "word": "controls[].meaning",
+          "transform": "lookup",
+          "values": {
+            "param:resonance": "resonance"
+          }
+        }
+      },
+      "param:sampleRate": {
+        "term": "LV2_PARAMETERS_TERMS#sampleRate",
+        "extension": true
+      },
+      "param:sustain": {
+        "term": "LV2_PARAMETERS_TERMS#sustain",
+        "extension": true
+      },
+      "param:threshold": {
+        "term": "LV2_PARAMETERS_TERMS#threshold",
+        "word": {
+          "word": "controls[].meaning",
+          "transform": "lookup",
+          "values": {
+            "param:threshold": "threshold"
+          }
+        }
+      },
+      "param:waveform": {
+        "term": "LV2_PARAMETERS_TERMS#waveform",
+        "extension": true
+      },
+      "param:wetDryRatio": {
+        "term": "LV2_PARAMETERS_TERMS#wetDryRatio",
+        "word": {
+          "word": "controls[].meaning",
+          "transform": "lookup",
+          "values": {
+            "param:wetDryRatio": "wetDryRatio"
+          }
+        }
+      },
+      "param:wetLevel": {
+        "term": "LV2_PARAMETERS_TERMS#wetLevel",
+        "extension": true
+      },
+      "patch:Ack": {
+        "term": "LV2_PATCH_TERMS#Ack",
+        "extension": true
+      },
+      "patch:Copy": {
+        "term": "LV2_PATCH_TERMS#Copy",
+        "extension": true
+      },
+      "patch:Delete": {
+        "term": "LV2_PATCH_TERMS#Delete",
+        "extension": true
+      },
+      "patch:Error": {
+        "term": "LV2_PATCH_TERMS#Error",
+        "extension": true
+      },
+      "patch:Get": {
+        "term": "LV2_PATCH_TERMS#Get",
+        "extension": true
+      },
+      "patch:Insert": {
+        "term": "LV2_PATCH_TERMS#Insert",
+        "extension": true
+      },
+      "patch:Message": {
+        "term": "LV2_PATCH_TERMS#Message",
+        "extension": true
+      },
+      "patch:Move": {
+        "term": "LV2_PATCH_TERMS#Move",
+        "extension": true
+      },
+      "patch:Patch": {
+        "term": "LV2_PATCH_TERMS#Patch",
+        "extension": true
+      },
+      "patch:Put": {
+        "term": "LV2_PATCH_TERMS#Put",
+        "extension": true
+      },
+      "patch:Request": {
+        "term": "LV2_PATCH_TERMS#Request",
+        "extension": true
+      },
+      "patch:Response": {
+        "term": "LV2_PATCH_TERMS#Response",
+        "extension": true
+      },
+      "patch:Set": {
+        "term": "LV2_PATCH_TERMS#Set",
+        "extension": true
+      },
+      "patch:accept": {
+        "term": "LV2_PATCH_TERMS#accept",
+        "extension": true
+      },
+      "patch:add": {
+        "term": "LV2_PATCH_TERMS#add",
+        "extension": true
+      },
+      "patch:body": {
+        "term": "LV2_PATCH_TERMS#body",
+        "extension": true
+      },
+      "patch:context": {
+        "term": "LV2_PATCH_TERMS#context",
+        "extension": true
+      },
+      "patch:destination": {
+        "term": "LV2_PATCH_TERMS#destination",
+        "extension": true
+      },
+      "patch:patch.lv2": {
+        "term": "LV2_PATCH_TERMS#patch.lv2",
+        "extension": true
+      },
+      "patch:property": {
+        "term": "LV2_PATCH_TERMS#property",
+        "extension": true
+      },
+      "patch:readable": {
+        "term": "LV2_PATCH_TERMS#readable",
+        "extension": true
+      },
+      "patch:remove": {
+        "term": "LV2_PATCH_TERMS#remove",
+        "extension": true
+      },
+      "patch:request": {
+        "term": "LV2_PATCH_TERMS#request",
+        "extension": true
+      },
+      "patch:sequenceNumber": {
+        "term": "LV2_PATCH_TERMS#sequenceNumber",
+        "extension": true
+      },
+      "patch:subject": {
+        "term": "LV2_PATCH_TERMS#subject",
+        "extension": true
+      },
+      "patch:value": {
+        "term": "LV2_PATCH_TERMS#value",
+        "extension": true
+      },
+      "patch:wildcard": {
+        "term": "LV2_PATCH_TERMS#wildcard",
+        "extension": true
+      },
+      "patch:writable": {
+        "term": "LV2_PATCH_TERMS#writable",
+        "extension": true
+      },
+      "pg:ACN0": {
+        "term": "LV2_PORT_GROUPS_TERMS#ACN0",
+        "extension": true
+      },
+      "pg:ACN1": {
+        "term": "LV2_PORT_GROUPS_TERMS#ACN1",
+        "extension": true
+      },
+      "pg:ACN10": {
+        "term": "LV2_PORT_GROUPS_TERMS#ACN10",
+        "extension": true
+      },
+      "pg:ACN11": {
+        "term": "LV2_PORT_GROUPS_TERMS#ACN11",
+        "extension": true
+      },
+      "pg:ACN12": {
+        "term": "LV2_PORT_GROUPS_TERMS#ACN12",
+        "extension": true
+      },
+      "pg:ACN13": {
+        "term": "LV2_PORT_GROUPS_TERMS#ACN13",
+        "extension": true
+      },
+      "pg:ACN14": {
+        "term": "LV2_PORT_GROUPS_TERMS#ACN14",
+        "extension": true
+      },
+      "pg:ACN15": {
+        "term": "LV2_PORT_GROUPS_TERMS#ACN15",
+        "extension": true
+      },
+      "pg:ACN2": {
+        "term": "LV2_PORT_GROUPS_TERMS#ACN2",
+        "extension": true
+      },
+      "pg:ACN3": {
+        "term": "LV2_PORT_GROUPS_TERMS#ACN3",
+        "extension": true
+      },
+      "pg:ACN4": {
+        "term": "LV2_PORT_GROUPS_TERMS#ACN4",
+        "extension": true
+      },
+      "pg:ACN5": {
+        "term": "LV2_PORT_GROUPS_TERMS#ACN5",
+        "extension": true
+      },
+      "pg:ACN6": {
+        "term": "LV2_PORT_GROUPS_TERMS#ACN6",
+        "extension": true
+      },
+      "pg:ACN7": {
+        "term": "LV2_PORT_GROUPS_TERMS#ACN7",
+        "extension": true
+      },
+      "pg:ACN8": {
+        "term": "LV2_PORT_GROUPS_TERMS#ACN8",
+        "extension": true
+      },
+      "pg:ACN9": {
+        "term": "LV2_PORT_GROUPS_TERMS#ACN9",
+        "extension": true
+      },
+      "pg:AmbisonicBH1P0Group": {
+        "term": "LV2_PORT_GROUPS_TERMS#AmbisonicBH1P0Group",
+        "extension": true
+      },
+      "pg:AmbisonicBH1P1Group": {
+        "term": "LV2_PORT_GROUPS_TERMS#AmbisonicBH1P1Group",
+        "extension": true
+      },
+      "pg:AmbisonicBH2P0Group": {
+        "term": "LV2_PORT_GROUPS_TERMS#AmbisonicBH2P0Group",
+        "extension": true
+      },
+      "pg:AmbisonicBH2P1Group": {
+        "term": "LV2_PORT_GROUPS_TERMS#AmbisonicBH2P1Group",
+        "extension": true
+      },
+      "pg:AmbisonicBH2P2Group": {
+        "term": "LV2_PORT_GROUPS_TERMS#AmbisonicBH2P2Group",
+        "extension": true
+      },
+      "pg:AmbisonicBH3P0Group": {
+        "term": "LV2_PORT_GROUPS_TERMS#AmbisonicBH3P0Group",
+        "extension": true
+      },
+      "pg:AmbisonicBH3P1Group": {
+        "term": "LV2_PORT_GROUPS_TERMS#AmbisonicBH3P1Group",
+        "extension": true
+      },
+      "pg:AmbisonicBH3P2Group": {
+        "term": "LV2_PORT_GROUPS_TERMS#AmbisonicBH3P2Group",
+        "extension": true
+      },
+      "pg:AmbisonicBH3P3Group": {
+        "term": "LV2_PORT_GROUPS_TERMS#AmbisonicBH3P3Group",
+        "extension": true
+      },
+      "pg:AmbisonicGroup": {
+        "term": "LV2_PORT_GROUPS_TERMS#AmbisonicGroup",
+        "extension": true
+      },
+      "pg:DiscreteGroup": {
+        "term": "LV2_PORT_GROUPS_TERMS#DiscreteGroup",
+        "extension": true
+      },
+      "pg:Element": {
+        "term": "LV2_PORT_GROUPS_TERMS#Element",
+        "extension": true
+      },
+      "pg:FivePointOneGroup": {
+        "term": "LV2_PORT_GROUPS_TERMS#FivePointOneGroup",
+        "extension": true
+      },
+      "pg:FivePointZeroGroup": {
+        "term": "LV2_PORT_GROUPS_TERMS#FivePointZeroGroup",
+        "extension": true
+      },
+      "pg:FourPointZeroGroup": {
+        "term": "LV2_PORT_GROUPS_TERMS#FourPointZeroGroup",
+        "extension": true
+      },
+      "pg:Group": {
+        "term": "LV2_PORT_GROUPS_TERMS#Group",
+        "extension": true
+      },
+      "pg:InputGroup": {
+        "term": "LV2_PORT_GROUPS_TERMS#InputGroup",
+        "extension": true
+      },
+      "pg:MidSideGroup": {
+        "term": "LV2_PORT_GROUPS_TERMS#MidSideGroup",
+        "extension": true
+      },
+      "pg:MonoGroup": {
+        "term": "LV2_PORT_GROUPS_TERMS#MonoGroup",
+        "word": {
+          "word": "ports[].layout",
+          "transform": "lookup",
+          "values": {
+            "pg:MonoGroup": "mono"
+          }
+        }
+      },
+      "pg:OutputGroup": {
+        "term": "LV2_PORT_GROUPS_TERMS#OutputGroup",
+        "extension": true
+      },
+      "pg:SevenPointOneGroup": {
+        "term": "LV2_PORT_GROUPS_TERMS#SevenPointOneGroup",
+        "extension": true
+      },
+      "pg:SevenPointOneWideGroup": {
+        "term": "LV2_PORT_GROUPS_TERMS#SevenPointOneWideGroup",
+        "extension": true
+      },
+      "pg:SixPointOneGroup": {
+        "term": "LV2_PORT_GROUPS_TERMS#SixPointOneGroup",
+        "extension": true
+      },
+      "pg:StereoGroup": {
+        "term": "LV2_PORT_GROUPS_TERMS#StereoGroup",
+        "word": {
+          "word": "ports[].layout",
+          "transform": "lookup",
+          "values": {
+            "pg:StereoGroup": "stereo"
+          }
+        }
+      },
+      "pg:ThreePointZeroGroup": {
+        "term": "LV2_PORT_GROUPS_TERMS#ThreePointZeroGroup",
+        "extension": true
+      },
+      "pg:center": {
+        "term": "LV2_PORT_GROUPS_TERMS#center",
+        "extension": true
+      },
+      "pg:centerLeft": {
+        "term": "LV2_PORT_GROUPS_TERMS#centerLeft",
+        "extension": true
+      },
+      "pg:centerRight": {
+        "term": "LV2_PORT_GROUPS_TERMS#centerRight",
+        "extension": true
+      },
+      "pg:element": {
+        "term": "LV2_PORT_GROUPS_TERMS#element",
+        "extension": true
+      },
+      "pg:group": {
+        "term": "LV2_PORT_GROUPS_TERMS#group",
+        "word": {
+          "word": "controls[].group",
+          "transform": "port-group"
+        }
+      },
+      "pg:harmonicDegree": {
+        "term": "LV2_PORT_GROUPS_TERMS#harmonicDegree",
+        "extension": true
+      },
+      "pg:harmonicIndex": {
+        "term": "LV2_PORT_GROUPS_TERMS#harmonicIndex",
+        "extension": true
+      },
+      "pg:left": {
+        "term": "LV2_PORT_GROUPS_TERMS#left",
+        "extension": true
+      },
+      "pg:letterCode": {
+        "term": "LV2_PORT_GROUPS_TERMS#letterCode",
+        "extension": true
+      },
+      "pg:lowFrequencyEffects": {
+        "term": "LV2_PORT_GROUPS_TERMS#lowFrequencyEffects",
+        "extension": true
+      },
+      "pg:mainInput": {
+        "term": "LV2_PORT_GROUPS_TERMS#mainInput",
+        "extension": true
+      },
+      "pg:mainOutput": {
+        "term": "LV2_PORT_GROUPS_TERMS#mainOutput",
+        "extension": true
+      },
+      "pg:port-groups.lv2": {
+        "term": "LV2_PORT_GROUPS_TERMS#port-groups.lv2",
+        "extension": true
+      },
+      "pg:rearCenter": {
+        "term": "LV2_PORT_GROUPS_TERMS#rearCenter",
+        "extension": true
+      },
+      "pg:rearLeft": {
+        "term": "LV2_PORT_GROUPS_TERMS#rearLeft",
+        "extension": true
+      },
+      "pg:rearRight": {
+        "term": "LV2_PORT_GROUPS_TERMS#rearRight",
+        "extension": true
+      },
+      "pg:right": {
+        "term": "LV2_PORT_GROUPS_TERMS#right",
+        "extension": true
+      },
+      "pg:side": {
+        "term": "LV2_PORT_GROUPS_TERMS#side",
+        "extension": true
+      },
+      "pg:sideChainOf": {
+        "term": "LV2_PORT_GROUPS_TERMS#sideChainOf",
+        "extension": true
+      },
+      "pg:sideLeft": {
+        "term": "LV2_PORT_GROUPS_TERMS#sideLeft",
+        "extension": true
+      },
+      "pg:sideRight": {
+        "term": "LV2_PORT_GROUPS_TERMS#sideRight",
+        "extension": true
+      },
+      "pg:source": {
+        "term": "LV2_PORT_GROUPS_TERMS#source",
+        "extension": true
+      },
+      "pg:subGroupOf": {
+        "term": "LV2_PORT_GROUPS_TERMS#subGroupOf",
+        "extension": true
+      },
+      "pprops:causesArtifacts": {
+        "term": "LV2_PORT_PROPS_TERMS#causesArtifacts",
+        "extension": true
+      },
+      "pprops:continuousCV": {
+        "term": "LV2_PORT_PROPS_TERMS#continuousCV",
+        "extension": true
+      },
+      "pprops:discreteCV": {
+        "term": "LV2_PORT_PROPS_TERMS#discreteCV",
+        "extension": true
+      },
+      "pprops:displayPriority": {
+        "term": "LV2_PORT_PROPS_TERMS#displayPriority",
+        "extension": true
+      },
+      "pprops:expensive": {
+        "term": "LV2_PORT_PROPS_TERMS#expensive",
+        "extension": true
+      },
+      "pprops:hasStrictBounds": {
+        "term": "LV2_PORT_PROPS_TERMS#hasStrictBounds",
+        "extension": true
+      },
+      "pprops:logarithmic": {
+        "term": "LV2_PORT_PROPS_TERMS#logarithmic",
+        "word": {
+          "word": "controls[].travel.scale",
+          "transform": "lookup",
+          "values": {
+            "pprops:logarithmic": "log"
+          }
+        }
+      },
+      "pprops:notAutomatic": {
+        "term": "LV2_PORT_PROPS_TERMS#notAutomatic",
+        "extension": true
+      },
+      "pprops:notOnGUI": {
+        "term": "LV2_PORT_PROPS_TERMS#notOnGUI",
+        "word": {
+          "word": "controls[].hidden",
+          "transform": "flag"
+        }
+      },
+      "pprops:port-props.lv2": {
+        "term": "LV2_PORT_PROPS_TERMS#port-props.lv2",
+        "extension": true
+      },
+      "pprops:rangeSteps": {
+        "term": "LV2_PORT_PROPS_TERMS#rangeSteps",
+        "extension": true
+      },
+      "pprops:supportsStrictBounds": {
+        "term": "LV2_PORT_PROPS_TERMS#supportsStrictBounds",
+        "extension": true
+      },
+      "pprops:trigger": {
+        "term": "LV2_PORT_PROPS_TERMS#trigger",
+        "word": {
+          "word": "controls[].kind",
+          "transform": "lookup",
+          "values": {
+            "pprops:trigger": "trigger"
+          }
+        }
+      },
+      "pset:Bank": {
+        "term": "LV2_PRESETS_TERMS#Bank",
+        "extension": true
+      },
+      "pset:Preset": {
+        "term": "LV2_PRESETS_TERMS#Preset",
+        "extension": true
+      },
+      "pset:bank": {
+        "term": "LV2_PRESETS_TERMS#bank",
+        "extension": true
+      },
+      "pset:preset": {
+        "term": "LV2_PRESETS_TERMS#preset",
+        "extension": true
+      },
+      "pset:presets.lv2": {
+        "term": "LV2_PRESETS_TERMS#presets.lv2",
+        "extension": true
+      },
+      "pset:value": {
+        "term": "LV2_PRESETS_TERMS#value",
+        "extension": true
+      },
+      "rdf:type": {
+        "from": "https://www.w3.org/TR/rdf-schema/#ch_type",
+        "extension": true
+      },
+      "rdfs:comment": {
+        "from": "https://www.w3.org/TR/rdf-schema/#ch_comment",
+        "word": {
+          "word": "plugin.doc",
+          "transform": "identity"
+        }
+      },
+      "rdfs:seeAlso": {
+        "from": "https://www.w3.org/TR/rdf-schema/#ch_seealso",
+        "word": {
+          "word": "source.from",
+          "transform": "identity"
+        }
+      },
+      "rsz:asLargeAs": {
+        "term": "LV2_RESIZE_PORT_TERMS#asLargeAs",
+        "extension": true
+      },
+      "rsz:minimumSize": {
+        "term": "LV2_RESIZE_PORT_TERMS#minimumSize",
+        "extension": true
+      },
+      "rsz:resize": {
+        "term": "LV2_RESIZE_PORT_TERMS#resize",
+        "extension": true
+      },
+      "rsz:resize-port.lv2": {
+        "term": "LV2_RESIZE_PORT_TERMS#resize-port.lv2",
+        "extension": true
+      },
+      "state:State": {
+        "term": "LV2_STATE_TERMS#State",
+        "extension": true
+      },
+      "state:StateChanged": {
+        "term": "LV2_STATE_TERMS#StateChanged",
+        "extension": true
+      },
+      "state:freePath": {
+        "term": "LV2_STATE_TERMS#freePath",
+        "extension": true
+      },
+      "state:interface": {
+        "term": "LV2_STATE_TERMS#interface",
+        "extension": true
+      },
+      "state:loadDefaultState": {
+        "term": "LV2_STATE_TERMS#loadDefaultState",
+        "extension": true
+      },
+      "state:makePath": {
+        "term": "LV2_STATE_TERMS#makePath",
+        "extension": true
+      },
+      "state:mapPath": {
+        "term": "LV2_STATE_TERMS#mapPath",
+        "extension": true
+      },
+      "state:state": {
+        "term": "LV2_STATE_TERMS#state",
+        "extension": true
+      },
+      "state:state.lv2": {
+        "term": "LV2_STATE_TERMS#state.lv2",
+        "extension": true
+      },
+      "state:threadSafeRestore": {
+        "term": "LV2_STATE_TERMS#threadSafeRestore",
+        "extension": true
+      },
+      "time:Position": {
+        "term": "LV2_TIME_TERMS#Position",
+        "word": {
+          "word": "needs.transport",
+          "transform": "flag"
+        }
+      },
+      "time:Rate": {
+        "term": "LV2_TIME_TERMS#Rate",
+        "extension": true
+      },
+      "time:Time": {
+        "term": "LV2_TIME_TERMS#Time",
+        "extension": true
+      },
+      "time:bar": {
+        "term": "LV2_TIME_TERMS#bar",
+        "extension": true
+      },
+      "time:barBeat": {
+        "term": "LV2_TIME_TERMS#barBeat",
+        "extension": true
+      },
+      "time:beat": {
+        "term": "LV2_TIME_TERMS#beat",
+        "extension": true
+      },
+      "time:beatUnit": {
+        "term": "LV2_TIME_TERMS#beatUnit",
+        "extension": true
+      },
+      "time:beatsPerBar": {
+        "term": "LV2_TIME_TERMS#beatsPerBar",
+        "extension": true
+      },
+      "time:beatsPerMinute": {
+        "term": "LV2_TIME_TERMS#beatsPerMinute",
+        "word": {
+          "word": "needs.tempo",
+          "transform": "flag"
+        }
+      },
+      "time:frame": {
+        "term": "LV2_TIME_TERMS#frame",
+        "extension": true
+      },
+      "time:framesPerSecond": {
+        "term": "LV2_TIME_TERMS#framesPerSecond",
+        "extension": true
+      },
+      "time:position": {
+        "term": "LV2_TIME_TERMS#position",
+        "extension": true
+      },
+      "time:speed": {
+        "term": "LV2_TIME_TERMS#speed",
+        "extension": true
+      },
+      "time:time.lv2": {
+        "term": "LV2_TIME_TERMS#time.lv2",
+        "extension": true
+      },
+      "ui:CocoaUI": {
+        "term": "LV2_UI_TERMS#CocoaUI",
+        "dropped": {
+          "ruling": "LV2_UI_TERMS#CocoaUI out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
+        }
+      },
+      "ui:Gtk3UI": {
+        "term": "LV2_UI_TERMS#Gtk3UI",
+        "dropped": {
+          "ruling": "LV2_UI_TERMS#Gtk3UI out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
+        }
+      },
+      "ui:GtkUI": {
+        "term": "LV2_UI_TERMS#GtkUI",
+        "dropped": {
+          "ruling": "LV2_UI_TERMS#GtkUI out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
+        }
+      },
+      "ui:PortNotification": {
+        "term": "LV2_UI_TERMS#PortNotification",
+        "dropped": {
+          "ruling": "LV2_UI_TERMS#PortNotification out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
+        }
+      },
+      "ui:PortProtocol": {
+        "term": "LV2_UI_TERMS#PortProtocol",
+        "dropped": {
+          "ruling": "LV2_UI_TERMS#PortProtocol out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
+        }
+      },
+      "ui:Qt4UI": {
+        "term": "LV2_UI_TERMS#Qt4UI",
+        "dropped": {
+          "ruling": "LV2_UI_TERMS#Qt4UI out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
+        }
+      },
+      "ui:Qt5UI": {
+        "term": "LV2_UI_TERMS#Qt5UI",
+        "dropped": {
+          "ruling": "LV2_UI_TERMS#Qt5UI out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
+        }
+      },
+      "ui:UI": {
+        "term": "LV2_UI_TERMS#UI",
+        "dropped": {
+          "ruling": "LV2_UI_TERMS#UI out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
+        }
+      },
+      "ui:WindowsUI": {
+        "term": "LV2_UI_TERMS#WindowsUI",
+        "dropped": {
+          "ruling": "LV2_UI_TERMS#WindowsUI out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
+        }
+      },
+      "ui:X11UI": {
+        "term": "LV2_UI_TERMS#X11UI",
+        "dropped": {
+          "ruling": "LV2_UI_TERMS#X11UI out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
+        }
+      },
+      "ui:backgroundColor": {
+        "term": "LV2_UI_TERMS#backgroundColor",
+        "dropped": {
+          "ruling": "LV2_UI_TERMS#backgroundColor out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
+        }
+      },
+      "ui:binary": {
+        "term": "LV2_UI_TERMS#binary",
+        "dropped": {
+          "ruling": "LV2_UI_TERMS#binary out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
+        }
+      },
+      "ui:fixedSize": {
+        "term": "LV2_UI_TERMS#fixedSize",
+        "dropped": {
+          "ruling": "LV2_UI_TERMS#fixedSize out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
+        }
+      },
+      "ui:floatProtocol": {
+        "term": "LV2_UI_TERMS#floatProtocol",
+        "dropped": {
+          "ruling": "LV2_UI_TERMS#floatProtocol out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
+        }
+      },
+      "ui:foregroundColor": {
+        "term": "LV2_UI_TERMS#foregroundColor",
+        "dropped": {
+          "ruling": "LV2_UI_TERMS#foregroundColor out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
+        }
+      },
+      "ui:idleInterface": {
+        "term": "LV2_UI_TERMS#idleInterface",
+        "dropped": {
+          "ruling": "LV2_UI_TERMS#idleInterface out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
+        }
+      },
+      "ui:makeSONameResident": {
+        "term": "LV2_UI_TERMS#makeSONameResident",
+        "dropped": {
+          "ruling": "LV2_UI_TERMS#makeSONameResident out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
+        }
+      },
+      "ui:noUserResize": {
+        "term": "LV2_UI_TERMS#noUserResize",
+        "dropped": {
+          "ruling": "LV2_UI_TERMS#noUserResize out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
+        }
+      },
+      "ui:notifyType": {
+        "term": "LV2_UI_TERMS#notifyType",
+        "dropped": {
+          "ruling": "LV2_UI_TERMS#notifyType out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
+        }
+      },
+      "ui:parent": {
+        "term": "LV2_UI_TERMS#parent",
+        "dropped": {
+          "ruling": "LV2_UI_TERMS#parent out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
+        }
+      },
+      "ui:peakProtocol": {
+        "term": "LV2_UI_TERMS#peakProtocol",
+        "dropped": {
+          "ruling": "LV2_UI_TERMS#peakProtocol out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
+        }
+      },
+      "ui:plugin": {
+        "term": "LV2_UI_TERMS#plugin",
+        "dropped": {
+          "ruling": "LV2_UI_TERMS#plugin out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
+        }
+      },
+      "ui:portIndex": {
+        "term": "LV2_UI_TERMS#portIndex",
+        "dropped": {
+          "ruling": "LV2_UI_TERMS#portIndex out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
+        }
+      },
+      "ui:portMap": {
+        "term": "LV2_UI_TERMS#portMap",
+        "dropped": {
+          "ruling": "LV2_UI_TERMS#portMap out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
+        }
+      },
+      "ui:portNotification": {
+        "term": "LV2_UI_TERMS#portNotification",
+        "dropped": {
+          "ruling": "LV2_UI_TERMS#portNotification out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
+        }
+      },
+      "ui:portSubscribe": {
+        "term": "LV2_UI_TERMS#portSubscribe",
+        "dropped": {
+          "ruling": "LV2_UI_TERMS#portSubscribe out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
+        }
+      },
+      "ui:protocol": {
+        "term": "LV2_UI_TERMS#protocol",
+        "dropped": {
+          "ruling": "LV2_UI_TERMS#protocol out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
+        }
+      },
+      "ui:requestValue": {
+        "term": "LV2_UI_TERMS#requestValue",
+        "dropped": {
+          "ruling": "LV2_UI_TERMS#requestValue out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
+        }
+      },
+      "ui:resize": {
+        "term": "LV2_UI_TERMS#resize",
+        "dropped": {
+          "ruling": "LV2_UI_TERMS#resize out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
+        }
+      },
+      "ui:scaleFactor": {
+        "term": "LV2_UI_TERMS#scaleFactor",
+        "dropped": {
+          "ruling": "LV2_UI_TERMS#scaleFactor out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
+        }
+      },
+      "ui:showInterface": {
+        "term": "LV2_UI_TERMS#showInterface",
+        "dropped": {
+          "ruling": "LV2_UI_TERMS#showInterface out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
+        }
+      },
+      "ui:touch": {
+        "term": "LV2_UI_TERMS#touch",
+        "dropped": {
+          "ruling": "LV2_UI_TERMS#touch out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
+        }
+      },
+      "ui:ui": {
+        "term": "LV2_UI_TERMS#ui",
+        "dropped": {
+          "ruling": "LV2_UI_TERMS#ui out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
+        }
+      },
+      "ui:ui.lv2": {
+        "term": "LV2_UI_TERMS#ui.lv2",
+        "dropped": {
+          "ruling": "LV2_UI_TERMS#ui.lv2 out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
+        }
+      },
+      "ui:updateRate": {
+        "term": "LV2_UI_TERMS#updateRate",
+        "dropped": {
+          "ruling": "LV2_UI_TERMS#updateRate out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
+        }
+      },
+      "ui:windowTitle": {
+        "term": "LV2_UI_TERMS#windowTitle",
+        "dropped": {
+          "ruling": "LV2_UI_TERMS#windowTitle out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
+        }
+      },
+      "units:Conversion": {
+        "term": "LV2_UNITS_TERMS#Conversion",
+        "extension": true
+      },
+      "units:Unit": {
+        "term": "LV2_UNITS_TERMS#Unit",
+        "extension": true
+      },
+      "units:bar": {
+        "term": "LV2_UNITS_TERMS#bar",
+        "extension": true
+      },
+      "units:beat": {
+        "term": "LV2_UNITS_TERMS#beat",
+        "extension": true
+      },
+      "units:bpm": {
+        "term": "LV2_UNITS_TERMS#bpm",
+        "word": {
+          "word": "controls[].travel.unit",
+          "transform": "lookup",
+          "values": {
+            "units:bpm": "bpm"
+          }
+        }
+      },
+      "units:cent": {
+        "term": "LV2_UNITS_TERMS#cent",
+        "word": {
+          "word": "controls[].travel.unit",
+          "transform": "lookup",
+          "values": {
+            "units:cent": "cents"
+          }
+        }
+      },
+      "units:cm": {
+        "term": "LV2_UNITS_TERMS#cm",
+        "extension": true
+      },
+      "units:coef": {
+        "term": "LV2_UNITS_TERMS#coef",
+        "word": {
+          "word": "controls[].travel.unit",
+          "transform": "lookup",
+          "values": {
+            "units:coef": "x"
+          }
+        }
+      },
+      "units:conversion": {
+        "term": "LV2_UNITS_TERMS#conversion",
+        "extension": true
+      },
+      "units:db": {
+        "term": "LV2_UNITS_TERMS#db",
+        "word": {
+          "word": "controls[].travel.unit",
+          "transform": "lookup",
+          "values": {
+            "units:db": "dB"
+          }
+        }
+      },
+      "units:degree": {
+        "term": "LV2_UNITS_TERMS#degree",
+        "word": {
+          "word": "controls[].travel.unit",
+          "transform": "lookup",
+          "values": {
+            "units:degree": "deg"
+          }
+        }
+      },
+      "units:factor": {
+        "term": "LV2_UNITS_TERMS#factor",
+        "extension": true
+      },
+      "units:frame": {
+        "term": "LV2_UNITS_TERMS#frame",
+        "word": {
+          "word": "controls[].travel.unit",
+          "transform": "lookup",
+          "values": {
+            "units:frame": "frames"
+          }
+        }
+      },
+      "units:hz": {
+        "term": "LV2_UNITS_TERMS#hz",
+        "word": {
+          "word": "controls[].travel.unit",
+          "transform": "lookup",
+          "values": {
+            "units:hz": "Hz"
+          }
+        }
+      },
+      "units:inch": {
+        "term": "LV2_UNITS_TERMS#inch",
+        "extension": true
+      },
+      "units:khz": {
+        "term": "LV2_UNITS_TERMS#khz",
+        "extension": true
+      },
+      "units:km": {
+        "term": "LV2_UNITS_TERMS#km",
+        "extension": true
+      },
+      "units:m": {
+        "term": "LV2_UNITS_TERMS#m",
+        "extension": true
+      },
+      "units:mhz": {
+        "term": "LV2_UNITS_TERMS#mhz",
+        "extension": true
+      },
+      "units:midiNote": {
+        "term": "LV2_UNITS_TERMS#midiNote",
+        "word": {
+          "word": "controls[].travel.unit",
+          "transform": "lookup",
+          "values": {
+            "units:midiNote": "midiNote"
+          }
+        }
+      },
+      "units:mile": {
+        "term": "LV2_UNITS_TERMS#mile",
+        "extension": true
+      },
+      "units:min": {
+        "term": "LV2_UNITS_TERMS#min",
+        "word": {
+          "word": "controls[].travel.unit",
+          "transform": "lookup",
+          "values": {
+            "units:min": "min"
+          }
+        }
+      },
+      "units:mm": {
+        "term": "LV2_UNITS_TERMS#mm",
+        "extension": true
+      },
+      "units:ms": {
+        "term": "LV2_UNITS_TERMS#ms",
+        "word": {
+          "word": "controls[].travel.unit",
+          "transform": "lookup",
+          "values": {
+            "units:ms": "ms"
+          }
+        }
+      },
+      "units:oct": {
+        "term": "LV2_UNITS_TERMS#oct",
+        "word": {
+          "word": "controls[].travel.unit",
+          "transform": "lookup",
+          "values": {
+            "units:oct": "oct"
+          }
+        }
+      },
+      "units:pc": {
+        "term": "LV2_UNITS_TERMS#pc",
+        "word": {
+          "word": "controls[].travel.unit",
+          "transform": "lookup",
+          "values": {
+            "units:pc": "%"
+          }
+        }
+      },
+      "units:prefixConversion": {
+        "term": "LV2_UNITS_TERMS#prefixConversion",
+        "extension": true
+      },
+      "units:render": {
+        "term": "LV2_UNITS_TERMS#render",
+        "extension": true
+      },
+      "units:s": {
+        "term": "LV2_UNITS_TERMS#s",
+        "word": {
+          "word": "controls[].travel.unit",
+          "transform": "lookup",
+          "values": {
+            "units:s": "s"
+          }
+        }
+      },
+      "units:semitone12TET": {
+        "term": "LV2_UNITS_TERMS#semitone12TET",
+        "word": {
+          "word": "controls[].travel.unit",
+          "transform": "lookup",
+          "values": {
+            "units:semitone12TET": "st"
+          }
+        }
+      },
+      "units:symbol": {
+        "term": "LV2_UNITS_TERMS#symbol",
+        "extension": true
+      },
+      "units:to": {
+        "term": "LV2_UNITS_TERMS#to",
+        "extension": true
+      },
+      "units:unit": {
+        "term": "LV2_UNITS_TERMS#unit",
+        "word": {
+          "word": "controls[].travel.unit",
+          "transform": "lookup",
+          "values": {
+            "urn:openmixer:unit#dBFS": "dBFS",
+            "urn:openmixer:unit#LUFS": "LUFS"
+          }
+        }
+      },
+      "units:units.lv2": {
+        "term": "LV2_UNITS_TERMS#units.lv2",
+        "extension": true
+      },
+      "urid:map": {
+        "term": "LV2_URID_TERMS#map",
+        "extension": true
+      },
+      "urid:unmap": {
+        "term": "LV2_URID_TERMS#unmap",
+        "extension": true
+      },
+      "urid:urid.lv2": {
+        "term": "LV2_URID_TERMS#urid.lv2",
+        "extension": true
+      },
+      "urimap:uri-map.lv2": {
+        "term": "LV2_URI_MAP_TERMS#uri-map.lv2",
+        "dropped": {
+          "ruling": "LV2_URI_MAP_TERMS#uri-map.lv2 out-of-scope: LV2 deprecates the uri-map extension (owl:deprecated on http://lv2plug.in/ns/ext/uri-map); a consumer that reads it does so to refuse it."
+        }
+      },
+      "work:interface": {
+        "term": "LV2_WORKER_TERMS#interface",
+        "extension": true
+      },
+      "work:schedule": {
+        "term": "LV2_WORKER_TERMS#schedule",
+        "extension": true
+      },
+      "work:worker.lv2": {
+        "term": "LV2_WORKER_TERMS#worker.lv2",
+        "extension": true
+      }
+    }
+  }
+}

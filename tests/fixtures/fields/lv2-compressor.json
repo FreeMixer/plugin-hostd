@@ -1,0 +1,33 @@
+{
+  "$schema": "https://github.com/FreeMixer/omx-contract/raw/v3/schema/omx-contract.schema.json",
+  "requires": {"omx-contract-schema": ">= 3.0.0"},
+  "origin": "scanned",
+  "plugin": {"id": "urn:example:compressor", "format": "lv2", "uri": "urn:example:compressor", "name": "Example Compressor", "vendor": "example", "doc": "A compressor with a side-chain.", "features": ["audio-effect"]},
+  "controls": [
+    {"id": "threshold", "name": "Threshold", "kind": "travel", "travel": {"min": -60, "max": 0, "unit": "dB", "default": -20, "scale": "linear"}, "group": ["Detector"], "meaning": "threshold", "source": {"from": "compressor.lv2/compressor.ttl#threshold"}},
+    {"id": "ratio", "name": "Ratio", "kind": "travel", "travel": {"min": 1, "max": 20, "unit": "unknown", "default": 4, "scale": "log"}, "group": ["Detector"], "meaning": "ratio", "source": {"from": "compressor.lv2/compressor.ttl#ratio"}},
+    {"id": "release_beats", "name": "Release (beats)", "kind": "travel", "travel": {"min": 0.25, "max": 4, "unit": "unknown", "default": 1, "scale": "linear"}, "meaning": "unknown", "source": {"from": "compressor.lv2/compressor.ttl#release_beats"}},
+    {"id": "knee_db", "name": "Knee", "kind": "travel", "travel": {"min": 0, "max": 12, "unit": "dBFS", "default": 6, "scale": "linear"}, "meaning": "unknown", "source": {"from": "compressor.lv2/compressor.ttl#knee_db"}},
+    {"id": "mode", "name": "Mode", "kind": "choice", "ids": ["Peak", "RMS", "Hybrid"], "labels": ["Peak", "RMS", "Hybrid"], "values": [0, 1, 2], "default": "RMS", "meaning": "unknown", "source": {"from": "compressor.lv2/compressor.ttl#mode"}},
+    {"id": "enable", "name": "Enable", "kind": "toggle", "default": true, "meaning": "enabled", "source": {"from": "compressor.lv2/compressor.ttl#enable"}},
+    {"id": "gr", "name": "Gain reduction", "kind": "travel", "travel": {"min": 0, "max": 40, "unit": "dB", "scale": "linear"}, "meaning": "unknown", "readonly": true, "source": {"from": "compressor.lv2/compressor.ttl#gr"}}
+  ],
+  "ports": [
+    {"id": "in_l", "name": "Input", "kind": "audio", "direction": "in", "role": "main", "channels": 2, "layout": "stereo"},
+    {"id": "sc", "name": "Side-chain", "kind": "audio", "direction": "in", "role": "sidechain", "channels": 1, "layout": "mono"},
+    {"id": "out_l", "name": "Output", "kind": "audio", "direction": "out", "role": "main", "channels": 2, "layout": "stereo"},
+    {"id": "control", "name": "Control", "kind": "midi", "direction": "in"}
+  ],
+  "needs": {"transport": true, "extensions": {"required": ["urid:map"], "optional": ["lv2:hardRTCapable"]}},
+  "latency": {"reports": true},
+  "extensions": {"lv2": {
+    "doap:license": "http://opensource.org/licenses/isc",
+    "rdf:type": ["lv2:Plugin", "lv2:CompressorPlugin"],
+    "lv2:minorVersion": "3",
+    "lv2:microVersion": "1",
+    "port:7/units:unit": "units:beat",
+    "port:11/lv2:portProperty": "lv2:connectionOptional",
+    "port:13/rdf:type": "atom:AtomPort",
+    "port:13/atom:bufferType": "atom:Sequence"
+  }}
+}
