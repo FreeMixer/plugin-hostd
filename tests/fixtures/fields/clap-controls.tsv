@@ -1,0 +1,55 @@
+# omx-clap-scan --fields 1
+plugin	clap_entry	controls.clap
+plugin	clap_plugin_descriptor.id	org.freemixer.plugin-qualify.fixture.controls
+plugin	clap_plugin_descriptor.name	controls
+plugin	clap_plugin_descriptor.vendor	plugin-qualify
+plugin	clap_plugin_descriptor.version	1
+plugin	clap_plugin_descriptor.description	A filter with an oscillator, to test the scan.
+plugin	clap_plugin_descriptor.url	https://example.org/controls
+plugin	clap_plugin_descriptor.features	CLAP_PLUGIN_FEATURE_AUDIO_EFFECT
+plugin	clap_plugin_descriptor.features	CLAP_PLUGIN_FEATURE_FILTER
+plugin	clap_plugin_descriptor.features	CLAP_PLUGIN_FEATURE_STEREO
+plugin	clap_plugin_descriptor.features	acme-wobble
+plugin	clap_plugin.get_extension	CLAP_EXT_PARAMS
+plugin	clap_plugin.get_extension	CLAP_EXT_AUDIO_PORTS
+plugin	clap_plugin.get_extension	CLAP_EXT_LATENCY
+plugin	clap_plugin.get_extension	org.openmixer.param-contract/1
+param:0	clap_param_info.id	3
+param:0	clap_param_info.name	shape
+param:0	clap_param_info.module	Oscillator
+param:0	clap_param_info.min_value	0
+param:0	clap_param_info.max_value	2
+param:0	clap_param_info.default_value	0
+param:0	clap_param_info.flags	CLAP_PARAM_IS_STEPPED
+param:0	clap_param_info.flags	CLAP_PARAM_IS_ENUM
+param:0	clap_param_info.flags	CLAP_PARAM_IS_AUTOMATABLE
+param:0	clap_plugin_params.value_to_text	0 Sine
+param:0	clap_plugin_params.value_to_text	1 Square
+param:0	clap_plugin_params.value_to_text	2 Saw
+param:1	clap_param_info.id	5
+param:1	clap_param_info.name	cutoff
+param:1	clap_param_info.module	Filter/Envelope
+param:1	clap_param_info.min_value	20
+param:1	clap_param_info.max_value	20000
+param:1	clap_param_info.default_value	1000
+param:1	clap_param_info.flags	CLAP_PARAM_IS_AUTOMATABLE
+param:1	clap_param_info.flags	CLAP_PARAM_IS_MODULATABLE
+param:2	clap_param_info.id	7
+param:2	clap_param_info.name	bypass
+param:2	clap_param_info.min_value	0
+param:2	clap_param_info.max_value	1
+param:2	clap_param_info.default_value	0
+param:2	clap_param_info.flags	CLAP_PARAM_IS_STEPPED
+param:2	clap_param_info.flags	CLAP_PARAM_IS_BYPASS
+param:2	clap_param_info.flags	CLAP_PARAM_IS_HIDDEN
+audio_in:0	clap_audio_port_info.id	0
+audio_in:0	clap_audio_port_info.name	in
+audio_in:0	clap_audio_port_info.channel_count	2
+audio_in:0	clap_audio_port_info.flags	CLAP_AUDIO_PORT_IS_MAIN
+audio_in:0	clap_audio_port_info.port_type	CLAP_PORT_STEREO
+audio_out:0	clap_audio_port_info.id	0
+audio_out:0	clap_audio_port_info.name	out
+audio_out:0	clap_audio_port_info.channel_count	2
+audio_out:0	clap_audio_port_info.flags	CLAP_AUDIO_PORT_IS_MAIN
+audio_out:0	clap_audio_port_info.port_type	CLAP_PORT_STEREO
+audio_out:0	clap_audio_port_info.in_place_pair	0

@@ -79,6 +79,7 @@
 #define MAX_STEPS 256
 #define MAX_POINTS 64
 
+#include "describe.h"
 #include "json.h"
 
 /* ---------------------------------------------------------------- options */
@@ -1371,6 +1372,114 @@ static const char *base_name(const char *path)
     return s ? s + 1 : path;
 }
 
+/* ---------------------------------------------------------------- describe */
+
+#ifndef PROBE_CONTRACTDIR
+#define PROBE_CONTRACTDIR "/usr/share/omx-contract/contract.d"
+#endif
+#ifndef PROBE_CONTRACT_MAJOR
+#define PROBE_CONTRACT_MAJOR "3"
+#endif
+#define DESCRIBE_CHILD "omx-clap-scan"
+
+static int read_file(const char *path, sb_t *b)
+{
+    char buf[65536];
+    ssize_t n;
+    int fd = open(path, O_RDONLY | O_CLOEXEC);
+
+    if (fd < 0)
+        return -1;
+    while ((n = read(fd, buf, sizeof(buf))) > 0)
+        sb_put(b, buf, (size_t)n);
+    close(fd);
+    if (b->s == NULL)
+        sb_put(b, "", 0);
+    return n < 0 ? -1 : 0;
+}
+
+/* plugin-hostd-probe describe: the field dump of a plugin, made by omx-clap-scan --fields in a child under the runner's
+ * limits or read from a recorded dump, through its format's table (docs/formats.md#the-descriptor-describe-writes) */
+static int describe_main(int argc, char **argv)
+{
+    options_t o = { .child = DESCRIBE_CHILD, .wall_s = 60, .cpu_s = 50, .files = 256, .data_bytes = 4LL << 30,
+                    .file_bytes = 64LL << 20, .grace_ms = 300 };
+    const char *table = NULL, *fields = NULL, *target, *format;
+    char path[PATH_MAX], why[512];
+    sb_t table_text = { 0 }, dump = { 0 }, out = { 0 };
+    int a;
+
+    for (a = 2; a + 1 < argc && argv[a][0] == '-'; a += 2)
+    {
+        if (!strcmp(argv[a], "--table")) table = argv[a + 1];
+        else if (!strcmp(argv[a], "--fields-from")) fields = argv[a + 1];
+        else if (!strcmp(argv[a], "--child")) o.child = argv[a + 1];
+        else if (!strcmp(argv[a], "--log")) o.log = argv[a + 1];
+        else if (!strcmp(argv[a], "--wall-s")) o.wall_s = atol(argv[a + 1]);
+        else
+            break;
+    }
+    if (a + 1 != argc || argv[a][0] == '-' || (format = describe_format(argv[a])) == NULL || o.wall_s <= 0)
+    {
+        fprintf(stderr, "usage: " RUNNER_NAME " describe [options] clap:<path>#<id> | lv2:<uri>\n"
+                        "  --table FILE         the format's table (default " PROBE_CONTRACTDIR "/" PROBE_CONTRACT_MAJOR
+                        "/plugin-hostd/formats/<format>.json)\n"
+                        "  --fields-from FILE   a recorded field dump, in place of running the child\n"
+                        "  --child PROGRAM      the program that writes the dump (default " DESCRIBE_CHILD ")\n"
+                        "  --log FILE           the child's stderr (default discarded)\n"
+                        "  --wall-s N           the child's wall clock (default 60)\n");
+        return 2;
+    }
+    target = argv[a];
+    if (table == NULL)
+    {
+        snprintf(path, sizeof(path), PROBE_CONTRACTDIR "/" PROBE_CONTRACT_MAJOR "/plugin-hostd/formats/%s.json", format);
+        table = path;
+    }
+    if (read_file(table, &table_text) != 0)
+    {
+        fprintf(stderr, RUNNER_NAME ": describe: cannot read the table %s: %s\n", table, strerror(errno));
+        return 2;
+    }
+    if (fields != NULL)
+    {
+        if (read_file(fields, &dump) != 0)
+        {
+            fprintf(stderr, RUNNER_NAME ": describe: cannot read the dump %s: %s\n", fields, strerror(errno));
+            return 2;
+        }
+    }
+    else
+    {
+        char *child_argv[] = { (char *)o.child, "--fields", (char *)target, NULL };
+        cpu_set_t none;
+        run_t r;
+
+        CPU_ZERO(&none);
+        memset(&r, 0, sizeof(r));
+        signal(SIGPIPE, SIG_IGN);
+        prctl(PR_SET_CHILD_SUBREAPER, 1);
+        run_child(&o, child_argv, &none, 0, &r, now_ms() + o.wall_s * 1000);
+        if (r.killed_by_deadline || r.cancelled || !WIFEXITED(r.status) || WEXITSTATUS(r.status) != 0)
+        {
+            fprintf(stderr, RUNNER_NAME ": describe: %s --fields %s made no dump (%s)\n", o.child, target,
+                    r.killed_by_deadline ? "the wall clock ran out" : r.cancelled ? "cancelled"
+                    : WIFSIGNALED(r.status) ? signal_name(WTERMSIG(r.status)) : "it exited non-zero");
+            return 3;
+        }
+        dump = r.out;
+        if (dump.s == NULL)
+            sb_put(&dump, "", 0);
+    }
+    if (describe_dump(table_text.s, dump.s, target, &out, why, sizeof(why)) != 0)
+    {
+        fprintf(stderr, RUNNER_NAME ": describe: %s: %s\n", target, why);
+        return 2;
+    }
+    fputs(out.s, stdout);
+    return fflush(stdout) == 0 ? 0 : 2;
+}
+
 int main(int argc, char **argv)
 {
     options_t o = { .child = "clap-qualify", .rates = floor_rates(), .quantum = 512, .reason = "on-request",
@@ -1394,10 +1503,13 @@ int main(int argc, char **argv)
     int child_set = 0;
     int complete = 1, fd;
 
+    if (argc >= 2 && !strcmp(argv[1], "describe"))
+        return describe_main(argc, argv);
     if (argc < 2 || strcmp(argv[1], "run"))
     {
         fprintf(stderr, "usage: " RUNNER_NAME " run [options] <plugin.clap> [<clap id>]\n"
                         "       " RUNNER_NAME " run [options] lv2:<uri>\n"
+                        "       " RUNNER_NAME " describe [options] clap:<path>#<id> | lv2:<uri>\n"
                         "  --child PROGRAM      the program that loads the plugin (default clap-qualify; " PROBE_LV2_CHILD " for lv2:)\n"
                         "  --rates R,R,...      sample rates (default %s)\n"
                         "  --quantum N          block size in frames (default 512)     --blocks N   blocks per rate\n"
