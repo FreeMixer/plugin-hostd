@@ -4,7 +4,7 @@ Priority: optional
 Maintainer: Pau Aliagas <linuxnow@gmail.com>
 Build-Depends: debhelper-compat (= 13),
                libmod-host-protocol-dev,
-               libomx-contract-dev (>= 2.18.0~),
+               libomx-contract-dev (>= 3.0.0~),
                omx-clap-host-tests (>= 0.9.0~) <!nocheck>,
                pkgconf,
                python3
