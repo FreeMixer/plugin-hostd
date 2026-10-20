@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.6.0
+Version: 0.7.0
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -109,6 +109,18 @@ make test-daemon check-generated
 %{_datadir}/plugin-hostd/probe-output.schema.json
 
 %changelog
+* Tue Oct 20 2026 Pau Aliagas <linuxnow@gmail.com> - 0.7.0-1
+- The probe runner writes the core and clock bands, the latency method and
+  the thread scheduling class by omx-contract's vocabulary words, not
+  literals of its own.
+- The probe output schema takes the enums it shares with omx-contract (the
+  latency method, the voice basis, the core and clock bands, the thread
+  scheduling) from the contract's vocabulary header, not a list typed in
+  the template; the generator and a new test check the words and their
+  order match the contract, word for word.
+- omx-contract's floor is 2.18.0, the first release with the vocabulary
+  header.
+
 * Tue Oct 20 2026 Pau Aliagas <linuxnow@gmail.com> - 0.6.0-1
 - The probe runner passes --probe-notes and --hold to the CLAP prober and
   carries what it measures: the cost with voices, the LV2 note sweep and the
