@@ -1672,6 +1672,13 @@
           "transform": "identity"
         }
       },
+      "rdfs:seeAlso": {
+        "from": "https://www.w3.org/TR/rdf-schema/#ch_seealso",
+        "word": {
+          "word": "source.from",
+          "transform": "identity"
+        }
+      },
       "rsz:asLargeAs": {
         "term": "LV2_RESIZE_PORT_TERMS#asLargeAs",
         "extension": true
