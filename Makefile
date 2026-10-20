@@ -307,8 +307,9 @@ tests/rt_interpose.so: tests/rt_interpose_stub.c
 tests/probe-child: tests/probe_child.c
 	$(CC) $(CLAP_CFLAGS) $(CFLAGS) -Wall -Wextra -Werror -o $@ $< -ldl
 
-# what is omx-contract's is read from it: the runner's default rates and the protocol's parameter scales follow a
-# scratch copy of its header with other values
+# what is omx-contract's is read from it: the runner's default rates, the protocol's parameter scales and the probe
+# schema's shared enums (latency method, voice basis, core and clock bands, thread scheduling) follow a scratch copy
+# of its header with other values
 test-contract: $(PROBE)
 	PROBE=./$(PROBE) python3 tests/contract_derived.py
 

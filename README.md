@@ -354,7 +354,7 @@ code, and `--require tasks` makes the run refuse instead.
 A crash, a hang and a timeout are outcomes in the document, never a missing document: the steps the child finished before
 dying stay in it. The exit status says whether there is one: 0 a complete run, 1 a document with some step that ended
 otherwise, 2 no document, 3 no such plugin. The document is described by `probe-output.schema.json`, generated from the
-codes in `protocol.h`, and installed with the protocol.
+codes in `protocol.h` and the shared words of omx-contract's vocabulary, and installed with the protocol.
 
 Pins
 ----

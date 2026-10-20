@@ -22,7 +22,8 @@
  *
  *   protocol-gen json          protocol/plugin-hostd.json on stdout
  *   protocol-gen regions       the name of every region, one per line
- *   protocol-gen probe-schema TEMPLATE   TEMPLATE on stdout with each @PHD_PROBE_...@ token replaced by that list of the header
+ *   protocol-gen probe-schema TEMPLATE   TEMPLATE on stdout with each @PHD_PROBE_...@ token replaced by that list of the
+ *                              header, and each @OMX_...@ token by that list of omx-contract's vocabulary header
  *   protocol-gen splice FILE   FILE on stdout with every generated region replaced; a region is the lines between
  *                              "BEGIN GENERATED protocol:<name>" and "END GENERATED protocol:<name>" */
 
@@ -32,6 +33,7 @@
 #include <string.h>
 
 #include <omxcontract/omx_contract_limits.h>
+#include <omxcontract/omx_vocabulary.h>
 #include <plugin-hostd/protocol.h>
 
 /* The parameter scales are omx-contract's PARAM_SCALES, whose words the contract declares for this protocol: the same
@@ -595,10 +597,19 @@ static const char *const PROBE_STEPS[] = {
 #undef X
 };
 
+/* words plugin-hostd does not declare: the schema reads these straight out of omx-contract's own vocabulary header,
+ * so a word moved or renamed there moves here with no edit of this file (plugin-hostd#115) */
+static const char *const CONTRACT_LATENCY_METHODS[] = OMX_MEASUREMENT_LATENCY_METHODS_INIT;
+static const char *const CONTRACT_VOICE_BASES[] = OMX_MEASUREMENT_VOICE_BASES_INIT;
+static const char *const CONTRACT_CORE_BANDS[] = OMX_MACHINE_CORE_BANDS_INIT;
+static const char *const CONTRACT_CLOCK_BANDS[] = OMX_MACHINE_CLOCK_BANDS_INIT;
+static const char *const CONTRACT_THREAD_SCHEDULING[] = OMX_RESOURCE_THREAD_SCHEDULING_INIT;
+
 #define PROBE_LIST(token, list) { "@" token "@", list, sizeof(list) / sizeof(*list) }
 
-/* TEMPLATE on stdout with each @PHD_PROBE_...@ token replaced by the quoted codes of that list of the header, so the
- * schema's enumerations are the header's own; a token the template holds and the generator does not know is an error */
+/* TEMPLATE on stdout with each @PHD_PROBE_...@ or @OMX_...@ token replaced by the quoted codes of that list, the
+ * former plugin-hostd's own header, the latter omx-contract's vocabulary header, so the schema's enumerations are
+ * never retyped; a token the template holds and the generator does not know is an error */
 static int probe_schema(const char *path)
 {
     static const struct
@@ -614,6 +625,11 @@ static int probe_schema(const char *path)
         PROBE_LIST("PHD_PROBE_PROFILE_CODES", PROBE_PROFILE_CODES),
         PROBE_LIST("PHD_PROBE_STEPS", PROBE_STEPS),
         PROBE_LIST("PHD_PROBE_REASONS", PROBE_REASONS),
+        PROBE_LIST("OMX_MEASUREMENT_LATENCY_METHODS", CONTRACT_LATENCY_METHODS),
+        PROBE_LIST("OMX_MEASUREMENT_VOICE_BASES", CONTRACT_VOICE_BASES),
+        PROBE_LIST("OMX_MACHINE_CORE_BANDS", CONTRACT_CORE_BANDS),
+        PROBE_LIST("OMX_MACHINE_CLOCK_BANDS", CONTRACT_CLOCK_BANDS),
+        PROBE_LIST("OMX_RESOURCE_THREAD_SCHEDULING", CONTRACT_THREAD_SCHEDULING),
     };
     FILE *f = fopen(path, "r");
     char line[512];
