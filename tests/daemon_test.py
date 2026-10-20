@@ -2532,6 +2532,7 @@ def a_chain_of_three_runs_in_one_worker_and_its_crashed_member_is_quarantined_wh
             d.expect("add clap:fake#m%d %d" % (i, i), "resp %d" % i)
             d.expect("param_set %d gain 0.%d000" % (i, i % 10), "resp 0")
         d.expect("chain 7 10 11 12", "resp 0")
+        d.wait_event("chain_formed 7 ")
         k, w = list(chain_of(d, 7).items())[0]
         check(w["inst"] == [10, 11, 12] and len(d.workers()) == 1, "three members, one worker: %s" % d.workers())
         # every instance verb names one member by its own number
@@ -2584,6 +2585,8 @@ def a_chain_that_dies_naming_no_culprit_is_split_and_rejoins_without_the_one_tha
             d.expect("add clap:fake#m%d %d" % (i, i), "resp %d" % i)
             d.expect("param_set %d gain 0.%d000" % (i, i % 10), "resp 0")
         d.expect("chain 4 20 21 22", "resp 0")
+        # the declaration's own chain_formed comes on the feedback port, after the reply: it is not the rejoin's
+        d.wait_event("chain_formed 4 ")
         mark = d.mark()
         # no suspect window: the death names no one, the members are split, and the verb is replayed to 21 alone
         d.expect("param_set 21 crash 1", "resp 0")
