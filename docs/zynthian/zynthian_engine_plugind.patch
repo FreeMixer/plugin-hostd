@@ -1,0 +1,307 @@
+zynthian_engine_plugind: plugin-hostd as a Zynthian engine (FreeMixer/plugin-hostd#124 spike)
+
+Against zynthian/zynthian-ui vangelis f46b0189b6163472db39aa607369f397ed23b65a (2026-10-19).
+Apply: git -C zynthian-ui apply zynthian_engine_plugind.patch
+Not sent to Zynthian; a spike's artefact for the plan in offer.md.
+
+diff --git a/zyngine/__init__.py b/zyngine/__init__.py
+index 5dd29a59..61349483 100644
+--- a/zyngine/__init__.py
++++ b/zyngine/__init__.py
+@@ -14,6 +14,7 @@ __all__ = [
+     "zynthian_engine_puredata",
+     "zynthian_engine_aeolus",
+     "zynthian_engine_jalv",
++    "zynthian_engine_plugind",
+     "zynthian_engine_sfizz",
+     "zynthian_engine_alsa_mixer",
+     "zynthian_engine_tempo",
+@@ -40,6 +41,7 @@ from zyngine.zynthian_engine_pianoteq import *
+ from zyngine.zynthian_engine_puredata import *
+ from zyngine.zynthian_engine_aeolus import *
+ from zyngine.zynthian_engine_jalv import *
++from zyngine.zynthian_engine_plugind import *
+ from zyngine.zynthian_engine_sfizz import *
+ from zyngine.zynthian_engine_alsa_mixer import *
+ from zyngine.zynthian_engine_tempo import *
+diff --git a/zyngine/zynthian_chain_manager.py b/zyngine/zynthian_chain_manager.py
+index 39b2505e..73ad2974 100644
+--- a/zyngine/zynthian_chain_manager.py
++++ b/zyngine/zynthian_chain_manager.py
+@@ -23,6 +23,7 @@
+ #
+ # ****************************************************************************
+ 
++import os
+ import logging
+ 
+ # Zynthian specific modules
+@@ -82,9 +83,14 @@ engine2class = {
+     "MR": zynthian_engine_audio_mixer,
+     "MX": zynthian_engine_alsa_mixer,
+     "TP": zynthian_engine_tempo,
+-    'CL': zynthian_engine_clippy
++    'CL': zynthian_engine_clippy,
++    'PL': zynthian_engine_plugind
+ }
+ 
++# ZYNTHIAN_PLUGIND=1: plugin-hostd runs the LV2 plugins, each in a worker process that is put back if it crashes
++if os.environ.get("ZYNTHIAN_PLUGIND") == "1":
++    engine2class['JV'] = zynthian_engine_plugind
++
+ # ----------------------------------------------------------------------------
+ # Zynthian Chain Manager Class
+ # ----------------------------------------------------------------------------
+diff --git a/zyngine/zynthian_engine_plugind.py b/zyngine/zynthian_engine_plugind.py
+new file mode 100644
+index 00000000..9d938f51
+--- /dev/null
++++ b/zyngine/zynthian_engine_plugind.py
+@@ -0,0 +1,247 @@
++# -*- coding: utf-8 -*-
++# ********************************************************************
++# ZYNTHIAN PROJECT: Zynthian Engine (zynthian_engine_plugind)
++#
++# zynthian_engine implementation for plugin-hostd: LV2 and CLAP plugins,
++# each in a worker process of its own that is put back if it crashes.
++#
++# Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
++#
++# ********************************************************************
++#
++# This program is free software; you can redistribute it and/or
++# modify it under the terms of the GNU General Public License as
++# published by the Free Software Foundation; either version 3 of
++# the License, or any later version.
++#
++# This program is distributed in the hope that it will be useful,
++# but WITHOUT ANY WARRANTY; without even the implied warranty of
++# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++# GNU General Public License for more details.
++#
++# For a full copy of the GNU General Public License see the LICENSE.txt file.
++#
++# ********************************************************************
++
++import os
++import json
++import socket
++import logging
++import threading
++import subprocess
++from time import sleep
++
++from . import zynthian_lv2
++from .zynthian_controller import zynthian_controller
++from .zynthian_engine_jalv import zynthian_engine_jalv_base
++
++# ------------------------------------------------------------------------------
++# One connection to plugin-hostd, shared by every plugind engine
++# ------------------------------------------------------------------------------
++
++
++class plugind_client:
++    """Commands on PLUGIND_PORT (mod-host's 5555), feedback on the port after it; starts the daemon if none answers."""
++
++    def __init__(self, port=None):
++        self.port = int(port or os.environ.get("PLUGIND_PORT", 5555))
++        self.lock = threading.Lock()
++        self.output_handlers = {}
++        self.proc = None
++        if not self.connectable():
++            cmd = [os.environ.get("PLUGIND_BIN", "plugin-hostd"), "-n", "-p", str(self.port)]
++            logging.info(f"Starting plugin-hostd => {cmd}")
++            self.proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
++            for _ in range(50):
++                if self.connectable():
++                    break
++                sleep(0.1)
++        # mod-host's protocol: a controller opens the feedback port before its first command
++        self.fb = socket.create_connection(("127.0.0.1", self.port + 1))
++        self.sock = socket.create_connection(("127.0.0.1", self.port))
++        threading.Thread(target=self.feedback_task, daemon=True).start()
++
++    def connectable(self):
++        try:
++            socket.create_connection(("127.0.0.1", self.port), timeout=0.2).close()
++            return True
++        except OSError:
++            return False
++
++    def cmd(self, line):
++        with self.lock:
++            self.sock.sendall(line.encode() + b"\0")
++            buf = b""
++            while not buf.endswith(b"\0"):
++                data = self.sock.recv(65536)
++                if not data:
++                    break
++                buf += data
++        reply = buf.rstrip(b"\0").decode("utf-8", "replace")
++        logging.debug(f"plugind: {line} => {reply}")
++        return reply
++
++    def feedback_task(self):
++        buf = b""
++        while True:
++            data = self.fb.recv(65536)
++            if not data:
++                return
++            buf += data
++            *msgs, buf = buf.split(b"\0")
++            for msg in msgs:
++                words = msg.decode("utf-8", "replace").split()
++                # output_set <instance> <symbol> <value>: a monitored output (meter) moved
++                if len(words) == 4 and words[0] == "output_set":
++                    handler = self.output_handlers.get(int(words[1]))
++                    if handler:
++                        handler(words[2], float(words[3]))
++                # the meters of one cycle are out: ask for the next, as mod-ui does (mod/host.py send_output_data_ready)
++                elif words and words[0] == "data_finish":
++                    threading.Thread(target=self.cmd, args=("output_data_ready",), daemon=True).start()
++
++
++def resp_code(reply):
++    words = reply.split()
++    return int(words[1]) if len(words) > 1 and words[0] == "resp" else None
++
++# ------------------------------------------------------------------------------
++# plugind Engine Class
++# ------------------------------------------------------------------------------
++
++
++class zynthian_engine_plugind(zynthian_engine_jalv_base):
++    """An LV2 plugin (controllers from lilv, exactly as the jalv engine builds them) or a CLAP plugin (controllers from
++    omx-clap-scan) run by plugin-hostd as instance <n>, JACK client effect_<n>. MIDI channels stay with Zynthian's router:
++    the instance's MIDI input is wired like a jalv client's."""
++
++    client = None
++    instances = set()
++
++    def __init__(self, eng_code, state_manager, jackname=None):
++        if zynthian_engine_plugind.client is None:
++            zynthian_engine_plugind.client = plugind_client()
++        self.instance = min(set(range(len(self.instances) + 1)) - self.instances)
++        self.instances.add(self.instance)
++        self.monitors = {}
++        # the base class builds the controllers, then calls start() and reads "JACK Name:" from what it returns
++        super().__init__(eng_code, state_manager, jackname)
++
++    def is_clap(self):
++        return self.plugin_url.startswith("clap:")
++
++    # ---------------------------------------------------------------------------
++    # Worker management, through the daemon
++    # ---------------------------------------------------------------------------
++
++    def start(self):
++        reply = self.client.cmd(f"add {self.plugin_url} {self.instance}")
++        if resp_code(reply) is None or resp_code(reply) < 0:
++            raise Exception(f"plugin-hostd refused '{self.plugin_url}' => {reply}")
++        self.client.output_handlers[self.instance] = self.on_output
++        for symbol in self.monitor_symbols():
++            self.client.cmd(f"monitor_output {self.instance} {symbol}")
++        return f"JACK Name: effect_{self.instance}\n"
++
++    def stop(self):
++        self.client.output_handlers.pop(self.instance, None)
++        self.client.cmd(f"remove {self.instance}")
++        self.instances.discard(self.instance)
++
++    def proc_cmd(self, cmd):
++        """The jalv command lines the base class writes, said in the daemon's protocol."""
++        if cmd.startswith("preset "):
++            return self.client.cmd(f"preset_load {self.instance} {cmd[7:]}")
++        if "=" in cmd and " " not in cmd:
++            symbol, value = cmd.split("=", 1)
++            return self.client.cmd(f"param_set {self.instance} {symbol} {value}")
++        # "monitors": the meters come as output_set feedback, nothing to ask
++        return ""
++
++    def get_param(self, symbol):
++        reply = self.client.cmd(f"param_get {self.instance} {symbol}").split()
++        return float(reply[2]) if len(reply) > 2 and reply[1] == "0" else None
++
++    # ---------------------------------------------------------------------------
++    # Controllers & meters
++    # ---------------------------------------------------------------------------
++
++    def clap_scan(self):
++        path, _, plugin_id = self.plugin_url[5:].partition("#")
++        out = subprocess.run(["omx-clap-scan", "--json", path], capture_output=True, text=True).stdout
++        for f in json.loads(out).get("files", []):
++            for p in f.get("plugins", []):
++                if not plugin_id or p["id"] == plugin_id:
++                    return p
++        return {"params": []}
++
++    def get_lv2_controllers_dict(self):
++        if not self.is_clap():
++            return super().get_lv2_controllers_dict()
++        zctrls = {}
++        for p in self.clap_scan()["params"]:
++            stepped = "stepped" in p.get("flags", [])
++            # the daemon names a CLAP parameter by its number
++            zctrls[str(p["id"])] = zynthian_controller(self, str(p["id"]), {
++                "name": p["name"],
++                "group_symbol": p.get("module") or None,
++                "value": p["default"],
++                "value_default": p["default"],
++                "value_min": p["min"],
++                "value_max": p["max"],
++                "is_integer": stepped,
++                "is_toggle": stepped and p["min"] == 0 and p["max"] == 1,
++            })
++        return zctrls
++
++    def monitor_symbols(self):
++        if self.is_clap():
++            return []
++        plugin = zynthian_lv2.world.get_all_plugins()[self.plugin_url]
++        world = zynthian_lv2.world
++        return [str(port.get_symbol()) for port in (plugin.get_port_by_index(i) for i in range(plugin.get_num_ports()))
++                if port.is_a(world.ns.lv2.OutputPort) and port.is_a(world.ns.lv2.ControlPort)]
++
++    def on_output(self, symbol, value):
++        self.monitors[symbol] = value
++
++    def get_monitors_dict(self):
++        return self.monitors
++
++    # ---------------------------------------------------------------------------
++    # Presets
++    # ---------------------------------------------------------------------------
++
++    def get_bank_list(self, processor=None):
++        return [["", None, "", None]]
++
++    def set_bank(self, processor, bank):
++        return True
++
++    def get_preset_list(self, bank, processor=None):
++        if self.is_clap():
++            # preset_list <instance> => resp 0 <count>; preset_get <instance> <index> => resp 0 <key> <name>
++            count = self.client.cmd(f"preset_list {self.instance}").split()
++            presets = []
++            for i in range(int(count[2]) if len(count) > 2 and count[1] == "0" else 0):
++                words = self.client.cmd(f"preset_get {self.instance} {i}").split(" ", 3)
++                if len(words) == 4 and words[1] == "0":
++                    presets.append([words[2], None, words[3], None])
++            return presets
++        world = zynthian_lv2.world
++        plugin = world.get_all_plugins()[self.plugin_url]
++        presets = []
++        for preset in plugin.get_related(world.ns.presets.Preset):
++            world.load_resource(preset)
++            label = world.get(preset, world.ns.rdfs.label, None)
++            presets.append([str(preset), None, str(label) if label is not None else str(preset), None])
++        return sorted(presets, key=lambda p: p[2])
++
++    def set_preset(self, processor, preset, preload=False):
++        code = resp_code(self.client.cmd(f"preset_load {self.instance} {preset[0]}"))
++        return code is not None and code >= 0
++
++    def cmp_presets(self, preset1, preset2):
++        return preset1[0] == preset2[0]
++
++# ******************************************************************************

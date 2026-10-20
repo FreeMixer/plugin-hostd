@@ -1,0 +1,11 @@
+ok PL/synth starts as JACK client effect_0 with 4 ports
+ok PL/comp starts as JACK client effect_1 with 6 ports
+ok PL/clap starts as JACK client effect_2 with 4 ports
+ok LV2 controllers from lilv: 52, cutoff [10.0 .. 16000.0]
+ok CLAP controllers from omx-clap-scan: 11, 1 is Ratio [1 .. 20]
+ok LV2 control moved: cutoff 2000 -> param_get 2000.0
+ok CLAP control moved: Ratio 8 -> param_get 8.0
+ok LV2 preset: 21 listed, 'Barkline' loaded
+ok note 60 on channel 1 through synth -> LV2 comp -> CLAP comp: peak -inf dBFS before, -11.2 dBFS after
+ok LV2 meters through output_set: clip_in=0.000, clip_out=0.000, compression=0.998, meter_in=0.095
+PATH-B PASS: 0 checks failed
