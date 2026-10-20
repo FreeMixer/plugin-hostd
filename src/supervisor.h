@@ -48,6 +48,7 @@ typedef struct ENTRY_T {
 } entry_t;
 
 struct WORKER_T;
+struct CHAIN_T;
 
 typedef struct INSTANCE_T {
     int id;
@@ -69,6 +70,7 @@ typedef struct INSTANCE_T {
     int has_ckpt;
     int unreplayed;             /* its pin refused the add of the last replay: the worker does not hold it */
     char *track_info;           /* the latest track_info it took, replayed after its add, never to an LV2 worker */
+    struct CHAIN_T *chain;      /* the chain it is a member of, NULL for none */
 } instance_t;
 
 typedef struct WORKER_T {
@@ -92,7 +94,17 @@ typedef struct WORKER_T {
     char **pend;                /* connects a replay could not make yet: the peer port may not be visible to the new client */
     int npend;
     int64_t pend_until_ms;
+    struct CHAIN_T *chain;      /* the chain this worker runs, its members in w->inst in the chain's order */
 } worker_t;
+
+/* the instances a chain verb declared, in order; the ones not quarantined run in its worker */
+typedef struct CHAIN_T {
+    int id;
+    int *ids;
+    int n;
+    worker_t *w;                /* NULL while no worker holds it */
+    int rejoin;                 /* its members are to be gathered in one worker again, by the tick */
+} chain_t;
 
 void sup_init(const conf_t *conf);
 void sup_finish(void);
@@ -127,6 +139,9 @@ char *sup_pool_config(const char *name, int max);
 /* lv2_worker_set: the worker of one LV2 plugin, for its adds from now on */
 char *sup_lv2_worker_set(const char *uri, const char *worker);
 char *sup_worker_env(const char *format, const char *cpus, const char *nice);
+/* chain: the instances ids, in order, are one chain run in one worker; chain_clear gives each a worker of its own */
+char *sup_chain(int id, const int *ids, int n);
+char *sup_chain_clear(int id);
 
 /* the idle tick: reap the dead, respawn the due, checkpoint the quiet */
 void sup_tick(void);
