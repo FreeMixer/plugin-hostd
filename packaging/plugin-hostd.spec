@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.6.0
+Version: 0.7.0
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -113,6 +113,21 @@ make test-daemon check-generated
 %{_datadir}/omx-contract/contract.d/3/plugin-hostd/
 
 %changelog
+* Tue Oct 20 2026 Pau Aliagas <linuxnow@gmail.com> - 0.7.0-1
+- New verb plugin-hostd-probe describe clap:<path>#<id> | lv2:<uri>: it
+  writes what a plugin states about itself as a scanned descriptor
+  (omx-contract 3). It runs omx-clap-scan --fields on the plugin under the
+  runner's limits and reads each field through the format's table; a field
+  the table has no row for is refused.
+- The format tables PLUGIN_HOSTD_CLAP_MAP and PLUGIN_HOSTD_LV2_MAP: every
+  CLAP and LV2 term of omx-contract and every field a scan reads, each
+  mapped to a descriptor word, carried in the descriptor's extensions or
+  dropped by the ruling it names. plugin-hostd-devel ships them in
+  omx-contract's contract directory (3/plugin-hostd/formats/), and make
+  install-contract installs them.
+- The build requires omx-contract-devel >= 3.0.0 (libomx-contract-dev
+  >= 3.0.0 on Debian).
+
 * Tue Oct 20 2026 Pau Aliagas <linuxnow@gmail.com> - 0.6.0-1
 - The probe runner passes --probe-notes and --hold to the CLAP prober and
   carries what it measures: the cost with voices, the LV2 note sweep and the
