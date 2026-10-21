@@ -69,6 +69,10 @@ static char g_policy[FORMATS_MAX][48];
 static poolcfg_t g_pools[POOL_NAMES];
 static int g_npools;
 static worker_env_t g_env[FORMATS_MAX];
+static chain_t *g_chain[MAX_INSTANCE];
+static int g_nchains;
+
+static void chain_form(chain_t *c);
 
 static const char *const g_state_states[W_COUNT] = {
 #define X(id, name, meaning) name,
@@ -342,10 +346,12 @@ static void worker_detach(worker_t *w, instance_t *i)
 {
     int n;
 
+    /* the order is kept: a chain's worker holds its members in the chain's order */
     for (n = 0; n < w->ninst; n++)
         if (w->inst[n] == i)
         {
-            w->inst[n] = w->inst[--w->ninst];
+            memmove(&w->inst[n], &w->inst[n + 1], (w->ninst - n - 1) * sizeof(instance_t *));
+            w->ninst--;
             break;
         }
     i->w = NULL;
@@ -362,6 +368,8 @@ static void worker_free(worker_t *w)
             g_workers[n] = g_workers[--g_nworkers];
             break;
         }
+    if (w->chain && w->chain->w == w)
+        w->chain->w = NULL;
     snprintf(path, sizeof(path), "%s/world-w%d", g_root, w->k);
     rm_tree(path);
     snprintf(path, sizeof(path), "%s/w%d.log", g_root, w->k);
@@ -572,6 +580,21 @@ static worker_t *move_to_own(instance_t *i, int64_t now, int from_split)
     return own;
 }
 
+/* every member that is not quarantined runs in the chain's worker */
+static int chain_whole(const chain_t *c)
+{
+    int n;
+
+    for (n = 0; n < c->n; n++)
+    {
+        instance_t *i = g_inst[c->ids[n]];
+
+        if (i && !meta_of(i->id)->quarantined && (!c->w || i->w != c->w))
+            return 0;
+    }
+    return 1;
+}
+
 static void quarantine(instance_t *i, worker_t *w)
 {
     meta_t *m = meta_of(i->id);
@@ -581,6 +604,9 @@ static void quarantine(instance_t *i, worker_t *w)
         m->quarantined = 1;
         event(PHD_EVENT_INSTANCE_QUARANTINED_FMT, i->id, w->k);
     }
+    /* the culprit of a chain that was split: the others are gathered again, without it, by the tick */
+    if (i->chain && !chain_whole(i->chain))
+        i->chain->rejoin = 1;
 }
 
 /* the verb a worker answered and then died on, inside the suspect window: out of the ledger, so the respawn does not
@@ -853,6 +879,21 @@ static int replay_pin(worker_t *w, instance_t *i)
     return RPC_OK;
 }
 
+/* "chain <chain> <instance> ...": the members a chain's worker holds and replayed, in order; 0 when it holds none */
+static int chain_line(worker_t *w, char *line, size_t size)
+{
+    size_t used = snprintf(line, size, PHD_VERB_CHAIN " %d", w->chain->id);
+    int n, count = 0;
+
+    for (n = 0; n < w->ninst && used + 12 < size; n++)
+        if (!w->inst[n]->unreplayed)
+        {
+            used += snprintf(line + used, size - used, " %d", w->inst[n]->id);
+            count++;
+        }
+    return count;
+}
+
 static void replay(worker_t *w, int64_t started)
 {
     int n, m, any_ckpt = 0, count = 0, code;
@@ -893,6 +934,12 @@ static void replay(worker_t *w, int64_t started)
         }
         i->has_ckpt = ckpt_exists(i->id);
         any_ckpt |= i->has_ckpt;
+    }
+    /* the order of a chain, to a worker that runs one in one client, before the state: the members it holds */
+    if (w->chain && format_at(w->fmt)->native_chain && chain_line(w, msg, sizeof(msg)) && replay_line(w, msg) != RPC_OK)
+    {
+        on_death(w, -1);
+        return;
     }
     if (any_ckpt)
     {
@@ -941,6 +988,17 @@ static void replay(worker_t *w, int64_t started)
     for (n = 0; n < w->ninst; n++)
         if (!w->inst[n]->unreplayed)
             event(PHD_EVENT_INSTANCE_RESTORED_FMT, w->inst[n]->id, w->k);
+    if (w->chain)
+    {
+        char ids[1024];
+        size_t used = 0;
+
+        ids[0] = '\0';
+        for (n = 0; n < w->ninst && used + 8 < sizeof(ids); n++)
+            if (!w->inst[n]->unreplayed)
+                used += snprintf(ids + used, sizeof(ids) - used, "%s%d", used ? "," : "", w->inst[n]->id);
+        event(PHD_EVENT_CHAIN_FORMED_FMT, w->chain->id, w->k, used ? ids : PHD_WORD_NONE);
+    }
 }
 
 static void respawn(worker_t *w)
@@ -993,6 +1051,13 @@ void sup_tick(void)
         if (due)
             checkpoint(w);
     }
+    for (n = 0; g_nchains && n < MAX_INSTANCE; n++)
+        if (g_chain[n] && g_chain[n]->rejoin)
+        {
+            g_chain[n]->rejoin = 0;
+            if (!chain_whole(g_chain[n]))
+                chain_form(g_chain[n]);
+        }
 }
 
 /* ---------------------------------------------------------------- init and finish */
@@ -1327,6 +1392,48 @@ static char *add(const char *uri, int id, const char *placement, const char *cli
     return reply;
 }
 
+static void chain_free(chain_t *c)
+{
+    int n;
+
+    for (n = 0; n < c->n; n++)
+        if (g_inst[c->ids[n]] && g_inst[c->ids[n]]->chain == c)
+            g_inst[c->ids[n]]->chain = NULL;
+    if (c->w)
+        c->w->chain = NULL;
+    g_chain[c->id] = NULL;
+    g_nchains--;
+    free(c->ids);
+    free(c);
+}
+
+/* a member that is gone leaves the order; a chain with no member left is forgotten */
+static void chain_leave(instance_t *i)
+{
+    chain_t *c = i->chain;
+    int n, kept = 0;
+
+    if (!c)
+        return;
+    i->chain = NULL;
+    for (n = 0; n < c->n; n++)
+        if (c->ids[n] != i->id)
+            c->ids[kept++] = c->ids[n];
+    c->n = kept;
+    if (!c->n)
+        chain_free(c);
+}
+
+/* a chain's worker that is up and runs chains is told the order it holds now */
+static void chain_tell(worker_t *w)
+{
+    char line[1024];
+
+    if (w->state == W_UP && format_at(w->fmt)->native_chain && chain_line(w, line, sizeof(line)) &&
+        replay_line(w, line) != RPC_OK)
+        on_death(w, -1);
+}
+
 static char *refuse_worker(worker_t *w)
 {
     return sup_resp(w->state == W_GIVEN_UP ? PHD_ERR_GAVE_UP : PHD_ERR_WORKER_SPAWN);
@@ -1449,10 +1556,13 @@ char *sup_remove(int id)
     relay_instance_gone(id);
     worker_detach(w, i);
     g_inst[id] = NULL;
+    chain_leave(i);
     ckpt_forget(id);
     instance_free(i);
     if (w->ninst == 0)
         worker_retire(w);
+    else if (w->chain)
+        chain_tell(w);
     return sup_resp(SUCCESS);
 }
 
@@ -1716,12 +1826,18 @@ char *sup_quarantine_clear(const char *which)
         for (id = 0; id < MAX_INSTANCE; id++)
             if (g_meta[id])
                 g_meta[id]->quarantined = 0;
+        for (id = 0; id < MAX_INSTANCE; id++)
+            if (g_chain[id])
+                g_chain[id]->rejoin = 1;
         return sup_resp(SUCCESS);
     }
     id = atoi(which);
     if (id < 0 || id >= MAX_INSTANCE || (!g_inst[id] && !(g_meta[id] && g_meta[id]->quarantined)))
         return sup_resp(ERR_INSTANCE_NON_EXISTS);
     meta_of(id)->quarantined = 0;
+    /* a chain's member goes back to its chain: the tick gathers the chain again */
+    if (g_inst[id] && g_inst[id]->chain)
+        g_inst[id]->chain->rejoin = 1;
     return sup_resp(SUCCESS);
 }
 
@@ -1821,5 +1937,156 @@ char *sup_worker_env(const char *format, const char *cpus, const char *nice)
                 proc_env_report(g_workers[n]->pid, &g_env[f]);
             }
     }
+    return sup_resp(SUCCESS);
+}
+
+/* ---------------------------------------------------------------- chains */
+
+/* an instance leaves the worker it is in, which is told to remove it once its state is saved; the worker is retired
+ * when it holds no one else. The instance is in no worker after it */
+static void evict(instance_t *i)
+{
+    worker_t *w = i->w;
+    char line[32], *reply = NULL;
+    int rc;
+
+    if (w->state == W_UP)
+        checkpoint(w);
+    w = i->w;
+    if (w->state == W_UP)
+    {
+        snprintf(line, sizeof(line), EFFECT_REMOVE, i->id);
+        rc = proc_rpc(&g_conf, w->pid, w->fd, line, &reply);
+        if (rc != RPC_OK)
+            on_death(w, -1);
+        free(reply);
+        w = i->w;
+    }
+    relay_instance_gone(i->id);
+    worker_detach(w, i);
+    if (w->ninst == 0)
+        worker_retire(w);
+}
+
+/* an instance into a fresh worker of its own, started now */
+static void to_own(instance_t *i)
+{
+    worker_t *own = worker_new(i->fmt, PHD_PLACE_OWN);
+
+    evict(i);
+    worker_attach(own, i);
+    respawn(own);
+}
+
+/* the chain's members that are not quarantined, gathered in order in one new worker and replayed there */
+static void chain_form(chain_t *c)
+{
+    char place[48];
+    worker_t *w = NULL;
+    int n;
+
+    snprintf(place, sizeof(place), PHD_PLACE_CHAIN_PREFIX "%d", c->id);
+    for (n = 0; n < c->n; n++)
+    {
+        instance_t *i = g_inst[c->ids[n]];
+
+        if (!i || meta_of(i->id)->quarantined)
+            continue;
+        if (!w)
+        {
+            w = worker_new(i->fmt, place);
+            w->pool = 1;
+            w->chain = c;
+        }
+        evict(i);
+        worker_attach(w, i);
+    }
+    if (c->w && c->w != w)
+        c->w->chain = NULL;
+    c->w = w;
+    c->rejoin = 0;
+    if (w)
+        respawn(w);
+}
+
+/* a plugin that may not share a worker: the rule of a pool, while require_pins is on */
+static int must_run_own(const instance_t *i)
+{
+    return g_conf.require_pins &&
+           (format_at(i->fmt)->pinned_own_only || (conf_pins_first_use(&g_conf) && !pins_in_process(i->uri)));
+}
+
+char *sup_chain(int id, const int *ids, int n)
+{
+    chain_t *c = (id >= 0 && id < MAX_INSTANCE) ? g_chain[id] : NULL;
+    int k, m;
+
+    if (id < 0 || id >= MAX_INSTANCE || n < 2)
+        return sup_resp(ERR_INVALID_OPERATION);
+    for (k = 0; k < n; k++)
+    {
+        instance_t *i = (ids[k] >= 0 && ids[k] < MAX_INSTANCE) ? g_inst[ids[k]] : NULL;
+
+        if (!i)
+            return sup_resp(PHD_ERR_CHAIN_UNKNOWN_INSTANCE);
+        for (m = 0; m < k; m++)
+            if (ids[m] == ids[k])
+                return sup_resp(PHD_ERR_CHAIN_DUPLICATE);
+        if (i->chain && i->chain != c)
+            return sup_resp(PHD_ERR_CHAIN_INSTANCE_BUSY);
+        if (i->fmt != g_inst[ids[0]]->fmt)
+            return sup_resp(PHD_ERR_CHAIN_MIXED_FORMAT);
+        if (must_run_own(i))
+            return sup_resp(PHD_ERR_PLACEMENT_INVALID);
+    }
+    if (!c)
+    {
+        c = calloc(1, sizeof(chain_t));
+        c->id = id;
+        g_chain[id] = c;
+        g_nchains++;
+    }
+    /* a member the new order leaves out goes back to a worker of its own */
+    for (k = 0; k < c->n; k++)
+    {
+        instance_t *i = g_inst[c->ids[k]];
+
+        for (m = 0; m < n && ids[m] != c->ids[k]; m++)
+            ;
+        if (m < n || !i)
+            continue;
+        i->chain = NULL;
+        if (c->w && i->w == c->w)
+            to_own(i);
+    }
+    free(c->ids);
+    c->ids = malloc(n * sizeof(int));
+    memcpy(c->ids, ids, n * sizeof(int));
+    c->n = n;
+    for (k = 0; k < n; k++)
+        g_inst[ids[k]]->chain = c;
+    chain_form(c);
+    return sup_resp(SUCCESS);
+}
+
+char *sup_chain_clear(int id)
+{
+    chain_t *c = (id >= 0 && id < MAX_INSTANCE) ? g_chain[id] : NULL;
+    int k;
+
+    if (!c)
+        return sup_resp(PHD_ERR_NO_SUCH_CHAIN);
+    for (k = 0; k < c->n; k++)
+    {
+        instance_t *i = g_inst[c->ids[k]];
+
+        if (!i)
+            continue;
+        i->chain = NULL;
+        /* one already alone, quarantined or split, stays where it is */
+        if (c->w && i->w == c->w)
+            to_own(i);
+    }
+    chain_free(c);
     return sup_resp(SUCCESS);
 }

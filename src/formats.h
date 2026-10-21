@@ -55,6 +55,7 @@ typedef struct FORMAT_T {
     int pinned_own_only;            /* a pinned plugin runs in a worker of its own: the pin holds in no shared world */
 
     int native_instance_verbs;      /* the worker answers PHD_INSTANCE_VERBS; 0: the daemon does */
+    int native_chain;               /* the worker takes PHD_VERB_CHAIN and runs a chain's members in order in one client */
     char *(*param_info)(int id, const char *symbol);    /* the daemon's param_info, needed when it answers */
 } format_t;
 
