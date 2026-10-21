@@ -57,6 +57,10 @@
  *                               plays nothing (FAKE_LOG shows what it was sent)
  *   set_bpm, set_bpb, transport, transport_sync   "resp 0", as mod-host answers them, -902 with FAKE_REFUSE_SETTINGS, as
  *                               omx-clap-host answers them; the fake keeps nothing of them
+ *   feature_enable, cpu_load, preset_show, preset_save <n> ...   "resp 0" ("resp 0 0.0 0.0 0" for cpu_load), as mod-host
+ *                               answers them; the fake keeps nothing of them
+ *   bundle_add, bundle_remove, state_tmpdir   "resp 0", as mod-host answers them; with FAKE_WORKER=omx-clap-host
+ *                               -902, as omx-clap-host answers them (they are LV2's, the daemon answers them for it)
  *   remote_pages <n>            "resp 2", and remote_page_get <n> <0|1> one page each, -902 for any other page
  *   param_info <n> <sym>        for the symbol 0 the worked vector of the param contract, for the symbol 1 -511 (a parameter
  *                               the worker holds no contract for, as the released omx-clap-host answers every one), -103 for any other
@@ -338,6 +342,12 @@ static void receive(msg_t *msg)
     else if (verb_is(verb, EFFECT_SET_BPM) || verb_is(verb, EFFECT_SET_BPB) || verb_is(verb, TRANSPORT) ||
              verb_is(verb, TRANSPORT_SYNC))
         answer(fd, getenv("FAKE_REFUSE_SETTINGS") ? "resp -902" : "resp 0");
+    else if (verb_is(verb, BUNDLE_ADD) || verb_is(verb, BUNDLE_REMOVE) || verb_is(verb, STATE_TMPDIR))
+        answer(fd, getenv("FAKE_WORKER") && !strcmp(getenv("FAKE_WORKER"), PHD_DEFAULT_CLAP_HOST) ? "resp -902" : "resp 0");
+    else if (verb_is(verb, FEATURE_ENABLE) || verb_is(verb, EFFECT_PRESET_SHOW))
+        answer(fd, "resp 0");
+    else if (verb_is(verb, CPU_LOAD))
+        answer(fd, "resp 0 0.0 0.0 0");
     else if (n >= 0 && n < MAX_INST && !g_inst[n].exists && !verb_is(verb, STATE_SAVE) && !verb_is(verb, STATE_LOAD) &&
              !verb_is(verb, EFFECT_CONNECT) && !verb_is(verb, EFFECT_DISCONNECT) && strcmp(verb, "list_connections") &&
              !verb_is(verb, QUIT))
@@ -422,6 +432,8 @@ static void receive(msg_t *msg)
         set_param(&g_inst[n], ":bypass", tok[2]);
         answer(fd, "resp 0");
     }
+    else if (verb_is(verb, EFFECT_PRESET_SAVE) && ntok == 5)
+        answer(fd, "resp 0");
     else if (verb_is(verb, EFFECT_PRESET_LOAD) && ntok == 3)
     {
         const char *bypass = get_param(&g_inst[n], ":bypass");
