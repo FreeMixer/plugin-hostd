@@ -1,8 +1,8 @@
 # The host verb table, the daemon's half of it, and the declared limits
 
-Status: built on cluster/plugin-hostd-131-cluster (#131). Ruled by the operator 2026-10-21, openmixer
-docs/design/specs/2026-10-21-strip-declaration.md section 14, items 20 to 23. The starting values come from
-docs/zynthian/verbs.tsv on devel/zynthian: mod-ui's 35 host verbs as an LV2 worker and a CLAP worker answered them.
+Status: built on cluster/plugin-hostd-131-cluster (#131). Ruled by the operator 2026-10-21 as part of the strip
+declaration. The starting values come from docs/zynthian/verbs.tsv on devel/zynthian: mod-ui's 35 host verbs as an
+LV2 worker and a CLAP worker answered them.
 
 ## The table
 
