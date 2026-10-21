@@ -114,6 +114,11 @@ make test-daemon check-generated
 
 %changelog
 * Tue Oct 20 2026 Pau Aliagas <linuxnow@gmail.com> - 0.7.0-1
+- New verbs chain <chain> <instance> <instance> ... and chain_clear: the
+  instances, in order, run in one worker, and a worker that runs chains
+  (omx-clap-host) is told the order. A member that crashes the worker is
+  quarantined to a worker of its own and the chain goes on without it,
+  announced by chain_formed. Codes -518 to -522 name the refusals (#101).
 - New verb plugin-hostd-probe describe clap:<path>#<id> | lv2:<uri>: it
   writes what a plugin states about itself as a scanned descriptor
   (omx-contract 3). It runs omx-clap-scan --fields on the plugin under the
