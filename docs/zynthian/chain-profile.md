@@ -20,7 +20,7 @@ What a chain holds
   to `audio_slots`, any other type (`MIDI Synth`, `Audio Generator`, `Special`) to `synth_slots`
   (`get_slots_by_type`, `chain.py:120-132`).
 - The mixer channel strip is a processor of the audio list: `MI` (and `MR` for a mixbus) is an `Audio Effect`
-  (`manager.py:149-178`), added after the chain's first processor (`zyngui/zynthian_gui.py:1070-1076`); a new effect is
+  (`manager.py:143-172`), added after the chain's first processor (`zyngui/zynthian_gui.py:1070-1076`); a new effect is
   inserted just before it, pre-fader (`zyngui/zynthian_gui_chain_options.py:192-199`). Effects after it are post-fader.
 
 The profile
@@ -29,14 +29,14 @@ The profile
 | Field | Zynthian chain | Read from |
 |---|---|---|
 | source | `synth` when `synth_slots` holds a processor: its JACK client feeds the first audio slot. `live` when it does not and `audio_thru` is set: the chain's capture pairs feed it. `sum` for a mixbus chain (`MR`): the mixer's send `zynmixer_chan:send_<nn>` feeds it | `chain.py:322-333` |
-| source, one generator | adding a `MIDI Synth` to a chain that has one removes the old one ("Cannot have multiple synth engines") | `manager.py:1101-1104` |
+| source, one generator | adding a `MIDI Synth` to a chain that has one removes the old one ("Cannot have multiple synth engines") | `manager.py:1095-1098` |
 | control domain | `midi_slots`, outside the audio chain: slot `i` takes the MIDI of slot `i-1`, slot 0 the chain's input (autoconnect); the last MIDI slot feeds the synth's MIDI input; with no MIDI slot and `midi_thru`, the chain's MIDI input does | `chain.py:386-418` |
 | control domain, to effects | the same MIDI feeds every audio processor that is not `MI`/`MR` | `chain.py:419-424` |
 | chain | `audio_slots` in order: each slot's processors take the previous slot's outputs | `chain.py:335-347` |
 | tail boundary | the last slot's outputs go to the chain's outputs (`audio_out`, default `[0]`, the main mixbus; chain 0 the first two playback ports) | `chain.py:356-360`, `chain.py:91-106` |
-| fixed element | the mixer strip `MI`/`MR` (fader, balance, mute, solo, sends) sits in `audio_slots`, so the pre/post-fader split is a position in the list, not a boundary of it | `manager.py:149-178`, `zyngui/zynthian_gui_chain_options.py:192-199` |
+| fixed element | the mixer strip `MI`/`MR` (fader, balance, mute, solo, sends) sits in `audio_slots`, so the pre/post-fader split is a position in the list, not a boundary of it | `manager.py:143-172`, `zyngui/zynthian_gui_chain_options.py:192-199` |
 | pass-through | an empty audio list with `audio_thru` routes the input pairs straight to the outputs (`prev_slot_sources` stays the first sources) | `chain.py:331-333`, `chain.py:359-360` |
-| placement | where a processor runs is its engine's: jalv one process per LV2 plugin (`zynthian_engine_jalv.py:84-111`), mod-ui one `Special` processor (`zynthian_engine_modui.py:67`, client `mod-host`, `:92-93`) holding a whole pedalboard, plugind one instance in plugin-hostd (`effect_<n>`) | as cited |
+| placement | where a processor runs is its engine's: jalv one process per LV2 plugin (`zynthian_engine_jalv.py:84-98`), mod-ui one `Special` processor (`zynthian_engine_modui.py:67`, client `mod-host`, `:92-93`) holding a whole pedalboard, plugind one instance in plugin-hostd (`effect_<n>`) | as cited |
 | realisation | the chain builds `audio_routes` (destination to sources, `chain.py:320-360`); `zynautoconnect` turns them into JACK links, pairing ports two at a time with mono spread (`autoconnect.py:1094-1098`), and disconnects only links it made itself (`zyn_routed_audio`, `autoconnect.py:1163-1186`) | as cited |
 
 Verbs on the chain
@@ -44,19 +44,19 @@ Verbs on the chain
 
 | Verb | Where | What it does to the slots |
 |---|---|---|
-| add at a position | `manager.add_processor(chain_id, eng_code, slot)` (`manager.py:1060-1135`) → `chain.insert_processor` (`chain.py:639-680`) | always a NEW slot: `None` appends, `< 0` inserts first, past the end appends, else inserts at `slot`; the parallel branch is commented out (`chain.py:669-670`); the engine is started after the insert (`manager.py:1106`), then the graph is rebuilt (`manager.py:1121-1125`) |
-| remove | `manager.remove_processor` (`manager.py:1216-1270`) → `chain.remove_processor` (`chain.py:705-746`) | the processor leaves its slot, an emptied slot is dropped (`chain.py:722-725`), the graph is rebuilt (`chain.py:731`); unused engines stop after (`manager.py:1250-1251`) |
-| move up/down | `manager.nudge_processor` (`manager.py:1155-1180`) → `chain.nudge_processor` (`chain.py:758-804`) | moving a single processor past its neighbour MERGES it into the neighbour's slot (`chain.py:782`, `chain.py:799`); moving a parallel one out makes it a slot of its own (`chain.py:771-777`, `:793-795`); the mixer strip moves slot by slot (`chain.py:767-770`); the main output is muted while the audio graph changes (`manager.py:1172-1177`) |
-| move to another chain | `manager.nudge_processor` left/right (`manager.py:1181-1213`) | remove from one chain, append to the other's list |
+| add at a position | `manager.add_processor(chain_id, eng_code, slot)` (`manager.py:1054-1129`) → `chain.insert_processor` (`chain.py:639-680`) | always a NEW slot: `None` appends, `< 0` inserts first, past the end appends, else inserts at `slot`; the parallel branch is commented out (`chain.py:669-670`); the engine is started after the insert (`manager.py:1100`), then the graph is rebuilt (`manager.py:1118-1121`) |
+| remove | `manager.remove_processor` (`manager.py:1210-1264`) → `chain.remove_processor` (`chain.py:705-746`) | the processor leaves its slot, an emptied slot is dropped (`chain.py:722-725`), the graph is rebuilt (`chain.py:731`); unused engines stop after (`manager.py:1250-1251`) |
+| move up/down | `manager.nudge_processor` (`manager.py:1149-1174`) → `chain.nudge_processor` (`chain.py:758-804`) | moving a single processor past its neighbour MERGES it into the neighbour's slot (`chain.py:782`, `chain.py:799`); moving a parallel one out makes it a slot of its own (`chain.py:771-777`, `:793-795`); the mixer strip moves slot by slot (`chain.py:767-770`); the main output is muted while the audio graph changes (`manager.py:1165-1171`) |
+| move to another chain | `manager.nudge_processor` left/right (`manager.py:1175-1207`) | remove from one chain, append to the other's list |
 | swap | `chain.swap_processors` (`chain.py:806-836`) | its guard `processor1.type != processor2.type or processor1.type` refuses every typed processor, so it is unreachable for effects at this commit |
-| restore | `manager.set_chain_state` (`manager.py:1579-1595`) | the saved slots are read processor by processor and each is added as a new slot (the code's own TODO, `:1590-1591`): a saved parallel slot comes back in series |
+| restore | `manager.set_chain_state` (`manager.py:1573-1589`) | the saved slots are read processor by processor and each is added as a new slot (the code's own TODO, `:1590-1591`): a saved parallel slot comes back in series |
 
 Limits
 ------
 
-- One synth: `manager.py:1101-1104`.
+- One synth: `manager.py:1095-1098`.
 - No limit on the number of audio or MIDI slots is enforced in these files.
-- Movable: a synth or generator never (`manager.py:1137-1153`).
+- Movable: a synth or generator never (`manager.py:1131-1147`).
 - Through plugind: instances are numbered by the engine, lowest free first (`zynthian_engine_plugind.py`, `__init__`);
   the daemon's own limits (`add` beyond `MAX_INSTANCE` answers `-1`, `tests/daemon_test.py` placement test) apply.
 
@@ -110,7 +110,7 @@ Open points
 - **Parallel slots in the strip model.** The strip model of the openmixer draft has no parallel element yet; this page
   proposes fan-out plus a `mix` element as the third arrangement beside pool and chain. Whether the draft takes it,
   and how a mix element's branch gains are presented, is not decided here. The only way a parallel slot forms at this
-  commit is a nudge into a neighbour (`chain.py:782`, `:799`); a restore flattens it (`manager.py:1590-1591`), so a
+  commit is a nudge into a neighbour (`chain.py:782`, `:799`); a restore flattens it (`manager.py:1584-1585`), so a
   saved parallel slot does not survive a reload in Zynthian itself. A new mix element starts at the declared gains: a
   member added to or taken from a slot gives the slot a new mixer instance, and branch gains set by hand are not
   carried over.
