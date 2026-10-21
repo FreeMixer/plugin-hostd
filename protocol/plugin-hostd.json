@@ -5,7 +5,9 @@
   "constants": [
     {"name": "default_command_port", "value": 5555, "unit": "port", "meaning": "the command port without -p; the feedback port is the next one, unless -n is given"},
     {"name": "connect_retry_ms", "value": 5000, "unit": "ms", "meaning": "how long the idle tick asks again for a connect a respawned worker could not make yet"},
-    {"name": "line_max", "value": 4096, "unit": "bytes", "meaning": "the protocol socket's buffer: the longest pin_set line the daemon takes"}
+    {"name": "line_max", "value": 4096, "unit": "bytes", "meaning": "the protocol socket's buffer: the longest pin_set line the daemon takes"},
+    {"name": "line_words_max", "value": 64, "unit": "words", "meaning": "the words of one command line the daemon reads; a word past them is not read"},
+    {"name": "chain_members_min", "value": 1, "unit": "instances", "meaning": "the fewest members of a chain: a chain of one is valid, so the trip of one isolated plugin is a chain of one"}
   ],
   "placement": {
     "own": "own",
@@ -114,6 +116,48 @@
     {"name": "TEMPO", "meaning": "the tempo, the metre and the transport a controller sets (mod-host's set_bpm, set_bpb, transport and transport_sync) are kept, the latest line of each as it was sent, in the order they were last sent"},
     {"name": "REPLAY", "meaning": "a worker is handed them before anything else: a respawned one before its first add, and a worker started later, of a new placement, as well; a worker's refusal of one is written to stderr and is no failure"},
     {"name": "GRAMMAR", "meaning": "a line whose words are not that command's grammar is passed on and not kept"}
+  ],
+  "host_verb_words": [
+    {"name": "required", "meaning": "not a refusal: a resp code of 0 or more"},
+    {"name": "optional", "meaning": "any answer; a refusal is allowed"},
+    {"name": "absent", "meaning": "a refusal, on purpose: the verb means nothing here"}
+  ],
+  "host_verbs": [
+    {"name": "add", "lv2": "required", "clap": "required", "console": "required", "meaning": "an instance, placed by the daemon"},
+    {"name": "remove", "lv2": "required", "clap": "required", "console": "required", "meaning": "an instance, or every one with -1"},
+    {"name": "bypass", "lv2": "required", "clap": "required", "console": "required", "meaning": "routed by instance"},
+    {"name": "connect", "lv2": "required", "clap": "required", "console": "required", "meaning": "to the worker of the instance that owns a port; ports no instance owns to any worker"},
+    {"name": "param_set", "lv2": "required", "clap": "required", "console": "required", "meaning": "routed by instance, the parameter named by its symbol"},
+    {"name": "state_load", "lv2": "required", "clap": "required", "console": "required", "meaning": "to every worker"},
+    {"name": "state_save", "lv2": "required", "clap": "required", "console": "required", "meaning": "to every worker"},
+    {"name": "state_tmpdir", "lv2": "required", "clap": "required", "console": "required", "meaning": "kept, the latest line, and handed to each worker of a row that loads LV2 bundles when it starts; only those workers are sent it, and with none up the daemon answers 0"},
+    {"name": "feature_enable", "lv2": "required", "clap": "required", "console": "required", "meaning": "to every worker; kept, the latest line of each feature, and handed to each worker when it starts"},
+    {"name": "bundle_add", "lv2": "required", "clap": "required", "console": "required", "meaning": "kept, the bundles added and not removed, and handed to each worker of a row that loads LV2 bundles when it starts; only those workers are sent it, and with none up the daemon answers 0"},
+    {"name": "bundle_remove", "lv2": "required", "clap": "required", "console": "required", "meaning": "takes its bundle out of the kept ones; sent as bundle_add is"},
+    {"name": "preset_load", "lv2": "required", "clap": "required", "console": "required", "meaning": "routed by instance"},
+    {"name": "preset_save", "lv2": "required", "clap": "required", "console": "required", "meaning": "routed by instance"},
+    {"name": "preset_show", "lv2": "required", "clap": "required", "console": "required", "meaning": "to every worker"},
+    {"name": "transport", "lv2": "required", "clap": "required", "console": "required", "meaning": "to every worker, and kept as a host setting"},
+    {"name": "transport_sync", "lv2": "required", "clap": "required", "console": "required", "meaning": "to every worker, and kept as a host setting"},
+    {"name": "cpu_load", "lv2": "required", "clap": "required", "console": "required", "meaning": "to every worker"},
+    {"name": "midi_learn", "lv2": "optional", "clap": "optional", "console": "optional", "meaning": "routed by instance"},
+    {"name": "midi_map", "lv2": "optional", "clap": "optional", "console": "optional", "meaning": "routed by instance"},
+    {"name": "midi_unmap", "lv2": "optional", "clap": "optional", "console": "optional", "meaning": "routed by instance"},
+    {"name": "cv_map", "lv2": "optional", "clap": "optional", "console": "optional", "meaning": "routed by instance"},
+    {"name": "cv_unmap", "lv2": "optional", "clap": "optional", "console": "optional", "meaning": "routed by instance"},
+    {"name": "monitor_midi_program", "lv2": "optional", "clap": "optional", "console": "optional", "meaning": "to every worker"},
+    {"name": "monitor_output", "lv2": "optional", "clap": "optional", "console": "optional", "meaning": "routed by instance, and kept in the ledger"},
+    {"name": "output_data_ready", "lv2": "optional", "clap": "optional", "console": "optional", "meaning": "to every worker"},
+    {"name": "patch_get", "lv2": "optional", "clap": "optional", "console": "optional", "meaning": "routed by instance"},
+    {"name": "patch_set", "lv2": "optional", "clap": "optional", "console": "optional", "meaning": "routed by instance"},
+    {"name": "cc_map", "lv2": "absent", "clap": "absent", "console": "absent", "meaning": "no Control Chain"},
+    {"name": "cc_value_set", "lv2": "absent", "clap": "absent", "console": "absent", "meaning": "no Control Chain"},
+    {"name": "cc_unmap", "lv2": "absent", "clap": "absent", "console": "absent", "meaning": "no Control Chain"},
+    {"name": "hmi_map", "lv2": "absent", "clap": "absent", "console": "absent", "meaning": "no MOD HMI"},
+    {"name": "hmi_unmap", "lv2": "absent", "clap": "absent", "console": "absent", "meaning": "no MOD HMI"},
+    {"name": "show_external_ui", "lv2": "absent", "clap": "absent", "console": "absent", "meaning": "no external UI is shown by a host"},
+    {"name": "set_midi_program_change_pedalboard_bank_channel", "lv2": "absent", "clap": "absent", "console": "absent", "meaning": "commented out in mod-ui, never sent"},
+    {"name": "set_midi_program_change_pedalboard_snapshot_channel", "lv2": "absent", "clap": "absent", "console": "absent", "meaning": "commented out in mod-ui, never sent"}
   ],
   "config": [
     {"key": "mod_host", "type": "string", "default": "mod-host", "env": "", "meaning": "worker for lv2 (a name on PATH or a path)"},

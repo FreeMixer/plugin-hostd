@@ -383,6 +383,76 @@
       },
       "minItems": 1
     },
+    "host_verb_words": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "enum": [
+              "required",
+              "optional",
+              "absent"
+            ]
+          },
+          "meaning": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "meaning"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "host_verbs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z_]+$"
+          },
+          "lv2": {
+            "enum": [
+              "required",
+              "optional",
+              "absent"
+            ]
+          },
+          "clap": {
+            "enum": [
+              "required",
+              "optional",
+              "absent"
+            ]
+          },
+          "console": {
+            "enum": [
+              "required",
+              "optional",
+              "absent"
+            ]
+          },
+          "meaning": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "lv2",
+          "clap",
+          "console",
+          "meaning"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
     "config": {
       "type": "array",
       "items": {
@@ -468,6 +538,8 @@
     "pin_limits",
     "relay",
     "host_settings",
+    "host_verb_words",
+    "host_verbs",
     "config"
   ],
   "additionalProperties": false

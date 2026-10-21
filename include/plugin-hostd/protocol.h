@@ -44,13 +44,18 @@
 #define PHD_DEFAULT_COMMAND_PORT 5555
 #define PHD_CONNECT_RETRY_MS     5000
 #define PHD_LINE_MAX             4096
+#define PHD_LINE_WORDS_MAX       64
+#define PHD_CHAIN_MEMBERS_MIN    1
 
 #define PHD_CONSTANTS(X) \
     X(default_command_port, PHD_DEFAULT_COMMAND_PORT, "port", \
       "the command port without -p; the feedback port is the next one, unless -n is given") \
     X(connect_retry_ms, PHD_CONNECT_RETRY_MS, "ms", \
       "how long the idle tick asks again for a connect a respawned worker could not make yet") \
-    X(line_max, PHD_LINE_MAX, "bytes", "the protocol socket's buffer: the longest pin_set line the daemon takes")
+    X(line_max, PHD_LINE_MAX, "bytes", "the protocol socket's buffer: the longest pin_set line the daemon takes") \
+    X(line_words_max, PHD_LINE_WORDS_MAX, "words", "the words of one command line the daemon reads; a word past them is not read") \
+    X(chain_members_min, PHD_CHAIN_MEMBERS_MIN, "instances", \
+      "the fewest members of a chain: a chain of one is valid, so the trip of one isolated plugin is a chain of one")
 
 /* ---------------------------------------------------------------- placement */
 
@@ -642,6 +647,71 @@ static inline int phd_is_note_verb(const char *verb)
     X(REPLAY, "a worker is handed them before anything else: a respawned one before its first add, and a worker " \
               "started later, of a new placement, as well; a worker's refusal of one is written to stderr and is no failure") \
     X(GRAMMAR, "a line whose words are not that command's grammar is passed on and not kept")
+
+/* ---------------------------------------------------------------- host verbs */
+
+/* The verbs mod-ui sends a host, and the answer the daemon serves each one in each profile: lv2, an instance whose
+ * worker is the lv2 row; clap, an instance whose worker is the clap row; console, both rows at once, where a verb
+ * that names no instance is answered the worst reply of every worker. tests/host_verbs_contract.py serves every row
+ * and holds the daemon to it. */
+#define PHD_HOST_VERB_REQUIRED "required"
+#define PHD_HOST_VERB_OPTIONAL "optional"
+#define PHD_HOST_VERB_ABSENT   "absent"
+
+/* the answer each word asks for: X(id, name, meaning) */
+#define PHD_HOST_VERB_WORDS(X) \
+    X(REQUIRED, PHD_HOST_VERB_REQUIRED, "not a refusal: a resp code of 0 or more") \
+    X(OPTIONAL, PHD_HOST_VERB_OPTIONAL, "any answer; a refusal is allowed") \
+    X(ABSENT, PHD_HOST_VERB_ABSENT, "a refusal, on purpose: the verb means nothing here")
+
+#define PHD_HV_R PHD_HOST_VERB_REQUIRED
+#define PHD_HV_O PHD_HOST_VERB_OPTIONAL
+#define PHD_HV_A PHD_HOST_VERB_ABSENT
+
+/* X(name, lv2, clap, console, meaning) */
+#define PHD_HOST_VERBS(X) \
+    X("add", PHD_HV_R, PHD_HV_R, PHD_HV_R, "an instance, placed by the daemon") \
+    X("remove", PHD_HV_R, PHD_HV_R, PHD_HV_R, "an instance, or every one with -1") \
+    X("bypass", PHD_HV_R, PHD_HV_R, PHD_HV_R, "routed by instance") \
+    X("connect", PHD_HV_R, PHD_HV_R, PHD_HV_R, "to the worker of the instance that owns a port; ports no instance owns to any worker") \
+    X("param_set", PHD_HV_R, PHD_HV_R, PHD_HV_R, "routed by instance, the parameter named by its symbol") \
+    X("state_load", PHD_HV_R, PHD_HV_R, PHD_HV_R, "to every worker") \
+    X("state_save", PHD_HV_R, PHD_HV_R, PHD_HV_R, "to every worker") \
+    X("state_tmpdir", PHD_HV_R, PHD_HV_R, PHD_HV_R, \
+      "kept, the latest line, and handed to each worker of a row that loads LV2 bundles when it starts; " \
+      "only those workers are sent it, and with none up the daemon answers 0") \
+    X("feature_enable", PHD_HV_R, PHD_HV_R, PHD_HV_R, \
+      "to every worker; kept, the latest line of each feature, and handed to each worker when it starts") \
+    X("bundle_add", PHD_HV_R, PHD_HV_R, PHD_HV_R, \
+      "kept, the bundles added and not removed, and handed to each worker of a row that loads LV2 bundles when it " \
+      "starts; only those workers are sent it, and with none up the daemon answers 0") \
+    X("bundle_remove", PHD_HV_R, PHD_HV_R, PHD_HV_R, "takes its bundle out of the kept ones; sent as bundle_add is") \
+    X("preset_load", PHD_HV_R, PHD_HV_R, PHD_HV_R, "routed by instance") \
+    X("preset_save", PHD_HV_R, PHD_HV_R, PHD_HV_R, "routed by instance") \
+    X("preset_show", PHD_HV_R, PHD_HV_R, PHD_HV_R, "to every worker") \
+    X("transport", PHD_HV_R, PHD_HV_R, PHD_HV_R, "to every worker, and kept as a host setting") \
+    X("transport_sync", PHD_HV_R, PHD_HV_R, PHD_HV_R, "to every worker, and kept as a host setting") \
+    X("cpu_load", PHD_HV_R, PHD_HV_R, PHD_HV_R, "to every worker") \
+    X("midi_learn", PHD_HV_O, PHD_HV_O, PHD_HV_O, "routed by instance") \
+    X("midi_map", PHD_HV_O, PHD_HV_O, PHD_HV_O, "routed by instance") \
+    X("midi_unmap", PHD_HV_O, PHD_HV_O, PHD_HV_O, "routed by instance") \
+    X("cv_map", PHD_HV_O, PHD_HV_O, PHD_HV_O, "routed by instance") \
+    X("cv_unmap", PHD_HV_O, PHD_HV_O, PHD_HV_O, "routed by instance") \
+    X("monitor_midi_program", PHD_HV_O, PHD_HV_O, PHD_HV_O, "to every worker") \
+    X("monitor_output", PHD_HV_O, PHD_HV_O, PHD_HV_O, "routed by instance, and kept in the ledger") \
+    X("output_data_ready", PHD_HV_O, PHD_HV_O, PHD_HV_O, "to every worker") \
+    X("patch_get", PHD_HV_O, PHD_HV_O, PHD_HV_O, "routed by instance") \
+    X("patch_set", PHD_HV_O, PHD_HV_O, PHD_HV_O, "routed by instance") \
+    X("cc_map", PHD_HV_A, PHD_HV_A, PHD_HV_A, "no Control Chain") \
+    X("cc_value_set", PHD_HV_A, PHD_HV_A, PHD_HV_A, "no Control Chain") \
+    X("cc_unmap", PHD_HV_A, PHD_HV_A, PHD_HV_A, "no Control Chain") \
+    X("hmi_map", PHD_HV_A, PHD_HV_A, PHD_HV_A, "no MOD HMI") \
+    X("hmi_unmap", PHD_HV_A, PHD_HV_A, PHD_HV_A, "no MOD HMI") \
+    X("show_external_ui", PHD_HV_A, PHD_HV_A, PHD_HV_A, "no external UI is shown by a host") \
+    X("set_midi_program_change_pedalboard_bank_channel", PHD_HV_A, PHD_HV_A, PHD_HV_A, \
+      "commented out in mod-ui, never sent") \
+    X("set_midi_program_change_pedalboard_snapshot_channel", PHD_HV_A, PHD_HV_A, PHD_HV_A, \
+      "commented out in mod-ui, never sent")
 
 /* ---------------------------------------------------------------- feedback events */
 

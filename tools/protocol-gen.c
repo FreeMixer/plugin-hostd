@@ -234,6 +234,26 @@ static void json(void)
     sep = ",\n";
     PHD_HOST_SETTINGS(X)
 #undef X
+    printf("\n  ],\n  \"host_verb_words\": [");
+    sep = "\n";
+#define X(id, name, meaning) \
+    printf("%s    {\"name\": \"%s\", \"meaning\": ", sep, name); \
+    jstr(meaning); \
+    printf("}"); \
+    sep = ",\n";
+    PHD_HOST_VERB_WORDS(X)
+#undef X
+    printf("\n  ],\n  \"host_verbs\": [");
+    sep = "\n";
+#define X(name, lv2, clap, console, meaning) \
+    printf("%s    {\"name\": ", sep); \
+    jstr(name); \
+    printf(", \"lv2\": \"%s\", \"clap\": \"%s\", \"console\": \"%s\", \"meaning\": ", lv2, clap, console); \
+    jstr(meaning); \
+    printf("}"); \
+    sep = ",\n";
+    PHD_HOST_VERBS(X)
+#undef X
     printf("\n  ],\n  \"config\": [");
     sep = "\n";
 #define X(key, size, def, env, meaning) \
@@ -425,6 +445,18 @@ static void region_host_settings(void)
 #undef X
 }
 
+static void region_host_verbs(void)
+{
+    printf("| verb | lv2 | clap | console | what the daemon does with it |\n|---|---|---|---|---|\n");
+#define X(name, lv2, clap, console, meaning) printf("| `%s` | %s | %s | %s | %s |\n", name, lv2, clap, console, meaning);
+    PHD_HOST_VERBS(X)
+#undef X
+    printf("\n");
+#define X(id, name, meaning) printf("- %s: %s.\n", name, meaning);
+    PHD_HOST_VERB_WORDS(X)
+#undef X
+}
+
 static void region_man_host_settings(void)
 {
 #define X(id, meaning) printf(".IP \\(bu 2\n"); roff_escape(meaning); printf(".\n");
@@ -502,6 +534,7 @@ static const struct {
     { "readiness", region_readiness }, { "worker-ready", region_worker_ready },
     { "man-keys", region_man_keys }, { "man-ready", region_man_ready }, { "man-port", region_man_port },
     { "relay", region_relay }, { "man-relay", region_man_relay }, { "host-settings", region_host_settings },
+    { "host-verbs", region_host_verbs },
     { "man-host-settings", region_man_host_settings },
 };
 

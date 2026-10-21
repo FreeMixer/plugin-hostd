@@ -126,6 +126,8 @@ The settings live in a file, `-c`, `$PLUGIN_HOSTD_CONF` or
 | `default_command_port` | 5555 port | the command port without -p; the feedback port is the next one, unless -n is given |
 | `connect_retry_ms` | 5000 ms | how long the idle tick asks again for a connect a respawned worker could not make yet |
 | `line_max` | 4096 bytes | the protocol socket's buffer: the longest pin_set line the daemon takes |
+| `line_words_max` | 64 words | the words of one command line the daemon reads; a word past them is not read |
+| `chain_members_min` | 1 instances | the fewest members of a chain: a chain of one is valid, so the trip of one isolated plugin is a chain of one |
 <!-- END GENERATED protocol:constants -->
 
 Placement
@@ -305,6 +307,54 @@ every worker shares:
 - a worker is handed them before anything else: a respawned one before its first add, and a worker started later, of a new placement, as well; a worker's refusal of one is written to stderr and is no failure.
 - a line whose words are not that command's grammar is passed on and not kept.
 <!-- END GENERATED protocol:host-settings -->
+
+The verbs mod-ui sends a host, and the answer the daemon serves each one: for an instance on the lv2 row (mod-host),
+on the clap row (omx-clap-host), and on the console, which runs both at once. tests/host_verbs_contract.py serves
+every row against fake workers and holds the daemon to this table:
+
+<!-- BEGIN GENERATED protocol:host-verbs -->
+| verb | lv2 | clap | console | what the daemon does with it |
+|---|---|---|---|---|
+| `add` | required | required | required | an instance, placed by the daemon |
+| `remove` | required | required | required | an instance, or every one with -1 |
+| `bypass` | required | required | required | routed by instance |
+| `connect` | required | required | required | to the worker of the instance that owns a port; ports no instance owns to any worker |
+| `param_set` | required | required | required | routed by instance, the parameter named by its symbol |
+| `state_load` | required | required | required | to every worker |
+| `state_save` | required | required | required | to every worker |
+| `state_tmpdir` | required | required | required | kept, the latest line, and handed to each worker of a row that loads LV2 bundles when it starts; only those workers are sent it, and with none up the daemon answers 0 |
+| `feature_enable` | required | required | required | to every worker; kept, the latest line of each feature, and handed to each worker when it starts |
+| `bundle_add` | required | required | required | kept, the bundles added and not removed, and handed to each worker of a row that loads LV2 bundles when it starts; only those workers are sent it, and with none up the daemon answers 0 |
+| `bundle_remove` | required | required | required | takes its bundle out of the kept ones; sent as bundle_add is |
+| `preset_load` | required | required | required | routed by instance |
+| `preset_save` | required | required | required | routed by instance |
+| `preset_show` | required | required | required | to every worker |
+| `transport` | required | required | required | to every worker, and kept as a host setting |
+| `transport_sync` | required | required | required | to every worker, and kept as a host setting |
+| `cpu_load` | required | required | required | to every worker |
+| `midi_learn` | optional | optional | optional | routed by instance |
+| `midi_map` | optional | optional | optional | routed by instance |
+| `midi_unmap` | optional | optional | optional | routed by instance |
+| `cv_map` | optional | optional | optional | routed by instance |
+| `cv_unmap` | optional | optional | optional | routed by instance |
+| `monitor_midi_program` | optional | optional | optional | to every worker |
+| `monitor_output` | optional | optional | optional | routed by instance, and kept in the ledger |
+| `output_data_ready` | optional | optional | optional | to every worker |
+| `patch_get` | optional | optional | optional | routed by instance |
+| `patch_set` | optional | optional | optional | routed by instance |
+| `cc_map` | absent | absent | absent | no Control Chain |
+| `cc_value_set` | absent | absent | absent | no Control Chain |
+| `cc_unmap` | absent | absent | absent | no Control Chain |
+| `hmi_map` | absent | absent | absent | no MOD HMI |
+| `hmi_unmap` | absent | absent | absent | no MOD HMI |
+| `show_external_ui` | absent | absent | absent | no external UI is shown by a host |
+| `set_midi_program_change_pedalboard_bank_channel` | absent | absent | absent | commented out in mod-ui, never sent |
+| `set_midi_program_change_pedalboard_snapshot_channel` | absent | absent | absent | commented out in mod-ui, never sent |
+
+- required: not a refusal: a resp code of 0 or more.
+- optional: any answer; a refusal is allowed.
+- absent: a refusal, on purpose: the verb means nothing here.
+<!-- END GENERATED protocol:host-verbs -->
 
 Probing a plugin
 ----------------
