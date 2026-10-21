@@ -644,8 +644,13 @@ static inline int phd_is_note_verb(const char *verb)
 #define PHD_HOST_SETTINGS(X) \
     X(TEMPO, "the tempo, the metre and the transport a controller sets (mod-host's set_bpm, set_bpb, transport and " \
              "transport_sync) are kept, the latest line of each as it was sent, in the order they were last sent") \
+    X(FEATURES, "feature_enable is kept, the latest line of each feature") \
+    X(LV2_FILES, "bundle_add is kept, the bundles added and bundle_remove did not take out again, and state_tmpdir, " \
+                 "the latest line; these three are sent only to the workers of a row that loads LV2 bundles, and " \
+                 "with none up the daemon answers 0 and keeps the line for the next one") \
     X(REPLAY, "a worker is handed them before anything else: a respawned one before its first add, and a worker " \
-              "started later, of a new placement, as well; a worker's refusal of one is written to stderr and is no failure") \
+              "started later, of a new placement, as well, the LV2 lines only to a worker of a row that loads LV2 " \
+              "bundles; a worker's refusal of one is written to stderr and is no failure") \
     X(GRAMMAR, "a line whose words are not that command's grammar is passed on and not kept")
 
 /* ---------------------------------------------------------------- host verbs */
