@@ -54,7 +54,8 @@ These are the daemon's part, from the tsv's last column:
   started later never hears it. It still goes to every worker. If a CLAP worker refuses `processing`, that refusal
   is the answer: the daemon does not answer 0 for audio it cannot stop.
 
-These are owed by omx-clap-host. Each is its own omx-clap-core issue, and the bodies are in the hand-back:
+These are owed by omx-clap-host, one omx-clap-core issue each. This lane could not file them because the pod has
+no GitHub token. Each item below is the body of its issue, and the tsv rows hold the evidence:
 
 - `connect`: mod-ui writes LV2 port symbols, and the CLAP worker names its ports otherwise (-205 for 22 of 24).
   The CLAP plugin needs an LV2 description first: omx-clap-host, or a generator over `omx-clap-scan --json`.
