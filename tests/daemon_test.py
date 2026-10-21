@@ -401,7 +401,7 @@ def storm_bound_is_per_placement_and_reset_rearms_it():
     d = daemon(conf={"storm_deaths": 3})
     try:
         d.expect("add fake:ok 50", "resp 50")
-        d.expect("param_set 50 gain 0.0000", "resp 0")
+        d.expect("param_set 50 gain 0.5000", "resp 0")
         for _ in range(3):
             d.expect("add fake:crash_on_add 51", "resp -102")
         d.expect("add fake:crash_on_add 51", resp("GAVE_UP"))
