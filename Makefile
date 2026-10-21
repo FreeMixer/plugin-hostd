@@ -134,7 +134,7 @@ clean:
 
 # the daemon against workers that are not plugin hosts at all (tests/fake-host speaks the same protocol and can be
 # made to die on cue): placement, forwarding, ledger, replay, attribution, the storm bound; no jack, no plugin
-test: test-pin test-relay test-alloc test-format test-daemon check-generated check-schema test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-mod-host-json test-socket
+test: test-pin test-relay test-alloc test-format test-daemon test-host-verbs check-generated check-schema test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-mod-host-json test-socket
 	MOD_HOST_DIR=$(MOD_HOST_DIR) python3 tests/verbs_contract.py
 
 # the same without the verb table, which is read from a mod-host checkout's README
@@ -149,6 +149,10 @@ $(FAKE): tests/fake_host.c src/verbs.h $(PROTOCOL_LIB)
 # this one (a developer working on both runs the script being changed); else the one omx-clap-host-tests installs.
 # The run prints the path it used.
 SOCKET_CONFORMANCE ?= $(firstword $(wildcard ../omx-clap-core/tests/socket_conformance.py) /usr/libexec/omx-clap-host/tests/socket_conformance.py)
+# the answers the daemon serves to mod-ui's verbs, against the declared host verb table, one daemon per profile
+test-host-verbs: $(PROG) $(FAKE)
+	PLUGIN_HOSTD=./$(PROG) FAKE_HOST=./$(FAKE) python3 tests/host_verbs_contract.py
+
 test-socket: $(PROG)
 	PLUGIN_HOSTD=./$(PROG) SOCKET_CONFORMANCE=$(SOCKET_CONFORMANCE) ./tests/socket_e2e.sh
 

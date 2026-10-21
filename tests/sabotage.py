@@ -15,7 +15,8 @@ FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "
 # tests/readme_build.py, with no daemon to build; "probeschema" breaks protocol/probe-output.schema.json and runs
 # tests/probe_schema.py; "relay" breaks src/relay.c and runs tests/relay_test.c; "alloc" breaks src/relay.c or src/lv2.c and runs make test-alloc; "contract" breaks the probe runner or the generator and runs tests/contract_derived.py; "consumer" breaks the header and compiles tests/consumer.c against it; "probe" breaks src/probe.c and runs tests/probe_test.py; "nopins" breaks the packaging or a workflow and runs tests/no_pins.py; "ciguards" breaks a workflow and runs tests/ci_guards.py;
 # "vocabulary" breaks the probe schema, its template or a copy of omx-contract's omx-vocabulary.schema.json and runs
-# tests/vocabulary_derived.py
+# tests/vocabulary_derived.py; "hostverbs" breaks the daemon or protocol/plugin-hostd.json and runs
+# tests/host_verbs_contract.py against that declaration
 SABOTAGE = [
     ("a runner that refuses unshare passes build-and-test with a warning", ".github/workflows/ci.yml",
      '            echo "::error::test-jack did not run: this runner refuses a private user and pid namespace with its own /proc"\n            exit 1\n',
@@ -538,6 +539,20 @@ SABOTAGE = [
     ("the template takes the voice basis from nowhere", "protocol/probe-output.schema.in",
      '"enum": [@OMX_MEASUREMENT_VOICE_BASES@]', '"type": "string"',
      "the template takes MEASUREMENT_VOICE_BASES from the contract", "vocabulary"),
+    ("a required verb is declared absent", "protocol/plugin-hostd.json", '{"name": "bundle_add", "lv2": "required"',
+     '{"name": "bundle_add", "lv2": "absent"', "served_host_verbs_match_the_table_lv2", "hostverbs"),
+    ("the LV2 lines go to a worker that loads no LV2 bundles", "src/supervisor.c",
+     "(lv2_files && !format_at(w->fmt)->lv2_files)", "(0 && lv2_files)", "served_host_verbs_match_the_table_clap",
+     "hostverbs"),
+    ("the host settings are not handed to a worker started later", "src/supervisor.c",
+     "            replay_line_code(w, g_host_settings[n], &code) != RPC_OK)",
+     "            0 && replay_line_code(w, g_host_settings[n], &code) != RPC_OK)",
+     "bundles_features_and_the_state_dir_reach_a_worker_started_later_the_lv2_lines_an_lv2_worker_only"),
+    ("bundle_remove is kept instead of taking its bundle out", "src/supervisor.c",
+     "    if (g_host_setting_verbs[v].forgets)\n        return;\n", "",
+     "bundles_features_and_the_state_dir_reach_a_worker_started_later_the_lv2_lines_an_lv2_worker_only"),
+    ("the lv2 row does not load LV2 bundles", "src/formats.c", "        .lv2_files = 1,\n", "",
+     "bundles_features_and_the_state_dir_reach_a_worker_started_later_the_lv2_lines_an_lv2_worker_only"),
 ]
 
 
@@ -636,6 +651,12 @@ def run_test(tree, name, jack=False):
         p = subprocess.run([sys.executable, os.path.join(ROOT, "tests", "vocabulary_derived.py"), tree], capture_output=True,
                            text=True, timeout=60, env=dict(os.environ, OMX_VOCABULARY=os.path.join(tree, "omx-vocabulary.schema.json")))
         return p.returncode, p.stdout
+    if jack == "hostverbs":
+        env = dict(os.environ, ONLY=name, PLUGIN_HOSTD=os.path.join(tree, "plugin-hostd"), FAKE_HOST=FAKE,
+                   PLUGIN_HOSTD_PROTOCOL=os.path.join(tree, "protocol", "plugin-hostd.json"))
+        p = subprocess.run([sys.executable, os.path.join(ROOT, "tests", "host_verbs_contract.py")], env=env, cwd=ROOT,
+                           capture_output=True, text=True, timeout=300)
+        return p.returncode, p.stdout
     if jack in ("nopins", "ciguards"):
         script = {"nopins": "no_pins.py", "ciguards": "ci_guards.py"}[jack]
         p = subprocess.run([sys.executable, os.path.join(ROOT, "tests", script), tree], capture_output=True,
@@ -702,6 +723,11 @@ try:
             shutil.copy(os.path.join(ROOT, "packaging", "plugin-hostd.spec"), os.path.join(tree, "packaging"))
         elif jack == "consumer":
             shutil.copytree(os.path.join(ROOT, "include"), os.path.join(tree, "include"))
+        elif jack == "hostverbs":
+            for d in ("src", "include", "protocol"):
+                shutil.copytree(os.path.join(ROOT, d), os.path.join(tree, d))
+            shutil.copy(os.path.join(ROOT, "Makefile"), tree)
+            build(tree)
         elif jack == "nopins":
             for f in ("packaging/plugin-hostd.spec", "debian/control", ".github/workflows/ci.yml"):
                 os.makedirs(os.path.dirname(os.path.join(tree, f)), exist_ok=True)
