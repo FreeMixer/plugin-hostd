@@ -75,10 +75,10 @@ These are rows of `PHD_CONSTANTS`, written to the JSON's `constants` and to READ
 
 - `line_words_max` 64: the words of one command line the daemon reads. verbs.c reads its token array size from it.
 - `chain_members_min` 1: a chain of one is valid, so an isolated plugin's trip is a chain of one. The floor of 1
-  overrides #101's draft of 2. #101's chain lives on wave/contract-one-pass (its refusal of "fewer than two
-  instances" and its codes -518 to -522), not on main. When it lands it reads this constant.
+  overrides #101's draft of 2. The chain grammar (verbs.c, `sup_chain`) reads this constant: a list of fewer members
+  is -902.
 - Pool members: `pool_max`, default 8 (`PHD_DEFAULT_POOL_MAX`), is already a declared default. It applies to each
   pool, and a pool belongs to one format.
 
-The chain codes are not declared again here. They are #101's, on wave/contract-one-pass, and a second
-declaration on main would fork them.
+The chain codes are #101's (-518 to -522, `PHD_ERRORS`), declared once in protocol.h and generated into the JSON and
+README with the others.
