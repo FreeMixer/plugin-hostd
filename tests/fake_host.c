@@ -55,6 +55,9 @@
  *   note_on, note_off, all_notes_off <n> ...   "resp 0" for a synth, PHD_ERR_NOTE_QUEUE_FULL for one whose uri holds
  *                               "synth_full", PHD_ERR_NO_NOTE_INPUT for any other; the fake
  *                               plays nothing (FAKE_LOG shows what it was sent)
+ *   chain <chain> <n> ...       "resp 0" when it holds every <n>, -3 when not, -902 with FAKE_REFUSE_CHAIN, as an
+ *                               omx-clap-host that runs no chain answers it; the fake runs nothing in order (FAKE_LOG
+ *                               shows what it was sent)
  *   set_bpm, set_bpb, transport, transport_sync   "resp 0", as mod-host answers them, -902 with FAKE_REFUSE_SETTINGS, as
  *                               omx-clap-host answers them; the fake keeps nothing of them
  *   feature_enable, cpu_load, preset_show, preset_save <n> ...   "resp 0" ("resp 0 0.0 0.0 0" for cpu_load), as mod-host
@@ -338,6 +341,16 @@ static void receive(msg_t *msg)
             if (n == -1 || g_out[k].inst == n)
                 g_out[k--] = g_out[--g_nout];
         answer(fd, "resp 0");
+    }
+    else if (!strcmp(verb, PHD_VERB_CHAIN) && getenv("FAKE_REFUSE_CHAIN"))
+        answer(fd, "resp -902");
+    else if (!strcmp(verb, PHD_VERB_CHAIN))
+    {
+        int held = ntok >= 3;
+
+        for (k = 2; k < ntok; k++)
+            held &= atoi(tok[k]) >= 0 && atoi(tok[k]) < MAX_INST && g_inst[atoi(tok[k])].exists;
+        answer(fd, held ? "resp 0" : "resp -3");
     }
     else if (verb_is(verb, EFFECT_SET_BPM) || verb_is(verb, EFFECT_SET_BPB) || verb_is(verb, TRANSPORT) ||
              verb_is(verb, TRANSPORT_SYNC))

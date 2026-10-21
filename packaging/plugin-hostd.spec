@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.6.0
+Version: 0.7.0
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -15,8 +15,9 @@ BuildRequires: diffutils
 BuildRequires: python3
 BuildRequires: pkgconfig(mod-host-protocol)
 # the probe runner's default rates, the protocol's parameter scales and the probe output's shared words are read from
-# omx-contract's C headers (2.18.0 is the first with omx_vocabulary.h); a floor only
-BuildRequires: omx-contract-devel >= 2.18.0
+# omx-contract's C headers, and the format tables are items of its schema 3 (3.0.0 is the first with the formatMap
+# kind, the extension bag and plugin.doc); a floor only
+BuildRequires: omx-contract-devel >= 3.0.0
 # a command of exactly the socket's buffer size, or several commands in one read, needs mod-audio/mod-host#113:
 # FreeMixer's build carrying it (11.1.fmx) or audinux's once it carries it (12); a floor only
 Requires: mod-host-protocol%{?_isa} >= 0.10.6.f14a230-11.1
@@ -77,6 +78,8 @@ sed -i 's,LDFLAGS += -s,LDFLAGS +=,g' Makefile
 %install
 
 %make_install PREFIX=%{_prefix}
+# the format tables, as the package plugin-hostd of omx-contract's contract directory (docs/formats.md)
+%make_build install-contract DESTDIR=%{buildroot} PREFIX=%{_prefix}
 
 # the verb table is checked against mod-host's README, which a build does not have
 %check
@@ -107,8 +110,29 @@ make test-daemon check-generated
 %{_datadir}/pkgconfig/plugin-hostd.pc
 %{_datadir}/plugin-hostd/protocol.schema.json
 %{_datadir}/plugin-hostd/probe-output.schema.json
+%{_datadir}/omx-contract/contract.d/3/plugin-hostd/
 
 %changelog
+* Tue Oct 20 2026 Pau Aliagas <linuxnow@gmail.com> - 0.7.0-1
+- New verbs chain <chain> <instance> <instance> ... and chain_clear: the
+  instances, in order, run in one worker, and a worker that runs chains
+  (omx-clap-host) is told the order. A member that crashes the worker is
+  quarantined to a worker of its own and the chain goes on without it,
+  announced by chain_formed. Codes -518 to -522 name the refusals (#101).
+- New verb plugin-hostd-probe describe clap:<path>#<id> | lv2:<uri>: it
+  writes what a plugin states about itself as a scanned descriptor
+  (omx-contract 3). It runs omx-clap-scan --fields on the plugin under the
+  runner's limits and reads each field through the format's table; a field
+  the table has no row for is refused.
+- The format tables PLUGIN_HOSTD_CLAP_MAP and PLUGIN_HOSTD_LV2_MAP: every
+  CLAP and LV2 term of omx-contract and every field a scan reads, each
+  mapped to a descriptor word, carried in the descriptor's extensions or
+  dropped by the ruling it names. plugin-hostd-devel ships them in
+  omx-contract's contract directory (3/plugin-hostd/formats/), and make
+  install-contract installs them.
+- The build requires omx-contract-devel >= 3.0.0 (libomx-contract-dev
+  >= 3.0.0 on Debian).
+
 * Tue Oct 20 2026 Pau Aliagas <linuxnow@gmail.com> - 0.6.0-1
 - The probe runner passes --probe-notes and --hold to the CLAP prober and
   carries what it measures: the cost with voices, the LV2 note sweep and the

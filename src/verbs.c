@@ -89,6 +89,31 @@ static int pin_set_words(const char *line, char **tok, int ntok)
     return rc;
 }
 
+/* a word that is a whole number and nothing else */
+static int number(const char *word, int *out)
+{
+    char *end;
+    long v = strtol(word, &end, 10);
+
+    if (!*word || *end || v < -1000000 || v > 1000000)
+        return 0;
+    *out = (int)v;
+    return 1;
+}
+
+/* chain <chain> <instance> <instance> [<instance> ...] */
+static char *chain_words(char **tok, int ntok)
+{
+    int id, ids[MAX_TOKENS], n;
+
+    if (ntok < 4 || !number(tok[1], &id))
+        return sup_resp(ERR_INVALID_OPERATION);
+    for (n = 2; n < ntok; n++)
+        if (!number(tok[n], &ids[n - 2]))
+            return sup_resp(ERR_INVALID_OPERATION);
+    return sup_chain(id, ids, ntok - 2);
+}
+
 static void reply(int fd, char *text)
 {
     socket_send(fd, text, strlen(text) + 1);
@@ -137,6 +162,14 @@ static char *handle(char *line, char **tok, int ntok)
         return ntok == 3 ? sup_pool_config(tok[1], atoi(tok[2])) : sup_resp(ERR_INVALID_OPERATION);
     if (!strcmp(verb, PHD_VERB_WORKER_ENV))
         return ntok == 4 ? sup_worker_env(tok[1], tok[2], tok[3]) : sup_resp(ERR_INVALID_OPERATION);
+    if (!strcmp(verb, PHD_VERB_CHAIN))
+        return chain_words(tok, ntok);
+    if (!strcmp(verb, PHD_VERB_CHAIN_CLEAR))
+    {
+        int id;
+
+        return ntok == 2 && number(tok[1], &id) ? sup_chain_clear(id) : sup_resp(ERR_INVALID_OPERATION);
+    }
     if (!strcmp(verb, PHD_VERB_PIN_SET))
         return sup_resp(pin_set_words(line, tok, ntok));
     if (!strcmp(verb, PHD_VERB_PIN_ACCEPT))

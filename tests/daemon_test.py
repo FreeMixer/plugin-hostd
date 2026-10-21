@@ -2470,4 +2470,182 @@ def the_adapter_row_keeps_the_pin_rules_of_the_lv2_row_and_checks_no_layout():
         programs.close()
 
 
+
+def chain_of(d, chain):
+    """the workers of place chain:<chain>"""
+    return {k: w for k, w in d.workers().items() if w["place"] == "chain:%d" % chain}
+
+
+def gains(d, ids):
+    for i in ids:
+        d.expect("param_get %d gain" % i, "resp 0 0.%d000" % (i % 10))
+
+
+@test
+def a_chain_is_declared_over_existing_instances_and_each_refusal_is_named():
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(env={"FAKE_LOG": log})
+    try:
+        for i in (1, 2, 3, 4):
+            d.expect("add clap:fake#m%d %d" % (i, i), "resp %d" % i)
+            d.expect("param_set %d gain 0.%d000" % (i, i), "resp 0")
+        d.expect("add fake:lv %d" % 9, "resp 9")
+        before = d.workers()
+        d.expect("chain 1 1 2 77", resp("CHAIN_UNKNOWN_INSTANCE"))
+        d.expect("chain 1 1 2 1", resp("CHAIN_DUPLICATE"))
+        d.expect("chain 1 1 9", resp("CHAIN_MIXED_FORMAT"))
+        for bad in ("chain 1 1", "chain 1", "chain x 1 2", "chain 1 1 two", "chain -1 1 2", "chain_clear", "chain_clear x"):
+            d.expect(bad, "resp -902")
+        check(d.workers() == before, "a refused chain moves nothing: %s" % d.workers())
+        old = d.holder(1)[1]["pid"]
+        mark = d.mark()
+        d.expect("chain 1 1 2 3", "resp 0")
+        formed = d.wait_event("chain_formed 1 ", since=mark)
+        w = chain_of(d, 1)
+        check(len(w) == 1, "one worker runs the chain: %s" % d.workers())
+        k, w = list(w.items())[0]
+        check(w["inst"] == [1, 2, 3] and w["fmt"] == "clap" and w["state"] == "up", "its members, in order: %s" % w)
+        check(formed == "chain_formed 1 %s 1,2,3" % k, "the event names the chain, its worker and the order: " + formed)
+        check(not any(1 in x["inst"] or 2 in x["inst"] or 3 in x["inst"] for kk, x in d.workers().items() if kk != k),
+              "the members left their own workers: %s" % d.workers())
+        gains(d, (1, 2, 3, 4))
+        was = sent_to(log, old)
+        check([c.split()[0] for c in was[-2:]] == ["state_save", "remove"] and was[-1] == "remove 1",
+              "the worker a member leaves saves its state, then removes it: %s" % was[-3:])
+        got = sent_to(log, w["pid"])
+        adds = [c.split()[2] for c in got if c.startswith("add ")]
+        check(adds == ["1", "2", "3"] and "chain 1 1 2 3" in got and got.index("chain 1 1 2 3") > max(
+              n for n, c in enumerate(got) if c.startswith("add ")), "the worker is given the adds, then the order: %s" % got)
+        d.expect("chain 2 4 3", resp("CHAIN_INSTANCE_BUSY"))
+        d.expect("chain_clear 5", resp("NO_SUCH_CHAIN"))
+        d.expect("chain_clear 1", "resp 0")
+        for i in (1, 2, 3):
+            _, w = d.wait_up(i)
+            check(w["place"] == "own" and w["inst"] == [i], "chain_clear gives %d a worker of its own: %s" % (i, w))
+        check(chain_of(d, 1) == {}, "the chain's worker is gone: %s" % d.workers())
+        gains(d, (1, 2, 3))
+        d.expect("chain 2 4 3", "resp 0")
+        d.wait_event("chain_formed 2 ", since=mark)
+        check(list(chain_of(d, 2).values())[0]["inst"] == [4, 3], "a freed member joins another chain: %s" % d.workers())
+        # a declared chain takes a new order; the member it leaves out goes back to a worker of its own
+        d.expect("chain 2 3 1 2", "resp 0")
+        check(list(chain_of(d, 2).values())[0]["inst"] == [3, 1, 2], "the new order: %s" % d.workers())
+        _, w = d.wait_up(4)
+        check(w["place"] == "own" and w["inst"] == [4], "the member left out is alone: %s" % w)
+        # a removed member leaves the order and the worker is told the order without it
+        k, w = list(chain_of(d, 2).items())[0]
+        d.expect("remove 3", "resp 0")
+        check(chain_of(d, 2)[k]["inst"] == [1, 2], "the chain goes on without it, in order: %s" % d.workers())
+        check(sent_to(log, w["pid"])[-1] == "chain 2 1 2", "the worker is told: %s" % sent_to(log, w["pid"])[-3:])
+        d.expect("remove 1", "resp 0")
+        d.expect("remove 2", "resp 0")
+        d.expect("chain_clear 2", resp("NO_SUCH_CHAIN"))
+        # mod-host runs no chain: its members share one worker and it is never sent the line
+        d.expect("add fake:lv 8", "resp 8")
+        d.expect("chain 3 9 8", "resp 0")
+        k, w = list(chain_of(d, 3).items())[0]
+        check(w["inst"] == [9, 8] and w["fmt"] == "lv2", "an lv2 chain is one worker too: %s" % w)
+        check(not any(c.startswith("chain") for c in sent_to(log, w["pid"])), "mod-host never sees the line")
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
+
+
+@test
+def a_chain_of_three_runs_in_one_worker_and_its_crashed_member_is_quarantined_while_the_others_go_on_in_order():
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(env={"FAKE_LOG": log})
+    try:
+        for i in (10, 11, 12):
+            d.expect("add clap:fake#m%d %d" % (i, i), "resp %d" % i)
+            d.expect("param_set %d gain 0.%d000" % (i, i % 10), "resp 0")
+        d.expect("chain 7 10 11 12", "resp 0")
+        d.wait_event("chain_formed 7 ")
+        k, w = list(chain_of(d, 7).items())[0]
+        check(w["inst"] == [10, 11, 12] and len(d.workers()) == 1, "three members, one worker: %s" % d.workers())
+        # every instance verb names one member by its own number
+        d.expect("bypass 12 1", "resp 0")
+        d.expect("param_set 10 gain 0.5000", "resp 0")
+        d.expect("param_get 10 gain", "resp 0 0.5000")
+        d.expect("param_get 11 gain", "resp 0 0.1000")
+        d.expect("param_info 11 0", "resp 0 ms linear 1 2000 350 1 time_ms")
+        got = sent_to(log, w["pid"])
+        check(["bypass 12 1", "param_set 10 gain 0.5000", "param_info 11 0"] == [c for c in got if c.startswith(
+              ("bypass", "param_set 10", "param_info"))], "the chain's worker got each by its instance: %s" % got)
+        d.expect("param_set 10 gain 0.0000", "resp 0")
+        mark = d.mark()
+        d.expect("param_set 11 crash 1", "resp 0")
+        died = d.wait_event("worker_died %s " % k, since=mark)
+        check(died.endswith(" 10,11,12"), "the chain's worker died with all three: " + died)
+        d.wait_event("instance_quarantined 11 %s" % k, since=mark)
+        formed = d.wait_event("chain_formed 7 ", since=mark)
+        k2, w2 = list(chain_of(d, 7).items())[0]
+        check(formed == "chain_formed 7 %s 10,12" % k2 and w2["inst"] == [10, 12] and w2["state"] == "up",
+              "the chain goes on with the other two in order: %s %s" % (formed, w2))
+        check("chain 7 10 12" in sent_to(log, w2["pid"]), "and its worker is told the order: %s" % sent_to(log, w2["pid"]))
+        k11, w11 = d.wait_up(11)
+        check(w11["place"] == "own" and w11["inst"] == [11] and k11 != k2, "the crashed member runs alone: %s" % w11)
+        gains(d, (10, 11, 12))
+        d.expect("param_get 12 :bypass", "resp 0 1")
+        info = d.send("instance_info 11").split()
+        check(info[6] == "1" and int(info[5]) == 1, "instance_info names the culprit: %s" % info)
+        check(not any(e.startswith("instance_quarantined") and e.split()[1] in ("10", "12") for e in d.events),
+              "no neighbour was quarantined: %s" % d.events)
+        # cleared, it goes back into its place in the order
+        mark = d.mark()
+        d.expect("quarantine_clear 11", "resp 0")
+        formed = d.wait_event("chain_formed 7 ", since=mark)
+        k3, w3 = list(chain_of(d, 7).items())[0]
+        check(formed.endswith(" 10,11,12") and w3["inst"] == [10, 11, 12] and len(d.workers()) == 1,
+              "the chain is whole again: %s %s" % (formed, d.workers()))
+        gains(d, (10, 11, 12))
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
+
+
+@test
+def a_chain_that_dies_naming_no_culprit_is_split_and_rejoins_without_the_one_that_dies_again():
+    d = daemon(conf={"suspect_window_ms": 0})
+    try:
+        for i in (20, 21, 22):
+            d.expect("add clap:fake#m%d %d" % (i, i), "resp %d" % i)
+            d.expect("param_set %d gain 0.%d000" % (i, i % 10), "resp 0")
+        d.expect("chain 4 20 21 22", "resp 0")
+        # the declaration's own chain_formed comes on the feedback port, after the reply: it is not the rejoin's
+        d.wait_event("chain_formed 4 ")
+        mark = d.mark()
+        # no suspect window: the death names no one, the members are split, and the verb is replayed to 21 alone
+        d.expect("param_set 21 crash 1", "resp 0")
+        d.wait_event("instance_quarantined 21 ", since=mark)
+        formed = d.wait_event("chain_formed 4 ", since=mark)
+        k, w = list(chain_of(d, 4).items())[0]
+        wait_for(lambda: d.workers()[k]["state"] == "up", "the chain's worker up")
+        check(formed == "chain_formed 4 %s 20,22" % k and d.workers()[k]["inst"] == [20, 22],
+              "the others rejoin in order: %s %s" % (formed, d.workers()))
+        _, w21 = d.holder(21)
+        check(w21["place"] == "own" and w21["inst"] == [21], "the one that died again is alone: %s" % w21)
+        gains(d, (20, 22))
+    finally:
+        d.close()
+
+
+@test
+def a_worker_that_runs_no_chain_refuses_the_line_and_the_members_still_share_it():
+    d = daemon(env={"FAKE_REFUSE_CHAIN": "1"})
+    try:
+        for i in (40, 41):
+            d.expect("add clap:fake#m%d %d" % (i, i), "resp %d" % i)
+        mark = d.mark()
+        d.expect("chain 5 41 40", "resp 0")
+        d.wait_event("chain_formed 5 ", since=mark)
+        k, w = list(chain_of(d, 5).items())[0]
+        check(w["inst"] == [41, 40] and w["state"] == "up", "the members share the worker: %s" % w)
+        check("refused 'chain 5 41 40'" in d.log(), "the refusal is written: %s" % d.log()[-400:])
+    finally:
+        d.close()
+
+
 sys.exit(run_tests(TESTS))
