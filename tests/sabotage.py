@@ -755,9 +755,11 @@ try:
             for f in ("gesture_alloc_test.c", "lv2_alloc_test.c"):
                 shutil.copy(os.path.join(ROOT, "tests", f), os.path.join(tree, "tests"))
         elif jack == "probe":
-            os.makedirs(os.path.join(tree, "src"))
-            shutil.copy(os.path.join(ROOT, "src", "probe.c"), os.path.join(tree, "src"))
+            # the probe is built by the Makefile's own rule: its sources, headers and the spec its VERSION is read from
+            shutil.copytree(os.path.join(ROOT, "src"), os.path.join(tree, "src"))
             shutil.copytree(os.path.join(ROOT, "include"), os.path.join(tree, "include"))
+            shutil.copytree(os.path.join(ROOT, "packaging"), os.path.join(tree, "packaging"))
+            shutil.copy(os.path.join(ROOT, "Makefile"), tree)
             build_probe(tree)
         elif jack == "probeschema":
             os.makedirs(os.path.join(tree, "protocol"))
