@@ -1,3 +1,25 @@
+plugin-hostd (0.7.0) unstable; urgency=medium
+
+  * New verbs chain <chain> <instance> <instance> ... and chain_clear: the
+    instances, in order, run in one worker, and a worker that runs chains
+    (omx-clap-host) is told the order. A member that crashes the worker is
+    quarantined to a worker of its own and the chain goes on without it,
+    announced by chain_formed. Codes -518 to -522 name the refusals (#101).
+  * New verb plugin-hostd-probe describe clap:<path>#<id> | lv2:<uri>: it
+    writes what a plugin states about itself as a scanned descriptor
+    (omx-contract 3). It runs omx-clap-scan --fields on the plugin under the
+    runner's limits and reads each field through the format's table; a field
+    the table has no row for is refused.
+  * The format tables PLUGIN_HOSTD_CLAP_MAP and PLUGIN_HOSTD_LV2_MAP: every
+    CLAP and LV2 term of omx-contract and every field a scan reads, each
+    mapped to a descriptor word, carried in the descriptor's extensions or
+    dropped by the ruling it names. plugin-hostd-dev ships them in
+    omx-contract's contract directory (3/plugin-hostd/formats/), and make
+    install-contract installs them.
+  * The build requires libomx-contract-dev >= 3.0.0.
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Tue, 20 Oct 2026 20:00:00 +0000
+
 plugin-hostd (0.6.0) unstable; urgency=medium
 
   * The probe runner passes --probe-notes and --hold to the CLAP prober and

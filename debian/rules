@@ -11,6 +11,8 @@ override_dh_auto_build:
 
 override_dh_auto_install:
 	dh_auto_install -- PREFIX=/usr
+	# the format tables, as the package plugin-hostd of omx-contract's contract directory (docs/formats.md)
+	$(MAKE) install-contract DESTDIR=$(CURDIR)/debian/tmp PREFIX=/usr
 
 # the verb table is checked against mod-host's README, which a build does not have
 override_dh_auto_test:
