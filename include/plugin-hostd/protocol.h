@@ -436,8 +436,9 @@ static inline int phd_pool_name_valid(const char *name)
       "sent by the daemon to a worker of a format that checks layouts, just before the instance's add: the layout pin that add " \
       "checks after init and before activate; any other reply than resp 0 refuses the add with that code, and the " \
       "add is never forwarded") \
-    X(CHAIN, PHD_VERB_CHAIN, "<chain> <instance> <instance> [<instance> ...]", "resp 0", \
-      "the instances, in this order, are one chain, run in one worker of place " PHD_PLACE_CHAIN_PREFIX "<chain>: each " \
+    X(CHAIN, PHD_VERB_CHAIN, "<chain> <instance> [<instance> ...]", "resp 0", \
+      "the instances, in this order, are one chain, run in one worker of place " PHD_PLACE_CHAIN_PREFIX "<chain>; one " \
+      "instance is a chain of one. Each " \
       "member's state is saved, it is removed from the worker it was in and replayed in the chain's. A chain already " \
       "declared takes the new order, and a member left out of it goes back to a worker of its own. A worker that runs " \
       "chains in one client (" PHD_FORMAT_CLAP ", " PHD_FORMAT_LV2_CLAP ") is sent this line, with the members it holds, " \
@@ -445,8 +446,9 @@ static inline int phd_pool_name_valid(const char *name)
       "and is no failure. Every instance verb still names one member by its own number. A member that crashes the " \
       "worker is quarantined to a worker of its own and the chain goes on without it; quarantine_clear puts it back. " \
       "-518 for an instance no add made, -519 for one named twice, -520 for one in another chain, -521 for members of " \
-      "more than one format, -501 for a plugin that may not share a worker while require_pins is on, -902 for a chain " \
-      "or an instance that is not a number, or fewer than two instances") \
+      "more than one format, -501 for a plugin that may not share a worker while require_pins is on (an LV2 member " \
+      "runs in a world of the chain's bundles, so it may), -902 for a chain or an instance that is not a number, or " \
+      "no instance") \
     X(CHAIN_CLEAR, PHD_VERB_CHAIN_CLEAR, "<chain>", "resp 0", \
       "forget the chain: each member goes to a worker of its own; -522 for a chain no " PHD_VERB_CHAIN " declared")
 
