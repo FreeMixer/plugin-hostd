@@ -401,7 +401,7 @@ def storm_bound_is_per_placement_and_reset_rearms_it():
     d = daemon(conf={"storm_deaths": 3})
     try:
         d.expect("add fake:ok 50", "resp 50")
-        d.expect("param_set 50 gain 0.5000", "resp 0")
+        d.expect("param_set 50 gain 0.0000", "resp 0")
         for _ in range(3):
             d.expect("add fake:crash_on_add 51", "resp -102")
         d.expect("add fake:crash_on_add 51", resp("GAVE_UP"))
@@ -2494,7 +2494,7 @@ def a_chain_is_declared_over_existing_instances_and_each_refusal_is_named():
         d.expect("chain 1 1 2 77", resp("CHAIN_UNKNOWN_INSTANCE"))
         d.expect("chain 1 1 2 1", resp("CHAIN_DUPLICATE"))
         d.expect("chain 1 1 9", resp("CHAIN_MIXED_FORMAT"))
-        for bad in ("chain 1 1", "chain 1", "chain x 1 2", "chain 1 1 two", "chain -1 1 2", "chain_clear", "chain_clear x"):
+        for bad in ("chain 1", "chain x 1 2", "chain 1 1 two", "chain -1 1 2", "chain_clear", "chain_clear x"):
             d.expect(bad, "resp -902")
         check(d.workers() == before, "a refused chain moves nothing: %s" % d.workers())
         old = d.holder(1)[1]["pid"]
@@ -2630,6 +2630,33 @@ def a_chain_that_dies_naming_no_culprit_is_split_and_rejoins_without_the_one_tha
         gains(d, (20, 22))
     finally:
         d.close()
+
+
+@test
+def a_chain_of_one_runs_its_member_in_the_chains_worker_and_is_told_the_line():
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(env={"FAKE_LOG": log})
+    try:
+        d.expect("add clap:fake#m50 50", "resp 50")
+        d.expect("param_set 50 gain 0.0000", "resp 0")
+        own = d.holder(50)[1]["pid"]
+        mark = d.mark()
+        # chain_members_min is 1: the trip of one isolated plugin is a chain of one
+        d.expect("chain 6 50", "resp 0")
+        formed = d.wait_event("chain_formed 6 ", since=mark)
+        k, w = list(chain_of(d, 6).items())[0]
+        check(formed == "chain_formed 6 %s 50" % k and w["inst"] == [50] and len(d.workers()) == 1,
+              "the one member runs in the chain's worker, its own is gone: %s %s" % (formed, d.workers()))
+        got = sent_to(log, w["pid"])
+        check(w["pid"] != own and "chain 6 50" in got, "the chain's worker is told the line: %s" % got)
+        gains(d, (50,))
+        d.expect("chain_clear 6", "resp 0")
+        _, w = d.holder(50)
+        check(w["place"] == "own" and w["inst"] == [50] and chain_of(d, 6) == {}, "cleared, it is alone: %s" % d.workers())
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
 
 
 @test
