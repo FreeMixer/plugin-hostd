@@ -1157,6 +1157,35 @@ def tempo_and_transport_are_handed_to_a_respawned_worker_before_its_add():
 
 
 @test
+def bundles_features_and_the_state_dir_reach_a_worker_started_later_the_lv2_lines_an_lv2_worker_only():
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(env={"FAKE_LOG": log})
+    try:
+        # before any worker: answered by the daemon and kept; a removed bundle is no longer kept, a feature's latest wins
+        for line in ("bundle_add /b/one.lv2", "bundle_add /b/two.lv2", "bundle_remove /b/one.lv2 x",
+                     "feature_enable processing 1", "state_tmpdir /t", "feature_enable processing 0"):
+            d.expect(line, "resp 0")
+        kept = ["bundle_add /b/two.lv2", "state_tmpdir /t", "feature_enable processing 0"]
+        d.expect("add fake:lv2 0", "resp 0")
+        lv2 = d.holder(0)[1]["pid"]
+        sent = sent_to(log, lv2)
+        check(sent[:4] == kept + ["add fake:lv2 0"], "an lv2 worker gets every kept line first, in order: %s" % sent)
+        # a worker that loads no LV2 bundles: the feature, never the LV2 lines
+        d.expect("add clap:fake#a 1", "resp 1")
+        clap = d.holder(1)[1]["pid"]
+        check(sent_to(log, clap)[:2] == ["feature_enable processing 0", "add clap:fake#a 1"],
+              "a clap worker gets the feature only: %s" % sent_to(log, clap))
+        d.expect("bundle_add /b/three.lv2", "resp 0")
+        check("bundle_add /b/three.lv2" in sent_to(log, lv2), "the lv2 worker is sent a bundle: %s" % sent_to(log, lv2))
+        check(not [c for c in sent_to(log, clap) if c.startswith(("bundle_", "state_tmpdir"))],
+              "the clap worker is sent no LV2 line: %s" % sent_to(log, clap))
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
+
+
+@test
 def a_tempo_the_worker_refuses_is_kept_written_and_the_worker_still_comes_back():
     log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log, "FAKE_REFUSE_SETTINGS": "1"})

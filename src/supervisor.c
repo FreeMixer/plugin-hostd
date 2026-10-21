@@ -96,11 +96,18 @@ static const struct { const char *format; int kind; int key_arg; } g_recorded[] 
 };
 
 /* the commands every worker shares that the daemon keeps (PHD_HOST_SETTINGS), and the latest line of each, in the order
- * they were last sent: a transport line after a set_bpm wins over it, and a set_bpm after that wins again */
-static const char *const g_host_setting_verbs[] = { EFFECT_SET_BPM, EFFECT_SET_BPB, TRANSPORT, TRANSPORT_SYNC };
+ * they were last sent: a transport line after a set_bpm wins over it, and a set_bpm after that wins again. key: the
+ * words after the verb that tell one kept line of it from another (feature_enable's feature, bundle_add's bundle);
+ * lv2_files: sent only to a worker of a row that loads LV2 bundles; forgets: the line is not kept, it takes out the
+ * kept line of that verb with the same key */
+static const struct { const char *verb; int key; int lv2_files; const char *forgets; } g_host_setting_verbs[] = {
+    { EFFECT_SET_BPM, 0, 0, NULL }, { EFFECT_SET_BPB, 0, 0, NULL }, { TRANSPORT, 0, 0, NULL },
+    { TRANSPORT_SYNC, 0, 0, NULL }, { FEATURE_ENABLE, 1, 0, NULL }, { BUNDLE_ADD, 1, 1, NULL },
+    { BUNDLE_REMOVE, 1, 1, BUNDLE_ADD }, { STATE_TMPDIR, 0, 1, NULL },
+};
 #define HOST_SETTINGS (sizeof(g_host_setting_verbs) / sizeof(g_host_setting_verbs[0]))
-static char *g_host_settings[HOST_SETTINGS];
-static int g_nhost_settings;
+static char **g_host_settings;
+static int g_nhost_settings, g_caphost_settings;
 
 static void event(const char *fmt, ...)
 {
@@ -437,35 +444,80 @@ static int format_words(const char *format, char **tok, int ntok)
     return ok && n == ntok;
 }
 
-void sup_host_setting(const char *line, char **tok, int ntok)
+static int host_setting_of(const char *line)
 {
     size_t v;
-    int n;
 
     for (v = 0; v < HOST_SETTINGS; v++)
-        if (verb_is(tok[0], g_host_setting_verbs[v]))
-            break;
-    if (v == HOST_SETTINGS || !format_words(g_host_setting_verbs[v], tok, ntok))
+        if (verb_is(line, g_host_setting_verbs[v].verb))
+            return (int)v;
+    return -1;
+}
+
+/* whether the line is one only a worker of a row that loads LV2 bundles is sent */
+static int host_setting_lv2_files(const char *line)
+{
+    int v = host_setting_of(line);
+
+    return v >= 0 && g_host_setting_verbs[v].lv2_files;
+}
+
+/* whether a kept line is of the verb and has the key words of tok */
+static int host_setting_same(const char *kept, const char *verb, int key, char **tok)
+{
+    char *copy, *save = NULL, *t;
+    int n = 0, same;
+
+    if (!verb_is(kept, verb))
+        return 0;
+    copy = strdup(kept);
+    t = strtok_r(copy, " \t", &save);
+    for (same = 1; same && n < key; n++)
+        same = (t = strtok_r(NULL, " \t", &save)) && !strcmp(t, tok[n + 1]);
+    free(copy);
+    return same;
+}
+
+void sup_host_setting(const char *line, char **tok, int ntok)
+{
+    int v = host_setting_of(line), n;
+    const char *kept;
+
+    if (v < 0 || !format_words(g_host_setting_verbs[v].verb, tok, ntok))
         return;
+    kept = g_host_setting_verbs[v].forgets ? g_host_setting_verbs[v].forgets : g_host_setting_verbs[v].verb;
     for (n = 0; n < g_nhost_settings; n++)
-        if (verb_is(g_host_settings[n], g_host_setting_verbs[v]))
+        if (host_setting_same(g_host_settings[n], kept, g_host_setting_verbs[v].key, tok))
         {
             free(g_host_settings[n]);
             memmove(&g_host_settings[n], &g_host_settings[n + 1], (g_nhost_settings - n - 1) * sizeof(char *));
             g_nhost_settings--;
             break;
         }
-    if (g_nhost_settings < (int)HOST_SETTINGS)
-        g_host_settings[g_nhost_settings++] = strdup(line);
+    if (g_host_setting_verbs[v].forgets)
+        return;
+    if (g_nhost_settings == g_caphost_settings)
+    {
+        int cap = g_caphost_settings ? g_caphost_settings * 2 : 16;
+        char **grown = realloc(g_host_settings, cap * sizeof(char *));
+
+        if (!grown)
+            return;
+        g_host_settings = grown;
+        g_caphost_settings = cap;
+    }
+    g_host_settings[g_nhost_settings++] = strdup(line);
 }
 
-/* a worker that just started is handed the host settings before anything else; its refusal of one is only written */
+/* a worker that just started is handed the host settings before anything else, the LV2 lines only when its row loads
+ * LV2 bundles; its refusal of one is only written */
 static int host_settings_replay(worker_t *w)
 {
     int n, code;
 
     for (n = 0; n < g_nhost_settings; n++)
-        if (replay_line_code(w, g_host_settings[n], &code) != RPC_OK)
+        if ((format_at(w->fmt)->lv2_files || !host_setting_lv2_files(g_host_settings[n])) &&
+            replay_line_code(w, g_host_settings[n], &code) != RPC_OK)
             return -1;
     return 0;
 }
@@ -1517,14 +1569,15 @@ char *sup_broadcast(const char *line)
     char *first = NULL, *reply = NULL;
     int n, rc, id;
     worker_t *list[1024];
-    int count = g_nworkers < 1024 ? g_nworkers : 1024;
+    int count = g_nworkers < 1024 ? g_nworkers : 1024, lv2_files = host_setting_lv2_files(line);
 
     memcpy(list, g_workers, count * sizeof(worker_t *));
     for (n = 0; n < count; n++)
     {
         worker_t *w = list[n];
 
-        if (w->state != W_UP)
+        /* an LV2 bundle or state directory does not concern a worker that loads none: the daemon answers for it */
+        if (w->state != W_UP || (lv2_files && !format_at(w->fmt)->lv2_files))
             continue;
         rc = proc_rpc(&g_conf, w->pid, w->fd, line, &reply);
         if (rc != RPC_OK)

@@ -79,6 +79,7 @@ static const format_t g_builtin[] = {
         .pinned_own_only = 1,
         .native_instance_verbs = 0,
         .param_info = lv2_param_info,
+        .lv2_files = 1,
     },
     {
         .name = PHD_FORMAT_CLAP,
