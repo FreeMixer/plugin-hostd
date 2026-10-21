@@ -619,8 +619,9 @@ def build(tree):
 
 
 def build_probe(tree):
-    subprocess.run(["cc", "-I" + os.path.join(tree, "include"), "-O2", "-Wall", "-Wextra", "-std=gnu99", "-Wno-format-truncation",
-                    "-D_GNU_SOURCE", "-o", os.path.join(tree, "plugin-hostd-probe"), os.path.join(tree, "src", "probe.c")], check=True)
+    # the probe has its own rule in the Makefile (its sources, -Isrc, the contract's flags and defines): build it there
+    subprocess.run(["make", "-s", "MOD_HOST_DIR=" + MOD_HOST_DIR, "plugin-hostd-probe"], cwd=tree, check=True,
+                   stdout=subprocess.DEVNULL)
 
 
 def run_pin_test(tree):
