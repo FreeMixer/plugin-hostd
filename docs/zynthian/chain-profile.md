@@ -114,6 +114,13 @@ Open points
   saved parallel slot does not survive a reload in Zynthian itself. A new mix element starts at the declared gains: a
   member added to or taken from a slot gives the slot a new mixer instance, and branch gains set by hand are not
   carried over.
+- **A reorder passes through a parallel slot.** Zynthian has no move verb for effects but the nudge, and a nudge of a
+  single processor merges it into its neighbour's slot (`chain.py:782`, `:799`); only a second nudge takes it out on
+  the other side (`chain.py:771-777`, `:793-795`). So reordering two effects always forms a parallel slot for one
+  step. With a mixer declared, the strip realises that step (a mixer instance is added, then removed on the second
+  nudge, `tools/zynthian/test-strip.py` `move_relinks_through_the_parallel_step`); with none, the first nudge is
+  refused `MIX_ELEMENT_ABSENT` and a plugind chain cannot be reordered by nudging at all. Whether Zynthian should get a
+  plain move (a swap of adjacent slots) instead is not decided here.
 - **Latency of a mix.** Branches of unequal latency are summed as they come; nothing compensates them.
 - **Who owns a link.** autoconnect disconnects a link only if it once made it (`autoconnect.py:1176-1181`); a link
   between two plugind instances must never be made by autoconnect, or a later pass may take the strip's link down. The
@@ -124,3 +131,13 @@ Open points
   mapped.
 - **MIDI to effects.** Every audio processor gets the chain's MIDI (`chain.py:419-424`); in the strip model that is
   control-domain input reaching chain elements, which the draft spec places with the source. Not mapped.
+
+Tests
+-----
+
+`tools/zynthian/strip.sh <zynthian-ui clone> <out>` applies the patch at the pinned commit and runs
+`tools/zynthian/test-strip.py`: the real `zynthian_chain`, `zynthian_processor` and `zynthian_plugind_strip` against
+plugin-hostd and `tests/fake-host`, no JACK and no plugin. Seven scenarios read the daemon's graph back
+(`list_connections`) and its values (`param_get`), and nine sabotages each turn one red. `evidence/strip/test.log` is
+one run. Not tested: the plugind engine itself under the strip (it needs lilv and JACK: `test-path-b.py`), real JACK
+ports and their names, autoconnect's pass over the rewritten routes, Zynthian's GUI, any timing, and any hardware.
