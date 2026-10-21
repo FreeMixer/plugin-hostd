@@ -32,7 +32,7 @@
 #include "supervisor.h"
 #include "verbs.h"
 
-#define MAX_TOKENS 64
+#define MAX_TOKENS PHD_LINE_WORDS_MAX
 
 volatile int g_quitting;
 
