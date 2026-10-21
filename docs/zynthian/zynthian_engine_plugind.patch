@@ -1,4 +1,5 @@
-zynthian_engine_plugind: plugin-hostd as a Zynthian engine (FreeMixer/plugin-hostd#124 spike)
+zynthian_engine_plugind: plugin-hostd as a Zynthian engine (FreeMixer/plugin-hostd#124 spike), and the plugind strip
+that links a chain's audio slots on plugin-hostd in order (docs/zynthian/chain-profile.md)
 
 Against zynthian/zynthian-ui vangelis f46b0189b6163472db39aa607369f397ed23b65a (2026-10-19).
 Apply: git -C zynthian-ui apply zynthian_engine_plugind.patch
@@ -24,6 +25,49 @@ index 5dd29a59..61349483 100644
  from zyngine.zynthian_engine_sfizz import *
  from zyngine.zynthian_engine_alsa_mixer import *
  from zyngine.zynthian_engine_tempo import *
+diff --git a/zyngine/zynthian_chain.py b/zyngine/zynthian_chain.py
+index 77f3d97e..36953bf5 100644
+--- a/zyngine/zynthian_chain.py
++++ b/zyngine/zynthian_chain.py
+@@ -29,6 +29,7 @@ import logging
+ # Zynthian specific modules
+ import zynautoconnect
+ from zyngine.zynthian_processor import zynthian_processor
++from zyngine import zynthian_plugind_strip
+ from zyncoder.zyncore import lib_zyncore
+ 
+ 
+@@ -359,6 +360,10 @@ class zynthian_chain:
+         for output in self.get_audio_out():
+             self.audio_routes[output] = prev_slot_sources.copy()
+ 
++        # plugin-hostd links the plugind processors of adjacent slots itself (mod-host connect), and a parallel slot of
++        # them through an explicit mix element: those routes are taken from autoconnect
++        self.audio_routes = zynthian_plugind_strip.realise_chain(self, self.audio_routes)
++
+         zynautoconnect.release_lock()
+         zynautoconnect.request_audio_connect()
+ 
+@@ -758,6 +763,7 @@ class zynthian_chain:
+     def nudge_processor(self, processor, up):
+         try:
+             slots = self.get_slots_by_type(processor.type)
++            before = [list(slot) for slot in slots]
+             cur_slot = self.get_slot(processor)
+             parallel = len(slots[cur_slot]) > 1
+             is_mixer_strip = processor.eng_code in ("MI", "MR")
+@@ -798,6 +804,11 @@ class zynthian_chain:
+                     else:
+                         slots[cur_slot].append(processor)
+ 
++            # a slot plugin-hostd could not realise (a parallel one with no mix element) is never formed
++            if slots is self.audio_slots and not zynthian_plugind_strip.accepts(self, slots):
++                slots[:] = before
++                return False
++
+             self.rebuild_graph()
+         except:
+             logging.error("Failed to move processor")
 diff --git a/zyngine/zynthian_chain_manager.py b/zyngine/zynthian_chain_manager.py
 index 39b2505e..73ad2974 100644
 --- a/zyngine/zynthian_chain_manager.py
@@ -54,16 +98,199 @@ index 39b2505e..73ad2974 100644
  # ----------------------------------------------------------------------------
 diff --git a/zyngine/zynthian_engine_plugind.py b/zyngine/zynthian_engine_plugind.py
 new file mode 100644
-index 00000000..9d938f51
+index 00000000..a1fbfb17
 --- /dev/null
 +++ b/zyngine/zynthian_engine_plugind.py
-@@ -0,0 +1,247 @@
+@@ -0,0 +1,176 @@
 +# -*- coding: utf-8 -*-
 +# ********************************************************************
 +# ZYNTHIAN PROJECT: Zynthian Engine (zynthian_engine_plugind)
 +#
 +# zynthian_engine implementation for plugin-hostd: LV2 and CLAP plugins,
 +# each in a worker process of its own that is put back if it crashes.
++#
++# Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
++#
++# ********************************************************************
++#
++# This program is free software; you can redistribute it and/or
++# modify it under the terms of the GNU General Public License as
++# published by the Free Software Foundation; either version 3 of
++# the License, or any later version.
++#
++# This program is distributed in the hope that it will be useful,
++# but WITHOUT ANY WARRANTY; without even the implied warranty of
++# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++# GNU General Public License for more details.
++#
++# For a full copy of the GNU General Public License see the LICENSE.txt file.
++#
++# ********************************************************************
++
++import json
++import subprocess
++
++from . import zynthian_lv2
++from . import zynthian_plugind_strip as strip
++from .zynthian_controller import zynthian_controller
++from .zynthian_engine_jalv import zynthian_engine_jalv_base
++
++# ------------------------------------------------------------------------------
++# plugind Engine Class
++# ------------------------------------------------------------------------------
++
++
++class zynthian_engine_plugind(zynthian_engine_jalv_base):
++    """An LV2 plugin (controllers from lilv, exactly as the jalv engine builds them) or a CLAP plugin (controllers from
++    omx-clap-scan) run by plugin-hostd as instance <n>, JACK client effect_<n>. MIDI channels stay with Zynthian's router:
++    the instance's MIDI input is wired like a jalv client's."""
++
++    # the strip (zynthian_plugind_strip) links a chain's plugind processors to each other by this mark
++    plugind = True
++
++    def __init__(self, eng_code, state_manager, jackname=None):
++        self.client = strip.client()
++        self.instance = strip.alloc_instance()
++        self.monitors = {}
++        # the base class builds the controllers, then calls start() and reads "JACK Name:" from what it returns
++        super().__init__(eng_code, state_manager, jackname)
++
++    def is_clap(self):
++        return self.plugin_url.startswith("clap:")
++
++    # ---------------------------------------------------------------------------
++    # Worker management, through the daemon
++    # ---------------------------------------------------------------------------
++
++    def start(self):
++        reply = self.client.cmd(strip.add_line(self.plugin_url, self.instance))
++        if strip.resp_code(reply) is None or strip.resp_code(reply) < 0:
++            raise Exception(f"plugin-hostd refused '{self.plugin_url}' => {reply}")
++        self.client.output_handlers[self.instance] = self.on_output
++        for symbol in self.monitor_symbols():
++            self.client.cmd(f"monitor_output {self.instance} {symbol}")
++        return f"JACK Name: effect_{self.instance}\n"
++
++    def stop(self):
++        self.client.output_handlers.pop(self.instance, None)
++        self.client.cmd(f"remove {self.instance}")
++        strip.free_instance(self.instance)
++
++    def proc_cmd(self, cmd):
++        """The jalv command lines the base class writes, said in the daemon's protocol."""
++        line = strip.jalv_line(self.instance, cmd)
++        return self.client.cmd(line) if line else ""
++
++    def get_param(self, symbol):
++        reply = self.client.cmd(f"param_get {self.instance} {symbol}").split()
++        return float(reply[2]) if len(reply) > 2 and reply[1] == "0" else None
++
++    # ---------------------------------------------------------------------------
++    # Controllers & meters
++    # ---------------------------------------------------------------------------
++
++    def clap_scan(self):
++        path, _, plugin_id = self.plugin_url[5:].partition("#")
++        out = subprocess.run(["omx-clap-scan", "--json", path], capture_output=True, text=True).stdout
++        for f in json.loads(out).get("files", []):
++            for p in f.get("plugins", []):
++                if not plugin_id or p["id"] == plugin_id:
++                    return p
++        return {"params": []}
++
++    def get_lv2_controllers_dict(self):
++        zctrls = super().get_lv2_controllers_dict() if not self.is_clap() else self.clap_controllers_dict()
++        # an effect with no bypass port of its own gets the host's, mod-host's bypass verb, as mod-ui gives every plugin
++        # (zynthian_engine_modui.py:629-643)
++        if self.type == "Audio Effect" and not any(z.is_bypass for z in zctrls.values()):
++            zctrls[":bypass"] = zynthian_controller(self, ":bypass", {
++                "name": "bypass", "short_name": "bypass", "value": 0, "value_default": 0, "value_min": 0,
++                "value_max": 1, "labels": ["inline", "bypass"], "ticks": [0, 1], "is_toggle": True, "is_integer": True,
++                "is_bypass": True, "bypass_value": 1})
++            self.bypass_zctrl = zctrls[":bypass"]
++        return zctrls
++
++    def clap_controllers_dict(self):
++        zctrls = {}
++        for p in self.clap_scan()["params"]:
++            stepped = "stepped" in p.get("flags", [])
++            # the daemon names a CLAP parameter by its number
++            zctrls[str(p["id"])] = zynthian_controller(self, str(p["id"]), {
++                "name": p["name"],
++                "group_symbol": p.get("module") or None,
++                "value": p["default"],
++                "value_default": p["default"],
++                "value_min": p["min"],
++                "value_max": p["max"],
++                "is_integer": stepped,
++                "is_toggle": stepped and p["min"] == 0 and p["max"] == 1,
++            })
++        return zctrls
++
++    def monitor_symbols(self):
++        if self.is_clap():
++            return []
++        plugin = zynthian_lv2.world.get_all_plugins()[self.plugin_url]
++        world = zynthian_lv2.world
++        return [str(port.get_symbol()) for port in (plugin.get_port_by_index(i) for i in range(plugin.get_num_ports()))
++                if port.is_a(world.ns.lv2.OutputPort) and port.is_a(world.ns.lv2.ControlPort)]
++
++    def on_output(self, symbol, value):
++        self.monitors[symbol] = value
++
++    def get_monitors_dict(self):
++        return self.monitors
++
++    # ---------------------------------------------------------------------------
++    # Presets
++    # ---------------------------------------------------------------------------
++
++    def get_bank_list(self, processor=None):
++        return [["", None, "", None]]
++
++    def set_bank(self, processor, bank):
++        return True
++
++    def get_preset_list(self, bank, processor=None):
++        if self.is_clap():
++            # preset_list <instance> => resp 0 <count>; preset_get <instance> <index> => resp 0 <key> <name>
++            count = self.client.cmd(f"preset_list {self.instance}").split()
++            presets = []
++            for i in range(int(count[2]) if len(count) > 2 and count[1] == "0" else 0):
++                words = self.client.cmd(f"preset_get {self.instance} {i}").split(" ", 3)
++                if len(words) == 4 and words[1] == "0":
++                    presets.append([words[2], None, words[3], None])
++            return presets
++        world = zynthian_lv2.world
++        plugin = world.get_all_plugins()[self.plugin_url]
++        presets = []
++        for preset in plugin.get_related(world.ns.presets.Preset):
++            world.load_resource(preset)
++            label = world.get(preset, world.ns.rdfs.label, None)
++            presets.append([str(preset), None, str(label) if label is not None else str(preset), None])
++        return sorted(presets, key=lambda p: p[2])
++
++    def set_preset(self, processor, preset, preload=False):
++        code = strip.resp_code(self.client.cmd(f"preset_load {self.instance} {preset[0]}"))
++        return code is not None and code >= 0
++
++    def cmp_presets(self, preset1, preset2):
++        return preset1[0] == preset2[0]
++
++# ******************************************************************************
+diff --git a/zyngine/zynthian_plugind_strip.py b/zyngine/zynthian_plugind_strip.py
+new file mode 100644
+index 00000000..d3fd51b9
+--- /dev/null
++++ b/zyngine/zynthian_plugind_strip.py
+@@ -0,0 +1,435 @@
++# -*- coding: utf-8 -*-
++# ********************************************************************
++# ZYNTHIAN PROJECT: plugin-hostd strip (zynthian_plugind_strip)
++#
++# A chain's audio slots realised on plugin-hostd: the connection to the
++# daemon, the instance numbers, and the links between instances, made
++# with mod-host's connect and disconnect in slot order.
 +#
 +# Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 +#
@@ -91,12 +318,21 @@ index 00000000..9d938f51
 +import subprocess
 +from time import sleep
 +
-+from . import zynthian_lv2
-+from .zynthian_controller import zynthian_controller
-+from .zynthian_engine_jalv import zynthian_engine_jalv_base
++# The refusals of the strip, by name. None is a protocol code: they are said here, before any line reaches the daemon.
++PARALLEL_SLOT_FOREIGN = "PARALLEL_SLOT_FOREIGN"  # a parallel slot holds a processor that plugin-hostd does not run
++MIX_ELEMENT_ABSENT = "MIX_ELEMENT_ABSENT"  # a parallel slot needs a mixer plugin and PLUGIND_MIX declares none
++MIX_BRANCHES_EXCEEDED = "MIX_BRANCHES_EXCEEDED"  # a parallel slot has more members than the mixer has branches
++MIX_ADD_REFUSED = "MIX_ADD_REFUSED"  # the daemon refused the add of the mixer instance
++
++
++class plugind_strip_refused(Exception):
++    def __init__(self, code, slot, detail=""):
++        super().__init__(f"{code} (audio slot {slot}){': ' + detail if detail else ''}")
++        self.code = code
++        self.slot = slot
 +
 +# ------------------------------------------------------------------------------
-+# One connection to plugin-hostd, shared by every plugind engine
++# One connection to plugin-hostd, shared by every plugind engine and strip
 +# ------------------------------------------------------------------------------
 +
 +
@@ -163,145 +399,323 @@ index 00000000..9d938f51
 +
 +def resp_code(reply):
 +    words = reply.split()
-+    return int(words[1]) if len(words) > 1 and words[0] == "resp" else None
++    try:
++        return int(words[1]) if len(words) > 1 and words[0] == "resp" else None
++    except ValueError:
++        return None
++
++
++_client = None
++
++
++def client():
++    global _client
++    if _client is None:
++        _client = plugind_client()
++    return _client
++
++
++def set_client(c):
++    """A test, or a host with its own connection, hands the strip the client to use."""
++    global _client
++    _client = c
 +
 +# ------------------------------------------------------------------------------
-+# plugind Engine Class
++# Instance numbers: one table for the engines' instances and the strips' mixers
 +# ------------------------------------------------------------------------------
 +
 +
-+class zynthian_engine_plugind(zynthian_engine_jalv_base):
-+    """An LV2 plugin (controllers from lilv, exactly as the jalv engine builds them) or a CLAP plugin (controllers from
-+    omx-clap-scan) run by plugin-hostd as instance <n>, JACK client effect_<n>. MIDI channels stay with Zynthian's router:
-+    the instance's MIDI input is wired like a jalv client's."""
++instances = set()
 +
-+    client = None
-+    instances = set()
 +
-+    def __init__(self, eng_code, state_manager, jackname=None):
-+        if zynthian_engine_plugind.client is None:
-+            zynthian_engine_plugind.client = plugind_client()
-+        self.instance = min(set(range(len(self.instances) + 1)) - self.instances)
-+        self.instances.add(self.instance)
-+        self.monitors = {}
-+        # the base class builds the controllers, then calls start() and reads "JACK Name:" from what it returns
-+        super().__init__(eng_code, state_manager, jackname)
++def alloc_instance():
++    n = min(set(range(len(instances) + 1)) - instances)
++    instances.add(n)
++    return n
 +
-+    def is_clap(self):
-+        return self.plugin_url.startswith("clap:")
++
++def free_instance(n):
++    instances.discard(n)
++
++
++def add_line(uri, instance):
++    """The add line; PLUGIND_PLACEMENT (own, pool:<name>, ...) is the daemon's own placement word, empty by default."""
++    placement = os.environ.get("PLUGIND_PLACEMENT", "")
++    return f"add {uri} {instance}" + (f" {placement}" if placement else "")
++
++
++def jalv_line(instance, cmd):
++    """A jalv command line the jalv base class writes, said in the daemon's protocol; None for one with nothing to say
++    ("monitors": the meters come as output_set feedback)."""
++    if cmd.startswith("preset "):
++        return f"preset_load {instance} {cmd[7:]}"
++    if "=" in cmd and " " not in cmd:
++        symbol, value = cmd.split("=", 1)
++        if symbol == ":bypass":
++            # the host's bypass, mod-host's verb: the plugin has no bypass port of its own
++            return f"bypass {instance} {1 if float(value) >= 0.5 else 0}"
++        return f"param_set {instance} {symbol} {value}"
++    return None
++
++# ------------------------------------------------------------------------------
++# The mix element of a parallel slot
++# ------------------------------------------------------------------------------
++
++
++def mix_profile():
++    """The N-input mixer plugin plugin-hostd runs for a parallel slot, declared in PLUGIND_MIX as JSON:
++    {"uri": ..., "branches": N, "in": "in_{branch}_{ch}", "out": "out_{ch}", "channels": 2, "gain": "gain_{branch}"}
++    (branch and ch count from 1). None when nothing is declared."""
++    text = os.environ.get("PLUGIND_MIX")
++    if not text:
++        return None
++    p = json.loads(text)
++    p.setdefault("channels", 2)
++    return p
++
++
++class mix_element:
++    """role mix: sums the outputs of a parallel slot's members, one branch each, with a declared gain per branch.
++    Zynthian's own parallel slot is an implicit JACK sum at unity per member (zynthian_chain.py:342-347,
++    zynthian_autoconnect.py:1089-1097): the default gain is 1.0, not 1/N, so a slot sounds as it did."""
++
++    def __init__(self, slot, members, gains=None):
++        self.slot = slot
++        self.members = list(members)
++        self.gains = list(gains) if gains else [1.0] * len(self.members)
++        self.bypassed = False
++        self.instance = None
++
++    @property
++    def key(self):
++        return tuple(m.engine.instance for m in self.members)
++
++    def latency(self, branch_latencies):
++        """the slowest branch; None while any branch's latency is unknown (plugin-hostd's main routes no latency verb)"""
++        if not branch_latencies or any(v is None for v in branch_latencies):
++            return None
++        return max(branch_latencies)
++
++    def jackname(self):
++        return f"effect_{self.instance}" if self.instance is not None else f"<mix of audio slot {self.slot}>"
++
++    def in_ports(self, branch, profile):
++        return [f"{self.jackname()}:" + profile["in"].format(branch=branch + 1, ch=c + 1) for c in range(profile["channels"])]
++
++    def out_ports(self, profile):
++        return [f"{self.jackname()}:" + profile["out"].format(ch=c + 1) for c in range(profile["channels"])]
++
++# ------------------------------------------------------------------------------
++# The strip
++# ------------------------------------------------------------------------------
++
++
++def is_plugind(processor):
++    return getattr(processor.engine, "plugind", False)
++
++
++def jack_ports(client_name, is_output):
++    """The audio ports of a JACK client, in the order autoconnect reads them."""
++    import zynautoconnect
++    return [p.name for p in zynautoconnect.jclient.get_ports(f"^{client_name}:", is_audio=True, is_output=is_output,
++                                                              is_input=not is_output)]
++
++
++def pair_ports(src_ports, dst_ports):
++    """autoconnect's mono/stereo rule (zynthian_autoconnect.py:1094-1097): at most two links, the last port reused"""
++    links = []
++    if src_ports and dst_ports:
++        for i in range(min(2, max(len(src_ports), len(dst_ports)))):
++            links.append((src_ports[min(i, len(src_ports) - 1)], dst_ports[min(i, len(dst_ports) - 1)]))
++    return links
++
++
++class stage:
++    """One step of the strip: a single processor, or a parallel slot's members and their mix element."""
++
++    def __init__(self, slot, members, mix=None):
++        self.slot = slot
++        self.members = members
++        self.mix = mix
++
++    def owned(self):
++        """plugin-hostd runs every node of this stage"""
++        return self.mix is not None or is_plugind(self.members[0])
++
++
++class plugind_strip:
++    """The links of one chain's audio slots that plugin-hostd's instances make between them."""
++
++    def __init__(self, ports=jack_ports):
++        self.ports = ports
++        self.links = []  # (source port, destination port), in the order they were made
++        self.mixes = {}  # member instances -> mix_element with its instance
 +
 +    # ---------------------------------------------------------------------------
-+    # Worker management, through the daemon
++    # The plan: what the slots ask for, with nothing sent
 +    # ---------------------------------------------------------------------------
 +
-+    def start(self):
-+        reply = self.client.cmd(f"add {self.plugin_url} {self.instance}")
++    def plan(self, audio_slots, profile=None):
++        """The stages of the audio slots; raises plugind_strip_refused for a parallel slot this strip cannot realise."""
++        profile = profile if profile is not None else mix_profile()
++        stages = []
++        for i, slot in enumerate(audio_slots):
++            if len(slot) == 1:
++                stages.append(stage(i, list(slot)))
++                continue
++            if not all(is_plugind(p) for p in slot):
++                raise plugind_strip_refused(PARALLEL_SLOT_FOREIGN, i, ", ".join(p.get_jackname() for p in slot))
++            mix = mix_element(i, slot)
++            known = self.mixes.get(mix.key)
++            stages.append(stage(i, list(slot), known or mix))
++        return stages
++
++    def check(self, audio_slots):
++        """Raise before a parallel slot forms that could not be realised: no mixer declared, too few branches."""
++        profile = mix_profile()
++        for st in self.plan(audio_slots, profile):
++            if st.mix is None:
++                continue
++            if profile is None:
++                raise plugind_strip_refused(MIX_ELEMENT_ABSENT, st.slot, "PLUGIND_MIX declares no mixer plugin")
++            if len(st.members) > int(profile["branches"]):
++                raise plugind_strip_refused(MIX_BRANCHES_EXCEEDED, st.slot,
++                                            f"{len(st.members)} members, {profile['branches']} branches")
++
++    def link_plan(self, stages, profile):
++        """The links the strip owns, in chain order: between adjacent stages plugin-hostd runs both of, the fan-out into
++        a parallel slot, and each member into its branch of the mix."""
++        def outs(st):
++            return st.mix.out_ports(profile) if st.mix else self.ports(st.members[0].get_jackname(), True)
++
++        links = []
++        for k, st in enumerate(stages):
++            prev = stages[k - 1] if k else None
++            if prev is not None and prev.owned() and st.owned():
++                for m in st.members:
++                    links += pair_ports(outs(prev), self.ports(m.get_jackname(), False))
++            if st.mix:
++                for b, m in enumerate(st.members):
++                    links += pair_ports(self.ports(m.get_jackname(), True), st.mix.in_ports(b, profile))
++        return links
++
++    def routes(self, stages, audio_routes):
++        """The chain's routes with what the strip owns taken out, and a parallel slot's members replaced by its mix as
++        the source of whatever follows: no input is ever fed by more than one member."""
++        routes = dict(audio_routes)
++        for k, st in enumerate(stages):
++            prev = stages[k - 1] if k else None
++            if prev is not None and prev.owned() and st.owned():
++                for m in st.members:
++                    routes.pop(m.get_jackname(), None)
++            if st.mix:
++                members = sorted(m.get_jackname() for m in st.members)
++                for dst, sources in routes.items():
++                    if sorted(sources) == members:
++                        routes[dst] = [st.mix.jackname()]
++        return routes
++
++    # ---------------------------------------------------------------------------
++    # Realisation
++    # ---------------------------------------------------------------------------
++
++    def realise(self, audio_slots, audio_routes):
++        """Bring the daemon's links to the slots' order; returns the routes left to autoconnect."""
++        if not any(is_plugind(p) for slot in audio_slots for p in slot) and not self.links and not self.mixes:
++            return audio_routes
++        self.check(audio_slots)
++        profile = mix_profile()
++        stages = self.plan(audio_slots, profile)
++        wanted_mixes = {st.mix.key: st.mix for st in stages if st.mix}
++        for key, mix in wanted_mixes.items():
++            if mix.instance is None:
++                self.add_mix(mix, profile)
++        self.realise_links(self.link_plan(stages, profile))
++        for key in [k for k in self.mixes if k not in wanted_mixes]:
++            self.remove_mix(self.mixes.pop(key))
++        return self.routes(stages, audio_routes)
++
++    # ---- SEAM: plugin-hostd#101 -------------------------------------------------------------------------------------
++    # This method is the one place the strip's order reaches the daemon, as connect and disconnect links between
++    # instances (the mod-host strip profile). plugin-hostd#101 (branch cluster/plugin-hostd-101-r2-cluster at 3fea0e6,
++    # not merged; base wave/contract-one-pass) adds `chain <chain> <instance> <instance> ...`: a run of single-slot
++    # stages whose workers run chains in one client (clap, lv2-clap) becomes one `chain` line here and its inner links
++    # go; a mod-host worker is never sent that line (its description there), so an LV2 run through mod-host keeps
++    # these links. The fan-out into and the branches out of a mix element stay links either way.
++    def realise_links(self, wanted):
++        for src, dst in [l for l in self.links if l not in wanted]:
++            reply = client().cmd(f"disconnect {src} {dst}")
++            if resp_code(reply) is None or resp_code(reply) < 0:
++                logging.error(f"plugind strip: disconnect {src} {dst} => {reply}")
++            self.links.remove((src, dst))
++        for src, dst in wanted:
++            if (src, dst) in self.links:
++                continue
++            reply = client().cmd(f"connect {src} {dst}")
++            if resp_code(reply) is None or resp_code(reply) < 0:
++                logging.error(f"plugind strip: connect {src} {dst} => {reply}")
++                continue
++            self.links.append((src, dst))
++    # ---- end of SEAM ------------------------------------------------------------------------------------------------
++
++    def add_mix(self, mix, profile):
++        n = alloc_instance()
++        reply = client().cmd(add_line(profile["uri"], n))
 +        if resp_code(reply) is None or resp_code(reply) < 0:
-+            raise Exception(f"plugin-hostd refused '{self.plugin_url}' => {reply}")
-+        self.client.output_handlers[self.instance] = self.on_output
-+        for symbol in self.monitor_symbols():
-+            self.client.cmd(f"monitor_output {self.instance} {symbol}")
-+        return f"JACK Name: effect_{self.instance}\n"
++            free_instance(n)
++            raise plugind_strip_refused(MIX_ADD_REFUSED, mix.slot, reply)
++        mix.instance = n
++        for b, g in enumerate(mix.gains):
++            client().cmd(f"param_set {n} {profile['gain'].format(branch=b + 1)} {g:.6f}")
++        self.mixes[mix.key] = mix
 +
-+    def stop(self):
-+        self.client.output_handlers.pop(self.instance, None)
-+        self.client.cmd(f"remove {self.instance}")
-+        self.instances.discard(self.instance)
++    def remove_mix(self, mix):
++        client().cmd(f"remove {mix.instance}")
++        free_instance(mix.instance)
++        mix.instance = None
 +
-+    def proc_cmd(self, cmd):
-+        """The jalv command lines the base class writes, said in the daemon's protocol."""
-+        if cmd.startswith("preset "):
-+            return self.client.cmd(f"preset_load {self.instance} {cmd[7:]}")
-+        if "=" in cmd and " " not in cmd:
-+            symbol, value = cmd.split("=", 1)
-+            return self.client.cmd(f"param_set {self.instance} {symbol} {value}")
-+        # "monitors": the meters come as output_set feedback, nothing to ask
-+        return ""
++    def set_branch_gain(self, mix, branch, gain):
++        mix.gains[branch] = gain
++        return client().cmd(f"param_set {mix.instance} {mix_profile()['gain'].format(branch=branch + 1)} {gain:.6f}")
 +
-+    def get_param(self, symbol):
-+        reply = self.client.cmd(f"param_get {self.instance} {symbol}").split()
-+        return float(reply[2]) if len(reply) > 2 and reply[1] == "0" else None
++    def set_mix_bypass(self, mix, bypassed):
++        mix.bypassed = bypassed
++        return client().cmd(f"bypass {mix.instance} {1 if bypassed else 0}")
 +
-+    # ---------------------------------------------------------------------------
-+    # Controllers & meters
-+    # ---------------------------------------------------------------------------
 +
-+    def clap_scan(self):
-+        path, _, plugin_id = self.plugin_url[5:].partition("#")
-+        out = subprocess.run(["omx-clap-scan", "--json", path], capture_output=True, text=True).stdout
-+        for f in json.loads(out).get("files", []):
-+            for p in f.get("plugins", []):
-+                if not plugin_id or p["id"] == plugin_id:
-+                    return p
-+        return {"params": []}
++strips = {}
 +
-+    def get_lv2_controllers_dict(self):
-+        if not self.is_clap():
-+            return super().get_lv2_controllers_dict()
-+        zctrls = {}
-+        for p in self.clap_scan()["params"]:
-+            stepped = "stepped" in p.get("flags", [])
-+            # the daemon names a CLAP parameter by its number
-+            zctrls[str(p["id"])] = zynthian_controller(self, str(p["id"]), {
-+                "name": p["name"],
-+                "group_symbol": p.get("module") or None,
-+                "value": p["default"],
-+                "value_default": p["default"],
-+                "value_min": p["min"],
-+                "value_max": p["max"],
-+                "is_integer": stepped,
-+                "is_toggle": stepped and p["min"] == 0 and p["max"] == 1,
-+            })
-+        return zctrls
 +
-+    def monitor_symbols(self):
-+        if self.is_clap():
-+            return []
-+        plugin = zynthian_lv2.world.get_all_plugins()[self.plugin_url]
-+        world = zynthian_lv2.world
-+        return [str(port.get_symbol()) for port in (plugin.get_port_by_index(i) for i in range(plugin.get_num_ports()))
-+                if port.is_a(world.ns.lv2.OutputPort) and port.is_a(world.ns.lv2.ControlPort)]
++def strip_of(chain):
++    if chain.chain_id not in strips:
++        strips[chain.chain_id] = plugind_strip()
++    return strips[chain.chain_id]
 +
-+    def on_output(self, symbol, value):
-+        self.monitors[symbol] = value
 +
-+    def get_monitors_dict(self):
-+        return self.monitors
++def realise_chain(chain, audio_routes):
++    """zynthian_chain.rebuild_audio_graph's hook: the routes autoconnect is left with. A refusal says its code and
++    leaves the chain's routes, less every destination a parallel slot's members would feed together: JACK never sums
++    them at one input. The guard before a slot forms (accepts) keeps that from happening."""
++    try:
++        return strip_of(chain).realise(chain.audio_slots, audio_routes)
++    except plugind_strip_refused as e:
++        logging.error(f"plugind strip of chain {chain.chain_id}: {e}")
++        routes = dict(audio_routes)
++        for slot in chain.audio_slots:
++            if len(slot) > 1:
++                members = sorted(p.get_jackname() for p in slot)
++                for dst in [d for d, sources in routes.items() if sorted(sources) == members]:
++                    routes.pop(dst)
++        return routes
 +
-+    # ---------------------------------------------------------------------------
-+    # Presets
-+    # ---------------------------------------------------------------------------
 +
-+    def get_bank_list(self, processor=None):
-+        return [["", None, "", None]]
-+
-+    def set_bank(self, processor, bank):
++def accepts(chain, audio_slots):
++    """zynthian_chain.nudge_processor's guard: False, with the code logged, for slots the strip could not realise."""
++    if not any(is_plugind(p) for slot in audio_slots for p in slot):
 +        return True
-+
-+    def get_preset_list(self, bank, processor=None):
-+        if self.is_clap():
-+            # preset_list <instance> => resp 0 <count>; preset_get <instance> <index> => resp 0 <key> <name>
-+            count = self.client.cmd(f"preset_list {self.instance}").split()
-+            presets = []
-+            for i in range(int(count[2]) if len(count) > 2 and count[1] == "0" else 0):
-+                words = self.client.cmd(f"preset_get {self.instance} {i}").split(" ", 3)
-+                if len(words) == 4 and words[1] == "0":
-+                    presets.append([words[2], None, words[3], None])
-+            return presets
-+        world = zynthian_lv2.world
-+        plugin = world.get_all_plugins()[self.plugin_url]
-+        presets = []
-+        for preset in plugin.get_related(world.ns.presets.Preset):
-+            world.load_resource(preset)
-+            label = world.get(preset, world.ns.rdfs.label, None)
-+            presets.append([str(preset), None, str(label) if label is not None else str(preset), None])
-+        return sorted(presets, key=lambda p: p[2])
-+
-+    def set_preset(self, processor, preset, preload=False):
-+        code = resp_code(self.client.cmd(f"preset_load {self.instance} {preset[0]}"))
-+        return code is not None and code >= 0
-+
-+    def cmp_presets(self, preset1, preset2):
-+        return preset1[0] == preset2[0]
-+
-+# ******************************************************************************
++    try:
++        strip_of(chain).check(audio_slots)
++        return True
++    except plugind_strip_refused as e:
++        logging.error(f"plugind strip of chain {chain.chain_id}: {e}")
++        return False
