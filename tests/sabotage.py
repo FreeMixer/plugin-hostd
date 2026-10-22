@@ -15,7 +15,8 @@ FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "
 # tests/readme_build.py, with no daemon to build; "probeschema" breaks protocol/probe-output.schema.json and runs
 # tests/probe_schema.py; "relay" breaks src/relay.c and runs tests/relay_test.c; "alloc" breaks src/relay.c or src/lv2.c and runs make test-alloc; "contract" breaks the probe runner or the generator and runs tests/contract_derived.py; "consumer" breaks the header and compiles tests/consumer.c against it; "probe" breaks src/probe.c and runs tests/probe_test.py; "nopins" breaks the packaging or a workflow and runs tests/no_pins.py; "ciguards" breaks a workflow and runs tests/ci_guards.py;
 # "vocabulary" breaks the probe schema, its template or a copy of omx-contract's omx-vocabulary.schema.json and runs
-# tests/vocabulary_derived.py; "verbtable" breaks the header and runs tests/verb_table.py
+# tests/vocabulary_derived.py; "verbtable" breaks the header and runs tests/verb_table.py; "presetschema" breaks
+# protocol/preset.schema.json and runs tests/preset_format.py
 SABOTAGE = [
     ("a runner that refuses unshare passes build-and-test with a warning", ".github/workflows/ci.yml",
      '            echo "::error::test-jack did not run: this runner refuses a private user and pid namespace with its own /proc"\n            exit 1\n',
@@ -660,6 +661,15 @@ SABOTAGE = [
      'chain_line(w, msg, sizeof(msg)) && replay_line(w, msg) != RPC_OK)',
      'chain_line(w, msg, sizeof(msg)) && (replay_line_code(w, msg, &code) != RPC_OK || code < 0))',
      "a_worker_that_runs_no_chain_refuses_the_line_and_the_members_still_share_it"),
+    ("the preset schema takes a format version it does not know", "protocol/preset.schema.json",
+     '"enum": ["org.openmixer.preset/1", "org.openmixer.preset/2"]', '"type": "string"',
+     "an unknown format version is refused", "presetschema"),
+    ("the preset schema takes a fingerprint of any scheme", "protocol/preset.schema.json",
+     '"pattern": "^omx-layout/1:[0-9a-f]{64}$"', '"pattern": "^[^:]+:[0-9a-f]{64}$"',
+     "a fingerprint of an unknown scheme is refused", "presetschema"),
+    ("the preset schema takes params+state with no state body", "protocol/preset.schema.json",
+     '"then": {"required": ["params", "state"]}', '"then": {"required": ["params"]}',
+     "params+state with the state body dropped is refused", "presetschema"),
 ]
 
 
@@ -763,6 +773,10 @@ def run_test(tree, name, jack=False):
         p = subprocess.run([sys.executable, os.path.join(ROOT, "tests", "verb_table.py"), tree], capture_output=True,
                            text=True, timeout=60)
         return p.returncode, p.stdout
+    if jack == "presetschema":
+        p = subprocess.run([sys.executable, os.path.join(ROOT, "tests", "preset_format.py"), tree], capture_output=True,
+                           text=True, timeout=60)
+        return p.returncode, p.stdout
     if jack in ("nopins", "ciguards"):
         script = {"nopins": "no_pins.py", "ciguards": "ci_guards.py"}[jack]
         p = subprocess.run([sys.executable, os.path.join(ROOT, "tests", script), tree], capture_output=True,
@@ -815,6 +829,9 @@ try:
             shutil.copytree(os.path.join(ROOT, "packaging"), os.path.join(tree, "packaging"))
             shutil.copy(os.path.join(ROOT, "Makefile"), tree)
             build_probe(tree)
+        elif jack == "presetschema":
+            os.makedirs(os.path.join(tree, "protocol"))
+            shutil.copy(os.path.join(ROOT, "protocol", "preset.schema.json"), os.path.join(tree, "protocol"))
         elif jack == "probeschema":
             os.makedirs(os.path.join(tree, "protocol"))
             shutil.copy(os.path.join(ROOT, "protocol", "probe-output.schema.json"), os.path.join(tree, "protocol"))
@@ -858,7 +875,7 @@ try:
         open(os.path.join(tree, path), "w").write(src.replace(text, repl))
         if jack == "probe":
             build_probe(tree)
-        elif jack not in ("readme", "nopins", "ciguards", "format", "relay", "contract", "consumer", "probeschema", "vocabulary", "alloc",
+        elif jack not in ("readme", "nopins", "ciguards", "format", "relay", "contract", "consumer", "probeschema", "presetschema", "vocabulary", "alloc",
                           "verbtable"):
             for f in os.listdir(os.path.join(tree, "src")):
                 if f.endswith(".o"):
