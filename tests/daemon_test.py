@@ -2558,7 +2558,7 @@ def a_chain_of_one_runs_in_a_worker_of_its_own_and_a_chain_of_none_is_refused():
 def under_require_pins_a_chain_of_lv2_members_is_refused_until_its_worker_gets_the_union_of_their_bundles():
     """an LV2 pin holds only in a world narrowed to the plugin's bundle, and a chain's worker is given the whole
     lv2_path: a chain of pinned LV2 members, of one or of two, is refused with PLACEMENT_INVALID and nothing moves.
-    The union-narrowed world (docs/design/notes/2026-10-21-chains.md) is what lets it form; this holds the refusal
+    A worker world narrowed to the union of the members' bundles is what lets it form; this holds the refusal
     until then"""
     p = Plugins()
     d = p.daemon()
