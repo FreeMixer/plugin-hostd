@@ -668,6 +668,106 @@ static inline int phd_is_note_verb(const char *verb)
            !strcmp(verb, PHD_VERB_NOTE_INPUT);
 }
 
+/* ---------------------------------------------------------------- the host verb table */
+
+/* What each host profile owes every verb a controller sends the daemon: the commands of mod-host's protocol, the two
+ * that Zynthian's mod-ui still names and mod-host never had, and the verbs this daemon adds. tests/verb_table.py holds
+ * the table to that list, no more and no fewer, so a verb cannot be added to the daemon without its row.
+ *
+ * required: answered as its grammar says. optional: answered, or refused with -902; never misread. absent: refused on
+ * purpose, and no client of the profile may need it. */
+#define PHD_LEVEL_REQUIRED "required"
+#define PHD_LEVEL_OPTIONAL "optional"
+#define PHD_LEVEL_ABSENT   "absent"
+#define PHD_LEVELS(X) X(REQUIRED, PHD_LEVEL_REQUIRED) X(OPTIONAL, PHD_LEVEL_OPTIONAL) X(ABSENT, PHD_LEVEL_ABSENT)
+
+/* the profiles, a column each: X(id, name, meaning) */
+#define PHD_HOST_PROFILES(X) \
+    X(LV2, "lv2-worker", "an LV2 plugin's worker: mod-host, or omx-clap-host's LV2 adapter") \
+    X(CLAP, "clap-worker", "a CLAP plugin's worker, omx-clap-host") \
+    X(CONSOLE, "console", "the openmixer console as a controller of the daemon") \
+    X(ZYNTHIAN, "zynthian", "Zynthian's mod-ui and its plugind engine as a controller of the daemon")
+
+/* who sends the verb: mod-ui (Zynthian's mod-ui sends it to its host), mod-host (a command of mod-host.h that mod-ui
+ * does not send), daemon (a verb this daemon adds: it answers it itself, whatever the worker) */
+#define PHD_VERB_SOURCE_MOD_UI   "mod-ui"
+#define PHD_VERB_SOURCE_MOD_HOST "mod-host"
+#define PHD_VERB_SOURCE_DAEMON   "daemon"
+
+/* X(name, source, lv2-worker, clap-worker, console, zynthian). The mod-ui rows are the operator's ruling of
+ * 2026-10-21 (FreeMixer/plugin-hostd#131), read from Zynthian's verbs.tsv, with the ruling of 2026-10-22: MIDI learn
+ * and CV addressing are required of the CLAP worker and of Zynthian. The others are this tree's. */
+#define PHD_HOST_VERBS(X) \
+    X("add", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X("remove", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X("bypass", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X("connect", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X("param_set", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X("state_load", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X("state_save", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X("state_tmpdir", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X("feature_enable", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X("bundle_add", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X("bundle_remove", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X("preset_load", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X("preset_save", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X("preset_show", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X("transport", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X("transport_sync", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X("cpu_load", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X("midi_learn", MOD_UI, OPTIONAL, REQUIRED, OPTIONAL, REQUIRED) \
+    X("midi_map", MOD_UI, OPTIONAL, REQUIRED, OPTIONAL, REQUIRED) \
+    X("midi_unmap", MOD_UI, OPTIONAL, REQUIRED, OPTIONAL, REQUIRED) \
+    X("cv_map", MOD_UI, OPTIONAL, REQUIRED, OPTIONAL, REQUIRED) \
+    X("cv_unmap", MOD_UI, OPTIONAL, REQUIRED, OPTIONAL, REQUIRED) \
+    X("monitor_midi_program", MOD_UI, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X("monitor_output", MOD_UI, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X("output_data_ready", MOD_UI, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X("patch_get", MOD_UI, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X("patch_set", MOD_UI, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X("cc_map", MOD_UI, ABSENT, ABSENT, ABSENT, ABSENT) \
+    X("cc_value_set", MOD_UI, ABSENT, ABSENT, ABSENT, ABSENT) \
+    X("cc_unmap", MOD_UI, ABSENT, ABSENT, ABSENT, ABSENT) \
+    X("hmi_map", MOD_UI, ABSENT, ABSENT, ABSENT, ABSENT) \
+    X("hmi_unmap", MOD_UI, ABSENT, ABSENT, ABSENT, ABSENT) \
+    X("show_external_ui", MOD_UI, ABSENT, ABSENT, ABSENT, ABSENT) \
+    X("set_midi_program_change_pedalboard_bank_channel", MOD_UI, ABSENT, ABSENT, ABSENT, ABSENT) \
+    X("set_midi_program_change_pedalboard_snapshot_channel", MOD_UI, ABSENT, ABSENT, ABSENT, ABSENT) \
+    X("disconnect", MOD_HOST, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X("set_bpm", MOD_HOST, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X("set_bpb", MOD_HOST, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X("quit", MOD_HOST, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X("param_get", MOD_HOST, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X("param_monitor", MOD_HOST, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X("licensee", MOD_HOST, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X("monitor", MOD_HOST, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X("load", MOD_HOST, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X("save", MOD_HOST, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X("help", MOD_HOST, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X(PHD_VERB_TRACK_INFO, MOD_HOST, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X(PHD_VERB_REMOTE_PAGES, MOD_HOST, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X(PHD_VERB_REMOTE_PAGE_GET, MOD_HOST, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X(PHD_VERB_PARAM_INFO, MOD_HOST, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X(PHD_VERB_PRESET_LIST, DAEMON, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X(PHD_VERB_PRESET_GET, DAEMON, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X(PHD_VERB_NOTE_INPUT, DAEMON, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X(PHD_VERB_NOTE_ON, DAEMON, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X(PHD_VERB_NOTE_OFF, DAEMON, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X(PHD_VERB_ALL_NOTES_OFF, DAEMON, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X(PHD_VERB_WORKER_LIST, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X(PHD_VERB_INSTANCE_INFO, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X(PHD_VERB_SUPERVISOR_RESET, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X(PHD_VERB_QUARANTINE_CLEAR, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X(PHD_VERB_POLICY_SET, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X(PHD_VERB_POOL_CONFIG, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X(PHD_VERB_WORKER_ENV, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X(PHD_VERB_PIN_SET, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X(PHD_VERB_PIN_CLEAR, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X(PHD_VERB_PIN_ACCEPT, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X(PHD_VERB_LV2_WORKER_SET, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X(PHD_VERB_CHAIN, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X(PHD_VERB_CHAIN_CLEAR, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED)
+
 /* ---------------------------------------------------------------- host settings */
 
 /* what the daemon keeps of a command that names no instance and is broadcast to every worker: X(id, meaning) */

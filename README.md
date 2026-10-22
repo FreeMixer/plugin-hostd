@@ -222,6 +222,85 @@ stays held at the controller. omx-clap-host writes these lines from FreeMixer/om
 The ledger keeps the latest `track_info` of an instance and replays it after the add; the others are never replayed. A `<scale>` is `linear` (the value is linear in position), `log` (the value is geometric in position; both bounds are positive), `stepped` (the whole numbers from min to max, step 1). A string word is at most 255 bytes of UTF-8 with no control character.
 <!-- END GENERATED protocol:instance-verbs -->
 
+What each host profile owes every verb a controller sends: mod-host's commands, the two that Zynthian's mod-ui still
+names, and the verbs the daemon adds. A verb has a row here before the daemon serves it.
+
+<!-- BEGIN GENERATED protocol:host-verbs -->
+| verb | sent by | lv2-worker | clap-worker | console | zynthian |
+|---|---|---|---|---|---|
+| `add` | mod-ui | required | required | required | required |
+| `remove` | mod-ui | required | required | required | required |
+| `bypass` | mod-ui | required | required | required | required |
+| `connect` | mod-ui | required | required | required | required |
+| `param_set` | mod-ui | required | required | required | required |
+| `state_load` | mod-ui | required | required | required | required |
+| `state_save` | mod-ui | required | required | required | required |
+| `state_tmpdir` | mod-ui | required | required | required | required |
+| `feature_enable` | mod-ui | required | required | required | required |
+| `bundle_add` | mod-ui | required | required | required | required |
+| `bundle_remove` | mod-ui | required | required | required | required |
+| `preset_load` | mod-ui | required | required | required | required |
+| `preset_save` | mod-ui | required | required | required | required |
+| `preset_show` | mod-ui | required | required | required | required |
+| `transport` | mod-ui | required | required | required | required |
+| `transport_sync` | mod-ui | required | required | required | required |
+| `cpu_load` | mod-ui | required | required | required | required |
+| `midi_learn` | mod-ui | optional | required | optional | required |
+| `midi_map` | mod-ui | optional | required | optional | required |
+| `midi_unmap` | mod-ui | optional | required | optional | required |
+| `cv_map` | mod-ui | optional | required | optional | required |
+| `cv_unmap` | mod-ui | optional | required | optional | required |
+| `monitor_midi_program` | mod-ui | optional | optional | optional | optional |
+| `monitor_output` | mod-ui | optional | optional | optional | optional |
+| `output_data_ready` | mod-ui | optional | optional | optional | optional |
+| `patch_get` | mod-ui | optional | optional | optional | optional |
+| `patch_set` | mod-ui | optional | optional | optional | optional |
+| `cc_map` | mod-ui | absent | absent | absent | absent |
+| `cc_value_set` | mod-ui | absent | absent | absent | absent |
+| `cc_unmap` | mod-ui | absent | absent | absent | absent |
+| `hmi_map` | mod-ui | absent | absent | absent | absent |
+| `hmi_unmap` | mod-ui | absent | absent | absent | absent |
+| `show_external_ui` | mod-ui | absent | absent | absent | absent |
+| `set_midi_program_change_pedalboard_bank_channel` | mod-ui | absent | absent | absent | absent |
+| `set_midi_program_change_pedalboard_snapshot_channel` | mod-ui | absent | absent | absent | absent |
+| `disconnect` | mod-host | required | required | required | required |
+| `set_bpm` | mod-host | required | required | required | required |
+| `set_bpb` | mod-host | required | required | required | required |
+| `quit` | mod-host | required | required | required | required |
+| `param_get` | mod-host | optional | optional | optional | optional |
+| `param_monitor` | mod-host | optional | optional | optional | optional |
+| `licensee` | mod-host | optional | optional | optional | optional |
+| `monitor` | mod-host | optional | optional | optional | optional |
+| `load` | mod-host | optional | optional | optional | optional |
+| `save` | mod-host | optional | optional | optional | optional |
+| `help` | mod-host | optional | optional | optional | optional |
+| `track_info` | mod-host | optional | optional | optional | optional |
+| `remote_pages` | mod-host | optional | optional | optional | optional |
+| `remote_page_get` | mod-host | optional | optional | optional | optional |
+| `param_info` | mod-host | optional | optional | optional | optional |
+| `preset_list` | daemon | optional | optional | optional | optional |
+| `preset_get` | daemon | optional | optional | optional | optional |
+| `note_input` | daemon | optional | optional | optional | optional |
+| `note_on` | daemon | optional | optional | optional | optional |
+| `note_off` | daemon | optional | optional | optional | optional |
+| `all_notes_off` | daemon | optional | optional | optional | optional |
+| `worker_list` | daemon | required | required | required | required |
+| `instance_info` | daemon | required | required | required | required |
+| `supervisor_reset` | daemon | required | required | required | required |
+| `quarantine_clear` | daemon | required | required | required | required |
+| `policy_set` | daemon | required | required | required | required |
+| `pool_config` | daemon | required | required | required | required |
+| `worker_env` | daemon | required | required | required | required |
+| `pin_set` | daemon | required | required | required | required |
+| `pin_clear` | daemon | required | required | required | required |
+| `pin_accept` | daemon | required | required | required | required |
+| `lv2_worker_set` | daemon | required | required | required | required |
+| `chain` | daemon | required | required | required | required |
+| `chain_clear` | daemon | required | required | required | required |
+
+The profiles: `lv2-worker`, an LV2 plugin's worker: mod-host, or omx-clap-host's LV2 adapter; `clap-worker`, a CLAP plugin's worker, omx-clap-host; `console`, the openmixer console as a controller of the daemon; `zynthian`, Zynthian's mod-ui and its plugind engine as a controller of the daemon. `required` is answered as its grammar says; `optional` is answered, or refused with -902, and never misread; `absent` is refused on purpose, and no client of the profile may need it.
+<!-- END GENERATED protocol:host-verbs -->
+
 Error codes the daemon adds to mod-host's:
 
 <!-- BEGIN GENERATED protocol:errors -->

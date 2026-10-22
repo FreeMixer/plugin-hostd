@@ -446,6 +446,92 @@
         ]
       },
       "minItems": 1
+    },
+    "host_profiles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "meaning": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "meaning"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
+    "host_verbs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z_0-9]+$"
+          },
+          "source": {
+            "enum": [
+              "mod-ui",
+              "mod-host",
+              "daemon"
+            ]
+          },
+          "levels": {
+            "type": "object",
+            "properties": {
+              "lv2-worker": {
+                "enum": [
+                  "required",
+                  "optional",
+                  "absent"
+                ]
+              },
+              "clap-worker": {
+                "enum": [
+                  "required",
+                  "optional",
+                  "absent"
+                ]
+              },
+              "console": {
+                "enum": [
+                  "required",
+                  "optional",
+                  "absent"
+                ]
+              },
+              "zynthian": {
+                "enum": [
+                  "required",
+                  "optional",
+                  "absent"
+                ]
+              }
+            },
+            "required": [
+              "lv2-worker",
+              "clap-worker",
+              "console",
+              "zynthian"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "name",
+          "source",
+          "levels"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
     }
   },
   "required": [
@@ -460,6 +546,8 @@
     "errors",
     "verbs",
     "instance_verbs",
+    "host_profiles",
+    "host_verbs",
     "track_kinds",
     "param_scales",
     "remote_page_slots",
