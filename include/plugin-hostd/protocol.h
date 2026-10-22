@@ -446,8 +446,9 @@ static inline int phd_pool_name_valid(const char *name)
       "and is no failure. Every instance verb still names one member by its own number. A member that crashes the " \
       "worker is quarantined to a worker of its own and the chain goes on without it; quarantine_clear puts it back. " \
       "-518 for an instance no add made, -519 for one named twice, -520 for one in another chain, -521 for members of " \
-      "more than one format, -501 for a plugin that may not share a worker while require_pins is on (every LV2 plugin, " \
-      "a chain of one as well, until a chain's worker is given the union of its members' bundles), -902 for a chain " \
+      "more than one format, -501 for a plugin that may not share a worker while require_pins is on (a CLAP plugin " \
+      "whose first-use pin is not in-process; an LV2 member whose bundle is not found, since a chain's worker sees " \
+      "a world narrowed to the union of its members' bundles), -902 for a chain " \
       "or an instance that is not a number, or fewer than chain_members_min (" PHD_STR(PHD_CHAIN_MEMBERS_MIN) ") instances") \
     X(CHAIN_CLEAR, PHD_VERB_CHAIN_CLEAR, "<chain>", "resp 0", \
       "forget the chain: each member goes to a worker of its own; -522 for a chain no " PHD_VERB_CHAIN " declared")
