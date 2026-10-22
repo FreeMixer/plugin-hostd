@@ -1,0 +1,4 @@
+{"format": "org.openmixer.preset/2", "plugin": {"id": "org.freemixer.comp", "version": "1.2.0", "fingerprint": "omx-layout/1:0000000000000000000000000000000000000000000000000000000000000000"},
+ "id": "warm", "name": "Warm Pad", "alias": "WarmPad", "bank": "User", "tags": ["pad"], "description": "soft",
+ "createdAt": "2026-10-22T21:00:00Z", "modifiedAt": "2026-10-22T21:00:00.5Z", "carries": "params",
+ "params": [{"symbol": "gain", "unit": "dB", "value": -3.25}], "x-console": {"kept": true}}
