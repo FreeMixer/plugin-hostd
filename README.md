@@ -223,7 +223,10 @@ The ledger keeps the latest `track_info` of an instance and replays it after the
 <!-- END GENERATED protocol:instance-verbs -->
 
 What each host profile owes every verb a controller sends: mod-host's commands, the two that Zynthian's mod-ui still
-names, and the verbs the daemon adds. A verb has a row here before the daemon serves it.
+names, and the verbs the daemon adds. A verb has a row here before the daemon serves it. The daemon relays a worker's
+verb, an instance verb to the worker that holds the instance and any other to every worker, and passes its answer
+back: a required verb (presets, bundles, MIDI learn and CV addressing for the CLAP worker and Zynthian, by the ruling of
+2026-10-22) answers -902 only while the worker does.
 
 <!-- BEGIN GENERATED protocol:host-verbs -->
 | verb | sent by | lv2-worker | clap-worker | console | zynthian |

@@ -105,6 +105,45 @@ def a_command_whose_first_argument_is_a_uri_reaches_every_worker():
             os.unlink(log)
 
 
+PRESET_LEARN_INSTANCE = ("preset_load 0 file:///presets/warm.preset", "preset_save 0 warm /tmp/presets warm.ttl",
+                         "midi_learn 0 gain 0.0 1.0", "midi_map 0 gain 0 7 0.0 1.0", "midi_unmap 0 gain",
+                         "cv_map 0 gain /cv/lfo 0.0 1.0 linear", "cv_unmap 0 gain")
+PRESET_LEARN_WORLD = ("preset_show file:///presets/warm.preset", "bundle_add /usr/lib/lv2/warm.lv2",
+                      "bundle_remove /usr/lib/lv2/warm.lv2 warm.ttl")
+
+
+@test
+def the_preset_bundle_and_learn_verbs_are_relayed_and_the_workers_answer_comes_back():
+    """the host verb table requires preset_load, preset_save, preset_show, bundle_add, bundle_remove, midi_learn,
+    midi_map, midi_unmap, cv_map and cv_unmap of a CLAP worker and of Zynthian: the daemon relays each one, an instance
+    verb to the worker that holds the instance and the others to every worker, and passes the worker's answer back. It
+    answers -902 only while the worker does"""
+    for answers, want in ((True, "resp 0"), (False, "resp -902")):
+        log = tempfile.mktemp(prefix="plugin-hostd-log.")
+        d = daemon(env={"FAKE_LOG": log, "FAKE_PRESETS_LEARN": "answer" if answers else "refuse"})
+        try:
+            d.expect("add clap:fake#a 0", "resp 0")
+            d.expect("add clap:fake#b 1", "resp 1")
+            holder = d.holder(0)[1]["pid"]
+            pids = {w["pid"] for w in d.workers().values()}
+            for line in PRESET_LEARN_INSTANCE:
+                d.expect(line, want)
+                got = {pid for pid in pids if line in sent_to(log, pid)}
+                check(got == {holder}, "%s reaches the holder of 0 only: %s of %s" % (line, sorted(got), sorted(pids)))
+            for line in PRESET_LEARN_WORLD:
+                d.expect(line, want)
+                got = {pid for pid in pids if line in sent_to(log, pid)}
+                check(got == pids, "%s reaches every worker: %s of %s" % (line, sorted(got), sorted(pids)))
+            if answers:
+                # an instance no add made is the daemon's own answer, mod-host's ERR_INSTANCE_NON_EXISTS, and no worker is asked
+                d.expect("midi_learn 9 gain 0.0 1.0", "resp -3")
+                check(not any("midi_learn 9" in c for c in sent_to(log)), "no worker was asked about 9")
+        finally:
+            d.close()
+            if os.path.exists(log):
+                os.unlink(log)
+
+
 @test
 def remove_all_and_quit():
     d = daemon()

@@ -697,8 +697,10 @@ static inline int phd_is_note_verb(const char *verb)
 #define PHD_HOST_VERB_SOURCE_DAEMON   "daemon"
 
 /* X(name, source, lv2-worker, clap-worker, console, zynthian). The mod-ui rows are the operator's ruling of
- * 2026-10-21 (FreeMixer/plugin-hostd#131), read from Zynthian's verbs.tsv, with the ruling of 2026-10-22: MIDI learn
- * and CV addressing are required of the CLAP worker and of Zynthian. The others are this tree's. */
+ * 2026-10-21 (FreeMixer/plugin-hostd#131), read from Zynthian's verbs.tsv, with the ruling of 2026-10-22: presets,
+ * bundles, MIDI learn and CV addressing are required of the CLAP worker and of Zynthian. The others are this tree's.
+ * The daemon relays a worker's verb (an instance verb to the worker that holds the instance, any other to every worker)
+ * and passes its answer back, so a required verb answers -902 only while the worker does. */
 #define PHD_HOST_VERBS(X) \
     X("add", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
     X("remove", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \

@@ -60,6 +60,12 @@
  *                               shows what it was sent)
  *   set_bpm, set_bpb, transport, transport_sync   "resp 0", as mod-host answers them, -902 with FAKE_REFUSE_SETTINGS, as
  *                               omx-clap-host answers them; the fake keeps nothing of them
+ *   preset_load, preset_save, preset_show, bundle_add, bundle_remove, midi_learn, midi_map, midi_unmap, cv_map, cv_unmap
+ *                               with FAKE_PRESETS_LEARN=answer "resp 0" (-3 for an instance verb of an instance it does
+ *                               not hold), as a worker that builds them answers; with FAKE_PRESETS_LEARN=refuse
+ *                               "resp -902", as the released omx-clap-host answers them; the fake keeps nothing of
+ *                               them (FAKE_LOG shows what it was sent). Without it preset_load is the state verb below
+ *                               and the others are unknown, -902
  *   remote_pages <n>            "resp 2", and remote_page_get <n> <0|1> one page each, -902 for any other page
  *   param_info <n> <sym>        for the symbol 0 the worked vector of the param contract, for the symbol 1 -511 (a parameter
  *                               the worker holds no contract for, as the released omx-clap-host answers every one), -103 for any other
@@ -242,7 +248,7 @@ static void receive(msg_t *msg)
 {
     char *line = strndup(msg->data, msg->data_size), *copy = strdup(line), *tok[16], *save = NULL, *t;
     int ntok = 0, fd = msg->sender_id, n, k;
-    const char *verb;
+    const char *verb, *presets_learn = getenv("FAKE_PRESETS_LEARN");
 
     log_command(line);
     for (t = strtok_r(copy, " \t\n", &save); t && ntok < 16; t = strtok_r(NULL, " \t\n", &save))
@@ -351,6 +357,15 @@ static void receive(msg_t *msg)
     else if (verb_is(verb, EFFECT_SET_BPM) || verb_is(verb, EFFECT_SET_BPB) || verb_is(verb, TRANSPORT) ||
              verb_is(verb, TRANSPORT_SYNC))
         answer(fd, getenv("FAKE_REFUSE_SETTINGS") ? "resp -902" : "resp 0");
+    else if (presets_learn && (verb_is(verb, EFFECT_PRESET_SHOW) || verb_is(verb, BUNDLE_ADD) ||
+                               verb_is(verb, BUNDLE_REMOVE)))
+        answer(fd, strcmp(presets_learn, "answer") ? "resp -902" : "resp 0");
+    else if (presets_learn &&
+             (verb_is(verb, EFFECT_PRESET_LOAD) || verb_is(verb, EFFECT_PRESET_SAVE) || verb_is(verb, MIDI_LEARN) ||
+              verb_is(verb, MIDI_MAP) || verb_is(verb, MIDI_UNMAP) || verb_is(verb, CV_MAP) || verb_is(verb, CV_UNMAP)))
+        answer(fd, strcmp(presets_learn, "answer")                           ? "resp -902"
+                   : n >= 0 && n < MAX_INST && g_inst[n].exists ? "resp 0"
+                                                                : "resp -3");
     else if (n >= 0 && n < MAX_INST && !g_inst[n].exists && !verb_is(verb, STATE_SAVE) && !verb_is(verb, STATE_LOAD) &&
              !verb_is(verb, EFFECT_CONNECT) && !verb_is(verb, EFFECT_DISCONNECT) && strcmp(verb, "list_connections") &&
              !verb_is(verb, QUIT))
