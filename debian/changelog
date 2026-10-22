@@ -1,3 +1,20 @@
+plugin-hostd (0.8.0) unstable; urgency=medium
+
+  * The chain floor is 1, chain_members_min in the declared constants: a
+    chain of one is valid, so one isolated plugin is a chain like any
+    other (#131).
+  * The host verb table: 69 rows, a level per host profile (lv2-worker,
+    clap-worker, console, zynthian), in protocol.h, rendered into
+    protocol/plugin-hostd.json and the README, checked by
+    tests/verb_table.py. midi_learn, midi_map, midi_unmap, cv_map and
+    cv_unmap are required of the CLAP worker and of Zynthian (operator
+    ruling of 2026-10-22) (#131).
+  * An LV2 chain under require_pins states its requirement: the chain's
+    worker needs a world narrowed to the union of its members' bundles,
+    so each member's LV2 pin still holds (#131).
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Thu, 22 Oct 2026 08:00:00 +0000
+
 plugin-hostd (0.7.0) unstable; urgency=medium
 
   * New verbs chain <chain> <instance> <instance> ... and chain_clear: the

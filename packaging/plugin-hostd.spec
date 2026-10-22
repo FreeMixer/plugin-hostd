@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.7.0
+Version: 0.8.0
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -113,6 +113,20 @@ make test-daemon check-generated
 %{_datadir}/omx-contract/contract.d/3/plugin-hostd/
 
 %changelog
+* Thu Oct 22 2026 Pau Aliagas <linuxnow@gmail.com> - 0.8.0-1
+- The chain floor is 1, chain_members_min in the declared constants: a
+  chain of one is valid, so one isolated plugin is a chain like any
+  other (#131).
+- The host verb table: 69 rows, a level per host profile (lv2-worker,
+  clap-worker, console, zynthian), in protocol.h, rendered into
+  protocol/plugin-hostd.json and the README, checked by
+  tests/verb_table.py. midi_learn, midi_map, midi_unmap, cv_map and
+  cv_unmap are required of the CLAP worker and of Zynthian (operator
+  ruling of 2026-10-22) (#131).
+- An LV2 chain under require_pins states its requirement: the chain's
+  worker needs a world narrowed to the union of its members' bundles,
+  so each member's LV2 pin still holds (#131).
+
 * Tue Oct 20 2026 Pau Aliagas <linuxnow@gmail.com> - 0.7.0-1
 - New verbs chain <chain> <instance> <instance> ... and chain_clear: the
   instances, in order, run in one worker, and a worker that runs chains
