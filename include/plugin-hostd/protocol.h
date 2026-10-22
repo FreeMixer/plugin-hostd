@@ -800,6 +800,8 @@ static inline int phd_is_note_verb(const char *verb)
 #define PHD_EVENT_REMOTE_PAGES_CHANGED    "remote_pages_changed"
 #define PHD_EVENT_REMOTE_PAGE_SUGGEST     "remote_page_suggest"
 #define PHD_EVENT_PARAM_GESTURE           "param_gesture"
+/* mod-host's own feedback line for a parameter, the same word as its command */
+#define PHD_EVENT_PARAM_SET               "param_set"
 
 /* the last word of a param_gesture line */
 #define PHD_GESTURE_BEGIN "begin"
@@ -820,6 +822,7 @@ static inline int phd_is_note_verb(const char *verb)
 #define PHD_EVENT_REMOTE_PAGES_CHANGED_FMT  PHD_EVENT_REMOTE_PAGES_CHANGED " %d"
 #define PHD_EVENT_REMOTE_PAGE_SUGGEST_FMT   PHD_EVENT_REMOTE_PAGE_SUGGEST " %d %u"
 #define PHD_EVENT_PARAM_GESTURE_FMT         PHD_EVENT_PARAM_GESTURE " %d %s %s"
+#define PHD_EVENT_PARAM_SET_FMT             PHD_EVENT_PARAM_SET " %d %s %s"
 #define PHD_EVENT_PIN_CHANGED_FMT           PHD_EVENT_PIN_CHANGED " %s %s"
 #define PHD_EVENT_LV2_ADAPTER_REFUSED_FMT   PHD_EVENT_LV2_ADAPTER_REFUSED " %s %s %s"
 #define PHD_EVENT_CHAIN_FORMED_FMT          PHD_EVENT_CHAIN_FORMED " %d w%d %s"
@@ -862,7 +865,12 @@ static inline int phd_is_note_verb(const char *verb)
       "relayed from a worker: the user took hold of a control of the plugin's own, or let it go; a controller writes no " \
       "automation of that parameter in between. The values the plugin moves meanwhile, or at any time by itself, are " \
       "mod-host's param_set feedback lines, relayed as written. A gesture whose worker died, or whose instance was " \
-      "removed, before its " PHD_GESTURE_END " is ended by the daemon, before the worker_died event")
+      "removed, before its " PHD_GESTURE_END " is ended by the daemon, before the worker_died event") \
+    X(PHD_EVENT_PARAM_SET, "<instance> <symbol> <value>", \
+      "relayed from a worker: parameter feedback, a value the plugin moved by itself (its automation, an LFO, a " \
+      "preset load, a MIDI map, the user's knob of the plugin's own), as mod-host writes it; a controller updates its " \
+      "control to it. A worker never writes it for a value a controller's param_set gave it, and a worker that writes " \
+      "none changes nothing: the daemon adds no line of its own")
 
 /* ---------------------------------------------------------------- worker feedback, relayed */
 
