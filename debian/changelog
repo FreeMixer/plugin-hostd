@@ -12,6 +12,9 @@ plugin-hostd (0.8.0) unstable; urgency=medium
   * An LV2 chain under require_pins states its requirement: the chain's
     worker needs a world narrowed to the union of its members' bundles,
     so each member's LV2 pin still holds (#131).
+  * lv2_worker defaults to auto: the lv2-clap adapter row first, mod-host
+    for the plugins it refuses and when the adapter's worker is not
+    installed (#101).
 
  -- Pau Aliagas <linuxnow@gmail.com>  Thu, 22 Oct 2026 08:00:00 +0000
 

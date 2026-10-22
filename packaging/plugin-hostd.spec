@@ -126,6 +126,9 @@ make test-daemon check-generated
 - An LV2 chain under require_pins states its requirement: the chain's
   worker needs a world narrowed to the union of its members' bundles,
   so each member's LV2 pin still holds (#131).
+- lv2_worker defaults to auto: the lv2-clap adapter row first, mod-host
+  for the plugins it refuses and when the adapter's worker is not
+  installed (#101).
 
 * Tue Oct 20 2026 Pau Aliagas <linuxnow@gmail.com> - 0.7.0-1
 - New verbs chain <chain> <instance> <instance> ... and chain_clear: the
