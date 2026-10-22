@@ -446,8 +446,9 @@ static inline int phd_pool_name_valid(const char *name)
       "and is no failure. Every instance verb still names one member by its own number. A member that crashes the " \
       "worker is quarantined to a worker of its own and the chain goes on without it; quarantine_clear puts it back. " \
       "-518 for an instance no add made, -519 for one named twice, -520 for one in another chain, -521 for members of " \
-      "more than one format, -501 for a plugin that may not share a worker while require_pins is on (every LV2 plugin, " \
-      "a chain of one as well, until a chain's worker is given the union of its members' bundles), -902 for a chain " \
+      "more than one format, -501 for a plugin that may not share a worker while require_pins is on (a CLAP plugin " \
+      "whose first-use pin is not in-process; an LV2 member whose bundle is not found, since a chain's worker sees " \
+      "a world narrowed to the union of its members' bundles), -902 for a chain " \
       "or an instance that is not a number, or fewer than chain_members_min (" PHD_STR(PHD_CHAIN_MEMBERS_MIN) ") instances") \
     X(CHAIN_CLEAR, PHD_VERB_CHAIN_CLEAR, "<chain>", "resp 0", \
       "forget the chain: each member goes to a worker of its own; -522 for a chain no " PHD_VERB_CHAIN " declared")
@@ -696,8 +697,10 @@ static inline int phd_is_note_verb(const char *verb)
 #define PHD_HOST_VERB_SOURCE_DAEMON   "daemon"
 
 /* X(name, source, lv2-worker, clap-worker, console, zynthian). The mod-ui rows are the operator's ruling of
- * 2026-10-21 (FreeMixer/plugin-hostd#131), read from Zynthian's verbs.tsv, with the ruling of 2026-10-22: MIDI learn
- * and CV addressing are required of the CLAP worker and of Zynthian. The others are this tree's. */
+ * 2026-10-21 (FreeMixer/plugin-hostd#131), read from Zynthian's verbs.tsv, with the ruling of 2026-10-22: presets,
+ * bundles, MIDI learn and CV addressing are required of the CLAP worker and of Zynthian. The others are this tree's.
+ * The daemon relays a worker's verb (an instance verb to the worker that holds the instance, any other to every worker)
+ * and passes its answer back, so a required verb answers -902 only while the worker does. */
 #define PHD_HOST_VERBS(X) \
     X("add", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
     X("remove", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
@@ -797,6 +800,8 @@ static inline int phd_is_note_verb(const char *verb)
 #define PHD_EVENT_REMOTE_PAGES_CHANGED    "remote_pages_changed"
 #define PHD_EVENT_REMOTE_PAGE_SUGGEST     "remote_page_suggest"
 #define PHD_EVENT_PARAM_GESTURE           "param_gesture"
+/* mod-host's own feedback line for a parameter, the same word as its command */
+#define PHD_EVENT_PARAM_SET               "param_set"
 
 /* the last word of a param_gesture line */
 #define PHD_GESTURE_BEGIN "begin"
@@ -817,6 +822,7 @@ static inline int phd_is_note_verb(const char *verb)
 #define PHD_EVENT_REMOTE_PAGES_CHANGED_FMT  PHD_EVENT_REMOTE_PAGES_CHANGED " %d"
 #define PHD_EVENT_REMOTE_PAGE_SUGGEST_FMT   PHD_EVENT_REMOTE_PAGE_SUGGEST " %d %u"
 #define PHD_EVENT_PARAM_GESTURE_FMT         PHD_EVENT_PARAM_GESTURE " %d %s %s"
+#define PHD_EVENT_PARAM_SET_FMT             PHD_EVENT_PARAM_SET " %d %s %s"
 #define PHD_EVENT_PIN_CHANGED_FMT           PHD_EVENT_PIN_CHANGED " %s %s"
 #define PHD_EVENT_LV2_ADAPTER_REFUSED_FMT   PHD_EVENT_LV2_ADAPTER_REFUSED " %s %s %s"
 #define PHD_EVENT_CHAIN_FORMED_FMT          PHD_EVENT_CHAIN_FORMED " %d w%d %s"
@@ -859,7 +865,12 @@ static inline int phd_is_note_verb(const char *verb)
       "relayed from a worker: the user took hold of a control of the plugin's own, or let it go; a controller writes no " \
       "automation of that parameter in between. The values the plugin moves meanwhile, or at any time by itself, are " \
       "mod-host's param_set feedback lines, relayed as written. A gesture whose worker died, or whose instance was " \
-      "removed, before its " PHD_GESTURE_END " is ended by the daemon, before the worker_died event")
+      "removed, before its " PHD_GESTURE_END " is ended by the daemon, before the worker_died event") \
+    X(PHD_EVENT_PARAM_SET, "<instance> <symbol> <value>", \
+      "relayed from a worker: parameter feedback, a value the plugin moved by itself (its automation, an LFO, a " \
+      "preset load, a MIDI map, the user's knob of the plugin's own), as mod-host writes it; a controller updates its " \
+      "control to it. A worker never writes it for a value a controller's param_set gave it, and a worker that writes " \
+      "none changes nothing: the daemon adds no line of its own")
 
 /* ---------------------------------------------------------------- worker feedback, relayed */
 

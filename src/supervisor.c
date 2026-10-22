@@ -406,17 +406,40 @@ static const char *search_of(int fmt)
     return f->search ? f->search(&g_conf) : NULL;
 }
 
-/* a format that can narrow its worker's world gives an own worker the world of the one plugin; a pool, and a plugin the
- * format cannot find, gets the whole search path */
+/* the uris of a chain's members that run in its worker, in order; malloc'd, *n of them */
+static const char **chain_uris(const worker_t *w, int *n)
+{
+    const char **uris = malloc((w->ninst ? w->ninst : 1) * sizeof(char *));
+    int k;
+
+    for (k = 0; k < w->ninst; k++)
+        uris[k] = w->inst[k]->uri;
+    *n = w->ninst;
+    return uris;
+}
+
+/* a format that can narrow its worker's world gives an own worker the world of the one plugin and a chain's worker the
+ * union of its members'; a pool, and a plugin the format cannot find, gets the whole search path */
 static char *narrow_world(worker_t *w, const char *uri)
 {
     const format_t *f = format_at(w->fmt);
-    char dir[PATH_MAX];
+    char dir[PATH_MAX], *world;
+    const char **uris;
+    int n;
 
-    if (!f->narrow_world || w->pool || !uri)
+    if (!f->narrow_world)
         return NULL;
     snprintf(dir, sizeof(dir), "%s/world-w%d", g_root, w->k);
-    return f->narrow_world(&g_conf, dir, uri);
+    if (w->chain && w->ninst)
+    {
+        uris = chain_uris(w, &n);
+        world = f->narrow_world(&g_conf, dir, uris, n);
+        free(uris);
+        return world;
+    }
+    if (w->pool || !uri)
+        return NULL;
+    return f->narrow_world(&g_conf, dir, &uri, 1);
 }
 
 /* how many times one start asks for ports before it is a failed spawn */
@@ -2009,11 +2032,37 @@ static void chain_form(chain_t *c)
         respawn(w);
 }
 
-/* a plugin that may not share a worker: the rule of a pool, while require_pins is on */
+/* a plugin that may not share a worker: the rule of a pool, while require_pins is on; a chain's worker sees the union of
+ * its members' worlds, so what a format pins in a world of its own holds there and is judged by chain_world_found */
 static int must_run_own(const instance_t *i)
 {
-    return g_conf.require_pins &&
-           (format_at(i->fmt)->pinned_own_only || (conf_pins_first_use(&g_conf) && !pins_in_process(i->uri)));
+    return g_conf.require_pins && !format_at(i->fmt)->pinned_own_only && conf_pins_first_use(&g_conf) &&
+           !pins_in_process(i->uri);
+}
+
+/* while require_pins is on, a chain of a format that pins in a world of its own forms only if the format can narrow its
+ * worker's world to the union of the members': it is built once in a scratch directory, every member found */
+static int chain_world_found(const int *ids, int n)
+{
+    const format_t *f = format_at(g_inst[ids[0]]->fmt);
+    const char **uris;
+    char dir[PATH_MAX], *world;
+    int k, found;
+
+    if (!g_conf.require_pins || !f->pinned_own_only)
+        return 1;
+    if (!f->narrow_world)
+        return 0;
+    uris = malloc(n * sizeof(char *));
+    for (k = 0; k < n; k++)
+        uris[k] = g_inst[ids[k]]->uri;
+    snprintf(dir, sizeof(dir), "%s/world-check", g_root);
+    world = f->narrow_world(&g_conf, dir, uris, n);
+    free(uris);
+    rm_tree(dir);
+    found = world != NULL;
+    free(world);
+    return found;
 }
 
 char *sup_chain(int id, const int *ids, int n)
@@ -2039,6 +2088,8 @@ char *sup_chain(int id, const int *ids, int n)
         if (must_run_own(i))
             return sup_resp(PHD_ERR_PLACEMENT_INVALID);
     }
+    if (!chain_world_found(ids, n))
+        return sup_resp(PHD_ERR_PLACEMENT_INVALID);
     if (!c)
     {
         c = calloc(1, sizeof(chain_t));

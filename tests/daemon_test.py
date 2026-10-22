@@ -105,6 +105,45 @@ def a_command_whose_first_argument_is_a_uri_reaches_every_worker():
             os.unlink(log)
 
 
+PRESET_LEARN_INSTANCE = ("preset_load 0 file:///presets/warm.preset", "preset_save 0 warm /tmp/presets warm.ttl",
+                         "midi_learn 0 gain 0.0 1.0", "midi_map 0 gain 0 7 0.0 1.0", "midi_unmap 0 gain",
+                         "cv_map 0 gain /cv/lfo 0.0 1.0 linear", "cv_unmap 0 gain")
+PRESET_LEARN_WORLD = ("preset_show file:///presets/warm.preset", "bundle_add /usr/lib/lv2/warm.lv2",
+                      "bundle_remove /usr/lib/lv2/warm.lv2 warm.ttl")
+
+
+@test
+def the_preset_bundle_and_learn_verbs_are_relayed_and_the_workers_answer_comes_back():
+    """the host verb table requires preset_load, preset_save, preset_show, bundle_add, bundle_remove, midi_learn,
+    midi_map, midi_unmap, cv_map and cv_unmap of a CLAP worker and of Zynthian: the daemon relays each one, an instance
+    verb to the worker that holds the instance and the others to every worker, and passes the worker's answer back. It
+    answers -902 only while the worker does"""
+    for answers, want in ((True, "resp 0"), (False, "resp -902")):
+        log = tempfile.mktemp(prefix="plugin-hostd-log.")
+        d = daemon(env={"FAKE_LOG": log, "FAKE_PRESETS_LEARN": "answer" if answers else "refuse"})
+        try:
+            d.expect("add clap:fake#a 0", "resp 0")
+            d.expect("add clap:fake#b 1", "resp 1")
+            holder = d.holder(0)[1]["pid"]
+            pids = {w["pid"] for w in d.workers().values()}
+            for line in PRESET_LEARN_INSTANCE:
+                d.expect(line, want)
+                got = {pid for pid in pids if line in sent_to(log, pid)}
+                check(got == {holder}, "%s reaches the holder of 0 only: %s of %s" % (line, sorted(got), sorted(pids)))
+            for line in PRESET_LEARN_WORLD:
+                d.expect(line, want)
+                got = {pid for pid in pids if line in sent_to(log, pid)}
+                check(got == pids, "%s reaches every worker: %s of %s" % (line, sorted(got), sorted(pids)))
+            if answers:
+                # an instance no add made is the daemon's own answer, mod-host's ERR_INSTANCE_NON_EXISTS, and no worker is asked
+                d.expect("midi_learn 9 gain 0.0 1.0", "resp -3")
+                check(not any("midi_learn 9" in c for c in sent_to(log)), "no worker was asked about 9")
+        finally:
+            d.close()
+            if os.path.exists(log):
+                os.unlink(log)
+
+
 @test
 def remove_all_and_quit():
     d = daemon()
@@ -974,6 +1013,27 @@ def a_gesture_the_value_it_moved_and_a_suggested_page_reach_the_controller_uncha
         # (the replay of the cue writes its own begin and end again: only an end without its begin is the daemon's)
         seen = d.events[mark:]
         check(seen.count("param_gesture 3 0 end") == seen.count("param_gesture 3 0 begin"), "no gesture to end: %s" % seen)
+    finally:
+        d.close()
+
+
+@test
+def a_value_the_plugin_moved_by_itself_reaches_the_controller_and_a_controllers_value_writes_no_feedback():
+    """parameter feedback: a worker reports a value its plugin moved by itself (automation, an LFO, a preset load) as
+    mod-host's param_set feedback line, and the daemon relays each one as written and in order. A value a controller
+    set is answered and nothing more: a worker that reports nothing makes the daemon write no line of its own"""
+    d = daemon()
+    try:
+        d.expect("add clap:fake#a 3", "resp 3")
+        d.expect("add clap:fake#b 4", "resp 4")
+        mark = d.mark()
+        for line in ("param_set 3 0 0.5", "param_set 4 0 0.75", "bypass 3 1", "preset_load 4 urn:fake:bright"):
+            d.expect(line, "resp 0")
+        d.expect("param_set 3 moves 0.6000", "resp 0")
+        wait_for(lambda: len(from_plugin(d, mark)) >= 2, "the two values the plugin moved")
+        time.sleep(0.2)
+        check(from_plugin(d, mark) == ["param_set 3 0 0.6000", "param_set 3 0 0.25"],
+              "the plugin's values only, as written and in order, none for the controller's: %s" % d.events[mark:])
     finally:
         d.close()
 
@@ -2584,28 +2644,58 @@ def a_chain_of_one_runs_in_a_worker_of_its_own_and_a_chain_of_none_is_refused():
 
 
 @test
-def under_require_pins_a_chain_of_lv2_members_is_refused_until_its_worker_gets_the_union_of_their_bundles():
-    """an LV2 pin holds only in a world narrowed to the plugin's bundle, and a chain's worker is given the whole
-    lv2_path: a chain of pinned LV2 members, of one or of two, is refused with PLACEMENT_INVALID and nothing moves.
-    A worker world narrowed to the union of the members' bundles is what lets it form; this holds the refusal
-    until then"""
+def under_require_pins_a_chain_of_lv2_members_runs_in_a_world_of_the_union_of_their_bundles():
+    """an LV2 pin holds only in a world narrowed to the plugin's bundle: a chain's worker sees a world narrowed to the union
+    of its members' bundles, each linked once, so a chain of pinned LV2 members forms under require_pins; a chain with a
+    member whose bundle is gone is refused with PLACEMENT_INVALID and nothing moves"""
+    programs = Programs()
     p = Plugins()
-    d = p.daemon()
+    uri = "urn:test:second"
+    second = os.path.join(p.lv2_dir, "second.lv2")
+    os.makedirs(second)
+    write(os.path.join(second, "manifest.ttl"), (MANIFEST % uri).encode())
+    write(os.path.join(second, "pinned.so"), b"second lv2 binary")
+    write(os.path.join(second, "pinned.ttl"), b"lv2:port [ lv2:index 0 ; lv2:symbol \"gain\" ] .")
+    write(os.path.join(p.lv2_dir, "stray.lv2.txt"), b"no bundle")
+    d = p.daemon(conf=programs.conf(lv2_worker="omx-clap-host"))
     try:
         d.expect(p.lv2_pin(), "resp 0")
+        d.expect("pin_set %s %s %s" % (uri, ",".join("%s=%s" % (f, sha(os.path.join(second, f)))
+                                                      for f in ("manifest.ttl", "pinned.so", "pinned.ttl")), fake_layout()), "resp 0")
         d.expect("add %s 1" % LV2_URI, "resp 1")
-        d.expect("add %s 2" % LV2_URI, "resp 2")
+        d.expect("add %s 2" % uri, "resp 2")
+        d.expect("add %s 3" % LV2_URI, "resp 3")
+        mark = d.mark()
+        d.expect("chain 4 1 2 3", "resp 0")
+        d.wait_event("chain_formed 4 ", since=mark)
+        k, w = list(chain_of(d, 4).items())[0]
+        check(w["inst"] == [1, 2, 3] and w["fmt"] == "lv2-clap", "one adapter worker runs the chain: %s" % d.workers())
+        program, world = programs.of(w["pid"])
+        check(program == "omx-clap-host" and world != p.lv2_dir, "the chain's world is narrowed: %s %s" % (program, world))
+        check(sorted(os.listdir(world)) == ["pinned.lv2", "second.lv2"],
+              "it holds the union of the members' bundles, each once, and nothing else: %s" % os.listdir(world))
+        check(os.path.exists(os.path.join(world, "second.lv2", "manifest.ttl")), "each link reaches its bundle")
+        check("chain 4 1 2 3" in [c for _, c in p.received()], "the worker is told the chain: %s" % p.received()[-4:])
+        # a chain of one gets the world of its one member
+        d.expect("add %s 5" % uri, "resp 5")
+        mark = d.mark()
+        d.expect("chain 6 5", "resp 0")
+        d.wait_event("chain_formed 6 ", since=mark)
+        _, w = list(chain_of(d, 6).items())[0]
+        check(os.listdir(programs.of(w["pid"])[1]) == ["second.lv2"], "a chain of one sees its own bundle only")
+        # a member whose bundle is gone leaves no union to build: the chain is refused and nothing moves
+        d.expect("add %s 7" % uri, "resp 7")
+        d.expect("add %s 8" % LV2_URI, "resp 8")
+        shutil.move(second, second + ".gone")
         before, seen = d.workers(), len(p.received())
-        check(all(w["place"] == "own" for w in before.values()) and len(before) == 2,
-              "each pinned LV2 member starts in a world of its own: %s" % before)
-        for line in ("chain 4 1 2", "chain 4 1"):
-            d.expect(line, resp("PLACEMENT_INVALID"))
-        check(d.workers() == before and chain_of(d, 4) == {}, "a refused chain moves nothing: %s" % d.workers())
+        d.expect("chain 9 8 7", resp("PLACEMENT_INVALID"))
+        check(d.workers() == before and chain_of(d, 9) == {}, "a refused chain moves nothing: %s" % d.workers())
         check(p.received()[seen:] == [], "no worker saw a refused chain: %s" % p.received()[seen:])
-        d.expect("chain_clear 4", resp("NO_SUCH_CHAIN"))
+        d.expect("chain_clear 9", resp("NO_SUCH_CHAIN"))
     finally:
         d.close()
         p.close()
+        programs.close()
 
 
 @test
