@@ -2073,14 +2073,43 @@ def adds_of(log, pid):
 
 
 @test
-def lv2_worker_defaults_to_mod_host_on_the_lv2_row():
-    d, programs, log = lv2_run()
+def lv2_worker_mod_host_runs_an_lv2_plugin_on_the_lv2_row():
+    d, programs, log = lv2_run(lv2_worker="mod-host")
     try:
         d.expect("add lv2:urn:test:a 0", "resp 0")
         _, w = d.holder(0)
-        check(w["fmt"] == "lv2", "the default row is lv2: %s" % w)
+        check(w["fmt"] == "lv2", "the mod-host row is lv2: %s" % w)
         check(programs.of(w["pid"])[0] == "mod-host", "mod-host runs it, not %s" % programs.of(w["pid"])[0])
         check(adds_of(log, w["pid"]) == ["add urn:test:a 0"], "mod-host is given the bare uri: %s" % adds_of(log, w["pid"]))
+    finally:
+        d.close()
+        programs.close()
+
+
+@test
+def lv2_worker_defaults_to_auto_the_adapter_row_first():
+    # None leaves lv2_worker out of the settings file: the daemon's own default holds
+    d, programs, log = lv2_run(lv2_worker=None)
+    try:
+        d.expect("add lv2:urn:test:a 0", "resp 0")
+        _, w = d.holder(0)
+        check(w["fmt"] == "lv2-clap", "the default sends an LV2 plugin to the adapter row first: %s" % w)
+        check(programs.of(w["pid"])[0] == "omx-clap-host", "omx-clap-host runs it, not %s" % programs.of(w["pid"])[0])
+        check(adds_of(log, w["pid"]) == ["add lv2:urn:test:a 0"], "the adapter's worker is given the lv2: uri: %s" % adds_of(log, w["pid"]))
+    finally:
+        d.close()
+        programs.close()
+
+
+@test
+def lv2_worker_default_without_the_adapter_worker_installed_is_the_lv2_row():
+    # auto with no clap_host program on the system: the add is the lv2 row's, mod-host runs it, nothing is refused
+    d, programs, log = lv2_run(lv2_worker=None, clap_host=os.path.join(tempfile.gettempdir(), "no-such-omx-clap-host"))
+    try:
+        d.expect("add lv2:urn:test:a 0", "resp 0")
+        _, w = d.holder(0)
+        check(w["fmt"] == "lv2", "no adapter worker installed: the lv2 row: %s" % w)
+        check(programs.of(w["pid"])[0] == "mod-host", "mod-host runs it, not %s" % programs.of(w["pid"])[0])
     finally:
         d.close()
         programs.close()
