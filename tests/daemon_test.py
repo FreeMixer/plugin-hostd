@@ -2555,28 +2555,58 @@ def a_chain_of_one_runs_in_a_worker_of_its_own_and_a_chain_of_none_is_refused():
 
 
 @test
-def under_require_pins_a_chain_of_lv2_members_is_refused_until_its_worker_gets_the_union_of_their_bundles():
-    """an LV2 pin holds only in a world narrowed to the plugin's bundle, and a chain's worker is given the whole
-    lv2_path: a chain of pinned LV2 members, of one or of two, is refused with PLACEMENT_INVALID and nothing moves.
-    A worker world narrowed to the union of the members' bundles is what lets it form; this holds the refusal
-    until then"""
+def under_require_pins_a_chain_of_lv2_members_runs_in_a_world_of_the_union_of_their_bundles():
+    """an LV2 pin holds only in a world narrowed to the plugin's bundle: a chain's worker sees a world narrowed to the union
+    of its members' bundles, each linked once, so a chain of pinned LV2 members forms under require_pins; a chain with a
+    member whose bundle is gone is refused with PLACEMENT_INVALID and nothing moves"""
+    programs = Programs()
     p = Plugins()
-    d = p.daemon()
+    uri = "urn:test:second"
+    second = os.path.join(p.lv2_dir, "second.lv2")
+    os.makedirs(second)
+    write(os.path.join(second, "manifest.ttl"), (MANIFEST % uri).encode())
+    write(os.path.join(second, "pinned.so"), b"second lv2 binary")
+    write(os.path.join(second, "pinned.ttl"), b"lv2:port [ lv2:index 0 ; lv2:symbol \"gain\" ] .")
+    write(os.path.join(p.lv2_dir, "stray.lv2.txt"), b"no bundle")
+    d = p.daemon(conf=programs.conf(lv2_worker="omx-clap-host"))
     try:
         d.expect(p.lv2_pin(), "resp 0")
+        d.expect("pin_set %s %s %s" % (uri, ",".join("%s=%s" % (f, sha(os.path.join(second, f)))
+                                                      for f in ("manifest.ttl", "pinned.so", "pinned.ttl")), fake_layout()), "resp 0")
         d.expect("add %s 1" % LV2_URI, "resp 1")
-        d.expect("add %s 2" % LV2_URI, "resp 2")
+        d.expect("add %s 2" % uri, "resp 2")
+        d.expect("add %s 3" % LV2_URI, "resp 3")
+        mark = d.mark()
+        d.expect("chain 4 1 2 3", "resp 0")
+        d.wait_event("chain_formed 4 ", since=mark)
+        k, w = list(chain_of(d, 4).items())[0]
+        check(w["inst"] == [1, 2, 3] and w["fmt"] == "lv2-clap", "one adapter worker runs the chain: %s" % d.workers())
+        program, world = programs.of(w["pid"])
+        check(program == "omx-clap-host" and world != p.lv2_dir, "the chain's world is narrowed: %s %s" % (program, world))
+        check(sorted(os.listdir(world)) == ["pinned.lv2", "second.lv2"],
+              "it holds the union of the members' bundles, each once, and nothing else: %s" % os.listdir(world))
+        check(os.path.exists(os.path.join(world, "second.lv2", "manifest.ttl")), "each link reaches its bundle")
+        check("chain 4 1 2 3" in [c for _, c in p.received()], "the worker is told the chain: %s" % p.received()[-4:])
+        # a chain of one gets the world of its one member
+        d.expect("add %s 5" % uri, "resp 5")
+        mark = d.mark()
+        d.expect("chain 6 5", "resp 0")
+        d.wait_event("chain_formed 6 ", since=mark)
+        _, w = list(chain_of(d, 6).items())[0]
+        check(os.listdir(programs.of(w["pid"])[1]) == ["second.lv2"], "a chain of one sees its own bundle only")
+        # a member whose bundle is gone leaves no union to build: the chain is refused and nothing moves
+        d.expect("add %s 7" % uri, "resp 7")
+        d.expect("add %s 8" % LV2_URI, "resp 8")
+        shutil.move(second, second + ".gone")
         before, seen = d.workers(), len(p.received())
-        check(all(w["place"] == "own" for w in before.values()) and len(before) == 2,
-              "each pinned LV2 member starts in a world of its own: %s" % before)
-        for line in ("chain 4 1 2", "chain 4 1"):
-            d.expect(line, resp("PLACEMENT_INVALID"))
-        check(d.workers() == before and chain_of(d, 4) == {}, "a refused chain moves nothing: %s" % d.workers())
+        d.expect("chain 9 8 7", resp("PLACEMENT_INVALID"))
+        check(d.workers() == before and chain_of(d, 9) == {}, "a refused chain moves nothing: %s" % d.workers())
         check(p.received()[seen:] == [], "no worker saw a refused chain: %s" % p.received()[seen:])
-        d.expect("chain_clear 4", resp("NO_SUCH_CHAIN"))
+        d.expect("chain_clear 9", resp("NO_SUCH_CHAIN"))
     finally:
         d.close()
         p.close()
+        programs.close()
 
 
 @test

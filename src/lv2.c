@@ -366,23 +366,29 @@ int lv2_pin_collect(const char *uri, const char *search, char *root, size_t size
     return rc;
 }
 
-/* an own LV2 worker sees a world of one bundle: a directory holding a link to the bundle that names the URI */
-char *lv2_narrow_world(const conf_t *conf, const char *dir, const char *uri)
+/* an own LV2 worker sees a world of one bundle, a chain's worker the union of its members': a directory holding a link
+ * to each bundle that names one of the URIs, once; NULL when a URI's bundle is not found */
+char *lv2_narrow_world(const conf_t *conf, const char *dir, const char *const *uris, int n)
 {
-    char *bundle = proc_find_lv2_bundle(conf->lv2_path, uri), *base, link_path[PATH_MAX];
+    char link_path[PATH_MAX];
+    int k;
 
-    if (!bundle)
-        return NULL;
     mkdir(dir, 0755);
-    base = strrchr(bundle, '/');
-    snprintf(link_path, sizeof(link_path), "%s/%s", dir, base ? base + 1 : bundle);
-    unlink(link_path);
-    if (symlink(bundle, link_path) != 0)
+    for (k = 0; k < n; k++)
     {
+        char *bundle = proc_find_lv2_bundle(conf->lv2_path, uris[k]), *base;
+        int ok;
+
+        if (!bundle)
+            return NULL;
+        base = strrchr(bundle, '/');
+        snprintf(link_path, sizeof(link_path), "%s/%s", dir, base ? base + 1 : bundle);
+        unlink(link_path);
+        ok = symlink(bundle, link_path) == 0;
         free(bundle);
-        return NULL;
+        if (!ok)
+            return NULL;
     }
-    free(bundle);
     return strdup(dir);
 }
 

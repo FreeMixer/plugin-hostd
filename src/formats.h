@@ -45,8 +45,9 @@ typedef struct FORMAT_T {
     const char *(*worker)(const conf_t *conf);  /* the program that serves it */
     const char *(*search)(const conf_t *conf);  /* where its plugins are searched, NULL for nowhere */
     const char *world_env;                      /* the worker's variable for the search path, NULL for none */
-    /* a directory under `dir` that makes the worker's world the one plugin's, malloc'd; NULL for the whole search path */
-    char *(*narrow_world)(const conf_t *conf, const char *dir, const char *uri);
+    /* a directory under `dir` that makes the worker's world the union of the n plugins' (one for an own worker, a chain's
+     * members for a chain's), malloc'd; NULL when a plugin is not found: never a wider world than the plugins' */
+    char *(*narrow_world)(const conf_t *conf, const char *dir, const char *const *uris, int n);
 
     /* the root and the relative files a host loads for the uri: what a pin holds. SUCCESS, or
      * PHD_ERR_PIN_BINARY_MISMATCH with the reason on stderr for what cannot be pinned */
@@ -80,7 +81,7 @@ int clap_pin_collect(const char *uri, const char *search, char *root, size_t siz
 
 /* the LV2 format's parts, in lv2.c */
 int lv2_pin_collect(const char *uri, const char *search, char *root, size_t size, names_t *files);
-char *lv2_narrow_world(const conf_t *conf, const char *dir, const char *uri);
+char *lv2_narrow_world(const conf_t *conf, const char *dir, const char *const *uris, int n);
 char *lv2_param_info(int id, const char *symbol);
 
 /* which LV2 row runs a uri: the lv2_worker_set override of the uri, else the lv2_worker setting; auto is the adapter's row

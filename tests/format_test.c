@@ -113,10 +113,11 @@ static format_t fake4(void)
     return f;
 }
 
-static char *fake3_narrow(const conf_t *conf, const char *dir, const char *uri)
+static char *fake3_narrow(const conf_t *conf, const char *dir, const char *const *uris, int n)
 {
     (void)conf;
-    (void)uri;
+    (void)uris;
+    (void)n;
     return strdup(dir);
 }
 
