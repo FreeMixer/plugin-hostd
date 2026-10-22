@@ -2555,6 +2555,31 @@ def a_chain_of_one_runs_in_a_worker_of_its_own_and_a_chain_of_none_is_refused():
 
 
 @test
+def under_require_pins_a_chain_of_lv2_members_is_refused_until_its_worker_gets_the_union_of_their_bundles():
+    """an LV2 pin holds only in a world narrowed to the plugin's bundle, and a chain's worker is given the whole
+    lv2_path: a chain of pinned LV2 members, of one or of two, is refused with PLACEMENT_INVALID and nothing moves.
+    The union-narrowed world (docs/design/notes/2026-10-21-chains.md) is what lets it form; this holds the refusal
+    until then"""
+    p = Plugins()
+    d = p.daemon()
+    try:
+        d.expect(p.lv2_pin(), "resp 0")
+        d.expect("add %s 1" % LV2_URI, "resp 1")
+        d.expect("add %s 2" % LV2_URI, "resp 2")
+        before, seen = d.workers(), len(p.received())
+        check(all(w["place"] == "own" for w in before.values()) and len(before) == 2,
+              "each pinned LV2 member starts in a world of its own: %s" % before)
+        for line in ("chain 4 1 2", "chain 4 1"):
+            d.expect(line, resp("PLACEMENT_INVALID"))
+        check(d.workers() == before and chain_of(d, 4) == {}, "a refused chain moves nothing: %s" % d.workers())
+        check(p.received()[seen:] == [], "no worker saw a refused chain: %s" % p.received()[seen:])
+        d.expect("chain_clear 4", resp("NO_SUCH_CHAIN"))
+    finally:
+        d.close()
+        p.close()
+
+
+@test
 def a_chain_of_three_runs_in_one_worker_and_its_crashed_member_is_quarantined_while_the_others_go_on_in_order():
     log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log})
