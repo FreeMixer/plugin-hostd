@@ -275,6 +275,11 @@ static inline int phd_pool_name_valid(const char *name)
 #define PHD_ERR_CHAIN_INSTANCE_BUSY (-520)
 #define PHD_ERR_CHAIN_MIXED_FORMAT  (-521)
 #define PHD_ERR_NO_SUCH_CHAIN       (-522)
+#define PHD_ERR_PRESET_NOT_OFFERED  (-523)
+#define PHD_ERR_PRESET_INVALID      (-524)
+#define PHD_ERR_PRESET_NEEDS_STATE  (-525)
+#define PHD_ERR_PRESET_PLUGIN_CHANGED (-526)
+#define PHD_ERR_LOAD_REFUSED        (-527)
 
 /* X(id, meaning) */
 #define PHD_ERRORS(X) \
@@ -324,7 +329,17 @@ static inline int phd_pool_name_valid(const char *name)
                            PHD_VERB_CHAIN_CLEAR " of the other chain frees it") \
     X(CHAIN_MIXED_FORMAT, "the members of " PHD_VERB_CHAIN " are not all of one format of " PHD_VERB_WORKER_LIST \
                           ", so no one worker runs them: the chain is not declared") \
-    X(NO_SUCH_CHAIN, PHD_VERB_CHAIN_CLEAR " of a chain no " PHD_VERB_CHAIN " declared")
+    X(NO_SUCH_CHAIN, PHD_VERB_CHAIN_CLEAR " of a chain no " PHD_VERB_CHAIN " declared") \
+    X(PRESET_NOT_OFFERED, "the worker: preset_load or preset_show of a stable name the plugin does not offer, or of a " \
+                          "plugin with no preset system and no state") \
+    X(PRESET_INVALID, "preset_save with a file path that is not absolute or with no name, or preset_load or " \
+                      "preset_show of a file that cannot be read, is no JSON, is of a format version other than " \
+                      PHD_PRESET_FORMAT_1 " and " PHD_PRESET_FORMAT_2 ", or breaks the format (docs/presets.md): the " \
+                      "daemon answers it and no worker sees the file") \
+    X(PRESET_NEEDS_STATE, "the worker: a preset file that carries state for a worker that cannot take state yet") \
+    X(PRESET_PLUGIN_CHANGED, "the worker: the preset file's plugin id, version or fingerprint is not the instance's; " \
+                             "nothing of it is applied") \
+    X(LOAD_REFUSED, "the worker: the plugin refused the preset or the state its file carries")
 
 /* ---------------------------------------------------------------- verbs */
 
@@ -496,6 +511,13 @@ static inline int phd_pool_name_valid(const char *name)
 
 /* the longest string word, in bytes: CLAP_NAME_SIZE - 1 */
 #define PHD_STRING_MAX 255
+
+/* the user-preset file a worker writes for preset_save and reads for preset_load and preset_show (docs/presets.md,
+ * protocol/preset.schema.json): /1 is params-only, /2 adds the state body */
+#define PHD_PRESET_FORMAT_1   "org.openmixer.preset/1"
+#define PHD_PRESET_FORMAT_2   "org.openmixer.preset/2"
+#define PHD_PRESET_ALIAS_MAX  12
+#define PHD_PRESET_FILE_MAX   (64 * 1024 * 1024)
 /* the parameters on one remote page, and the word of an empty slot */
 #define PHD_REMOTE_PAGE_SLOTS 8
 #define PHD_EMPTY_SLOT        PHD_WORD_NONE
@@ -697,8 +719,10 @@ static inline int phd_is_note_verb(const char *verb)
 #define PHD_HOST_VERB_SOURCE_DAEMON   "daemon"
 
 /* X(name, source, lv2-worker, clap-worker, console, zynthian). The mod-ui rows are the operator's ruling of
- * 2026-10-21 (FreeMixer/plugin-hostd#131), read from Zynthian's verbs.tsv, with the ruling of 2026-10-22: presets,
- * bundles, MIDI learn and CV addressing are required of the CLAP worker and of Zynthian. The others are this tree's.
+ * 2026-10-21 (FreeMixer/plugin-hostd#131), read from Zynthian's verbs.tsv, with the rulings of 2026-10-22: presets
+ * and bundles are required of the CLAP worker and of Zynthian; MIDI learn and CV addressing are policy of the surfaces,
+ * so the host answers them only as the mechanism and they stay optional for every profile ("PRESETS IN THE HOST",
+ * docs/presets.md). The others are this tree's.
  * The daemon relays a worker's verb (an instance verb to the worker that holds the instance, any other to every worker)
  * and passes its answer back, so a required verb answers -902 only while the worker does. */
 #define PHD_HOST_VERBS(X) \
@@ -719,11 +743,11 @@ static inline int phd_is_note_verb(const char *verb)
     X("transport", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
     X("transport_sync", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
     X("cpu_load", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
-    X("midi_learn", MOD_UI, OPTIONAL, REQUIRED, OPTIONAL, REQUIRED) \
-    X("midi_map", MOD_UI, OPTIONAL, REQUIRED, OPTIONAL, REQUIRED) \
-    X("midi_unmap", MOD_UI, OPTIONAL, REQUIRED, OPTIONAL, REQUIRED) \
-    X("cv_map", MOD_UI, OPTIONAL, REQUIRED, OPTIONAL, REQUIRED) \
-    X("cv_unmap", MOD_UI, OPTIONAL, REQUIRED, OPTIONAL, REQUIRED) \
+    X("midi_learn", MOD_UI, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X("midi_map", MOD_UI, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X("midi_unmap", MOD_UI, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X("cv_map", MOD_UI, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X("cv_unmap", MOD_UI, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
     X("monitor_midi_program", MOD_UI, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
     X("monitor_output", MOD_UI, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
     X("output_data_ready", MOD_UI, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
