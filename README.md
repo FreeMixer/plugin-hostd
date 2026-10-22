@@ -225,8 +225,9 @@ The ledger keeps the latest `track_info` of an instance and replays it after the
 What each host profile owes every verb a controller sends: mod-host's commands, the two that Zynthian's mod-ui still
 names, and the verbs the daemon adds. A verb has a row here before the daemon serves it. The daemon relays a worker's
 verb, an instance verb to the worker that holds the instance and any other to every worker, and passes its answer
-back: a required verb (presets, bundles, MIDI learn and CV addressing for the CLAP worker and Zynthian, by the ruling of
-2026-10-22) answers -902 only while the worker does.
+back: a required verb (presets and bundles for the CLAP worker and Zynthian, by the rulings of 2026-10-22) answers -902
+only while the worker does. MIDI learn and CV addressing are policy of the surfaces: the host answers them only as the
+mechanism, and they stay optional. The preset verbs and the preset file are [docs/presets.md](docs/presets.md).
 
 <!-- BEGIN GENERATED protocol:host-verbs -->
 | verb | sent by | lv2-worker | clap-worker | console | zynthian |
@@ -248,11 +249,11 @@ back: a required verb (presets, bundles, MIDI learn and CV addressing for the CL
 | `transport` | mod-ui | required | required | required | required |
 | `transport_sync` | mod-ui | required | required | required | required |
 | `cpu_load` | mod-ui | required | required | required | required |
-| `midi_learn` | mod-ui | optional | required | optional | required |
-| `midi_map` | mod-ui | optional | required | optional | required |
-| `midi_unmap` | mod-ui | optional | required | optional | required |
-| `cv_map` | mod-ui | optional | required | optional | required |
-| `cv_unmap` | mod-ui | optional | required | optional | required |
+| `midi_learn` | mod-ui | optional | optional | optional | optional |
+| `midi_map` | mod-ui | optional | optional | optional | optional |
+| `midi_unmap` | mod-ui | optional | optional | optional | optional |
+| `cv_map` | mod-ui | optional | optional | optional | optional |
+| `cv_unmap` | mod-ui | optional | optional | optional | optional |
 | `monitor_midi_program` | mod-ui | optional | optional | optional | optional |
 | `monitor_output` | mod-ui | optional | optional | optional | optional |
 | `output_data_ready` | mod-ui | optional | optional | optional | optional |
@@ -331,6 +332,11 @@ Error codes the daemon adds to mod-host's:
 | `-520` | `PHD_ERR_CHAIN_INSTANCE_BUSY` | a member of chain is already in another chain: the chain is not declared; chain_clear of the other chain frees it |
 | `-521` | `PHD_ERR_CHAIN_MIXED_FORMAT` | the members of chain are not all of one format of worker_list, so no one worker runs them: the chain is not declared |
 | `-522` | `PHD_ERR_NO_SUCH_CHAIN` | chain_clear of a chain no chain declared |
+| `-523` | `PHD_ERR_PRESET_NOT_OFFERED` | the worker: preset_load or preset_show of a stable name the plugin does not offer, or of a plugin with no preset system and no state |
+| `-524` | `PHD_ERR_PRESET_INVALID` | preset_save with a file path that is not absolute or with no name, or preset_load or preset_show of a file that cannot be read, is no JSON, is of a format version other than org.openmixer.preset/1 and org.openmixer.preset/2, or breaks the format (docs/presets.md): the daemon answers it and no worker sees the file |
+| `-525` | `PHD_ERR_PRESET_NEEDS_STATE` | the worker: a preset file that carries state for a worker that cannot take state yet |
+| `-526` | `PHD_ERR_PRESET_PLUGIN_CHANGED` | the worker: the preset file's plugin id, version or fingerprint is not the instance's; nothing of it is applied |
+| `-527` | `PHD_ERR_LOAD_REFUSED` | the worker: the plugin refused the preset or the state its file carries |
 <!-- END GENERATED protocol:errors -->
 
 A worker's own refusal is returned as it said it. An `add` that killed its worker answers mod-host's `-102`.
