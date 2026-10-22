@@ -32,7 +32,7 @@
 #include "supervisor.h"
 #include "verbs.h"
 
-#define MAX_TOKENS 64
+#define MAX_TOKENS PHD_LINE_WORDS_MAX
 
 volatile int g_quitting;
 
@@ -101,12 +101,12 @@ static int number(const char *word, int *out)
     return 1;
 }
 
-/* chain <chain> <instance> <instance> [<instance> ...] */
+/* chain <chain> <instance> [<instance> ...]: at least PHD_CHAIN_MEMBERS_MIN members */
 static char *chain_words(char **tok, int ntok)
 {
     int id, ids[MAX_TOKENS], n;
 
-    if (ntok < 4 || !number(tok[1], &id))
+    if (ntok < 2 + PHD_CHAIN_MEMBERS_MIN || !number(tok[1], &id))
         return sup_resp(ERR_INVALID_OPERATION);
     for (n = 2; n < ntok; n++)
         if (!number(tok[n], &ids[n - 2]))

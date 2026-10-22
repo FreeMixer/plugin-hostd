@@ -44,13 +44,19 @@
 #define PHD_DEFAULT_COMMAND_PORT 5555
 #define PHD_CONNECT_RETRY_MS     5000
 #define PHD_LINE_MAX             4096
+#define PHD_LINE_WORDS_MAX       64
+#define PHD_CHAIN_MEMBERS_MIN    1
 
 #define PHD_CONSTANTS(X) \
     X(default_command_port, PHD_DEFAULT_COMMAND_PORT, "port", \
       "the command port without -p; the feedback port is the next one, unless -n is given") \
     X(connect_retry_ms, PHD_CONNECT_RETRY_MS, "ms", \
       "how long the idle tick asks again for a connect a respawned worker could not make yet") \
-    X(line_max, PHD_LINE_MAX, "bytes", "the protocol socket's buffer: the longest pin_set line the daemon takes")
+    X(line_max, PHD_LINE_MAX, "bytes", "the protocol socket's buffer: the longest pin_set line the daemon takes") \
+    X(line_words_max, PHD_LINE_WORDS_MAX, "words", \
+      "the words of one command line the daemon reads, the verb included; a word past them is not read") \
+    X(chain_members_min, PHD_CHAIN_MEMBERS_MIN, "instances", \
+      "the fewest members of a chain: a chain of one is valid, so one isolated plugin is a chain like any other")
 
 /* ---------------------------------------------------------------- placement */
 
@@ -431,7 +437,7 @@ static inline int phd_pool_name_valid(const char *name)
       "sent by the daemon to a worker of a format that checks layouts, just before the instance's add: the layout pin that add " \
       "checks after init and before activate; any other reply than resp 0 refuses the add with that code, and the " \
       "add is never forwarded") \
-    X(CHAIN, PHD_VERB_CHAIN, "<chain> <instance> <instance> [<instance> ...]", "resp 0", \
+    X(CHAIN, PHD_VERB_CHAIN, "<chain> <instance> [<instance> ...]", "resp 0", \
       "the instances, in this order, are one chain, run in one worker of place " PHD_PLACE_CHAIN_PREFIX "<chain>: each " \
       "member's state is saved, it is removed from the worker it was in and replayed in the chain's. A chain already " \
       "declared takes the new order, and a member left out of it goes back to a worker of its own. A worker that runs " \
@@ -440,8 +446,9 @@ static inline int phd_pool_name_valid(const char *name)
       "and is no failure. Every instance verb still names one member by its own number. A member that crashes the " \
       "worker is quarantined to a worker of its own and the chain goes on without it; quarantine_clear puts it back. " \
       "-518 for an instance no add made, -519 for one named twice, -520 for one in another chain, -521 for members of " \
-      "more than one format, -501 for a plugin that may not share a worker while require_pins is on, -902 for a chain " \
-      "or an instance that is not a number, or fewer than two instances") \
+      "more than one format, -501 for a plugin that may not share a worker while require_pins is on (every LV2 plugin, " \
+      "a chain of one as well, until a chain's worker is given the union of its members' bundles), -902 for a chain " \
+      "or an instance that is not a number, or fewer than chain_members_min (" PHD_STR(PHD_CHAIN_MEMBERS_MIN) ") instances") \
     X(CHAIN_CLEAR, PHD_VERB_CHAIN_CLEAR, "<chain>", "resp 0", \
       "forget the chain: each member goes to a worker of its own; -522 for a chain no " PHD_VERB_CHAIN " declared")
 
@@ -661,6 +668,106 @@ static inline int phd_is_note_verb(const char *verb)
     return !strcmp(verb, PHD_VERB_NOTE_ON) || !strcmp(verb, PHD_VERB_NOTE_OFF) || !strcmp(verb, PHD_VERB_ALL_NOTES_OFF) ||
            !strcmp(verb, PHD_VERB_NOTE_INPUT);
 }
+
+/* ---------------------------------------------------------------- the host verb table */
+
+/* What each host profile owes every verb a controller sends the daemon: the commands of mod-host's protocol, the two
+ * that Zynthian's mod-ui still names and mod-host never had, and the verbs this daemon adds. tests/verb_table.py holds
+ * the table to that list, no more and no fewer, so a verb cannot be added to the daemon without its row.
+ *
+ * required: answered as its grammar says. optional: answered, or refused with -902; never misread. absent: refused on
+ * purpose, and no client of the profile may need it. */
+#define PHD_LEVEL_REQUIRED "required"
+#define PHD_LEVEL_OPTIONAL "optional"
+#define PHD_LEVEL_ABSENT   "absent"
+#define PHD_LEVELS(X) X(REQUIRED, PHD_LEVEL_REQUIRED) X(OPTIONAL, PHD_LEVEL_OPTIONAL) X(ABSENT, PHD_LEVEL_ABSENT)
+
+/* the profiles, a column each: X(id, name, meaning) */
+#define PHD_HOST_PROFILES(X) \
+    X(LV2, "lv2-worker", "an LV2 plugin's worker: mod-host, or omx-clap-host's LV2 adapter") \
+    X(CLAP, "clap-worker", "a CLAP plugin's worker, omx-clap-host") \
+    X(CONSOLE, "console", "the openmixer console as a controller of the daemon") \
+    X(ZYNTHIAN, "zynthian", "Zynthian's mod-ui and its plugind engine as a controller of the daemon")
+
+/* who sends the verb: mod-ui (Zynthian's mod-ui sends it to its host), mod-host (a command of mod-host.h that mod-ui
+ * does not send), daemon (a verb this daemon adds: it answers it itself, whatever the worker) */
+#define PHD_HOST_VERB_SOURCE_MOD_UI   "mod-ui"
+#define PHD_HOST_VERB_SOURCE_MOD_HOST "mod-host"
+#define PHD_HOST_VERB_SOURCE_DAEMON   "daemon"
+
+/* X(name, source, lv2-worker, clap-worker, console, zynthian). The mod-ui rows are the operator's ruling of
+ * 2026-10-21 (FreeMixer/plugin-hostd#131), read from Zynthian's verbs.tsv, with the ruling of 2026-10-22: MIDI learn
+ * and CV addressing are required of the CLAP worker and of Zynthian. The others are this tree's. */
+#define PHD_HOST_VERBS(X) \
+    X("add", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X("remove", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X("bypass", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X("connect", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X("param_set", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X("state_load", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X("state_save", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X("state_tmpdir", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X("feature_enable", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X("bundle_add", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X("bundle_remove", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X("preset_load", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X("preset_save", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X("preset_show", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X("transport", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X("transport_sync", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X("cpu_load", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X("midi_learn", MOD_UI, OPTIONAL, REQUIRED, OPTIONAL, REQUIRED) \
+    X("midi_map", MOD_UI, OPTIONAL, REQUIRED, OPTIONAL, REQUIRED) \
+    X("midi_unmap", MOD_UI, OPTIONAL, REQUIRED, OPTIONAL, REQUIRED) \
+    X("cv_map", MOD_UI, OPTIONAL, REQUIRED, OPTIONAL, REQUIRED) \
+    X("cv_unmap", MOD_UI, OPTIONAL, REQUIRED, OPTIONAL, REQUIRED) \
+    X("monitor_midi_program", MOD_UI, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X("monitor_output", MOD_UI, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X("output_data_ready", MOD_UI, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X("patch_get", MOD_UI, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X("patch_set", MOD_UI, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X("cc_map", MOD_UI, ABSENT, ABSENT, ABSENT, ABSENT) \
+    X("cc_value_set", MOD_UI, ABSENT, ABSENT, ABSENT, ABSENT) \
+    X("cc_unmap", MOD_UI, ABSENT, ABSENT, ABSENT, ABSENT) \
+    X("hmi_map", MOD_UI, ABSENT, ABSENT, ABSENT, ABSENT) \
+    X("hmi_unmap", MOD_UI, ABSENT, ABSENT, ABSENT, ABSENT) \
+    X("show_external_ui", MOD_UI, ABSENT, ABSENT, ABSENT, ABSENT) \
+    X("set_midi_program_change_pedalboard_bank_channel", MOD_UI, ABSENT, ABSENT, ABSENT, ABSENT) \
+    X("set_midi_program_change_pedalboard_snapshot_channel", MOD_UI, ABSENT, ABSENT, ABSENT, ABSENT) \
+    X("disconnect", MOD_HOST, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X("set_bpm", MOD_HOST, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X("set_bpb", MOD_HOST, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X("quit", MOD_HOST, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X("param_get", MOD_HOST, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X("param_monitor", MOD_HOST, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X("licensee", MOD_HOST, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X("monitor", MOD_HOST, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X("load", MOD_HOST, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X("save", MOD_HOST, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X("help", MOD_HOST, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X(PHD_VERB_TRACK_INFO, MOD_HOST, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X(PHD_VERB_REMOTE_PAGES, MOD_HOST, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X(PHD_VERB_REMOTE_PAGE_GET, MOD_HOST, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X(PHD_VERB_PARAM_INFO, MOD_HOST, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X(PHD_VERB_PRESET_LIST, DAEMON, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X(PHD_VERB_PRESET_GET, DAEMON, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X(PHD_VERB_NOTE_INPUT, DAEMON, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X(PHD_VERB_NOTE_ON, DAEMON, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X(PHD_VERB_NOTE_OFF, DAEMON, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X(PHD_VERB_ALL_NOTES_OFF, DAEMON, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X(PHD_VERB_WORKER_LIST, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X(PHD_VERB_INSTANCE_INFO, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X(PHD_VERB_SUPERVISOR_RESET, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X(PHD_VERB_QUARANTINE_CLEAR, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X(PHD_VERB_POLICY_SET, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X(PHD_VERB_POOL_CONFIG, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X(PHD_VERB_WORKER_ENV, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X(PHD_VERB_PIN_SET, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X(PHD_VERB_PIN_CLEAR, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X(PHD_VERB_PIN_ACCEPT, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X(PHD_VERB_LV2_WORKER_SET, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X(PHD_VERB_CHAIN, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X(PHD_VERB_CHAIN_CLEAR, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED)
 
 /* ---------------------------------------------------------------- host settings */
 

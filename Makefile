@@ -149,7 +149,7 @@ install_man:
 
 # No tracked file points into a private repository, issue, branch or path (tools/private-refs-check.sh, with its
 # --self-test, which turns each kind of pointer red in each kind of file).
-.PHONY: private-refs
+.PHONY: private-refs check-verb-table
 private-refs:
 	tools/private-refs-check.sh
 	tools/private-refs-check.sh --self-test
@@ -160,7 +160,7 @@ clean:
 
 # the daemon against workers that are not plugin hosts at all (tests/fake-host speaks the same protocol and can be
 # made to die on cue): placement, forwarding, ledger, replay, attribution, the storm bound; no jack, no plugin
-test: test-pin test-transforms test-format-coverage test-describe test-relay test-alloc test-format test-daemon check-generated check-schema test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-mod-host-json test-socket
+test: test-pin test-transforms test-format-coverage test-describe test-relay test-alloc test-format test-daemon check-generated check-schema test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-mod-host-json test-socket check-verb-table
 	MOD_HOST_DIR=$(MOD_HOST_DIR) python3 tests/verbs_contract.py
 
 # the same without the verb table, which is read from a mod-host checkout's README
@@ -321,6 +321,11 @@ check-ci-guards:
 # cannot read is refused
 test-mod-host-json:
 	python3 tests/mod_host_json.py $(MOD_HOST_INCLUDE)
+
+# the host verb table has a row for every verb a controller sends the daemon, no more and no fewer, and requires of every
+# profile the verbs the daemon answers itself
+check-verb-table:
+	python3 tests/verb_table.py
 
 # the JSON against its schema, for which the jsonschema module is needed
 check-schema:

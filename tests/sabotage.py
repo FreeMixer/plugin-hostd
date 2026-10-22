@@ -15,7 +15,7 @@ FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "
 # tests/readme_build.py, with no daemon to build; "probeschema" breaks protocol/probe-output.schema.json and runs
 # tests/probe_schema.py; "relay" breaks src/relay.c and runs tests/relay_test.c; "alloc" breaks src/relay.c or src/lv2.c and runs make test-alloc; "contract" breaks the probe runner or the generator and runs tests/contract_derived.py; "consumer" breaks the header and compiles tests/consumer.c against it; "probe" breaks src/probe.c and runs tests/probe_test.py; "nopins" breaks the packaging or a workflow and runs tests/no_pins.py; "ciguards" breaks a workflow and runs tests/ci_guards.py;
 # "vocabulary" breaks the probe schema, its template or a copy of omx-contract's omx-vocabulary.schema.json and runs
-# tests/vocabulary_derived.py
+# tests/vocabulary_derived.py; "verbtable" breaks the header and runs tests/verb_table.py
 SABOTAGE = [
     ("a runner that refuses unshare passes build-and-test with a warning", ".github/workflows/ci.yml",
      '            echo "::error::test-jack did not run: this runner refuses a private user and pid namespace with its own /proc"\n            exit 1\n',
@@ -606,6 +606,32 @@ SABOTAGE = [
      '    if (i->chain && !chain_whole(i->chain))\n        i->chain->rejoin = 1;\n',
      '',
      "a_chain_that_dies_naming_no_culprit_is_split_and_rejoins_without_the_one_that_dies_again"),
+    ("a row of the host verb table is dropped", "include/plugin-hostd/protocol.h",
+     '    X("cpu_load", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \\\n', "", "verb table", "verbtable"),
+    ("a verb is added to the daemon with no row in the host verb table", "include/plugin-hostd/protocol.h",
+     '    X(CHAIN_CLEAR, PHD_VERB_CHAIN_CLEAR, "<chain>", "resp 0", \\\n',
+     '    X(SABOTAGE, "verb_table_sabotage", "", "resp 0", "a verb with no row") \\\n'
+     '    X(CHAIN_CLEAR, PHD_VERB_CHAIN_CLEAR, "<chain>", "resp 0", \\\n', "verb table", "verbtable"),
+    ("a verb the daemon answers itself is absent from a profile", "include/plugin-hostd/protocol.h",
+     "    X(PHD_VERB_CHAIN, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \\\n",
+     "    X(PHD_VERB_CHAIN, DAEMON, REQUIRED, REQUIRED, ABSENT, REQUIRED) \\\n", "verb table", "verbtable"),
+    ("a verb mod-host never had is required of a profile", "include/plugin-hostd/protocol.h",
+     '    X("set_midi_program_change_pedalboard_bank_channel", MOD_UI, ABSENT, ABSENT, ABSENT, ABSENT) \\\n',
+     '    X("set_midi_program_change_pedalboard_bank_channel", MOD_UI, ABSENT, REQUIRED, ABSENT, ABSENT) \\\n',
+     "verb table", "verbtable"),
+    ("the declared floor of a chain is two again", "include/plugin-hostd/protocol.h",
+     "#define PHD_CHAIN_MEMBERS_MIN    1\n", "#define PHD_CHAIN_MEMBERS_MIN    2\n",
+     "a_chain_of_one_runs_in_a_worker_of_its_own_and_a_chain_of_none_is_refused"),
+    ("the grammar of chain asks two members, not the declared floor", "src/verbs.c",
+     "if (ntok < 2 + PHD_CHAIN_MEMBERS_MIN || ", "if (ntok < 4 || ",
+     "a_chain_of_one_runs_in_a_worker_of_its_own_and_a_chain_of_none_is_refused"),
+    ("the supervisor asks two members of a chain, not the declared floor", "src/supervisor.c",
+     "|| n < PHD_CHAIN_MEMBERS_MIN)", "|| n < 2)",
+     "a_chain_of_one_runs_in_a_worker_of_its_own_and_a_chain_of_none_is_refused"),
+    ("a chain of pinned LV2 members forms in a world where their pins do not hold", "src/supervisor.c",
+     "        if (must_run_own(i))\n            return sup_resp(PHD_ERR_PLACEMENT_INVALID);\n    }\n    if (!c)",
+     "    }\n    if (!c)",
+     "under_require_pins_a_chain_of_lv2_members_is_refused_until_its_worker_gets_the_union_of_their_bundles"),
     ("a worker's refusal of the order fails its replay", "src/supervisor.c",
      'chain_line(w, msg, sizeof(msg)) && replay_line(w, msg) != RPC_OK)',
      'chain_line(w, msg, sizeof(msg)) && (replay_line_code(w, msg, &code) != RPC_OK || code < 0))',
@@ -709,6 +735,10 @@ def run_test(tree, name, jack=False):
         p = subprocess.run([sys.executable, os.path.join(ROOT, "tests", "vocabulary_derived.py"), tree], capture_output=True,
                            text=True, timeout=60, env=dict(os.environ, OMX_VOCABULARY=os.path.join(tree, "omx-vocabulary.schema.json")))
         return p.returncode, p.stdout
+    if jack == "verbtable":
+        p = subprocess.run([sys.executable, os.path.join(ROOT, "tests", "verb_table.py"), tree], capture_output=True,
+                           text=True, timeout=60)
+        return p.returncode, p.stdout
     if jack in ("nopins", "ciguards"):
         script = {"nopins": "no_pins.py", "ciguards": "ci_guards.py"}[jack]
         p = subprocess.run([sys.executable, os.path.join(ROOT, "tests", script), tree], capture_output=True,
@@ -778,7 +808,7 @@ try:
                 shutil.copy(os.path.join(ROOT, f), tree)
             os.makedirs(os.path.join(tree, "packaging"))
             shutil.copy(os.path.join(ROOT, "packaging", "plugin-hostd.spec"), os.path.join(tree, "packaging"))
-        elif jack == "consumer":
+        elif jack in ("consumer", "verbtable"):
             shutil.copytree(os.path.join(ROOT, "include"), os.path.join(tree, "include"))
         elif jack == "nopins":
             for f in ("packaging/plugin-hostd.spec", "debian/control", ".github/workflows/ci.yml"):
@@ -804,7 +834,8 @@ try:
         open(os.path.join(tree, path), "w").write(src.replace(text, repl))
         if jack == "probe":
             build_probe(tree)
-        elif jack not in ("readme", "nopins", "ciguards", "format", "relay", "contract", "consumer", "probeschema", "vocabulary", "alloc"):
+        elif jack not in ("readme", "nopins", "ciguards", "format", "relay", "contract", "consumer", "probeschema", "vocabulary", "alloc",
+                          "verbtable"):
             for f in os.listdir(os.path.join(tree, "src")):
                 if f.endswith(".o"):
                     os.unlink(os.path.join(tree, "src", f))

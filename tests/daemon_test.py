@@ -2465,7 +2465,7 @@ def a_chain_is_declared_over_existing_instances_and_each_refusal_is_named():
         d.expect("chain 1 1 2 77", resp("CHAIN_UNKNOWN_INSTANCE"))
         d.expect("chain 1 1 2 1", resp("CHAIN_DUPLICATE"))
         d.expect("chain 1 1 9", resp("CHAIN_MIXED_FORMAT"))
-        for bad in ("chain 1 1", "chain 1", "chain x 1 2", "chain 1 1 two", "chain -1 1 2", "chain_clear", "chain_clear x"):
+        for bad in ("chain 1", "chain x 1 2", "chain 1 1 two", "chain -1 1 2", "chain_clear", "chain_clear x"):
             d.expect(bad, "resp -902")
         check(d.workers() == before, "a refused chain moves nothing: %s" % d.workers())
         old = d.holder(1)[1]["pid"]
@@ -2521,6 +2521,62 @@ def a_chain_is_declared_over_existing_instances_and_each_refusal_is_named():
         d.close()
         if os.path.exists(log):
             os.unlink(log)
+
+
+@test
+def a_chain_of_one_runs_in_a_worker_of_its_own_and_a_chain_of_none_is_refused():
+    """chain_members_min is 1: one isolated plugin is a chain like any other, and a chain with no member is no line"""
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(env={"FAKE_LOG": log})
+    try:
+        d.expect("add clap:fake#solo 21", "resp 21")
+        d.expect("param_set 21 gain 0.7000", "resp 0")
+        before = d.workers()
+        d.expect("chain 5", "resp -902")
+        check(d.workers() == before and chain_of(d, 5) == {}, "a chain of none moves nothing: %s" % d.workers())
+        d.expect("chain_clear 5", resp("NO_SUCH_CHAIN"))
+        mark = d.mark()
+        d.expect("chain 5 21", "resp 0")
+        formed = d.wait_event("chain_formed 5 ", since=mark)
+        w = chain_of(d, 5)
+        check(len(w) == 1, "one worker runs the chain of one: %s" % d.workers())
+        k, w = list(w.items())[0]
+        check(w["inst"] == [21] and w["state"] == "up", "its one member: %s" % w)
+        check(formed == "chain_formed 5 %s 21" % k, "the event names the chain of one: " + formed)
+        d.expect("param_get 21 gain", "resp 0 0.7000")
+        check("chain 5 21" in sent_to(log, w["pid"]), "the worker is told the chain of one: %s" % sent_to(log, w["pid"]))
+        d.expect("chain_clear 5", "resp 0")
+        _, w = d.wait_up(21)
+        check(w["place"] == "own" and w["inst"] == [21], "chain_clear gives the member a worker of its own: %s" % w)
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
+
+
+@test
+def under_require_pins_a_chain_of_lv2_members_is_refused_until_its_worker_gets_the_union_of_their_bundles():
+    """an LV2 pin holds only in a world narrowed to the plugin's bundle, and a chain's worker is given the whole
+    lv2_path: a chain of pinned LV2 members, of one or of two, is refused with PLACEMENT_INVALID and nothing moves.
+    A worker world narrowed to the union of the members' bundles is what lets it form; this holds the refusal
+    until then"""
+    p = Plugins()
+    d = p.daemon()
+    try:
+        d.expect(p.lv2_pin(), "resp 0")
+        d.expect("add %s 1" % LV2_URI, "resp 1")
+        d.expect("add %s 2" % LV2_URI, "resp 2")
+        before, seen = d.workers(), len(p.received())
+        check(all(w["place"] == "own" for w in before.values()) and len(before) == 2,
+              "each pinned LV2 member starts in a world of its own: %s" % before)
+        for line in ("chain 4 1 2", "chain 4 1"):
+            d.expect(line, resp("PLACEMENT_INVALID"))
+        check(d.workers() == before and chain_of(d, 4) == {}, "a refused chain moves nothing: %s" % d.workers())
+        check(p.received()[seen:] == [], "no worker saw a refused chain: %s" % p.received()[seen:])
+        d.expect("chain_clear 4", resp("NO_SUCH_CHAIN"))
+    finally:
+        d.close()
+        p.close()
 
 
 @test

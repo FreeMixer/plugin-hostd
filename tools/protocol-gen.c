@@ -177,6 +177,29 @@ static void json(void)
     sep = ",\n";
     PHD_INSTANCE_VERBS(X)
 #undef X
+    printf("\n  ],\n  \"host_profiles\": [");
+    sep = "\n";
+#define X(id, name, meaning) \
+    printf("%s    {\"name\": ", sep); \
+    jstr(name); \
+    printf(", \"meaning\": "); \
+    jstr(meaning); \
+    printf("}"); \
+    sep = ",\n";
+    PHD_HOST_PROFILES(X)
+#undef X
+    printf("\n  ],\n  \"host_verbs\": [");
+    sep = "\n";
+#define X(name, source, lv2, clap, console, zynthian) \
+    printf("%s    {\"name\": ", sep); \
+    jstr(name); \
+    printf(", \"source\": "); \
+    jstr(PHD_HOST_VERB_SOURCE_##source); \
+    printf(", \"levels\": {\"lv2-worker\": \"%s\", \"clap-worker\": \"%s\", \"console\": \"%s\", \"zynthian\": \"%s\"}}", \
+           PHD_LEVEL_##lv2, PHD_LEVEL_##clap, PHD_LEVEL_##console, PHD_LEVEL_##zynthian); \
+    sep = ",\n";
+    PHD_HOST_VERBS(X)
+#undef X
     printf("\n  ],\n  \"track_kinds\": [");
     sep = "";
 #define X(id, name) printf("%s\"%s\"", sep, name); sep = ", ";
@@ -318,6 +341,35 @@ static void region_constants(void)
     row(" `" #name "` ", buffer, " " meaning " ", NULL);
     PHD_CONSTANTS(X)
 #undef X
+}
+
+/* the host verb table: a row per verb, a column per profile */
+static void region_host_verbs(void)
+{
+    printf("| verb | sent by");
+#define X(id, name, meaning) printf(" | %s", name);
+    PHD_HOST_PROFILES(X)
+#undef X
+    printf(" |\n|---|---");
+#define X(id, name, meaning) printf("|---");
+    PHD_HOST_PROFILES(X)
+#undef X
+    printf("|\n");
+#define X(name, source, lv2, clap, console, zynthian) \
+    printf("| `%s` | %s | %s | %s | %s | %s |\n", name, PHD_HOST_VERB_SOURCE_##source, PHD_LEVEL_##lv2, PHD_LEVEL_##clap, \
+           PHD_LEVEL_##console, PHD_LEVEL_##zynthian);
+    PHD_HOST_VERBS(X)
+#undef X
+    printf("\nThe profiles: ");
+    {
+        const char *sep = "";
+#define X(id, name, meaning) printf("%s`%s`, %s", sep, name, meaning); sep = "; ";
+        PHD_HOST_PROFILES(X)
+#undef X
+    }
+    printf(". `%s` is answered as its grammar says; `%s` is answered, or refused with -902, and never misread; `%s` "
+           "is refused on purpose, and no client of the profile may need it.\n", PHD_LEVEL_REQUIRED, PHD_LEVEL_OPTIONAL,
+           PHD_LEVEL_ABSENT);
 }
 
 static void region_placement(void)
@@ -497,7 +549,7 @@ static const struct {
     void (*emit)(void);
 } REGIONS[] = {
     { "config", region_config }, { "constants", region_constants }, { "placement", region_placement },
-    { "verbs", region_verbs }, { "instance-verbs", region_instance_verbs }, { "errors", region_errors }, { "events", region_events },
+    { "verbs", region_verbs }, { "instance-verbs", region_instance_verbs }, { "host-verbs", region_host_verbs }, { "errors", region_errors }, { "events", region_events },
     { "pin-limits", region_pin_limits }, { "man-pin-limits", region_man_pin_limits },
     { "readiness", region_readiness }, { "worker-ready", region_worker_ready },
     { "man-keys", region_man_keys }, { "man-ready", region_man_ready }, { "man-port", region_man_port },
