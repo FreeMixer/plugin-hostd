@@ -105,7 +105,7 @@ def a_command_whose_first_argument_is_a_uri_reaches_every_worker():
             os.unlink(log)
 
 
-PRESET_LEARN_INSTANCE = ("preset_load 0 file:///presets/warm.preset", "preset_save 0 warm /tmp/presets warm.ttl",
+PRESET_LEARN_INSTANCE = ("preset_load 0 file:///presets/warm.preset", "preset_save 0 /tmp/presets/warm.json \"Warm Pad\"",
                          "midi_learn 0 gain 0.0 1.0", "midi_map 0 gain 0 7 0.0 1.0", "midi_unmap 0 gain",
                          "cv_map 0 gain /cv/lfo 0.0 1.0 linear", "cv_unmap 0 gain")
 PRESET_LEARN_WORLD = ("preset_show file:///presets/warm.preset", "bundle_add /usr/lib/lv2/warm.lv2",
@@ -142,6 +142,157 @@ def the_preset_bundle_and_learn_verbs_are_relayed_and_the_workers_answer_comes_b
             d.close()
             if os.path.exists(log):
                 os.unlink(log)
+
+
+PRESET_SCHEMA = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "protocol", "preset.schema.json")
+
+
+def preset_file(path):
+    """a file a worker wrote, held to protocol/preset.schema.json"""
+    import json, jsonschema
+    with open(path, encoding="utf-8") as f:
+        doc = json.load(f)
+    with open(PRESET_SCHEMA, encoding="utf-8") as f:
+        jsonschema.validate(doc, json.load(f), cls=jsonschema.Draft202012Validator)
+    return doc
+
+
+def preset_rewrite(src, dst, change):
+    import json
+    with open(src, encoding="utf-8") as f:
+        doc = json.load(f)
+    change(doc)
+    with open(dst, "w", encoding="utf-8") as f:
+        json.dump(doc, f)
+
+
+@test
+def a_preset_saved_then_loaded_reproduces_the_parameter_values_exactly():
+    """preset_save <instance> <file path> <name> writes the org.openmixer.preset file of docs/presets.md: a plugin with
+    only declared parameters carries params, each value as the plugin gave it, never a float widened; preset_load of
+    that file gives every value back exactly, and preset_show names what it carries and its name"""
+    work = tempfile.mkdtemp(prefix="plugin-hostd-presets.")
+    path = os.path.join(work, "warm.json")
+    d = daemon()
+    try:
+        d.expect("add clap:fake#a 0", "resp 0")
+        d.expect("param_set 0 0 0.1234567890123", "resp 0")
+        d.expect("param_set 0 gain -3.25", "resp 0")
+        d.expect('preset_save 0 %s "Warm Pad"' % path, "resp 0")
+        doc = preset_file(path)
+        check(doc["format"] == "org.openmixer.preset/2", "the file is /2: %r" % doc["format"])
+        check(doc["carries"] == "params" and "state" not in doc, "a params-only plugin writes carries params: %r" % doc)
+        check(doc["name"] == "Warm Pad" and doc["id"] == "warm", "the name is the controller's, the id the file's: %r" % doc)
+        values = {p["symbol"]: p["value"] for p in doc["params"]}
+        check(values == {"0": 0.1234567890123, "gain": -3.25}, "the values as given: %r" % values)
+        d.expect("param_set 0 0 0.9", "resp 0")
+        d.expect("param_set 0 gain 0", "resp 0")
+        d.expect("preset_load 0 %s" % path, "resp 0")
+        d.expect("param_get 0 0", "resp 0 0.1234567890123")
+        d.expect("param_get 0 gain", "resp 0 -3.25")
+        d.expect("preset_show 0 %s" % path, 'resp 0 params "Warm Pad"')
+    finally:
+        d.close()
+        shutil.rmtree(work, ignore_errors=True)
+
+
+@test
+def a_stateful_plugin_writes_params_and_state_and_gets_its_state_back():
+    """a plugin with state of its own writes carries params+state with the state body; preset_load gives the state
+    back, and a file whose state body was dropped is refused by the daemon before any worker is handed it"""
+    import base64
+    work = tempfile.mkdtemp(prefix="plugin-hostd-presets.")
+    path, dropped = os.path.join(work, "lead.json"), os.path.join(work, "dropped.json")
+    log = os.path.join(work, "log")
+    d = daemon(env={"FAKE_LOG": log})
+    try:
+        d.expect("add clap:fake#stateful 0", "resp 0")
+        d.expect("param_set 0 0 0.25", "resp 0")
+        d.expect("param_set 0 blob seven", "resp 0")
+        d.expect("preset_save 0 %s Lead" % path, "resp 0")
+        doc = preset_file(path)
+        check(doc["carries"] == "params+state", "a plugin with state writes params+state: %r" % doc)
+        check(base64.b64decode(doc["state"]["bytes"]) == b"seven", "the state body is the plugin's: %r" % doc["state"])
+        check([p["symbol"] for p in doc["params"]] == ["0"], "the state is not a parameter: %r" % doc["params"])
+        d.expect("param_set 0 blob nine", "resp 0")
+        d.expect("preset_load 0 %s" % path, "resp 0")
+        d.expect("param_get 0 blob", "resp 0 seven")
+        preset_rewrite(path, dropped, lambda doc: doc.pop("state"))
+        d.expect("preset_load 0 %s" % dropped, "resp -524")
+        check(not any(dropped in c for c in sent_to(log)), "no worker was handed the file without its state")
+    finally:
+        d.close()
+        shutil.rmtree(work, ignore_errors=True)
+
+
+@test
+def a_preset_of_a_changed_plugin_is_refused_and_nothing_of_it_applied():
+    """the worker compares the file's plugin with the instance: another version or another fingerprint answers
+    PRESET_PLUGIN_CHANGED (-526), relayed as the worker said it, and no value of the file is applied"""
+    work = tempfile.mkdtemp(prefix="plugin-hostd-presets.")
+    path, other = os.path.join(work, "warm.json"), os.path.join(work, "other.json")
+    d = daemon(env={"FAKE_PLUGIN_VERSION": "1.0.0"})
+    try:
+        d.expect("add clap:fake#a 0", "resp 0")
+        d.expect("param_set 0 0 0.75", "resp 0")
+        d.expect("preset_save 0 %s Warm" % path, "resp 0")
+    finally:
+        d.close()
+    preset_rewrite(path, other, lambda doc: doc["plugin"].update(fingerprint="omx-layout/1:" + "f" * 64))
+    d = daemon(env={"FAKE_PLUGIN_VERSION": "1.1.0"})
+    try:
+        d.expect("add clap:fake#a 0", "resp 0")
+        d.expect("param_set 0 0 0.5", "resp 0")
+        d.expect("preset_load 0 %s" % path, "resp -526")
+        d.expect("param_get 0 0", "resp 0 0.5")
+    finally:
+        d.close()
+    d = daemon(env={"FAKE_PLUGIN_VERSION": "1.0.0"})
+    try:
+        d.expect("add clap:fake#a 0", "resp 0")
+        d.expect("param_set 0 0 0.5", "resp 0")
+        d.expect("preset_load 0 %s" % other, "resp -526")
+        d.expect("param_get 0 0", "resp 0 0.5")
+        d.expect("preset_load 0 %s" % path, "resp 0")
+        d.expect("param_get 0 0", "resp 0 0.75")
+    finally:
+        d.close()
+        shutil.rmtree(work, ignore_errors=True)
+
+
+@test
+def the_daemon_refuses_a_preset_file_it_cannot_take_before_any_worker():
+    """PRESET_INVALID (-524), answered by the daemon and no worker handed the line: a file of an unknown format version,
+    a fingerprint of a scheme this version does not know, a file that is missing or no JSON, a preset_save whose path is
+    not absolute or that has no name"""
+    work = tempfile.mkdtemp(prefix="plugin-hostd-presets.")
+    path = os.path.join(work, "warm.json")
+    log = os.path.join(work, "log")
+    d = daemon(env={"FAKE_LOG": log})
+    try:
+        d.expect("add clap:fake#a 0", "resp 0")
+        d.expect("preset_save 0 %s Warm" % path, "resp 0")
+        bad = {
+            "v3.json": lambda doc: doc.update(format="org.openmixer.preset/3"),
+            "scheme.json": lambda doc: doc["plugin"].update(fingerprint="omx-layout/9:" + "0" * 64),
+            "alias.json": lambda doc: doc.update(alias="A" * 13),
+        }
+        for name, change in bad.items():
+            preset_rewrite(path, os.path.join(work, name), change)
+        with open(os.path.join(work, "garbage.json"), "w") as f:
+            f.write("{not json")
+        for name in list(bad) + ["garbage.json", "missing.json"]:
+            for verb in ("preset_load", "preset_show"):
+                d.expect("%s 0 %s" % (verb, os.path.join(work, name)), "resp -524")
+        d.expect("preset_save 0 warm.json Warm", "resp -524")
+        d.expect("preset_save 0 %s" % os.path.join(work, "noname.json"), "resp -524")
+        sent = sent_to(log)
+        check(not any(n in c for c in sent for n in list(bad) + ["garbage.json", "missing.json", "noname.json", " warm.json"]),
+              "no worker was handed a refused line: %r" % [c for c in sent if "preset" in c])
+        d.expect("preset_load 0 %s" % path, "resp 0")
+    finally:
+        d.close()
+        shutil.rmtree(work, ignore_errors=True)
 
 
 @test

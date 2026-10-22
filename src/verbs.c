@@ -29,6 +29,7 @@
 
 #include "formats.h"
 #include "pins.h"
+#include "preset.h"
 #include "supervisor.h"
 #include "verbs.h"
 
@@ -114,6 +115,30 @@ static char *chain_words(char **tok, int ntok)
     return sup_chain(id, ids, ntok - 2);
 }
 
+/* preset_save <instance> <file path> <name>, preset_load and preset_show <instance> <stable name | file path>: the
+ * path and the name are the controller's, never the host's; a file it names is read here first, and one that is not a
+ * preset file of a version this one knows is refused before any worker is handed it. A preset_show with no instance
+ * is mod-host's and goes to every worker. NULL: not the instance form, relay it as before */
+static char *preset_words(const char *line, char **tok, int ntok)
+{
+    const char *verb = tok[0];
+    int id, rc;
+
+    if (ntok < 2 || !number(tok[1], &id))
+        return verb_is(verb, EFFECT_PRESET_SHOW) ? NULL : sup_resp(ERR_INVALID_OPERATION);
+    if (verb_is(verb, EFFECT_PRESET_SAVE))
+    {
+        if (ntok < 4 || !preset_is_path(tok[2]))
+            return sup_resp(PHD_ERR_PRESET_INVALID);
+        return sup_call(id, line);
+    }
+    if (ntok != 3)
+        return sup_resp(ERR_INVALID_OPERATION);
+    if (preset_is_path(tok[2]) && (rc = preset_file_check(tok[2])) != SUCCESS)
+        return sup_resp(rc);
+    return sup_call(id, line);
+}
+
 static void reply(int fd, char *text)
 {
     socket_send(fd, text, strlen(text) + 1);
@@ -190,6 +215,13 @@ static char *handle(char *line, char **tok, int ntok)
     for (size_t n = 0; n < sizeof(g_instance_info_verbs) / sizeof(g_instance_info_verbs[0]); n++)
         if (!strcmp(verb, g_instance_info_verbs[n].name))
             return sup_instance_verb(line, g_instance_info_verbs[n].ledger);
+    if (verb_is(verb, EFFECT_PRESET_LOAD) || verb_is(verb, EFFECT_PRESET_SAVE) || verb_is(verb, EFFECT_PRESET_SHOW))
+    {
+        char *preset = preset_words(line, tok, ntok);
+
+        if (preset)
+            return preset;
+    }
     if (is_instance_verb(verb) && ntok > 1)
         return sup_call(atoi(tok[1]), line);
     if ((verb_is(verb, EFFECT_CONNECT) || verb_is(verb, EFFECT_DISCONNECT)) && ntok == 3)

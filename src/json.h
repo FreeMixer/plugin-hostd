@@ -43,5 +43,7 @@ jnode_t *jget(const jnode_t *o, const char *key);
 const char *jstr(const jnode_t *o, const char *key);
 int jnum(const jnode_t *o, const char *key, double *out);
 int jbool(const jnode_t *o, const char *key, int def);
+/* a value jparse gave, and all it holds */
+void jfree(jnode_t *o);
 
 #endif

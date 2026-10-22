@@ -319,3 +319,21 @@ int jbool(const jnode_t *o, const char *key, int def)
 
     return v && v->type == J_BOOL ? v->boolean : def;
 }
+
+void jfree(jnode_t *o)
+{
+    size_t i;
+
+    if (o == NULL)
+        return;
+    for (i = 0; i < o->n; i++)
+    {
+        jfree(o->kid[i]);
+        if (o->key)
+            free(o->key[i]);
+    }
+    free(o->kid);
+    free(o->key);
+    free(o->str);
+    free(o);
+}

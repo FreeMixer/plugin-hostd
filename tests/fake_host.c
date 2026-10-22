@@ -105,6 +105,7 @@
 #include <socket.h>
 #include <utils.h>
 
+#include "../src/json.h"
 #include "../src/verbs.h"
 
 #define MAX_INST    10000
@@ -118,6 +119,7 @@ typedef struct INST_T {
     int synth;
     int full;   /* a synth whose note queue is always full */
     char client[64];
+    char uri[256];
     char name[MAX_PARAMS][64];
     char text[MAX_PARAMS][128];
     int count;
@@ -247,6 +249,213 @@ static const char *adapter_refusal(const char *uri)
     return NULL;
 }
 
+/* ---------------------------------------------------------------- preset files (docs/presets.md) */
+
+static const char *plugin_version(void)
+{
+    const char *v = getenv("FAKE_PLUGIN_VERSION");
+
+    return v && *v ? v : "1.0.0";
+}
+
+/* the fake's non-parameter state: the value of "blob" of a plugin whose uri holds "stateful" */
+static int stateful(const inst_t *i)
+{
+    return strstr(i->uri, "stateful") != NULL;
+}
+
+/* a parameter the file carries: a value that is a number and nothing else, the bypass and the state set apart */
+static int carried(const inst_t *i, int k)
+{
+    char *end;
+
+    if (i->name[k][0] == ':' || !strcmp(i->name[k], "preset") || !strncmp(i->name[k], "patch:", 6) ||
+        (stateful(i) && !strcmp(i->name[k], "blob")))
+        return 0;
+    strtod(i->text[k], &end);
+    return *i->text[k] && !*end;
+}
+
+/* the shortest text that reads back as the same double: a value written as the plugin gave it, never widened */
+static void plain_value(char *out, size_t size, double v)
+{
+    int digits;
+
+    for (digits = 1; digits <= 17; digits++)
+    {
+        snprintf(out, size, "%.*g", digits, v);
+        if (strtod(out, NULL) == v)
+            return;
+    }
+}
+
+static void base64(sb_t *b, const unsigned char *data, size_t n)
+{
+    static const char abc[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    size_t k;
+
+    for (k = 0; k < n; k += 3)
+    {
+        unsigned v = data[k] << 16 | (k + 1 < n ? data[k + 1] << 8 : 0) | (k + 2 < n ? data[k + 2] : 0);
+        char q[4] = { abc[v >> 18 & 63], abc[v >> 12 & 63], k + 1 < n ? abc[v >> 6 & 63] : '=', k + 2 < n ? abc[v & 63] : '=' };
+
+        sb_put(b, q, 4);
+    }
+}
+
+static size_t unbase64(const char *s, char *out, size_t size)
+{
+    static const char abc[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    unsigned v = 0;
+    size_t n = 0;
+    int bits = 0;
+    const char *at;
+
+    for (; *s && *s != '='; s++)
+    {
+        if (!(at = strchr(abc, *s)))
+            break;
+        v = v << 6 | (unsigned)(at - abc);
+        if ((bits += 6) >= 8 && n + 1 < size)
+            out[n++] = (char)(v >> (bits -= 8) & 0xff);
+    }
+    out[n] = '\0';
+    return n;
+}
+
+/* the name of preset_save: the rest of the line after the path, its quotes taken off */
+static void save_name(const char *line, const char *path, char *out, size_t size)
+{
+    const char *p = strstr(line, path) + strlen(path);
+    size_t n = 0;
+
+    p += strspn(p, " \t");
+    if (*p == '"')
+        p++;
+    for (; *p && *p != '\n' && n + 1 < size; p++)
+    {
+        if (*p == '\\' && p[1])
+            p++;
+        else if (*p == '"')
+            break;
+        out[n++] = *p;
+    }
+    out[n] = '\0';
+}
+
+static char *read_file(const char *path)
+{
+    FILE *f = fopen(path, "rb");
+    char *text;
+    long size;
+
+    if (!f)
+        return NULL;
+    fseek(f, 0, SEEK_END);
+    size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    text = calloc(1, size + 1);
+    if (fread(text, 1, size, f) != (size_t)size)
+        text[0] = '\0';
+    fclose(f);
+    return text;
+}
+
+/* what a worker writes for preset_save: params when the plugin has only declared parameters, params+state when it
+ * also has state of its own */
+static int preset_write(inst_t *i, const char *path, const char *name)
+{
+    char layout[PHD_SHA256_HEX_LEN + 64], value[40], stem[256], stamp[32];
+    const char *base = strrchr(path, '/') ? strrchr(path, '/') + 1 : path, *blob = get_param(i, "blob");
+    time_t now = time(NULL);
+    sb_t b = { 0 };
+    FILE *f;
+    int k, first = 1;
+
+    layout_pin(layout, sizeof(layout));
+    snprintf(stem, sizeof(stem), "%s", base);
+    if (strlen(stem) > 5 && !strcmp(stem + strlen(stem) - 5, ".json"))
+        stem[strlen(stem) - 5] = '\0';
+    strftime(stamp, sizeof(stamp), "%Y-%m-%dT%H:%M:%SZ", gmtime(&now));
+    sb_printf(&b, "{\"format\": \"%s\", \"plugin\": {\"id\": ", PHD_PRESET_FORMAT_2);
+    sb_str(&b, i->uri);
+    sb_printf(&b, ", \"version\": ");
+    sb_str(&b, plugin_version());
+    sb_printf(&b, ", \"fingerprint\": \"%s\"}, \"id\": ", layout);
+    sb_str(&b, stem);
+    sb_printf(&b, ", \"name\": ");
+    sb_str(&b, name);
+    sb_printf(&b, ", \"createdAt\": \"%s\", \"modifiedAt\": \"%s\", \"carries\": \"%s\", \"params\": [", stamp, stamp,
+              stateful(i) ? "params+state" : "params");
+    for (k = 0; k < i->count; k++)
+        if (carried(i, k))
+        {
+            plain_value(value, sizeof(value), strtod(i->text[k], NULL));
+            sb_printf(&b, "%s{\"symbol\": ", first ? "" : ", ");
+            sb_str(&b, i->name[k]);
+            sb_printf(&b, ", \"value\": %s}", value);
+            first = 0;
+        }
+    sb_printf(&b, "]");
+    if (stateful(i))
+    {
+        sb_printf(&b, ", \"state\": {\"encoding\": \"base64\", \"context\": \"preset\", \"bytes\": \"");
+        base64(&b, (const unsigned char *)(blob ? blob : ""), blob ? strlen(blob) : 0);
+        sb_printf(&b, "\"}");
+    }
+    sb_printf(&b, "}\n");
+    if (!(f = fopen(path, "w")))
+    {
+        free(b.s);
+        return PHD_ERR_PRESET_INVALID;
+    }
+    fwrite(b.s, 1, b.len, f);
+    fclose(f);
+    free(b.s);
+    return 0;
+}
+
+/* preset_load and preset_show of a file: the plugin it names is this instance's, or nothing of it is applied */
+static int preset_read(inst_t *i, const char *path, int apply, char *name, size_t size)
+{
+    char layout[PHD_SHA256_HEX_LEN + 64], *text = read_file(path), value[40], blob[256];
+    jnode_t *doc = text ? jparse(text) : NULL, *plugin = jget(doc, "plugin"), *params = jget(doc, "params"),
+            *state = jget(doc, "state");
+    const char *id = jstr(plugin, "id"), *version = jstr(plugin, "version"), *fingerprint = jstr(plugin, "fingerprint");
+    int rc = 0;
+    size_t k;
+
+    layout_pin(layout, sizeof(layout));
+    if (!doc)
+        rc = PHD_ERR_PRESET_INVALID;
+    else if (!id || strcmp(id, i->uri) || (version && strcmp(version, plugin_version())) ||
+             (fingerprint && strcmp(fingerprint, layout)))
+        rc = PHD_ERR_PRESET_PLUGIN_CHANGED;
+    else if (state && getenv("FAKE_NO_STATE_PRESETS"))
+        rc = PHD_ERR_PRESET_NEEDS_STATE;
+    else if (state && !stateful(i))
+        rc = PHD_ERR_LOAD_REFUSED;
+    else
+    {
+        snprintf(name, size, "%s \"%s\"", jstr(doc, "carries") ? jstr(doc, "carries") : "params",
+                 jstr(doc, "name") ? jstr(doc, "name") : "");
+        if (apply && state && jstr(state, "bytes"))
+        {
+            unbase64(jstr(state, "bytes"), blob, sizeof(blob));
+            set_param(i, "blob", blob);
+        }
+        for (k = 0; apply && params && k < params->n; k++)
+            if (jstr(params->kid[k], "symbol") && jget(params->kid[k], "value"))
+            {
+                plain_value(value, sizeof(value), jget(params->kid[k], "value")->num);
+                set_param(i, jstr(params->kid[k], "symbol"), value);
+            }
+    }
+    jfree(doc);
+    free(text);
+    return rc;
+}
+
 static void receive(msg_t *msg)
 {
     char *line = strndup(msg->data, msg->data_size), *copy = strdup(line), *tok[16], *save = NULL, *t;
@@ -328,6 +537,7 @@ static void receive(msg_t *msg)
             g_inst[id].synth = strstr(tok[1], "synth") != NULL;
             g_inst[id].full = strstr(tok[1], "synth_full") != NULL;
             snprintf(g_inst[id].client, sizeof(g_inst[id].client), "%s", ntok > 3 ? tok[3] : "");
+            snprintf(g_inst[id].uri, sizeof(g_inst[id].uri), "%s", tok[1]);
             answer(fd, "resp %d", id);
         }
     }
@@ -360,6 +570,25 @@ static void receive(msg_t *msg)
     else if (verb_is(verb, EFFECT_SET_BPM) || verb_is(verb, EFFECT_SET_BPB) || verb_is(verb, TRANSPORT) ||
              verb_is(verb, TRANSPORT_SYNC))
         answer(fd, getenv("FAKE_REFUSE_SETTINGS") ? "resp -902" : "resp 0");
+    else if (!presets_learn && verb_is(verb, EFFECT_PRESET_SAVE) && ntok >= 4 && n >= 0 && n < MAX_INST &&
+             g_inst[n].exists && tok[2][0] == '/')
+    {
+        char name[256];
+
+        save_name(line, tok[2], name, sizeof(name));
+        answer(fd, "resp %d", preset_write(&g_inst[n], tok[2], name));
+    }
+    else if (!presets_learn && (verb_is(verb, EFFECT_PRESET_LOAD) || verb_is(verb, EFFECT_PRESET_SHOW)) && ntok == 3 &&
+             n >= 0 && n < MAX_INST && g_inst[n].exists && tok[2][0] == '/')
+    {
+        char shown[300] = "";
+        int rc = preset_read(&g_inst[n], tok[2], verb_is(verb, EFFECT_PRESET_LOAD), shown, sizeof(shown));
+
+        if (rc || verb_is(verb, EFFECT_PRESET_LOAD))
+            answer(fd, "resp %d", rc);
+        else
+            answer(fd, "resp 0 %s", shown);
+    }
     else if (presets_learn && (verb_is(verb, EFFECT_PRESET_SHOW) || verb_is(verb, BUNDLE_ADD) ||
                                verb_is(verb, BUNDLE_REMOVE)))
         answer(fd, strcmp(presets_learn, "answer") ? "resp -902" : "resp 0");

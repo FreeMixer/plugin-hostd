@@ -56,7 +56,8 @@ INCS = -Iinclude $(PROTOCOL_CFLAGS)
 LDFLAGS += -Wl,--no-undefined
 
 # source and object files
-SRC = src/main.c src/conf.c src/proc.c src/supervisor.c src/verbs.c src/pins.c src/relay.c src/formats.c src/lv2.c
+SRC = src/main.c src/conf.c src/proc.c src/supervisor.c src/verbs.c src/pins.c src/relay.c src/formats.c src/lv2.c src/preset.c \
+      src/json.c
 OBJ = $(SRC:.c=.o)
 
 # default build
@@ -167,8 +168,8 @@ test: test-pin test-transforms test-format-coverage test-describe test-relay tes
 test-daemon: $(PROG) $(FAKE)
 	PLUGIN_HOSTD=./$(PROG) FAKE_HOST=./$(FAKE) python3 tests/daemon_test.py
 
-$(FAKE): tests/fake_host.c src/verbs.h $(PROTOCOL_LIB)
-	$(CC) $(INCS) $(CFLAGS) -Werror -o $@ $< $(PROTOCOL_LIBS) -lm
+$(FAKE): tests/fake_host.c src/json.c src/json.h src/verbs.h $(PROTOCOL_LIB)
+	$(CC) $(INCS) $(CFLAGS) -Werror -o $@ $< src/json.c $(PROTOCOL_LIBS) -lm
 
 # the command socket's framing, by omx-clap-core's socket_conformance.py. Which copy runs, in this order: the one
 # SOCKET_CONFORMANCE names; ../omx-clap-core/tests/socket_conformance.py when an omx-clap-core checkout sits beside

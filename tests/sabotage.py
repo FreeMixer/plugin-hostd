@@ -16,7 +16,8 @@ FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "
 # tests/probe_schema.py; "relay" breaks src/relay.c and runs tests/relay_test.c; "alloc" breaks src/relay.c or src/lv2.c and runs make test-alloc; "contract" breaks the probe runner or the generator and runs tests/contract_derived.py; "consumer" breaks the header and compiles tests/consumer.c against it; "probe" breaks src/probe.c and runs tests/probe_test.py; "nopins" breaks the packaging or a workflow and runs tests/no_pins.py; "ciguards" breaks a workflow and runs tests/ci_guards.py;
 # "vocabulary" breaks the probe schema, its template or a copy of omx-contract's omx-vocabulary.schema.json and runs
 # tests/vocabulary_derived.py; "verbtable" breaks the header and runs tests/verb_table.py; "presetschema" breaks
-# protocol/preset.schema.json and runs tests/preset_format.py
+# protocol/preset.schema.json and runs tests/preset_format.py; "fake" breaks tests/fake_host.c, the worker a daemon
+# test leans on, and runs the daemon test over the tree's fake-host
 SABOTAGE = [
     ("a runner that refuses unshare passes build-and-test with a warning", ".github/workflows/ci.yml",
      '            echo "::error::test-jack did not run: this runner refuses a private user and pid namespace with its own /proc"\n            exit 1\n',
@@ -670,11 +671,45 @@ SABOTAGE = [
     ("the preset schema takes params+state with no state body", "protocol/preset.schema.json",
      '"then": {"required": ["params", "state"]}', '"then": {"required": ["params"]}',
      "params+state with the state body dropped is refused", "presetschema"),
+    ("the daemon takes a preset file of any format version", "src/preset.c",
+     "    else\n        return 0;\n    if (!plugin", "    else\n        v2 = 1;\n    if (!plugin",
+     "the_daemon_refuses_a_preset_file_it_cannot_take_before_any_worker"),
+    ("the daemon takes a fingerprint of any scheme", "src/preset.c",
+     'if ((fingerprint = jstr(plugin, "fingerprint")) && !fingerprint_known(fingerprint))', "if (0)",
+     "the_daemon_refuses_a_preset_file_it_cannot_take_before_any_worker"),
+    ("the daemon hands a worker any file the controller names", "src/verbs.c",
+     "if (preset_is_path(tok[2]) && (rc = preset_file_check(tok[2])) != SUCCESS)",
+     "if (0 && preset_is_path(tok[2]) && (rc = preset_file_check(tok[2])) != SUCCESS)",
+     "the_daemon_refuses_a_preset_file_it_cannot_take_before_any_worker"),
+    ("preset_save with no name reaches the worker", "src/verbs.c", "if (ntok < 4 || !preset_is_path(tok[2]))",
+     "if (ntok < 3 || !preset_is_path(tok[2]))", "the_daemon_refuses_a_preset_file_it_cannot_take_before_any_worker"),
+    ("the daemon takes a file that carries state with its state body dropped", "src/preset.c",
+     "if ((want_params && !params) || (want_state && !state) || (!want_state && state))",
+     "if ((want_params && !params) || (!want_state && state))",
+     "a_stateful_plugin_writes_params_and_state_and_gets_its_state_back"),
+    ("the worker writes a value widened to a float", "tests/fake_host.c",
+     "plain_value(value, sizeof(value), strtod(i->text[k], NULL));",
+     "plain_value(value, sizeof(value), (float)strtod(i->text[k], NULL));",
+     "a_preset_saved_then_loaded_reproduces_the_parameter_values_exactly", "fake"),
+    ("the worker drops the plugin's state from the state body", "tests/fake_host.c",
+     'base64(&b, (const unsigned char *)(blob ? blob : ""), blob ? strlen(blob) : 0);',
+     'base64(&b, (const unsigned char *)"", 0);',
+     "a_stateful_plugin_writes_params_and_state_and_gets_its_state_back", "fake"),
+    ("the worker ignores the fingerprint", "tests/fake_host.c", "(fingerprint && strcmp(fingerprint, layout))", "0",
+     "a_preset_of_a_changed_plugin_is_refused_and_nothing_of_it_applied", "fake"),
+    ("the worker ignores the plugin's version", "tests/fake_host.c", "(version && strcmp(version, plugin_version()))", "0",
+     "a_preset_of_a_changed_plugin_is_refused_and_nothing_of_it_applied", "fake"),
 ]
 
 
 def build(tree):
     subprocess.run(["make", "-s", "MOD_HOST_DIR=" + MOD_HOST_DIR, "plugin-hostd"], cwd=tree, check=True,
+                   stdout=subprocess.DEVNULL)
+
+
+def build_fake(tree):
+    """the tree's tests/fake-host, a worker broken on purpose"""
+    subprocess.run(["make", "-s", "-B", "MOD_HOST_DIR=" + MOD_HOST_DIR, "tests/fake-host"], cwd=tree, check=True,
                    stdout=subprocess.DEVNULL)
 
 
@@ -782,8 +817,9 @@ def run_test(tree, name, jack=False):
         p = subprocess.run([sys.executable, os.path.join(ROOT, "tests", script), tree], capture_output=True,
                            text=True, timeout=60)
         return p.returncode, p.stdout
-    env = dict(os.environ, ONLY=name, PLUGIN_HOSTD=os.path.join(tree, "plugin-hostd"), FAKE_HOST=FAKE)
-    cmd = [os.path.join(ROOT, "tests", "jack_e2e.sh")] if jack else [sys.executable, os.path.join(ROOT, "tests", "daemon_test.py")]
+    env = dict(os.environ, ONLY=name, PLUGIN_HOSTD=os.path.join(tree, "plugin-hostd"),
+               FAKE_HOST=os.path.join(tree, "tests", "fake-host") if jack == "fake" else FAKE)
+    cmd = [os.path.join(ROOT, "tests", "jack_e2e.sh")] if jack and jack != "fake" else [sys.executable, os.path.join(ROOT, "tests", "daemon_test.py")]
     p = subprocess.run(cmd, env=env, cwd=ROOT, capture_output=True, text=True, timeout=300)
     return p.returncode, p.stdout
 
@@ -861,6 +897,10 @@ try:
             shutil.copytree(os.path.join(ROOT, "src"), os.path.join(tree, "src"))
             shutil.copytree(os.path.join(ROOT, "include"), os.path.join(tree, "include"))
             shutil.copy(os.path.join(ROOT, "Makefile"), tree)
+            if jack == "fake":
+                os.makedirs(os.path.join(tree, "tests"))
+                shutil.copy(os.path.join(ROOT, "tests", "fake_host.c"), os.path.join(tree, "tests"))
+                build_fake(tree)
             build(tree)
         code, out = run_test(tree, name, jack)
         if code != 0 or "ok   " + name not in out:
@@ -875,6 +915,8 @@ try:
         open(os.path.join(tree, path), "w").write(src.replace(text, repl))
         if jack == "probe":
             build_probe(tree)
+        elif jack == "fake":
+            build_fake(tree)
         elif jack not in ("readme", "nopins", "ciguards", "format", "relay", "contract", "consumer", "probeschema", "presetschema", "vocabulary", "alloc",
                           "verbtable"):
             for f in os.listdir(os.path.join(tree, "src")):
