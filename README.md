@@ -8,7 +8,7 @@ Raspberry Pi, and cannot let one bad plugin stop the show.
 
 - A crash stays small: the plugin's worker is respawned with its settings put back.
 - Nothing to change in your controller: it speaks mod-host's socket protocol, same ports, same replies.
-- LV2 (through mod-host) and CLAP (through omx-clap-host) side by side.
+- LV2 through omx-clap-host's adapter, with mod-host for the plugins the adapter refuses, and CLAP through omx-clap-host, side by side.
 - Audio never passes through the daemon; every worker is a JACK client, as in mod-host.
 - A plugin that keeps crashing is singled out and given up on without touching its neighbours.
 
@@ -541,9 +541,9 @@ with a capability missing and says which. a test registers a third format in the
 Who runs an LV2 plugin
 ----------------------
 
-`lv2_worker` chooses the program that runs LV2 plugins: `mod-host` (the default, the `mod_host` program), `omx-clap-host`
-(the `clap_host` program, through its LV2 adapter) or `auto` (the adapter first, mod-host for a plugin the adapter
-refuses). `lv2_worker_set <uri> <mod-host|omx-clap-host|auto|->` overrides it for one plugin from then on, and `-` takes
+`lv2_worker` chooses the program that runs LV2 plugins: `auto` (the default: the adapter first, mod-host for a plugin the
+adapter refuses, and for every add while omx-clap-host is not installed), `omx-clap-host` (the `clap_host` program, through
+its LV2 adapter, a plugin it cannot run refused with a code) or `mod-host` (the `mod_host` program). `lv2_worker_set <uri> <mod-host|omx-clap-host|auto|->` overrides it for one plugin from then on, and `-` takes
 the override back. The two programs are two rows of the table, `lv2` and `lv2-clap`, so `policy_set`, `worker_env` and
 `worker_list` name them like any format. The adapter row differs from the mod-host row in these ways, each held by a test:
 
