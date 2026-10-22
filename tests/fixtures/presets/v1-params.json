@@ -1,0 +1,2 @@
+{"format": "org.openmixer.preset/1", "plugin": {"id": "org.freemixer.comp"}, "id": "warm", "name": "Warm",
+ "params": [{"symbol": "gain", "unit": "dB", "value": -3.25}]}
