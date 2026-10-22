@@ -690,9 +690,9 @@ static inline int phd_is_note_verb(const char *verb)
 
 /* who sends the verb: mod-ui (Zynthian's mod-ui sends it to its host), mod-host (a command of mod-host.h that mod-ui
  * does not send), daemon (a verb this daemon adds: it answers it itself, whatever the worker) */
-#define PHD_VERB_SOURCE_MOD_UI   "mod-ui"
-#define PHD_VERB_SOURCE_MOD_HOST "mod-host"
-#define PHD_VERB_SOURCE_DAEMON   "daemon"
+#define PHD_HOST_VERB_SOURCE_MOD_UI   "mod-ui"
+#define PHD_HOST_VERB_SOURCE_MOD_HOST "mod-host"
+#define PHD_HOST_VERB_SOURCE_DAEMON   "daemon"
 
 /* X(name, source, lv2-worker, clap-worker, console, zynthian). The mod-ui rows are the operator's ruling of
  * 2026-10-21 (FreeMixer/plugin-hostd#131), read from Zynthian's verbs.tsv, with the ruling of 2026-10-22: MIDI learn

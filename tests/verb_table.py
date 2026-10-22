@@ -24,7 +24,7 @@ int main(void)
     PHD_HOST_PROFILES(X)
 #undef X
 #define X(name, source, lv2, clap, console, zynthian) \
-    printf("row\t%s\t%s\t%s\t%s\t%s\t%s\n", name, PHD_VERB_SOURCE_##source, PHD_LEVEL_##lv2, PHD_LEVEL_##clap, \
+    printf("row\t%s\t%s\t%s\t%s\t%s\t%s\n", name, PHD_HOST_VERB_SOURCE_##source, PHD_LEVEL_##lv2, PHD_LEVEL_##clap, \
            PHD_LEVEL_##console, PHD_LEVEL_##zynthian);
     PHD_HOST_VERBS(X)
 #undef X

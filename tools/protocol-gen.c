@@ -194,7 +194,7 @@ static void json(void)
     printf("%s    {\"name\": ", sep); \
     jstr(name); \
     printf(", \"source\": "); \
-    jstr(PHD_VERB_SOURCE_##source); \
+    jstr(PHD_HOST_VERB_SOURCE_##source); \
     printf(", \"levels\": {\"lv2-worker\": \"%s\", \"clap-worker\": \"%s\", \"console\": \"%s\", \"zynthian\": \"%s\"}}", \
            PHD_LEVEL_##lv2, PHD_LEVEL_##clap, PHD_LEVEL_##console, PHD_LEVEL_##zynthian); \
     sep = ",\n";
@@ -356,7 +356,7 @@ static void region_host_verbs(void)
 #undef X
     printf("|\n");
 #define X(name, source, lv2, clap, console, zynthian) \
-    printf("| `%s` | %s | %s | %s | %s | %s |\n", name, PHD_VERB_SOURCE_##source, PHD_LEVEL_##lv2, PHD_LEVEL_##clap, \
+    printf("| `%s` | %s | %s | %s | %s | %s |\n", name, PHD_HOST_VERB_SOURCE_##source, PHD_LEVEL_##lv2, PHD_LEVEL_##clap, \
            PHD_LEVEL_##console, PHD_LEVEL_##zynthian);
     PHD_HOST_VERBS(X)
 #undef X
