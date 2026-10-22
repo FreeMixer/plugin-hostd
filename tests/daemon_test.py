@@ -2465,7 +2465,7 @@ def a_chain_is_declared_over_existing_instances_and_each_refusal_is_named():
         d.expect("chain 1 1 2 77", resp("CHAIN_UNKNOWN_INSTANCE"))
         d.expect("chain 1 1 2 1", resp("CHAIN_DUPLICATE"))
         d.expect("chain 1 1 9", resp("CHAIN_MIXED_FORMAT"))
-        for bad in ("chain 1 1", "chain 1", "chain x 1 2", "chain 1 1 two", "chain -1 1 2", "chain_clear", "chain_clear x"):
+        for bad in ("chain 1", "chain x 1 2", "chain 1 1 two", "chain -1 1 2", "chain_clear", "chain_clear x"):
             d.expect(bad, "resp -902")
         check(d.workers() == before, "a refused chain moves nothing: %s" % d.workers())
         old = d.holder(1)[1]["pid"]
@@ -2517,6 +2517,37 @@ def a_chain_is_declared_over_existing_instances_and_each_refusal_is_named():
         k, w = list(chain_of(d, 3).items())[0]
         check(w["inst"] == [9, 8] and w["fmt"] == "lv2", "an lv2 chain is one worker too: %s" % w)
         check(not any(c.startswith("chain") for c in sent_to(log, w["pid"])), "mod-host never sees the line")
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
+
+
+@test
+def a_chain_of_one_runs_in_a_worker_of_its_own_and_a_chain_of_none_is_refused():
+    """chain_members_min is 1: one isolated plugin is a chain like any other, and a chain with no member is no line"""
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(env={"FAKE_LOG": log})
+    try:
+        d.expect("add clap:fake#solo 21", "resp 21")
+        d.expect("param_set 21 gain 0.7000", "resp 0")
+        before = d.workers()
+        d.expect("chain 5", "resp -902")
+        check(d.workers() == before and chain_of(d, 5) == {}, "a chain of none moves nothing: %s" % d.workers())
+        d.expect("chain_clear 5", resp("NO_SUCH_CHAIN"))
+        mark = d.mark()
+        d.expect("chain 5 21", "resp 0")
+        formed = d.wait_event("chain_formed 5 ", since=mark)
+        w = chain_of(d, 5)
+        check(len(w) == 1, "one worker runs the chain of one: %s" % d.workers())
+        k, w = list(w.items())[0]
+        check(w["inst"] == [21] and w["state"] == "up", "its one member: %s" % w)
+        check(formed == "chain_formed 5 %s 21" % k, "the event names the chain of one: " + formed)
+        d.expect("param_get 21 gain", "resp 0 0.7000")
+        check("chain 5 21" in sent_to(log, w["pid"]), "the worker is told the chain of one: %s" % sent_to(log, w["pid"]))
+        d.expect("chain_clear 5", "resp 0")
+        _, w = d.wait_up(21)
+        check(w["place"] == "own" and w["inst"] == [21], "chain_clear gives the member a worker of its own: %s" % w)
     finally:
         d.close()
         if os.path.exists(log):

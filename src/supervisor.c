@@ -2021,7 +2021,7 @@ char *sup_chain(int id, const int *ids, int n)
     chain_t *c = (id >= 0 && id < MAX_INSTANCE) ? g_chain[id] : NULL;
     int k, m;
 
-    if (id < 0 || id >= MAX_INSTANCE || n < 2)
+    if (id < 0 || id >= MAX_INSTANCE || n < PHD_CHAIN_MEMBERS_MIN)
         return sup_resp(ERR_INVALID_OPERATION);
     for (k = 0; k < n; k++)
     {

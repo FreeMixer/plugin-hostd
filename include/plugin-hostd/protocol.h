@@ -44,13 +44,19 @@
 #define PHD_DEFAULT_COMMAND_PORT 5555
 #define PHD_CONNECT_RETRY_MS     5000
 #define PHD_LINE_MAX             4096
+#define PHD_LINE_WORDS_MAX       64
+#define PHD_CHAIN_MEMBERS_MIN    1
 
 #define PHD_CONSTANTS(X) \
     X(default_command_port, PHD_DEFAULT_COMMAND_PORT, "port", \
       "the command port without -p; the feedback port is the next one, unless -n is given") \
     X(connect_retry_ms, PHD_CONNECT_RETRY_MS, "ms", \
       "how long the idle tick asks again for a connect a respawned worker could not make yet") \
-    X(line_max, PHD_LINE_MAX, "bytes", "the protocol socket's buffer: the longest pin_set line the daemon takes")
+    X(line_max, PHD_LINE_MAX, "bytes", "the protocol socket's buffer: the longest pin_set line the daemon takes") \
+    X(line_words_max, PHD_LINE_WORDS_MAX, "words", \
+      "the words of one command line the daemon reads, the verb included; a word past them is not read") \
+    X(chain_members_min, PHD_CHAIN_MEMBERS_MIN, "instances", \
+      "the fewest members of a chain: a chain of one is valid, so one isolated plugin is a chain like any other")
 
 /* ---------------------------------------------------------------- placement */
 
@@ -431,7 +437,7 @@ static inline int phd_pool_name_valid(const char *name)
       "sent by the daemon to a worker of a format that checks layouts, just before the instance's add: the layout pin that add " \
       "checks after init and before activate; any other reply than resp 0 refuses the add with that code, and the " \
       "add is never forwarded") \
-    X(CHAIN, PHD_VERB_CHAIN, "<chain> <instance> <instance> [<instance> ...]", "resp 0", \
+    X(CHAIN, PHD_VERB_CHAIN, "<chain> <instance> [<instance> ...]", "resp 0", \
       "the instances, in this order, are one chain, run in one worker of place " PHD_PLACE_CHAIN_PREFIX "<chain>: each " \
       "member's state is saved, it is removed from the worker it was in and replayed in the chain's. A chain already " \
       "declared takes the new order, and a member left out of it goes back to a worker of its own. A worker that runs " \
@@ -441,7 +447,7 @@ static inline int phd_pool_name_valid(const char *name)
       "worker is quarantined to a worker of its own and the chain goes on without it; quarantine_clear puts it back. " \
       "-518 for an instance no add made, -519 for one named twice, -520 for one in another chain, -521 for members of " \
       "more than one format, -501 for a plugin that may not share a worker while require_pins is on, -902 for a chain " \
-      "or an instance that is not a number, or fewer than two instances") \
+      "or an instance that is not a number, or fewer than chain_members_min (" PHD_STR(PHD_CHAIN_MEMBERS_MIN) ") instances") \
     X(CHAIN_CLEAR, PHD_VERB_CHAIN_CLEAR, "<chain>", "resp 0", \
       "forget the chain: each member goes to a worker of its own; -522 for a chain no " PHD_VERB_CHAIN " declared")
 
