@@ -898,7 +898,7 @@ static inline int phd_is_note_verb(const char *verb)
 
 #define PHD_DEFAULT_MOD_HOST          "mod-host"
 #define PHD_DEFAULT_CLAP_HOST         "omx-clap-host"
-#define PHD_DEFAULT_LV2_WORKER        PHD_LV2_WORKER_MOD_HOST
+#define PHD_DEFAULT_LV2_WORKER        PHD_LV2_WORKER_AUTO
 #define PHD_DEFAULT_LV2_PATH          "/usr/lib64/lv2:/usr/lib/lv2:/usr/local/lib/lv2"
 #define PHD_DEFAULT_STATE_ROOT        "/tmp"
 #define PHD_DEFAULT_READY_TIMEOUT_MS  5000

@@ -78,6 +78,9 @@ class Daemon:
             # the tests of placement, replay and attribution add plugins no one pinned; the pin tests turn it back on,
             # and a None leaves a setting out of the file, so the daemon's own default holds
             "require_pins": 0,
+            # the daemon's own default is auto (the adapter first); the tests of the mod-host row name that row, and the
+            # tests of the default pass None to leave the setting out of the file
+            "lv2_worker": "mod-host",
             # no package's pins: the system's pins_dir is not the test's
             "pins_dir": "",
         }
