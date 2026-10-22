@@ -635,6 +635,16 @@ SABOTAGE = [
      "    reply_text = sup_broadcast(line);\n",
      "    reply_text = verb_is(verb, BUNDLE_ADD) ? sup_resp(SUCCESS) : sup_broadcast(line);\n",
      "the_preset_bundle_and_learn_verbs_are_relayed_and_the_workers_answer_comes_back"),
+    ("the relay drops the parameter feedback a worker writes", "src/relay.c",
+     "                send_line(start, nul - start + 1);\n                gesture_seen(s, start);",
+     "                if (strncmp(start, PHD_EVENT_PARAM_SET \" \", 10))\n                    send_line(start, nul - start + 1);\n"
+     "                gesture_seen(s, start);",
+     "a_value_the_plugin_moved_by_itself_reaches_the_controller_and_a_controllers_value_writes_no_feedback"),
+    ("the daemon echoes a controller's param_set as feedback", "src/supervisor.c",
+     "        return sup_resp(ERR_INSTANCE_NON_EXISTS);\n    w = i->w;\n    if (w->state != W_UP)\n        return refuse_worker(w);\n    rc = proc_rpc",
+     "        return sup_resp(ERR_INSTANCE_NON_EXISTS);\n    if (verb_is(line, EFFECT_PARAM_SET))\n        event(\"%s\", line);\n"
+     "    w = i->w;\n    if (w->state != W_UP)\n        return refuse_worker(w);\n    rc = proc_rpc",
+     "a_value_the_plugin_moved_by_itself_reaches_the_controller_and_a_controllers_value_writes_no_feedback"),
     ("a chain with a pinned LV2 member whose bundle is gone forms in a world without it", "src/supervisor.c",
      "    if (!chain_world_found(ids, n))\n", "    if (0)\n",
      "under_require_pins_a_chain_of_lv2_members_runs_in_a_world_of_the_union_of_their_bundles"),

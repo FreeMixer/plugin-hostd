@@ -1018,6 +1018,27 @@ def a_gesture_the_value_it_moved_and_a_suggested_page_reach_the_controller_uncha
 
 
 @test
+def a_value_the_plugin_moved_by_itself_reaches_the_controller_and_a_controllers_value_writes_no_feedback():
+    """parameter feedback: a worker reports a value its plugin moved by itself (automation, an LFO, a preset load) as
+    mod-host's param_set feedback line, and the daemon relays each one as written and in order. A value a controller
+    set is answered and nothing more: a worker that reports nothing makes the daemon write no line of its own"""
+    d = daemon()
+    try:
+        d.expect("add clap:fake#a 3", "resp 3")
+        d.expect("add clap:fake#b 4", "resp 4")
+        mark = d.mark()
+        for line in ("param_set 3 0 0.5", "param_set 4 0 0.75", "bypass 3 1", "preset_load 4 urn:fake:bright"):
+            d.expect(line, "resp 0")
+        d.expect("param_set 3 moves 0.6000", "resp 0")
+        wait_for(lambda: len(from_plugin(d, mark)) >= 2, "the two values the plugin moved")
+        time.sleep(0.2)
+        check(from_plugin(d, mark) == ["param_set 3 0 0.6000", "param_set 3 0 0.25"],
+              "the plugin's values only, as written and in order, none for the controller's: %s" % d.events[mark:])
+    finally:
+        d.close()
+
+
+@test
 def a_gesture_its_worker_did_not_end_is_ended_by_the_daemon_before_worker_died():
     d = daemon()
     try:

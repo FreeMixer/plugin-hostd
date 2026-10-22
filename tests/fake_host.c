@@ -49,6 +49,9 @@
  *                               own: "param_gesture <n> 0 begin", "param_set <n> 0 <v>" (v as sent), "param_gesture <n> 0 end", then
  *                               "remote_page_suggest <n> 8", in that order
  *   param_set <n> hold <v>      v other than 0 writes "param_gesture <n> 0 begin" and never its end
+ *   param_set <n> moves <v>     v other than 0 writes "param_set <n> 0 <v>" (v as sent) and "param_set <n> 0 0.25" on the
+ *                               feedback port, with no gesture, as a worker reports a value its plugin moved by itself
+ *                               (an LFO, a preset load); no other param_set writes any feedback
  *   preset_list <n>             "resp 2", and preset_get <n> <0|1> one preset each, -902 for any other index
  *   track_info <n> ...          "resp 0"; the fake keeps nothing of it (FAKE_LOG shows what it was sent)
  *   note_input <n>              "resp 0 midi_in" for an instance whose uri holds "synth", "resp 0 -" for any other
@@ -407,6 +410,15 @@ static void receive(msg_t *msg)
             snprintf(event, sizeof(event), PHD_EVENT_PARAM_GESTURE_FMT, n, "0", PHD_GESTURE_END);
             socket_send_feedback(event);
             snprintf(event, sizeof(event), PHD_EVENT_REMOTE_PAGE_SUGGEST_FMT, n, 8u);
+            socket_send_feedback(event);
+        }
+        if (!strcmp(tok[2], "moves") && atof(tok[3]) != 0.0)
+        {
+            char event[128];
+
+            snprintf(event, sizeof(event), PHD_EVENT_PARAM_SET_FMT, n, "0", tok[3]);
+            socket_send_feedback(event);
+            snprintf(event, sizeof(event), PHD_EVENT_PARAM_SET_FMT, n, "0", "0.25");
             socket_send_feedback(event);
         }
         if (!strcmp(tok[2], "hold") && atof(tok[3]) != 0.0)
