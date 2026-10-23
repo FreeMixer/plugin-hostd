@@ -48,7 +48,7 @@ presets never change. A file with a state body is `/2`.
 | field | | meaning |
 | --- | --- | --- |
 | `format` | required | `org.openmixer.preset/1` or `org.openmixer.preset/2`; any other is refused, never guessed |
-| `plugin.id` | required | the plugin's id: the CLAP id, or the LV2 uri |
+| `plugin.id` | required | the plugin's id: the CLAP id, or the LV2 uri; a /1 may give `plugin` as the id alone, a string, as the factory presets of omx-plugins do |
 | `plugin.version` | required in /2 | the plugin's version as its descriptor says |
 | `plugin.fingerprint` | required in /2 | the descriptor fingerprint: the plugin's layout pin, `omx-layout/1:<sha256>`; a fingerprint of a scheme this version does not know is refused |
 | `id` | required | stable, minted by the consumer; a worker writing a file names it after the file (its name without `.json`) |

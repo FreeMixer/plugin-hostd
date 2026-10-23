@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # The org.openmixer.preset file (docs/presets.md) against its schema, protocol/preset.schema.json: the files of
-# tests/fixtures/presets hold, and each broken copy of them is refused: an unknown format version, a fingerprint of a
-# scheme this version does not know, a /2 without its plugin's version or fingerprint, a carries the body does not
+# tests/fixtures/presets hold (v1-factory.json is a factory preset of omx-plugins as it ships), and each broken copy
+# of them is refused: an unknown format version, a fingerprint of a scheme this version does not know, a /2 without its plugin's version or fingerprint, a carries the body does not
 # agree with, an alias longer than 12, a /1 with a state body.
 #
 #   python3 tests/preset_format.py [<tree>]     the tree whose protocol/ is read (default: this one)
@@ -45,6 +45,8 @@ REFUSED = [
     ("a /2 without the plugin's fingerprint", "v2-params.json", lambda d: d["plugin"].pop("fingerprint")),
     ("a /2 without the plugin's version", "v2-params.json", lambda d: d["plugin"].pop("version")),
     ("a /2 without carries", "v2-params.json", drop("carries")),
+    ("a /2 whose plugin is its id alone", "v2-params.json", lambda d: d.update(plugin="org.freemixer.comp")),
+    ("a /1 whose plugin is an empty id", "v1-factory.json", lambda d: d.update(plugin="")),
     ("params+state with the state body dropped", "v2-state.json", drop("state")),
     ("carries params with a state body", "v2-state.json", lambda d: d.update(carries="params")),
     ("carries params with no params", "v2-params.json", drop("params")),
@@ -56,18 +58,24 @@ REFUSED = [
     ("a time that is not UTC", "v2-params.json", lambda d: d.update(createdAt="2026-10-22T21:00:00+02:00")),
 ]
 
-failed = 0
-for name, doc in good.items():
-    errors = list(validator.iter_errors(doc))
-    if errors:
-        failed += 1
-        print("FAIL %s is refused: %s" % (name, errors[0].message))
-    else:
-        print("ok   %s holds" % name)
-for what, name, change in REFUSED:
-    if validator.is_valid(broken(name, change)):
-        failed += 1
-        print("FAIL %s is taken" % what)
-    else:
-        print("ok   %s is refused" % what)
-sys.exit(1 if failed else 0)
+
+def main():
+    failed = 0
+    for name, doc in good.items():
+        errors = list(validator.iter_errors(doc))
+        if errors:
+            failed += 1
+            print("FAIL %s is refused: %s" % (name, errors[0].message))
+        else:
+            print("ok   %s holds" % name)
+    for what, name, change in REFUSED:
+        if validator.is_valid(broken(name, change)):
+            failed += 1
+            print("FAIL %s is taken" % what)
+        else:
+            print("ok   %s is refused" % what)
+    sys.exit(1 if failed else 0)
+
+
+if __name__ == "__main__":
+    main()

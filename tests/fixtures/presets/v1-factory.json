@@ -1,0 +1,33 @@
+{
+  "format": "org.openmixer.preset/1",
+  "plugin": "org.openmixer.tremolo",
+  "id": "classic",
+  "name": "Classic",
+  "carries": "params",
+  "params": [
+    {
+      "symbol": "rateHz",
+      "unit": "Hz",
+      "value": 5
+    },
+    {
+      "symbol": "depth",
+      "unit": "%",
+      "value": 60
+    },
+    {
+      "symbol": "mix",
+      "unit": "%",
+      "value": 100
+    },
+    {
+      "symbol": "mode",
+      "unit": "",
+      "value": 0,
+      "label": "Tremolo"
+    }
+  ],
+  "created": "2026-10-17T00:00:00Z",
+  "modified": "2026-10-17T00:00:00Z",
+  "copyOf": null
+}
