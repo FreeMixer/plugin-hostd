@@ -1333,10 +1333,14 @@ static void put_cost(sb_t *b, const jnode_t *cost, const char *rate)
 {
     const jnode_t *at = jget(jget(cost, "perRate"), rate), *voices = jget(at, "voices");
     double median, p95, min, max, blocks, warmup, percentile, held, capacity;
+    char p_key[32];
 
-    if (!jnum(at, "nsPerSampleMedian", &median) || !jnum(at, "nsPerSampleP95", &p95) ||
+    if (!jnum(cost, "percentile", &percentile))
+        return;
+    snprintf(p_key, sizeof p_key, "nsPerSampleP%.0f", percentile);
+    if (!jnum(at, "nsPerSampleMedian", &median) || !jnum(at, p_key, &p95) ||
         !jnum(at, "nsPerSampleMin", &min) || !jnum(at, "nsPerSampleMax", &max) || !jnum(at, "blocks", &blocks) ||
-        !jnum(cost, "warmupBlocks", &warmup) || !jnum(cost, "percentile", &percentile))
+        !jnum(cost, "warmupBlocks", &warmup))
         return;
     sb_printf(b, ", \"cost\": {\"unit\": \"ns-per-sample\", \"median\": %.9g, \"percentile\": {\"p\": %.9g, \"value\": %.9g}, "
                  "\"min\": %.9g, \"max\": %.9g, \"blocks\": %.0f, \"warmupBlocks\": %.0f",
