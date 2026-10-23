@@ -39,6 +39,7 @@
 
 #include "pins.h"
 #include "relay.h"
+#include "presets.h"
 #include "supervisor.h"
 #include "verbs.h"
 
@@ -1736,6 +1737,62 @@ char *sup_instance_verb(const char *line, int ledger)
         reply = sup_resp(PHD_ERR_NO_PRESET_LIST);
     else
         reply = sup_resp(ERR_INVALID_OPERATION);
+    free(word);
+    free(copy);
+    return reply;
+}
+
+/* the instance's plugin id, as a preset file names it: the CLAP id or the LV2 uri, with no prefix of a format */
+static const char *plugin_id(const instance_t *i)
+{
+    const char *colon = strchr(i->uri, ':');
+
+    if (colon && (!strncmp(i->uri, "clap:", 5) || !strncmp(i->uri, "lv2:", 4)))
+        return colon + 1;
+    return i->uri;
+}
+
+char *sup_preset_verb(const char *line)
+{
+    char *copy = strdup(line), **word, *end = NULL, *reply, *file_id = NULL;
+    instance_t *i;
+    int count, rc;
+    long id;
+
+    word = words(copy, &count);
+    id = count > 1 ? strtol(word[1], &end, 10) : -1;
+    if (count > 1 && (*end || end == word[1]) && verb_is(word[0], EFFECT_PRESET_SHOW))
+    {
+        /* mod-host's preset_show <uri>: every worker, as before */
+        free(word);
+        free(copy);
+        return NULL;
+    }
+    if (count < 3 || *end || end == word[1])
+        reply = sup_resp(ERR_INVALID_OPERATION);
+    else if (!(i = (id >= 0 && id < MAX_INSTANCE) ? g_inst[id] : NULL))
+        reply = sup_resp(ERR_INSTANCE_NON_EXISTS);
+    else if (verb_is(word[0], EFFECT_PRESET_SAVE))
+    {
+        /* the path and the name are the consumer's: an absolute path and a name, or no worker is asked */
+        if (count < 4 || word[2][0] != '/' || !word[3][0])
+            reply = sup_resp(PHD_ERR_PRESET_INVALID);
+        else if (resp_code(reply = sup_call(id, line)) >= 0 && preset_file_check(word[2], NULL, NULL))
+        {
+            /* the worker said it wrote the file, and what it wrote is no preset file: no consumer keeps it */
+            free(reply);
+            reply = sup_resp(PHD_ERR_PRESET_INVALID);
+        }
+    }
+    else if (word[2][0] != '/')
+        reply = sup_call(id, line);     /* a stable name of the plugin's own presets: the worker knows them */
+    else if ((rc = preset_file_check(word[2], &file_id, NULL)))
+        reply = sup_resp(rc);
+    else if (strcmp(file_id, plugin_id(i)))
+        reply = sup_resp(PHD_ERR_PRESET_PLUGIN_CHANGED);
+    else
+        reply = sup_call(id, line);
+    free(file_id);
     free(word);
     free(copy);
     return reply;

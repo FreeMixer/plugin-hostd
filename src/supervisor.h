@@ -127,6 +127,10 @@ char *sup_broadcast(const char *line);
 void sup_host_setting(const char *line, char **tok, int ntok);
 /* a verb of PHD_INSTANCE_VERBS: routed to a CLAP worker, answered here for an LV2 instance */
 char *sup_instance_verb(const char *line, int ledger);
+/* preset_load, preset_save and preset_show of an instance (docs/presets.md): a file is read and checked first, and
+ * refused PHD_ERR_PRESET_INVALID or PHD_ERR_PRESET_PLUGIN_CHANGED with no worker asked; else the worker that holds the
+ * instance answers. NULL for mod-host's preset_show <uri>, which goes to every worker */
+char *sup_preset_verb(const char *line);
 
 char *sup_worker_list(void);
 char *sup_instance_info(int id);

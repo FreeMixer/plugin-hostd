@@ -167,8 +167,8 @@ test: test-pin test-transforms test-format-coverage test-describe test-relay tes
 test-daemon: $(PROG) $(FAKE)
 	PLUGIN_HOSTD=./$(PROG) FAKE_HOST=./$(FAKE) python3 tests/daemon_test.py
 
-$(FAKE): tests/fake_host.c src/verbs.h $(PROTOCOL_LIB)
-	$(CC) $(INCS) $(CFLAGS) -Werror -o $@ $< $(PROTOCOL_LIBS) -lm
+$(FAKE): tests/fake_host.c src/verbs.h src/json.c src/json.h $(PROTOCOL_LIB)
+	$(CC) $(INCS) $(CFLAGS) -Werror -o $@ $< src/json.c $(PROTOCOL_LIBS) -lm
 
 # the command socket's framing, by omx-clap-core's socket_conformance.py. Which copy runs, in this order: the one
 # SOCKET_CONFORMANCE names; ../omx-clap-core/tests/socket_conformance.py when an omx-clap-core checkout sits beside

@@ -69,6 +69,13 @@
  *                               "resp -902", as the released omx-clap-host answers them; the fake keeps nothing of
  *                               them (FAKE_LOG shows what it was sent). Without it preset_load is the state verb below
  *                               and the others are unknown, -902
+ *   preset_save <n> <path> <name>   writes the instance's parameters to path as an org.openmixer.preset/2 file,
+ *                               params-only, its plugin the add's uri with no prefix, its version FAKE_PLUGIN_VERSION
+ *                               (1.0.0 without it), its fingerprint the fake's layout pin; FAKE_PRESET_WRITE_BROKEN
+ *                               writes a file that is no JSON. "resp 0"
+ *   preset_load <n> <path>      the file's values set on the instance; PHD_ERR_PRESET_PLUGIN_CHANGED for a file of
+ *                               another version than the fake's, and nothing set
+ *   preset_show <n> <path>      "resp 0 <carries> \"<name>\"" of the file; preset_show <n> <name> PHD_ERR_PRESET_NOT_OFFERED
  *   remote_pages <n>            "resp 2", and remote_page_get <n> <0|1> one page each, -902 for any other page
  *   param_info <n> <sym>        for the symbol 0 the worked vector of the param contract, for the symbol 1 -511 (a parameter
  *                               the worker holds no contract for, as the released omx-clap-host answers every one), -103 for any other
@@ -105,6 +112,7 @@
 #include <socket.h>
 #include <utils.h>
 
+#include "../src/json.h"
 #include "../src/verbs.h"
 
 #define MAX_INST    10000
@@ -118,6 +126,7 @@ typedef struct INST_T {
     int synth;
     int full;   /* a synth whose note queue is always full */
     char client[64];
+    char uri[256];
     char name[MAX_PARAMS][64];
     char text[MAX_PARAMS][128];
     int count;
@@ -247,6 +256,86 @@ static const char *adapter_refusal(const char *uri)
     return NULL;
 }
 
+/* the plugin's version as this fake's descriptor gives it: FAKE_PLUGIN_VERSION, 1.0.0 without it */
+static const char *plugin_version(void)
+{
+    const char *v = getenv("FAKE_PLUGIN_VERSION");
+
+    return v ? v : "1.0.0";
+}
+
+/* preset_save <n> <path> <name ...>: the instance's parameters as an org.openmixer.preset/2 file, params-only, each
+ * value as it was given; FAKE_PRESET_WRITE_BROKEN writes a file that is no JSON, as a broken worker would */
+static int preset_write(inst_t *i, const char *path, char **name, int nname)
+{
+    const char *base = strrchr(path, '/') + 1, *colon = strchr(i->uri, ':');
+    char pin[PHD_SHA256_HEX_LEN + 64], text[256] = "", *end;
+    FILE *f = fopen(path, "w");
+    int k, first = 1;
+
+    if (!f)
+        return PHD_ERR_PRESET_INVALID;
+    if (getenv("FAKE_PRESET_WRITE_BROKEN"))
+    {
+        fputs("{\"format\": ", f);
+        fclose(f);
+        return 0;
+    }
+    for (k = 0; k < nname; k++)
+        snprintf(text + strlen(text), sizeof(text) - strlen(text), "%s%s", k ? " " : "", name[k]);
+    if (text[0] == '"' && strlen(text) > 1 && text[strlen(text) - 1] == '"')
+    {
+        memmove(text, text + 1, strlen(text));
+        text[strlen(text) - 1] = '\0';
+    }
+    layout_pin(pin, sizeof(pin));
+    fprintf(f, "{\"format\": \"%s\", \"plugin\": {\"id\": \"%s\", \"version\": \"%s\", \"fingerprint\": \"%s\"}, ",
+            PHD_PRESET_FORMAT_2, colon ? colon + 1 : i->uri, plugin_version(), pin);
+    fprintf(f, "\"id\": \"%.*s\", \"name\": \"%s\", \"carries\": \"params\", \"params\": [",
+            (int)(strstr(base, ".json") ? strstr(base, ".json") - base : (long)strlen(base)), base, text);
+    for (k = 0; k < i->count; k++)
+    {
+        if (i->name[k][0] == ':' || !strcmp(i->name[k], "preset"))
+            continue;
+        strtod(i->text[k], &end);
+        if (end == i->text[k] || *end)
+            continue;
+        fprintf(f, "%s{\"symbol\": \"%s\", \"value\": %s}", first ? "" : ", ", i->name[k], i->text[k]);
+        first = 0;
+    }
+    fputs("]}\n", f);
+    fclose(f);
+    return 0;
+}
+
+/* the file of preset_load or preset_show, or NULL; *rc PHD_ERR_PRESET_PLUGIN_CHANGED for one of another version */
+static jnode_t *preset_read(const char *path, int *rc)
+{
+    FILE *f = fopen(path, "r");
+    char text[65536];
+    size_t got;
+    jnode_t *d;
+    const char *version;
+
+    *rc = PHD_ERR_PRESET_INVALID;
+    if (!f)
+        return NULL;
+    got = fread(text, 1, sizeof(text) - 1, f);
+    fclose(f);
+    text[got] = '\0';
+    if (!(d = jparse(text)))
+        return NULL;
+    version = jstr(jget(d, "plugin"), "version");
+    if (version && strcmp(version, plugin_version()))
+    {
+        *rc = PHD_ERR_PRESET_PLUGIN_CHANGED;
+        jfree(d);
+        return NULL;
+    }
+    *rc = 0;
+    return d;
+}
+
 static void receive(msg_t *msg)
 {
     char *line = strndup(msg->data, msg->data_size), *copy = strdup(line), *tok[16], *save = NULL, *t;
@@ -328,6 +417,7 @@ static void receive(msg_t *msg)
             g_inst[id].synth = strstr(tok[1], "synth") != NULL;
             g_inst[id].full = strstr(tok[1], "synth_full") != NULL;
             snprintf(g_inst[id].client, sizeof(g_inst[id].client), "%s", ntok > 3 ? tok[3] : "");
+            snprintf(g_inst[id].uri, sizeof(g_inst[id].uri), "%s", tok[1]);
             answer(fd, "resp %d", id);
         }
     }
@@ -462,6 +552,32 @@ static void receive(msg_t *msg)
         set_param(&g_inst[n], ":bypass", tok[2]);
         answer(fd, "resp 0");
     }
+    else if (verb_is(verb, EFFECT_PRESET_SAVE) && ntok >= 4 && tok[2][0] == '/')
+        answer(fd, "resp %d", preset_write(&g_inst[n], tok[2], tok + 3, ntok - 3));
+    else if ((verb_is(verb, EFFECT_PRESET_LOAD) || verb_is(verb, EFFECT_PRESET_SHOW)) && ntok == 3 && tok[2][0] == '/')
+    {
+        jnode_t *d = preset_read(tok[2], &k), *params;
+        size_t p;
+        char value[64];
+
+        if (d && verb_is(verb, EFFECT_PRESET_SHOW))
+            answer(fd, "resp 0 %s \"%s\"", jstr(d, "carries") ? jstr(d, "carries") : "params", jstr(d, "name"));
+        else if (d)
+        {
+            /* the values of the file, each as the file gives it; a symbol the plugin has not is ignored */
+            for (params = jget(d, "params"), p = 0; params && p < params->n; p++)
+            {
+                snprintf(value, sizeof(value), "%.17g", jget(params->kid[p], "value")->num);
+                set_param(&g_inst[n], jstr(params->kid[p], "symbol"), value);
+            }
+            answer(fd, "resp 0");
+        }
+        else
+            answer(fd, "resp %d", k);
+        jfree(d);
+    }
+    else if (verb_is(verb, EFFECT_PRESET_SHOW) && ntok == 3 && n >= 0 && n < MAX_INST && g_inst[n].exists)
+        answer(fd, "resp %d", PHD_ERR_PRESET_NOT_OFFERED);
     else if (verb_is(verb, EFFECT_PRESET_LOAD) && ntok == 3)
     {
         const char *bypass = get_param(&g_inst[n], ":bypass");

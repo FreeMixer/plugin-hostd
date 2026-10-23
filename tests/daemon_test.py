@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # plugin-hostd against workers that are not plugin hosts (tests/fake-host). No jack, no plugin: the daemon's own
 # behaviour, over the wire, the way a controller sees it. tests/jack_e2e.sh runs the real workers.
-import hashlib, os, shutil, signal, subprocess, sys, tempfile, time
+import hashlib, json, os, shutil, signal, subprocess, sys, tempfile, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import harness
@@ -9,6 +9,7 @@ from harness import Daemon, Fail, alive, check, resp, run_tests, wait_for
 
 EXE = os.path.abspath(os.environ.get("PLUGIN_HOSTD", "./plugin-hostd"))
 FAKE = os.path.abspath(os.environ.get("FAKE_HOST", "tests/fake-host"))
+PRESETS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "presets")
 TESTS = []
 
 
@@ -105,7 +106,7 @@ def a_command_whose_first_argument_is_a_uri_reaches_every_worker():
             os.unlink(log)
 
 
-PRESET_LEARN_INSTANCE = ("preset_load 0 file:///presets/warm.preset", "preset_save 0 warm /tmp/presets warm.ttl",
+PRESET_LEARN_INSTANCE = ("preset_load 0 file:///presets/warm.preset", "preset_save 0 %s Warm" % os.path.join(PRESETS, "v2-params.json"),
                          "midi_learn 0 gain 0.0 1.0", "midi_map 0 gain 0 7 0.0 1.0", "midi_unmap 0 gain",
                          "cv_map 0 gain /cv/lfo 0.0 1.0 linear", "cv_unmap 0 gain")
 PRESET_LEARN_WORLD = ("preset_show file:///presets/warm.preset", "bundle_add /usr/lib/lv2/warm.lv2",
@@ -142,6 +143,113 @@ def the_preset_bundle_and_learn_verbs_are_relayed_and_the_workers_answer_comes_b
             d.close()
             if os.path.exists(log):
                 os.unlink(log)
+
+
+def preset_lines(log):
+    return [c for c in sent_to(log) if c.startswith(("preset_load", "preset_save", "preset_show"))]
+
+
+@test
+def a_preset_saved_then_loaded_gives_back_the_values():
+    """preset_save <instance> <path> <name>: the worker writes the file, an org.openmixer.preset/2 the daemon reads back;
+    preset_load of it gives the instance the values it had at the save, and preset_show answers what it carries"""
+    tmp = tempfile.mkdtemp(prefix="plugin-hostd-presets.")
+    path = os.path.join(tmp, "warm.json")
+    d = daemon()
+    try:
+        d.expect("add clap:fake#a 0", "resp 0")
+        d.expect("param_set 0 gain 0.75", "resp 0")
+        d.expect('preset_save 0 %s "Warm Pad"' % path, "resp 0")
+        with open(path) as f:
+            doc = json.load(f)
+        check(doc["format"] == "org.openmixer.preset/2" and doc["plugin"]["id"] == "fake#a" and doc["id"] == "warm"
+              and doc["name"] == "Warm Pad", "the file names the plugin and the preset: %s" % doc)
+        check(doc["params"] == [{"symbol": "gain", "value": 0.75}], "the file holds the value: %s" % doc["params"])
+        d.expect("param_set 0 gain 0.125", "resp 0")
+        d.expect("param_get 0 gain", "resp 0 0.125")
+        d.expect("preset_load 0 %s" % path, "resp 0")
+        d.expect("param_get 0 gain", "resp 0 0.75")
+        d.expect("preset_show 0 %s" % path, 'resp 0 params "Warm Pad"')
+        d.expect("preset_show 0 warm", resp("PRESET_NOT_OFFERED"))
+    finally:
+        d.close()
+        shutil.rmtree(tmp)
+
+
+@test
+def a_preset_of_a_changed_plugin_is_refused_and_nothing_is_applied():
+    """a file of another plugin id is refused by the daemon (no worker sees it), one of another version of the plugin by
+    the worker; either way PRESET_PLUGIN_CHANGED, and the instance keeps its values"""
+    tmp = tempfile.mkdtemp(prefix="plugin-hostd-presets.")
+    log = os.path.join(tmp, "log")
+    path = os.path.join(tmp, "warm.json")
+    d = daemon(env={"FAKE_LOG": log})
+    try:
+        d.expect("add clap:fake#a 0", "resp 0")
+        d.expect("param_set 0 gain 0.75", "resp 0")
+        d.expect("preset_save 0 %s Warm" % path, "resp 0")
+        d.expect("param_set 0 gain 0.125", "resp 0")
+        with open(path) as f:
+            doc = json.load(f)
+        for what, change, by_worker in (("another version", ("version", "0.9.0"), True),
+                                        ("another plugin id", ("id", "fake#b"), False)):
+            other = os.path.join(tmp, "other.json")
+            changed = json.loads(json.dumps(doc))
+            changed["plugin"][change[0]] = change[1]
+            with open(other, "w") as f:
+                json.dump(changed, f)
+            d.expect("preset_load 0 %s" % other, resp("PRESET_PLUGIN_CHANGED"))
+            d.expect("param_get 0 gain", "resp 0 0.125")
+            asked = "preset_load 0 %s" % other in sent_to(log)
+            check(asked == by_worker, "%s: the worker was %sasked" % (what, "" if asked else "not "))
+            os.unlink(log)
+    finally:
+        d.close()
+        shutil.rmtree(tmp)
+
+
+@test
+def a_preset_file_that_breaks_the_format_is_refused_and_no_worker_sees_it():
+    """the daemon reads the file before any worker does: one over PHD_PRESET_FILE_MAX, no JSON, of an unknown format
+    version or not there is PRESET_INVALID, as is a preset_save to a relative path or with no name"""
+    tmp = tempfile.mkdtemp(prefix="plugin-hostd-presets.")
+    log = os.path.join(tmp, "log")
+    with open(os.path.join(PRESETS, "v2-params.json")) as f:
+        good = json.load(f)
+    files = {"big.json": None, "nojson.json": b'{"format": ',
+             "v3.json": json.dumps(dict(good, format="org.openmixer.preset/3")).encode()}
+    for name, data in files.items():
+        with open(os.path.join(tmp, name), "wb") as f:
+            if data is None:
+                f.truncate(64 * 1024 * 1024 + 1)
+            else:
+                f.write(data)
+    d = daemon(env={"FAKE_LOG": log})
+    try:
+        d.expect("add clap:fake#a 0", "resp 0")
+        lines = ["%s 0 %s" % (verb, os.path.join(tmp, name)) for name in list(files) + ["absent.json"]
+                 for verb in ("preset_load", "preset_show")]
+        lines += ["preset_save 0 warm.json Warm", "preset_save 0 %s" % os.path.join(tmp, "warm.json")]
+        for line in lines:
+            d.expect(line, resp("PRESET_INVALID"))
+        check(preset_lines(log) == [], "no worker saw a preset verb: %s" % preset_lines(log))
+        d.expect("preset_load 9 %s" % os.path.join(tmp, "v3.json"), "resp -3")
+    finally:
+        d.close()
+        shutil.rmtree(tmp)
+
+
+@test
+def a_preset_file_the_worker_writes_broken_is_refused():
+    """a worker that answers preset_save with a file that is no preset file: PRESET_INVALID, not its resp 0"""
+    tmp = tempfile.mkdtemp(prefix="plugin-hostd-presets.")
+    d = daemon(env={"FAKE_PRESET_WRITE_BROKEN": "1"})
+    try:
+        d.expect("add clap:fake#a 0", "resp 0")
+        d.expect("preset_save 0 %s Warm" % os.path.join(tmp, "warm.json"), resp("PRESET_INVALID"))
+    finally:
+        d.close()
+        shutil.rmtree(tmp)
 
 
 @test
