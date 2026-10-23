@@ -183,7 +183,7 @@ test-format: $(FORMAT_TEST) $(FAKE)
 	PLUGIN_HOSTD_FORMAT_TEST_DIR=$${TMPDIR:-$${XDG_RUNTIME_DIR:-.}} ./$(FORMAT_TEST) ./$(FAKE)
 
 # the daemon's parts without its main and its verbs: the test calls the supervisor as the verbs do
-FORMAT_OBJ = src/conf.o src/proc.o src/supervisor.o src/pins.o src/relay.o src/formats.o src/lv2.o
+FORMAT_OBJ = src/conf.o src/proc.o src/supervisor.o src/pins.o src/relay.o src/formats.o src/lv2.o src/json.o src/presets.o
 
 $(FORMAT_TEST): tests/format_test.c $(FORMAT_OBJ) $(PROTOCOL_LIB)
 	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -o $@ tests/format_test.c $(FORMAT_OBJ) $(PROTOCOL_LIBS) -pthread -lm
