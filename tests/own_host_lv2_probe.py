@@ -30,53 +30,61 @@ def main():
     jack.jack_get_sample_rate.argtypes = [ctypes.c_void_p]
     jack.jack_activate.argtypes = [ctypes.c_void_p]
     jack.jack_connect.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p]
+    jack.jack_deactivate.argtypes = [ctypes.c_void_p]
+    jack.jack_client_close.argtypes = [ctypes.c_void_p]
 
     c = jack.jack_client_open(b"own-host-probe", 0, None)
     if not c:
         sys.exit("own_host_lv2_probe: cannot open a JACK client (is jackd running?)")
-    audio = b"32 bit float mono audio"
-    outs = [jack.jack_port_register(c, b"out_%d" % i, audio, PORT_IS_OUTPUT, 0) for i in (1, 2)]
-    ins = [jack.jack_port_register(c, b"in_%d" % i, audio, PORT_IS_INPUT, 0) for i in (1, 2)]
-    rate = jack.jack_get_sample_rate(c)
-    state = {"phase": 0, "measuring": False, "in_peak": 0.0, "out_peak": [0.0, 0.0], "cycles": 0}
-    step = 2.0 * math.pi * HZ / rate
+    # a client left open keeps its realtime thread firing the callback below into a torn-down interpreter (#110);
+    # every exit from here on, pass or fail, must go through the finally
+    try:
+        audio = b"32 bit float mono audio"
+        outs = [jack.jack_port_register(c, b"out_%d" % i, audio, PORT_IS_OUTPUT, 0) for i in (1, 2)]
+        ins = [jack.jack_port_register(c, b"in_%d" % i, audio, PORT_IS_INPUT, 0) for i in (1, 2)]
+        rate = jack.jack_get_sample_rate(c)
+        state = {"phase": 0, "measuring": False, "in_peak": 0.0, "out_peak": [0.0, 0.0], "cycles": 0}
+        step = 2.0 * math.pi * HZ / rate
 
-    def process(n, _arg):
-        sig = []
-        for k in range(n):
-            sig.append(AMPLITUDE * math.sin(state["phase"]))
-            state["phase"] = (state["phase"] + step) % (2.0 * math.pi)
-        for p in outs:
-            (ctypes.c_float * n).from_address(jack.jack_port_get_buffer(p, n))[:] = sig
-        if state["measuring"]:
-            state["cycles"] += 1
-            state["in_peak"] = max(state["in_peak"], max(abs(x) for x in sig))
-            for i, p in enumerate(ins):
-                buf = (ctypes.c_float * n).from_address(jack.jack_port_get_buffer(p, n))
-                state["out_peak"][i] = max(state["out_peak"][i], max(abs(x) for x in buf))
-        return 0
+        def process(n, _arg):
+            sig = []
+            for k in range(n):
+                sig.append(AMPLITUDE * math.sin(state["phase"]))
+                state["phase"] = (state["phase"] + step) % (2.0 * math.pi)
+            for p in outs:
+                (ctypes.c_float * n).from_address(jack.jack_port_get_buffer(p, n))[:] = sig
+            if state["measuring"]:
+                state["cycles"] += 1
+                state["in_peak"] = max(state["in_peak"], max(abs(x) for x in sig))
+                for i, p in enumerate(ins):
+                    buf = (ctypes.c_float * n).from_address(jack.jack_port_get_buffer(p, n))
+                    state["out_peak"][i] = max(state["out_peak"][i], max(abs(x) for x in buf))
+            return 0
 
-    cb = CB(process)
-    jack.jack_set_process_callback(c, cb, None)
-    if jack.jack_activate(c) != 0:
-        sys.exit("own_host_lv2_probe: cannot activate the JACK client")
-    for i in (1, 2):
-        for a, b in (("own-host-probe:out_%d" % i, "%s:in_%d" % (target, i)), ("%s:out_%d" % (target, i), "own-host-probe:in_%d" % i)):
-            if jack.jack_connect(c, a.encode(), b.encode()) != 0:
-                sys.exit("own_host_lv2_probe: cannot connect %s to %s" % (a, b))
-    time.sleep(SETTLE_S)
-    state["measuring"] = True
-    time.sleep(MEASURE_S)
-    state["measuring"] = False
-    if state["cycles"] == 0:
-        sys.exit("own_host_lv2_probe: JACK ran no process cycle")
-    # the tolerance: float32 and the plugin's own smoothing leave the measured gain within about 0.005 of the set one
-    # (1.9953 measured), while the nearest wrong value, an unprocessed signal, measures 1.0 and silence 0.0
-    ratios = [p / state["in_peak"] for p in state["out_peak"]]
-    print("own_host_lv2_probe: %s in peak %.4f, out peak %s, gain %s (wanted %.4f +- %.4f)"
-          % (target, state["in_peak"], ["%.4f" % p for p in state["out_peak"]], ["%.4f" % r for r in ratios], want, tol))
-    if any(abs(r - want) > tol for r in ratios):
-        sys.exit("own_host_lv2_probe: the output does not carry the gain the plugin was set to")
+        cb = CB(process)
+        jack.jack_set_process_callback(c, cb, None)
+        if jack.jack_activate(c) != 0:
+            sys.exit("own_host_lv2_probe: cannot activate the JACK client")
+        for i in (1, 2):
+            for a, b in (("own-host-probe:out_%d" % i, "%s:in_%d" % (target, i)), ("%s:out_%d" % (target, i), "own-host-probe:in_%d" % i)):
+                if jack.jack_connect(c, a.encode(), b.encode()) != 0:
+                    sys.exit("own_host_lv2_probe: cannot connect %s to %s" % (a, b))
+        time.sleep(SETTLE_S)
+        state["measuring"] = True
+        time.sleep(MEASURE_S)
+        state["measuring"] = False
+        if state["cycles"] == 0:
+            sys.exit("own_host_lv2_probe: JACK ran no process cycle")
+        # the tolerance: float32 and the plugin's own smoothing leave the measured gain within about 0.005 of the set one
+        # (1.9953 measured), while the nearest wrong value, an unprocessed signal, measures 1.0 and silence 0.0
+        ratios = [p / state["in_peak"] for p in state["out_peak"]]
+        print("own_host_lv2_probe: %s in peak %.4f, out peak %s, gain %s (wanted %.4f +- %.4f)"
+              % (target, state["in_peak"], ["%.4f" % p for p in state["out_peak"]], ["%.4f" % r for r in ratios], want, tol))
+        if any(abs(r - want) > tol for r in ratios):
+            sys.exit("own_host_lv2_probe: the output does not carry the gain the plugin was set to")
+    finally:
+        jack.jack_deactivate(c)
+        jack.jack_client_close(c)
 
 
 main()

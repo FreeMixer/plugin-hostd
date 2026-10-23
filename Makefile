@@ -156,11 +156,11 @@ private-refs:
 
 # clean rule
 clean:
-	@rm -f src/*.o $(PROG) $(PROBE) tests/probe-child tests/lv2-probe-child tests/rt_interpose.so $(FAKE) $(PIN_TEST) $(RELAY_TEST) tests/relay-test-relay.o $(FORMAT_TEST) $(GESTURE_ALLOC_TEST) $(LV2_ALLOC_TEST) tests/lv2-alloc-lv2.o $(TRANSFORMS_TEST) $(GEN) tests/stress.clap tests/jack_levels tests/host_scenarios $(LV2_FIXTURE)
+	@rm -f src/*.o $(PROG) $(PROBE) tests/probe-child tests/lv2-probe-child tests/rt_interpose.so tests/jack_teardown_stub.so $(FAKE) $(PIN_TEST) $(RELAY_TEST) tests/relay-test-relay.o $(FORMAT_TEST) $(GESTURE_ALLOC_TEST) $(LV2_ALLOC_TEST) tests/lv2-alloc-lv2.o $(TRANSFORMS_TEST) $(GEN) tests/stress.clap tests/jack_levels tests/host_scenarios $(LV2_FIXTURE)
 
 # the daemon against workers that are not plugin hosts at all (tests/fake-host speaks the same protocol and can be
 # made to die on cue): placement, forwarding, ledger, replay, attribution, the storm bound; no jack, no plugin
-test: test-pin test-transforms test-format-coverage test-describe test-relay test-alloc test-format test-daemon check-generated check-schema test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-mod-host-json test-socket check-verb-table check-preset-schema
+test: test-pin test-transforms test-format-coverage test-describe test-relay test-alloc test-format test-daemon check-generated check-schema test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page test-own-host-lv2-probe check-no-pins check-ci-guards test-mod-host-json test-socket check-verb-table check-preset-schema
 	MOD_HOST_DIR=$(MOD_HOST_DIR) python3 tests/verbs_contract.py
 
 # the same without the verb table, which is read from a mod-host checkout's README
@@ -227,7 +227,7 @@ tests/stress.clap: tests/stress_plugin.c
 	$(CC) $(CLAP_CFLAGS) $(CFLAGS) -Werror -shared -o $@ $<
 
 # every guard broken on purpose, one at a time: its test must go red
-sabotage: $(PROG) $(FAKE) tests/probe-child tests/stress.clap tests/lv2-probe-child tests/rt_interpose.so $(LV2_FIXTURE)
+sabotage: $(PROG) $(FAKE) tests/probe-child tests/stress.clap tests/lv2-probe-child tests/rt_interpose.so tests/jack_teardown_stub.so $(LV2_FIXTURE)
 	MOD_HOST_DIR=$(MOD_HOST_DIR) FAKE_HOST=./$(FAKE) python3 tests/sabotage.py
 
 # the jack server the real-worker tests run over: pipewire's own jack implementation (default) or JACK2's jackd
@@ -308,6 +308,14 @@ check-readme:
 # the own-host page: its commands are few, and the reader that CI runs them with stops on any wrong reply
 check-own-host-page:
 	python3 tests/own_host_page.py selftest
+
+# own_host_lv2_probe.py closes its JACK client on every exit, pass or fail (#110): a fake libjack raises SIGSEGV at
+# process exit if it does not, and the probe is run 30 times in a row through it
+test-own-host-lv2-probe: tests/jack_teardown_stub.so
+	python3 tests/own_host_lv2_probe_test.py
+
+tests/jack_teardown_stub.so: tests/jack_teardown_stub.c
+	$(CC) $(CFLAGS) -Werror -shared -o $@ $<
 
 # no pin: a dependency is declared in the spec and debian/control with a floor (no ceiling), nowhere else
 check-no-pins:

@@ -16,7 +16,8 @@ FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "
 # tests/probe_schema.py; "relay" breaks src/relay.c and runs tests/relay_test.c; "alloc" breaks src/relay.c or src/lv2.c and runs make test-alloc; "contract" breaks the probe runner or the generator and runs tests/contract_derived.py; "consumer" breaks the header and compiles tests/consumer.c against it; "probe" breaks src/probe.c and runs tests/probe_test.py; "nopins" breaks the packaging or a workflow and runs tests/no_pins.py; "ciguards" breaks a workflow and runs tests/ci_guards.py;
 # "vocabulary" breaks the probe schema, its template or a copy of omx-contract's omx-vocabulary.schema.json and runs
 # tests/vocabulary_derived.py; "verbtable" breaks the header and runs tests/verb_table.py; "presetschema" breaks
-# protocol/preset.schema.json and runs tests/preset_format.py
+# protocol/preset.schema.json and runs tests/preset_format.py; "jacktd" breaks tests/own_host_lv2_probe.py and runs
+# tests/own_host_lv2_probe_test.py against tests/jack_teardown_stub.c, a fake libjack
 SABOTAGE = [
     ("a runner that refuses unshare passes build-and-test with a warning", ".github/workflows/ci.yml",
      '            echo "::error::test-jack did not run: this runner refuses a private user and pid namespace with its own /proc"\n            exit 1\n',
@@ -670,6 +671,10 @@ SABOTAGE = [
     ("the preset schema takes params+state with no state body", "protocol/preset.schema.json",
      '"then": {"required": ["params", "state"]}', '"then": {"required": ["params"]}',
      "params+state with the state body dropped is refused", "presetschema"),
+    ("own_host_lv2_probe does not close its JACK client", "tests/own_host_lv2_probe.py",
+     "    finally:\n        jack.jack_deactivate(c)\n        jack.jack_client_close(c)\n",
+     "    finally:\n        pass\n",
+     "own_host_lv2_probe_closes_its_jack_client_30_times_in_a_row", "jacktd"),
 ]
 
 
@@ -777,6 +782,14 @@ def run_test(tree, name, jack=False):
         p = subprocess.run([sys.executable, os.path.join(ROOT, "tests", "preset_format.py"), tree], capture_output=True,
                            text=True, timeout=60)
         return p.returncode, p.stdout
+    if jack == "jacktd":
+        p = subprocess.run(["make", "-s", "tests/jack_teardown_stub.so"], cwd=ROOT, capture_output=True, text=True,
+                           timeout=60)
+        if p.returncode != 0:
+            return p.returncode, p.stdout + p.stderr
+        p = subprocess.run([sys.executable, os.path.join(ROOT, "tests", "own_host_lv2_probe_test.py"), tree],
+                           capture_output=True, text=True, timeout=60)
+        return p.returncode, p.stdout
     if jack in ("nopins", "ciguards"):
         script = {"nopins": "no_pins.py", "ciguards": "ci_guards.py"}[jack]
         p = subprocess.run([sys.executable, os.path.join(ROOT, "tests", script), tree], capture_output=True,
@@ -835,6 +848,9 @@ try:
         elif jack == "probeschema":
             os.makedirs(os.path.join(tree, "protocol"))
             shutil.copy(os.path.join(ROOT, "protocol", "probe-output.schema.json"), os.path.join(tree, "protocol"))
+        elif jack == "jacktd":
+            os.makedirs(os.path.join(tree, "tests"))
+            shutil.copy(os.path.join(ROOT, "tests", "own_host_lv2_probe.py"), os.path.join(tree, "tests"))
         elif jack == "vocabulary":
             shutil.copytree(os.path.join(ROOT, "protocol"), os.path.join(tree, "protocol"))
             datadir = subprocess.run(["pkg-config", "--variable=datadir", "omx-contract"], capture_output=True, text=True,
@@ -876,7 +892,7 @@ try:
         if jack == "probe":
             build_probe(tree)
         elif jack not in ("readme", "nopins", "ciguards", "format", "relay", "contract", "consumer", "probeschema", "presetschema", "vocabulary", "alloc",
-                          "verbtable"):
+                          "verbtable", "jacktd"):
             for f in os.listdir(os.path.join(tree, "src")):
                 if f.endswith(".o"):
                     os.unlink(os.path.join(tree, "src", f))
