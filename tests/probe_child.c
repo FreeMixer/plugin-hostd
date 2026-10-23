@@ -132,9 +132,13 @@ static void put_rates(const char *rates, long quantum, unsigned notes)
     int interposed = dlsym(RTLD_DEFAULT, "plugin_hostd_rt_interpose_stub") != NULL;
     long silent = getenv("PROBE_CHILD_SILENT_RATE") ? atol(getenv("PROBE_CHILD_SILENT_RATE")) : 0;
     long unmeasured = getenv("PROBE_CHILD_UNMEASURED_RATE") ? atol(getenv("PROBE_CHILD_UNMEASURED_RATE")) : 0;
+    long percentile = getenv("PROBE_CHILD_PERCENTILE") ? atol(getenv("PROBE_CHILD_PERCENTILE")) : 95;
+    char p_key[32];
     const char *p;
     char *end;
     long r;
+
+    snprintf(p_key, sizeof p_key, "nsPerSampleP%ld", percentile);
 
     printf("\"latency\":{");
     for (p = rates; (r = strtol(p, &end, 10)) > 0; p = *end ? end + 1 : end)
@@ -152,8 +156,8 @@ static void put_rates(const char *rates, long quantum, unsigned notes)
     else
         printf(",\"noteSweep\":{\"applicable\":%s%s%s}", instrument ? "true" : "false", instrument ? ",\"dialect\":\"clap\",\"interposer\":" : "",
                instrument ? (interposed ? "true" : "false") : "");
-    printf(",\"cost\":{\"stimulus\":\"%s\",\"blockFrames\":%ld,\"warmupBlocks\":64,\"percentile\":95,\"perRate\":{",
-           instrument ? "notes-held" : "noise", quantum);
+    printf(",\"cost\":{\"stimulus\":\"%s\",\"blockFrames\":%ld,\"warmupBlocks\":64,\"percentile\":%ld,\"perRate\":{",
+           instrument ? "notes-held" : "noise", quantum, percentile);
     for (p = rates; (r = strtol(p, &end, 10)) > 0; p = *end ? end + 1 : end)
     {
         double ns = (double)r / 1000;
@@ -164,8 +168,8 @@ static void put_rates(const char *rates, long quantum, unsigned notes)
         else if (instrument && !notes)
             printf("\"unmeasuredReason\":\"voices-unknown\",\"unmeasuredDetail\":\"no voice-info and no --probe-notes count to hold\"");
         else
-            printf("\"nsPerSampleMedian\":%g,\"nsPerSampleP95\":%g,\"nsPerSampleMin\":%g,\"nsPerSampleMax\":%g,"
-                   "\"warmupNsPerSampleMedian\":%g,\"blocks\":256", ns, ns + 1, ns - 1, ns + 4, ns + 2);
+            printf("\"nsPerSampleMedian\":%g,\"%s\":%g,\"nsPerSampleMin\":%g,\"nsPerSampleMax\":%g,"
+                   "\"warmupNsPerSampleMedian\":%g,\"blocks\":256", ns, p_key, ns + 1, ns - 1, ns + 4, ns + 2);
         if (instrument && notes)
             printf(",\"voices\":{\"held\":%u,\"basis\":\"probe\"}", notes);
         printf("}");

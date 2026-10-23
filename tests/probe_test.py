@@ -214,6 +214,19 @@ def every_point_carries_the_cost_timed_at_its_own_rate():
 
 
 @test
+def a_point_timed_at_the_99th_percentile_reads_the_p99_key_not_a_fixed_p95():
+    rates = floor_rates()
+    code, doc, _, _, _ = run(rates=None, env={"PROBE_CHILD_PERCENTILE": "99"})
+    check(code == 0, "exit status %d" % code)
+    valid(doc)
+    for g in doc["grid"]:
+        c = g.get("cost", {})
+        check(c.get("percentile", {}).get("p") == 99, "the point at %d reports the percentile it was timed at, not 95: %s" % (g["rate"], c))
+        check(c.get("percentile", {}).get("value") == g["rate"] / 1000 + 1,
+              "the point at %d reads nsPerSampleP99, the key named by its own percentile, not nsPerSampleP95's absent figure: %s" % (g["rate"], c))
+
+
+@test
 def a_latency_taken_from_a_note_says_so_and_whether_the_note_was_heard():
     rates = floor_rates()
     silent = rates[-1]
