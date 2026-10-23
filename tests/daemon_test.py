@@ -692,6 +692,12 @@ def worker_env_reaches_new_and_running_workers():
         d.expect("worker_env lv2 - 7", "resp 0")
         check(stat()[0] == applied(7, applied(5)), "a running worker follows: %s" % (stat(),))
         check((kept in d.log()) == (applied(5) != 5 or applied(7, applied(5)) != 7), "the nice of a running worker is logged the same way")
+        # a cpu set needs no privilege, unlike a lowered nice: it is not masked by whatever nice the daemon itself
+        # runs under, so it alone proves the apply to a running worker ran rather than merely being unreachable under
+        # this nice (#134)
+        other_cpu = cpus[-1] if len(cpus) > 1 else cpus[0]
+        d.expect("worker_env lv2 %d -" % other_cpu, "resp 0")
+        check(stat()[1] == str(other_cpu), "a running worker's cpu set follows worker_env: %s" % (stat(),))
         # lower than the worker has: only a privileged daemon can, and one that cannot says so
         have = stat()[0]
         d.expect("worker_env lv2 - %d" % (have - 1), "resp 0")
