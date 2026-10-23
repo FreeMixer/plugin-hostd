@@ -333,9 +333,9 @@ Error codes the daemon adds to mod-host's:
 | `-521` | `PHD_ERR_CHAIN_MIXED_FORMAT` | the members of chain are not all of one format of worker_list, so no one worker runs them: the chain is not declared |
 | `-522` | `PHD_ERR_NO_SUCH_CHAIN` | chain_clear of a chain no chain declared |
 | `-523` | `PHD_ERR_PRESET_NOT_OFFERED` | the worker: preset_load or preset_show of a stable name the plugin does not offer, or of a plugin with no preset system and no state |
-| `-524` | `PHD_ERR_PRESET_INVALID` | preset_save with a file path that is not absolute or with no name, or preset_load or preset_show of a file that cannot be read, is no JSON, is of a format version other than org.openmixer.preset/1 and org.openmixer.preset/2, or breaks the format (docs/presets.md): the daemon answers it and no worker sees the file |
+| `-524` | `PHD_ERR_PRESET_INVALID` | preset_save with a file path that is not absolute or with no name, or preset_load or preset_show of a file that cannot be read, is no JSON, is of a format version other than org.openmixer.preset/1 and org.openmixer.preset/2, or breaks the format (docs/presets.md): the daemon answers it and no worker sees the file; and a preset_save whose file, as the worker wrote it, breaks the format |
 | `-525` | `PHD_ERR_PRESET_NEEDS_STATE` | the worker: a preset file that carries state for a worker that cannot take state yet |
-| `-526` | `PHD_ERR_PRESET_PLUGIN_CHANGED` | the worker: the preset file's plugin id, version or fingerprint is not the instance's; nothing of it is applied |
+| `-526` | `PHD_ERR_PRESET_PLUGIN_CHANGED` | the preset file is of another plugin than the instance: the daemon answers it for another plugin id and no worker sees the file, the worker for another version or fingerprint; nothing of it is applied |
 | `-527` | `PHD_ERR_LOAD_REFUSED` | the worker: the plugin refused the preset or the state its file carries |
 <!-- END GENERATED protocol:errors -->
 

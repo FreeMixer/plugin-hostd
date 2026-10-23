@@ -335,10 +335,12 @@ static inline int phd_pool_name_valid(const char *name)
     X(PRESET_INVALID, "preset_save with a file path that is not absolute or with no name, or preset_load or " \
                       "preset_show of a file that cannot be read, is no JSON, is of a format version other than " \
                       PHD_PRESET_FORMAT_1 " and " PHD_PRESET_FORMAT_2 ", or breaks the format (docs/presets.md): the " \
-                      "daemon answers it and no worker sees the file") \
+                      "daemon answers it and no worker sees the file; and a preset_save whose file, as the worker " \
+                      "wrote it, breaks the format") \
     X(PRESET_NEEDS_STATE, "the worker: a preset file that carries state for a worker that cannot take state yet") \
-    X(PRESET_PLUGIN_CHANGED, "the worker: the preset file's plugin id, version or fingerprint is not the instance's; " \
-                             "nothing of it is applied") \
+    X(PRESET_PLUGIN_CHANGED, "the preset file is of another plugin than the instance: the daemon answers it for " \
+                             "another plugin id and no worker sees the file, the worker for another version or " \
+                             "fingerprint; nothing of it is applied") \
     X(LOAD_REFUSED, "the worker: the plugin refused the preset or the state its file carries")
 
 /* ---------------------------------------------------------------- verbs */
