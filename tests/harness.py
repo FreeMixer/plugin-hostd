@@ -167,6 +167,19 @@ class Daemon:
                 raise Fail("%s -> %r after %.0f s" % (msg, r, timeout))
             time.sleep(0.05)
 
+    def add_ready(self, msg, expect, timeout=10.0):
+        """an `add` with no placement spawns its own worker on the spot: under load the spawn can still be
+        settling when ready_timeout_ms runs out and it answers WORKER_SPAWN, where a moment more would have
+        seen it up. Ask again on that one code instead of waiting a fixed time before the first try"""
+        spawn_not_up = resp("WORKER_SPAWN")
+        end = time.monotonic() + timeout
+        while True:
+            r = self.send(msg)
+            if r != spawn_not_up or time.monotonic() > end:
+                check(r == expect, "%s -> %r, wanted %r" % (msg, r, expect))
+                return
+            time.sleep(0.05)
+
     def workers(self):
         r = self.send("worker_list")
         parts = r.split()

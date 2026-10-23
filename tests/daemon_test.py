@@ -457,7 +457,7 @@ def storm_bound_is_per_placement_and_reset_rearms_it():
 def crashing_own_instance_is_given_up_alone():
     d = daemon(conf={"storm_deaths": 3, "suspect_window_ms": 0})
     try:
-        d.expect("add fake:ok 60", "resp 60")
+        d.add_ready("add fake:ok 60", "resp 60")
         d.expect("param_set 60 gain 0.5000", "resp 0")
         d.expect("add fake:bad 61", "resp 61")
         mark = d.mark()
@@ -736,7 +736,7 @@ def counts_up(values):
 def worker_feedback_reaches_the_controller_verbatim_and_in_order():
     d = daemon()
     try:
-        d.expect("add fake:a 0", "resp 0")
+        d.add_ready("add fake:a 0", "resp 0")
         d.expect("add fake:b 1 pool:p", "resp 1")
         d.expect("add fake:c 2 pool:p", "resp 2")
         d.expect("monitor_output 0 gain_reduction", "resp 1")
