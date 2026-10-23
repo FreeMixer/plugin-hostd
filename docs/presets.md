@@ -9,7 +9,8 @@ The ruling "PRESETS IN THE HOST" of 2026-10-22 on plugin-hostd#131, as this tree
   the plugin's own presets, load one, write the instance to a file, load a file.
 - The **daemon** relays the verbs to the worker that holds the instance and passes its answer back; it answers -902
   only while the worker does. Before a file reaches a worker it reads it and refuses one that is not a preset file of
-  a version it knows (`PRESET_INVALID`), so no worker guesses at a format.
+  a version it knows (`PRESET_INVALID`) or that names another plugin (`PRESET_PLUGIN_CHANGED`), so no worker guesses at
+  a format. After a `preset_save` the worker answered it reads the file back, and refuses one that breaks the format.
 - The **consumer** (the console, the Zynthian engine) owns the library: where files live, the user's presets, rename,
   delete, banks. The host never decides a path or a name: both arrive as arguments.
 
@@ -35,9 +36,9 @@ A file path is absolute (it starts with `/`); any other word is a stable name of
 | code | name | who | when |
 | --- | --- | --- | --- |
 | -523 | `PRESET_NOT_OFFERED` | worker | a stable name the plugin does not offer, or a plugin with no preset system and no state |
-| -524 | `PRESET_INVALID` | daemon, worker | a path that is not absolute, a `preset_save` with no name, a file that cannot be read, is no JSON, is of an unknown format version, or breaks the schema |
+| -524 | `PRESET_INVALID` | daemon, worker | a path that is not absolute, a `preset_save` with no name, a file that cannot be read, is empty or over 64 MiB (`PHD_PRESET_FILE_MAX`), is no JSON, is of an unknown format version, or breaks the schema; the file a worker wrote for `preset_save` that breaks it |
 | -525 | `PRESET_NEEDS_STATE` | worker | a file that carries state for a worker that cannot take state yet; it disappears when every worker takes state |
-| -526 | `PRESET_PLUGIN_CHANGED` | worker | the file's plugin id, version or fingerprint is not the instance's |
+| -526 | `PRESET_PLUGIN_CHANGED` | daemon, worker | the file's plugin id is not the instance's (the daemon), or its version or fingerprint (the worker) |
 | -527 | `LOAD_REFUSED` | worker | the plugin refused the state or the preset (its load callback failed) |
 
 ## The file: org.openmixer.preset
@@ -79,12 +80,31 @@ A state file adds `"carries": "params+state"` and
 
 ## Loading a file
 
-1. The daemon reads the file and checks it against the format above (`PRESET_INVALID` when it does not hold); no
+1. The daemon reads the file and checks it against the format above (`PRESET_INVALID` when it does not hold), then
+   its plugin id against the instance's, the add's uri with no `clap:` or `lv2:` prefix (`PRESET_PLUGIN_CHANGED`); no
    worker is asked.
-2. The worker compares `plugin` with the instance: another id, version or fingerprint answers `PRESET_PLUGIN_CHANGED`
-   and nothing is applied.
+2. The worker compares the plugin's version and fingerprint with the instance's: another answers
+   `PRESET_PLUGIN_CHANGED` and nothing is applied.
 3. The worker applies the state body when the file carries one, then the parameter values, each clamped to its
    declared range, an unknown symbol ignored, as clap.state's load does.
 
 Parameter feedback (the `param_set` event a worker writes for a value the plugin moved by itself, a preset load
 included) is the declared event of protocol/plugin-hostd.json; a controller's own writes produce none.
+
+## What this tree builds
+
+The daemon's side, in `src/presets.c` (the check of a file) and `sup_preset_verb` in `src/supervisor.c` (the relay):
+
+- `preset_load`, `preset_save` and `preset_show` of an instance: the checks above, then the line as it came to the worker
+  that holds the instance, and its answer back. `preset_show <uri>` with no instance goes to every worker, as before.
+- `preset_list` and `preset_get`: relayed to a worker that answers the instance verbs; an instance of mod-host is
+  answered `NO_PRESET_LIST` (-515) by the daemon.
+- The checks are held to the schema: `tests/preset_conformance.py` runs the daemon's check (`tests/preset-check`) over
+  the files of `tests/fixtures/presets`, every broken copy `tests/preset_format.py` refuses, and the factory presets of
+  omx-plugins (from `OMX_PLUGINS_DIR`, a checkout beside this one, or fetched; skipped with its reason when none can be
+  read). `tests/daemon_test.py` saves a preset, loads it back and reads the values, and refuses a file of a changed
+  plugin, an oversize file and a broken one with no worker asked, through `tests/fake-host`.
+
+The worker's side (writing and reading the file in omx-clap-host and its LV2 adapter, the clap.preset-load and
+clap.state calls, the version and fingerprint check, `PRESET_NOT_OFFERED`, `PRESET_NEEDS_STATE`, `LOAD_REFUSED`) is not
+in this tree: `tests/fake-host` stands in for it here.
