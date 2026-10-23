@@ -39,6 +39,8 @@ typedef struct jnode
 
 /* the whole text is one value, or NULL */
 jnode_t *jparse(const char *text);
+/* a value jparse gave and everything under it; NULL is nothing */
+void jfree(jnode_t *n);
 jnode_t *jget(const jnode_t *o, const char *key);
 const char *jstr(const jnode_t *o, const char *key);
 int jnum(const jnode_t *o, const char *key, double *out);

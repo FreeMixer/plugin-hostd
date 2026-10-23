@@ -284,6 +284,24 @@ jnode_t *jparse(const char *text)
     return *p == '\0' ? n : NULL;
 }
 
+void jfree(jnode_t *n)
+{
+    size_t k;
+
+    if (!n)
+        return;
+    for (k = 0; k < n->n; k++)
+    {
+        jfree(n->kid[k]);
+        if (n->key)
+            free(n->key[k]);
+    }
+    free(n->kid);
+    free(n->key);
+    free(n->str);
+    free(n);
+}
+
 jnode_t *jget(const jnode_t *o, const char *key)
 {
     size_t i;

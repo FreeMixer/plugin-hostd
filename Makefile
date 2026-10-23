@@ -56,7 +56,7 @@ INCS = -Iinclude $(PROTOCOL_CFLAGS)
 LDFLAGS += -Wl,--no-undefined
 
 # source and object files
-SRC = src/main.c src/conf.c src/proc.c src/supervisor.c src/verbs.c src/pins.c src/relay.c src/formats.c src/lv2.c
+SRC = src/main.c src/conf.c src/proc.c src/supervisor.c src/verbs.c src/pins.c src/relay.c src/formats.c src/lv2.c src/json.c src/presets.c
 OBJ = $(SRC:.c=.o)
 
 # default build
@@ -156,7 +156,7 @@ private-refs:
 
 # clean rule
 clean:
-	@rm -f src/*.o $(PROG) $(PROBE) tests/probe-child tests/lv2-probe-child tests/rt_interpose.so $(FAKE) $(PIN_TEST) $(RELAY_TEST) tests/relay-test-relay.o $(FORMAT_TEST) $(GESTURE_ALLOC_TEST) $(LV2_ALLOC_TEST) tests/lv2-alloc-lv2.o $(TRANSFORMS_TEST) $(GEN) tests/stress.clap tests/jack_levels tests/host_scenarios $(LV2_FIXTURE)
+	@rm -f src/*.o $(PROG) $(PROBE) tests/probe-child tests/lv2-probe-child tests/rt_interpose.so $(FAKE) $(PIN_TEST) $(RELAY_TEST) tests/relay-test-relay.o $(FORMAT_TEST) $(GESTURE_ALLOC_TEST) $(LV2_ALLOC_TEST) tests/lv2-alloc-lv2.o $(TRANSFORMS_TEST) $(GEN) tests/preset-check tests/stress.clap tests/jack_levels tests/host_scenarios $(LV2_FIXTURE)
 
 # the daemon against workers that are not plugin hosts at all (tests/fake-host speaks the same protocol and can be
 # made to die on cue): placement, forwarding, ledger, replay, attribution, the storm bound; no jack, no plugin
@@ -315,8 +315,12 @@ check-no-pins:
 
 # a workflow step the runner may be unable to run fails where it cannot run it (#107)
 # the org.openmixer.preset file (docs/presets.md) holds to protocol/preset.schema.json, and a broken one does not
-check-preset-schema:
+check-preset-schema: tests/preset-check
 	python3 tests/preset_format.py
+	PRESET_CHECK=tests/preset-check python3 tests/preset_conformance.py
+
+tests/preset-check: tests/preset_check.c src/presets.c src/presets.h src/json.c src/json.h include/plugin-hostd/protocol.h
+	$(CC) -Iinclude -Isrc $(CFLAGS) -Werror -o $@ tests/preset_check.c src/presets.c src/json.c
 
 check-ci-guards:
 	python3 tests/ci_guards.py
