@@ -11,6 +11,7 @@
  * (atom-in only). "stereo" is the stereo effect of the LV2 steps of tests/jack_e2e.py, which run it in mod-host: the
  * gain on two channels, ports 0 and 1 in, 2 and 3 out, 4 gain. */
 
+#include <limits.h>
 #include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -128,12 +129,16 @@ static void fault_once(void)
         setsid();
         if (pidfile)
         {
-            FILE *f = fopen(pidfile, "w");
+            char tmp[PATH_MAX];
+            FILE *f;
 
+            snprintf(tmp, sizeof(tmp), "%s.tmp%d", pidfile, (int)getpid());
+            f = fopen(tmp, "w");
             if (f)
             {
                 fprintf(f, "%d\n", (int)getpid());
                 fclose(f);
+                rename(tmp, pidfile);
             }
         }
         sleep(60);

@@ -36,6 +36,7 @@
  *   org.plugin-hostd.test.crash_on_add  aborts when it is created */
 
 #include <fcntl.h>
+#include <limits.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -322,12 +323,16 @@ static void fault_once(void)
             setsid();
             if (pidfile)
             {
-                FILE *f = fopen(pidfile, "w");
+                char tmp[PATH_MAX];
+                FILE *f;
 
+                snprintf(tmp, sizeof(tmp), "%s.tmp%d", pidfile, (int)getpid());
+                f = fopen(tmp, "w");
                 if (f)
                 {
                     fprintf(f, "%d\n", (int)getpid());
                     fclose(f);
+                    rename(tmp, pidfile);
                 }
             }
             sleep(60);
