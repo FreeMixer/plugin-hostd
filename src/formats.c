@@ -62,6 +62,18 @@ int clap_pin_collect(const char *uri, const char *search, char *root, size_t siz
     return SUCCESS;
 }
 
+int clap_binary(const char *uri, const char *search, char *path, size_t size)
+{
+    const char *file = uri + strlen(CLAP_PREFIX), *hash = strrchr(file, '#');
+    size_t len = hash ? (size_t)(hash - file) : strlen(file);
+
+    (void)search;
+    if (strncmp(uri, CLAP_PREFIX, strlen(CLAP_PREFIX)) || !len || file[0] != '/' || len >= size)
+        return -1;
+    snprintf(path, size, "%.*s", (int)len, file);
+    return 0;
+}
+
 /* The built-in rows, in the order of PHD_FORMATS. */
 static const format_t g_builtin[] = {
     {
@@ -74,6 +86,7 @@ static const format_t g_builtin[] = {
         .world_env = "LV2_PATH",
         .narrow_world = lv2_narrow_world,
         .pin_collect = lv2_pin_collect,
+        .binary = lv2_binary,
         .route = lv2_route,
         .layout_check = 0,
         .pinned_own_only = 1,
@@ -87,6 +100,7 @@ static const format_t g_builtin[] = {
         .fallback = 0,
         .worker = clap_worker,
         .pin_collect = clap_pin_collect,
+        .binary = clap_binary,
         .layout_check = 1,
         .pinned_own_only = 0,
         .native_instance_verbs = 1,
@@ -108,6 +122,7 @@ static const format_t g_builtin[] = {
         .world_env = "LV2_PATH",
         .narrow_world = lv2_narrow_world,
         .pin_collect = lv2_pin_collect,
+        .binary = lv2_binary,
         .layout_check = 0,
         .pinned_own_only = 1,
         .native_instance_verbs = 1,
