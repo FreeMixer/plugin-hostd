@@ -269,8 +269,10 @@ jobs:
           set -euo pipefail
           mkdir -p /tmp/clean-root/smoke
           cp -r tests /tmp/clean-root/smoke/tests
+          # the scan an add runs reads the format tables and the recorded field dumps beside the tests
+          cp -r data /tmp/clean-root/smoke/data
           # the tests read the declared protocol from the installed package's JSON
-          chroot /tmp/clean-root env PLUGIN_HOSTD=/usr/bin/plugin-hostd FAKE_HOST=/smoke/tests/fake-host \
+          chroot /tmp/clean-root env PLUGIN_HOSTD=/usr/bin/plugin-hostd PROBE=/usr/bin/plugin-hostd-probe FAKE_HOST=/smoke/tests/fake-host \
             PLUGIN_HOSTD_PROTOCOL=/usr/share/plugin-hostd/protocol.json python3 /smoke/tests/daemon_test.py
 
       # the installed fake worker prints its layout and serves the daemon, as plugin-qualify drives it
@@ -279,7 +281,7 @@ jobs:
           set -euo pipefail
           chroot /tmp/clean-root /usr/libexec/plugin-hostd/tests/fake-host -L | tee layout.txt
           test -s layout.txt
-          chroot /tmp/clean-root env PLUGIN_HOSTD=/usr/bin/plugin-hostd FAKE_HOST=/usr/libexec/plugin-hostd/tests/fake-host \
+          chroot /tmp/clean-root env PLUGIN_HOSTD=/usr/bin/plugin-hostd PROBE=/usr/bin/plugin-hostd-probe FAKE_HOST=/usr/libexec/plugin-hostd/tests/fake-host \
             PLUGIN_HOSTD_PROTOCOL=/usr/share/plugin-hostd/protocol.json python3 /smoke/tests/daemon_test.py
 
       - uses: actions/upload-artifact@v4
@@ -333,6 +335,7 @@ jobs:
           make tests/fake-host
           mkdir -p smoke
           cp -r tests smoke/tests
+          cp -r data smoke/data
 
       - uses: actions/upload-artifact@v4
         with:
@@ -404,7 +407,7 @@ jobs:
           set -euo pipefail
           # an artifact does not keep the executable bit
           chmod +x smoke/tests/fake-host
-          PLUGIN_HOSTD=/usr/bin/plugin-hostd FAKE_HOST=$PWD/smoke/tests/fake-host \
+          PLUGIN_HOSTD=/usr/bin/plugin-hostd PROBE=/usr/bin/plugin-hostd-probe FAKE_HOST=$PWD/smoke/tests/fake-host \
             PLUGIN_HOSTD_PROTOCOL=/usr/share/plugin-hostd/protocol.json python3 smoke/tests/daemon_test.py
 
   # docs/own-host.md, command by command, as a reader would type it: a clean Debian with nothing but what the page
