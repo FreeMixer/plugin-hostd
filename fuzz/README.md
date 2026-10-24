@@ -39,8 +39,9 @@ What each harness proves, beyond no sanitizer report:
 - **reply / shape**: every line the relay writes of its own is an event as written or the end of a gesture still held,
   once each.
 
-The harnesses found three things that are fixed with them: `worker_list`, `supervisor_reset` and `quit` took words
-their grammar does not, and the end of a held gesture longer than 1024 bytes went out cut short.
+The harnesses found what is fixed with them: `worker_list`, `supervisor_reset` and `quit` took words their grammar
+does not, a tab at the end of a command was not trimmed as a space is, and the end of a held gesture longer than 1024
+bytes went out cut short.
 
 The seed corpus
 ---------------
