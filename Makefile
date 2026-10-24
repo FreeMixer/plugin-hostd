@@ -158,9 +158,75 @@ private-refs:
 	tools/private-refs-check.sh
 	tools/private-refs-check.sh --self-test
 
+# libFuzzer harnesses (fuzz/README.md): the command parser and dispatcher, src/verbs.c with the mod-host side replaced by
+# a recorder, and the reply stream, src/relay.c with its sockets answered by the harness; clang with libFuzzer,
+# AddressSanitizer and UndefinedBehaviorSanitizer, into build/fuzz/. Nothing of the ordinary build is touched.
+#   make fuzz                  build every harness
+#   make fuzz-run FUZZ_TIME=60 fuzz each one from its seed corpus; red on any crash
+#   make fuzz-sabotage         each mutant of fuzz/mutants/ must make its harness abort on a seed, in its own property
+#   make fuzz-coverage         the coverage witness: llvm-cov over the corpus, held to fuzz/coverage-floor.txt
+#   make fuzz-corpus           write fuzz/corpus/ again from the declared protocol and the README examples
+FUZZ_CC        ?= clang
+FUZZ_TIME      ?= 60
+FUZZ_BUILD     := build/fuzz
+FUZZ_HARNESSES := command reply
+FUZZ_SAN       := -fsanitize=address,undefined -fno-sanitize-recover=all
+FUZZ_CFLAGS    := -O1 -g -std=c11 -D_GNU_SOURCE -Wall -Wextra -Werror -fno-omit-frame-pointer
+FUZZ_INCS      := -Iinclude -Isrc -Ifuzz $(PROTOCOL_CFLAGS)
+# what each harness is built from beside its own file: the command harness links the parser and the recorder, the
+# reply harness includes src/relay.c itself
+FUZZ_SRC_command := src/verbs.c fuzz/recorder.c
+FUZZ_SRC_reply   :=
+FUZZ_DEPS        := fuzz/fuzz.h fuzz/syntax.h fuzz/recorder.h src/relay.c src/verbs.h include/plugin-hostd/protocol.h
+
+$(FUZZ_BUILD)/fuzz_%: fuzz/fuzz_%.c $(FUZZ_DEPS) $(FUZZ_SRC_command)
+	@mkdir -p $(dir $@)
+	$(FUZZ_CC) $(FUZZ_CFLAGS) $(FUZZ_SAN) -fsanitize=fuzzer $(FUZZ_INCS) $< $(FUZZ_SRC_$*) -pthread -o $@
+
+fuzz: $(FUZZ_HARNESSES:%=$(FUZZ_BUILD)/fuzz_%)
+
+fuzz-run: fuzz
+	FUZZ_BUILD=$(FUZZ_BUILD) FUZZ_TIME=$(FUZZ_TIME) fuzz/run.sh $(FUZZ_HARNESSES)
+
+fuzz-sabotage:
+	FUZZ_BUILD=$(FUZZ_BUILD) MAKE="$(MAKE)" fuzz/sabotage.sh
+
+# the coverage witness: the same harnesses without sanitizers, instrumented for llvm-cov, each run once over its seed
+# corpus (-runs=0 executes the corpus and nothing else); the llvm-cov and llvm-profdata of FUZZ_CC's own LLVM
+FUZZ_COV_BUILD := $(FUZZ_BUILD)/cov
+FUZZ_COV_FLAGS := -O0 -g -std=c11 -D_GNU_SOURCE -fprofile-instr-generate -fcoverage-mapping
+LLVM_COV       ?= llvm-cov
+LLVM_PROFDATA  ?= llvm-profdata
+
+$(FUZZ_COV_BUILD)/fuzz_%: fuzz/fuzz_%.c $(FUZZ_DEPS) $(FUZZ_SRC_command)
+	@mkdir -p $(dir $@)
+	$(FUZZ_CC) $(FUZZ_COV_FLAGS) -fsanitize=fuzzer $(FUZZ_INCS) $< $(FUZZ_SRC_$*) -pthread -o $@
+
+fuzz-coverage: $(FUZZ_HARNESSES:%=$(FUZZ_COV_BUILD)/fuzz_%)
+	@set -e; for h in $(FUZZ_HARNESSES); do \
+	  rm -f $(FUZZ_COV_BUILD)/$$h.profraw; \
+	  LLVM_PROFILE_FILE=$(FUZZ_COV_BUILD)/$$h.profraw $(FUZZ_COV_BUILD)/fuzz_$$h -runs=0 fuzz/corpus/$$h/ \
+	      >$(FUZZ_COV_BUILD)/$$h.log 2>&1 || \
+	    { cat $(FUZZ_COV_BUILD)/$$h.log; echo "fuzz-coverage: fuzz_$$h failed on its own corpus"; exit 1; }; \
+	  $(LLVM_PROFDATA) merge -sparse $(FUZZ_COV_BUILD)/$$h.profraw -o $(FUZZ_COV_BUILD)/$$h.profdata; \
+	done
+	@LLVM_COV=$(LLVM_COV) fuzz/coverage.sh $(FUZZ_COV_BUILD) $(FUZZ_HARNESSES)
+
+# the seed corpus is written from protocol/plugin-hostd.json, protocol/mod-host.json and the send lines of README.md and
+# docs/own-host.md, never from a network, and committed; fuzz-corpus-check fails when it is not what they give
+fuzz-corpus:
+	python3 fuzz/gen_corpus.py fuzz/corpus
+
+fuzz-corpus-check:
+	@set -e; tmp=$$(mktemp -d); trap 'rm -rf $$tmp' EXIT; \
+	python3 fuzz/gen_corpus.py $$tmp; diff -r $$tmp fuzz/corpus; echo "the seed corpus is current"
+
+.PHONY: fuzz fuzz-run fuzz-sabotage fuzz-coverage fuzz-corpus fuzz-corpus-check
+
 # clean rule
 clean:
 	@rm -f src/*.o $(PROG) $(PROBE) tests/probe-child tests/lv2-probe-child tests/rt_interpose.so $(FAKE) $(PIN_TEST) $(RELAY_TEST) tests/relay-test-relay.o $(FORMAT_TEST) $(GESTURE_ALLOC_TEST) $(LV2_ALLOC_TEST) tests/lv2-alloc-lv2.o $(TRANSFORMS_TEST) $(GEN) tests/stress.clap tests/jack_levels tests/host_scenarios $(LV2_FIXTURE)
+	@rm -rf build
 
 # the daemon against workers that are not plugin hosts at all (tests/fake-host speaks the same protocol and can be
 # made to die on cue): placement, forwarding, ledger, replay, attribution, the storm bound; no jack, no plugin
