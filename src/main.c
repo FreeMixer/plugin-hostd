@@ -28,6 +28,7 @@
 #include <socket.h>
 
 #include "conf.h"
+#include "descriptors.h"
 #include "pins.h"
 #include "relay.h"
 #include "supervisor.h"
@@ -46,6 +47,7 @@ static conf_t g_conf;
 static void idle_cb(void)
 {
     sup_tick();
+    descriptors_tick();
     if (g_quitting)
     {
         running = 0;
@@ -138,6 +140,9 @@ int main(int argc, char **argv)
 
     if (conf_check(&g_conf) != 0)
         return EXIT_FAILURE;
+    /* the directories of what an add gathers are made, or the daemon does not start: never a silent fallback */
+    if (descriptors_init(&g_conf) != 0)
+        return EXIT_FAILURE;
     if (g_conf.require_pins && pins_init(g_conf.pin_store, g_conf.pin_file, g_conf.pins_dir) != 0)
         return EXIT_FAILURE;
 
@@ -168,6 +173,7 @@ int main(int argc, char **argv)
     }
 
     socket_finish();
+    descriptors_finish();
     sup_finish();
     relay_finish();
     return 0;

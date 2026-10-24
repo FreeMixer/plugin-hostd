@@ -1104,6 +1104,11 @@ void sup_init(const conf_t *conf)
     }
 }
 
+const char *sup_root(void)
+{
+    return g_root;
+}
+
 void sup_finish(void)
 {
     int n;

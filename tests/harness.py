@@ -83,6 +83,11 @@ class Daemon:
             "lv2_worker": "mod-host",
             # no package's pins: the system's pins_dir is not the test's
             "pins_dir": "",
+            # what an add gathers goes to the test's own directories, never the user's state; no scanner runs unless
+            # a test names one
+            "descriptor_dir": os.path.join(self.tmp, "descriptors"),
+            "qualification_dir": os.path.join(self.tmp, "qualification"),
+            "probe": os.path.join(self.tmp, "no-probe"),
         }
         settings.update(conf or {})
         self.conf = os.path.join(self.tmp, "plugin-hostd.conf")
