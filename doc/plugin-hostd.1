@@ -74,6 +74,16 @@ one
 .RI \(dq key " value" \(dq
 per line: mod_host, clap_host, lv2_worker, lv2_path, state_root, pin_mode, pin_store, pin_file, pins_dir, descriptor_dir, qualification_dir, probe, ready_timeout_ms, rpc_timeout_ms, backoff_base_ms, backoff_max_ms, storm_deaths, storm_window_ms, suspect_window_ms, checkpoint_ms, idle_ms, pool_max, require_pins.
 .\" END GENERATED protocol:man-keys
+.PP
+The development package installs the schemas of the documents the daemon and its probe write or read, beside
+.IR protocol.json ,
+in
+.IR /usr/share/plugin\-hostd :
+.IR protocol.schema.json ,
+.IR probe\-output.schema.json
+and
+.IR preset.schema.json
+(the org.openmixer.preset file).
 .SH DIRECTORIES
 What the scan of an
 .B add

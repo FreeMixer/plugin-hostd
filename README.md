@@ -79,6 +79,9 @@ header (`pkg-config --cflags plugin-hostd`, package `plugin-hostd-devel` or `plu
 else reads `/usr/share/plugin-hostd/protocol.json`. mod-host's own protocol, which the LV2 workers speak
 (its command and feedback templates, its parse refusals and its reply codes), is installed beside it as
 `/usr/share/plugin-hostd/mod-host.json`, written from the mod-host headers the daemon is built against.
+The development package installs the schemas beside them: `protocol.schema.json` for the protocol JSON,
+`probe-output.schema.json` for the probe's document and `preset.schema.json` for the org.openmixer.preset file
+(`protocoldir` in the pkg-config file is that directory).
 
 Running
 -------
