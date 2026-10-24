@@ -960,10 +960,9 @@ static inline int phd_is_note_verb(const char *verb)
 #define PHD_DEFAULT_PINS_DIR          "/usr/share/plugin-hostd/pins.d"
 #define PHD_DEFAULT_PROBE             "plugin-hostd-probe"
 
-/* The directories of what the scan of an add gathers (openmixer spec 2026-10-17-contract-definitions-installed-by-owners,
- * 6.9): state, kept across a reboot. An empty setting is the default: <state home>/<subdir>, where the state home is
- * $XDG_STATE_HOME, else /var/lib for a daemon run as root (a system service), else $HOME/.local/state. A missing
- * directory is made, mode 0700; one that cannot be written stops the daemon with PHD_ERR_DIR_NOT_WRITABLE. */
+/* The directories of what the scan of an add gathers: state, kept across a reboot. An empty setting is the default:
+ * <state home>/<subdir>, where the state home is $XDG_STATE_HOME, else /var/lib for a daemon run as root (a system
+ * service), else $HOME/.local/state. A missing directory is made, mode 0700; one that cannot be written stops the daemon with PHD_ERR_DIR_NOT_WRITABLE. */
 #define PHD_DIR_DESCRIPTORS_SUBDIR    "omx/descriptors"
 #define PHD_DIR_QUALIFICATION_SUBDIR  "omx/qualification"
 #define PHD_DIR_SYSTEM_STATE_HOME     "/var/lib"

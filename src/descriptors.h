@@ -6,8 +6,7 @@
  */
 
 /* The scanned descriptors of the plugins a controller adds: descriptor_dir and qualification_dir, the scan an add runs
- * in a child of its own, and descriptor_get (openmixer spec 2026-10-17-contract-definitions-installed-by-owners 6.6,
- * 6.9). A descriptor describes a plugin; it gates no load, so no add waits for its scan or is refused by it. */
+ * in a child of its own, and descriptor_get. A descriptor describes a plugin; it gates no load, so no add waits for its scan or is refused by it. */
 
 #ifndef PLUGIN_HOSTD_DESCRIPTORS_H
 #define PLUGIN_HOSTD_DESCRIPTORS_H
