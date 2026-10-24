@@ -4,10 +4,12 @@
 #
 # make fuzz-sabotage: A PROPERTY NO MUTANT CAN BREAK CHECKS NOTHING. fuzz/mutants/<harness>-<property>.patch is a
 # one-line bug in the code the harness drives, one for each property the harness checks. This applies each, rebuilds
-# the harness, and runs it over its seed corpus one seed at a time; the mutant is found when a seed makes the harness
-# abort in check_<property> (or a check_<property>_<part>), the function that holds that property's checks. A crash anywhere else does not count. The
-# source is restored with `git checkout --` on every exit path, and the sanitizer build is rebuilt as the tree is at
-# the end.
+# the harness, and runs it over every seed of its corpus, one at a time. The mutant is found when at least one seed
+# makes the harness abort and every seed that does aborts in check_<property> (or a check_<property>_<part>), the
+# function that holds that property's checks: the innermost check_ function of the stack is that one, and the crash
+# is an abort(), not a sanitizer report. A seed that crashes anywhere else makes the mutant red, since the mutant then
+# breaks a property it does not name. The source is restored with `git checkout --` on every exit path, and the
+# sanitizer build is rebuilt as the tree is at the end.
 #
 # Usage: FUZZ_BUILD=build/fuzz MAKE=make sabotage.sh
 set -u
@@ -54,21 +56,29 @@ for p in fuzz/mutants/*.patch; do
         restore
         continue
     fi
-    found=
+    found=0
+    first=
     other=
     for seed in fuzz/corpus/$h/*; do
-        "$B/fuzz_$h" -runs=1 -artifact_prefix="$OUT/$m-" "$seed" >"$OUT/$m.log" 2>&1 && continue
-        if grep -qE "in $fn(_[a-z]+)*[ (]" "$OUT/$m.log"; then
-            found=$seed
-            break
+        log=$OUT/$m.$(basename "$seed").log
+        "$B/fuzz_$h" -runs=1 -artifact_prefix="$OUT/$m-" "$seed" >"$log" 2>&1 && { rm -f "$log"; continue; }
+        # the innermost check_ function of the stack, and whether the harness aborted
+        where=$(grep -m1 -oE ' in check_[a-z_]+' "$log" | sed 's/^ in //')
+        if grep -q 'ERROR: libFuzzer: deadly signal' "$log" && echo "$where" | grep -qE "^$fn(_[a-z]+)*\$"; then
+            found=$((found + 1))
+            [ -n "$first" ] || first=$(basename "$seed")
+        else
+            other="$other $(basename "$seed")(${where:-$(grep -m1 -E '^SUMMARY: ' "$log")})"
         fi
-        other="$other $(basename "$seed")"
     done
     restore
-    if [ -n "$found" ]; then
-        echo "$m: found by $found, in $fn: $(grep -m1 -E '^SUMMARY: ' "$OUT/$m.log")"
+    if [ "$found" -gt 0 ] && [ -z "$other" ]; then
+        echo "$m: found by $found seeds, first $first, every one in $fn"
+    elif [ -n "$other" ]; then
+        echo "$m: seeds that crashed outside $fn:$other"
+        echo "$m: RED -- the mutant breaks a property it does not name (logs in $OUT/)"
+        missed="$missed $m"
     else
-        [ -n "$other" ] && echo "$m: seeds that crashed elsewhere:$other"
         echo "$m: MUTANT NOT FOUND -- no seed breaks $fn"
         missed="$missed $m"
     fi
@@ -85,4 +95,4 @@ if [ -n "$missed" ]; then
     echo "make fuzz-sabotage: RED --$missed"
     exit 1
 fi
-echo "make fuzz-sabotage: all $n mutants found, each by its own property"
+echo "make fuzz-sabotage: all $n mutants found, each only by its own property"

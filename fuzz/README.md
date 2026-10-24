@@ -69,8 +69,9 @@ The mutants
 -----------
 
 `fuzz/mutants/<harness>-<property>.patch` is a one-line bug for each property. `make fuzz-sabotage` applies each,
-rebuilds the harness, runs it over its seeds one at a time, restores the source with `git checkout --`, and is red
-unless a seed made the harness abort in `check_<property>`.
+rebuilds the harness, runs it over every seed one at a time, restores the source with `git checkout --`, and is red
+unless at least one seed makes the harness abort and every seed that does aborts in `check_<property>`: a mutant that
+also breaks another property does not pass.
 
 | Mutant | The bug | Found by |
 | --- | --- | --- |
