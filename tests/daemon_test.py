@@ -2795,7 +2795,7 @@ def a_worker_that_runs_no_chain_refuses_the_line_and_the_members_still_share_it(
 
 
 
-# ---------------------------------------------------------------- descriptors (openmixer spec 2026-10-17 6.6, 6.9)
+# ---------------------------------------------------------------- descriptors
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PROBE = os.path.abspath(os.environ.get("PROBE", os.path.join(ROOT, "plugin-hostd-probe")))
@@ -3043,6 +3043,11 @@ def a_missing_key_falls_to_the_documented_default_and_the_key_holds_over_the_var
             ({"XDG_STATE_HOME": "", "HOME": os.path.join(s.dir, "home")}, 1),
         ]
         for env, which in cases:
+            if which == 1 and os.geteuid() == 0:
+                # a root daemon without $XDG_STATE_HOME keeps its state in /var/lib, which a test must not write;
+                # the $HOME branch is exercised by the non-root runs
+                print("skip: the $HOME default, the euid is 0 and the daemon then picks /var/lib")
+                continue
             env = dict(env, OMX_DESCRIPTOR_DIR="", OMX_QUALIFICATION_DIR="")
             base = env["XDG_STATE_HOME"] or env["HOME"]
             d = s.daemon(conf={"descriptor_dir": None, "qualification_dir": None}, env=env)
