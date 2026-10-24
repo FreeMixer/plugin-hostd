@@ -13,7 +13,9 @@ BuildRequires: gcc
 BuildRequires: make
 BuildRequires: diffutils
 BuildRequires: python3
-BuildRequires: pkgconfig(mod-host-protocol)
+# mod-host's protocol headers: param_info, remote_pages and track_info (mod-audio/mod-host#109) are in them from
+# release 11 on, and protocol/mod-host.json is generated from them; a floor only
+BuildRequires: mod-host-protocol-devel >= 0.10.6.f14a230-11
 # the probe runner's default rates, the protocol's parameter scales and the probe output's shared words are read from
 # omx-contract's C headers, and the format tables are items of its schema 3 (3.0.0 is the first with the formatMap
 # kind, the extension bag and plugin.doc); a floor only

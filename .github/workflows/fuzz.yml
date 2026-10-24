@@ -29,11 +29,15 @@ jobs:
 
       - uses: actions/checkout@v4
 
-      # the harnesses read mod-host's protocol headers: the FreeMixer channel's mod-host-protocol-devel
+      # the harnesses read mod-host's protocol headers: the FreeMixer channel's mod-host-protocol-devel, at or above the
+      # floor the spec declares for the build
       - name: Install the mod-host protocol headers from the FreeMixer channel
         run: |
+          set -euo pipefail
           dnf config-manager addrepo --setopt=retries=10 --from-repofile=https://freemixer.github.io/rpm/freemixer.repo
-          dnf install -y --setopt=retries=10 mod-host-protocol-devel
+          floor=$(sed -n 's/^BuildRequires:[[:space:]]*mod-host-protocol-devel[[:space:]]*>=[[:space:]]*\([^[:space:]]*\).*/\1/p' packaging/plugin-hostd.spec | head -n 1)
+          test -n "$floor"
+          dnf install -y --setopt=retries=10 "mod-host-protocol-devel >= $floor"
 
       # fuzz-sabotage applies each mutant with git and restores it with git checkout
       - name: Let git work in the checkout
