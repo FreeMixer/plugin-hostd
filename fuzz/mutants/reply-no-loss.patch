@@ -1,0 +1,11 @@
+diff --git a/src/relay.c b/src/relay.c
+index ff852de..3bde252 100644
+--- a/src/relay.c
++++ b/src/relay.c
+@@ -205,5 +205,5 @@ static void drain(source_t *s)
+         {
+             /* a line too long to relay is dropped whole: its end after a dropped start, or all of it at once */
+-            if (s->skip || (size_t)(nul - start) > LINE_LIMIT)
++            if (s->skip || (size_t)(nul - start) >= LINE_LIMIT)
+                 s->skip = 0;
+             else

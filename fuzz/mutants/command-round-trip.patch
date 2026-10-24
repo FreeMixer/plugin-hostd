@@ -1,0 +1,11 @@
+diff --git a/src/verbs.c b/src/verbs.c
+index 78daab7..bf45b47 100644
+--- a/src/verbs.c
++++ b/src/verbs.c
+@@ -222,5 +222,5 @@ void verbs_receive(msg_t *msg)
+         *--end = '\0';
+     copy = strdup(line);
+-    for (t = strtok_r(copy, " \t", &save); t && ntok < MAX_TOKENS; t = strtok_r(NULL, " \t", &save))
++    for (t = strtok_r(copy, " ", &save); t && ntok < MAX_TOKENS; t = strtok_r(NULL, " \t", &save))
+         tok[ntok++] = t;
+     if (ntok == 0)
