@@ -111,6 +111,7 @@ install_protocol:
 	install -m 644 protocol/mod-host.json $(DESTDIR)$(DATADIR)/plugin-hostd/mod-host.json
 	install -m 644 protocol/plugin-hostd.schema.json $(DESTDIR)$(DATADIR)/plugin-hostd/protocol.schema.json
 	install -m 644 protocol/probe-output.schema.json $(DESTDIR)$(DATADIR)/plugin-hostd/probe-output.schema.json
+	install -m 644 protocol/preset.schema.json $(DESTDIR)$(DATADIR)/plugin-hostd/preset.schema.json
 	install -d $(DESTDIR)$(DATADIR)/plugin-hostd/pins.d
 	install -d $(DESTDIR)$(INCLUDEDIR)/plugin-hostd
 	install -m 644 include/plugin-hostd/protocol.h $(DESTDIR)$(INCLUDEDIR)/plugin-hostd/protocol.h
@@ -163,7 +164,7 @@ clean:
 
 # the daemon against workers that are not plugin hosts at all (tests/fake-host speaks the same protocol and can be
 # made to die on cue): placement, forwarding, ledger, replay, attribution, the storm bound; no jack, no plugin
-test: test-pin test-transforms test-format-coverage test-describe test-relay test-alloc test-format test-daemon check-generated check-schema test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-mod-host-json test-socket check-verb-table check-preset-schema
+test: test-pin test-transforms test-format-coverage test-describe test-relay test-alloc test-format test-daemon check-generated check-schema test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-mod-host-json test-socket check-verb-table check-preset-schema test-install-schemas
 	MOD_HOST_DIR=$(MOD_HOST_DIR) python3 tests/verbs_contract.py
 
 # the same without the verb table, which is read from a mod-host checkout's README
@@ -320,6 +321,15 @@ check-no-pins:
 # the org.openmixer.preset file (docs/presets.md) holds to protocol/preset.schema.json, and a broken one does not
 check-preset-schema:
 	python3 tests/preset_format.py
+
+# make install into a scratch DESTDIR carries all three schemas the development package ships (#145)
+test-install-schemas: all
+	@set -e; tmp=$$(mktemp -d); trap 'rm -rf $$tmp' EXIT; \
+	$(MAKE) --no-print-directory install DESTDIR=$$tmp PREFIX=/usr >/dev/null; \
+	for f in protocol.schema.json probe-output.schema.json preset.schema.json; do \
+	  test -s $$tmp/usr/share/plugin-hostd/$$f || { echo "not installed: usr/share/plugin-hostd/$$f"; exit 1; }; \
+	done; \
+	echo "install carries the three schemas"
 
 check-ci-guards:
 	python3 tests/ci_guards.py
