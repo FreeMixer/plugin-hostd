@@ -3,7 +3,7 @@ Section: sound
 Priority: optional
 Maintainer: Pau Aliagas <linuxnow@gmail.com>
 Build-Depends: debhelper-compat (= 13),
-               libmod-host-protocol-dev,
+               libmod-host-protocol-dev (>= 0.1.0-5),
                libomx-contract-dev (>= 3.0.0~),
                omx-clap-host-tests (>= 0.9.0~) <!nocheck>,
                pkgconf,

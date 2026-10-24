@@ -1,0 +1,11 @@
+diff --git a/src/verbs.c b/src/verbs.c
+index 78daab7..066bcf8 100644
+--- a/src/verbs.c
++++ b/src/verbs.c
+@@ -142,5 +142,5 @@ static char *handle(char *line, char **tok, int ntok)
+         reply_text = sup_add(tok[1], atoi(tok[2]), placement, client);
+         /* the plugin is running: its files are scanned after the reply, never before it */
+-        if (reply_text && sup_reply_code(reply_text) >= 0)
++        if (reply_text)
+             descriptors_add(tok[1]);
+         return reply_text;

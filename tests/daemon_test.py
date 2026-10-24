@@ -33,6 +33,36 @@ def ready_line_and_empty_table():
 
 
 @test
+def a_word_past_the_grammar_of_a_daemon_verb_is_refused():
+    d = daemon()
+    try:
+        # worker_list takes no word, supervisor_reset at most one and quit none, as protocol.h declares them
+        d.expect("worker_list w1", "resp -902")
+        d.expect("supervisor_reset all w1", "resp -902")
+        d.expect("quit now", "resp -902")
+        d.expect("worker_list", "resp 0")
+        d.expect("supervisor_reset all", "resp 0")
+    finally:
+        d.close()
+
+
+@test
+def the_whitespace_that_ends_a_command_is_not_part_of_its_last_word():
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(env={"FAKE_LOG": log})
+    try:
+        d.expect("add fake:a 0", "resp 0")
+        # a tab separates words as a space does, so a tab at the end, after a carriage return, is trimmed like one
+        d.expect("param_set 0 gain 0.5000\r\t", "resp 0")
+        # read as bytes: a carriage return the worker was sent must not be taken for the end of a line of the log
+        with open(log, "rb") as f:
+            got = [l.split(b" ", 1)[1] for l in f.read().split(b"\n") if b" param_set " in l]
+        check(got == [b"param_set 0 gain 0.5000"], "the worker gets the command without its trailing whitespace: %r" % got)
+    finally:
+        d.close()
+
+
+@test
 def placement_own_default_and_pool():
     d = daemon()
     try:

@@ -154,11 +154,15 @@ static char *handle(char *line, char **tok, int ntok)
         return atoi(tok[1]) == -1 ? sup_remove_all() : sup_remove(atoi(tok[1]));
     }
     if (!strcmp(verb, PHD_VERB_WORKER_LIST))
-        return sup_worker_list();
+        return ntok == 1 ? sup_worker_list() : sup_resp(ERR_INVALID_OPERATION);
     if (!strcmp(verb, PHD_VERB_INSTANCE_INFO))
         return ntok == 2 ? sup_instance_info(atoi(tok[1])) : sup_resp(ERR_INVALID_OPERATION);
     if (!strcmp(verb, PHD_VERB_SUPERVISOR_RESET))
+    {
+        if (ntok > 2)
+            return sup_resp(ERR_INVALID_OPERATION);
         return sup_reset(ntok > 1 ? tok[1] : PHD_WORD_ALL);
+    }
     if (!strcmp(verb, PHD_VERB_QUARANTINE_CLEAR))
         return ntok == 2 ? sup_quarantine_clear(tok[1]) : sup_resp(ERR_INVALID_OPERATION);
     if (!strcmp(verb, PHD_VERB_POLICY_SET))
@@ -191,6 +195,8 @@ static char *handle(char *line, char **tok, int ntok)
     }
     if (verb_is(verb, QUIT))
     {
+        if (ntok != 1)
+            return sup_resp(ERR_INVALID_OPERATION);
         g_quitting = 1;
         return sup_resp(SUCCESS);
     }
@@ -212,7 +218,7 @@ void verbs_receive(msg_t *msg)
     int ntok = 0;
 
     end = line + strlen(line);
-    while (end > line && (end[-1] == '\n' || end[-1] == '\r' || end[-1] == ' '))
+    while (end > line && (end[-1] == '\n' || end[-1] == '\r' || end[-1] == ' ' || end[-1] == '\t'))
         *--end = '\0';
     copy = strdup(line);
     for (t = strtok_r(copy, " \t", &save); t && ntok < MAX_TOKENS; t = strtok_r(NULL, " \t", &save))

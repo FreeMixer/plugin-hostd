@@ -34,8 +34,11 @@
 
 #include "relay.h"
 
-/* a worker line longer than this, with no NUL in it, is not a line of the protocol: it is dropped */
+/* a worker line longer than this, with no NUL in it, is not a line of the protocol: it is dropped; the fuzz harness
+ * (fuzz/fuzz_reply.c) builds the relay with a smaller one, so its inputs reach the drop */
+#ifndef LINE_LIMIT
 #define LINE_LIMIT (1024 * 1024)
+#endif
 
 typedef struct SOURCE_T {
     int fd;
@@ -117,6 +120,14 @@ static void gesture_seen(source_t *s, const char *line)
     }
 }
 
+/* the end of a held gesture, its line up to the last word and the word end, as one line of whatever length; g_lock is
+ * held, so nothing is written between the two parts */
+static void gesture_end(const char *held)
+{
+    send_line(held, strlen(held));
+    send_line(" " PHD_GESTURE_END, sizeof(" " PHD_GESTURE_END));
+}
+
 /* a worker that is gone ends every gesture it held, so no control stays held at the controller; g_lock is held */
 static void gestures_end(source_t *s)
 {
@@ -124,10 +135,7 @@ static void gestures_end(source_t *s)
 
     for (n = 0; n < s->nheld; n++)
     {
-        char line[1024];
-
-        snprintf(line, sizeof(line), "%s " PHD_GESTURE_END, s->held[n]);
-        send_line(line, strlen(line) + 1);
+        gesture_end(s->held[n]);
         free(s->held[n]);
     }
     free(s->held);
@@ -148,15 +156,12 @@ static void gestures_end_instance(source_t *s, int id)
     plen = strlen(prefix);
     while (n < s->nheld)
     {
-        char line[1024];
-
         if (strncmp(s->held[n], prefix, plen))
         {
             n++;
             continue;
         }
-        snprintf(line, sizeof(line), "%s " PHD_GESTURE_END, s->held[n]);
-        send_line(line, strlen(line) + 1);
+        gesture_end(s->held[n]);
         free(s->held[n]);
         s->held[n] = s->held[--s->nheld];
     }

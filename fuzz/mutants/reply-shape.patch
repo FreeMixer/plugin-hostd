@@ -1,0 +1,11 @@
+diff --git a/src/relay.c b/src/relay.c
+index ff852de..1b4a79e 100644
+--- a/src/relay.c
++++ b/src/relay.c
+@@ -126,5 +126,5 @@ static void gesture_end(const char *held)
+ {
+     send_line(held, strlen(held));
+-    send_line(" " PHD_GESTURE_END, sizeof(" " PHD_GESTURE_END));
++    send_line(" " PHD_GESTURE_BEGIN, sizeof(" " PHD_GESTURE_BEGIN));
+ }
+ 

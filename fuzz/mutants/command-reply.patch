@@ -1,0 +1,11 @@
+diff --git a/src/verbs.c b/src/verbs.c
+index 78daab7..6b8af56 100644
+--- a/src/verbs.c
++++ b/src/verbs.c
+@@ -118,5 +118,5 @@ static char *chain_words(char **tok, int ntok)
+ static void reply(int fd, char *text)
+ {
+-    socket_send(fd, text, strlen(text) + 1);
++    socket_send(fd, text, strlen(text));
+     free(text);
+ }

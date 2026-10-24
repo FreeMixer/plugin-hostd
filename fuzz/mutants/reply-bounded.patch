@@ -1,0 +1,11 @@
+diff --git a/src/relay.c b/src/relay.c
+index ff852de..a6be5b0 100644
+--- a/src/relay.c
++++ b/src/relay.c
+@@ -216,5 +216,5 @@ static void drain(source_t *s)
+         s->used -= start - s->buf;
+         memmove(s->buf, start, s->used);
+-        if (s->used > LINE_LIMIT)
++        if (s->used > s->cap)
+         {
+             s->used = 0;

@@ -26,6 +26,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
 #include "../src/relay.c"
 
@@ -84,6 +86,33 @@ int main(void)
     check(s.nheld == 0, "the end of a gesture never held is none");
 
     gestures_end(&s);
+
+    /* a held gesture longer than any fixed buffer is ended whole: its line up to the last word, then " end" */
+    {
+        char line[3000], want[3000], got[4096];
+        int sv[2];
+        ssize_t n;
+
+        memset(&s, 0, sizeof(s));
+        snprintf(line, sizeof(line), "param_gesture 1 %02000d begin", 0);
+        gesture_seen(&s, line);
+        check(s.nheld == 1, "positive control: a long begin is held");
+        snprintf(want, sizeof(want), "param_gesture 1 %02000d end", 0);
+        if (socketpair(AF_UNIX, SOCK_STREAM, 0, sv) != 0)
+        {
+            perror("socketpair");
+            return 1;
+        }
+        g_client = sv[0];
+        g_client_broken = 0;
+        gestures_end(&s);
+        g_client = -1;
+        n = recv(sv[1], got, sizeof(got), MSG_DONTWAIT);
+        check(n == (ssize_t)strlen(want) + 1 && !memcmp(got, want, strlen(want) + 1),
+              "the end of a 2000-byte gesture reaches the controller whole, with its end word and one NUL");
+        close(sv[0]);
+        close(sv[1]);
+    }
     printf("gesture table: %d checks, %s\n", checks, failures ? "FAILED" : "ok");
     return failures ? 1 : 0;
 }

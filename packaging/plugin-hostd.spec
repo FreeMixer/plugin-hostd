@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.9.1
+Version: 0.9.2
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -13,7 +13,9 @@ BuildRequires: gcc
 BuildRequires: make
 BuildRequires: diffutils
 BuildRequires: python3
-BuildRequires: pkgconfig(mod-host-protocol)
+# mod-host's protocol headers: param_info, remote_pages and track_info (mod-audio/mod-host#109) are in them from
+# release 11 on, and protocol/mod-host.json is generated from them; a floor only
+BuildRequires: mod-host-protocol-devel >= 0.10.6.f14a230-11
 # the probe runner's default rates, the protocol's parameter scales and the probe output's shared words are read from
 # omx-contract's C headers, and the format tables are items of its schema 3 (3.0.0 is the first with the formatMap
 # kind, the extension bag and plugin.doc); a floor only
@@ -114,6 +116,22 @@ make test-daemon check-generated
 %{_datadir}/omx-contract/contract.d/3/plugin-hostd/
 
 %changelog
+* Sat Oct 24 2026 Pau Aliagas <linuxnow@gmail.com> - 0.9.2-1
+- worker_list, supervisor_reset and quit answer -902 to a word past
+  their grammar instead of acting on it: worker_list x no longer lists,
+  supervisor_reset all x no longer resets, and quit now no longer stops
+  the daemon.
+- A tab at the end of a command is trimmed like a space: a command
+  ending in a carriage return and a tab no longer reaches the worker with
+  both.
+- The end of a held gesture longer than 1024 bytes reaches the controller
+  whole, with its end word; before, it was cut short and the control stayed
+  held.
+- The build needs mod-host's protocol headers of mod-host-protocol-devel
+  0.10.6.f14a230-11 or newer (libmod-host-protocol-dev 0.1.0-5 or newer), the
+  first with param_info, remote_pages and track_info.
+- Fuzz harnesses for the command parser and the reply stream (#144).
+
 * Sat Oct 24 2026 Pau Aliagas <linuxnow@gmail.com> - 0.9.1-1
 - The preset schema, protocol/preset.schema.json, is installed in
   /usr/share/plugin-hostd with the two other schemas, in the development
