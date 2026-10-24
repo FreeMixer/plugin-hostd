@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.9.0
+Version: 0.9.1
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -114,6 +114,12 @@ make test-daemon check-generated
 %{_datadir}/omx-contract/contract.d/3/plugin-hostd/
 
 %changelog
+* Sat Oct 24 2026 Pau Aliagas <linuxnow@gmail.com> - 0.9.1-1
+- The preset schema, protocol/preset.schema.json, is installed in
+  /usr/share/plugin-hostd with the two other schemas, in the development
+  package, and named in the man page and the README; a test holds the
+  installed set (#145).
+
 * Sat Oct 24 2026 Pau Aliagas <linuxnow@gmail.com> - 0.9.0-1
 - The preset verbs preset_list, preset_load, preset_save and preset_show
   are relayed by the daemon and the worker's answer comes back. The preset

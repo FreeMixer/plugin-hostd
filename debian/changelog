@@ -1,3 +1,12 @@
+plugin-hostd (0.9.1) unstable; urgency=medium
+
+  * The preset schema, protocol/preset.schema.json, is installed in
+    /usr/share/plugin-hostd with the two other schemas, in the development
+    package, and named in the man page and the README; a test holds the
+    installed set (#145).
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Sat, 24 Oct 2026 15:55:43 +0200
+
 plugin-hostd (0.9.0) unstable; urgency=medium
 
   * The preset verbs preset_list, preset_load, preset_save and preset_show
