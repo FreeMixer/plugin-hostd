@@ -35,7 +35,7 @@
 #include "verbs.h"
 
 #ifndef VERSION
-#define VERSION "0.9.1"
+#define VERSION "0.9.2"
 #endif
 
 #define SOCKET_DEFAULT_PORT     PHD_DEFAULT_COMMAND_PORT
