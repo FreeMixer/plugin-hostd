@@ -27,6 +27,7 @@
 #include <mod-host.h>
 #include <socket.h>
 
+#include "descriptors.h"
 #include "formats.h"
 #include "pins.h"
 #include "supervisor.h"
@@ -138,8 +139,14 @@ static char *handle(char *line, char **tok, int ntok)
             client = tok[next++];
         if (ntok > next)
             return sup_resp(ERR_INVALID_OPERATION);
-        return sup_add(tok[1], atoi(tok[2]), placement, client);
+        reply_text = sup_add(tok[1], atoi(tok[2]), placement, client);
+        /* the plugin is running: its files are scanned after the reply, never before it */
+        if (reply_text && sup_reply_code(reply_text) >= 0)
+            descriptors_add(tok[1]);
+        return reply_text;
     }
+    if (!strcmp(verb, PHD_VERB_DESCRIPTOR_GET))
+        return ntok == 2 ? descriptors_get(tok[1]) : sup_resp(ERR_INVALID_OPERATION);
     if (verb_is(verb, EFFECT_REMOVE))
     {
         if (ntok != 2)

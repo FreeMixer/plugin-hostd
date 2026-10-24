@@ -56,14 +56,15 @@ INCS = -Iinclude $(PROTOCOL_CFLAGS)
 LDFLAGS += -Wl,--no-undefined
 
 # source and object files
-SRC = src/main.c src/conf.c src/proc.c src/supervisor.c src/verbs.c src/pins.c src/relay.c src/formats.c src/lv2.c
+SRC = src/main.c src/conf.c src/proc.c src/supervisor.c src/verbs.c src/pins.c src/relay.c src/formats.c src/lv2.c \
+      src/descriptors.c src/describe.c src/transforms.c src/json.c
 OBJ = $(SRC:.c=.o)
 
 # default build
 all: $(PROG) $(PROBE)
 
 $(PROG): $(OBJ) $(PROTOCOL_LIB)
-	$(CC) $(OBJ) $(PROTOCOL_LIBS) $(LDFLAGS) -pthread -o $@
+	$(CC) $(OBJ) $(PROTOCOL_LIBS) $(LDFLAGS) -pthread -lm -o $@
 
 # the probe runner: it loads no plugin and links nothing of the daemon or of mod-host
 # describe reads the installed table of a format by default (docs/formats.md)
@@ -79,6 +80,8 @@ endif
 
 # the declared protocol is compiled into every object
 $(OBJ): include/plugin-hostd/protocol.h include/plugin-hostd/pin.h
+
+src/descriptors.o: src/descriptors.h src/describe.h src/json.h src/formats.h src/supervisor.h
 
 # meta-rule to generate the object files
 %.o: %.c

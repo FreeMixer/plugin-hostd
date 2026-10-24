@@ -163,6 +163,24 @@ static jnode_t *jnew(jtype_t t)
     return n;
 }
 
+void jfree(jnode_t *n)
+{
+    size_t i;
+
+    if (n == NULL)
+        return;
+    for (i = 0; i < n->n; i++)
+    {
+        jfree(n->kid[i]);
+        if (n->key)
+            free(n->key[i]);
+    }
+    free(n->kid);
+    free(n->key);
+    free(n->str);
+    free(n);
+}
+
 static jnode_t *jparse_value(const char **p, int depth)
 {
     jnode_t *n;

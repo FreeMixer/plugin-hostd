@@ -2794,4 +2794,288 @@ def a_worker_that_runs_no_chain_refuses_the_line_and_the_members_still_share_it(
         d.close()
 
 
+
+# ---------------------------------------------------------------- descriptors
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+PROBE = os.path.abspath(os.environ.get("PROBE", os.path.join(ROOT, "plugin-hostd-probe")))
+FIELDS = os.path.join(ROOT, "tests", "fixtures", "fields")
+CLAP_ID = "org.freemixer.plugin-qualify.fixture.controls"
+LV2_COMPRESSOR = "urn:example:compressor"
+SCANNER = """#!/bin/sh
+# a stand-in for the probe: the real describe, over the recorded dump of the target's format
+echo "$2" >> "$SCAN_LOG"
+if [ -n "$SCAN_HOLD" ]; then while [ ! -e "$SCAN_HOLD" ]; do sleep 0.02; done; fi
+if [ -n "$SCAN_EXIT" ]; then exit "$SCAN_EXIT"; fi
+case "$2" in
+  clap:*) exec %(probe)s describe --table %(tables)s/clap.json --fields-from %(fields)s/clap-controls.tsv "$2" ;;
+  *) exec %(probe)s describe --table %(tables)s/lv2.json --fields-from %(fields)s/lv2-compressor.tsv "$2" ;;
+esac
+"""
+
+
+def config_meaning(key):
+    return [c for c in harness.DECLARED["config"] if c["key"] == key][0]
+
+
+def safe(text):
+    """protocol.h's PHD_DESCRIPTOR_NAME_SYNTAX, plugin-qualify's rule: every character outside [A-Za-z0-9._-] as _"""
+    return "".join(c if c.isascii() and (c.isalnum() or c in "._-") else "_" for c in text)
+
+
+def descriptor_name(root, plugin_id, version, binary):
+    """<id>@<version>-<the first 12 hex digits of the binary's SHA-256>.json"""
+    return os.path.join(root, "%s@%s-%s.json" % (safe(plugin_id), safe(version), sha(binary)[:12]))
+
+
+class Scan:
+    """a CLAP file, an LV2 bundle of the compressor, and a scanner that logs every target it is run for"""
+
+    def __init__(self):
+        self.dir = tempfile.mkdtemp(prefix="plugin-hostd-scan.")
+        self.clap = os.path.join(self.dir, "clap", "controls.clap")
+        os.makedirs(os.path.dirname(self.clap))
+        write(self.clap, b"a clap build")
+        self.clap_uri = "clap:%s#%s" % (self.clap, CLAP_ID)
+        self.lv2_dir = os.path.join(self.dir, "lv2")
+        self.bundle = os.path.join(self.lv2_dir, "compressor.lv2")
+        os.makedirs(self.bundle)
+        write(os.path.join(self.bundle, "manifest.ttl"), (MANIFEST % LV2_COMPRESSOR).encode())
+        write(os.path.join(self.bundle, "pinned.so"), b"lv2 binary")
+        write(os.path.join(self.bundle, "pinned.ttl"), b"lv2:port [ lv2:index 0 ] .")
+        self.scanner = os.path.join(self.dir, "scanner")
+        write(self.scanner, (SCANNER % {"probe": PROBE, "tables": os.path.join(ROOT, "data", "formats"),
+                                        "fields": FIELDS}).encode())
+        os.chmod(self.scanner, 0o755)
+        self.log = os.path.join(self.dir, "scans.log")
+        self.descriptors = os.path.join(self.dir, "descriptors")
+        self.qualification = os.path.join(self.dir, "qualification")
+
+    def daemon(self, conf=None, env=None):
+        c = {"probe": self.scanner, "lv2_path": self.lv2_dir, "descriptor_dir": self.descriptors,
+             "qualification_dir": self.qualification}
+        c.update(conf or {})
+        e = {"SCAN_LOG": self.log}
+        e.update(env or {})
+        return daemon(conf=c, env=e)
+
+    def scans(self):
+        if not os.path.exists(self.log):
+            return []
+        with open(self.log) as f:
+            return [l.strip() for l in f if l.strip()]
+
+    def clap_name(self, root=None):
+        return descriptor_name(root or self.descriptors, CLAP_ID, "1", self.clap)
+
+    def lv2_name(self):
+        # the compressor states no version; its binary is the file its manifest names with lv2:binary
+        return descriptor_name(self.descriptors, LV2_COMPRESSOR, "unversioned", os.path.join(self.bundle, "pinned.so"))
+
+    def close(self):
+        shutil.rmtree(self.dir, ignore_errors=True)
+
+
+def answered(d, uri, path):
+    return d.send("descriptor_get %s" % uri) == 'resp 0 "%s"' % path
+
+
+def same_bytes(a, b):
+    with open(a, "rb") as f, open(b, "rb") as g:
+        return f.read() == g.read()
+
+
+@test
+def an_add_writes_the_descriptor_by_id_version_and_hash_and_descriptor_get_answers_from_it():
+    s = Scan()
+    d = s.daemon()
+    try:
+        d.expect("descriptor_get %s" % s.clap_uri, resp("DESCRIPTOR_ABSENT"))
+        d.expect("add %s 0" % s.clap_uri, "resp 0")
+        name = s.clap_name()
+        wait_for(lambda: answered(d, s.clap_uri, name), "descriptor_get answers %s" % name)
+        check(same_bytes(name, os.path.join(FIELDS, "clap-controls.json")),
+              "the file is what describe writes for the plugin")
+        check(os.listdir(os.path.dirname(name)) == [os.path.basename(name)], "nothing else is left beside it: %s"
+              % os.listdir(os.path.dirname(name)))
+        for path in (s.descriptors, s.qualification):
+            check(os.stat(path).st_mode & 0o777 == 0o700, "%s is made 0700" % path)
+        # written once: a second instance of the same files reads the file and runs no scan
+        d.expect("add %s 1" % s.clap_uri, "resp 1")
+        d.expect("add lv2:%s 2" % LV2_COMPRESSOR, "resp 2")
+        wait_for(lambda: answered(d, "lv2:" + LV2_COMPRESSOR, s.lv2_name()), "the LV2 descriptor %s" % s.lv2_name())
+        check(same_bytes(s.lv2_name(), os.path.join(FIELDS, "lv2-compressor.json")), "the LV2 file is describe's")
+        check(s.scans() == [s.clap_uri, "lv2:" + LV2_COMPRESSOR], "one scan per plugin: %s" % s.scans())
+        # the name hashes the binary alone: a changed data file of the bundle keeps it
+        write(os.path.join(s.bundle, "pinned.ttl"), b"lv2:port [ lv2:index 1 ] .")
+        check(answered(d, "lv2:" + LV2_COMPRESSOR, s.lv2_name()), "a changed .ttl keeps the LV2 binary's descriptor")
+        # a changed binary is no longer described: its next add scans again under a new name; the old file stays
+        write(s.clap, b"another clap build")
+        d.expect("descriptor_get %s" % s.clap_uri, resp("DESCRIPTOR_ABSENT"))
+        d.expect("add %s 3" % s.clap_uri, "resp 3")
+        wait_for(lambda: answered(d, s.clap_uri, s.clap_name()), "the new binary's descriptor")
+        check(s.clap_name() != name and os.path.exists(name), "a new file, and the old one kept")
+        check(len(s.scans()) == 3, "the changed binary was scanned: %s" % s.scans())
+    finally:
+        d.close()
+        s.close()
+
+
+@test
+def a_scan_that_runs_answers_pending_and_one_that_fails_answers_its_code_while_the_add_stands():
+    s = Scan()
+    hold = os.path.join(s.dir, "go")
+    d = s.daemon(env={"SCAN_HOLD": hold})
+    try:
+        d.expect("add %s 0" % s.clap_uri, "resp 0")
+        wait_for(lambda: s.scans(), "the scan starts")
+        d.expect("descriptor_get %s" % s.clap_uri, resp("DESCRIPTOR_PENDING"))
+        d.expect("add %s 1" % s.clap_uri, "resp 1")
+        write(hold, b"")
+        wait_for(lambda: answered(d, s.clap_uri, s.clap_name()), "the held scan ends")
+        check(len(s.scans()) == 1, "an add while the scan runs starts no second one: %s" % s.scans())
+    finally:
+        d.close()
+    d = s.daemon(conf={"descriptor_dir": os.path.join(s.dir, "other")}, env={"SCAN_EXIT": "2"})
+    try:
+        d.expect("add %s 0" % s.clap_uri, "resp 0")
+        wait_for(lambda: d.send("descriptor_get %s" % s.clap_uri) == resp("DESCRIPTOR_SCAN_FAILED"),
+                 "the failed scan's code")
+        check(d.workers() and list(d.workers().values())[0]["inst"] == [0], "the instance runs")
+        check("the scan wrote no descriptor" in d.log() and "resp %d" % harness.CODE["DESCRIPTOR_SCAN_FAILED"] in d.log(),
+              "stderr says so with the code: %s" % d.log()[-400:])
+        check(not [f for r, _, fs in os.walk(os.path.join(s.dir, "other")) for f in fs], "no file is left behind")
+    finally:
+        d.close()
+    d = s.daemon(conf={"descriptor_dir": os.path.join(s.dir, "third"), "probe": os.path.join(s.dir, "absent")})
+    try:
+        d.expect("add %s 0" % s.clap_uri, "resp 0")
+        d.expect("descriptor_get %s" % s.clap_uri, resp("DESCRIPTOR_SCAN_FAILED"))
+        d.expect("descriptor_get clap:fake#x", resp("DESCRIPTOR_ABSENT"))
+        d.expect("descriptor_get", "resp -902")
+    finally:
+        d.close()
+        s.close()
+
+
+def start_refused(conf, env=None):
+    """the daemon run with a settings file that must stop it before it is ready: (exit status, output)"""
+    tmp = tempfile.mkdtemp(prefix="plugin-hostd-refused.")
+    path = os.path.join(tmp, "plugin-hostd.conf")
+    settings = {"state_root": tmp, "require_pins": 0, "pins_dir": "", "mod_host": FAKE, "clap_host": FAKE}
+    settings.update(conf)
+    with open(path, "w") as f:
+        for k, v in settings.items():
+            if v is not None:
+                f.write("%s %s\n" % (k, v))
+    e = dict(os.environ)
+    e.update(env or {})
+    cmd, fb = harness.port_pair()
+    try:
+        p = subprocess.run([EXE, "-n", "-p", str(cmd), "-f", str(fb), "-c", path], capture_output=True, text=True,
+                           timeout=10, env=e)
+        return p.returncode, p.stdout + p.stderr
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+@test
+def a_read_only_directory_stops_the_daemon_with_its_code_and_names_the_key():
+    if os.geteuid() == 0:
+        print("     skip: root writes a 0500 directory")
+        return
+    s = Scan()
+    try:
+        for key, other in (("descriptor_dir", "qualification_dir"), ("qualification_dir", "descriptor_dir")):
+            ro = os.path.join(s.dir, "ro-" + key)
+            os.makedirs(ro)
+            os.chmod(ro, 0o500)
+            for path in (ro, os.path.join(ro, "below")):
+                rc, out = start_refused({key: path, other: os.path.join(s.dir, "fine")})
+                check(rc != 0 and harness.READY_LINE not in out, "%s %s: the daemon does not start: %d %r" % (key, path, rc, out))
+                check("%s %s" % (key, path) in out and "resp %d" % harness.CODE["DIR_NOT_WRITABLE"] in out,
+                      "stderr names the key, the path and the code: %r" % out)
+            os.chmod(ro, 0o700)
+        # a path that is a file is no directory either
+        write(os.path.join(s.dir, "plain"), b"")
+        rc, out = start_refused({"descriptor_dir": os.path.join(s.dir, "plain"),
+                                 "qualification_dir": os.path.join(s.dir, "fine")})
+        check(rc != 0 and "resp %d" % harness.CODE["DIR_NOT_WRITABLE"] in out, "a file in its place: %r" % out)
+    finally:
+        s.close()
+
+
+@test
+def a_directory_that_turns_read_only_makes_the_scan_answer_its_code():
+    if os.geteuid() == 0:
+        print("     skip: root writes a 0500 directory")
+        return
+    s = Scan()
+    d = s.daemon()
+    try:
+        os.chmod(s.descriptors, 0o500)
+        d.expect("add %s 0" % s.clap_uri, "resp 0")
+        d.expect("descriptor_get %s" % s.clap_uri, resp("DIR_NOT_WRITABLE"))
+        check(s.scans() == [], "no scan ran: %s" % s.scans())
+        os.chmod(s.descriptors, 0o700)
+        d.expect("add %s 1" % s.clap_uri, "resp 1")
+        wait_for(lambda: answered(d, s.clap_uri, s.clap_name()), "the next add scans again")
+    finally:
+        os.chmod(s.descriptors, 0o700)
+        d.close()
+        s.close()
+
+
+@test
+def a_missing_key_falls_to_the_documented_default_and_the_key_holds_over_the_variable():
+    s = Scan()
+    try:
+        # the defaults as protocol.json documents them, the same text the man page and the README carry
+        declared = {}
+        for key in ("descriptor_dir", "qualification_dir"):
+            meaning = config_meaning(key)["meaning"]
+            check(config_meaning(key)["default"] == "", "%s's declared default is empty, resolved at start" % key)
+            xdg = meaning.split("empty is $XDG_STATE_HOME/", 1)[1].split(",", 1)[0]
+            home = meaning.split("else $HOME/", 1)[1].split(";", 1)[0]
+            declared[key] = (xdg, home)
+        cases = [
+            ({"XDG_STATE_HOME": os.path.join(s.dir, "xdg"), "HOME": os.path.join(s.dir, "home")}, 0),
+            ({"XDG_STATE_HOME": "", "HOME": os.path.join(s.dir, "home")}, 1),
+        ]
+        for env, which in cases:
+            if which == 1 and os.geteuid() == 0:
+                # a root daemon without $XDG_STATE_HOME keeps its state in /var/lib, which a test must not write;
+                # the $HOME branch is exercised by the non-root runs
+                print("skip: the $HOME default, the euid is 0 and the daemon then picks /var/lib")
+                continue
+            env = dict(env, OMX_DESCRIPTOR_DIR="", OMX_QUALIFICATION_DIR="")
+            base = env["XDG_STATE_HOME"] or env["HOME"]
+            d = s.daemon(conf={"descriptor_dir": None, "qualification_dir": None}, env=env)
+            try:
+                want = {k: os.path.join(base, v[which]) for k, v in declared.items()}
+                check(os.path.isdir(want["qualification_dir"]), "qualification_dir is made at %s" % want["qualification_dir"])
+                d.expect("add %s 0" % s.clap_uri, "resp 0")
+                name = s.clap_name(want["descriptor_dir"])
+                wait_for(lambda: answered(d, s.clap_uri, name), "the descriptor at the default %s" % name)
+            finally:
+                d.close()
+        # the variable stands in for the default; the key in the settings file holds over it
+        env = {"OMX_DESCRIPTOR_DIR": os.path.join(s.dir, "by-env"), "OMX_QUALIFICATION_DIR": os.path.join(s.dir, "q-env")}
+        d = s.daemon(conf={"descriptor_dir": None, "qualification_dir": None}, env=env)
+        try:
+            d.expect("add %s 0" % s.clap_uri, "resp 0")
+            wait_for(lambda: answered(d, s.clap_uri, s.clap_name(env["OMX_DESCRIPTOR_DIR"])), "the variable's directory")
+            check(os.path.isdir(env["OMX_QUALIFICATION_DIR"]), "the qualification variable's directory")
+        finally:
+            d.close()
+        d = s.daemon(conf={"descriptor_dir": os.path.join(s.dir, "by-key")}, env=env)
+        try:
+            d.expect("add %s 0" % s.clap_uri, "resp 0")
+            wait_for(lambda: answered(d, s.clap_uri, s.clap_name(os.path.join(s.dir, "by-key"))), "the key's directory")
+        finally:
+            d.close()
+    finally:
+        s.close()
+
+
 sys.exit(run_tests(TESTS))

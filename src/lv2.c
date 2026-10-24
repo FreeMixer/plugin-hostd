@@ -240,8 +240,10 @@ static void bundle_path(const scan_t *s, const char *bundle, const char *iri, ch
 
 enum { WANT_SUBJECT, WANT_PREDICATE, WANT_OBJECT, AFTER_OBJECT };
 
-/* the files the manifest names with lv2:binary and rdfs:seeAlso for the plugin; whether it sets a base */
-static int manifest_files(const char *text, size_t size, const char *bundle, const char *uri, names_t *names)
+/* the files the manifest names with lv2:binary and rdfs:seeAlso for the plugin, or with lv2:binary alone when
+ * binary_only; whether it sets a base */
+static int manifest_files(const char *text, size_t size, const char *bundle, const char *uri, names_t *names,
+                          int binary_only)
 {
     scan_t *s = calloc(1, sizeof(scan_t));
     token_t t;
@@ -284,7 +286,7 @@ static int manifest_files(const char *text, size_t size, const char *bundle, con
         }
         else if (state == WANT_PREDICATE)
         {
-            pred = t.kind == T_IRI && (!strcmp(t.text, LV2_BINARY) || !strcmp(t.text, RDFS_SEEALSO));
+            pred = t.kind == T_IRI && (!strcmp(t.text, LV2_BINARY) || (!binary_only && !strcmp(t.text, RDFS_SEEALSO)));
             state = WANT_OBJECT;
         }
         else if (state == WANT_OBJECT)
@@ -351,7 +353,7 @@ int lv2_pin_collect(const char *uri, const char *search, char *root, size_t size
         return pin_refuse(uri, MANIFEST, "can't be read as a manifest");
     /* the host resolves a base and decodes a percent-encoded name; the daemon does neither, so it cannot know the file
      * the host would load */
-    if (manifest_files(manifest, manifest_size, root, bare(uri), &names))
+    if (manifest_files(manifest, manifest_size, root, bare(uri), &names, 0))
         rc = pin_refuse(uri, MANIFEST, "sets a base the daemon does not resolve");
     names_add(files, MANIFEST);
     for (n = 0; n < names.n && rc == SUCCESS; n++)
@@ -363,6 +365,29 @@ int lv2_pin_collect(const char *uri, const char *search, char *root, size_t size
     }
     names_free(&names);
     free(manifest);
+    return rc;
+}
+
+/* the one lv2:binary the manifest of the plugin's bundle names for it */
+int lv2_binary(const char *uri, const char *search, char *path, size_t size)
+{
+    names_t names = { NULL, 0 };
+    char *bundle = proc_find_lv2_bundle(search, bare(uri)), *manifest = NULL;
+    size_t manifest_size = 0;
+    int rc = -1;
+
+    if (!bundle)
+        return -1;
+    if (read_manifest(bundle, &manifest, &manifest_size) == 0 &&
+        !manifest_files(manifest, manifest_size, bundle, bare(uri), &names, 1) && names.n == 1 &&
+        !strstr(names.name[0], PHD_PIN_PERCENT))
+    {
+        snprintf(path, size, "%s/%s", bundle, names.name[0]);
+        rc = 0;
+    }
+    names_free(&names);
+    free(manifest);
+    free(bundle);
     return rc;
 }
 

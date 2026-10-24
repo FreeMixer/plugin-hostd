@@ -280,6 +280,10 @@ static inline int phd_pool_name_valid(const char *name)
 #define PHD_ERR_PRESET_NEEDS_STATE  (-525)
 #define PHD_ERR_PRESET_PLUGIN_CHANGED (-526)
 #define PHD_ERR_LOAD_REFUSED        (-527)
+#define PHD_ERR_DIR_NOT_WRITABLE    (-528)
+#define PHD_ERR_DESCRIPTOR_ABSENT   (-529)
+#define PHD_ERR_DESCRIPTOR_PENDING  (-530)
+#define PHD_ERR_DESCRIPTOR_SCAN_FAILED (-531)
 
 /* X(id, meaning) */
 #define PHD_ERRORS(X) \
@@ -339,7 +343,17 @@ static inline int phd_pool_name_valid(const char *name)
     X(PRESET_NEEDS_STATE, "the worker: a preset file that carries state for a worker that cannot take state yet") \
     X(PRESET_PLUGIN_CHANGED, "the worker: the preset file's plugin id, version or fingerprint is not the instance's; " \
                              "nothing of it is applied") \
-    X(LOAD_REFUSED, "the worker: the plugin refused the preset or the state its file carries")
+    X(LOAD_REFUSED, "the worker: the plugin refused the preset or the state its file carries") \
+    X(DIR_NOT_WRITABLE, "descriptor_dir or qualification_dir cannot be made or written: the daemon does not start, and " \
+                        "says which key and which path on stderr with this code; a directory that turns read-only " \
+                        "later makes the scan of an add write nothing, and " PHD_VERB_DESCRIPTOR_GET " of that plugin " \
+                        "answers this code") \
+    X(DESCRIPTOR_ABSENT, PHD_VERB_DESCRIPTOR_GET " of a plugin that has no descriptor in descriptor_dir for its binary " \
+                         "as it is now, and none being written: no add since it changed, or a binary that cannot be found") \
+    X(DESCRIPTOR_PENDING, PHD_VERB_DESCRIPTOR_GET " of a plugin whose scan, started by its add, has not ended: ask again") \
+    X(DESCRIPTOR_SCAN_FAILED, PHD_VERB_DESCRIPTOR_GET " of a plugin whose last scan wrote no descriptor: the scanner " \
+                              "refused the plugin, made no dump, or is not installed; the add it ran for stands, and " \
+                              "stderr and the scan's log say why. The next add scans again")
 
 /* ---------------------------------------------------------------- verbs */
 
@@ -359,6 +373,7 @@ static inline int phd_pool_name_valid(const char *name)
 #define PHD_VERB_LV2_WORKER_SET   "lv2_worker_set"
 #define PHD_VERB_CHAIN            "chain"
 #define PHD_VERB_CHAIN_CLEAR      "chain_clear"
+#define PHD_VERB_DESCRIPTOR_GET   "descriptor_get"
 
 /* the words of a pin: <path>=<sha256>, joined by ',', and <scheme>:<sha256> */
 #define PHD_PIN_FILE_SEPARATOR   ","
@@ -466,7 +481,11 @@ static inline int phd_pool_name_valid(const char *name)
       "a world narrowed to the union of its members' bundles), -902 for a chain " \
       "or an instance that is not a number, or fewer than chain_members_min (" PHD_STR(PHD_CHAIN_MEMBERS_MIN) ") instances") \
     X(CHAIN_CLEAR, PHD_VERB_CHAIN_CLEAR, "<chain>", "resp 0", \
-      "forget the chain: each member goes to a worker of its own; -522 for a chain no " PHD_VERB_CHAIN " declared")
+      "forget the chain: each member goes to a worker of its own; -522 for a chain no " PHD_VERB_CHAIN " declared") \
+    X(DESCRIPTOR_GET, PHD_VERB_DESCRIPTOR_GET, "<uri>", "resp 0 \"<path>\"", \
+      "the scanned descriptor of the plugin, answered from descriptor_dir: the file named for its binary as it is now " \
+      "(" PHD_DESCRIPTOR_NAME_SYNTAX "), written by the scan the plugin's add ran. -529 when there is none, -530 while " \
+      "its scan runs, -531 when its last scan wrote nothing, -528 when the directory could not be written")
 
 /* ---------------------------------------------------------------- instance verbs */
 
@@ -794,7 +813,8 @@ static inline int phd_is_note_verb(const char *verb)
     X(PHD_VERB_PIN_ACCEPT, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
     X(PHD_VERB_LV2_WORKER_SET, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
     X(PHD_VERB_CHAIN, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
-    X(PHD_VERB_CHAIN_CLEAR, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED)
+    X(PHD_VERB_CHAIN_CLEAR, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X(PHD_VERB_DESCRIPTOR_GET, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED)
 
 /* ---------------------------------------------------------------- host settings */
 
@@ -938,6 +958,30 @@ static inline int phd_is_note_verb(const char *verb)
 #define PHD_DEFAULT_REQUIRE_PINS      1
 #define PHD_DEFAULT_PIN_MODE          PHD_PIN_MODE_FIRST_USE
 #define PHD_DEFAULT_PINS_DIR          "/usr/share/plugin-hostd/pins.d"
+#define PHD_DEFAULT_PROBE             "plugin-hostd-probe"
+
+/* The directories of what the scan of an add gathers: state, kept across a reboot. An empty setting is the default:
+ * <state home>/<subdir>, where the state home is $XDG_STATE_HOME, else /var/lib for a daemon run as root (a system
+ * service), else $HOME/.local/state. A missing directory is made, mode 0700; one that cannot be written stops the daemon with PHD_ERR_DIR_NOT_WRITABLE. */
+#define PHD_DIR_DESCRIPTORS_SUBDIR    "omx/descriptors"
+#define PHD_DIR_QUALIFICATION_SUBDIR  "omx/qualification"
+#define PHD_DIR_SYSTEM_STATE_HOME     "/var/lib"
+#define PHD_DIR_USER_STATE_HOME       ".local/state"
+#define PHD_DIR_MODE                  0700
+#define PHD_DIR_DEFAULT_TEXT(subdir) \
+    "empty is $XDG_STATE_HOME/" subdir ", else " PHD_DIR_SYSTEM_STATE_HOME "/" subdir " run as root (a system " \
+    "service), else $HOME/" PHD_DIR_USER_STATE_HOME "/" subdir
+
+/* A scanned descriptor's file in descriptor_dir: <id>@<version>-<hash>.json, the rule plugin-qualify's scanners name
+ * theirs by. The id is the CLAP plugin id or the LV2 URI, the version the one the descriptor states
+ * (PHD_DESCRIPTOR_NO_VERSION when it states none), each character outside [A-Za-z0-9._-] of both written
+ * PHD_DESCRIPTOR_SAFE_CHAR; the hash is the first PHD_DESCRIPTOR_HASH_LEN hex digits of the SHA-256 of the plugin's
+ * binary (the .clap, or the file the LV2 bundle's manifest names with lv2:binary). Written once, atomically; a changed
+ * binary gets a new name and the old file stays. */
+#define PHD_DESCRIPTOR_NAME_SYNTAX    "<id>@<version>-<hash>.json"
+#define PHD_DESCRIPTOR_NO_VERSION     "unversioned"
+#define PHD_DESCRIPTOR_SAFE_CHAR      '_'
+#define PHD_DESCRIPTOR_HASH_LEN       12
 
 /* the settings file: one "key value" per line, '#' starts a comment.
  * A string setting: X(key, size, default, env, meaning); env names the variable that stands in for the default when
@@ -958,7 +1002,15 @@ static inline int phd_is_note_verb(const char *verb)
     X(pin_file, path, "", "", "a file of pin lines loaded at start, as plugin-qualify --all --pins writes it; empty is none") \
     X(pins_dir, path, PHD_DEFAULT_PINS_DIR, "", "the read-only pins of packages: every file in it whose name ends in .pins, read at start " \
       "in name order, under the store, the pin_file and pin_set, except that a pin of verdict=refused there always holds; " \
-      "empty is none")
+      "empty is none") \
+    X(descriptor_dir, path, "", "OMX_DESCRIPTOR_DIR", "the scanned descriptors, one file per plugin binary (" \
+      PHD_DESCRIPTOR_NAME_SYNTAX ", the hash the binary's SHA-256), written by the scan of an add and read by " PHD_VERB_DESCRIPTOR_GET "; " \
+      PHD_DIR_DEFAULT_TEXT(PHD_DIR_DESCRIPTORS_SUBDIR) "; its variable is for tests only") \
+    X(qualification_dir, path, "", "OMX_QUALIFICATION_DIR", "plugin-qualify's qualification records (verdict, cost, " \
+      "version tested), kept apart from the descriptors; " PHD_DIR_DEFAULT_TEXT(PHD_DIR_QUALIFICATION_SUBDIR) \
+      "; its variable is for tests only") \
+    X(probe, path, PHD_DEFAULT_PROBE, "", "the scanner an add runs, as <probe> describe <target>, in a child of its " \
+      "own once per plugin binary; its stdout is the descriptor")
 
 /* A whole-number setting: X(key, default, unit, meaning); 0 turns off where the meaning says so */
 #define PHD_CONF_INTS(X) \

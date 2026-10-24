@@ -52,6 +52,9 @@ typedef struct FORMAT_T {
     /* the root and the relative files a host loads for the uri: what a pin holds. SUCCESS, or
      * PHD_ERR_PIN_BINARY_MISMATCH with the reason on stderr for what cannot be pinned */
     int (*pin_collect)(const char *uri, const char *search, char *root, size_t size, names_t *files);
+    /* the one file the host loads the plugin's code from, as a path: what the name of its scanned descriptor hashes. 0,
+     * or -1 when it cannot be told; NULL for a format whose plugins get no descriptor */
+    int (*binary)(const char *uri, const char *search, char *path, size_t size);
     int layout_check;               /* the worker takes pin_expect before the add and pin_layout after it */
     int pinned_own_only;            /* a pinned plugin runs in a worker of its own: the pin holds in no shared world */
 
@@ -79,7 +82,11 @@ int format_route(const conf_t *conf, int format, const char *uri);
 /* the pin root and files of a CLAP: the directory of the .clap and the file */
 int clap_pin_collect(const char *uri, const char *search, char *root, size_t size, names_t *files);
 
+/* the .clap file of clap:<path>#<id> */
+int clap_binary(const char *uri, const char *search, char *path, size_t size);
+
 /* the LV2 format's parts, in lv2.c */
+int lv2_binary(const char *uri, const char *search, char *path, size_t size);
 int lv2_pin_collect(const char *uri, const char *search, char *root, size_t size, names_t *files);
 char *lv2_narrow_world(const conf_t *conf, const char *dir, const char *const *uris, int n);
 char *lv2_param_info(int id, const char *symbol);

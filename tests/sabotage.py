@@ -205,8 +205,8 @@ SABOTAGE = [
      "        .layout_check = 0,\n        .pinned_own_only = 1,\n        .native_instance_verbs = 1,", "        .layout_check = 0,\n        .pinned_own_only = 0,\n        .native_instance_verbs = 1,",
      "the_adapter_row_keeps_the_pin_rules_of_the_lv2_row_and_checks_no_layout"),
     ("the adapter row's worker sees every bundle", "src/formats.c",
-     "        .narrow_world = lv2_narrow_world,\n        .pin_collect = lv2_pin_collect,\n        .layout_check = 0,",
-     "        .pin_collect = lv2_pin_collect,\n        .layout_check = 0,",
+     "        .narrow_world = lv2_narrow_world,\n        .pin_collect = lv2_pin_collect,\n        .binary = lv2_binary,\n        .layout_check = 0,",
+     "        .pin_collect = lv2_pin_collect,\n        .binary = lv2_binary,\n        .layout_check = 0,",
      "the_adapter_row_keeps_the_pin_rules_of_the_lv2_row_and_checks_no_layout"),
     ("the adapter's refusal answers the worker's own error", "src/supervisor.c",
      "    if (!automatic)\n        return sup_resp(PHD_ERR_LV2_ADAPTER_REFUSED);", "    if (!automatic)\n        return sup_resp(ERR_HOST_INSTANTIATION);",
@@ -661,6 +661,26 @@ SABOTAGE = [
      'chain_line(w, msg, sizeof(msg)) && replay_line(w, msg) != RPC_OK)',
      'chain_line(w, msg, sizeof(msg)) && (replay_line_code(w, msg, &code) != RPC_OK || code < 0))',
      "a_worker_that_runs_no_chain_refuses_the_line_and_the_members_still_share_it"),
+    ("a descriptor_dir or qualification_dir that cannot be written is let through", "src/descriptors.c",
+     "    if (make_dirs(dir) != 0 || writable(dir) != 0)\n", "    if (make_dirs(dir) != 0 && 0)\n",
+     "a_read_only_directory_stops_the_daemon_with_its_code_and_names_the_key"),
+    ("an empty descriptor_dir ignores $XDG_STATE_HOME", "src/descriptors.c",
+     "    if (state && *state)\n        snprintf(dir, size, \"%s/%s\", state, subdir);",
+     "    if (0)\n        snprintf(dir, size, \"%s/%s\", state, subdir);",
+     "a_missing_key_falls_to_the_documented_default_and_the_key_holds_over_the_variable"),
+    ("the binary of an LV2 plugin is looked for among its data files too", "src/lv2.c",
+     "(!binary_only && !strcmp(t.text, RDFS_SEEALSO))", "!strcmp(t.text, RDFS_SEEALSO)",
+     "an_add_writes_the_descriptor_by_id_version_and_hash_and_descriptor_get_answers_from_it"),
+    ("an add scans a binary that already has a descriptor", "src/descriptors.c",
+     "    if (lookup(id, hash, path, sizeof(path)) == 0)\n        return;\n", "",
+     "an_add_writes_the_descriptor_by_id_version_and_hash_and_descriptor_get_answers_from_it"),
+    ("a scan that runs is answered absent", "src/descriptors.c",
+     "return sup_resp(s ? s->code : PHD_ERR_DESCRIPTOR_ABSENT);", "return sup_resp(PHD_ERR_DESCRIPTOR_ABSENT);",
+     "a_scan_that_runs_answers_pending_and_one_that_fails_answers_its_code_while_the_add_stands"),
+    ("a directory that turns read-only is answered absent", "src/descriptors.c",
+     "        scan_failed(s, PHD_ERR_DIR_NOT_WRITABLE, why);\n        return;\n    }\n    log =",
+     "        scan_failed(s, PHD_ERR_DESCRIPTOR_ABSENT, why);\n        return;\n    }\n    log =",
+     "a_directory_that_turns_read_only_makes_the_scan_answer_its_code"),
     ("the preset schema takes a format version it does not know", "protocol/preset.schema.json",
      '"enum": ["org.openmixer.preset/1", "org.openmixer.preset/2"]', '"type": "string"',
      "an unknown format version is refused", "presetschema"),
@@ -789,6 +809,9 @@ def run_test(tree, name, jack=False):
 
 
 failed = 0
+# the tests that need a directory root cannot be refused, and so skip themselves as root
+ROOT_WRITES_READ_ONLY = ("a_read_only_directory_stops_the_daemon_with_its_code_and_names_the_key",
+                         "a_directory_that_turns_read_only_makes_the_scan_answer_its_code")
 work = tempfile.mkdtemp(prefix="plugin-hostd-sabotage.")
 try:
     for entry in SABOTAGE:
@@ -797,6 +820,9 @@ try:
         if os.environ.get("SABOTAGE_ONLY") and os.environ["SABOTAGE_ONLY"] not in name:
             continue
         jack = entry[5] if len(entry) > 5 else False
+        if os.geteuid() == 0 and name in ROOT_WRITES_READ_ONLY:
+            print("skip sabotage (root writes a 0500 directory, so the test skips itself): %s" % what)
+            continue
         if jack == "meters" and not (os.environ.get("FAKE_COMPRESSOR_CLAP") and os.environ.get("JACK_METER_SOURCE")):
             print("skip sabotage (no FAKE_COMPRESSOR_CLAP and JACK_METER_SOURCE of omx-clap-host): %s" % what)
             continue

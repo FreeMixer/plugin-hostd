@@ -884,6 +884,15 @@ const char *describe_format(const char *target)
     return NULL;
 }
 
+const char *describe_id(const char *target)
+{
+    const char *format = describe_format(target);
+
+    if (format == NULL)
+        return NULL;
+    return !strcmp(format, "clap") ? strrchr(target, '#') + 1 : target + 4;
+}
+
 int describe_dump(const char *table_text, const char *dump_text, const char *target, sb_t *out, char *why,
                   size_t why_size)
 {

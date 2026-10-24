@@ -107,6 +107,8 @@ typedef struct CHAIN_T {
 } chain_t;
 
 void sup_init(const conf_t *conf);
+/* this daemon's own directory under state_root: its checkpoints and the logs of its workers and scans */
+const char *sup_root(void);
 void sup_finish(void);
 
 /* mod-host's own "resp <code>" text for a refusal; malloc'd */
