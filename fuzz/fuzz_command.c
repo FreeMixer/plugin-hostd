@@ -29,7 +29,7 @@
  *        copied into an allocation of exactly its length, with no terminator, as the socket hands it over.
  *
  * The words of a message, below, are what the daemon reads: its bytes up to the first NUL, the newlines, carriage
- * returns and spaces at its end removed, split at spaces and tabs. Its verb is the first word.
+ * returns, spaces and tabs at its end removed, split at spaces and tabs. Its verb is the first word.
  *
  * Properties, each an abort():
  *   - reply: every message gets exactly one reply, one NUL-terminated string with no NUL before its end, which is
@@ -41,9 +41,7 @@
  *     argument count its declared syntax allows; a word past PHD_LINE_WORDS_MAX is not read.
  *     Mutant: fuzz/mutants/command-arity.patch, pool_config taking three words or more.
  *   - round-trip: the words of a command the daemon acted on, joined by one space as the declaration writes them,
- *     make the same calls with the same arguments, the same reply and the same state. A command whose last word ends
- *     in a carriage return or a newline is left out: the daemon keeps that character when a tab follows it and
- *     removes it when the line ends there, so its joined words are another command.
+ *     make the same calls with the same arguments, the same reply and the same state.
  *     Mutant: fuzz/mutants/command-round-trip.patch, words split at spaces only.
  *   - refusal: a refused command (its reply's code is negative) leaves the daemon's state as it was: no call the
  *     supervisor took and none of the daemon's own follow-ups (a descriptor scan, the LV2 refusals asked again, quit).
@@ -107,7 +105,8 @@ static void words_of(const char *data, size_t size, struct words *out)
         abort();
     memcpy(out->text, data, len);
     out->text[len] = '\0';
-    while (len > 0 && (out->text[len - 1] == '\n' || out->text[len - 1] == '\r' || out->text[len - 1] == ' '))
+    while (len > 0 && (out->text[len - 1] == '\n' || out->text[len - 1] == '\r' || out->text[len - 1] == ' ' ||
+                       out->text[len - 1] == '\t'))
         out->text[--len] = '\0';
     memcpy(out->copy, out->text, len + 1);
     out->n = 0;
@@ -247,13 +246,9 @@ __attribute__((noinline)) static void check_round_trip(const struct words *w, ui
     int nfirst, quit_first;
     uint64_t state_first, host_first;
     char *reply_first, *line;
-    const char *last;
     size_t len;
 
     if (w->n == 0 || !acted())
-        return;
-    last = w->w[w->n - 1];
-    if (last[strlen(last) - 1] == '\r' || last[strlen(last) - 1] == '\n')
         return;
     nfirst = rec_calls_copy(first);
     quit_first = g_quitting;
