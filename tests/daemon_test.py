@@ -33,6 +33,20 @@ def ready_line_and_empty_table():
 
 
 @test
+def a_word_past_the_grammar_of_a_daemon_verb_is_refused():
+    d = daemon()
+    try:
+        # worker_list takes no word, supervisor_reset at most one and quit none, as protocol.h declares them
+        d.expect("worker_list w1", "resp -902")
+        d.expect("supervisor_reset all w1", "resp -902")
+        d.expect("quit now", "resp -902")
+        d.expect("worker_list", "resp 0")
+        d.expect("supervisor_reset all", "resp 0")
+    finally:
+        d.close()
+
+
+@test
 def placement_own_default_and_pool():
     d = daemon()
     try:
