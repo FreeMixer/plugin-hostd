@@ -218,7 +218,7 @@ void verbs_receive(msg_t *msg)
     int ntok = 0;
 
     end = line + strlen(line);
-    while (end > line && (end[-1] == '\n' || end[-1] == '\r' || end[-1] == ' '))
+    while (end > line && (end[-1] == '\n' || end[-1] == '\r' || end[-1] == ' ' || end[-1] == '\t'))
         *--end = '\0';
     copy = strdup(line);
     for (t = strtok_r(copy, " \t", &save); t && ntok < MAX_TOKENS; t = strtok_r(NULL, " \t", &save))
