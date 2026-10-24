@@ -18,6 +18,9 @@
 /* the format of a target, clap:<path>#<id> or lv2:<uri>: "clap", "lv2", or NULL */
 const char *describe_format(const char *target);
 
+/* the plugin id a target names: the CLAP id after its last '#', or the LV2 URI; a pointer into target, or NULL */
+const char *describe_id(const char *target);
+
 /* the scanned descriptor of a dump: the format table's text, the dump's text and the target asked for; 0 with the
  * descriptor in out, -1 refused (a table it cannot read, a dump it refuses) with why */
 int describe_dump(const char *table_text, const char *dump_text, const char *target, sb_t *out, char *why,
