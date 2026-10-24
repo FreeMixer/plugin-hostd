@@ -110,6 +110,7 @@ make test-daemon check-generated
 %{_datadir}/pkgconfig/plugin-hostd.pc
 %{_datadir}/plugin-hostd/protocol.schema.json
 %{_datadir}/plugin-hostd/probe-output.schema.json
+%{_datadir}/plugin-hostd/preset.schema.json
 %{_datadir}/omx-contract/contract.d/3/plugin-hostd/
 
 %changelog
