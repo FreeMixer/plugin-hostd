@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.8.0
+Version: 0.9.0
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -113,6 +113,25 @@ make test-daemon check-generated
 %{_datadir}/omx-contract/contract.d/3/plugin-hostd/
 
 %changelog
+* Sat Oct 24 2026 Pau Aliagas <linuxnow@gmail.com> - 0.9.0-1
+- The preset verbs preset_list, preset_load, preset_save and preset_show
+  are relayed by the daemon and the worker's answer comes back. The preset
+  file is org.openmixer.preset/1 (parameters) or /2 (with the state body),
+  checked against protocol/preset.schema.json; the daemon refuses an
+  unreadable or malformed file itself. Codes -523 to -527 name the
+  refusals (#131).
+- midi_learn, midi_map, midi_unmap, cv_map and cv_unmap are optional again
+  on the clap-worker and zynthian profiles: the host answers them only as
+  the mechanism, they are policy of the surfaces (#131).
+- New keys descriptor_dir and qualification_dir, beside state_root. After
+  an add is answered, a plugin with no descriptor is scanned by
+  plugin-hostd-probe describe, selected by the probe key, and written once
+  as <id>@<version>-<sha12>.json. The add never waits for the scan (#140).
+- New verb descriptor_get answers the path of that file. Codes -528 to
+  -531 name a directory that cannot be written, no descriptor, a scan still
+  running and a scan that wrote nothing. The man page has a DIRECTORIES
+  section (#140).
+
 * Thu Oct 22 2026 Pau Aliagas <linuxnow@gmail.com> - 0.8.0-1
 - The chain floor is 1, chain_members_min in the declared constants: a
   chain of one is valid, so one isolated plugin is a chain like any
