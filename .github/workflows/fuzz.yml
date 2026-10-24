@@ -1,0 +1,67 @@
+name: fuzz
+
+# The libFuzzer harnesses of fuzz/ (fuzz/README.md), on every push and pull request: each built with clang under
+# AddressSanitizer and UndefinedBehaviorSanitizer and fuzzed for 60 s from its seed corpus, every mutant of
+# fuzz/mutants/ found by its own property, the coverage witness held to its floor, and the corpus current. An input
+# that crashes a harness is uploaded as the fuzz-findings artifact. The command socket's chunking test stays in ci.yml.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz:
+    name: fuzz the command parser and the reply stream
+    runs-on: ubuntu-latest
+    # a backstop: fuzz-run spends 60 s on each harness and fuzz-sabotage runs seeds only, so the job ends well inside it
+    timeout-minutes: 30
+    container:
+      image: fedora:44
+    steps:
+      - name: Install clang, libFuzzer and llvm-cov
+        run: |
+          dnf install -y --setopt=install_weak_deps=False git dnf5-plugins clang compiler-rt llvm make gawk diffutils \
+            python3 pkgconf-pkg-config
+
+      - uses: actions/checkout@v4
+
+      # the harnesses read mod-host's protocol headers: the FreeMixer channel's mod-host-protocol-devel
+      - name: Install the mod-host protocol headers from the FreeMixer channel
+        run: |
+          dnf config-manager addrepo --setopt=retries=10 --from-repofile=https://freemixer.github.io/rpm/freemixer.repo
+          dnf install -y --setopt=retries=10 mod-host-protocol-devel
+
+      # fuzz-sabotage applies each mutant with git and restores it with git checkout
+      - name: Let git work in the checkout
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Build the harnesses (clang, libFuzzer, ASan, UBSan)
+        run: make fuzz
+
+      - name: The seed corpus is what the declared protocol gives
+        run: make fuzz-corpus-check
+
+      - name: Fuzz each harness for 60 s
+        run: make fuzz-run FUZZ_TIME=60
+
+      # a property no mutant can break checks nothing: each one-line mutant must make its harness abort on a seed, in
+      # that property's own check
+      - name: Find every mutant, each by its own property
+        run: make fuzz-sabotage
+
+      # the seed corpus must keep reaching the lines it reaches today (fuzz/coverage-floor.txt) and every property
+      # check of every harness
+      - name: Hold the coverage floor
+        run: make fuzz-coverage
+
+      - name: Upload the crashing inputs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-findings
+          path: fuzz/findings/
+          if-no-files-found: ignore
