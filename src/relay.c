@@ -34,8 +34,11 @@
 
 #include "relay.h"
 
-/* a worker line longer than this, with no NUL in it, is not a line of the protocol: it is dropped */
+/* a worker line longer than this, with no NUL in it, is not a line of the protocol: it is dropped; the fuzz harness
+ * (fuzz/fuzz_reply.c) builds the relay with a smaller one, so its inputs reach the drop */
+#ifndef LINE_LIMIT
 #define LINE_LIMIT (1024 * 1024)
+#endif
 
 typedef struct SOURCE_T {
     int fd;
