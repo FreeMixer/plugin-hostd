@@ -107,6 +107,9 @@ The settings live in a file, `-c`, `$PLUGIN_HOSTD_CONF` or
 | `pin_store` | `` | the file first-use pins are kept in; empty is $XDG_STATE_HOME/plugin-hostd/pins, else $HOME/.local/state/plugin-hostd/pins |
 | `pin_file` | `` | a file of pin lines loaded at start, as plugin-qualify --all --pins writes it; empty is none |
 | `pins_dir` | `/usr/share/plugin-hostd/pins.d` | the read-only pins of packages: every file in it whose name ends in .pins, read at start in name order, under the store, the pin_file and pin_set, except that a pin of verdict=refused there always holds; empty is none |
+| `descriptor_dir` | `$OMX_DESCRIPTOR_DIR`, else `` | the scanned descriptors, one file per plugin binary (<id>@<version>-<hash>.json, the hash the binary's SHA-256), written by the scan of an add and read by descriptor_get; empty is $XDG_STATE_HOME/omx/descriptors, else /var/lib/omx/descriptors run as root (a system service), else $HOME/.local/state/omx/descriptors; its variable is for tests only |
+| `qualification_dir` | `$OMX_QUALIFICATION_DIR`, else `` | plugin-qualify's qualification records (verdict, cost, version tested), kept apart from the descriptors; empty is $XDG_STATE_HOME/omx/qualification, else /var/lib/omx/qualification run as root (a system service), else $HOME/.local/state/omx/qualification; its variable is for tests only |
+| `probe` | `plugin-hostd-probe` | the scanner an add runs, as <probe> describe <target>, in a child of its own once per plugin binary; its stdout is the descriptor |
 | `ready_timeout_ms` | 5000 ms | a worker that does not accept in this long is a failed spawn |
 | `rpc_timeout_ms` | 5000 ms | a worker that does not answer in this long is killed |
 | `backoff_base_ms` | 250 ms | respawn backoff, doubling per death in the window |
@@ -169,6 +172,7 @@ Verbs the daemon adds
 | `pin_expect` | `<instance> <scheme>:<sha256>` | `resp 0` | sent by the daemon to a worker of a format that checks layouts, just before the instance's add: the layout pin that add checks after init and before activate; any other reply than resp 0 refuses the add with that code, and the add is never forwarded |
 | `chain` | `<chain> <instance> [<instance> ...]` | `resp 0` | the instances, in this order, are one chain, run in one worker of place chain:<chain>: each member's state is saved, it is removed from the worker it was in and replayed in the chain's. A chain already declared takes the new order, and a member left out of it goes back to a worker of its own. A worker that runs chains in one client (clap, lv2-clap) is sent this line, with the members it holds, after the adds of its replay; one that does not (mod-host) never is, and a refusal of it is written to stderr and is no failure. Every instance verb still names one member by its own number. A member that crashes the worker is quarantined to a worker of its own and the chain goes on without it; quarantine_clear puts it back. -518 for an instance no add made, -519 for one named twice, -520 for one in another chain, -521 for members of more than one format, -501 for a plugin that may not share a worker while require_pins is on (a CLAP plugin whose first-use pin is not in-process; an LV2 member whose bundle is not found, since a chain's worker sees a world narrowed to the union of its members' bundles), -902 for a chain or an instance that is not a number, or fewer than chain_members_min (1) instances |
 | `chain_clear` | `<chain>` | `resp 0` | forget the chain: each member goes to a worker of its own; -522 for a chain no chain declared |
+| `descriptor_get` | `<uri>` | `resp 0 "<path>"` | the scanned descriptor of the plugin, answered from descriptor_dir: the file named for its binary as it is now (<id>@<version>-<hash>.json), written by the scan the plugin's add ran. -529 when there is none, -530 while its scan runs, -531 when its last scan wrote nothing, -528 when the directory could not be written |
 
 A `<state>` is `up` (accepting commands), `starting` (spawned, not yet accepting), `backoff` (dead, waiting to be respawned), `given-up` (the storm bound is spent for its placement).
 <!-- END GENERATED protocol:verbs -->
@@ -301,6 +305,7 @@ mechanism, and they stay optional. The preset verbs and the preset file are [doc
 | `lv2_worker_set` | daemon | required | required | required | required |
 | `chain` | daemon | required | required | required | required |
 | `chain_clear` | daemon | required | required | required | required |
+| `descriptor_get` | daemon | required | required | required | required |
 
 The profiles: `lv2-worker`, an LV2 plugin's worker: mod-host, or omx-clap-host's LV2 adapter; `clap-worker`, a CLAP plugin's worker, omx-clap-host; `console`, the openmixer console as a controller of the daemon; `zynthian`, Zynthian's mod-ui and its plugind engine as a controller of the daemon. `required` is answered as its grammar says; `optional` is answered, or refused with -902, and never misread; `absent` is refused on purpose, and no client of the profile may need it.
 <!-- END GENERATED protocol:host-verbs -->
@@ -337,6 +342,10 @@ Error codes the daemon adds to mod-host's:
 | `-525` | `PHD_ERR_PRESET_NEEDS_STATE` | the worker: a preset file that carries state for a worker that cannot take state yet |
 | `-526` | `PHD_ERR_PRESET_PLUGIN_CHANGED` | the worker: the preset file's plugin id, version or fingerprint is not the instance's; nothing of it is applied |
 | `-527` | `PHD_ERR_LOAD_REFUSED` | the worker: the plugin refused the preset or the state its file carries |
+| `-528` | `PHD_ERR_DIR_NOT_WRITABLE` | descriptor_dir or qualification_dir cannot be made or written: the daemon does not start, and says which key and which path on stderr with this code; a directory that turns read-only later makes the scan of an add write nothing, and descriptor_get of that plugin answers this code |
+| `-529` | `PHD_ERR_DESCRIPTOR_ABSENT` | descriptor_get of a plugin that has no descriptor in descriptor_dir for its binary as it is now, and none being written: no add since it changed, or a binary that cannot be found |
+| `-530` | `PHD_ERR_DESCRIPTOR_PENDING` | descriptor_get of a plugin whose scan, started by its add, has not ended: ask again |
+| `-531` | `PHD_ERR_DESCRIPTOR_SCAN_FAILED` | descriptor_get of a plugin whose last scan wrote no descriptor: the scanner refused the plugin, made no dump, or is not installed; the add it ran for stands, and stderr and the scan's log say why. The next add scans again |
 <!-- END GENERATED protocol:errors -->
 
 A worker's own refusal is returned as it said it. An `add` that killed its worker answers mod-host's `-102`.

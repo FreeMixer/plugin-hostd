@@ -72,8 +72,40 @@ or in
 one
 .\" BEGIN GENERATED protocol:man-keys
 .RI \(dq key " value" \(dq
-per line: mod_host, clap_host, lv2_worker, lv2_path, state_root, pin_mode, pin_store, pin_file, pins_dir, ready_timeout_ms, rpc_timeout_ms, backoff_base_ms, backoff_max_ms, storm_deaths, storm_window_ms, suspect_window_ms, checkpoint_ms, idle_ms, pool_max, require_pins.
+per line: mod_host, clap_host, lv2_worker, lv2_path, state_root, pin_mode, pin_store, pin_file, pins_dir, descriptor_dir, qualification_dir, probe, ready_timeout_ms, rpc_timeout_ms, backoff_base_ms, backoff_max_ms, storm_deaths, storm_window_ms, suspect_window_ms, checkpoint_ms, idle_ms, pool_max, require_pins.
 .\" END GENERATED protocol:man-keys
+.SH DIRECTORIES
+What the scan of an
+.B add
+gathers is state, kept across a reboot, in two directories of their own:
+.\" BEGIN GENERATED protocol:man-dirs
+.TP
+.B descriptor_dir
+the scanned descriptors, one file per plugin binary (<id>@<version>\-<hash>.json, the hash the binary's SHA\-256), written by the scan of an add and read by descriptor_get; empty is $XDG_STATE_HOME/omx/descriptors, else /var/lib/omx/descriptors run as root (a system service), else $HOME/.local/state/omx/descriptors; its variable is for tests only.
+The variable
+.B $OMX_DESCRIPTOR_DIR
+stands in for the empty default; the key in the settings file holds over it.
+.TP
+.B qualification_dir
+plugin\-qualify's qualification records (verdict, cost, version tested), kept apart from the descriptors; empty is $XDG_STATE_HOME/omx/qualification, else /var/lib/omx/qualification run as root (a system service), else $HOME/.local/state/omx/qualification; its variable is for tests only.
+The variable
+.B $OMX_QUALIFICATION_DIR
+stands in for the empty default; the key in the settings file holds over it.
+.PP
+A missing directory is made, mode 0700, with its parents. One that cannot be made or written stops the daemon before it is ready: stderr names the key and the path with resp \-528.
+.PP
+The answered
+.B add
+of a plugin whose files have no descriptor yet runs
+.I probe
+.B describe
+in a child of its own and files its stdout as
+.IR "<id>@<version>\-<hash>.json" ,
+written once; the add never waits for it.
+.B descriptor_get
+.I uri
+answers the file's path, or \-529 (none), \-530 (the scan runs), \-531 (the scan wrote nothing).
+.\" END GENERATED protocol:man-dirs
 .SH PINS
 With require_pins on,
 .B add

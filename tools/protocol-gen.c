@@ -525,6 +525,37 @@ static void region_man_keys(void)
     printf(".\n");
 }
 
+/* the directories of what an add gathers: each key with its default, and what the daemon does with them */
+static void region_man_dirs(void)
+{
+    char buffer[256];
+
+#define X(key, size, def, env, meaning) \
+    if (!strcmp(#key, "descriptor_dir") || !strcmp(#key, "qualification_dir")) \
+    { \
+        printf(".TP\n.B " #key "\n"); \
+        roff_escape(meaning); \
+        printf(".\n"); \
+        if (*(env)) \
+            printf("The variable\n.B $" env "\nstands in for the empty default; the key in the settings file holds over it.\n"); \
+    }
+    PHD_CONF_STRINGS(X)
+#undef X
+    printf(".PP\nA missing directory is made, mode %04o, with its parents. One that cannot be made or written stops the "
+           "daemon before it is ready: stderr names the key and the path with resp ", PHD_DIR_MODE);
+    snprintf(buffer, sizeof(buffer), "%d", PHD_ERR_DIR_NOT_WRITABLE);
+    roff_escape(buffer);
+    printf(".\n.PP\nThe answered\n.B add\nof a plugin whose files have no descriptor yet runs\n.I probe\n.B describe\n"
+           "in a child of its own and files its stdout as\n.IR \"");
+    roff_escape(PHD_DESCRIPTOR_NAME_SYNTAX);
+    printf("\" ,\nwritten once; the add never waits for it.\n.B " PHD_VERB_DESCRIPTOR_GET "\n.I uri\n"
+           "answers the file's path, or ");
+    snprintf(buffer, sizeof(buffer), "%d (none), %d (the scan runs), %d (the scan wrote nothing)",
+             PHD_ERR_DESCRIPTOR_ABSENT, PHD_ERR_DESCRIPTOR_PENDING, PHD_ERR_DESCRIPTOR_SCAN_FAILED);
+    roff_escape(buffer);
+    printf(".\n");
+}
+
 static void region_man_ready(void)
 {
     printf(".B ");
@@ -552,7 +583,7 @@ static const struct {
     { "verbs", region_verbs }, { "instance-verbs", region_instance_verbs }, { "host-verbs", region_host_verbs }, { "errors", region_errors }, { "events", region_events },
     { "pin-limits", region_pin_limits }, { "man-pin-limits", region_man_pin_limits },
     { "readiness", region_readiness }, { "worker-ready", region_worker_ready },
-    { "man-keys", region_man_keys }, { "man-ready", region_man_ready }, { "man-port", region_man_port },
+    { "man-keys", region_man_keys }, { "man-dirs", region_man_dirs }, { "man-ready", region_man_ready }, { "man-port", region_man_port },
     { "relay", region_relay }, { "man-relay", region_man_relay }, { "host-settings", region_host_settings },
     { "man-host-settings", region_man_host_settings },
 };
