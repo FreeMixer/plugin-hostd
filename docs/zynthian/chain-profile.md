@@ -132,9 +132,14 @@ Tests
 
 `tools/zynthian/chain.sh <zynthian-ui clone> <out>` applies the patch at the pinned commit and runs
 `tools/zynthian/test-chain.py`: the real `zynthian_chain`, `zynthian_processor` and `zynthian_plugind_chain` against
-plugin-hostd and `tests/fake-host` (no JACK, no plugin), and, given `CHAIN_E2E`, against omx-clap-host with an LV2 and
-a CLAP plugin under JACK. Seven scenarios read the chain back with `chain_get` and the workers with `worker_list`;
-each sabotage turns its scenario red. `evidence/chain/` holds the runs with their commands. A claim about Zynthian
+plugin-hostd and `tests/fake-host` (no JACK, no plugin). Seven scenarios read the chain back with `chain_get` and the
+workers with `worker_list`, each sabotage turns its scenario red, and given a daemon without `chain_get` the floor
+scenario holds the engine to its refusal. `tools/zynthian/chain-e2e.sh` runs the same seven against omx-clap-host,
+an LV2 member on the adapter row and CLAP members, in a PipeWire of its own: one node per chain (`pw-dump`), the
+crashed member's own node, and an eighth that measures the audio. After an add at a position and after a move, the
+chain's output is the order `chain_get` reads back: equal to the same plugins one client each in series, within the
+difference two such references show of each other, and at least 40 dB away from the other order.
+`evidence/chain/` holds the runs with their commands. A claim about Zynthian
 here is trixie arm64 container only until the Vangelis hardware run is dated, and these runs are less than that:
 Fedora 44 containers on x86_64, the zynthian-ui Python modules imported with zyncoder and autoconnect stubbed. No
 Zynthian image ran, and no Zynthian screen, UI or encoder was seen.
