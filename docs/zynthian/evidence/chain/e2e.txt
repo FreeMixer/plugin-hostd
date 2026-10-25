@@ -1,0 +1,38 @@
+Date: 2026-10-25, host r1 (x86_64), rootless podman.
+Where: a Fedora 44 x86_64 container. Not a Zynthian image, not trixie arm64, no Zynthian hardware: the zynthian-ui
+Python modules (zynthian_chain, zynthian_processor, the patched plugind engine and chain) imported with zyncoder,
+pyliblo3 and zynautoconnect stubbed. No Zynthian screen, UI or encoder was seen. A claim about Zynthian is trixie arm64
+container only until the Vangelis hardware run is dated; this is less than that.
+zynthian-ui: f46b0189b6163472db39aa607369f397ed23b65a with docs/zynthian/zynthian_engine_plugind.patch of this branch.
+plugin-hostd: FreeMixer/plugin-hostd branch lane/162-chain-in-place, built at b4b62b9 (its code; 427f638 adds only
+sabotage arms), "version: 0.10.0" (no release carries chain_get yet). The floor scenario's daemon: main 8073769, 0.10.0.
+Worker: omx-clap-host built from FreeMixer/omx-clap-core PR 348 (cluster/omx-clap-core-104-chain-host, e3df19b),
+NOT merged; its tests/fault-0.clap (a pad, x0.1), tests/fault-14.clap (a gain that aborts on a write of 0.9 or more),
+tests/fake_compressor.clap (-6 dB on a block peaking at 0.1 or more) and tests/jack_identity from the same tree. The LV2
+member: x42 fil4 stereo (lv2:http://gareus.org/oss/lv2/fil4#stereo, Fedora's lv2-x42-plugins 0.21.0) on the adapter
+row. A private PipeWire 1.6.10 in a user, net and pid namespace of its own.
+
+Command (in the image phd149-e2e: phd159-test plus omx-dsp-devel, omx-contract-devel, plugin-hostd-devel, lilv-devel,
+jq, lv2-x42-plugins; podman run with seccomp unconfined, /proc unmasked and CAP_SYS_ADMIN, for the
+nested namespace):
+  PLUGIN_HOSTD=<lane/162>/plugin-hostd CLAP_HOST=<pr-348>/omx-clap-host \
+  CHAIN_CLAP_URI='clap:<pr-348>/tests/fault-0.clap#org.openmixer.fault.0' \
+  FAULT_CLAP_URI='clap:<pr-348>/tests/fault-14.clap#org.openmixer.fault.14' CHAIN_FAULT_PARAM='param_set %d 0 0.95' \
+  CHAIN_COMP_URI='clap:<pr-348>/tests/fake_compressor.clap#org.omx-clap-host.test.compressor' \
+  JACK_IDENTITY=<pr-348>/tests/jack_identity tools/zynthian/chain-e2e.sh <zynthian-ui clone> <out>
+
+Output (<out>/test.log; no sabotage here, chain.sh holds those):
+
+ok   series_order_add_at_position
+ok   removal_heals_and_replay_keeps_no_stale_member
+ok   move_by_nudge_is_one_chain_line
+ERROR:root:plugind chain 1: PARALLEL_SLOT_REFUSED (audio slot 0): effect_0, jalv_x
+ok   parallel_slot_is_refused_by_name_before_it_forms
+ERROR:root:plugind chain 1: PLUGIND_RUN_SPLIT (audio slot 2): it runs outside the chain line
+ok   a_foreign_processor_ends_the_chain_line
+ok   a_crashed_member_leaves_the_others_running
+ok   bypass_and_parameters_name_one_member
+     after the add, the chain plays fil4, comp, pad: peak 0.01253 (reference 0.01253, other order 0.02500); against the reference bit for bit; against the other order 0.0125, -38.1 dBFS; two references of one order 3.43e-07, -129.3 dBFS
+     after the move, the chain plays fil4, pad, comp: peak 0.02500 (reference 0.02500, other order 0.01253); against the reference bit for bit; against the other order 0.0125, -38.1 dBFS; two references of one order 3.43e-07, -129.3 dBFS
+ok   audio_follows_the_read_back
+CHAIN PASS: 0 failed
