@@ -1,0 +1,16 @@
+Breaks the check of fuzz/fuzz_command.c:294 (acted on, by its own call or by a broadcast, with an argument count the declaration allows).
+Caught by the seed input "mod-host-remove-extra" of fuzz_command.
+
+diff --git a/src/verbs.c b/src/verbs.c
+index 3b7feba..95bb8ec 100644
+--- a/src/verbs.c
++++ b/src/verbs.c
+@@ -149,7 +149,7 @@ static char *handle(char *line, char **tok, int ntok)
+         return ntok == 2 ? descriptors_get(tok[1]) : sup_resp(ERR_INVALID_OPERATION);
+     if (!strcmp(verb, PHD_VERB_PANEL_GET))
+         return ntok == 2 ? descriptors_panel_get(tok[1]) : sup_resp(ERR_INVALID_OPERATION);
+-    if (verb_is(verb, EFFECT_REMOVE))
++    if (verb_is(verb, EFFECT_REMOVE) && ntok == 2)
+     {
+         if (ntok != 2)
+             return sup_resp(ERR_INVALID_OPERATION);

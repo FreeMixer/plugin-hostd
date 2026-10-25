@@ -40,9 +40,12 @@
  *     Mutant: fuzz/sabotage/command-reply.patch, the reply sent without its NUL.
  *     Mutant: fuzz/sabotage/command-reply-answer.patch, a pin_set the pins refused replied "resp 0".
  *   - arity: a verb the daemon parses itself (PHD_VERBS, the rows tools/protocol-gen.c writes into
- *     protocol/plugin-hostd.json, and mod-host's remove, connect, disconnect and quit) is acted on only with an
- *     argument count its declared syntax allows; a word past PHD_LINE_WORDS_MAX is not read.
+ *     protocol/plugin-hostd.json, and mod-host's remove, connect, disconnect and quit) is acted on, by its own call
+ *     or by a broadcast to every worker, only with an argument count its declared syntax allows; a word past
+ *     PHD_LINE_WORDS_MAX is not read. The broadcast of pin_layout, pin_expect, and connect or disconnect of another
+ *     count is the workers' to refuse (passed_on).
  *     Mutant: fuzz/sabotage/command-arity.patch, pool_config taking three words or more.
+ *     Mutant: fuzz/sabotage/command-arity-broadcast.patch, remove of another count sent to every worker.
  *   - words: each call the daemon makes is handed the message's words at the places its verb declares them, as the
  *     harness reads them (g_call_words): a word as written, a number as atoi reads it, a line as its words joined by
  *     one space. The round trip below compares the daemon with itself, so a word put in the wrong place twice keeps
@@ -251,13 +254,23 @@ __attribute__((noinline)) static void check_reply(const struct words *w)
         abort();
 }
 
+/* the verbs of g_parsed the daemon passes to every worker, whatever their count: pin_layout and pin_expect, which the
+ * daemon sends a worker itself (PHD_VERBS) and handle() does not parse, so from a controller they go out as any line it
+ * does not parse, for each worker to refuse; and connect and disconnect with another count than two ports, whose
+ * grammar is mod-host's, so each worker's mod-host refuses them */
+static int passed_on(const char *verb)
+{
+    return !strcmp(verb, PHD_VERB_PIN_LAYOUT) || !strcmp(verb, PHD_VERB_PIN_EXPECT) || verb_is(verb, EFFECT_CONNECT) ||
+           verb_is(verb, EFFECT_DISCONNECT);
+}
+
 /* the arity property */
 __attribute__((noinline)) static void check_arity(const struct words *w)
 {
     size_t n;
     int read, min, max;
 
-    if (w->n == 0 || !acted() || (g_rec.ncalls > 0 && g_rec.calls[0].fn == REC_BROADCAST))
+    if (w->n == 0 || !acted() || (g_rec.ncalls > 0 && g_rec.calls[0].fn == REC_BROADCAST && passed_on(w->w[0])))
         return;
     read = w->n < PHD_LINE_WORDS_MAX ? w->n : PHD_LINE_WORDS_MAX;
     for (n = 0; n < sizeof(g_parsed) / sizeof(g_parsed[0]); n++)
@@ -268,9 +281,11 @@ __attribute__((noinline)) static void check_arity(const struct words *w)
             syntax_format_arity(g_parsed[n].syntax, &min, &max);
         else
             syntax_arity(g_parsed[n].syntax, &min, &max);
-        /* acted on with an argument count the declaration allows
+        /* acted on, by its own call or by a broadcast, with an argument count the declaration allows
          * mutant: src/verbs.c:175 `ntok == 3` -> `ntok >= 3`
-         * input: plugin-hostd-pool_config-extra */
+         * input: plugin-hostd-pool_config-extra
+         * mutant: src/verbs.c:152 `verb_is(verb, EFFECT_REMOVE)` -> `verb_is(verb, EFFECT_REMOVE) && ntok == 2`
+         * input: mod-host-remove-extra */
         if (read - 1 < min || read - 1 > max)
             abort();
         return;
