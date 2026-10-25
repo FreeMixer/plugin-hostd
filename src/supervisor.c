@@ -262,19 +262,25 @@ static void instance_free(instance_t *i)
     free(i);
 }
 
-static int ckpt_exists(int id)
+/* whether an entry of the checkpoint directory is instance id's: effect_<id>, or effect_<id>.<anything> */
+static int ckpt_entry_of(const char *name, int id)
 {
     char prefix[32];
-    size_t n;
+    size_t n = snprintf(prefix, sizeof(prefix), "effect_%d", id);
+
+    return !strncmp(name, prefix, n) && (name[n] == '\0' || name[n] == '.');
+}
+
+static int ckpt_exists(int id)
+{
     DIR *dir = opendir(g_ckpt);
     struct dirent *entry;
     int found = 0;
 
     if (!dir)
         return 0;
-    n = snprintf(prefix, sizeof(prefix), "effect_%d", id);
     while (!found && (entry = readdir(dir)))
-        found = !strncmp(entry->d_name, prefix, n) && (entry->d_name[n] == '\0' || entry->d_name[n] == '.');
+        found = ckpt_entry_of(entry->d_name, id);
     closedir(dir);
     return found;
 }
@@ -292,21 +298,46 @@ static void rm_tree(const char *path)
 
 static void ckpt_forget(int id)
 {
-    char prefix[32], path[PATH_MAX];
-    size_t n;
+    char path[PATH_MAX];
     DIR *dir = opendir(g_ckpt);
     struct dirent *entry;
 
     if (!dir)
         return;
-    n = snprintf(prefix, sizeof(prefix), "effect_%d", id);
     while ((entry = readdir(dir)))
-        if (!strncmp(entry->d_name, prefix, n) && (entry->d_name[n] == '\0' || entry->d_name[n] == '.'))
+        if (ckpt_entry_of(entry->d_name, id))
         {
             snprintf(path, sizeof(path), "%s/%s", g_ckpt, entry->d_name);
             rm_tree(path);
         }
     closedir(dir);
+}
+
+/* the checkpoint of one instance alone, linked into dir (under the daemon's own directory): a state_load of dir loads
+ * that instance and touches no other the worker holds. 0 when the instance has no checkpoint */
+static int ckpt_alone(int id, char *dir, size_t size)
+{
+    char from[PATH_MAX], to[PATH_MAX];
+    DIR *ckpt = opendir(g_ckpt);
+    struct dirent *entry;
+    int found = 0;
+
+    snprintf(dir, size, "%s/alone-%d", g_root, id);
+    rm_tree(dir);
+    if (!ckpt)
+        return 0;
+    if (mkdir(dir, 0700) == 0)
+        while ((entry = readdir(ckpt)))
+            if (ckpt_entry_of(entry->d_name, id))
+            {
+                snprintf(from, sizeof(from), "%s/%s", g_ckpt, entry->d_name);
+                snprintf(to, sizeof(to), "%s/%s", dir, entry->d_name);
+                found |= symlink(from, to) == 0;
+            }
+    closedir(ckpt);
+    if (!found)
+        rm_tree(dir);
+    return found;
 }
 
 /* ---------------------------------------------------------------- workers */
@@ -917,46 +948,102 @@ static int chain_line(worker_t *w, char *line, size_t size)
     return count;
 }
 
-static void replay(worker_t *w, int64_t started)
+/* an instance's add as a replay gives it: its pin checked again, its add, its track_info. 1 when the worker holds it,
+ * 0 when its pin or the worker refused it, -1 when the worker died on it (the death is handled) */
+static int replay_add(worker_t *w, instance_t *i)
 {
-    int n, m, any_ckpt = 0, count = 0, code;
-    char msg[PATH_MAX + 16], add[32];
+    char add[32];
+    int code;
 
     snprintf(add, sizeof(add), "%.*s", verb_len(EFFECT_ADD), EFFECT_ADD);
+    switch (replay_pin(w, i))
+    {
+    case RPC_OK:
+        break;
+    case PIN_REFUSED:
+        return 0;
+    default:
+        on_death(w, i->id);
+        return -1;
+    }
+    if (replay_line_code(w, i->add_line, &code) != RPC_OK)
+    {
+        on_death(w, i->id);
+        return -1;
+    }
+    if (code < 0)
+    {
+        replay_refused(w, i, add, code);
+        return 0;
+    }
+    /* before the state: what the plugin does on hearing it is overwritten by the state it saved; mod-host
+     * has no track_info, so a worker that does not answer the instance verbs never gets it */
+    if (i->track_info && format_at(i->fmt)->native_instance_verbs && replay_line(w, i->track_info) != RPC_OK)
+    {
+        on_death(w, i->id);
+        return -1;
+    }
+    i->has_ckpt = ckpt_exists(i->id);
+    return 1;
+}
+
+/* an instance's verb ledger, after the state; -1 when the worker died on it */
+static int replay_tail(worker_t *w, instance_t *i)
+{
+    int m;
+
+    for (m = 0; m < i->ntail; m++)
+        if (replay_line(w, i->tail[m].line) != RPC_OK)
+        {
+            on_death(w, i->id);
+            return -1;
+        }
+    return 0;
+}
+
+/* an instance's connections, last: one the worker cannot make yet is asked again by the tick; -1 when it died */
+static int replay_conns(worker_t *w, instance_t *i)
+{
+    int m, code;
+
+    for (m = 0; m < i->nconns; m++)
+    {
+        if (replay_line_code(w, i->conns[m], &code) != RPC_OK)
+        {
+            on_death(w, i->id);
+            return -1;
+        }
+        if (code < 0)
+            pend_add(w, i->conns[m]);
+    }
+    return 0;
+}
+
+/* chain_formed: the order a chain's worker runs now, the members it holds and replayed */
+static void chain_formed(worker_t *w)
+{
+    char ids[1024];
+    size_t used = 0;
+    int n;
+
+    ids[0] = '\0';
+    for (n = 0; n < w->ninst && used + 8 < sizeof(ids); n++)
+        if (!w->inst[n]->unreplayed)
+            used += snprintf(ids + used, sizeof(ids) - used, "%s%d", used ? "," : "", w->inst[n]->id);
+    event(PHD_EVENT_CHAIN_FORMED_FMT, w->chain->id, w->k, used ? ids : PHD_WORD_NONE);
+}
+
+static void replay(worker_t *w, int64_t started)
+{
+    int n, added, any_ckpt = 0, count = 0;
+    char msg[PATH_MAX + 16];
 
     for (n = 0; n < w->ninst; n++)
     {
-        instance_t *i = w->inst[n];
-
-        switch (replay_pin(w, i))
-        {
-        case RPC_OK:
-            break;
-        case PIN_REFUSED:
-            continue;
-        default:
-            on_death(w, i->id);
+        added = replay_add(w, w->inst[n]);
+        if (added < 0)
             return;
-        }
-        if (replay_line_code(w, i->add_line, &code) != RPC_OK)
-        {
-            on_death(w, i->id);
-            return;
-        }
-        if (code < 0)
-        {
-            replay_refused(w, i, add, code);
-            continue;
-        }
-        /* before the state: what the plugin does on hearing it is overwritten by the state it saved; mod-host
-         * has no track_info, so a worker that does not answer the instance verbs never gets it */
-        if (i->track_info && format_at(i->fmt)->native_instance_verbs && replay_line(w, i->track_info) != RPC_OK)
-        {
-            on_death(w, i->id);
-            return;
-        }
-        i->has_ckpt = ckpt_exists(i->id);
-        any_ckpt |= i->has_ckpt;
+        any_ckpt |= added && w->inst[n]->has_ckpt;
     }
     /* the order of a chain, to a worker that runs one in one client, before the state: the members it holds */
     if (w->chain && format_at(w->fmt)->native_chain && chain_line(w, msg, sizeof(msg)) && replay_line(w, msg) != RPC_OK)
@@ -974,36 +1061,14 @@ static void replay(worker_t *w, int64_t started)
         }
     }
     for (n = 0; n < w->ninst; n++)
-    {
-        instance_t *i = w->inst[n];
-
-        if (i->unreplayed)
-            continue;
-        for (m = 0; m < i->ntail; m++)
-            if (replay_line(w, i->tail[m].line) != RPC_OK)
-            {
-                on_death(w, i->id);
-                return;
-            }
-    }
+        if (!w->inst[n]->unreplayed && replay_tail(w, w->inst[n]) < 0)
+            return;
     for (n = 0; n < w->ninst; n++)
     {
-        instance_t *i = w->inst[n];
-
-        if (i->unreplayed)
+        if (w->inst[n]->unreplayed)
             continue;
-        for (m = 0; m < i->nconns; m++)
-        {
-            int code;
-
-            if (replay_line_code(w, i->conns[m], &code) != RPC_OK)
-            {
-                on_death(w, i->id);
-                return;
-            }
-            if (code < 0)
-                pend_add(w, i->conns[m]);
-        }
+        if (replay_conns(w, w->inst[n]) < 0)
+            return;
         count++;
     }
     w->state = W_UP;
@@ -1012,16 +1077,7 @@ static void replay(worker_t *w, int64_t started)
         if (!w->inst[n]->unreplayed)
             event(PHD_EVENT_INSTANCE_RESTORED_FMT, w->inst[n]->id, w->k);
     if (w->chain)
-    {
-        char ids[1024];
-        size_t used = 0;
-
-        ids[0] = '\0';
-        for (n = 0; n < w->ninst && used + 8 < sizeof(ids); n++)
-            if (!w->inst[n]->unreplayed)
-                used += snprintf(ids + used, sizeof(ids) - used, "%s%d", used ? "," : "", w->inst[n]->id);
-        event(PHD_EVENT_CHAIN_FORMED_FMT, w->chain->id, w->k, used ? ids : PHD_WORD_NONE);
-    }
+        chain_formed(w);
 }
 
 static void respawn(worker_t *w)
