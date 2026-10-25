@@ -23,6 +23,7 @@ import socket
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import types
 
@@ -31,6 +32,7 @@ EXE = os.path.abspath(os.environ.get("PLUGIN_HOSTD", os.path.join(ROOT, "plugin-
 FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "fake-host")))
 OLD = os.environ.get("PLUGIN_HOSTD_OLD")
 E2E = os.environ.get("CHAIN_E2E") == "1"
+LOCK_WAIT = 2.0
 
 
 class Fail(Exception):
@@ -61,10 +63,16 @@ def stubs(root):
         "UDP = 1\nTCP = 2\nclass AddressError(Exception): pass\nclass ServerError(Exception): pass\n"
         "class Address:\n    def __init__(self, *a, **k): pass\n"
         "class ServerThread:\n    def __init__(self, *a, **k): pass\n")
+    # autoconnect's lock is a real one: its acquire_lock waits for ever (zynthian_autoconnect.py:1602), the stub's
+    # waits LOCK_WAIT seconds and counts the wait that would never have ended
     open(os.path.join(root, "zynautoconnect.py"), "w").write(
+        "import threading\nlock = threading.Lock()\nhung = []\n"
         "def _noop(*a, **k): pass\nadd_sidechain_ports = remove_sidechain_ports = request_audio_connect = "
-        "request_midi_connect = release_lock = _noop\n"
-        "def acquire_lock(*a, **k): return True\ndef get_audio_capture_ports(): return []\n")
+        "request_midi_connect = _noop\n"
+        "def acquire_lock():\n    if lock.acquire(timeout=%r):\n        return True\n    hung.append(1)\n"
+        "    return False\n"
+        "def release_lock():\n    try:\n        lock.release()\n    except RuntimeError:\n        pass\n"
+        "def get_audio_capture_ports(): return []\n" % LOCK_WAIT)
 
 
 def free_pair():
@@ -221,6 +229,10 @@ class rig:
 
     def __init__(self, exe=EXE):
         os.environ.pop("PLUGIND_PLACEMENT", None)
+        # a lock one scenario left held is that scenario's red, not the next one's
+        autoconnect = sys.modules["zynautoconnect"]
+        autoconnect.release_lock()
+        autoconnect.hung.clear()
         S.instances.clear()
         S.chains.clear()
         self.d = daemon(exe)
@@ -247,11 +259,32 @@ class rig:
         return [[p.get_jackname() for p in slot] for slot in self.chain.audio_slots]
 
     def routes(self):
-        return self.chain.audio_routes
+        """read as autoconnect reads them, under its lock: a rebuild a feedback event asks for builds them in place"""
+        autoconnect = sys.modules["zynautoconnect"]
+        check(autoconnect.acquire_lock(), "the autoconnect lock is free to read the routes")
+        try:
+            return dict(self.chain.audio_routes)
+        finally:
+            autoconnect.release_lock()
 
     def close(self):
+        """the daemon down, then the rebuilds its feedback asked for run out against a closed client, never against
+        the next scenario's daemon"""
+        S.client().chain_handlers.clear()
         self.d.close()
+        S.set_client(closed_client())
+        for t in threading.enumerate():
+            if t is not threading.current_thread() and t.name.endswith("(<lambda>)"):
+                t.join(2 * LOCK_WAIT)
         S.set_client(None)
+
+
+class closed_client:
+    """the client of a scenario that ended"""
+    output_handlers, chain_handlers = {}, {}
+
+    def cmd(self, line):
+        raise ConnectionError("the scenario's daemon is closed: %s" % line)
 
 
 def settle():
@@ -448,6 +481,48 @@ def bypass_and_parameters_name_one_member():
         r.close()
 
 
+class dying_socket:
+    """the command socket of a daemon killed while a command is in flight: the command is sent, then the daemon dies"""
+
+    def __init__(self, sock, kill):
+        self.sock, self.kill = sock, kill
+
+    def sendall(self, data):
+        self.sock.sendall(data)
+        if self.kill:
+            self.kill()
+            self.kill = None
+
+    def __getattr__(self, name):
+        return getattr(self.sock, name)
+
+
+def a_daemon_gone_mid_command_leaves_no_lock_held():
+    """plugin-hostd killed with a rebuild's command in flight (a restart): every later rebuild takes autoconnect's lock
+    again, and the chain is routed client by client, as Zynthian builds it"""
+    r = rig()
+    try:
+        r.add("a", engine=lv2_engine), r.add("b")
+        settle()
+        autoconnect = sys.modules["zynautoconnect"]
+        S.client().sock = dying_socket(S.client().sock, lambda: (r.d.proc.kill(), r.d.proc.wait()))
+        raised = []
+        for n in range(3):
+            try:
+                r.chain.rebuild_audio_graph()
+            except Exception as e:
+                raised.append("%s: %s" % (type(e).__name__, e))
+            check(autoconnect.acquire_lock(), "the autoconnect lock is taken again after rebuild %d: %s" % (n, raised))
+            autoconnect.release_lock()
+        check(not raised, "a rebuild raises nothing on a lost daemon: %s" % raised)
+        check(S.chains[1].refusal == "PLUGIND_DAEMON_LOST", "the loss is named: %s" % S.chains[1].refusal)
+        routes = r.routes()
+        check(routes.get("effect_1") == ["effect_0"] and routes.get("system:playback") == ["effect_1"],
+              "the chain routed client by client, as Zynthian builds it: %s" % routes)
+    finally:
+        r.close()
+
+
 def audio_ports(client, output):
     """end to end: a JACK client's audio ports, in name order (pw-link -o / -i)"""
     listed = subprocess.run(["pw-link", "-o" if output else "-i"], capture_output=True, text=True).stdout.split()
@@ -599,7 +674,7 @@ def the_floor_is_chain_get():
 SCENARIOS = [series_order_add_at_position, removal_heals_and_replay_keeps_no_stale_member,
              move_by_nudge_is_one_chain_line, parallel_slot_is_refused_by_name_before_it_forms,
              a_foreign_processor_ends_the_chain_line, a_crashed_member_leaves_the_others_running,
-             bypass_and_parameters_name_one_member]
+             bypass_and_parameters_name_one_member, a_daemon_gone_mid_command_leaves_no_lock_held]
 if OLD:
     SCENARIOS.append(the_floor_is_chain_get)
 if E2E and os.environ.get("JACK_IDENTITY"):
@@ -645,6 +720,20 @@ def sab_foreign_allowed():
     # the run of members passes over a foreign processor's slot instead of ending at it
     return patch(S.plugind_chain, "members", lambda orig: lambda self, slots: orig(
         self, [slot for slot in slots if S.is_plugind(slot[0])]))
+
+
+def sab_refusals_only():
+    # the hook catches the chain's refusals only: a lost daemon's error leaves rebuild_audio_graph holding the lock
+    def realise_chain(orig):
+        def f(chain, audio_routes):
+            pc = S.chain_of(chain)
+            try:
+                with pc.lock:
+                    return pc.realise(chain.audio_slots, audio_routes)
+            except S.plugind_chain_refused:
+                return audio_routes
+        return f
+    return patch(S, "realise_chain", realise_chain)
 
 
 def sab_declared_head():
@@ -714,6 +803,8 @@ SABOTAGE = [
     ("the running order is not read back", sab_no_readback, a_crashed_member_leaves_the_others_running,
      "timed out: the routes follow the running head"),
     ("the host bypass sent as a parameter", sab_bypass_as_param, bypass_and_parameters_name_one_member, "jalv line"),
+    ("the hook lets a lost daemon's error through, the autoconnect lock held", sab_refusals_only,
+     a_daemon_gone_mid_command_leaves_no_lock_held, "the autoconnect lock is taken again"),
 ]
 if OLD:
     SABOTAGE.append(("a daemon without chain_get read as one with no chain", sab_fake_floor, the_floor_is_chain_get,
