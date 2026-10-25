@@ -2093,6 +2093,86 @@ static void chain_form(chain_t *c)
         respawn(w);
 }
 
+/* whether a chain declared again takes its new order (c->ids) in the worker that runs it now: that worker is up, no
+ * rejoin is pending, and every member that joins it is in a worker that is up, to save its state, and is of a format
+ * whose world the running worker need not be started again for */
+static int chain_in_place(const chain_t *c)
+{
+    int k;
+
+    if (!c->w || c->w->state != W_UP || c->rejoin)
+        return 0;
+    for (k = 0; k < c->n; k++)
+    {
+        instance_t *i = g_inst[c->ids[k]];
+
+        if (i->w == c->w || meta_of(i->id)->quarantined)
+            continue;
+        if (!i->w || i->w->state != W_UP || format_at(i->fmt)->narrow_world)
+            return 0;
+    }
+    return 1;
+}
+
+/* the new order in the running worker: each member that joins leaves its worker and is replayed into this one (its
+ * add, then the order, then its state alone, its ledger and its connections); no other member is restarted */
+static void chain_update(chain_t *c)
+{
+    worker_t *w = c->w;
+    instance_t **join = malloc(c->n * sizeof(instance_t *));
+    char msg[PATH_MAX + 16], dir[PATH_MAX];
+    int k, n = 0, nj = 0, rc;
+
+    for (k = 0; k < c->n; k++)
+    {
+        instance_t *i = g_inst[c->ids[k]];
+
+        if (i->w == w || meta_of(i->id)->quarantined)
+            continue;
+        evict(i);
+        worker_attach(w, i);
+        join[nj++] = i;
+    }
+    /* the worker holds its members in the chain's order */
+    for (k = 0; k < c->n; k++)
+        if (g_inst[c->ids[k]]->w == w)
+            w->inst[n++] = g_inst[c->ids[k]];
+    for (k = 0; k < nj; k++)
+        if (replay_add(w, join[k]) < 0)
+            goto out;
+    if (format_at(w->fmt)->native_chain && chain_line(w, msg, sizeof(msg)) && replay_line(w, msg) != RPC_OK)
+    {
+        on_death(w, -1);
+        goto out;
+    }
+    for (k = 0; k < nj; k++)
+        if (!join[k]->unreplayed && join[k]->has_ckpt && ckpt_alone(join[k]->id, dir, sizeof(dir)))
+        {
+            snprintf(msg, sizeof(msg), STATE_LOAD, dir);
+            rc = replay_line(w, msg);
+            rm_tree(dir);
+            if (rc != RPC_OK)
+            {
+                on_death(w, join[k]->id);
+                goto out;
+            }
+        }
+    for (k = 0; k < nj; k++)
+        if (!join[k]->unreplayed && replay_tail(w, join[k]) < 0)
+            goto out;
+    for (k = 0; k < nj; k++)
+    {
+        if (join[k]->unreplayed)
+            continue;
+        if (replay_conns(w, join[k]) < 0)
+            goto out;
+        event(PHD_EVENT_INSTANCE_RESTORED_FMT, join[k]->id, w->k);
+    }
+    chain_formed(w);
+out:
+    free(join);
+}
+
 /* a plugin that may not share a worker: the rule of a pool, while require_pins is on; a chain's worker sees the union of
  * its members' worlds, so what a format pins in a world of its own holds there and is judged by chain_world_found */
 static int must_run_own(const instance_t *i)
@@ -2177,7 +2257,10 @@ char *sup_chain(int id, const int *ids, int n)
     c->n = n;
     for (k = 0; k < n; k++)
         g_inst[ids[k]]->chain = c;
-    chain_form(c);
+    if (chain_in_place(c))
+        chain_update(c);
+    else
+        chain_form(c);
     return sup_resp(SUCCESS);
 }
 

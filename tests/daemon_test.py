@@ -2852,6 +2852,58 @@ def chain_get_reads_a_chain_back_as_declared_and_as_it_runs():
         d.close()
 
 
+@test
+def a_chain_declared_again_keeps_its_running_worker_and_restarts_no_survivor():
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(env={"FAKE_LOG": log})
+    try:
+        for i in (1, 3, 4):
+            d.expect("add clap:fake#m%d %d" % (i, i), "resp %d" % i)
+            d.expect("param_set %d gain 0.%d000" % (i, i), "resp 0")
+        d.expect("connect effect_4:out_1 system:playback_1", "resp 0")
+        mark = d.mark()
+        d.expect("chain 2 1 3", "resp 0")
+        d.wait_event("chain_formed 2 ", since=mark)
+        k, w = list(chain_of(d, 2).items())[0]
+        pid, own4 = w["pid"], d.holder(4)[1]["pid"]
+        # a survivor's value moved since its checkpoint: the joiner's state must not load the survivors' again
+        d.expect("param_set 1 gain 0.9000", "resp 0")
+        # a member joins at a position: the same worker, its add, the order, its state, its connection
+        seen, mark = len(sent_to(log, pid)), d.mark()
+        d.expect("chain 2 1 4 3", "resp 0")
+        formed = d.wait_event("chain_formed 2 ", since=mark)
+        check(chain_of(d, 2) == {k: dict(w, inst=[1, 4, 3])}, "the same worker, the new order: %s" % d.workers())
+        check(formed == "chain_formed 2 %s 1,4,3" % k, "chain_formed names the same worker: " + formed)
+        got = sent_to(log, pid)[seen:]
+        check([c.split()[0] for c in got] == ["add", "chain", "state_load", "connect"] and got[0] == "add clap:fake#m4 4"
+              and got[1] == "chain 2 1 4 3" and got[3] == "connect effect_4:out_1 system:playback_1",
+              "the running worker is sent the add, the order, the joiner's state and its connection only: %s" % got)
+        check(not any(x["pid"] == own4 for x in d.workers().values()), "the joiner's own worker is retired: %s" % d.workers())
+        gains(d, (3, 4))
+        d.expect("param_get 1 gain", "resp 0 0.9000")
+        d.expect("chain_get 2", "resp 0 %s 1,4,3 1,4,3" % k)
+        # a move is the order and nothing else
+        seen, mark = len(sent_to(log, pid)), d.mark()
+        d.expect("chain 2 3 1 4", "resp 0")
+        d.wait_event("chain_formed 2 %s 3,1,4" % k, since=mark)
+        check(sent_to(log, pid)[seen:] == ["chain 2 3 1 4"], "a move sends the order only: %s" % sent_to(log, pid)[seen:])
+        d.expect("chain_get 2", "resp 0 %s 3,1,4 3,1,4" % k)
+        # a member left out goes to a worker of its own; the chain's worker goes on
+        seen, mark = len(sent_to(log, pid)), d.mark()
+        d.expect("chain 2 3 4", "resp 0")
+        d.wait_event("chain_formed 2 %s 3,4" % k, since=mark)
+        check(sent_to(log, pid)[seen:][-2:] == ["remove 1", "chain 2 3 4"], "removed, then the order: %s" % sent_to(log, pid)[seen:])
+        _, w1 = d.wait_up(1)
+        check(w1["place"] == "own" and w1["inst"] == [1], "the member left out is alone: %s" % w1)
+        check(chain_of(d, 2)[k]["pid"] == pid, "no survivor restarted: %s" % d.workers())
+        gains(d, (3, 4))
+        d.expect("param_get 1 gain", "resp 0 0.9000")
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
+
+
 # ---------------------------------------------------------------- descriptors
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
