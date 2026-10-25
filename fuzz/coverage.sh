@@ -12,9 +12,11 @@
 # lines its corpus never reaches. Raise a floor when coverage rises; lower one only with the change that removed the
 # lines.
 #
-# THE HARNESS FLOOR. Every property check of the harness itself, each abort() in fuzz/fuzz_<harness>.c and the
-# statement that guards it (fuzz/checks.awk), must be executed by at least one seed: a check no seed reaches is a
-# property nobody tests. This names the file and line of every such check and turns red.
+# THE HARNESS FLOOR. Every property check of the harness, each abort() in fuzz/fuzz_<harness>.c and in the helpers of
+# fuzz/ it is built with, and the statement that guards it (fuzz/checks.awk), must be executed by at least one seed: a
+# check no seed reaches is a property nobody tests. This names the file and line of every such check and turns red. A
+# stop marked `not a property` needs no seed. A check whose comment has no `mutant:` and `input:` record and no
+# `not a property:` line turns this red as well (fuzz/records.sh proves the records).
 #
 # Usage: coverage.sh <cov build dir> <harness>...   (LLVM_COV names llvm-cov)
 set -eu
@@ -36,6 +38,15 @@ funcs() {
     *) echo "coverage.sh: no function list for harness '$1'" >&2; exit 2 ;;
     esac
 }
+
+# the files whose checks belong to each harness: its own, and the helpers of fuzz/ it is built with
+checked() {
+    case $1 in
+    command) echo fuzz/fuzz_command.c fuzz/recorder.c fuzz/fuzz.h ;;
+    reply) echo fuzz/fuzz_reply.c ;;
+    esac
+}
+unrecorded=
 
 for h in "$@"; do
     set -- $(funcs "$h")
@@ -64,18 +75,22 @@ for h in "$@"; do
         "$LLVM_COV" show "$bin" -instr-profile="$prof" -name-regex="^(.*:)?$f\$" $files 2>/dev/null |
         awk -v f="$f" -F'|' '$2 ~ /^ *0$/ { sub(/^ */, "", $1); printf "    unreached %s:%s %s\n", f, $1, $3 }'
     done
-    src=fuzz/fuzz_$h.c
-    "$LLVM_COV" show "$bin" -instr-profile="$prof" "$src" | awk -v file="$src" -f fuzz/checks.awk >"$B/$h.checks"
-    nchk=$(wc -l <"$B/$h.checks")
+    : >"$B/$h.checks"
+    for src in $(checked "$h"); do
+        "$LLVM_COV" show "$bin" -instr-profile="$prof" "$src" >"$B/$h.show"
+        awk -v file="$src" -f fuzz/checks.awk "$B/$h.show" >>"$B/$h.checks" || unrecorded="$unrecorded $src"
+    done
+    nchk=$(awk -F: '$4 != "-"' "$B/$h.checks" | wc -l)
+    nnap=$(awk -F: '$4 == "-"' "$B/$h.checks" | wc -l)
     if [ "$nchk" -eq 0 ]; then
-        echo "  CHECKS: no property check found in $src"
+        echo "  CHECKS: no property check found in $(checked "$h")"
         dead="$dead $h"
     elif awk -F: '$4 == "0" { n++ } END { exit !n }' "$B/$h.checks"; then
         awk -F: '$4 == "0" { t = $0; sub(/^([^:]*:){4}/, "", t)
             printf "  CHECK: %s:%d no seed reaches (abort at line %d): %s\n", $1, $2, $3, t }' "$B/$h.checks"
         dead="$dead $h"
     else
-        echo "  checks: all $nchk property checks of $src reached"
+        echo "  checks: all $nchk property checks of $(checked "$h" | tr ' ' ',') reached; $nnap stops not a property"
     fi
     covered=$(cat "$tot")
     floor=$(awk -v h="$h" '$1 == h { print $2 }' "$FLOOR")
@@ -92,5 +107,6 @@ done
 
 [ -z "$low" ] || echo "make fuzz-coverage: RED -- below the coverage floor:$low"
 [ -z "$dead" ] || echo "make fuzz-coverage: RED -- harness checks no seed reaches:$dead"
-[ -z "$low$dead" ] || exit 1
+[ -z "$unrecorded" ] || echo "make fuzz-coverage: RED -- checks with no record and no not-a-property line:$unrecorded"
+[ -z "$low$dead$unrecorded" ] || exit 1
 echo "make fuzz-coverage: every harness at or above its coverage floor, every check reached"
