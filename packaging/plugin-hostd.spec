@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.9.2
+Version: 0.10.0
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -116,6 +116,15 @@ make test-daemon check-generated
 %{_datadir}/omx-contract/contract.d/3/plugin-hostd/
 
 %changelog
+* Sun Oct 25 2026 Pau Aliagas <linuxnow@gmail.com> - 0.10.0-1
+- panel_get <uri> answers the path of the panel the plugin publishes, filed
+  by the scan of its add; docs/panel.md tells a renderer how to draw it.
+- describe reads the six panel scopes of omx-clap-scan 0.20.0's dump as
+  drops, so the add of a plugin scanned by omx-clap-core 0.20.0 no longer
+  answers -531.
+- plugin-hostd-probe panel prints the panel object the scan filed.
+- Only a null panel means a plugin has no layout; every other code is a
+  failure to show, and a new scan scope or field needs its format row first.
 * Sat Oct 24 2026 Pau Aliagas <linuxnow@gmail.com> - 0.9.2-1
 - worker_list, supervisor_reset and quit answer -902 to a word past
   their grammar instead of acting on it: worker_list x no longer lists,
