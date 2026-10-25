@@ -147,6 +147,8 @@ static char *handle(char *line, char **tok, int ntok)
     }
     if (!strcmp(verb, PHD_VERB_DESCRIPTOR_GET))
         return ntok == 2 ? descriptors_get(tok[1]) : sup_resp(ERR_INVALID_OPERATION);
+    if (!strcmp(verb, PHD_VERB_PANEL_GET))
+        return ntok == 2 ? descriptors_panel_get(tok[1]) : sup_resp(ERR_INVALID_OPERATION);
     if (verb_is(verb, EFFECT_REMOVE))
     {
         if (ntok != 2)

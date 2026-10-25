@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # plugin-hostd against workers that are not plugin hosts (tests/fake-host). No jack, no plugin: the daemon's own
 # behaviour, over the wire, the way a controller sees it. tests/jack_e2e.sh runs the real workers.
-import hashlib, os, shutil, signal, subprocess, sys, tempfile, time
+import hashlib, json, os, shutil, signal, subprocess, sys, tempfile, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import harness
@@ -2833,7 +2833,13 @@ FIELDS = os.path.join(ROOT, "tests", "fixtures", "fields")
 CLAP_ID = "org.freemixer.plugin-qualify.fixture.controls"
 LV2_COMPRESSOR = "urn:example:compressor"
 SCANNER = """#!/bin/sh
-# a stand-in for the probe: the real describe, over the recorded dump of the target's format
+# a stand-in for the probe: the real describe, over the recorded dump of the target's format, and the real panel over
+# the recorded scan of the CLAP fixture; the panel stage logs to $SCAN_LOG.panel
+if [ "$1" = panel ]; then
+  echo "$2" >> "$SCAN_LOG.panel"
+  if [ -n "$PANEL_EXIT" ]; then exit "$PANEL_EXIT"; fi
+  exec %(probe)s panel --json-from %(fields)s/clap-panel-scan.json "$2"
+fi
 echo "$2" >> "$SCAN_LOG"
 if [ -n "$SCAN_HOLD" ]; then while [ ! -e "$SCAN_HOLD" ]; do sleep 0.02; done; fi
 if [ -n "$SCAN_EXIT" ]; then exit "$SCAN_EXIT"; fi
@@ -2889,10 +2895,10 @@ class Scan:
         e.update(env or {})
         return daemon(conf=c, env=e)
 
-    def scans(self):
-        if not os.path.exists(self.log):
+    def scans(self, stage=""):
+        if not os.path.exists(self.log + stage):
             return []
-        with open(self.log) as f:
+        with open(self.log + stage) as f:
             return [l.strip() for l in f if l.strip()]
 
     def clap_name(self, root=None):
@@ -2908,6 +2914,15 @@ class Scan:
 
 def answered(d, uri, path):
     return d.send("descriptor_get %s" % uri) == 'resp 0 "%s"' % path
+
+
+def panel_name(descriptor):
+    """protocol.h's PHD_PANEL_NAME_SYNTAX: the descriptor's name under panels/ of descriptor_dir"""
+    return os.path.join(os.path.dirname(descriptor), "panels", os.path.basename(descriptor))
+
+
+def panel_answered(d, uri, path):
+    return d.send("panel_get %s" % uri) == 'resp 0 "%s"' % path
 
 
 def same_bytes(a, b):
@@ -2926,8 +2941,11 @@ def an_add_writes_the_descriptor_by_id_version_and_hash_and_descriptor_get_answe
         wait_for(lambda: answered(d, s.clap_uri, name), "descriptor_get answers %s" % name)
         check(same_bytes(name, os.path.join(FIELDS, "clap-controls.json")),
               "the file is what describe writes for the plugin")
-        check(os.listdir(os.path.dirname(name)) == [os.path.basename(name)], "nothing else is left beside it: %s"
-              % os.listdir(os.path.dirname(name)))
+        wait_for(lambda: panel_answered(d, s.clap_uri, panel_name(name)), "panel_get answers %s" % panel_name(name))
+        check(sorted(os.listdir(os.path.dirname(name))) == sorted([os.path.basename(name), "panels"]),
+              "nothing else is left beside it but the panels: %s" % os.listdir(os.path.dirname(name)))
+        check(os.listdir(os.path.dirname(panel_name(name))) == [os.path.basename(name)],
+              "the panels hold its panel alone: %s" % os.listdir(os.path.dirname(panel_name(name))))
         for path in (s.descriptors, s.qualification):
             check(os.stat(path).st_mode & 0o777 == 0o700, "%s is made 0700" % path)
         # written once: a second instance of the same files reads the file and runs no scan
@@ -2983,6 +3001,54 @@ def a_scan_that_runs_answers_pending_and_one_that_fails_answers_its_code_while_t
         d.expect("descriptor_get %s" % s.clap_uri, resp("DESCRIPTOR_SCAN_FAILED"))
         d.expect("descriptor_get clap:fake#x", resp("DESCRIPTOR_ABSENT"))
         d.expect("descriptor_get", "resp -902")
+    finally:
+        d.close()
+        s.close()
+
+
+@test
+def the_scan_files_the_panel_under_the_descriptors_name_and_panel_get_answers_from_it():
+    s = Scan()
+    hold = os.path.join(s.dir, "go")
+    d = s.daemon(env={"SCAN_HOLD": hold})
+    try:
+        d.expect("panel_get %s" % s.clap_uri, resp("DESCRIPTOR_ABSENT"))
+        d.expect("add %s 0" % s.clap_uri, "resp 0")
+        wait_for(lambda: s.scans(), "the scan starts")
+        d.expect("panel_get %s" % s.clap_uri, resp("DESCRIPTOR_PENDING"))
+        write(hold, b"")
+        name = s.clap_name()
+        wait_for(lambda: panel_answered(d, s.clap_uri, panel_name(name)), "panel_get answers %s" % panel_name(name))
+        doc = json.load(open(panel_name(name)))
+        check(doc["plugin"] == {"format": "clap", "id": CLAP_ID}, "the panel names its plugin: %s" % doc["plugin"])
+        scan = json.load(open(os.path.join(FIELDS, "clap-panel-scan.json")))
+        check(doc["panel"] == scan["files"][0]["plugins"][0]["panel"], "the panel is the scan's panel object")
+        check(doc["panel"]["roles"] == {"refused": "too-many", "count": 5000, "max": 4096},
+              "a table the scan refused is refused: %s" % doc["panel"]["roles"])
+        check(s.scans(".panel") == [s.clap_uri], "one panel stage, after the descriptor: %s" % s.scans(".panel"))
+        d.expect("add lv2:%s 1" % LV2_COMPRESSOR, "resp 1")
+        wait_for(lambda: panel_answered(d, "lv2:" + LV2_COMPRESSOR, panel_name(s.lv2_name())), "the LV2 panel")
+        check(json.load(open(panel_name(s.lv2_name()))) == {"plugin": {"format": "lv2", "id": LV2_COMPRESSOR},
+                                                            "panel": None}, "an LV2 plugin's panel is null")
+        d.expect("panel_get", "resp -902")
+        d.expect("panel_get clap:fake#x", resp("DESCRIPTOR_ABSENT"))
+        # a descriptor in place with no panel (filed before the panel stage was): absent until an add scans the panel
+        os.unlink(panel_name(name))
+        d.expect("panel_get %s" % s.clap_uri, resp("DESCRIPTOR_ABSENT"))
+        d.expect("add %s 2" % s.clap_uri, "resp 2")
+        wait_for(lambda: panel_answered(d, s.clap_uri, panel_name(name)), "the panel scanned again")
+        check(len(s.scans()) == 2 and len(s.scans(".panel")) == 3,
+              "the descriptor is not scanned again, its panel is: %s %s" % (s.scans(), s.scans(".panel")))
+    finally:
+        d.close()
+    d = s.daemon(conf={"descriptor_dir": os.path.join(s.dir, "other")}, env={"PANEL_EXIT": "2"})
+    try:
+        d.expect("add %s 0" % s.clap_uri, "resp 0")
+        other = descriptor_name(os.path.join(s.dir, "other"), CLAP_ID, "1", s.clap)
+        wait_for(lambda: d.send("panel_get %s" % s.clap_uri) == resp("DESCRIPTOR_SCAN_FAILED"), "the failed panel's code")
+        check(answered(d, s.clap_uri, other), "the descriptor stands")
+        check("the scan wrote no panel" in d.log(), "stderr says so: %s" % d.log()[-400:])
+        check(os.listdir(os.path.join(s.dir, "other", "panels")) == [], "no file is left behind")
     finally:
         d.close()
         s.close()

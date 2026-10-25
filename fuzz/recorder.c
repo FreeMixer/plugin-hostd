@@ -536,6 +536,14 @@ char *descriptors_get(const char *uri)
     return answer(c, daemon_shape(PHD_VERB_DESCRIPTOR_GET), 0);
 }
 
+char *descriptors_panel_get(const char *uri)
+{
+    struct rec_call *c = record(REC_DESCRIPTORS_PANEL_GET);
+
+    arg_s(c, uri);
+    return answer(c, daemon_shape(PHD_VERB_PANEL_GET), 0);
+}
+
 /* the adapter is asked again about what it refused: a change */
 void lv2_refusals_forget(const char *uri)
 {

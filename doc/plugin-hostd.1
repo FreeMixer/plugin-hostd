@@ -115,6 +115,15 @@ written once; the add never waits for it.
 .B descriptor_get
 .I uri
 answers the file's path, or \-529 (none), \-530 (the scan runs), \-531 (the scan wrote nothing).
+Once the descriptor is in place the same scan runs
+.I probe
+.B panel
+and files the plugin's panel as
+.IR "panels/<id>@<version>\-<hash>.json" ,
+under the descriptor's name;
+.B panel_get
+.I uri
+answers its path, with the same codes.
 .\" END GENERATED protocol:man-dirs
 .SH PINS
 With require_pins on,

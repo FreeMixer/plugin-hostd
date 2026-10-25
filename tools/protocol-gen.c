@@ -553,7 +553,10 @@ static void region_man_dirs(void)
     snprintf(buffer, sizeof(buffer), "%d (none), %d (the scan runs), %d (the scan wrote nothing)",
              PHD_ERR_DESCRIPTOR_ABSENT, PHD_ERR_DESCRIPTOR_PENDING, PHD_ERR_DESCRIPTOR_SCAN_FAILED);
     roff_escape(buffer);
-    printf(".\n");
+    printf(".\nOnce the descriptor is in place the same scan runs\n.I probe\n.B panel\nand files the plugin's panel as\n"
+           ".IR \"");
+    roff_escape(PHD_PANEL_NAME_SYNTAX);
+    printf("\" ,\nunder the descriptor's name;\n.B " PHD_VERB_PANEL_GET "\n.I uri\nanswers its path, with the same codes.\n");
 }
 
 static void region_man_ready(void)

@@ -6,7 +6,8 @@
  */
 
 /* The scanned descriptors of the plugins a controller adds: descriptor_dir and qualification_dir, the scan an add runs
- * in a child of its own, and descriptor_get. A descriptor describes a plugin; it gates no load, so no add waits for its scan or is refused by it. */
+ * in a child of its own, and descriptor_get; the panel the same scan files under the descriptor's name, and panel_get.
+ * A descriptor describes a plugin; it gates no load, so no add waits for its scan or is refused by it. */
 
 #ifndef PLUGIN_HOSTD_DESCRIPTORS_H
 #define PLUGIN_HOSTD_DESCRIPTORS_H
@@ -26,6 +27,10 @@ void descriptors_tick(void);
 
 /* descriptor_get <uri>: resp 0 "<path>", or the code of protocol.h; malloc'd */
 char *descriptors_get(const char *uri);
+
+/* panel_get <uri>: resp 0 "<path>" of the panel filed under the descriptor's name, or the code of protocol.h;
+ * malloc'd */
+char *descriptors_panel_get(const char *uri);
 
 /* stop the scans still running and remove what they were writing */
 void descriptors_finish(void);

@@ -346,14 +346,17 @@ static inline int phd_pool_name_valid(const char *name)
     X(LOAD_REFUSED, "the worker: the plugin refused the preset or the state its file carries") \
     X(DIR_NOT_WRITABLE, "descriptor_dir or qualification_dir cannot be made or written: the daemon does not start, and " \
                         "says which key and which path on stderr with this code; a directory that turns read-only " \
-                        "later makes the scan of an add write nothing, and " PHD_VERB_DESCRIPTOR_GET " of that plugin " \
-                        "answers this code") \
-    X(DESCRIPTOR_ABSENT, PHD_VERB_DESCRIPTOR_GET " of a plugin that has no descriptor in descriptor_dir for its binary " \
-                         "as it is now, and none being written: no add since it changed, or a binary that cannot be found") \
-    X(DESCRIPTOR_PENDING, PHD_VERB_DESCRIPTOR_GET " of a plugin whose scan, started by its add, has not ended: ask again") \
-    X(DESCRIPTOR_SCAN_FAILED, PHD_VERB_DESCRIPTOR_GET " of a plugin whose last scan wrote no descriptor: the scanner " \
-                              "refused the plugin, made no dump, or is not installed; the add it ran for stands, and " \
-                              "stderr and the scan's log say why. The next add scans again")
+                        "later makes the scan of an add write nothing, and " PHD_VERB_DESCRIPTOR_GET " and " \
+                        PHD_VERB_PANEL_GET " of that plugin answer this code") \
+    X(DESCRIPTOR_ABSENT, PHD_VERB_DESCRIPTOR_GET " (" PHD_VERB_PANEL_GET ") of a plugin that has no descriptor (panel) " \
+                         "in descriptor_dir for its binary as it is now, and none being written: no add since it " \
+                         "changed, or a binary that cannot be found") \
+    X(DESCRIPTOR_PENDING, PHD_VERB_DESCRIPTOR_GET " (" PHD_VERB_PANEL_GET ") of a plugin whose scan, started by its " \
+                          "add, has not written its descriptor (panel) yet: ask again") \
+    X(DESCRIPTOR_SCAN_FAILED, PHD_VERB_DESCRIPTOR_GET " (" PHD_VERB_PANEL_GET ") of a plugin whose last scan wrote no " \
+                              "descriptor (panel): the scanner refused the plugin, made no dump or no panel, or is not " \
+                              "installed; the add it ran for stands, and stderr and the scan's log say why. The next add " \
+                              "scans again")
 
 /* ---------------------------------------------------------------- verbs */
 
@@ -374,6 +377,7 @@ static inline int phd_pool_name_valid(const char *name)
 #define PHD_VERB_CHAIN            "chain"
 #define PHD_VERB_CHAIN_CLEAR      "chain_clear"
 #define PHD_VERB_DESCRIPTOR_GET   "descriptor_get"
+#define PHD_VERB_PANEL_GET        "panel_get"
 
 /* the words of a pin: <path>=<sha256>, joined by ',', and <scheme>:<sha256> */
 #define PHD_PIN_FILE_SEPARATOR   ","
@@ -485,7 +489,14 @@ static inline int phd_pool_name_valid(const char *name)
     X(DESCRIPTOR_GET, PHD_VERB_DESCRIPTOR_GET, "<uri>", "resp 0 \"<path>\"", \
       "the scanned descriptor of the plugin, answered from descriptor_dir: the file named for its binary as it is now " \
       "(" PHD_DESCRIPTOR_NAME_SYNTAX "), written by the scan the plugin's add ran. -529 when there is none, -530 while " \
-      "its scan runs, -531 when its last scan wrote nothing, -528 when the directory could not be written")
+      "its scan runs, -531 when its last scan wrote nothing, -528 when the directory could not be written") \
+    X(PANEL_GET, PHD_VERB_PANEL_GET, "<uri>", "resp 0 \"<path>\"", \
+      "the panel the plugin publishes (org.openmixer.panel-description/1), answered from descriptor_dir: the file " \
+      PHD_PANEL_NAME_SYNTAX ", named as its descriptor, which the same scan writes once the descriptor is in place, " \
+      "{\"plugin\": {\"format\", \"id\"}, \"panel\": <the panel object omx-clap-scan --json prints for the plugin, " \
+      "null when it serves none>}; an LV2 plugin's panel is null. The codes are " PHD_VERB_DESCRIPTOR_GET "'s: -529 " \
+      "when there is none, -530 while its scan runs, -531 when its last scan wrote nothing, -528 when the directory " \
+      "could not be written")
 
 /* ---------------------------------------------------------------- instance verbs */
 
@@ -814,7 +825,8 @@ static inline int phd_is_note_verb(const char *verb)
     X(PHD_VERB_LV2_WORKER_SET, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
     X(PHD_VERB_CHAIN, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
     X(PHD_VERB_CHAIN_CLEAR, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
-    X(PHD_VERB_DESCRIPTOR_GET, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED)
+    X(PHD_VERB_DESCRIPTOR_GET, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X(PHD_VERB_PANEL_GET, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED)
 
 /* ---------------------------------------------------------------- host settings */
 
@@ -982,6 +994,11 @@ static inline int phd_is_note_verb(const char *verb)
 #define PHD_DESCRIPTOR_NO_VERSION     "unversioned"
 #define PHD_DESCRIPTOR_SAFE_CHAR      '_'
 #define PHD_DESCRIPTOR_HASH_LEN       12
+
+/* A plugin's panel file: in PHD_PANEL_SUBDIR of descriptor_dir, under its descriptor's name, written by the same scan
+ * after the descriptor, once and atomically (docs/panel.md) */
+#define PHD_PANEL_SUBDIR              "panels"
+#define PHD_PANEL_NAME_SYNTAX         PHD_PANEL_SUBDIR "/" PHD_DESCRIPTOR_NAME_SYNTAX
 
 /* the settings file: one "key value" per line, '#' starts a comment.
  * A string setting: X(key, size, default, env, meaning); env names the variable that stands in for the default when

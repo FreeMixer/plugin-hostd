@@ -176,12 +176,18 @@ Verbs the daemon adds
 | `chain` | `<chain> <instance> [<instance> ...]` | `resp 0` | the instances, in this order, are one chain, run in one worker of place chain:<chain>: each member's state is saved, it is removed from the worker it was in and replayed in the chain's. A chain already declared takes the new order, and a member left out of it goes back to a worker of its own. A worker that runs chains in one client (clap, lv2-clap) is sent this line, with the members it holds, after the adds of its replay; one that does not (mod-host) never is, and a refusal of it is written to stderr and is no failure. Every instance verb still names one member by its own number. A member that crashes the worker is quarantined to a worker of its own and the chain goes on without it; quarantine_clear puts it back. -518 for an instance no add made, -519 for one named twice, -520 for one in another chain, -521 for members of more than one format, -501 for a plugin that may not share a worker while require_pins is on (a CLAP plugin whose first-use pin is not in-process; an LV2 member whose bundle is not found, since a chain's worker sees a world narrowed to the union of its members' bundles), -902 for a chain or an instance that is not a number, or fewer than chain_members_min (1) instances |
 | `chain_clear` | `<chain>` | `resp 0` | forget the chain: each member goes to a worker of its own; -522 for a chain no chain declared |
 | `descriptor_get` | `<uri>` | `resp 0 "<path>"` | the scanned descriptor of the plugin, answered from descriptor_dir: the file named for its binary as it is now (<id>@<version>-<hash>.json), written by the scan the plugin's add ran. -529 when there is none, -530 while its scan runs, -531 when its last scan wrote nothing, -528 when the directory could not be written |
+| `panel_get` | `<uri>` | `resp 0 "<path>"` | the panel the plugin publishes (org.openmixer.panel-description/1), answered from descriptor_dir: the file panels/<id>@<version>-<hash>.json, named as its descriptor, which the same scan writes once the descriptor is in place, {"plugin": {"format", "id"}, "panel": <the panel object omx-clap-scan --json prints for the plugin, null when it serves none>}; an LV2 plugin's panel is null. The codes are descriptor_get's: -529 when there is none, -530 while its scan runs, -531 when its last scan wrote nothing, -528 when the directory could not be written |
 
 A `<state>` is `up` (accepting commands), `starting` (spawned, not yet accepting), `backoff` (dead, waiting to be respawned), `given-up` (the storm bound is spent for its placement).
 <!-- END GENERATED protocol:verbs -->
 
 A record's place holds a colon (`pool:p`), so a `worker_list` record is read from both ends: four fields on the
 left, the instance list on the right, the place in between.
+
+`panel_get` gives a host that draws a plugin's panel itself (Zynthian's engine, a console) the panel the plugin
+publishes, as the scan of its add read it: sections, controls with their widget and visibility rule, roles, displays
+and placement defaults. A renderer takes the panel for the structure, `param_info` for each control's unit and scale,
+and `remote_page_get` for the pages of 8: [docs/panel.md](docs/panel.md).
 
 Verbs a worker answers, by instance
 -----------------------------------
@@ -309,6 +315,7 @@ mechanism, and they stay optional. The preset verbs and the preset file are [doc
 | `chain` | daemon | required | required | required | required |
 | `chain_clear` | daemon | required | required | required | required |
 | `descriptor_get` | daemon | required | required | required | required |
+| `panel_get` | daemon | required | required | required | required |
 
 The profiles: `lv2-worker`, an LV2 plugin's worker: mod-host, or omx-clap-host's LV2 adapter; `clap-worker`, a CLAP plugin's worker, omx-clap-host; `console`, the openmixer console as a controller of the daemon; `zynthian`, Zynthian's mod-ui and its plugind engine as a controller of the daemon. `required` is answered as its grammar says; `optional` is answered, or refused with -902, and never misread; `absent` is refused on purpose, and no client of the profile may need it.
 <!-- END GENERATED protocol:host-verbs -->
@@ -345,10 +352,10 @@ Error codes the daemon adds to mod-host's:
 | `-525` | `PHD_ERR_PRESET_NEEDS_STATE` | the worker: a preset file that carries state for a worker that cannot take state yet |
 | `-526` | `PHD_ERR_PRESET_PLUGIN_CHANGED` | the worker: the preset file's plugin id, version or fingerprint is not the instance's; nothing of it is applied |
 | `-527` | `PHD_ERR_LOAD_REFUSED` | the worker: the plugin refused the preset or the state its file carries |
-| `-528` | `PHD_ERR_DIR_NOT_WRITABLE` | descriptor_dir or qualification_dir cannot be made or written: the daemon does not start, and says which key and which path on stderr with this code; a directory that turns read-only later makes the scan of an add write nothing, and descriptor_get of that plugin answers this code |
-| `-529` | `PHD_ERR_DESCRIPTOR_ABSENT` | descriptor_get of a plugin that has no descriptor in descriptor_dir for its binary as it is now, and none being written: no add since it changed, or a binary that cannot be found |
-| `-530` | `PHD_ERR_DESCRIPTOR_PENDING` | descriptor_get of a plugin whose scan, started by its add, has not ended: ask again |
-| `-531` | `PHD_ERR_DESCRIPTOR_SCAN_FAILED` | descriptor_get of a plugin whose last scan wrote no descriptor: the scanner refused the plugin, made no dump, or is not installed; the add it ran for stands, and stderr and the scan's log say why. The next add scans again |
+| `-528` | `PHD_ERR_DIR_NOT_WRITABLE` | descriptor_dir or qualification_dir cannot be made or written: the daemon does not start, and says which key and which path on stderr with this code; a directory that turns read-only later makes the scan of an add write nothing, and descriptor_get and panel_get of that plugin answer this code |
+| `-529` | `PHD_ERR_DESCRIPTOR_ABSENT` | descriptor_get (panel_get) of a plugin that has no descriptor (panel) in descriptor_dir for its binary as it is now, and none being written: no add since it changed, or a binary that cannot be found |
+| `-530` | `PHD_ERR_DESCRIPTOR_PENDING` | descriptor_get (panel_get) of a plugin whose scan, started by its add, has not written its descriptor (panel) yet: ask again |
+| `-531` | `PHD_ERR_DESCRIPTOR_SCAN_FAILED` | descriptor_get (panel_get) of a plugin whose last scan wrote no descriptor (panel): the scanner refused the plugin, made no dump or no panel, or is not installed; the add it ran for stands, and stderr and the scan's log say why. The next add scans again |
 <!-- END GENERATED protocol:errors -->
 
 A worker's own refusal is returned as it said it. An `add` that killed its worker answers mod-host's `-102`.
