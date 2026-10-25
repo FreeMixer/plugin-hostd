@@ -92,7 +92,10 @@ A native renderer combines what the daemon serves; none of the three replaces an
    layout: `-531` is a panel stage that failed and `-528` a descriptor directory that could not be written, and the
    plugin may well have a layout. Name the failure to the user, and draw in parameter order only as the fallback.
 2. For each control of `panel.controls` (in table order), its `paramId` is the CLAP parameter id, the number
-   `omx-clap-scan` lists a parameter by and the `<symbol>` the instance verbs take for a CLAP instance. `param_info <instance> <paramId>` gives its unit and scale,
+   `omx-clap-scan` lists a parameter by and the `<symbol>` the instance verbs take for a CLAP instance. The daemon does not parse that word:
+   `sup_instance_verb` (src/supervisor.c) passes the line of a format with native instance verbs, CLAP among them, to the
+   worker untouched, and omx-clap-host(1) states that it addresses a CLAP parameter by its decimal CLAP id.
+   `param_info <instance> <paramId>` gives its unit and scale,
    so a knob shows `dB` and moves on its own scale; `-511` means the worker holds no checked contract, and the range
    and default come from `omx-clap-scan`'s parameter list.
 3. A control whose `visibleParamId` is not `null` is shown while bit `v` of `visibleMask` is set, `v` the value of that
