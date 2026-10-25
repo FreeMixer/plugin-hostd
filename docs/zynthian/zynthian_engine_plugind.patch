@@ -293,10 +293,10 @@ index 00000000..7b46fa00
 +# ******************************************************************************
 diff --git a/zyngine/zynthian_plugind_chain.py b/zyngine/zynthian_plugind_chain.py
 new file mode 100644
-index 00000000..b3b6fb39
+index 00000000..c3ef0ce1
 --- /dev/null
 +++ b/zyngine/zynthian_plugind_chain.py
-@@ -0,0 +1,397 @@
+@@ -0,0 +1,400 @@
 +# -*- coding: utf-8 -*-
 +# ********************************************************************
 +# ZYNTHIAN PROJECT: plugin-hostd chain (zynthian_plugind_chain)
@@ -575,6 +575,9 @@ index 00000000..b3b6fb39
 +        if not ids:
 +            if self.declared:
 +                client().cmd(f"chain_clear {self.id}")
++                self.read_back()
++                if self.declared:
++                    raise plugind_chain_refused(READBACK_MISMATCH, None, f"sent chain_clear, chain_get {self.declared}")
 +            self.declared = self.running = []
 +            return audio_routes
 +        if ids != self.declared:
