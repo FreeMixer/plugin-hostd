@@ -13,7 +13,8 @@ Command (in the image phd159-test, fedora 44 + builddep of plugin-hostd):
     tools/zynthian/chain.sh <zynthian-ui clone> <out>
 
 Output (<out>/test.log; ERROR:root lines are the engine's own log of the refusals it names; under the sabotage of the
-hook a feedback thread's rebuild raises ConnectionResetError, as that sabotage asks, and its traceback is left out):
+hook a feedback thread's rebuild raises ConnectionResetError, as that sabotage asks, and its traceback is left out;
+the FileNotFoundError lines are the engine opening a new connection to a daemon that is down, PLUGIND_BIN naming none):
 
 ok   series_order_add_at_position
 ok   removal_heals_and_replay_keeps_no_stale_member
@@ -26,34 +27,43 @@ ok   a_crashed_member_leaves_the_others_running
 ok   bypass_and_parameters_name_one_member
 ERROR:root:plugind chain 1: PLUGIND_READBACK_MISMATCH: sent chain_clear, chain_get [0]
 ok   the_last_member_removed_clears_the_chain_read_back
-ERROR:root:plugind chain 1: PLUGIND_CHAIN_GET_ABSENT: chain_get 1 => 
-ERROR:root:plugind chain 1: PLUGIND_CHAIN_GET_ABSENT: chain_get 1 => 
-ERROR:root:plugind chain 1: PLUGIND_DAEMON_LOST: BrokenPipeError: [Errno 32] Broken pipe
-ERROR:root:plugind chain 1: PLUGIND_DAEMON_LOST: OSError: [Errno 9] Bad file descriptor
+ERROR:root:plugind chain 1: PLUGIND_DAEMON_LOST: ConnectionError: plugin-hostd closed the connection
+ERROR:root:plugind chain 1: PLUGIND_DAEMON_LOST: FileNotFoundError: [Errno 2] No such file or directory: '/nonexistent/plugin-hostd'
+ERROR:root:plugind chain 1: PLUGIND_DAEMON_LOST: FileNotFoundError: [Errno 2] No such file or directory: '/nonexistent/plugin-hostd'
+ERROR:root:plugind chain 1: PLUGIND_DAEMON_LOST: FileNotFoundError: [Errno 2] No such file or directory: '/nonexistent/plugin-hostd'
 ok   a_daemon_gone_mid_command_leaves_no_lock_held
+ERROR:root:plugind chain 1: PLUGIND_DAEMON_LOST: ConnectionError: plugin-hostd closed the connection
+ok   a_clean_close_before_any_reply_is_a_lost_daemon
+ERROR:root:plugind chain 1: PLUGIND_DAEMON_LOST: ConnectionError: plugin-hostd closed the connection
+ERROR:root:plugind chain 1: PLUGIND_DAEMON_LOST: ConnectionError: plugin-hostd closed the connection
+ok   a_restarted_daemon_is_reached_by_the_next_realisation
 ERROR:root:plugind chain 1: PLUGIND_CHAIN_GET_ABSENT: chain_get 1 => resp -3
 ERROR:root:plugind chain 1: PLUGIND_CHAIN_GET_ABSENT: chain_get 1 => resp -3
 ok   the_floor_is_chain_get
-ERROR:root:plugind chain 1: PLUGIND_CHAIN_GET_ABSENT: chain_get 1 => 
+ERROR:root:plugind chain 1: PLUGIND_DAEMON_LOST: ConnectionError: plugin-hostd closed the connection
 ok   sabotage red: the chain line in reverse slot order -> series_order_add_at_position (Fail: an LV2 and two CLAP members, read back: ('w2', [2, 1, 0], [2, 1, 0]))
 ok   sabotage red: a chain that lost a member is not declared again -> removal_heals_and_replay_keeps_no_stale_member (Fail: the chain read back without b: ('w2', [0, 1, 2], [0, 1, 2]))
 ok   sabotage red: a split chain is routed as if its head ran every member -> removal_heals_and_replay_keeps_no_stale_member (Fail: timed out: the split chain routed client by client: {'effect_0': [], 'system:playback': ['effect_0']})
 ERROR:root:plugind chain 1: PARALLEL_SLOT_REFUSED (audio slot 1): effect_1, effect_2
-ERROR:root:plugind chain 1: PLUGIND_CHAIN_GET_ABSENT: chain_get 1 => 
 ok   sabotage red: a nudge merges two plugind slots as Zynthian's own -> move_by_nudge_is_one_chain_line (Fail: the nudge of c up is accepted)
 ERROR:root:plugind chain 1: PARALLEL_SLOT_REFUSED (audio slot 0): effect_0, jalv_x
 ok   sabotage red: the nudge guard accepts every slot -> parallel_slot_is_refused_by_name_before_it_forms (Fail: the nudge that would form [a, jalv_x] answers False)
-ERROR:root:plugind chain 1: PLUGIND_CHAIN_GET_ABSENT: chain_get 1 => 
 ok   sabotage red: a foreign processor does not end the chain line -> a_foreign_processor_ends_the_chain_line (Fail: the chain line ends before the foreign processor: ('w2', [0, 1], [0, 1]))
 ok   sabotage red: the routes follow the declared head, not the running one -> a_crashed_member_leaves_the_others_running (Fail: timed out: the routes follow the running head effect_1: {'effect_0': [], 'system:playback': ['effect_0']})
 ok   sabotage red: the running order is not read back -> a_crashed_member_leaves_the_others_running (Fail: timed out: the routes follow the running head effect_1: {'effect_0': [], 'system:playback': ['effect_0']})
-ERROR:root:plugind chain 1: PLUGIND_CHAIN_GET_ABSENT: chain_get 1 => 
+ERROR:root:plugind chain 1: PLUGIND_DAEMON_LOST: ConnectionError: plugin-hostd closed the connection
 ok   sabotage red: the host bypass sent as a parameter -> bypass_and_parameters_name_one_member (Fail: jalv line 'param_set 1 :bypass 1.000000')
 ok   sabotage red: a cleared chain is not read back -> the_last_member_removed_clears_the_chain_read_back (Fail: an unacted clear is named: None, chain_get None)
 ok   sabotage red: the hook lets a lost daemon's error through, the autoconnect lock held -> a_daemon_gone_mid_command_leaves_no_lock_held (Fail: the autoconnect lock is taken again after rebuild 0: [])
+ERROR:root:plugind chain 1: PLUGIND_CHAIN_GET_ABSENT: chain_get 1 => 
+ok   sabotage red: a FIN before any reply read as an empty reply -> a_clean_close_before_any_reply_is_a_lost_daemon (Fail: the loss is named: PLUGIND_CHAIN_GET_ABSENT)
+ERROR:root:plugind chain 1: PLUGIND_DAEMON_LOST: ConnectionError: plugin-hostd closed the connection
+ERROR:root:plugind chain 1: PLUGIND_DAEMON_LOST: ConnectionError: the connection to plugin-hostd is lost
+ok   sabotage red: the client of a lost connection is kept -> a_restarted_daemon_is_reached_by_the_next_realisation (Fail: the next realisation succeeds: PLUGIND_DAEMON_LOST)
 ERROR:root:plugind chain 1: PLUGIND_READBACK_MISMATCH: sent [0], chain_get []
 ERROR:root:plugind chain 1: PLUGIND_READBACK_MISMATCH: sent [0], chain_get []
 ERROR:root:plugind chain 1: PLUGIND_READBACK_MISMATCH: sent [0, 1], chain_get []
-ERROR:root:plugind chain 1: PLUGIND_CHAIN_REFUSED: chain 1 => 
-ok   sabotage red: a daemon without chain_get read as one with no chain -> the_floor_is_chain_get (Fail: no chain declared: {'w5': {'pid': 253, 'fmt': 'clap', 'state': 'up', 'place': 'chain:1', 'inst': [0, 1]}})
+ERROR:root:plugind chain 1: PLUGIND_DAEMON_LOST: ConnectionError: plugin-hostd closed the connection
+ERROR:root:plugind chain 1: PLUGIND_DAEMON_LOST: FileNotFoundError: [Errno 2] No such file or directory: '/nonexistent/plugin-hostd'
+ok   sabotage red: a daemon without chain_get read as one with no chain -> the_floor_is_chain_get (Fail: no chain declared: {'w5': {'pid': 306, 'fmt': 'clap', 'state': 'up', 'place': 'chain:1', 'inst': [0, 1]}})
 CHAIN PASS: 0 failed

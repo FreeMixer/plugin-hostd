@@ -293,10 +293,10 @@ index 00000000..7b46fa00
 +# ******************************************************************************
 diff --git a/zyngine/zynthian_plugind_chain.py b/zyngine/zynthian_plugind_chain.py
 new file mode 100644
-index 00000000..c3ef0ce1
+index 00000000..811568b3
 --- /dev/null
 +++ b/zyngine/zynthian_plugind_chain.py
-@@ -0,0 +1,400 @@
+@@ -0,0 +1,416 @@
 +# -*- coding: utf-8 -*-
 +# ********************************************************************
 +# ZYNTHIAN PROJECT: plugin-hostd chain (zynthian_plugind_chain)
@@ -365,6 +365,7 @@ index 00000000..c3ef0ce1
 +        self.output_handlers = {}
 +        self.chain_handlers = {}
 +        self.proc = None
++        self.lost = False  # set when a command failed on the connection: client() opens a new one
 +        if not self.connectable():
 +            cmd = [os.environ.get("PLUGIND_BIN", "plugin-hostd"), "-n", "-p", str(self.port)]
 +            logging.info(f"Starting plugin-hostd => {cmd}")
@@ -389,17 +390,24 @@ index 00000000..c3ef0ce1
 +
 +    def cmd(self, line):
 +        with self.lock:
++            if self.lost:
++                raise ConnectionError("the connection to plugin-hostd is lost")
 +            try:
 +                self.sock.sendall(line.encode() + b"\0")
 +                buf = b""
 +                while not buf.endswith(b"\0"):
 +                    data = self.sock.recv(65536)
 +                    if not data:
++                        # a FIN: before any byte it is a daemon gone, never an empty reply
++                        if not buf:
++                            raise ConnectionError("plugin-hostd closed the connection")
 +                        break
 +                    buf += data
 +            except OSError:
 +                # a reply cut by a restart or a timeout is never read as the next command's
++                self.lost = True
 +                self.sock.close()
++                self.fb.close()
 +                raise
 +        reply = buf.rstrip(b"\0").decode("utf-8", "replace")
 +        logging.debug(f"plugind: {line} => {reply}")
@@ -408,7 +416,10 @@ index 00000000..c3ef0ce1
 +    def feedback_task(self):
 +        buf = b""
 +        while True:
-+            data = self.fb.recv(65536)
++            try:
++                data = self.fb.recv(65536)
++            except OSError:
++                return
 +            if not data:
 +                return
 +            buf += data
@@ -442,9 +453,14 @@ index 00000000..c3ef0ce1
 +
 +
 +def client():
++    """The shared connection. After a loss the next command opens a new one, once: the handlers move to it, and a
++    daemon that is still down fails that command, which is lost in its turn."""
 +    global _client
-+    if _client is None:
-+        _client = plugind_client()
++    if _client is None or getattr(_client, "lost", False):
++        new = plugind_client()
++        if _client:
++            new.output_handlers, new.chain_handlers = _client.output_handlers, _client.chain_handlers
++        _client = new
 +    return _client
 +
 +
@@ -652,7 +668,7 @@ index 00000000..c3ef0ce1
 +    leaves the chain's routes, less every destination a parallel slot's members would feed together: JACK never sums
 +    them at one input. The guard before a slot forms (accepts) keeps that from happening. It runs with autoconnect's
 +    lock held, so it never raises: a daemon lost mid-command (a restart, a timeout) logs one line and leaves the routes
-+    as Zynthian built them, the next realisation declaring the line again."""
++    as Zynthian built them. The next realisation opens a new connection and declares the line again."""
 +    try:
 +        pc = chain_of(chain)
 +        with pc.lock:

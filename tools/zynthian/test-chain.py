@@ -93,7 +93,7 @@ def free_pair():
 
 
 class daemon:
-    def __init__(self, exe=EXE):
+    def __init__(self, exe=EXE, port=None):
         self.tmp = tempfile.mkdtemp(prefix="zyn-chain.")
         conf = os.path.join(self.tmp, "plugin-hostd.conf")
         host = os.environ.get("CLAP_HOST", "omx-clap-host") if E2E else FAKE
@@ -109,7 +109,7 @@ class daemon:
         with open(conf, "w") as f:
             for k, v in settings.items():
                 f.write("%s %s\n" % (k, v))
-        self.port = free_pair()
+        self.port = port or free_pair()
         self.log = open(os.path.join(self.tmp, "daemon.out"), "w+")
         self.proc = subprocess.Popen([exe, "-n", "-p", str(self.port), "-f", str(self.port + 1), "-c", conf],
                                      stdout=self.log, stderr=subprocess.STDOUT)
@@ -236,6 +236,9 @@ class rig:
         S.instances.clear()
         S.chains.clear()
         self.d = daemon(exe)
+        # a client the engine opens again after a loss finds this scenario's daemon, never a daemon of its own
+        os.environ["PLUGIND_PORT"] = str(self.d.port)
+        os.environ["PLUGIND_BIN"] = "/nonexistent/plugin-hostd"
         S.set_client(S.plugind_client(port=self.d.port))
         self.chain = CHAIN(1, None, False, True)
         self.chain.audio_out = ["system:playback"]
@@ -270,7 +273,7 @@ class rig:
     def close(self):
         """the daemon down, then the rebuilds its feedback asked for run out against a closed client, never against
         the next scenario's daemon"""
-        S.client().chain_handlers.clear()
+        S._client.chain_handlers.clear()
         self.d.close()
         S.set_client(closed_client())
         for t in threading.enumerate():
@@ -550,6 +553,91 @@ def a_daemon_gone_mid_command_leaves_no_lock_held():
         r.close()
 
 
+class closing_daemon:
+    """a daemon that closes every command connection cleanly after reading a command, with no reply: a FIN before any
+    byte. The feedback port accepts and holds."""
+
+    def __init__(self):
+        self.port = free_pair()
+        self.socks = []
+        for port in (self.port, self.port + 1):
+            s = socket.socket()
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            s.bind(("127.0.0.1", port))
+            s.listen(8)
+            self.socks.append(s)
+            threading.Thread(target=self.serve, args=(s, port == self.port), daemon=True).start()
+
+    def serve(self, listener, closes):
+        while True:
+            try:
+                conn, _ = listener.accept()
+            except OSError:
+                return
+            if closes:
+                conn.recv(65536)
+                conn.close()
+            else:
+                self.socks.append(conn)
+
+    def close(self):
+        for s in self.socks:
+            s.close()
+
+
+def a_clean_close_before_any_reply_is_a_lost_daemon():
+    """a daemon that closes the command connection with a FIN and no reply (a restart between the command and its
+    answer) is a lost one, never an empty reply: the loss is named, not read as a daemon without chain_get"""
+    r = rig()
+    stub = closing_daemon()
+    try:
+        r.add("a", engine=lv2_engine), r.add("b")
+        settle()
+        S.set_client(S.plugind_client(port=stub.port))
+        raised = []
+        try:
+            r.chain.rebuild_audio_graph()
+        except Exception as e:
+            raised.append("%s: %s" % (type(e).__name__, e))
+        check(not raised, "a rebuild raises nothing on a lost daemon: %s" % raised)
+        pc = S.chains[1]
+        check(pc.refusal == "PLUGIND_DAEMON_LOST", "the loss is named: %s" % pc.refusal)
+        check(pc.declared == [] and pc.running == [], "what the lost daemon held is not known: %s, %s" %
+              (pc.declared, pc.running))
+        check(S._client.lost and S._client.sock.fileno() == -1, "the lost connection is closed")
+    finally:
+        stub.close()
+        r.close()
+
+
+def a_restarted_daemon_is_reached_by_the_next_realisation():
+    """plugin-hostd killed, then started again on its ports: the realisation after it opens a new connection (one
+    attempt per command) and declares the chain line again; the realisation in between names the loss"""
+    r = rig()
+    try:
+        r.add("a", engine=lv2_engine), r.add("b")
+        settle()
+        port = r.d.port
+        r.d.proc.kill()
+        r.d.proc.wait()
+        r.chain.rebuild_audio_graph()
+        check(S.chains[1].refusal == "PLUGIND_DAEMON_LOST", "the loss is named: %s" % S.chains[1].refusal)
+        r.d.close()
+        r.d = daemon(EXE, port=port)
+        # the engines' own instances, put back through a connection of the test's: the realisation opens its own
+        again = S.plugind_client(port=port)
+        for n, lv2 in ((0, True), (1, False)):
+            check(S.resp_code(again.cmd(S.add_line(uri_of("ab"[n], lv2), n))) == n, "instance %d added again" % n)
+        again.sock.close()
+        again.fb.close()
+        r.chain.rebuild_audio_graph()
+        check(S.chains[1].refusal is None, "the next realisation succeeds: %s" % S.chains[1].refusal)
+        settle()
+        check(read()[1:] == ([0, 1], [0, 1]), "the line is declared again: %s" % (read(),))
+    finally:
+        r.close()
+
+
 def audio_ports(client, output):
     """end to end: a JACK client's audio ports, in name order (pw-link -o / -i)"""
     listed = subprocess.run(["pw-link", "-o" if output else "-i"], capture_output=True, text=True).stdout.split()
@@ -702,7 +790,8 @@ SCENARIOS = [series_order_add_at_position, removal_heals_and_replay_keeps_no_sta
              move_by_nudge_is_one_chain_line, parallel_slot_is_refused_by_name_before_it_forms,
              a_foreign_processor_ends_the_chain_line, a_crashed_member_leaves_the_others_running,
              bypass_and_parameters_name_one_member, the_last_member_removed_clears_the_chain_read_back,
-             a_daemon_gone_mid_command_leaves_no_lock_held]
+             a_daemon_gone_mid_command_leaves_no_lock_held, a_clean_close_before_any_reply_is_a_lost_daemon,
+             a_restarted_daemon_is_reached_by_the_next_realisation]
 if OLD:
     SCENARIOS.append(the_floor_is_chain_get)
 if E2E and os.environ.get("JACK_IDENTITY"):
@@ -819,6 +908,28 @@ def sab_bypass_as_param():
     return patch(S, "jalv_line", jalv_line)
 
 
+def sab_fin_is_a_reply():
+    # a FIN before any byte read as an empty reply: the daemon "predates the floor"
+    def cmd(orig):
+        def f(self, line):
+            with self.lock:
+                self.sock.sendall(line.encode() + b"\0")
+                buf = b""
+                while not buf.endswith(b"\0"):
+                    data = self.sock.recv(65536)
+                    if not data:
+                        break
+                    buf += data
+            return buf.rstrip(b"\0").decode("utf-8", "replace")
+        return f
+    return patch(S.plugind_client, "cmd", cmd)
+
+
+def sab_no_reconnect():
+    # the client of a lost connection is kept: every later command raises
+    return patch(S, "client", lambda orig: lambda: S._client if S._client is not None else orig())
+
+
 def sab_fake_floor():
     return patch(S, "read_chain", lambda orig: lambda chain_id: None)
 
@@ -847,6 +958,12 @@ SABOTAGE = [
      "an unacted clear is named"),
     ("the hook lets a lost daemon's error through, the autoconnect lock held", sab_refusals_only,
      a_daemon_gone_mid_command_leaves_no_lock_held, "the autoconnect lock is taken again"),
+]
+SABOTAGE += [
+    ("a FIN before any reply read as an empty reply", sab_fin_is_a_reply,
+     a_clean_close_before_any_reply_is_a_lost_daemon, "the loss is named"),
+    ("the client of a lost connection is kept", sab_no_reconnect, a_restarted_daemon_is_reached_by_the_next_realisation,
+     "the next realisation succeeds"),
 ]
 if OLD:
     SABOTAGE.append(("a daemon without chain_get read as one with no chain", sab_fake_floor, the_floor_is_chain_get,
