@@ -60,8 +60,46 @@ Limits
 - Through plugind: instances are numbered by the engine, lowest free first (`zynthian_engine_plugind.py`, `__init__`);
   the daemon's own limits (`add` beyond `MAX_INSTANCE` answers `-1`, `tests/daemon_test.py` placement test) apply.
 
-Parallel slots: fan-out and an explicit mix
--------------------------------------------
+One Zynthian chain, one chain line
+---------------------------------
+
+The 2026-10-21 ruling on plugin-hostd#101: one Zynthian chain is one plugin-hostd `chain` line. The engine
+(`zyngine/zynthian_plugind_chain.py`, in `zynthian_engine_plugind.patch`) says a chain's audio slots to the daemon
+through the chain verb only. No `connect` or `disconnect` between plugind instances is sent.
+
+| What | How |
+|---|---|
+| members | the plugind processors of the chain's audio slots, in slot order: one `chain <chain_id> <instance> ...` line, `<chain_id>` the Zynthian chain's own number |
+| one worker | the daemon puts the members in one worker of place `chain:<chain_id>`; omx-clap-host runs them in the head member's JACK client (omx-clap-core#104) |
+| add at a position | the chain inserts the slot (`chain.py:639-680`), the rebuild declares the new order; the daemon keeps the running worker and replays the new member into it (plugin-hostd#162) |
+| move | a nudge of a plugind processor past a single plugind neighbour swaps the two slots (see below), and the rebuild declares the new order: the worker is sent the line and nothing else |
+| remove | the rebuild declares the order without it (the member goes to a worker of its own), then the engine's `stop` sends `remove`; a chain left with no plugind processor is `chain_clear`ed and read back like any other edit |
+| read-back | after every line the engine reads `chain_get <chain_id>` and requires the declared order to be the one it sent, or it refuses with `PLUGIND_READBACK_MISMATCH`; the running order it reads is what it routes |
+| bypass, parameters | every instance verb names one member by its own number, as before: `bypass <n> 0/1` for the host's `:bypass`, `param_set <n> <symbol> <value>` |
+| quarantine | the chain verb's own: a member that crashes the worker runs alone, the others go on in order and the daemon writes `chain_formed`; the engine reads the chain back on that event and routes the running order, so a quarantined member is out of the audio path until `quarantine_clear` |
+| routes | the chain's client is the running head's, `effect_<head>`: it takes the first plugind slot's sources, the inner routes between members are dropped (the members run in order inside one client), and whatever the run fed is fed by the head's client. On a worker that runs no chain in one client (mod-host, row `lv2` of `worker_list`) the members keep their clients and Zynthian's routes stay as they are |
+| a lost daemon | the hook runs while `rebuild_audio_graph` holds autoconnect's lock, which waits for ever (`autoconnect.py:1602`), so it never raises: a command that fails on the connection (a restart, a reset, no answer in `PLUGIND_TIMEOUT` seconds, 30 by default) logs `PLUGIND_DAEMON_LOST` once, the routes stay as Zynthian built them, the lock is released, the next command opens a new connection (one attempt per command, no loop), and the next realisation declares the line again; a clean close before any reply counts as a loss |
+| version floor | `chain_get` (plugin-hostd#162, the first release after 0.10.0). A daemon that answers it with anything but `resp 0` or `NO_SUCH_CHAIN` (-522) has no read-back: the engine declares no chain, refuses with `PLUGIND_CHAIN_GET_ABSENT`, and the processors run one worker each, routed by autoconnect, as Path B did |
+
+The refusals are codes, constants of the module, logged with the slot they name; none is a protocol code.
+
+| code | when |
+|---|---|
+| `PARALLEL_SLOT_REFUSED` | a parallel slot holds a plugind processor. Refused until omx-plugins#229 gives a plugind chain a mixer element; the nudge that would form it answers False and leaves the chain as it was |
+| `PLUGIND_RUN_SPLIT` | a processor plugin-hostd does not run (the mixer strip `MI`, a jalv processor) sits between two plugind ones. The first run of plugind slots is the chain line; the ones after the foreign processor run one worker each, routed by autoconnect |
+| `PLUGIND_CHAIN_REFUSED` | the daemon refused the line (its code in the log line), as for members of two programs (`CHAIN_MIXED_FORMAT`) |
+| `PLUGIND_READBACK_MISMATCH` | `chain_get` does not answer the declared order the line sent |
+| `PLUGIND_CHAIN_GET_ABSENT` | the daemon predates the floor |
+| `PLUGIND_DAEMON_LOST` | the connection to the daemon failed mid-command; the routes are Zynthian's own until the next realisation |
+
+A move without a parallel step. Zynthian's nudge of a single processor merges it into its neighbour's slot
+(`chain.py:782`, `:799`), and only a second nudge takes it out on the other side. With parallel slots refused, a
+plugind processor could never pass another. So the patch makes the nudge of a plugind processor whose neighbour slot
+holds one plugind processor a swap of the two slots: one nudge, one move, one chain line. A nudge into the mixer
+strip's slot or into a foreign processor's is Zynthian's own, and a parallel slot it would form is refused.
+
+Parallel slots: refused by name
+-------------------------------
 
 What Zynthian does today: every processor of a slot gets the previous slot's sources (`chain.py:342-346`, the same
 `prev_slot_sources` for each member: a fan-out), and the NEXT slot, or the chain's outputs, gets the list of all
@@ -69,75 +107,44 @@ members as its sources (`chain.py:347`, `:359-360`). autoconnect then connects e
 input ports of the next destination (`autoconnect.py:1089-1097`), and JACK sums them at that input. The mix is
 implicit: unity gain per branch, no level, no bypass, nothing to read back.
 
-In the strip profile a parallel slot is neither a pool (a SET of instances in one process, no order) nor a chain (a
-series). It is a third thing: a FAN-OUT of the previous element's output to every member's input, then an explicit
-MIX ELEMENT that sums the members' outputs, whose output feeds the next slot. No input port is ever fed by more than
-one source.
-
-| Mix element field | Value |
-|---|---|
-| role | `mix` |
-| inputs | N branches, one per member, in slot order, each a stereo pair of the mixer's own input ports |
-| gain per branch | declared; default 1.0 per branch, which is what Zynthian's implicit sum does today (unity per connected output, `autoconnect.py:1089-1097`); not 1/N, since that would change the level of every existing parallel slot |
-| bypass | the mixer instance's own mod-host `bypass` |
-| latency | the maximum of the branch latencies; the protocol has no latency verb on plugin-hostd's main, so the value is unknown (None) and no branch is delay-compensated |
-| realisation | one plugin-hostd instance of an N-input mixer plugin, declared to the engine by `PLUGIND_MIX` (its URI, branch count, port and gain names) |
-
-No N-input mixer is installed on the machine this was written on (`/usr/lib64/lv2` holds only the LV2 spec bundles, and
-there is no CLAP directory), and the omx-plugins
-catalogue (23 plugins, `plugins/` on its `main`, 2026-10-21) holds none: `omx-strip` is a channel strip, the
-rest are effects and test plugins. omx-dsp has the summing kernel (`include/omxdsp/mix/omx_bus_sum.h`) but no plugin
-around it. So the element and its link plan are defined and tested, and the realisation is refused with
-`MIX_ELEMENT_ABSENT` when no mixer is declared; the refusal happens before the slot is formed (a nudge that would
-merge two processors answers False and leaves the chain as it was).
-
-Boundaries of the plugind strip
--------------------------------
-
-The plugind strip (`zyngine/zynthian_plugind_strip.py`, in `zynthian_engine_plugind.patch`) owns the links between
-two ADJACENT audio stages that are both plugin-hostd's: a stage is one processor, or a parallel slot with its mix
-element. It makes them with mod-host's `connect` and takes them down with `disconnect` before an instance is removed.
-Inside a parallel slot it owns every member-to-mix link. Every other link stays the chain's and autoconnect's: the
-source into the first stage, a plugind stage next to the mixer strip or to another engine's processor, and the last
-stage into the outputs; for those the strip only rewrites `audio_routes` so that a destination after a parallel slot
-is fed by the mix element and never by the members. A parallel slot holding a processor that is not plugin-hostd's is
-refused with `PARALLEL_SLOT_FOREIGN`, and one with more members than the declared mixer has branches with
-`MIX_BRANCHES_EXCEEDED`.
+A chain line is a series. A parallel slot of plugind processors would be a fan-out into an explicit mix element (unity
+gain per branch, the slowest branch's latency), and no plugin that is an N-input mixer exists in omx-plugins yet
+(omx-plugins#229). Until it does, a parallel slot holding a plugind processor is refused `PARALLEL_SLOT_REFUSED`
+before it forms. The earlier link-by-hand layer (`zynthian_plugind_strip.py`, PR 129, `PLUGIND_MIX`) is gone with
+mod-host's `connect` between workers.
 
 Open points
 -----------
 
-- **Parallel slots in the strip model.** The strip model of the openmixer draft has no parallel element yet; this page
-  proposes fan-out plus a `mix` element as the third arrangement beside pool and chain. Whether the draft takes it,
-  and how a mix element's branch gains are presented, is not decided here. The only way a parallel slot forms at this
-  commit is a nudge into a neighbour (`chain.py:782`, `:799`); a restore flattens it (`manager.py:1584-1585`), so a
-  saved parallel slot does not survive a reload in Zynthian itself. A new mix element starts at the declared gains: a
-  member added to or taken from a slot gives the slot a new mixer instance, and branch gains set by hand are not
-  carried over.
-- **A reorder passes through a parallel slot.** Zynthian has no move verb for effects but the nudge, and a nudge of a
-  single processor merges it into its neighbour's slot (`chain.py:782`, `:799`); only a second nudge takes it out on
-  the other side (`chain.py:771-777`, `:793-795`). So reordering two effects always forms a parallel slot for one
-  step. With a mixer declared, the strip realises that step (a mixer instance is added, then removed on the second
-  nudge, `tools/zynthian/test-strip.py` `move_relinks_through_the_parallel_step`); with none, the first nudge is
-  refused `MIX_ELEMENT_ABSENT` and a plugind chain cannot be reordered by nudging at all. Whether Zynthian should get a
-  plain move (a swap of adjacent slots) instead is not decided here.
-- **Latency of a mix.** Branches of unequal latency are summed as they come; nothing compensates them.
-- **Who owns a link.** autoconnect disconnects a link only if it once made it (`autoconnect.py:1176-1181`); a link
-  between two plugind instances must never be made by autoconnect, or a later pass may take the strip's link down. The
-  patch drops those destinations from `audio_routes` before autoconnect reads them; whether a link made by autoconnect
-  before the patch took effect (an engine swapped live) can linger in `zyn_routed_audio` is not tested here.
-- **The mixer strip as an element.** `MI`/`MR` is a processor in the list, not a fixed boundary; in the strip model it
-  would be the `fader` element with a fixed position. Zynthian lets it move slot by slot (`chain.py:767-770`). Not
-  mapped.
-- **MIDI to effects.** Every audio processor gets the chain's MIDI (`chain.py:419-424`); in the strip model that is
-  control-domain input reaching chain elements, which the draft spec places with the source. Not mapped.
+- **Effects after the mixer strip.** `MI`/`MR` is a processor in the audio list (`manager.py:143-172`), and a new
+  effect goes before it (`zyngui/zynthian_gui_chain_options.py:192-199`). A chain with plugind effects on both sides
+  of it is two runs, and one chain line can hold only one: the run after the strip is refused `PLUGIND_RUN_SPLIT` and
+  runs one worker per processor. Whether the strip's fader belongs in plugin-hostd's chain is not decided here.
+- **A crashed head takes the chain's connections.** plugin-hostd records a connection against the client its port
+  names (omx-clap-core PR 348, open question 1). The engine routes the running head on `chain_formed`, so Zynthian's
+  autoconnect wires the new head; a connection made through the daemon is not moved.
+- **An LV2 member joining a running chain** forms the chain's worker again: its bundle is not in the world the running
+  worker was started with (plugin-hostd#162). A CLAP member joins in place.
+- **A move is two library steps** in omx-clap-host (a removal and an insertion, omx-clap-core PR 348 open question 4),
+  so the cycles between them run without the moved member.
+- **MIDI to effects.** Every audio processor gets the chain's MIDI (`chain.py:419-424`). Not mapped.
 
 Tests
 -----
 
-`tools/zynthian/strip.sh <zynthian-ui clone> <out>` applies the patch at the pinned commit and runs
-`tools/zynthian/test-strip.py`: the real `zynthian_chain`, `zynthian_processor` and `zynthian_plugind_strip` against
-plugin-hostd and `tests/fake-host`, no JACK and no plugin. Seven scenarios read the daemon's graph back
-(`list_connections`) and its values (`param_get`), and nine sabotages each turn one red. `evidence/strip/test.log` is
-one run. Not tested: the plugind engine itself under the strip (it needs lilv and JACK: `test-path-b.py`), real JACK
-ports and their names, autoconnect's pass over the rewritten routes, Zynthian's GUI, any timing, and any hardware.
+`tools/zynthian/chain.sh <zynthian-ui clone> <out>` applies the patch at the pinned commit and runs
+`tools/zynthian/test-chain.py`: the real `zynthian_chain`, `zynthian_processor` and `zynthian_plugind_chain` against
+plugin-hostd and `tests/fake-host` (no JACK, no plugin), autoconnect's lock a real one that counts a wait past two
+seconds. Nine scenarios read the chain back with `chain_get` and the workers with `worker_list`; one kills the daemon
+with a rebuild's command in flight and requires the lock free after every later rebuild. Each sabotage names the check
+it must trip, and a sabotage that turns its scenario red on another check, or on an error no check names, is itself a
+failure. Given a daemon without `chain_get` the floor scenario holds the engine to its refusal, its two members of one
+row so that the old daemon would take the line the floor keeps from it. `tools/zynthian/chain-e2e.sh` runs the same
+nine against omx-clap-host, an LV2 member on the adapter row and CLAP members, in a PipeWire of its own: one node per
+chain (`pw-dump`), the crashed member's own node, and a tenth that measures the audio. After an add at a position and after a move, the
+chain's output is the order `chain_get` reads back: equal to the same plugins one client each in series, within the
+difference two such references show of each other, and at least 40 dB away from the other order.
+`evidence/chain/` holds the runs with their commands. A claim about Zynthian
+here is trixie arm64 container only until the Vangelis hardware run is dated, and these runs are less than that:
+Fedora 44 containers on x86_64, the zynthian-ui Python modules imported with zyncoder and autoconnect stubbed. No
+Zynthian image ran, and no Zynthian screen, UI or encoder was seen.

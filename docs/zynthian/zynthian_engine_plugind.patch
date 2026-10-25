@@ -1,5 +1,6 @@
-zynthian_engine_plugind: plugin-hostd as a Zynthian engine (FreeMixer/plugin-hostd#124 spike), and the plugind strip
-that links a chain's audio slots on plugin-hostd in order (docs/zynthian/chain-profile.md)
+zynthian_engine_plugind: plugin-hostd as a Zynthian engine (FreeMixer/plugin-hostd#124 spike), and the plugind chain
+that declares a chain's audio slots to plugin-hostd as one chain line, read back with chain_get (plugin-hostd#149,
+docs/zynthian/chain-profile.md)
 
 Against zynthian/zynthian-ui vangelis f46b0189b6163472db39aa607369f397ed23b65a (2026-10-19).
 Apply: git -C zynthian-ui apply zynthian_engine_plugind.patch
@@ -26,14 +27,14 @@ index 5dd29a59..61349483 100644
  from zyngine.zynthian_engine_alsa_mixer import *
  from zyngine.zynthian_engine_tempo import *
 diff --git a/zyngine/zynthian_chain.py b/zyngine/zynthian_chain.py
-index 77f3d97e..36953bf5 100644
+index 77f3d97e..ecdf8bfa 100644
 --- a/zyngine/zynthian_chain.py
 +++ b/zyngine/zynthian_chain.py
 @@ -29,6 +29,7 @@ import logging
  # Zynthian specific modules
  import zynautoconnect
  from zyngine.zynthian_processor import zynthian_processor
-+from zyngine import zynthian_plugind_strip
++from zyngine import zynthian_plugind_chain
  from zyncoder.zyncore import lib_zyncore
  
  
@@ -41,14 +42,14 @@ index 77f3d97e..36953bf5 100644
          for output in self.get_audio_out():
              self.audio_routes[output] = prev_slot_sources.copy()
  
-+        # plugin-hostd links the plugind processors of adjacent slots itself (mod-host connect), and a parallel slot of
-+        # them through an explicit mix element: those routes are taken from autoconnect
-+        self.audio_routes = zynthian_plugind_strip.realise_chain(self, self.audio_routes)
++        # plugin-hostd runs the chain's plugind processors as one chain line, in one client: the routes between them
++        # are taken from autoconnect
++        self.audio_routes = zynthian_plugind_chain.realise_chain(self, self.audio_routes)
 +
          zynautoconnect.release_lock()
          zynautoconnect.request_audio_connect()
  
-@@ -758,6 +763,7 @@ class zynthian_chain:
+@@ -758,10 +763,19 @@ class zynthian_chain:
      def nudge_processor(self, processor, up):
          try:
              slots = self.get_slots_by_type(processor.type)
@@ -56,12 +57,24 @@ index 77f3d97e..36953bf5 100644
              cur_slot = self.get_slot(processor)
              parallel = len(slots[cur_slot]) > 1
              is_mixer_strip = processor.eng_code in ("MI", "MR")
-@@ -798,6 +804,11 @@ class zynthian_chain:
+ 
++            # a plugind processor passes a single plugind neighbour: they swap slots, a move of the chain line, since a
++            # parallel slot of them is refused
++            past = zynthian_plugind_chain.move_past(slots, cur_slot, up)
++            if past is not None:
++                slots[cur_slot], slots[past] = slots[past], slots[cur_slot]
++                self.rebuild_graph()
++                return True
++
+             if up:
+                 if not parallel and cur_slot == 0:
+                     return False
+@@ -798,6 +812,11 @@ class zynthian_chain:
                      else:
                          slots[cur_slot].append(processor)
  
-+            # a slot plugin-hostd could not realise (a parallel one with no mix element) is never formed
-+            if slots is self.audio_slots and not zynthian_plugind_strip.accepts(self, slots):
++            # a slot plugin-hostd could not realise (a parallel one of its processors) is never formed
++            if slots is self.audio_slots and not zynthian_plugind_chain.accepts(self, slots):
 +                slots[:] = before
 +                return False
 +
@@ -98,7 +111,7 @@ index 39b2505e..73ad2974 100644
  # ----------------------------------------------------------------------------
 diff --git a/zyngine/zynthian_engine_plugind.py b/zyngine/zynthian_engine_plugind.py
 new file mode 100644
-index 00000000..a1fbfb17
+index 00000000..7b46fa00
 --- /dev/null
 +++ b/zyngine/zynthian_engine_plugind.py
 @@ -0,0 +1,176 @@
@@ -131,7 +144,7 @@ index 00000000..a1fbfb17
 +import subprocess
 +
 +from . import zynthian_lv2
-+from . import zynthian_plugind_strip as strip
++from . import zynthian_plugind_chain as pchain
 +from .zynthian_controller import zynthian_controller
 +from .zynthian_engine_jalv import zynthian_engine_jalv_base
 +
@@ -145,12 +158,12 @@ index 00000000..a1fbfb17
 +    omx-clap-scan) run by plugin-hostd as instance <n>, JACK client effect_<n>. MIDI channels stay with Zynthian's router:
 +    the instance's MIDI input is wired like a jalv client's."""
 +
-+    # the strip (zynthian_plugind_strip) links a chain's plugind processors to each other by this mark
++    # the chain (zynthian_plugind_chain) declares a chain's plugind processors as one chain line by this mark
 +    plugind = True
 +
 +    def __init__(self, eng_code, state_manager, jackname=None):
-+        self.client = strip.client()
-+        self.instance = strip.alloc_instance()
++        self.client = pchain.client()
++        self.instance = pchain.alloc_instance()
 +        self.monitors = {}
 +        # the base class builds the controllers, then calls start() and reads "JACK Name:" from what it returns
 +        super().__init__(eng_code, state_manager, jackname)
@@ -163,8 +176,8 @@ index 00000000..a1fbfb17
 +    # ---------------------------------------------------------------------------
 +
 +    def start(self):
-+        reply = self.client.cmd(strip.add_line(self.plugin_url, self.instance))
-+        if strip.resp_code(reply) is None or strip.resp_code(reply) < 0:
++        reply = self.client.cmd(pchain.add_line(self.plugin_url, self.instance))
++        if pchain.resp_code(reply) is None or pchain.resp_code(reply) < 0:
 +            raise Exception(f"plugin-hostd refused '{self.plugin_url}' => {reply}")
 +        self.client.output_handlers[self.instance] = self.on_output
 +        for symbol in self.monitor_symbols():
@@ -174,11 +187,11 @@ index 00000000..a1fbfb17
 +    def stop(self):
 +        self.client.output_handlers.pop(self.instance, None)
 +        self.client.cmd(f"remove {self.instance}")
-+        strip.free_instance(self.instance)
++        pchain.free_instance(self.instance)
 +
 +    def proc_cmd(self, cmd):
 +        """The jalv command lines the base class writes, said in the daemon's protocol."""
-+        line = strip.jalv_line(self.instance, cmd)
++        line = pchain.jalv_line(self.instance, cmd)
 +        return self.client.cmd(line) if line else ""
 +
 +    def get_param(self, symbol):
@@ -271,26 +284,26 @@ index 00000000..a1fbfb17
 +        return sorted(presets, key=lambda p: p[2])
 +
 +    def set_preset(self, processor, preset, preload=False):
-+        code = strip.resp_code(self.client.cmd(f"preset_load {self.instance} {preset[0]}"))
++        code = pchain.resp_code(self.client.cmd(f"preset_load {self.instance} {preset[0]}"))
 +        return code is not None and code >= 0
 +
 +    def cmp_presets(self, preset1, preset2):
 +        return preset1[0] == preset2[0]
 +
 +# ******************************************************************************
-diff --git a/zyngine/zynthian_plugind_strip.py b/zyngine/zynthian_plugind_strip.py
+diff --git a/zyngine/zynthian_plugind_chain.py b/zyngine/zynthian_plugind_chain.py
 new file mode 100644
-index 00000000..d3fd51b9
+index 00000000..811568b3
 --- /dev/null
-+++ b/zyngine/zynthian_plugind_strip.py
-@@ -0,0 +1,435 @@
++++ b/zyngine/zynthian_plugind_chain.py
+@@ -0,0 +1,416 @@
 +# -*- coding: utf-8 -*-
 +# ********************************************************************
-+# ZYNTHIAN PROJECT: plugin-hostd strip (zynthian_plugind_strip)
++# ZYNTHIAN PROJECT: plugin-hostd chain (zynthian_plugind_chain)
 +#
-+# A chain's audio slots realised on plugin-hostd: the connection to the
-+# daemon, the instance numbers, and the links between instances, made
-+# with mod-host's connect and disconnect in slot order.
++# A chain's audio slots realised on plugin-hostd as one chain line: the
++# connection to the daemon, the instance numbers, the chain verb and its
++# read-back, chain_get.
 +#
 +# Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 +#
@@ -311,28 +324,35 @@ index 00000000..d3fd51b9
 +# ********************************************************************
 +
 +import os
-+import json
 +import socket
 +import logging
 +import threading
 +import subprocess
 +from time import sleep
 +
-+# The refusals of the strip, by name. None is a protocol code: they are said here, before any line reaches the daemon.
-+PARALLEL_SLOT_FOREIGN = "PARALLEL_SLOT_FOREIGN"  # a parallel slot holds a processor that plugin-hostd does not run
-+MIX_ELEMENT_ABSENT = "MIX_ELEMENT_ABSENT"  # a parallel slot needs a mixer plugin and PLUGIND_MIX declares none
-+MIX_BRANCHES_EXCEEDED = "MIX_BRANCHES_EXCEEDED"  # a parallel slot has more members than the mixer has branches
-+MIX_ADD_REFUSED = "MIX_ADD_REFUSED"  # the daemon refused the add of the mixer instance
++# The refusals of the chain, by name. None is a protocol code: they are said here, with the slot they name.
++PARALLEL_SLOT_REFUSED = "PARALLEL_SLOT_REFUSED"  # a parallel slot holds a plugind processor (until omx-plugins#229)
++RUN_SPLIT = "PLUGIND_RUN_SPLIT"  # a processor plugin-hostd does not run sits between two it runs
++CHAIN_REFUSED = "PLUGIND_CHAIN_REFUSED"  # the daemon refused the chain line
++READBACK_MISMATCH = "PLUGIND_READBACK_MISMATCH"  # chain_get does not answer the order the line declared
++CHAIN_GET_ABSENT = "PLUGIND_CHAIN_GET_ABSENT"  # the daemon predates chain_get, the floor (plugin-hostd#162)
++DAEMON_LOST = "PLUGIND_DAEMON_LOST"  # the connection to the daemon failed mid-command (a restart, a timeout)
++
++# the daemon's code for a chain no chain line declared (plugin-hostd protocol.h, PHD_ERR_NO_SUCH_CHAIN)
++NO_SUCH_CHAIN = -522
++# the rows of worker_list whose worker runs a chain in one client: the members' routes are the chain's own
++NATIVE_CHAIN_ROWS = ("clap", "lv2-clap")
 +
 +
-+class plugind_strip_refused(Exception):
-+    def __init__(self, code, slot, detail=""):
-+        super().__init__(f"{code} (audio slot {slot}){': ' + detail if detail else ''}")
++class plugind_chain_refused(Exception):
++    def __init__(self, code, slot=None, detail=""):
++        where = f" (audio slot {slot})" if slot is not None else ""
++        super().__init__(f"{code}{where}{': ' + detail if detail else ''}")
 +        self.code = code
 +        self.slot = slot
 +
 +# ------------------------------------------------------------------------------
-+# One connection to plugin-hostd, shared by every plugind engine and strip
++# One connection to plugin-hostd, shared by every plugind engine and chain
 +# ------------------------------------------------------------------------------
 +
 +
@@ -343,7 +363,9 @@ index 00000000..d3fd51b9
 +        self.port = int(port or os.environ.get("PLUGIND_PORT", 5555))
 +        self.lock = threading.Lock()
 +        self.output_handlers = {}
++        self.chain_handlers = {}
 +        self.proc = None
++        self.lost = False  # set when a command failed on the connection: client() opens a new one
 +        if not self.connectable():
 +            cmd = [os.environ.get("PLUGIND_BIN", "plugin-hostd"), "-n", "-p", str(self.port)]
 +            logging.info(f"Starting plugin-hostd => {cmd}")
@@ -355,6 +377,8 @@ index 00000000..d3fd51b9
 +        # mod-host's protocol: a controller opens the feedback port before its first command
 +        self.fb = socket.create_connection(("127.0.0.1", self.port + 1))
 +        self.sock = socket.create_connection(("127.0.0.1", self.port))
++        # a daemon that never answers is a lost one: no command waits past PLUGIND_TIMEOUT seconds
++        self.sock.settimeout(float(os.environ.get("PLUGIND_TIMEOUT", 30)))
 +        threading.Thread(target=self.feedback_task, daemon=True).start()
 +
 +    def connectable(self):
@@ -366,13 +390,25 @@ index 00000000..d3fd51b9
 +
 +    def cmd(self, line):
 +        with self.lock:
-+            self.sock.sendall(line.encode() + b"\0")
-+            buf = b""
-+            while not buf.endswith(b"\0"):
-+                data = self.sock.recv(65536)
-+                if not data:
-+                    break
-+                buf += data
++            if self.lost:
++                raise ConnectionError("the connection to plugin-hostd is lost")
++            try:
++                self.sock.sendall(line.encode() + b"\0")
++                buf = b""
++                while not buf.endswith(b"\0"):
++                    data = self.sock.recv(65536)
++                    if not data:
++                        # a FIN: before any byte it is a daemon gone, never an empty reply
++                        if not buf:
++                            raise ConnectionError("plugin-hostd closed the connection")
++                        break
++                    buf += data
++            except OSError:
++                # a reply cut by a restart or a timeout is never read as the next command's
++                self.lost = True
++                self.sock.close()
++                self.fb.close()
++                raise
 +        reply = buf.rstrip(b"\0").decode("utf-8", "replace")
 +        logging.debug(f"plugind: {line} => {reply}")
 +        return reply
@@ -380,7 +416,10 @@ index 00000000..d3fd51b9
 +    def feedback_task(self):
 +        buf = b""
 +        while True:
-+            data = self.fb.recv(65536)
++            try:
++                data = self.fb.recv(65536)
++            except OSError:
++                return
 +            if not data:
 +                return
 +            buf += data
@@ -395,6 +434,11 @@ index 00000000..d3fd51b9
 +                # the meters of one cycle are out: ask for the next, as mod-ui does (mod/host.py send_output_data_ready)
 +                elif words and words[0] == "data_finish":
 +                    threading.Thread(target=self.cmd, args=("output_data_ready",), daemon=True).start()
++                # chain_formed <chain> <worker> <instance>,... and worker_died <worker> <pid> <how> <instance>,...: what
++                # a chain's worker runs may have changed (a quarantine, a rejoin, a split)
++                elif words and words[0] in ("chain_formed", "worker_died"):
++                    for handler in list(self.chain_handlers.values()):
++                        threading.Thread(target=handler, args=(words,), daemon=True).start()
 +
 +
 +def resp_code(reply):
@@ -409,19 +453,24 @@ index 00000000..d3fd51b9
 +
 +
 +def client():
++    """The shared connection. After a loss the next command opens a new one, once: the handlers move to it, and a
++    daemon that is still down fails that command, which is lost in its turn."""
 +    global _client
-+    if _client is None:
-+        _client = plugind_client()
++    if _client is None or getattr(_client, "lost", False):
++        new = plugind_client()
++        if _client:
++            new.output_handlers, new.chain_handlers = _client.output_handlers, _client.chain_handlers
++        _client = new
 +    return _client
 +
 +
 +def set_client(c):
-+    """A test, or a host with its own connection, hands the strip the client to use."""
++    """A test, or a host with its own connection, hands the chain the client to use."""
 +    global _client
 +    _client = c
 +
 +# ------------------------------------------------------------------------------
-+# Instance numbers: one table for the engines' instances and the strips' mixers
++# Instance numbers
 +# ------------------------------------------------------------------------------
 +
 +
@@ -458,55 +507,7 @@ index 00000000..d3fd51b9
 +    return None
 +
 +# ------------------------------------------------------------------------------
-+# The mix element of a parallel slot
-+# ------------------------------------------------------------------------------
-+
-+
-+def mix_profile():
-+    """The N-input mixer plugin plugin-hostd runs for a parallel slot, declared in PLUGIND_MIX as JSON:
-+    {"uri": ..., "branches": N, "in": "in_{branch}_{ch}", "out": "out_{ch}", "channels": 2, "gain": "gain_{branch}"}
-+    (branch and ch count from 1). None when nothing is declared."""
-+    text = os.environ.get("PLUGIND_MIX")
-+    if not text:
-+        return None
-+    p = json.loads(text)
-+    p.setdefault("channels", 2)
-+    return p
-+
-+
-+class mix_element:
-+    """role mix: sums the outputs of a parallel slot's members, one branch each, with a declared gain per branch.
-+    Zynthian's own parallel slot is an implicit JACK sum at unity per member (zynthian_chain.py:342-347,
-+    zynthian_autoconnect.py:1089-1097): the default gain is 1.0, not 1/N, so a slot sounds as it did."""
-+
-+    def __init__(self, slot, members, gains=None):
-+        self.slot = slot
-+        self.members = list(members)
-+        self.gains = list(gains) if gains else [1.0] * len(self.members)
-+        self.bypassed = False
-+        self.instance = None
-+
-+    @property
-+    def key(self):
-+        return tuple(m.engine.instance for m in self.members)
-+
-+    def latency(self, branch_latencies):
-+        """the slowest branch; None while any branch's latency is unknown (plugin-hostd's main routes no latency verb)"""
-+        if not branch_latencies or any(v is None for v in branch_latencies):
-+            return None
-+        return max(branch_latencies)
-+
-+    def jackname(self):
-+        return f"effect_{self.instance}" if self.instance is not None else f"<mix of audio slot {self.slot}>"
-+
-+    def in_ports(self, branch, profile):
-+        return [f"{self.jackname()}:" + profile["in"].format(branch=branch + 1, ch=c + 1) for c in range(profile["channels"])]
-+
-+    def out_ports(self, profile):
-+        return [f"{self.jackname()}:" + profile["out"].format(ch=c + 1) for c in range(profile["channels"])]
-+
-+# ------------------------------------------------------------------------------
-+# The strip
++# The chain line
 +# ------------------------------------------------------------------------------
 +
 +
@@ -514,192 +515,167 @@ index 00000000..d3fd51b9
 +    return getattr(processor.engine, "plugind", False)
 +
 +
-+def jack_ports(client_name, is_output):
-+    """The audio ports of a JACK client, in the order autoconnect reads them."""
-+    import zynautoconnect
-+    return [p.name for p in zynautoconnect.jclient.get_ports(f"^{client_name}:", is_audio=True, is_output=is_output,
-+                                                              is_input=not is_output)]
++def read_chain(chain_id):
++    """chain_get: (worker, declared, running), None for a chain no line declared; raises CHAIN_GET_ABSENT when the
++    daemon has no chain_get"""
++    reply = client().cmd(f"chain_get {chain_id}")
++    code = resp_code(reply)
++    if code == NO_SUCH_CHAIN:
++        return None
++    words = reply.split()
++    if code != 0 or len(words) != 5:
++        raise plugind_chain_refused(CHAIN_GET_ABSENT, None, f"chain_get {chain_id} => {reply}")
++
++    def ids(word):
++        return [] if word == "-" else [int(x) for x in word.split(",")]
++    return words[2], ids(words[3]), ids(words[4])
 +
 +
-+def pair_ports(src_ports, dst_ports):
-+    """autoconnect's mono/stereo rule (zynthian_autoconnect.py:1094-1097): at most two links, the last port reused"""
-+    links = []
-+    if src_ports and dst_ports:
-+        for i in range(min(2, max(len(src_ports), len(dst_ports)))):
-+            links.append((src_ports[min(i, len(src_ports) - 1)], dst_ports[min(i, len(dst_ports) - 1)]))
-+    return links
++def worker_row(worker):
++    """the row (format) of a worker in worker_list"""
++    for rec in client().cmd("worker_list").split()[2:]:
++        head = rec.rsplit(":", 1)[0].split(":")
++        if head[0] == worker:
++            return head[2]
++    return None
 +
 +
-+class stage:
-+    """One step of the strip: a single processor, or a parallel slot's members and their mix element."""
++class plugind_chain:
++    """One Zynthian chain's plugind processors as one chain line of plugin-hostd."""
 +
-+    def __init__(self, slot, members, mix=None):
-+        self.slot = slot
-+        self.members = members
-+        self.mix = mix
-+
-+    def owned(self):
-+        """plugin-hostd runs every node of this stage"""
-+        return self.mix is not None or is_plugind(self.members[0])
-+
-+
-+class plugind_strip:
-+    """The links of one chain's audio slots that plugin-hostd's instances make between them."""
-+
-+    def __init__(self, ports=jack_ports):
-+        self.ports = ports
-+        self.links = []  # (source port, destination port), in the order they were made
-+        self.mixes = {}  # member instances -> mix_element with its instance
++    def __init__(self, chain_id):
++        self.id = chain_id
++        self.declared = []  # the instances of the last line, in order
++        self.running = []  # the instances its worker runs, as chain_get last answered
++        self.native = True  # the worker runs the chain in one client
++        self.refusal = None  # the code of the last refusal, None when the last realisation had none
++        # one realisation at a time: the rebuild of a Zynthian edit and the one a feedback event asks for
++        self.lock = threading.RLock()
 +
 +    # ---------------------------------------------------------------------------
 +    # The plan: what the slots ask for, with nothing sent
 +    # ---------------------------------------------------------------------------
 +
-+    def plan(self, audio_slots, profile=None):
-+        """The stages of the audio slots; raises plugind_strip_refused for a parallel slot this strip cannot realise."""
-+        profile = profile if profile is not None else mix_profile()
-+        stages = []
-+        for i, slot in enumerate(audio_slots):
-+            if len(slot) == 1:
-+                stages.append(stage(i, list(slot)))
-+                continue
-+            if not all(is_plugind(p) for p in slot):
-+                raise plugind_strip_refused(PARALLEL_SLOT_FOREIGN, i, ", ".join(p.get_jackname() for p in slot))
-+            mix = mix_element(i, slot)
-+            known = self.mixes.get(mix.key)
-+            stages.append(stage(i, list(slot), known or mix))
-+        return stages
-+
 +    def check(self, audio_slots):
-+        """Raise before a parallel slot forms that could not be realised: no mixer declared, too few branches."""
-+        profile = mix_profile()
-+        for st in self.plan(audio_slots, profile):
-+            if st.mix is None:
-+                continue
-+            if profile is None:
-+                raise plugind_strip_refused(MIX_ELEMENT_ABSENT, st.slot, "PLUGIND_MIX declares no mixer plugin")
-+            if len(st.members) > int(profile["branches"]):
-+                raise plugind_strip_refused(MIX_BRANCHES_EXCEEDED, st.slot,
-+                                            f"{len(st.members)} members, {profile['branches']} branches")
++        """Raise PARALLEL_SLOT_REFUSED for a parallel slot that holds a plugind processor."""
++        for i, slot in enumerate(audio_slots):
++            if len(slot) > 1 and any(is_plugind(p) for p in slot):
++                raise plugind_chain_refused(PARALLEL_SLOT_REFUSED, i, ", ".join(p.get_jackname() for p in slot))
 +
-+    def link_plan(self, stages, profile):
-+        """The links the strip owns, in chain order: between adjacent stages plugin-hostd runs both of, the fan-out into
-+        a parallel slot, and each member into its branch of the mix."""
-+        def outs(st):
-+            return st.mix.out_ports(profile) if st.mix else self.ports(st.members[0].get_jackname(), True)
-+
-+        links = []
-+        for k, st in enumerate(stages):
-+            prev = stages[k - 1] if k else None
-+            if prev is not None and prev.owned() and st.owned():
-+                for m in st.members:
-+                    links += pair_ports(outs(prev), self.ports(m.get_jackname(), False))
-+            if st.mix:
-+                for b, m in enumerate(st.members):
-+                    links += pair_ports(self.ports(m.get_jackname(), True), st.mix.in_ports(b, profile))
-+        return links
-+
-+    def routes(self, stages, audio_routes):
-+        """The chain's routes with what the strip owns taken out, and a parallel slot's members replaced by its mix as
-+        the source of whatever follows: no input is ever fed by more than one member."""
-+        routes = dict(audio_routes)
-+        for k, st in enumerate(stages):
-+            prev = stages[k - 1] if k else None
-+            if prev is not None and prev.owned() and st.owned():
-+                for m in st.members:
-+                    routes.pop(m.get_jackname(), None)
-+            if st.mix:
-+                members = sorted(m.get_jackname() for m in st.members)
-+                for dst, sources in routes.items():
-+                    if sorted(sources) == members:
-+                        routes[dst] = [st.mix.jackname()]
-+        return routes
++    def members(self, audio_slots):
++        """The first run of single plugind slots, in slot order, and the slot of a plugind processor after a foreign one
++        (None when the run holds every plugind processor)."""
++        run, split, ended = [], None, False
++        for i, slot in enumerate(audio_slots):
++            if is_plugind(slot[0]):
++                if ended:
++                    split = i if split is None else split
++                else:
++                    run.append(slot[0])
++            elif run:
++                ended = True
++        return run, split
 +
 +    # ---------------------------------------------------------------------------
 +    # Realisation
 +    # ---------------------------------------------------------------------------
 +
 +    def realise(self, audio_slots, audio_routes):
-+        """Bring the daemon's links to the slots' order; returns the routes left to autoconnect."""
-+        if not any(is_plugind(p) for slot in audio_slots for p in slot) and not self.links and not self.mixes:
++        """Declare the slots' order as one chain line, read it back; returns the routes left to autoconnect."""
++        self.refusal = None
++        if not any(is_plugind(p) for slot in audio_slots for p in slot) and not self.declared:
 +            return audio_routes
 +        self.check(audio_slots)
-+        profile = mix_profile()
-+        stages = self.plan(audio_slots, profile)
-+        wanted_mixes = {st.mix.key: st.mix for st in stages if st.mix}
-+        for key, mix in wanted_mixes.items():
-+            if mix.instance is None:
-+                self.add_mix(mix, profile)
-+        self.realise_links(self.link_plan(stages, profile))
-+        for key in [k for k in self.mixes if k not in wanted_mixes]:
-+            self.remove_mix(self.mixes.pop(key))
-+        return self.routes(stages, audio_routes)
++        run, split = self.members(audio_slots)
++        ids = [p.engine.instance for p in run]
++        if not ids:
++            if self.declared:
++                client().cmd(f"chain_clear {self.id}")
++                self.read_back()
++                if self.declared:
++                    raise plugind_chain_refused(READBACK_MISMATCH, None, f"sent chain_clear, chain_get {self.declared}")
++            self.declared = self.running = []
++            return audio_routes
++        if ids != self.declared:
++            # the read-back is the floor: a daemon without it is never sent a line it could not be asked about
++            read_chain(self.id)
++            reply = client().cmd(f"chain {self.id} " + " ".join(str(n) for n in ids))
++            code = resp_code(reply)
++            if code is None or code < 0:
++                raise plugind_chain_refused(CHAIN_REFUSED, None, f"chain {self.id} => {reply}")
++            self.declared = ids
++        self.read_back()
++        if self.declared != ids:
++            raise plugind_chain_refused(READBACK_MISMATCH, None, f"sent {ids}, chain_get {self.declared}")
++        if split is not None:
++            # the run after a foreign processor runs one worker each, as autoconnect routes it: logged, not refused
++            self.refusal = RUN_SPLIT
++            logging.error(f"plugind chain {self.id}: {RUN_SPLIT} (audio slot {split}): it runs outside the chain line")
++        return self.routes(run, audio_routes)
 +
-+    # ---- SEAM: plugin-hostd#101 -------------------------------------------------------------------------------------
-+    # This method is the one place the strip's order reaches the daemon, as connect and disconnect links between
-+    # instances (the mod-host strip profile). plugin-hostd#101 (branch cluster/plugin-hostd-101-r2-cluster at 3fea0e6,
-+    # not merged; base wave/contract-one-pass) adds `chain <chain> <instance> <instance> ...`: a run of single-slot
-+    # stages whose workers run chains in one client (clap, lv2-clap) becomes one `chain` line here and its inner links
-+    # go; a mod-host worker is never sent that line (its description there), so an LV2 run through mod-host keeps
-+    # these links. The fan-out into and the branches out of a mix element stay links either way.
-+    def realise_links(self, wanted):
-+        for src, dst in [l for l in self.links if l not in wanted]:
-+            reply = client().cmd(f"disconnect {src} {dst}")
-+            if resp_code(reply) is None or resp_code(reply) < 0:
-+                logging.error(f"plugind strip: disconnect {src} {dst} => {reply}")
-+            self.links.remove((src, dst))
-+        for src, dst in wanted:
-+            if (src, dst) in self.links:
++    def read_back(self):
++        got = read_chain(self.id)
++        worker, self.declared, self.running = got if got else (None, [], [])
++        self.native = worker in (None, "-") or worker_row(worker) in NATIVE_CHAIN_ROWS
++
++    def on_event(self, words, rebuild):
++        """chain_formed of this chain with another running order, or worker_died of a worker that ran a member: the
++        routes follow what runs now"""
++        if words[0] == "chain_formed" and len(words) == 4 and int(words[1]) == self.id:
++            running = [] if words[3] == "-" else [int(x) for x in words[3].split(",")]
++            if running != self.running:
++                rebuild()
++        elif words[0] == "worker_died" and len(words) == 5 and words[4] != "-":
++            if {int(x) for x in words[4].split(",")} & set(self.running):
++                rebuild()
++
++    def routes(self, run, audio_routes):
++        """The chain's routes with the run's inner links taken out: the running head's client takes the run's input,
++        and whatever the run fed is fed by it. A worker that runs no chain in one client, or no chain's worker at all
++        (its members split by a death), keeps the clients' routes."""
++        if not self.native or not self.running:
++            return audio_routes
++        names = [p.get_jackname() for p in run]
++        head = f"effect_{self.running[0]}" if self.running else None
++        routes = {}
++        for dst, sources in audio_routes.items():
++            if dst in names:
++                if dst == names[0] and head:
++                    routes[head] = list(sources)
 +                continue
-+            reply = client().cmd(f"connect {src} {dst}")
-+            if resp_code(reply) is None or resp_code(reply) < 0:
-+                logging.error(f"plugind strip: connect {src} {dst} => {reply}")
-+                continue
-+            self.links.append((src, dst))
-+    # ---- end of SEAM ------------------------------------------------------------------------------------------------
-+
-+    def add_mix(self, mix, profile):
-+        n = alloc_instance()
-+        reply = client().cmd(add_line(profile["uri"], n))
-+        if resp_code(reply) is None or resp_code(reply) < 0:
-+            free_instance(n)
-+            raise plugind_strip_refused(MIX_ADD_REFUSED, mix.slot, reply)
-+        mix.instance = n
-+        for b, g in enumerate(mix.gains):
-+            client().cmd(f"param_set {n} {profile['gain'].format(branch=b + 1)} {g:.6f}")
-+        self.mixes[mix.key] = mix
-+
-+    def remove_mix(self, mix):
-+        client().cmd(f"remove {mix.instance}")
-+        free_instance(mix.instance)
-+        mix.instance = None
-+
-+    def set_branch_gain(self, mix, branch, gain):
-+        mix.gains[branch] = gain
-+        return client().cmd(f"param_set {mix.instance} {mix_profile()['gain'].format(branch=branch + 1)} {gain:.6f}")
-+
-+    def set_mix_bypass(self, mix, bypassed):
-+        mix.bypassed = bypassed
-+        return client().cmd(f"bypass {mix.instance} {1 if bypassed else 0}")
++            fed = []
++            for s in sources:
++                s = head if s in names else s
++                if s and s not in fed:
++                    fed.append(s)
++            routes[dst] = fed
++        return routes
 +
 +
-+strips = {}
++chains = {}
 +
 +
-+def strip_of(chain):
-+    if chain.chain_id not in strips:
-+        strips[chain.chain_id] = plugind_strip()
-+    return strips[chain.chain_id]
++def chain_of(chain):
++    if chain.chain_id not in chains:
++        pc = chains[chain.chain_id] = plugind_chain(chain.chain_id)
++        # a new order of the chain's worker (a member quarantined, rejoined, split): its routes follow what runs
++        client().chain_handlers[chain.chain_id] = lambda words: pc.on_event(words, chain.rebuild_audio_graph)
++    return chains[chain.chain_id]
 +
 +
 +def realise_chain(chain, audio_routes):
-+    """zynthian_chain.rebuild_audio_graph's hook: the routes autoconnect is left with. A refusal says its code and
++    """zynthian_chain.rebuild_audio_graph's hook: the routes autoconnect is left with. A refusal logs its code and
 +    leaves the chain's routes, less every destination a parallel slot's members would feed together: JACK never sums
-+    them at one input. The guard before a slot forms (accepts) keeps that from happening."""
++    them at one input. The guard before a slot forms (accepts) keeps that from happening. It runs with autoconnect's
++    lock held, so it never raises: a daemon lost mid-command (a restart, a timeout) logs one line and leaves the routes
++    as Zynthian built them. The next realisation opens a new connection and declares the line again."""
 +    try:
-+        return strip_of(chain).realise(chain.audio_slots, audio_routes)
-+    except plugind_strip_refused as e:
-+        logging.error(f"plugind strip of chain {chain.chain_id}: {e}")
++        pc = chain_of(chain)
++        with pc.lock:
++            return pc.realise(chain.audio_slots, audio_routes)
++    except plugind_chain_refused as e:
++        pc.refusal = e.code
++        logging.error(f"plugind chain {chain.chain_id}: {e}")
 +        routes = dict(audio_routes)
 +        for slot in chain.audio_slots:
 +            if len(slot) > 1:
@@ -707,15 +683,33 @@ index 00000000..d3fd51b9
 +                for dst in [d for d, sources in routes.items() if sorted(sources) == members]:
 +                    routes.pop(dst)
 +        return routes
++    except Exception as e:
++        pc = chains.get(chain.chain_id)
++        if pc:
++            # what the lost daemon held is not known: the next realisation declares the line again
++            pc.refusal, pc.declared, pc.running = DAEMON_LOST, [], []
++        logging.error(f"plugind chain {chain.chain_id}: {DAEMON_LOST}: {type(e).__name__}: {e}")
++        return audio_routes
 +
 +
 +def accepts(chain, audio_slots):
-+    """zynthian_chain.nudge_processor's guard: False, with the code logged, for slots the strip could not realise."""
++    """zynthian_chain.nudge_processor's guard: False, with the code logged, for slots the chain could not realise."""
 +    if not any(is_plugind(p) for slot in audio_slots for p in slot):
 +        return True
 +    try:
-+        strip_of(chain).check(audio_slots)
++        chain_of(chain).check(audio_slots)
 +        return True
-+    except plugind_strip_refused as e:
-+        logging.error(f"plugind strip of chain {chain.chain_id}: {e}")
++    except plugind_chain_refused as e:
++        logging.error(f"plugind chain {chain.chain_id}: {e}")
 +        return False
++
++
++def move_past(slots, cur, up):
++    """zynthian_chain.nudge_processor's move: the neighbour slot a single plugind processor swaps with when it holds
++    one plugind processor too (a parallel slot of them is refused, so a nudge that would merge them moves past),
++    None when the nudge is Zynthian's own."""
++    nb = cur - 1 if up else cur + 1
++    if 0 <= nb < len(slots) and len(slots[cur]) == 1 and len(slots[nb]) == 1 and is_plugind(slots[cur][0]) and \
++            is_plugind(slots[nb][0]):
++        return nb
++    return None
