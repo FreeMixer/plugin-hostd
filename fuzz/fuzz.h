@@ -82,6 +82,7 @@ static inline char *fuzz_dup(const uint8_t *p, size_t n)
 {
     char *b = malloc(n ? n : 1);
 
+    /* not a property: the harness got no memory for its copy of the message */
     if (b == NULL)
         abort();
     if (n)

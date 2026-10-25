@@ -88,6 +88,7 @@ static void *xmalloc(size_t n)
 {
     void *p = malloc(n ? n : 1);
 
+    /* not a property: the recorder got no memory for what it records */
     if (p == NULL)
         abort();
     return p;
@@ -250,7 +251,7 @@ static char *hand_back(const char *text)
  * when the call changes anything */
 static char *answer(struct rec_call *c, const char *shape, int changes)
 {
-    char buf[1024];
+    char buf[PHD_LINE_MAX];
 
     if (g_rec.refuse)
     {
@@ -259,6 +260,9 @@ static char *answer(struct rec_call *c, const char *shape, int changes)
     }
     if (changes)
         g_rec.state = mix_call(g_rec.state, c);
+    /* the reply a verb declares fits one line of the protocol
+     * mutant: include/plugin-hostd/protocol.h:46 `4096` -> `4`
+     * input: mod-host-bypass */
     if (syntax_instantiate(shape, buf, sizeof(buf)) < 0)
         abort();
     return hand_back(buf);

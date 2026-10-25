@@ -54,14 +54,19 @@
  * Properties, each an abort():
  *   - bounded: after every operation each source's buffer holds at most LINE_LIMIT bytes of an unfinished line, and
  *     its capacity stays under 2 * (LINE_LIMIT + 4096).
- *     Mutant: fuzz/mutants/reply-bounded.patch, the overflow check against the capacity instead of LINE_LIMIT.
+ *     Mutant: fuzz/sabotage/reply-bounded.patch, the overflow check against the capacity instead of LINE_LIMIT.
  *   - no-loss: after every read the lines relayed for a source are exactly the reference's complete lines, none lost,
  *     none twice, none out of order, however the stream was cut and wherever the NULs fell.
- *     Mutant: fuzz/mutants/reply-no-loss.patch, a line of exactly LINE_LIMIT bytes dropped.
+ *     Mutant: fuzz/sabotage/reply-no-loss.patch, a line of exactly LINE_LIMIT bytes dropped.
  *   - shape: every line the relay writes of its own is a declared feedback line: an event as the daemon wrote it, or
  *     the end of a gesture still held, once for each such gesture and for no other; and the controller's stream
  *     always ends on a whole line.
- *     Mutant: fuzz/mutants/reply-shape.patch, a held gesture ended with begin.
+ *     Mutant: fuzz/sabotage/reply-shape.patch, a held gesture ended with begin.
+ *   - the controller's socket: the relay writes to the controller's socket and to no other.
+ *
+ * Each check's comment records a one-line change of the relay that makes that check abort on a named seed of
+ * fuzz/corpus/reply/ (`mutant:` and `input:`), or says why the stop is not a property; make fuzz-records applies each
+ * one alone (fuzz/records.sh).
  */
 
 #include <errno.h>
@@ -125,12 +130,14 @@ static void list_push(struct list *l, const char *s, size_t n)
         int cap = l->cap ? l->cap * 2 : 8;
         struct text *v = realloc(l->v, (size_t)cap * sizeof(*v));
 
+        /* not a property: the harness got no memory for its own list of lines */
         if (!v)
             abort();
         l->v = v;
         l->cap = cap;
     }
     l->v[l->n].s = malloc(n + 1);
+    /* not a property: the harness got no memory for its own copy of a line */
     if (!l->v[l->n].s)
         abort();
     memcpy(l->v[l->n].s, s, n);
@@ -267,6 +274,9 @@ static ssize_t fuzz_recv(int fd, void *buf, size_t len, int flags)
 static ssize_t fuzz_send(int fd, const void *buf, size_t len, int flags)
 {
     (void)flags;
+    /* the controller's socket property: the relay writes to the controller and to no other socket
+     * mutant: src/relay.c:74 `send(g_client,` -> `send(g_client + 1,`
+     * input: lines */
     if (fd != CLIENT_FD)
         abort();
     if (g_send_eintr)
@@ -287,6 +297,7 @@ static ssize_t fuzz_send(int fd, const void *buf, size_t len, int flags)
         size_t cap = (g_nout + len) * 2;
         char *out = realloc(g_out, cap);
 
+        /* not a property: the harness got no memory to keep what the controller reads */
         if (!out)
             abort();
         g_out = out;
@@ -326,9 +337,14 @@ __attribute__((noinline)) static void check_bounded(void)
 
     for (i = 0; i < g_nsrc; i++)
     {
-        /* an unfinished line the relay keeps is never past LINE_LIMIT, and what holds it does not grow without end */
+        /* an unfinished line the relay keeps is never past LINE_LIMIT, nor past what holds it
+         * mutant: src/relay.c:218 `s->used > LINE_LIMIT` -> `s->used > s->cap`
+         * input: line-past-the-limit-in-parts */
         if (g_src[i].used > LINE_LIMIT || g_src[i].used > g_src[i].cap)
             abort();
+        /* and what holds it does not grow without end
+         * mutant: src/relay.c:180 `s->cap * 2` -> `s->cap * 3`
+         * input: buffer-grows */
         if (g_src[i].cap >= 2 * ((size_t)LINE_LIMIT + 4096))
             abort();
     }
@@ -342,7 +358,9 @@ static int next_line(size_t *at, const char **line, size_t *len)
     if (*at == g_nout)
         return 0;
     nul = memchr(g_out + *at, '\0', g_nout - *at);
-    /* the shape property: the stream ends on a whole line */
+    /* the shape property: the stream ends on a whole line
+     * mutant: src/relay.c:406 `strlen(line) + 1` -> `strlen(line)`
+     * input: event */
     if (nul == NULL)
         abort();
     *line = g_out + *at;
@@ -394,9 +412,14 @@ __attribute__((noinline)) static void check_no_loss(struct source *s, size_t *at
             list_drop(&s->expected, 0);
             continue;
         }
-        /* every complete line it wrote is read by the controller, as it wrote it */
+        /* every complete line it wrote is read by the controller
+         * mutant: src/relay.c:207 `> LINE_LIMIT` -> `>= LINE_LIMIT`
+         * input: line-at-the-limit */
         if (!next_line(at, &line, &len))
             abort();
+        /* as it wrote it
+         * mutant: src/relay.c:211 `start, nul - start + 1` -> `start + 1, nul - start`
+         * input: lines */
         if (len != s->expected.v[0].n || memcmp(line, s->expected.v[0].s, len))
             abort();
         gesture_model(s, line, len);
@@ -432,12 +455,20 @@ __attribute__((noinline)) static void check_shape_ends(struct source *s, const c
     }
     while (want-- > 0)
     {
-        /* the end of a gesture still held, and of each one only once */
+        /* a gesture still held is ended
+         * mutant: src/relay.c:138 `gesture_end(s->held[n]);` -> ``
+         * input: gesture-held-then-removed */
         if (!next_line(at, &line, &len))
             abort();
+        /* with a line that ends it
+         * mutant: src/relay.c:128 `" " PHD_GESTURE_END, sizeof(" " PHD_GESTURE_END)` -> `" " PHD_GESTURE_BEGIN, sizeof(" " PHD_GESTURE_BEGIN)`
+         * input: gesture-held-then-removed */
         if (len < end || memcmp(line + len - end, " " PHD_GESTURE_END, end))
             abort();
         i = list_find(&s->held, line, len - end);
+        /* of a gesture still held, of the instance or the worker that went, and of each one only once
+         * mutant: src/relay.c:127 `strlen(held)` -> `strlen(held) - 1`
+         * input: gesture-held-then-removed */
         if (i < 0 || !has_prefix(line, len, prefix))
             abort();
         list_drop(&s->held, i);
@@ -447,7 +478,9 @@ __attribute__((noinline)) static void check_shape_ends(struct source *s, const c
 /* the whole stream of an operation was read: nothing is left over */
 __attribute__((noinline)) static void check_shape_done(size_t at)
 {
-    /* no line the reference does not account for */
+    /* no line the reference does not account for
+     * mutant: src/relay.c:406 `send_line(line, strlen(line) + 1);` -> `send_line(line, strlen(line) + 1); send_line(line, strlen(line) + 1);`
+     * input: event */
     if (at != g_nout)
         abort();
 }
@@ -463,8 +496,14 @@ __attribute__((noinline)) static void check_shape_event(const char *event)
         check_shape_done(at);
         return;
     }
+    /* an event of the daemon's own is relayed
+     * mutant: src/relay.c:406 `send_line(line, strlen(line) + 1);` -> ``
+     * input: event */
     if (!next_line(&at, &line, &len))
         abort();
+    /* as the daemon wrote it
+     * mutant: src/relay.c:406 `line, strlen(line) + 1` -> `line + 1, strlen(line)`
+     * input: event */
     if (len != strlen(event) || memcmp(line, event, len))
         abort();
     check_shape_done(at);
@@ -524,9 +563,13 @@ static void op_add(void)
             source_reset(&g_s[i]);
             g_s[i].fd = FIRST_FD + g_nfd++;
             g_s[i].partial = malloc(LINE_LIMIT);
+            /* not a property: the harness got no memory for its reference splitter */
             if (!g_s[i].partial)
                 abort();
             g_s[i].open = 1;
+            /* the relay follows a worker it is handed
+             * mutant: src/relay.c:412 `fd < 0` -> `fd >= 0`
+             * input: lines */
             if (relay_add(g_s[i].fd) != 0)
                 abort();
             return;
@@ -581,6 +624,7 @@ static void op_event(const uint8_t *p, size_t n)
 {
     char *event = malloc(n + 1);
 
+    /* not a property: the harness got no memory for its copy of the event */
     if (!event)
         abort();
     memcpy(event, p, n);
