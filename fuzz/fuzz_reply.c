@@ -56,8 +56,12 @@
  *     its capacity stays under 2 * (LINE_LIMIT + 4096).
  *     Mutant: fuzz/sabotage/reply-bounded.patch, the overflow check against the capacity instead of LINE_LIMIT.
  *   - no-loss: after every read the lines relayed for a source are exactly the reference's complete lines, none lost,
- *     none twice, none out of order, however the stream was cut and wherever the NULs fell.
+ *     none twice, none out of order, however the stream was cut and wherever the NULs fell; and after each drain(),
+ *     relay_remove() and relay_instance_gone(), recv has handed over all the worker wrote to each source the relay
+ *     read, so the reference, which takes what recv hands over, is every line the worker wrote (PHD_RELAY ORDER: what
+ *     a worker wrote before it died goes out before its worker_died event).
  *     Mutant: fuzz/sabotage/reply-no-loss.patch, a line of exactly LINE_LIMIT bytes dropped.
+ *     Mutant: fuzz/sabotage/reply-no-loss-read.patch, a removed source not read to its end.
  *   - shape: every line the relay writes of its own is a declared feedback line: an event as the daemon wrote it, or
  *     the end of a gesture still held, once for each such gesture and for no other; and the controller's stream
  *     always ends on a whole line.
@@ -427,6 +431,19 @@ __attribute__((noinline)) static void check_no_loss(struct source *s, size_t *at
     }
 }
 
+/* the no-loss property for what the relay read of one source: the reference takes only what recv handed over, so this
+ * holds the relay to all the worker wrote, not to what it asked recv for */
+__attribute__((noinline)) static void check_no_loss_read(const struct source *s)
+{
+    /* recv handed over every byte the worker wrote to it before the relay went on
+     * mutant: src/relay.c:464 `drain(&g_src[i]);` -> `;`
+     * input: written-then-removed
+     * mutant: src/relay.c:447 `drain(&g_src[i]);` -> `;`
+     * input: written-then-instance-gone */
+    if (s->pending.n > 0)
+        abort();
+}
+
 static int has_prefix(const char *s, size_t n, const char *prefix)
 {
     size_t p = strlen(prefix);
@@ -586,15 +603,27 @@ static void op_drain(struct source *s)
     pthread_mutex_lock(&g_lock);
     drain(r);
     pthread_mutex_unlock(&g_lock);
+    check_no_loss_read(s);
     check_no_loss(s, &at);
     check_shape_done(at);
+}
+
+/* whether the relay reads source s: it follows it and has not seen its end */
+static int relay_reads(const struct source *s)
+{
+    source_t *r = relay_source(s->fd);
+
+    return r != NULL && !r->eof;
 }
 
 static void op_remove(struct source *s)
 {
     size_t at = 0;
+    int reads = relay_reads(s);
 
     relay_remove(s->fd);
+    if (reads)
+        check_no_loss_read(s);
     check_no_loss(s, &at);
     check_shape_ends(s, "", &at);
     check_shape_done(at);
@@ -605,10 +634,15 @@ static void op_gone(int id)
 {
     char prefix[48];
     size_t at = 0;
-    int i, k;
+    int i, k, reads[SOURCES_MAX];
 
     snprintf(prefix, sizeof(prefix), "%s %d ", PHD_EVENT_PARAM_GESTURE, id);
+    for (k = 0; k < SOURCES_MAX; k++)
+        reads[k] = g_s[k].open && relay_reads(&g_s[k]);
     relay_instance_gone(id);
+    for (k = 0; k < SOURCES_MAX; k++)
+        if (reads[k])
+            check_no_loss_read(&g_s[k]);
     /* the relay walks its table in order: each source's lines, then the ends of its gestures of that instance */
     for (i = 0; i < g_nsrc; i++)
         for (k = 0; k < SOURCES_MAX; k++)
