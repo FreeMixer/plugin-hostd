@@ -277,6 +277,7 @@ static const char *const g_call_words[REC_FN_COUNT] = {
     [REC_WORKER_ENV] = "1 2 3",
     [REC_CHAIN] = "#1 * *",
     [REC_CHAIN_CLEAR] = "#1",
+    [REC_CHAIN_GET] = "#1",
     [REC_AFTER_REPLY] = "#1 0",
     [REC_PINS_SET] = "1 2 3 *",
     [REC_PINS_CLEAR] = "1",

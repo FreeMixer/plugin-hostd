@@ -2146,3 +2146,28 @@ char *sup_chain_clear(int id)
     chain_free(c);
     return sup_resp(SUCCESS);
 }
+
+char *sup_chain_get(int id)
+{
+    chain_t *c = (id >= 0 && id < MAX_INSTANCE) ? g_chain[id] : NULL;
+    size_t used = 0, cap = 64;
+    char *buf;
+    int k, any = 0;
+
+    if (!c)
+        return sup_resp(PHD_ERR_NO_SUCH_CHAIN);
+    buf = malloc(cap);
+    if (c->w)
+        put(&buf, &used, &cap, "resp 0 w%d ", c->w->k);
+    else
+        put(&buf, &used, &cap, "resp 0 " PHD_WORD_NONE " ");
+    for (k = 0; k < c->n; k++)
+        put(&buf, &used, &cap, "%s%d", k ? "," : "", c->ids[k]);
+    put(&buf, &used, &cap, " ");
+    for (k = 0; c->w && k < c->w->ninst; k++)
+        if (!c->w->inst[k]->unreplayed)
+            put(&buf, &used, &cap, "%s%d", any++ ? "," : "", c->w->inst[k]->id);
+    if (!any)
+        put(&buf, &used, &cap, PHD_WORD_NONE);
+    return buf;
+}

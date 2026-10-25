@@ -2824,6 +2824,33 @@ def a_worker_that_runs_no_chain_refuses_the_line_and_the_members_still_share_it(
         d.close()
 
 
+@test
+def chain_get_reads_a_chain_back_as_declared_and_as_it_runs():
+    d = daemon()
+    try:
+        for i in (50, 51, 52):
+            d.expect("add clap:fake#m%d %d" % (i, i), "resp %d" % i)
+        d.expect("chain_get 8", resp("NO_SUCH_CHAIN"))
+        for bad in ("chain_get", "chain_get x", "chain_get 8 9"):
+            d.expect(bad, "resp -902")
+        mark = d.mark()
+        d.expect("chain 8 52 50 51", "resp 0")
+        d.wait_event("chain_formed 8 ", since=mark)
+        k = list(chain_of(d, 8))[0]
+        d.expect("chain_get 8", "resp 0 %s 52,50,51 52,50,51" % k)
+        # a crashed member is declared and not running
+        mark = d.mark()
+        d.expect("param_set 50 crash 1", "resp 0")
+        d.wait_event("instance_quarantined 50 ", since=mark)
+        d.wait_event("chain_formed 8 ", since=mark)
+        k2 = list(chain_of(d, 8))[0]
+        wait_for(lambda: d.workers()[k2]["state"] == "up", "the chain's worker up")
+        d.expect("chain_get 8", "resp 0 %s 52,50,51 52,51" % k2)
+        d.expect("chain_clear 8", "resp 0")
+        d.expect("chain_get 8", resp("NO_SUCH_CHAIN"))
+    finally:
+        d.close()
+
 
 # ---------------------------------------------------------------- descriptors
 

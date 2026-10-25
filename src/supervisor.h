@@ -144,6 +144,8 @@ char *sup_worker_env(const char *format, const char *cpus, const char *nice);
 /* chain: the instances ids, in order, are one chain run in one worker; chain_clear gives each a worker of its own */
 char *sup_chain(int id, const int *ids, int n);
 char *sup_chain_clear(int id);
+/* chain_get: the chain's worker, its members as declared and the ones its worker runs, each in order */
+char *sup_chain_get(int id);
 
 /* the idle tick: reap the dead, respawn the due, checkpoint the quiet */
 void sup_tick(void);
