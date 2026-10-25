@@ -293,10 +293,10 @@ index 00000000..7b46fa00
 +# ******************************************************************************
 diff --git a/zyngine/zynthian_plugind_chain.py b/zyngine/zynthian_plugind_chain.py
 new file mode 100644
-index 00000000..c211519a
+index 00000000..b3b6fb39
 --- /dev/null
 +++ b/zyngine/zynthian_plugind_chain.py
-@@ -0,0 +1,380 @@
+@@ -0,0 +1,397 @@
 +# -*- coding: utf-8 -*-
 +# ********************************************************************
 +# ZYNTHIAN PROJECT: plugin-hostd chain (zynthian_plugind_chain)
@@ -336,6 +336,7 @@ index 00000000..c211519a
 +CHAIN_REFUSED = "PLUGIND_CHAIN_REFUSED"  # the daemon refused the chain line
 +READBACK_MISMATCH = "PLUGIND_READBACK_MISMATCH"  # chain_get does not answer the order the line declared
 +CHAIN_GET_ABSENT = "PLUGIND_CHAIN_GET_ABSENT"  # the daemon predates chain_get, the floor (plugin-hostd#162)
++DAEMON_LOST = "PLUGIND_DAEMON_LOST"  # the connection to the daemon failed mid-command (a restart, a timeout)
 +
 +# the daemon's code for a chain no chain line declared (plugin-hostd protocol.h, PHD_ERR_NO_SUCH_CHAIN)
 +NO_SUCH_CHAIN = -522
@@ -375,6 +376,8 @@ index 00000000..c211519a
 +        # mod-host's protocol: a controller opens the feedback port before its first command
 +        self.fb = socket.create_connection(("127.0.0.1", self.port + 1))
 +        self.sock = socket.create_connection(("127.0.0.1", self.port))
++        # a daemon that never answers is a lost one: no command waits past PLUGIND_TIMEOUT seconds
++        self.sock.settimeout(float(os.environ.get("PLUGIND_TIMEOUT", 30)))
 +        threading.Thread(target=self.feedback_task, daemon=True).start()
 +
 +    def connectable(self):
@@ -386,13 +389,18 @@ index 00000000..c211519a
 +
 +    def cmd(self, line):
 +        with self.lock:
-+            self.sock.sendall(line.encode() + b"\0")
-+            buf = b""
-+            while not buf.endswith(b"\0"):
-+                data = self.sock.recv(65536)
-+                if not data:
-+                    break
-+                buf += data
++            try:
++                self.sock.sendall(line.encode() + b"\0")
++                buf = b""
++                while not buf.endswith(b"\0"):
++                    data = self.sock.recv(65536)
++                    if not data:
++                        break
++                    buf += data
++            except OSError:
++                # a reply cut by a restart or a timeout is never read as the next command's
++                self.sock.close()
++                raise
 +        reply = buf.rstrip(b"\0").decode("utf-8", "replace")
 +        logging.debug(f"plugind: {line} => {reply}")
 +        return reply
@@ -639,9 +647,11 @@ index 00000000..c211519a
 +def realise_chain(chain, audio_routes):
 +    """zynthian_chain.rebuild_audio_graph's hook: the routes autoconnect is left with. A refusal logs its code and
 +    leaves the chain's routes, less every destination a parallel slot's members would feed together: JACK never sums
-+    them at one input. The guard before a slot forms (accepts) keeps that from happening."""
-+    pc = chain_of(chain)
++    them at one input. The guard before a slot forms (accepts) keeps that from happening. It runs with autoconnect's
++    lock held, so it never raises: a daemon lost mid-command (a restart, a timeout) logs one line and leaves the routes
++    as Zynthian built them, the next realisation declaring the line again."""
 +    try:
++        pc = chain_of(chain)
 +        with pc.lock:
 +            return pc.realise(chain.audio_slots, audio_routes)
 +    except plugind_chain_refused as e:
@@ -654,6 +664,13 @@ index 00000000..c211519a
 +                for dst in [d for d, sources in routes.items() if sorted(sources) == members]:
 +                    routes.pop(dst)
 +        return routes
++    except Exception as e:
++        pc = chains.get(chain.chain_id)
++        if pc:
++            # what the lost daemon held is not known: the next realisation declares the line again
++            pc.refusal, pc.declared, pc.running = DAEMON_LOST, [], []
++        logging.error(f"plugind chain {chain.chain_id}: {DAEMON_LOST}: {type(e).__name__}: {e}")
++        return audio_routes
 +
 +
 +def accepts(chain, audio_slots):
