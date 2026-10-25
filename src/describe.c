@@ -372,7 +372,9 @@ static int parse_scope(const char *format, const char *scope, char *kind, long *
         char kind;
         const char *format;
     } SCOPES[] = { { "param", 'p', "clap" },    { "audio_in", 'i', "clap" }, { "audio_out", 'o', "clap" },
-                   { "note_in", 'n', "clap" },  { "note_out", 'N', "clap" }, { "port", 'l', "lv2" } };
+                   { "note_in", 'n', "clap" },  { "note_out", 'N', "clap" }, { "port", 'l', "lv2" },
+                   { "section", 'd', "clap" },  { "control", 'd', "clap" },  { "role", 'd', "clap" },
+                   { "display", 'd', "clap" },  { "placement_default", 'd', "clap" } };
     const char *colon = strchr(scope, ':');
     size_t i;
     char *end;
@@ -380,6 +382,11 @@ static int parse_scope(const char *format, const char *scope, char *kind, long *
     if (!strcmp(scope, "plugin"))
     {
         *kind = 'g', *index = -1;
+        return 0;
+    }
+    if (!strcmp(scope, "panel") && !strcmp(format, "clap"))
+    {
+        *kind = 'd', *index = -1;
         return 0;
     }
     if (colon == NULL)
@@ -425,6 +432,17 @@ static int read_dump(const table_t *t, const char *text, scan_t *s)
         *value++ = '\0';
         if (parse_scope(t->format, scope, &kind, &index) != 0)
             return refuse("dump line %d: %s is no %s scope", n, scope, t->format);
+        /* the panel description: a scope of no entry, each field's row a drop (docs/formats.md#what-a-table-drops) */
+        if (kind == 'd')
+        {
+            const row_t *r = find_row(t, field);
+
+            if (r == NULL)
+                return refuse("%s %s: the field has no row in the %s table", scope, field, t->format);
+            if (r->cls != C_DROPPED)
+                return refuse("%s %s: a field of the panel description is dropped, never a word or the bag", scope, field);
+            continue;
+        }
         if (record(s, t, kind == 'g' ? entry(s, "plugin", 'g', -1) : entry(s, scope, kind, index), field, value))
             return -1;
     }
@@ -910,4 +928,61 @@ int describe_dump(const char *table_text, const char *dump_text, const char *tar
     if (read_dump(&t, dump_text, &s))
         return -1;
     return write_descriptor(&t, &s, target, out);
+}
+
+/* the plugin of the scan's files whose id is the target's: files[].plugins[], or NULL */
+static const jnode_t *scanned_plugin(const jnode_t *scan, const char *id)
+{
+    const jnode_t *files = jget(scan, "files"), *plugins;
+    const char *pid;
+    size_t f, p;
+
+    for (f = 0; files && files->type == J_ARR && f < files->n; f++)
+        for (p = 0, plugins = jget(files->kid[f], "plugins"); plugins && plugins->type == J_ARR && p < plugins->n; p++)
+            if ((pid = jstr(plugins->kid[p], "id")) != NULL && !strcmp(pid, id))
+                return plugins->kid[p];
+    return NULL;
+}
+
+int describe_panel(const char *scan_json, const char *target, sb_t *out, char *why, size_t why_size)
+{
+    const char *format = describe_format(target), *id = describe_id(target), *error;
+    const jnode_t *plugin, *panel;
+    jnode_t *scan;
+
+    g_why = why, g_why_size = why_size;
+    if (format == NULL)
+        return refuse("%s is neither clap:<path>#<id> nor lv2:<uri>", target);
+    SBL(out, "{\"plugin\": {\"format\": ");
+    sb_str(out, format);
+    SBL(out, ", \"id\": ");
+    sb_str(out, id);
+    SBL(out, "}, \"panel\": ");
+    /* the panel description is a CLAP extension: an LV2 plugin serves none */
+    if (!strcmp(format, "lv2"))
+    {
+        SBL(out, "null}\n");
+        return 0;
+    }
+    if ((scan = jparse(scan_json)) == NULL || scan->type != J_OBJ)
+    {
+        jfree(scan);
+        return refuse("the scan's output is no JSON object");
+    }
+    if ((plugin = scanned_plugin(scan, id)) == NULL)
+    {
+        jfree(scan);
+        return refuse("the scan lists no plugin %s", id);
+    }
+    if ((panel = jget(plugin, "panel")) == NULL)
+    {
+        error = jstr(plugin, "error");
+        refuse("the scan states no panel for %s (%s)", id, error ? error : "a scanner before omx-clap-scan 0.20.0");
+        jfree(scan);
+        return -1;
+    }
+    sb_put(out, panel->at, panel->len);
+    SBL(out, "}\n");
+    jfree(scan);
+    return 0;
 }

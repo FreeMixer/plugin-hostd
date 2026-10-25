@@ -35,6 +35,8 @@ typedef struct jnode
     struct jnode **kid; /* array items, or object values */
     char **key;         /* object keys */
     size_t n;
+    const char *at;     /* the value's bytes in the text jparse read, valid while that text is */
+    size_t len;
 } jnode_t;
 
 /* the whole text is one value, or NULL */

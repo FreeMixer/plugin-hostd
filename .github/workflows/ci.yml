@@ -65,6 +65,13 @@ jobs:
       - name: Test the daemon against workers that die on cue, and the declared protocol
         run: make test
 
+      # panel_get on the wire: the installed omx-clap-scan (0.20.0 or later, which the test checks) reads the panel of a
+      # plugin of omx-plugins-clap that publishes one and of omx-clap-host-tests' fake compressor, which publishes none
+      - name: Test panel_get against the installed scanner and real plugins
+        run: |
+          dnf install -y --setopt=retries=10 omx-plugins-clap
+          make test-panel-wire
+
       # mod-host itself, the LV2 worker, from the FreeMixer channel: the build the RPM job packages, with the patches
       # FreeMixer/.github carries. The floor is the one the spec requires of the protocol library.
       - name: Install mod-host from the channel

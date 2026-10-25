@@ -70,7 +70,11 @@ which the coverage test holds.
 A row is `dropped` only by a ruling it names. The TERMs omx-contract marks `out-of-scope` are dropped by that ruling,
 which the row quotes. A field this section rules out is dropped by `docs/formats.md#what-a-table-drops`:
 
-- a runtime handle that is no fact of the plugin (`clap_param_info.cookie`, a pointer the host passes back).
+- a runtime handle that is no fact of the plugin (`clap_param_info.cookie`, a pointer the host passes back);
+- every field of the panel description (`omx_clap_plugin_panel_description.*` and the `omx_clap_panel_*` structures of
+  omx-clap-core's `omx_clap_ext.h`): the panel travels whole, as the scan's `panel` object, by `panel_get`
+  ([panel.md](panel.md)), and the descriptor carries none of it. A panel field's row is a drop and nothing else;
+  `describe` refuses a table that makes one a word or the bag.
 
 A TERM omx-contract marks `used` is never dropped: its row is a word or the bag.
 
@@ -128,7 +132,10 @@ one transform renamed) and each arm must go red naming the field.
 
 - `scope`: `plugin`; `param:<index>` (CLAP, in `clap_plugin_params.get_info` order); `audio_in:<index>`,
   `audio_out:<index>`, `note_in:<index>`, `note_out:<index>` (CLAP ports); `port:<index>` (an LV2 port, by
-  `lv2:index`). A scope is a source field's first segment, so a bag key `<scope>/<field>` is one too.
+  `lv2:index`). A scope is a source field's first segment, so a bag key `<scope>/<field>` is one too. A CLAP plugin
+  that serves a panel description adds `panel`, `section:<index>`, `control:<index>`, `role:<index>`,
+  `display:<index>` and `placement_default:<index>` (omx-clap-scan 0.20.0); these scopes are no entry of the
+  descriptor, and each of their fields is dropped (above).
 - `field`: a row key, as named above.
 - `value`: the field's value as text. A number in `%.17g`; a CLAP constant (a flag bit, a port type, a note dialect,
   an extension id, a feature the headers define) by its macro name, one record per flag set or per item; an LV2 URI as

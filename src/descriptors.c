@@ -41,16 +41,21 @@
 #include "proc.h"
 #include "supervisor.h"
 
-/* one scan, by the files it describes: running while pid > 0, then SUCCESS or the code it ended with */
+/* one scan, by the files it describes, in two stages: the descriptor (describe), then, once it is in place, the panel
+ * filed under its name (panel). Running while pid > 0; code is the descriptor's SUCCESS or the code it ended with,
+ * panel_code the panel's */
 typedef struct SCAN_T {
     char format[16];
     char *id;
     char hash[PHD_DESCRIPTOR_HASH_LEN + 1];
     char *uri;
+    char *target;
+    char name[PATH_MAX];
     char tmp[PATH_MAX];
     char log[PATH_MAX];
     pid_t pid;
-    int code;
+    int panel;
+    int code, panel_code;
 } scan_t;
 
 static conf_t *g_conf;
@@ -231,28 +236,44 @@ static scan_t *scan_of(const char *format, const char *id, const char *hash)
     return NULL;
 }
 
+/* the panel file of a descriptor's name: <descriptor_dir>/panels/<name> */
+static void panel_path(const char *name, char *path, size_t size)
+{
+    snprintf(path, size, "%s/" PHD_PANEL_SUBDIR "/%s", g_conf->descriptor_dir, name);
+}
+
 /* ---------------------------------------------------------------- the scan */
 
 static void scan_failed(scan_t *s, int code, const char *why)
 {
-    fprintf(stderr, "plugin-hostd: %s: the scan wrote no descriptor (%s), its log %s: resp %d\n", s->uri, why,
-            s->log, code);
+    fprintf(stderr, "plugin-hostd: %s: the scan wrote no %s (%s), its log %s: resp %d\n", s->uri,
+            s->panel ? "panel" : "descriptor", why, s->log, code);
     if (*s->tmp)
         unlink(s->tmp);
     s->tmp[0] = '\0';
     s->pid = 0;
-    s->code = code;
+    if (!s->panel)
+        s->code = code;
+    s->panel_code = code;
 }
 
-static void scan_start(scan_t *s, const char *target)
+/* the stage's child, <probe> describe|panel <target>, its stdout into a file of the directory it is filed in */
+static void scan_start(scan_t *s, int panel)
 {
-    const char *dir = g_conf->descriptor_dir;
+    char dir[PATH_MAX];
     int out, log, null;
     pid_t pid;
 
-    s->code = PHD_ERR_DESCRIPTOR_PENDING;
+    s->panel = panel;
+    if (!panel)
+        s->code = PHD_ERR_DESCRIPTOR_PENDING;
+    s->panel_code = PHD_ERR_DESCRIPTOR_PENDING;
     s->tmp[0] = '\0';
-    snprintf(s->log, sizeof(s->log), "%s/scan-%s-%s.log", sup_root(), s->format, s->hash);
+    if (panel)
+        snprintf(dir, sizeof(dir), "%s/" PHD_PANEL_SUBDIR, g_conf->descriptor_dir);
+    else
+        snprintf(dir, sizeof(dir), "%s", g_conf->descriptor_dir);
+    snprintf(s->log, sizeof(s->log), "%s/scan-%s-%s%s.log", sup_root(), s->format, s->hash, panel ? "-panel" : "");
     if (!proc_have_binary(g_conf->probe))
     {
         scan_failed(s, PHD_ERR_DESCRIPTOR_SCAN_FAILED, "the probe is not installed");
@@ -280,7 +301,7 @@ static void scan_start(scan_t *s, const char *target)
         dup2(out, STDOUT_FILENO);
         dup2(log >= 0 ? log : out, STDERR_FILENO);
         signal(SIGPIPE, SIG_DFL);
-        execlp(g_conf->probe, g_conf->probe, "describe", target, (char *)NULL);
+        execlp(g_conf->probe, g_conf->probe, panel ? "panel" : "describe", s->target, (char *)NULL);
         _exit(127);
     }
     close(out);
@@ -302,10 +323,19 @@ void descriptors_add(const char *uri)
     const char *format, *id;
     scan_t *s;
 
+    char panel[PATH_MAX];
+    int described;
+
     if (!g_conf || identify(uri, target, sizeof(target), &format, &id, hash) != 0)
         return;
-    if (lookup(id, hash, path, sizeof(path)) == 0)
-        return;
+    /* a descriptor in place with its panel is done; one without (written before the panel stage, or its panel stage
+     * failed) has only its panel scanned */
+    if ((described = lookup(id, hash, path, sizeof(path)) == 0))
+    {
+        panel_path(strrchr(path, '/') + 1, panel, sizeof(panel));
+        if (access(panel, F_OK) == 0)
+            return;
+    }
     s = scan_of(format, id, hash);
     if (s && s->pid > 0)
         return;
@@ -320,29 +350,23 @@ void descriptors_add(const char *uri)
     }
     free(s->uri);
     s->uri = strdup(uri);
-    scan_start(s, target);
+    free(s->target);
+    s->target = strdup(target);
+    if (described)
+    {
+        snprintf(s->name, sizeof(s->name), "%s", strrchr(path, '/') + 1);
+        s->code = SUCCESS;
+    }
+    scan_start(s, described);
 }
 
-/* the scan's stdout is a descriptor: named for its version and moved into place, written once */
-static void scan_ended(scan_t *s, int status)
+/* the scan's stdout as a document of its stage, or NULL: read back, fsync'd */
+static jnode_t *scan_output(scan_t *s)
 {
-    char final[PATH_MAX], enc_id[PATH_MAX / 2], enc_version[256], why[64];
-    const char *dir = g_conf->descriptor_dir;
     sb_t text = { 0 };
     jnode_t *doc;
-    const char *version;
     int fd;
 
-    s->pid = 0;
-    if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
-    {
-        if (WIFSIGNALED(status))
-            snprintf(why, sizeof(why), "killed by signal %d", WTERMSIG(status));
-        else
-            snprintf(why, sizeof(why), "the probe exited %d", WEXITSTATUS(status));
-        scan_failed(s, PHD_ERR_DESCRIPTOR_SCAN_FAILED, why);
-        return;
-    }
     if ((fd = open(s->tmp, O_RDONLY | O_CLOEXEC)) >= 0)
     {
         char buf[65536];
@@ -356,33 +380,86 @@ static void scan_ended(scan_t *s, int status)
     }
     doc = text.len ? jparse(text.s) : NULL;
     free(text.s);
-    if (!doc || doc->type != J_OBJ || !jget(doc, "plugin"))
+    if (doc && (doc->type != J_OBJ || !jget(doc, "plugin") || (s->panel && !jget(doc, "panel"))))
     {
         jfree(doc);
-        scan_failed(s, PHD_ERR_DESCRIPTOR_SCAN_FAILED, "its output is no descriptor");
-        return;
+        doc = NULL;
     }
-    version = jstr(jget(doc, "plugin"), "version");
-    encode(s->id, enc_id, sizeof(enc_id));
-    encode(version && *version ? version : PHD_DESCRIPTOR_NO_VERSION, enc_version, sizeof(enc_version));
-    jfree(doc);
-    snprintf(final, sizeof(final), "%s/%s@%s-%s.json", dir, enc_id, enc_version, s->hash);
+    return doc;
+}
+
+/* the scan's file moved into place as final, written once; 0, or -1 with the scan failed */
+static int scan_file(scan_t *s, const char *final)
+{
+    char dir[PATH_MAX], why[64], *slash;
+    int fd;
+
     if (access(final, F_OK) == 0)
         unlink(s->tmp);
     else if (rename(s->tmp, final) != 0)
     {
         snprintf(why, sizeof(why), "%s", strerror(errno));
         scan_failed(s, PHD_ERR_DIR_NOT_WRITABLE, why);
-        return;
+        return -1;
     }
-    else if ((fd = open(dir, O_RDONLY | O_DIRECTORY | O_CLOEXEC)) >= 0)
+    else
     {
-        fsync(fd);
-        close(fd);
+        snprintf(dir, sizeof(dir), "%s", final);
+        if ((slash = strrchr(dir, '/')) != NULL)
+            *slash = '\0';
+        if ((fd = open(dir, O_RDONLY | O_DIRECTORY | O_CLOEXEC)) >= 0)
+        {
+            fsync(fd);
+            close(fd);
+        }
     }
     s->tmp[0] = '\0';
-    s->code = SUCCESS;
     unlink(s->log);
+    return 0;
+}
+
+/* the scan's stdout is a descriptor: named for its version and moved into place, written once; then the panel stage
+ * starts. The panel stage's stdout is the panel, filed under the descriptor's name. */
+static void scan_ended(scan_t *s, int status)
+{
+    char final[PATH_MAX], enc_id[PATH_MAX / 2], enc_version[256], why[64];
+    const char *dir = g_conf->descriptor_dir;
+    jnode_t *doc;
+    const char *version;
+
+    s->pid = 0;
+    if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
+    {
+        if (WIFSIGNALED(status))
+            snprintf(why, sizeof(why), "killed by signal %d", WTERMSIG(status));
+        else
+            snprintf(why, sizeof(why), "the probe exited %d", WEXITSTATUS(status));
+        scan_failed(s, PHD_ERR_DESCRIPTOR_SCAN_FAILED, why);
+        return;
+    }
+    if ((doc = scan_output(s)) == NULL)
+    {
+        scan_failed(s, PHD_ERR_DESCRIPTOR_SCAN_FAILED, s->panel ? "its output is no panel" : "its output is no descriptor");
+        return;
+    }
+    if (s->panel)
+    {
+        jfree(doc);
+        panel_path(s->name, final, sizeof(final));
+        if (scan_file(s, final) == 0)
+            s->panel_code = SUCCESS;
+        return;
+    }
+    version = jstr(jget(doc, "plugin"), "version");
+    encode(s->id, enc_id, sizeof(enc_id));
+    encode(version && *version ? version : PHD_DESCRIPTOR_NO_VERSION, enc_version, sizeof(enc_version));
+    jfree(doc);
+    snprintf(s->name, sizeof(s->name), "%s@%s-%s.json", enc_id, enc_version, s->hash);
+    snprintf(final, sizeof(final), "%s/%s", dir, s->name);
+    if (scan_file(s, final) != 0)
+        return;
+    s->code = SUCCESS;
+    scan_start(s, 1);
 }
 
 void descriptors_tick(void)
@@ -394,22 +471,14 @@ void descriptors_tick(void)
             scan_ended(&g_scans[n], status);
 }
 
-/* ---------------------------------------------------------------- descriptor_get */
+/* ---------------------------------------------------------------- descriptor_get and panel_get */
 
-char *descriptors_get(const char *uri)
+/* resp 0 "<path>": the path is one quoted word, as mod-host's tokenizer reads it */
+static char *resp_path(const char *path)
 {
-    char target[PATH_MAX + 16], hash[PHD_DESCRIPTOR_HASH_LEN + 1], path[PATH_MAX], *r, *o;
-    const char *format, *id, *p;
-    scan_t *s;
+    char *r, *o;
+    const char *p;
 
-    if (!g_conf || identify(uri, target, sizeof(target), &format, &id, hash) != 0)
-        return sup_resp(PHD_ERR_DESCRIPTOR_ABSENT);
-    if (lookup(id, hash, path, sizeof(path)) != 0)
-    {
-        s = scan_of(format, id, hash);
-        return sup_resp(s ? s->code : PHD_ERR_DESCRIPTOR_ABSENT);
-    }
-    /* the path is one quoted word, as mod-host's tokenizer reads it */
     r = malloc(strlen(path) * 2 + 16);
     if (!r)
         return NULL;
@@ -422,6 +491,46 @@ char *descriptors_get(const char *uri)
     }
     strcpy(o, "\"");
     return r;
+}
+
+/* what a scan ended with, for a file that is not there: a scan that wrote one that is gone since wrote none */
+static char *resp_missing(const scan_t *s, int code)
+{
+    return sup_resp(s && code != SUCCESS ? code : PHD_ERR_DESCRIPTOR_ABSENT);
+}
+
+char *descriptors_get(const char *uri)
+{
+    char target[PATH_MAX + 16], hash[PHD_DESCRIPTOR_HASH_LEN + 1], path[PATH_MAX];
+    const char *format, *id;
+    scan_t *s;
+
+    if (!g_conf || identify(uri, target, sizeof(target), &format, &id, hash) != 0)
+        return sup_resp(PHD_ERR_DESCRIPTOR_ABSENT);
+    if (lookup(id, hash, path, sizeof(path)) != 0)
+    {
+        s = scan_of(format, id, hash);
+        return resp_missing(s, s ? s->code : SUCCESS);
+    }
+    return resp_path(path);
+}
+
+/* the panel of a descriptor in place, else what its descriptor answers: no panel without a descriptor */
+char *descriptors_panel_get(const char *uri)
+{
+    char target[PATH_MAX + 16], hash[PHD_DESCRIPTOR_HASH_LEN + 1], path[PATH_MAX], panel[PATH_MAX];
+    const char *format, *id;
+    scan_t *s;
+
+    if (!g_conf || identify(uri, target, sizeof(target), &format, &id, hash) != 0)
+        return sup_resp(PHD_ERR_DESCRIPTOR_ABSENT);
+    s = scan_of(format, id, hash);
+    if (lookup(id, hash, path, sizeof(path)) != 0)
+        return resp_missing(s, s ? s->code : SUCCESS);
+    panel_path(strrchr(path, '/') + 1, panel, sizeof(panel));
+    if (access(panel, F_OK) != 0)
+        return resp_missing(s, s ? s->panel_code : SUCCESS);
+    return resp_path(panel);
 }
 
 void descriptors_finish(void)
@@ -439,6 +548,7 @@ void descriptors_finish(void)
             unlink(g_scans[n].tmp);
         free(g_scans[n].id);
         free(g_scans[n].uri);
+        free(g_scans[n].target);
     }
     free(g_scans);
     g_scans = NULL;

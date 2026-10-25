@@ -26,4 +26,10 @@ const char *describe_id(const char *target);
 int describe_dump(const char *table_text, const char *dump_text, const char *target, sb_t *out, char *why,
                   size_t why_size);
 
+/* the panel document of a CLAP target (docs/panel.md): the panel object omx-clap-scan --json prints for the target's
+ * id, its bytes as the scan wrote them, null when the plugin serves none; 0 with the document in out, -1 refused (no
+ * JSON, no such plugin, a plugin the scan states no panel for) with why. An LV2 target's panel is null, scan_json
+ * unread. */
+int describe_panel(const char *scan_json, const char *target, sb_t *out, char *why, size_t why_size);
+
 #endif

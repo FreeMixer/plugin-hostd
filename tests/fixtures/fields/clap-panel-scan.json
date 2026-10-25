@@ -1,0 +1,6 @@
+{"scanner":"omx-clap-scan","version":"0.20.0","files":[
+{"path":"controls.clap","plugins":[
+{"id":"org.freemixer.plugin-qualify.fixture.controls","name":"controls","version":"1","panel":{"family":"filter","fingerprint":"3f2a9c1e","sections":[{"key":"osc","labelKey":"section.osc","label":"Oscil\u00b7lador \"A\""}],"controls":[{"paramId":3,"section":0,"widget":"selector","labelKey":"control.shape","label":"Shape","visibleParamId":null,"visibleMask":"0"},{"paramId":5,"section":0,"widget":"knob","labelKey":"control.cutoff","label":"Cutoff","visibleParamId":3,"visibleMask":"6"}],"roles":{"refused":"too-many","count":5000,"max":4096},"displays":[{"kind":"meter","section":0,"source":"meters","meterIds":[100,101],"curveIndex":0,"floorParamId":5,"floorDb":-60.0,"labelKey":"display.out","label":"Out"}],"placementDefaults":[{"placement":"return","paramId":5,"value":0.1}]}},
+{"id":"org.example.bare","name":"bare","version":"2","panel":null},
+{"id":"org.example.broken","error":"plugin failed to create or init"}
+]}]}
