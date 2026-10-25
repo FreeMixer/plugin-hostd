@@ -481,6 +481,33 @@ def bypass_and_parameters_name_one_member():
         r.close()
 
 
+def the_last_member_removed_clears_the_chain_read_back():
+    """the chain cleared when its last plugind processor leaves, read back like every other edit: a clear the daemon
+    answered but did not act on is named"""
+    r = rig()
+    try:
+        a, b = r.add("a", engine=lv2_engine), r.add("b")
+        settle()
+        r.remove(b)
+        r.remove(a)
+        check(S.read_chain(1) is None, "the chain cleared: %s" % (S.read_chain(1),))
+        check(S.chains[1].declared == [] and S.chains[1].running == [] and S.chains[1].refusal is None,
+              "the clear read back: %s %s %s" % (S.chains[1].declared, S.chains[1].running, S.chains[1].refusal))
+        c, d = r.add("c", engine=lv2_engine), r.add("d")
+        settle()
+        r.remove(d)
+        c_cmd = S.client().cmd
+        S.client().cmd = lambda line: "resp 0" if line.startswith("chain_clear ") else c_cmd(line)
+        try:
+            r.remove(c)
+        finally:
+            S.client().cmd = c_cmd
+        check(S.chains[1].refusal == "PLUGIND_READBACK_MISMATCH",
+              "an unacted clear is named: %s, chain_get %s" % (S.chains[1].refusal, S.read_chain(1)))
+    finally:
+        r.close()
+
+
 class dying_socket:
     """the command socket of a daemon killed while a command is in flight: the command is sent, then the daemon dies"""
 
@@ -674,7 +701,8 @@ def the_floor_is_chain_get():
 SCENARIOS = [series_order_add_at_position, removal_heals_and_replay_keeps_no_stale_member,
              move_by_nudge_is_one_chain_line, parallel_slot_is_refused_by_name_before_it_forms,
              a_foreign_processor_ends_the_chain_line, a_crashed_member_leaves_the_others_running,
-             bypass_and_parameters_name_one_member, a_daemon_gone_mid_command_leaves_no_lock_held]
+             bypass_and_parameters_name_one_member, the_last_member_removed_clears_the_chain_read_back,
+             a_daemon_gone_mid_command_leaves_no_lock_held]
 if OLD:
     SCENARIOS.append(the_floor_is_chain_get)
 if E2E and os.environ.get("JACK_IDENTITY"):
@@ -734,6 +762,18 @@ def sab_refusals_only():
                 return audio_routes
         return f
     return patch(S, "realise_chain", realise_chain)
+
+
+def sab_clear_unread():
+    def realise(orig):
+        def f(self, slots, routes):
+            if self.declared and not self.members(slots)[0]:
+                S.client().cmd("chain_clear %d" % self.id)   # the clear is not read back
+                self.declared = self.running = []
+                return routes
+            return orig(self, slots, routes)
+        return f
+    return patch(S.plugind_chain, "realise", realise)
 
 
 def sab_declared_head():
@@ -803,6 +843,8 @@ SABOTAGE = [
     ("the running order is not read back", sab_no_readback, a_crashed_member_leaves_the_others_running,
      "timed out: the routes follow the running head"),
     ("the host bypass sent as a parameter", sab_bypass_as_param, bypass_and_parameters_name_one_member, "jalv line"),
+    ("a cleared chain is not read back", sab_clear_unread, the_last_member_removed_clears_the_chain_read_back,
+     "an unacted clear is named"),
     ("the hook lets a lost daemon's error through, the autoconnect lock held", sab_refusals_only,
      a_daemon_gone_mid_command_leaves_no_lock_held, "the autoconnect lock is taken again"),
 ]
