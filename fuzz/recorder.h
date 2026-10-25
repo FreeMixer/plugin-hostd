@@ -55,7 +55,9 @@ struct recorder {
     /* what the message did */
     int ncalls;
     struct rec_call calls[REC_CALLS_MAX];
-    char *answer;               /* a copy of the last reply text handed back to the daemon */
+    char *answer;               /* the last answer of a call: a reply text of the supervisor or the descriptors, or
+                                 * "resp <code>" of the code the pins returned; NULL when no call answered, since
+                                 * sup_resp is the daemon's own reply and writes none */
     int nreplies;               /* socket_send calls */
     char *reply;                /* the bytes of the last one */
     size_t reply_size;

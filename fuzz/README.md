@@ -26,19 +26,26 @@ and `send` itself, and builds it with a line limit of 6000 bytes so that small i
 
 What each harness proves, beyond no sanitizer report:
 
-- **command / reply**: every message gets one reply, a NUL-terminated string of a declared shape, the supervisor's
-  answer unchanged.
-- **command / arity**: a verb the daemon parses itself is acted on only with an argument count its declared syntax
-  allows.
+- **command / reply**: every message gets one reply, a NUL-terminated string of a declared shape. When a call
+  answered, the reply is that answer unchanged: the supervisor's text, or `resp <code>` of the code the pins returned.
+  When none did, it is a reply the daemon makes itself, a refusal or `resp 0` for `quit`; the recorder's `sup_resp`
+  is that reply, and no answer.
+- **command / arity**: a verb the daemon parses itself is acted on, by its own call or by a broadcast to every worker,
+  only with an argument count its declared syntax allows. `pin_layout`, `pin_expect`, and `connect` or `disconnect` of
+  another count go to every worker for the worker to refuse.
 - **command / words**: each call the daemon makes is handed the message's words at the places its verb declares them,
   as the harness reads them: a word as written, a number as `atoi` reads it, a line as its words joined by one space.
+  The words a verb may leave out the harness works out from the message: the placement and the client of `add`, the
+  members of `chain` and their count, the verdict of `pin_set`.
 - **command / round-trip**: a command's words joined by one space, as the declaration writes them, make the same calls,
   the same reply and the same state. It compares the daemon with itself, so a word put in the wrong place on both sends
   keeps it true; the words property is what holds the place of each word.
 - **command / refusal**: a refused command leaves the daemon's state as it was.
 - **reply / bounded**: an unfinished line held for a worker never passes the line limit, and its buffer stays bounded.
 - **reply / no-loss**: the controller reads every complete line a worker wrote once, in order, however the stream was
-  cut and wherever its NULs fell, as a reference splitter over the same bytes reads them.
+  cut and wherever its NULs fell, as a reference splitter over the same bytes reads them. The reference takes what
+  `recv` hands over, so after each read, removal of a worker and removal of an instance, `recv` has handed over all the
+  worker wrote to each source the relay read.
 - **reply / shape**: every line the relay writes of its own is an event as written or the end of a gesture still held,
   once each.
 - **reply / the controller's socket**: the relay writes to the controller's socket and to no other.
@@ -54,7 +61,8 @@ The seed corpus
 every verb of `protocol/plugin-hostd.json` and `protocol/mod-host.json` with sample arguments, each with its optional
 words, with one word too many, refused by the supervisor and split by tabs, the placements of `add`, and the `send`
 lines of `README.md` and `docs/own-host.md`. The reply seeds cut worker feedback at every byte and before every NUL,
-hold, end and abandon gestures, and put lines at and past the line limit. Nothing is fetched; `make fuzz-corpus-check`
+hold, end and abandon gestures, put lines at and past the line limit, and write a line and then remove its worker or
+an instance with no read between the two. Nothing is fetched; `make fuzz-corpus-check`
 fails when the committed corpus is not what the generator writes.
 
 The coverage witness
@@ -92,26 +100,33 @@ sanitizer), runs the record's seed, and is red unless the harness aborts (exit s
 `fuzz/checks.awk` is the ratchet: `make fuzz-coverage` and `make fuzz-records` are red on a check whose comment has no
 record and no `not a property:` line.
 
-There are 25 records, one for each of the 25 property checks, and 10 stops not a property.
+There are 34 records for the 30 property checks, at least one each, and 10 stops not a property.
 
 The mutants
 -----------
 
-`fuzz/sabotage/<harness>-<property>.patch` is a one-line bug for each property, the first breakage each one had; each
-is also a record now. Its first two lines name the check it breaks and the seed that catches it, as the enrolment's
-`mutants` directory wants them, and `git apply` skips them. `make fuzz-sabotage` applies each, rebuilds the harness,
-runs it over every seed one at a time, restores the source with `git checkout --`, and is red unless at least one seed
-makes the harness abort and every seed that does aborts in `check_<property>`: a mutant that also breaks another
-property does not pass.
+`fuzz/sabotage/<harness>-<property>.patch` is a one-line bug for each property, the first breakage each one had, and
+`fuzz/sabotage/<harness>-<property>-<part>.patch` one for a part of a property; each is also a record. Its first two
+lines name the check it breaks and the seed that catches it, as the enrolment's `mutants` directory wants them, and
+`git apply` skips them. `make fuzz-sabotage` applies each, rebuilds the harness, runs it over every seed one at a
+time, restores the source with `git checkout --`, and is red unless at least one seed makes the harness abort and
+every seed that does aborts in `check_<property>` (for a part, its own `check_` function or the property's): a mutant
+that also breaks another property does not pass.
 
 | Mutant | The bug | Found by |
 | --- | --- | --- |
 | `command-reply` | the reply is sent without its NUL | `add-default` |
+| `command-reply-answer` | a `pin_set` the pins refused is replied `resp 0` | `plugin-hostd-pin_set-refused` |
 | `command-arity` | `pool_config` takes three words or more | `plugin-hostd-pool_config-extra` |
+| `command-arity-broadcast` | `remove` of another count goes to every worker | `mod-host-remove-extra` |
+| `command-words-add` | the placement and the client of `add` are swapped | `add-pool-p-fuzz_client` |
+| `command-words-chain` | a `chain` loses its last member | `plugin-hostd-chain` |
+| `command-words-pin-set` | the verdict of `pin_set` keeps its `verdict=` key | `plugin-hostd-pin_set-full` |
 | `command-round-trip` | the first word is split at spaces only | `mod-host-add-tabs` |
 | `command-refusal` | a refused `add` still starts a descriptor scan | `add-instance-past-the-table` |
 | `reply-bounded` | the overflow check compares with the capacity, not the line limit | `line-past-the-limit-in-parts` |
 | `reply-no-loss` | a line of exactly the line limit is dropped | `line-at-the-limit` |
+| `reply-no-loss-read` | a removed worker is not read to its end | `written-then-removed` |
 | `reply-shape` | a held gesture is ended with `begin` | `controller-takes-a-few-bytes-a-send` |
 
 Running

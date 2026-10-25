@@ -214,6 +214,9 @@ def reply_corpus(out):
         "controller-closes": write_(0, begin) + drain(0) + controller_gone(True) + write_(0, feedback) + drain(0) +
         event(b"worker_died w1 1 exit:0 0") + remove(0),
         "controller-connection-reset": controller_gone(False) + write_(0, feedback + begin) + drain(0) + gone(1),
+        # a line written, then its source removed or an instance gone with no read between the two
+        "written-then-removed": write_(0, b"line1\0") + remove(0),
+        "written-then-instance-gone": write_(0, b"line1\0") + gone(0),
     }
     write(out, seeds)
 

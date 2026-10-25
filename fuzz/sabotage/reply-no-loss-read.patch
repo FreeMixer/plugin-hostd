@@ -1,0 +1,16 @@
+Breaks the check of fuzz/fuzz_reply.c:444 (recv handed over every byte the worker wrote to it before the relay went on).
+Caught by the seed input "written-then-removed" of fuzz_reply.
+
+diff --git a/src/relay.c b/src/relay.c
+index ff852de..00550c3 100644
+--- a/src/relay.c
++++ b/src/relay.c
+@@ -461,7 +461,7 @@ void relay_remove(int fd)
+         if (g_src[i].fd == fd)
+         {
+             if (!g_src[i].eof)
+-                drain(&g_src[i]);
++                ;
+             gestures_end(&g_src[i]);
+             free(g_src[i].buf);
+             g_src[i] = g_src[--g_nsrc];

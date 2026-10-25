@@ -1,0 +1,16 @@
+Breaks the check of fuzz/fuzz_command.c:370 (every member, in the order of the message, and their count).
+Caught by the seed input "plugin-hostd-chain" of fuzz_command.
+
+diff --git a/src/verbs.c b/src/verbs.c
+index 3b7feba..b464de3 100644
+--- a/src/verbs.c
++++ b/src/verbs.c
+@@ -112,7 +112,7 @@ static char *chain_words(char **tok, int ntok)
+     for (n = 2; n < ntok; n++)
+         if (!number(tok[n], &ids[n - 2]))
+             return sup_resp(ERR_INVALID_OPERATION);
+-    return sup_chain(id, ids, ntok - 2);
++    return sup_chain(id, ids, ntok - 3);
+ }
+ 
+ static void reply(int fd, char *text)
