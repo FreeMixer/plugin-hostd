@@ -58,6 +58,14 @@ is not (a descriptor of an older daemon, a panel stage that failed) runs the pan
 The field dump (`omx-clap-scan --fields`) prints the same description under its own scopes; the format table drops
 each of those fields (docs/formats.md#what-a-table-drops), so the descriptor carries none of it.
 
+## The format tables stay strict
+
+A scan scope or field the format table has no row for is refused, and the add of that plugin answers `-531` for its
+panel. A new scope or field of omx-clap-scan therefore needs its row in `data/formats/clap.json` first, with the rule
+that says whether the descriptor carries it or drops it; a daemon is not to learn a scope by ignoring what it does not
+know. Whether a refusal that costs one plugin its whole panel should rise to a single, higher-altitude refusal is a
+design question of its own, FreeMixer/plugin-hostd#155; until it is ruled the tables stay strict.
+
 ## Why a verb of its own
 
 The panel could have been a word more of `descriptor_get`'s reply, or a member of the descriptor. The protocol's own
