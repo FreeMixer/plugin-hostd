@@ -73,11 +73,12 @@ through the chain verb only. No `connect` or `disconnect` between plugind instan
 | one worker | the daemon puts the members in one worker of place `chain:<chain_id>`; omx-clap-host runs them in the head member's JACK client (omx-clap-core#104) |
 | add at a position | the chain inserts the slot (`chain.py:639-680`), the rebuild declares the new order; the daemon keeps the running worker and replays the new member into it (plugin-hostd#162) |
 | move | a nudge of a plugind processor past a single plugind neighbour swaps the two slots (see below), and the rebuild declares the new order: the worker is sent the line and nothing else |
-| remove | the rebuild declares the order without it (the member goes to a worker of its own), then the engine's `stop` sends `remove`; a chain left with no plugind processor is `chain_clear`ed |
+| remove | the rebuild declares the order without it (the member goes to a worker of its own), then the engine's `stop` sends `remove`; a chain left with no plugind processor is `chain_clear`ed and read back like any other edit |
 | read-back | after every line the engine reads `chain_get <chain_id>` and requires the declared order to be the one it sent, or it refuses with `PLUGIND_READBACK_MISMATCH`; the running order it reads is what it routes |
 | bypass, parameters | every instance verb names one member by its own number, as before: `bypass <n> 0/1` for the host's `:bypass`, `param_set <n> <symbol> <value>` |
 | quarantine | the chain verb's own: a member that crashes the worker runs alone, the others go on in order and the daemon writes `chain_formed`; the engine reads the chain back on that event and routes the running order, so a quarantined member is out of the audio path until `quarantine_clear` |
 | routes | the chain's client is the running head's, `effect_<head>`: it takes the first plugind slot's sources, the inner routes between members are dropped (the members run in order inside one client), and whatever the run fed is fed by the head's client. On a worker that runs no chain in one client (mod-host, row `lv2` of `worker_list`) the members keep their clients and Zynthian's routes stay as they are |
+| a lost daemon | the hook runs while `rebuild_audio_graph` holds autoconnect's lock, which waits for ever (`autoconnect.py:1602`), so it never raises: a command that fails on the connection (a restart, a reset, no answer in `PLUGIND_TIMEOUT` seconds, 30 by default) logs `PLUGIND_DAEMON_LOST` once, the routes stay as Zynthian built them, the lock is released, and the next realisation declares the line again |
 | version floor | `chain_get` (plugin-hostd#162, the first release after 0.10.0). A daemon that answers it with anything but `resp 0` or `NO_SUCH_CHAIN` (-522) has no read-back: the engine declares no chain, refuses with `PLUGIND_CHAIN_GET_ABSENT`, and the processors run one worker each, routed by autoconnect, as Path B did |
 
 The refusals are codes, constants of the module, logged with the slot they name; none is a protocol code.
@@ -89,6 +90,7 @@ The refusals are codes, constants of the module, logged with the slot they name;
 | `PLUGIND_CHAIN_REFUSED` | the daemon refused the line (its code in the log line), as for members of two programs (`CHAIN_MIXED_FORMAT`) |
 | `PLUGIND_READBACK_MISMATCH` | `chain_get` does not answer the declared order the line sent |
 | `PLUGIND_CHAIN_GET_ABSENT` | the daemon predates the floor |
+| `PLUGIND_DAEMON_LOST` | the connection to the daemon failed mid-command; the routes are Zynthian's own until the next realisation |
 
 A move without a parallel step. Zynthian's nudge of a single processor merges it into its neighbour's slot
 (`chain.py:782`, `:799`), and only a second nudge takes it out on the other side. With parallel slots refused, a
@@ -132,11 +134,14 @@ Tests
 
 `tools/zynthian/chain.sh <zynthian-ui clone> <out>` applies the patch at the pinned commit and runs
 `tools/zynthian/test-chain.py`: the real `zynthian_chain`, `zynthian_processor` and `zynthian_plugind_chain` against
-plugin-hostd and `tests/fake-host` (no JACK, no plugin). Seven scenarios read the chain back with `chain_get` and the
-workers with `worker_list`, each sabotage turns its scenario red, and given a daemon without `chain_get` the floor
-scenario holds the engine to its refusal. `tools/zynthian/chain-e2e.sh` runs the same seven against omx-clap-host,
-an LV2 member on the adapter row and CLAP members, in a PipeWire of its own: one node per chain (`pw-dump`), the
-crashed member's own node, and an eighth that measures the audio. After an add at a position and after a move, the
+plugin-hostd and `tests/fake-host` (no JACK, no plugin), autoconnect's lock a real one that counts a wait past two
+seconds. Nine scenarios read the chain back with `chain_get` and the workers with `worker_list`; one kills the daemon
+with a rebuild's command in flight and requires the lock free after every later rebuild. Each sabotage names the check
+it must trip, and a sabotage that turns its scenario red on another check, or on an error no check names, is itself a
+failure. Given a daemon without `chain_get` the floor scenario holds the engine to its refusal, its two members of one
+row so that the old daemon would take the line the floor keeps from it. `tools/zynthian/chain-e2e.sh` runs the same
+nine against omx-clap-host, an LV2 member on the adapter row and CLAP members, in a PipeWire of its own: one node per
+chain (`pw-dump`), the crashed member's own node, and a tenth that measures the audio. After an add at a position and after a move, the
 chain's output is the order `chain_get` reads back: equal to the same plugins one client each in series, within the
 difference two such references show of each other, and at least 40 dB away from the other order.
 `evidence/chain/` holds the runs with their commands. A claim about Zynthian
