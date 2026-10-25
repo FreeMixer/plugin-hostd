@@ -86,9 +86,11 @@ A native renderer combines what the daemon serves; none of the three replaces an
 | what a value means: unit, scale, range, default, step, the stable symbol | `param_info <instance> <symbol>` | the running instance |
 | the pages of 8 a hardware surface steps through | `remote_pages <instance>`, `remote_page_get <instance> <page>` | the running instance |
 
-1. After `add <uri> <instance>`, ask `panel_get <uri>` until it is no `-530`. A `null` panel, an LV2 plugin and a
-   code other than `resp 0` mean the plugin states no layout: draw the controls in parameter order, as a host did
-   before.
+1. After `add <uri> <instance>`, ask `panel_get <uri>` until it is no `-530`. Only a `null` panel, and an LV2 plugin
+   until its bundle is read for a panel (FreeMixer/plugin-hostd#149), mean the plugin states no layout: draw the
+   controls in parameter order, as a host did before. Every other code is a failure to show, not a plugin without a
+   layout: `-531` is a panel stage that failed and `-528` a descriptor directory that could not be written, and the
+   plugin may well have a layout. Name the failure to the user, and draw in parameter order only as the fallback.
 2. For each control of `panel.controls` (in table order), its `paramId` is the CLAP parameter id, the number
    `omx-clap-scan` lists a parameter by and the `<symbol>` the instance verbs take for a CLAP instance. `param_info <instance> <paramId>` gives its unit and scale,
    so a knob shows `dB` and moves on its own scale; `-511` means the worker holds no checked contract, and the range
