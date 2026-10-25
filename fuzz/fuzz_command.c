@@ -48,8 +48,12 @@
  *     Mutant: fuzz/sabotage/command-arity-broadcast.patch, remove of another count sent to every worker.
  *   - words: each call the daemon makes is handed the message's words at the places its verb declares them, as the
  *     harness reads them (g_call_words): a word as written, a number as atoi reads it, a line as its words joined by
- *     one space. The round trip below compares the daemon with itself, so a word put in the wrong place twice keeps
- *     it true; this does not.
+ *     one space; and the words a verb may leave out as the harness works them out from the message: the placement
+ *     and the client of add, the members of chain and their count, the verdict of pin_set. The round trip below
+ *     compares the daemon with itself, so a word put in the wrong place twice keeps it true; this does not.
+ *     Mutant: fuzz/sabotage/command-words-add.patch, the placement and the client of add swapped.
+ *     Mutant: fuzz/sabotage/command-words-chain.patch, a chain without its last member.
+ *     Mutant: fuzz/sabotage/command-words-pin-set.patch, the verdict of pin_set with its key.
  *   - round-trip: the words of a command the daemon acted on, joined by one space as the declaration writes them,
  *     make the same calls with the same arguments, the same reply and the same state.
  *     Mutant: fuzz/sabotage/command-round-trip.patch, words split at spaces only.
@@ -294,8 +298,9 @@ __attribute__((noinline)) static void check_arity(const struct words *w)
 
 /* how each call takes the message's words, one item for each argument it records (fuzz/recorder.c): "<k>" is word k
  * as written, "#<k>" word k as atoi reads it, "?<k>" word k when the message has one, "L" the words joined by one
- * space, and "*" an argument that is no word of the message: a count, a ledger, a word of the daemon's own, or one
- * the verb may leave out (the placement and the client of add, the members of chain, the verdict of pin_set) */
+ * space, and "*" an argument that is no word of the message as written: a count, a ledger, a word of the daemon's own,
+ * or one the harness works out from the words below, in check_words_add, check_words_chain and check_words_pin_set
+ * (the placement and the client of add, the members of chain and their count, the verdict of pin_set) */
 static const char *const g_call_words[REC_FN_COUNT] = {
     [REC_ADD] = "1 #2 * *",
     [REC_CALL] = "#1 L",
@@ -325,7 +330,64 @@ static const char *const g_call_words[REC_FN_COUNT] = {
     [REC_LV2_REFUSALS_FORGET] = "*",
 };
 
-/* the words property: every call of the message took the words g_call_words places in it */
+static int is_placement(const char *word)
+{
+    return !strcmp(word, PHD_PLACE_OWN) || !strcmp(word, PHD_PLACE_DEFAULT) ||
+           !strncmp(word, PHD_PLACE_POOL_PREFIX, strlen(PHD_PLACE_POOL_PREFIX));
+}
+
+/* the words property for add <uri> <instance> [<placement>] [<client>]: the placement is word 3 when that word is one,
+ * else "-"; the client is the word after the placement, or word 3 when there is no placement, else "-" */
+__attribute__((noinline)) static void check_words_add(const struct rec_call *call, const char *const *w, int read)
+{
+    const char *placement = read > 3 && is_placement(w[3]) ? w[3] : "-";
+    int next = strcmp(placement, "-") ? 4 : 3;
+    const char *client = read > next ? w[next] : "-";
+
+    /* the placement and the client, each where the message has it
+     * mutant: src/verbs.c:142 `placement, client` -> `client, placement`
+     * input: add-pool-p-fuzz_client */
+    if (call->nargs != 4 || strcmp(call->args[2], placement) || strcmp(call->args[3], client))
+        abort();
+}
+
+/* the words property for chain <chain> <instance> [<instance> ...]: the members are word 2 and every word after it, as
+ * numbers, and their count is how many they are */
+__attribute__((noinline)) static void check_words_chain(const struct rec_call *call, const char *const *w, int read)
+{
+    char list[PHD_LINE_WORDS_MAX * 12 + 1], count[16];
+    size_t o = 0;
+    int k;
+
+    list[0] = '\0';
+    for (k = 2; k < read; k++)
+        o += (size_t)snprintf(list + o, sizeof(list) - o, k > 2 ? " %d" : "%d", atoi(w[k]));
+    snprintf(count, sizeof(count), "%d", read - 2);
+    /* every member, in the order of the message, and their count
+     * mutant: src/verbs.c:115 `ntok - 2` -> `ntok - 3`
+     * input: plugin-hostd-chain */
+    if (call->nargs != 3 || strcmp(call->args[1], count) || strcmp(call->args[2], list))
+        abort();
+}
+
+/* the words property for pin_set <uri> <files> <layout> [verdict=<word>]: the verdict is word 4 without its prefix,
+ * else "-" */
+__attribute__((noinline)) static void check_words_pin_set(const struct rec_call *call, const char *const *w, int read)
+{
+    size_t key = strlen(PHD_PIN_VERDICT_KEY);
+    const char *verdict = "-";
+
+    if (read > 4)
+        verdict = strncmp(w[4], PHD_PIN_VERDICT_KEY, key) ? w[4] : w[4] + key;
+    /* the verdict, the word the controller wrote after its key
+     * mutant: src/verbs.c:84 `tok[4] + key` -> `tok[4]`
+     * input: plugin-hostd-pin_set-full */
+    if (call->nargs != 4 || strcmp(call->args[3], verdict))
+        abort();
+}
+
+/* the words property: every call of the message took the words g_call_words places in it, and the words the harness
+ * works out for add, chain and pin_set */
 __attribute__((noinline)) static void check_words(const struct words *w)
 {
     char number[16], *line;
@@ -371,6 +433,12 @@ __attribute__((noinline)) static void check_words(const struct words *w)
             if (want && (call->args[a] == NULL || strcmp(call->args[a], want)))
                 abort();
         }
+        if (call->fn == REC_ADD)
+            check_words_add(call, (const char *const *)w->w, read);
+        else if (call->fn == REC_CHAIN)
+            check_words_chain(call, (const char *const *)w->w, read);
+        else if (call->fn == REC_PINS_SET)
+            check_words_pin_set(call, (const char *const *)w->w, read);
     }
     free(line);
 }
