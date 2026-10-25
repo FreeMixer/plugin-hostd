@@ -12,8 +12,9 @@ covers it). The head of every chain is an LV2 member on the adapter row (lv2_wor
 With CHAIN_E2E=1 the workers are the real omx-clap-host (CLAP_HOST), the members the plugins CHAIN_LV2_URI and
 CHAIN_CLAP_URI, under a running JACK server; FAULT_CLAP_URI is a CLAP plugin that aborts on CHAIN_FAULT_PARAM.
 
-Each scenario is run as is and must pass, then once under each sabotage that breaks the guard it holds, and must fail.
-Exit 0 when every scenario passes and every sabotage turns its scenario red.
+Each scenario is run as is and must pass, then once under each sabotage that breaks the guard it holds, and must fail
+on the check the sabotage names. Exit 0 when every scenario passes and every sabotage turns its scenario red on that
+check.
 """
 import argparse
 import os
@@ -582,12 +583,14 @@ def audio_follows_the_read_back():
 
 
 def the_floor_is_chain_get():
-    """a daemon without chain_get is never sent a chain line: the engine refuses by name and fakes no read-back"""
+    """a daemon without chain_get is never sent a chain line: the engine refuses by name and fakes no read-back. The
+    members are two CLAP ones, one row, a line the old daemon would take: what keeps it from being declared is the
+    floor, not a refusal of a mixed-row chain"""
     r = rig(exe=OLD)
     try:
-        r.add("a", engine=lv2_engine), r.add("b")
-        check(S.chains[1].refusal == "PLUGIND_CHAIN_GET_ABSENT", "the floor is named: %s" % S.chains[1].refusal)
+        r.add("a"), r.add("b")
         check(not any(w["place"].startswith("chain:") for w in workers().values()), "no chain declared: %s" % workers())
+        check(S.chains[1].refusal == "PLUGIND_CHAIN_GET_ABSENT", "the floor is named: %s" % S.chains[1].refusal)
         check(r.routes().get("effect_1") == ["effect_0"], "the processors routed one client each: %s" % r.routes())
     finally:
         r.close()
@@ -639,8 +642,9 @@ def sab_accept_all():
 
 
 def sab_foreign_allowed():
-    return patch(S, "is_plugind", lambda orig: lambda p: True if p.engine is not None and p.engine.instance is None
-                 else orig(p))
+    # the run of members passes over a foreign processor's slot instead of ending at it
+    return patch(S.plugind_chain, "members", lambda orig: lambda self, slots: orig(
+        self, [slot for slot in slots if S.is_plugind(slot[0])]))
 
 
 def sab_declared_head():
@@ -690,21 +694,30 @@ def sab_fake_floor():
     return patch(S, "read_chain", lambda orig: lambda chain_id: None)
 
 
+# (what the sabotage breaks, the sabotage, the scenario, the start of the message of the check it must trip): a
+# scenario that goes red on another check, or on an error no check names, is the sabotage's own failure
 SABOTAGE = [
-    ("the chain line in reverse slot order", sab_reverse_run, series_order_add_at_position),
-    ("a chain that lost a member is not declared again", sab_no_shrink, removal_heals_and_replay_keeps_no_stale_member),
+    ("the chain line in reverse slot order", sab_reverse_run, series_order_add_at_position,
+     "an LV2 and two CLAP members, read back"),
+    ("a chain that lost a member is not declared again", sab_no_shrink, removal_heals_and_replay_keeps_no_stale_member,
+     "the chain read back without b"),
     ("a split chain is routed as if its head ran every member", sab_split_as_running,
-     removal_heals_and_replay_keeps_no_stale_member),
-    ("a nudge merges two plugind slots as Zynthian's own", sab_no_move_past, move_by_nudge_is_one_chain_line),
-    ("the nudge guard accepts every slot", sab_accept_all, parallel_slot_is_refused_by_name_before_it_forms),
-    ("a foreign processor counted as plugin-hostd's", sab_foreign_allowed, a_foreign_processor_ends_the_chain_line),
+     removal_heals_and_replay_keeps_no_stale_member, "timed out: the split chain routed client by client"),
+    ("a nudge merges two plugind slots as Zynthian's own", sab_no_move_past, move_by_nudge_is_one_chain_line,
+     "the nudge of c up is accepted"),
+    ("the nudge guard accepts every slot", sab_accept_all, parallel_slot_is_refused_by_name_before_it_forms,
+     "the nudge that would form [a, jalv_x] answers False"),
+    ("a foreign processor does not end the chain line", sab_foreign_allowed, a_foreign_processor_ends_the_chain_line,
+     "the chain line ends before the foreign processor"),
     ("the routes follow the declared head, not the running one", sab_declared_head,
-     a_crashed_member_leaves_the_others_running),
-    ("the running order is not read back", sab_no_readback, a_crashed_member_leaves_the_others_running),
-    ("the host bypass sent as a parameter", sab_bypass_as_param, bypass_and_parameters_name_one_member),
+     a_crashed_member_leaves_the_others_running, "timed out: the routes follow the running head"),
+    ("the running order is not read back", sab_no_readback, a_crashed_member_leaves_the_others_running,
+     "timed out: the routes follow the running head"),
+    ("the host bypass sent as a parameter", sab_bypass_as_param, bypass_and_parameters_name_one_member, "jalv line"),
 ]
 if OLD:
-    SABOTAGE.append(("a daemon without chain_get read as one with no chain", sab_fake_floor, the_floor_is_chain_get))
+    SABOTAGE.append(("a daemon without chain_get read as one with no chain", sab_fake_floor, the_floor_is_chain_get,
+                     "no chain declared"))
 
 
 def run(fn):
@@ -712,7 +725,11 @@ def run(fn):
         fn()
         return None
     except Exception as e:
-        return "%s: %s" % (type(e).__name__, e)
+        return e
+
+
+def said(e):
+    return "%s: %s" % (type(e).__name__, e)
 
 
 def main():
@@ -725,17 +742,22 @@ def main():
     failed = 0
     for fn in SCENARIOS:
         err = run(fn)
-        print(("ok   " if err is None else "FAIL ") + fn.__name__ + ("" if err is None else ": " + err), flush=True)
+        print(("ok   " if err is None else "FAIL ") + fn.__name__ + ("" if err is None else ": " + said(err)), flush=True)
         failed += err is not None
-    for what, sab, fn in ([] if a.no_sabotage else SABOTAGE):
+    for what, sab, fn, expect in ([] if a.no_sabotage else SABOTAGE):
         restore = sab()
         try:
             err = run(fn)
         finally:
             restore()
-        print(("ok   sabotage red: " if err else "FAIL sabotage stayed green: ") + "%s -> %s%s" % (
-            what, fn.__name__, (" (" + err + ")") if err else ""), flush=True)
-        failed += err is None
+        if err is None:
+            verdict = "FAIL sabotage stayed green: "
+        elif isinstance(err, Fail) and str(err).startswith(expect):
+            verdict = "ok   sabotage red: "
+        else:
+            verdict = "FAIL sabotage red, not on \"%s\": " % expect
+        print(verdict + "%s -> %s%s" % (what, fn.__name__, (" (" + said(err) + ")") if err else ""), flush=True)
+        failed += not verdict.startswith("ok")
     print("CHAIN %s: %d failed" % ("PASS" if not failed else "FAIL", failed))
     sys.exit(1 if failed else 0)
 
