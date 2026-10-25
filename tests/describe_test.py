@@ -4,7 +4,10 @@
 # validates against omx-contract's descriptor schema. A field with no row, a dump of another version, a target of the
 # other format, a dump that names no file, a table whose lookup is not one to one or names a transform outside
 # TRANSFORMS(X), and a value a transform cannot read are each refused (exit 2, naming what). The child path runs a stand-in for omx-clap-scan
-# --fields under the runner's limits: its dump gives the same descriptor, and a child that fails gives exit 3.
+# --fields under the runner's limits: its dump gives the same descriptor, and a child that fails gives exit 3. A dump
+# with a panel description (clap-panel.tsv) gives the descriptor without one. plugin-hostd-probe panel over a recorded
+# omx-clap-scan --json (clap-panel-scan.json) writes the plugin's panel object byte for byte, null for a plugin that
+# serves none and for an LV2 plugin, and refuses a scan that states no panel for the plugin.
 #   describe_test.py   PROBE is the runner (default ./plugin-hostd-probe); the schema is $OMX_CONTRACT_SCHEMA, or
 #                      omx-contract.schema.json in pkg-config's datadir of omx-contract
 import json, os, stat, subprocess, sys, tempfile
@@ -47,6 +50,10 @@ def describe(target, dump=None, table=None, extra=()):
     if dump is not None:
         cmd += ["--fields-from", dump]
     return subprocess.run(cmd + [target], capture_output=True, text=True, timeout=60)
+
+
+def panel(target, extra=()):
+    return subprocess.run([PROBE, "panel"] + list(extra) + [target], capture_output=True, text=True, timeout=60)
 
 
 def scratch(tmp, name, text):
@@ -121,8 +128,8 @@ def main():
         refused("a transform outside TRANSFORMS(X)", CASES["clap-controls"], clap, "module-path", bad)
 
         # the panel description of omx-clap-scan 0.20.0's dump: every field dropped, the descriptor as without it
-        panel = open(os.path.join(FIELDS, "clap-panel.tsv")).read()
-        r = describe(CASES["clap-controls"], scratch(tmp, "panel.tsv", clap + panel))
+        panel_dump = open(os.path.join(FIELDS, "clap-panel.tsv")).read()
+        r = describe(CASES["clap-controls"], scratch(tmp, "panel.tsv", clap + panel_dump))
         check(r.returncode == 0 and json.loads(r.stdout or "null") == json.load(open(os.path.join(FIELDS, "clap-controls.json"))),
               "a dump with a panel gives the descriptor without one (%d: %s)" % (r.returncode, r.stderr.strip()))
         refused("a panel field with no row", CASES["clap-controls"], clap + "control:0\tomx_clap_panel_control.colour\tred\n",
@@ -131,7 +138,50 @@ def main():
         bad = json.loads(json.dumps(table))
         bad["PLUGIN_HOSTD_CLAP_MAP"]["rows"]["omx_clap_panel_control.widget"] = {
             "from": "omx_clap_ext.h#omx_clap_panel_control.widget", "extension": True}
-        refused("a panel field the table carries", CASES["clap-controls"], clap + panel, "is dropped, never", bad)
+        refused("a panel field the table carries", CASES["clap-controls"], clap + panel_dump, "is dropped, never", bad)
+
+        # panel: the scan's panel object for the target's id, byte for byte, null when the plugin serves none
+        scan = os.path.join(FIELDS, "clap-panel-scan.json")
+        text = open(scan).read()
+        start = text.index('"panel":') + len('"panel":')
+        depth, end = 0, start
+        for end, c in enumerate(text[start:], start):
+            depth += c == "{"
+            depth -= c == "}"
+            if depth == 0:
+                break
+        r = panel(CASES["clap-controls"], ["--json-from", scan])
+        check(r.returncode == 0 and r.stdout == '{"plugin": {"format": "clap", "id": "%s"}, "panel": %s}\n'
+              % (CASES["clap-controls"].rsplit("#", 1)[1], text[start:end + 1]),
+              "the panel is the scan's bytes, a refused table and an escape as written (%d: %s)" % (r.returncode, r.stderr.strip()))
+        doc = json.loads(r.stdout or "null") or {}
+        check(doc.get("panel", {}).get("roles") == {"refused": "too-many", "count": 5000, "max": 4096},
+              "a refused table is passed through as refused")
+        r = panel("clap:controls.clap#org.example.bare", ["--json-from", scan])
+        check(r.returncode == 0 and json.loads(r.stdout or "{}").get("panel", 0) is None,
+              "a plugin that serves no panel: a null panel (%d: %s)" % (r.returncode, r.stderr.strip()))
+        r = panel(CASES["lv2-compressor"], ["--child", "/nonexistent"])
+        check(r.returncode == 0 and json.loads(r.stdout or "{}")
+              == {"plugin": {"format": "lv2", "id": CASES["lv2-compressor"][4:]}, "panel": None},
+              "an LV2 plugin: a null panel, nothing run (%d: %s)" % (r.returncode, r.stderr.strip()))
+        old = scratch(tmp, "old-scan.json", text.replace('"panel":null', '"name2":null'))
+        for what, target, path, want in (
+                ("a plugin the scan failed", "clap:controls.clap#org.example.broken", scan, "plugin failed to create"),
+                ("a scanner that prints no panel", "clap:controls.clap#org.example.bare", old, "before omx-clap-scan 0.20.0"),
+                ("a plugin the scan does not list", "clap:controls.clap#org.example.absent", scan, "lists no plugin"),
+                ("a scan that is no JSON", CASES["clap-controls"], scratch(tmp, "bad.json", "{\"files\":["), "no JSON")):
+            r = panel(target, ["--json-from", path])
+            check(r.returncode == 2 and want in r.stderr and not r.stdout,
+                  "%s: refused, exit 2, naming %s (%d: %s)" % (what, want, r.returncode, r.stderr.strip()))
+        child = scratch(tmp, "scan-json", "#!/bin/sh\n[ \"$1\" = --json ] && [ \"$2\" = controls.clap ] || exit 9\n"
+                        "cat '%s'\n" % scan)
+        os.chmod(child, stat.S_IRWXU)
+        r = panel(CASES["clap-controls"], ["--child", child])
+        check(r.returncode == 0 and json.loads(r.stdout or "{}").get("panel", {}).get("family") == "filter",
+              "the child is run as <child> --json <path> (%d: %s)" % (r.returncode, r.stderr.strip()))
+        r = panel("clap:missing.clap#x", ["--child", child])
+        check(r.returncode == 3 and "made no scan" in r.stderr and not r.stdout,
+              "a child that fails: exit 3, no document (%d: %s)" % (r.returncode, r.stderr.strip()))
 
         # the child path: a stand-in for omx-clap-scan --fields, run under the runner's limits
         child = scratch(tmp, "omx-clap-scan", "#!/bin/sh\n[ \"$1\" = --fields ] || exit 9\n"

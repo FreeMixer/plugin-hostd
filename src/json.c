@@ -181,13 +181,29 @@ void jfree(jnode_t *n)
     free(n);
 }
 
+static jnode_t *jparse_bare(const char **p, int depth);
+
 static jnode_t *jparse_value(const char **p, int depth)
 {
+    const char *at;
     jnode_t *n;
 
     if (depth > 32)
         return NULL;
     jskip(p);
+    at = *p;
+    if ((n = jparse_bare(p, depth)) != NULL)
+    {
+        n->at = at;
+        n->len = (size_t)(*p - at);
+    }
+    return n;
+}
+
+static jnode_t *jparse_bare(const char **p, int depth)
+{
+    jnode_t *n;
+
     if (**p == '{')
     {
         n = jnew(J_OBJ);

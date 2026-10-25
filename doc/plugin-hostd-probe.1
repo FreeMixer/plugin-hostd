@@ -16,6 +16,12 @@ plugin\-hostd\-probe \- run a plugin prober under limits and write what happened
 .BI clap: path # id
 |
 .BI lv2: uri
+.br
+.B plugin\-hostd\-probe panel
+.RI [ options ]
+.BI clap: path # id
+|
+.BI lv2: uri
 .SH DESCRIPTION
 .B plugin\-hostd\-probe
 starts a program that loads a plugin (clap\-qualify for a CLAP, plugin\-qualify's lv2_measure for an LV2 named
@@ -60,6 +66,26 @@ The child's standard error, and its wall clock in seconds (default 60).
 .PP
 It exits 0 with a descriptor, 2 with none (usage, a table it cannot read, a dump it refuses, named on standard error),
 and 3 when the child made no dump.
+.SH PANEL
+.B panel
+writes the panel a CLAP plugin publishes (org.openmixer.panel\-description/1) on standard output, as the document
+.B {"plugin": {"format", "id"}, "panel": ...}
+of plugin\-hostd's docs/panel.md. It runs omx\-clap\-scan \-\-json on the plugin's file, under the same limits, and
+copies the
+.B panel
+object the scan prints for the plugin's id byte for byte: null for a plugin that serves no description, a table the
+scan refused for its count as the scan wrote it. An LV2 plugin's panel is null and nothing is run. Its options are
+.BR \-\-child ,
+.B \-\-log
+and
+.B \-\-wall\-s
+as for
+.BR describe ,
+and
+.BI \-\-json\-from " file" \fR,
+a recorded scan in place of running omx\-clap\-scan. It exits 0 with the document; 2 with none (usage, a scan that is
+no JSON, lists no such plugin or states no panel for it, as a scanner before omx\-clap\-scan 0.20.0 does), named on
+standard error; and 3 when the child made no scan.
 .SH OPTIONS
 .TP
 .BI \-\-child " program"

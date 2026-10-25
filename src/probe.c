@@ -1480,6 +1480,78 @@ static int describe_main(int argc, char **argv)
     return fflush(stdout) == 0 ? 0 : 2;
 }
 
+/* plugin-hostd-probe panel: the panel a CLAP plugin publishes, the object omx-clap-scan --json prints for it, run in a
+ * child under the runner's limits or read from a recorded scan; an LV2 plugin's is null (docs/panel.md) */
+static int panel_main(int argc, char **argv)
+{
+    options_t o = { .child = DESCRIBE_CHILD, .wall_s = 60, .cpu_s = 50, .files = 256, .data_bytes = 4LL << 30,
+                    .file_bytes = 64LL << 20, .grace_ms = 300 };
+    const char *from = NULL, *target, *format;
+    char why[512];
+    sb_t scan = { 0 }, out = { 0 };
+    int a;
+
+    for (a = 2; a + 1 < argc && argv[a][0] == '-'; a += 2)
+    {
+        if (!strcmp(argv[a], "--json-from")) from = argv[a + 1];
+        else if (!strcmp(argv[a], "--child")) o.child = argv[a + 1];
+        else if (!strcmp(argv[a], "--log")) o.log = argv[a + 1];
+        else if (!strcmp(argv[a], "--wall-s")) o.wall_s = atol(argv[a + 1]);
+        else
+            break;
+    }
+    if (a + 1 != argc || argv[a][0] == '-' || (format = describe_format(argv[a])) == NULL || o.wall_s <= 0)
+    {
+        fprintf(stderr, "usage: " RUNNER_NAME " panel [options] clap:<path>#<id> | lv2:<uri>\n"
+                        "  --json-from FILE     a recorded omx-clap-scan --json, in place of running the child\n"
+                        "  --child PROGRAM      the program that writes the scan (default " DESCRIBE_CHILD ")\n"
+                        "  --log FILE           the child's stderr (default discarded)\n"
+                        "  --wall-s N           the child's wall clock (default 60)\n");
+        return 2;
+    }
+    target = argv[a];
+    if (from != NULL)
+    {
+        if (read_file(from, &scan) != 0)
+        {
+            fprintf(stderr, RUNNER_NAME ": panel: cannot read the scan %s: %s\n", from, strerror(errno));
+            return 2;
+        }
+    }
+    else if (!strcmp(format, "clap"))
+    {
+        char *path = strndup(target + 5, (size_t)(strrchr(target, '#') - (target + 5)));
+        char *child_argv[] = { (char *)o.child, "--json", path, NULL };
+        cpu_set_t none;
+        run_t r;
+
+        CPU_ZERO(&none);
+        memset(&r, 0, sizeof(r));
+        signal(SIGPIPE, SIG_IGN);
+        prctl(PR_SET_CHILD_SUBREAPER, 1);
+        run_child(&o, child_argv, &none, 0, &r, now_ms() + o.wall_s * 1000);
+        if (r.killed_by_deadline || r.cancelled || !WIFEXITED(r.status) || WEXITSTATUS(r.status) != 0)
+        {
+            fprintf(stderr, RUNNER_NAME ": panel: %s --json %s made no scan (%s)\n", o.child, path,
+                    r.killed_by_deadline ? "the wall clock ran out" : r.cancelled ? "cancelled"
+                    : WIFSIGNALED(r.status) ? signal_name(WTERMSIG(r.status)) : "it exited non-zero");
+            free(path);
+            return 3;
+        }
+        free(path);
+        scan = r.out;
+    }
+    if (scan.s == NULL)
+        sb_put(&scan, "", 0);
+    if (describe_panel(scan.s, target, &out, why, sizeof(why)) != 0)
+    {
+        fprintf(stderr, RUNNER_NAME ": panel: %s: %s\n", target, why);
+        return 2;
+    }
+    fputs(out.s, stdout);
+    return fflush(stdout) == 0 ? 0 : 2;
+}
+
 int main(int argc, char **argv)
 {
     options_t o = { .child = "clap-qualify", .rates = floor_rates(), .quantum = 512, .reason = "on-request",
@@ -1505,11 +1577,14 @@ int main(int argc, char **argv)
 
     if (argc >= 2 && !strcmp(argv[1], "describe"))
         return describe_main(argc, argv);
+    if (argc >= 2 && !strcmp(argv[1], "panel"))
+        return panel_main(argc, argv);
     if (argc < 2 || strcmp(argv[1], "run"))
     {
         fprintf(stderr, "usage: " RUNNER_NAME " run [options] <plugin.clap> [<clap id>]\n"
                         "       " RUNNER_NAME " run [options] lv2:<uri>\n"
                         "       " RUNNER_NAME " describe [options] clap:<path>#<id> | lv2:<uri>\n"
+                        "       " RUNNER_NAME " panel [options] clap:<path>#<id> | lv2:<uri>\n"
                         "  --child PROGRAM      the program that loads the plugin (default clap-qualify; " PROBE_LV2_CHILD " for lv2:)\n"
                         "  --rates R,R,...      sample rates (default %s)\n"
                         "  --quantum N          block size in frames (default 512)     --blocks N   blocks per rate\n"
