@@ -97,7 +97,18 @@ def panel_get_answers_the_scans_panel_and_null_for_a_plugin_that_publishes_none(
         check(doc["panel"]["sections"] and isinstance(doc["panel"]["roles"], (list, dict)),
               "sections and roles: %d sections" % len(doc["panel"]["sections"]))
 
+        # fixed values of omx-delay 0.13.0, held here so the test does not rest on the scanner agreeing with itself:
+        # one section, "delay"; Time is parameter 0, a knob of section 0; Pingpong is parameter 4, a switch of section 0
+        sections = doc["panel"]["sections"]
+        check(len(sections) == 1 and sections[0]["key"] == "delay", "omx-delay has the one section 'delay': %s" % sections)
+        by_param = {c["paramId"]: c for c in controls}
+        check(by_param.get(0, {}).get("section") == 0 and by_param[0]["widget"] == "knob",
+              "control 0 (Time) is a knob of section 0: %s" % by_param.get(0))
+        check(by_param.get(4, {}).get("section") == 0 and by_param[4]["widget"] == "switch",
+              "control 4 (Pingpong) is a switch of section 0: %s" % by_param.get(4))
+
         path = wait_for(lambda: answered_path(d, "panel_get", without), "panel_get of %s" % without, timeout=60)
+        check('"panel": null' in open(path).read(), "the file of %s carries \"panel\": null" % without)
         doc = json.load(open(path))
         check(doc == {"plugin": {"format": "clap", "id": NO_PANEL_CLAP.rsplit("#", 1)[1]}, "panel": None},
               "a plugin that publishes no panel answers a null panel: %s" % doc)
