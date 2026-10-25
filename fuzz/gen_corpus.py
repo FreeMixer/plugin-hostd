@@ -122,6 +122,8 @@ def command_corpus(out):
     seeds["leading-space"] = message("  param_set 0 gain 6")
     seeds["many-words"] = message("param_set 0 " + " ".join("w%d" % i for i in range(80)))
     seeds["quit-refused-then-quit"] = message("quit now") + message("quit")
+    # a command the daemon acts on whose line is not its words joined by one space, with no supervisor call
+    seeds["quit-leading-space"] = message("  quit")
     # the send lines of the README and of the own-host page, each alone and as one session
     for doc, tag in (("README.md", "readme"), (os.path.join("docs", "own-host.md"), "own-host")):
         sends = re.findall(r'^\s*send "([^"]*)"', open(os.path.join(ROOT, doc)).read(), re.M)

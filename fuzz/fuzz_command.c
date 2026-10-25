@@ -35,18 +35,26 @@
  *   - reply: every message gets exactly one reply, one NUL-terminated string with no NUL before its end, which is
  *     the text the supervisor answered, unchanged; a refusal is "resp <code>" of a declared code, and anything else
  *     has the reply shape its verb declares (PHD_VERBS, PHD_INSTANCE_VERBS) or mod-host's "resp 0".
- *     Mutant: fuzz/mutants/command-reply.patch, the reply sent without its NUL.
+ *     Mutant: fuzz/sabotage/command-reply.patch, the reply sent without its NUL.
  *   - arity: a verb the daemon parses itself (PHD_VERBS, the rows tools/protocol-gen.c writes into
  *     protocol/plugin-hostd.json, and mod-host's remove, connect, disconnect and quit) is acted on only with an
  *     argument count its declared syntax allows; a word past PHD_LINE_WORDS_MAX is not read.
- *     Mutant: fuzz/mutants/command-arity.patch, pool_config taking three words or more.
+ *     Mutant: fuzz/sabotage/command-arity.patch, pool_config taking three words or more.
+ *   - words: each call the daemon makes is handed the message's words at the places its verb declares them, as the
+ *     harness reads them (g_call_words): a word as written, a number as atoi reads it, a line as its words joined by
+ *     one space. The round trip below compares the daemon with itself, so a word put in the wrong place twice keeps
+ *     it true; this does not.
  *   - round-trip: the words of a command the daemon acted on, joined by one space as the declaration writes them,
  *     make the same calls with the same arguments, the same reply and the same state.
- *     Mutant: fuzz/mutants/command-round-trip.patch, words split at spaces only.
+ *     Mutant: fuzz/sabotage/command-round-trip.patch, words split at spaces only.
  *   - refusal: a refused command (its reply's code is negative) leaves the daemon's state as it was: no call the
  *     supervisor took and none of the daemon's own follow-ups (a descriptor scan, the LV2 refusals asked again, quit).
  *     The host settings are not part of it: PHD_HOST_SETTINGS keeps them as sent, whatever the workers answer.
- *     Mutant: fuzz/mutants/command-refusal.patch, a refused add still scanned.
+ *     Mutant: fuzz/sabotage/command-refusal.patch, a refused add still scanned.
+ *
+ * Each check's comment records a one-line change of the daemon that makes that check abort on a named seed of
+ * fuzz/corpus/command/ (`mutant:` and `input:`), or says why the stop is not a property; make fuzz-records applies
+ * each one alone (fuzz/records.sh).
  */
 
 #include <stddef.h>
@@ -101,6 +109,7 @@ static void words_of(const char *data, size_t size, struct words *out)
     out->text = malloc(len + 1);
     out->copy = malloc(len + 1);
     out->w = malloc(cap * sizeof(char *));
+    /* not a property: the harness got no memory for its own copy of the message's words */
     if (!out->text || !out->copy || !out->w)
         abort();
     memcpy(out->text, data, len);
@@ -139,6 +148,7 @@ static char *joined(const struct words *w, size_t *len)
     for (k = 0; k < w->n; k++)
         n += strlen(w->w[k]) + 1;
     s = malloc(n + 1);
+    /* not a property: the harness got no memory for the words joined by one space */
     if (!s)
         abort();
     s[0] = '\0';
@@ -183,23 +193,36 @@ __attribute__((noinline)) static void check_reply(const struct words *w)
     const char *shape;
     int code;
 
-    /* one reply, and it is a string that ends where the message the socket sends ends */
+    /* one reply, and nothing sent empty
+     * mutant: src/verbs.c:232 `reply(msg->sender_id, handle(line, tok, ntok));` -> `free(handle(line, tok, ntok));`
+     * input: add-default */
     if (g_rec.nreplies != 1 || g_rec.reply_size == 0)
         abort();
+    /* the reply is a string that ends where the message the socket sends ends
+     * mutant: src/verbs.c:120 `strlen(text) + 1` -> `strlen(text)`
+     * input: add-default */
     if (g_rec.reply[g_rec.reply_size - 1] != '\0' || memchr(g_rec.reply, '\0', g_rec.reply_size - 1))
         abort();
-    /* the supervisor's answer, as it answered it */
+    /* the supervisor's answer, as it answered it
+     * mutant: src/verbs.c:120 `text, strlen(text) + 1` -> `text + 1, strlen(text)`
+     * input: add-default */
     if (g_rec.answer == NULL || strcmp(g_rec.reply, g_rec.answer))
         abort();
     code = sup_reply_code(g_rec.reply);
     if (code < 0)
     {
         snprintf(refusal, sizeof(refusal), "resp %d", code);
+        /* a refusal is "resp <code>" of a declared code
+         * mutant: src/verbs.c:79 `return ERR_INVALID_OPERATION;` -> `return -7777;`
+         * input: pin-set-layout-unknown */
         if (!rec_code_declared(code) || strcmp(g_rec.reply, refusal))
             abort();
         return;
     }
     shape = w->n ? rec_shape_of(w->w[0], strlen(w->w[0])) : REC_MOD_HOST_SHAPE;
+    /* anything else has the shape its verb declares, or mod-host's
+     * mutant: src/verbs.c:203 `sup_resp(SUCCESS)` -> `sup_resp(1)`
+     * input: mod-host-quit */
     if (!syntax_reply_matches(shape, g_rec.reply) && !syntax_reply_matches(REC_MOD_HOST_SHAPE, g_rec.reply))
         abort();
 }
@@ -221,11 +244,96 @@ __attribute__((noinline)) static void check_arity(const struct words *w)
             syntax_format_arity(g_parsed[n].syntax, &min, &max);
         else
             syntax_arity(g_parsed[n].syntax, &min, &max);
-        /* acted on with an argument count the declaration allows */
+        /* acted on with an argument count the declaration allows
+         * mutant: src/verbs.c:175 `ntok == 3` -> `ntok >= 3`
+         * input: plugin-hostd-pool_config-extra */
         if (read - 1 < min || read - 1 > max)
             abort();
         return;
     }
+}
+
+/* how each call takes the message's words, one item for each argument it records (fuzz/recorder.c): "<k>" is word k
+ * as written, "#<k>" word k as atoi reads it, "?<k>" word k when the message has one, "L" the words joined by one
+ * space, and "*" an argument that is no word of the message: a count, a ledger, a word of the daemon's own, or one
+ * the verb may leave out (the placement and the client of add, the members of chain, the verdict of pin_set) */
+static const char *const g_call_words[REC_FN_COUNT] = {
+    [REC_ADD] = "1 #2 * *",
+    [REC_CALL] = "#1 L",
+    [REC_REMOVE] = "#1",
+    [REC_REMOVE_ALL] = "",
+    [REC_CONNECT] = "0 L 1 2",
+    [REC_BROADCAST] = "L",
+    [REC_HOST_SETTING] = "L * *",
+    [REC_INSTANCE_VERB] = "L *",
+    [REC_WORKER_LIST] = "",
+    [REC_INSTANCE_INFO] = "#1",
+    [REC_RESET] = "?1",
+    [REC_QUARANTINE_CLEAR] = "1",
+    [REC_POLICY_SET] = "1 2",
+    [REC_PIN_ACCEPT] = "1",
+    [REC_POOL_CONFIG] = "1 #2",
+    [REC_LV2_WORKER_SET] = "1 2",
+    [REC_WORKER_ENV] = "1 2 3",
+    [REC_CHAIN] = "#1 * *",
+    [REC_CHAIN_CLEAR] = "#1",
+    [REC_AFTER_REPLY] = "#1 0",
+    [REC_PINS_SET] = "1 2 3 *",
+    [REC_PINS_CLEAR] = "1",
+    [REC_DESCRIPTORS_ADD] = "1",
+    [REC_DESCRIPTORS_GET] = "1",
+    [REC_DESCRIPTORS_PANEL_GET] = "1",
+    [REC_LV2_REFUSALS_FORGET] = "*",
+};
+
+/* the words property: every call of the message took the words g_call_words places in it */
+__attribute__((noinline)) static void check_words(const struct words *w)
+{
+    char number[16], *line;
+    size_t len;
+    int read = w->n < PHD_LINE_WORDS_MAX ? w->n : PHD_LINE_WORDS_MAX, c;
+
+    line = joined(w, &len);
+    for (c = 0; c < g_rec.ncalls; c++)
+    {
+        const struct rec_call *call = &g_rec.calls[c];
+        const char *item = g_call_words[call->fn] ? g_call_words[call->fn] : "";
+        int a;
+
+        for (a = 0; a < call->nargs && *item; a++)
+        {
+            const char *want;
+            int k;
+
+            item += strspn(item, " ");
+            if (*item == '*')
+                want = NULL;
+            else if (*item == 'L')
+                want = line;
+            else
+            {
+                k = atoi(item + (*item == '#' || *item == '?'));
+                if (*item == '?' && k >= read)
+                    want = NULL;
+                else if (k >= read)
+                    want = "";
+                else if (*item == '#')
+                {
+                    snprintf(number, sizeof(number), "%d", atoi(w->w[k]));
+                    want = number;
+                }
+                else
+                    want = w->w[k];
+            }
+            item += strcspn(item, " ");
+            /* the argument is the word the declaration puts there, as the controller wrote it
+             * mutant: src/verbs.c:142 `atoi(tok[2])` -> `atoi(tok[1])`
+             * input: add-instance-past-the-table */
+            if (want && (call->args[a] == NULL || strcmp(call->args[a], want)))
+                abort();
+        }
+    }
+    free(line);
 }
 
 /* the refusal property */
@@ -233,7 +341,9 @@ __attribute__((noinline)) static void check_refusal(uint64_t before)
 {
     if (g_rec.reply == NULL || sup_reply_code(g_rec.reply) >= 0)
         return;
-    /* nothing changed: no accepted call, no follow-up, no quit */
+    /* nothing changed: no accepted call, no follow-up, no quit
+     * mutant: src/verbs.c:144 `reply_text && sup_reply_code(reply_text) >= 0` -> `reply_text`
+     * input: add-instance-past-the-table */
     if (g_rec.state != before || g_quitting)
         abort();
 }
@@ -255,6 +365,7 @@ __attribute__((noinline)) static void check_round_trip(const struct words *w, ui
     state_first = g_rec.state;
     host_first = g_rec.host_settings;
     reply_first = strdup(g_rec.reply);
+    /* not a property: the harness got no memory for its copy of the first reply */
     if (!reply_first)
         abort();
 
@@ -265,10 +376,19 @@ __attribute__((noinline)) static void check_round_trip(const struct words *w, ui
     send_message((const uint8_t *)line, len);
     free(line);
 
+    /* the same calls with the same arguments
+     * mutant: src/verbs.c:226 `strtok_r(copy, " \t", &save)` -> `strtok_r(copy, " ", &save)`
+     * input: mod-host-add-tabs */
     if (!rec_calls_equal(first, nfirst, g_rec.calls, g_rec.ncalls))
         abort();
+    /* the same reply
+     * mutant: src/verbs.c:200 `ntok != 1` -> `ntok != 1 || line[0] != ' '`
+     * input: quit-leading-space */
     if (g_rec.reply == NULL || strcmp(g_rec.reply, reply_first))
         abort();
+    /* the same state, the same host settings, and quitting the same
+     * mutant: src/verbs.c:202 `g_quitting = 1;` -> `g_quitting = line[0] == ' ';`
+     * input: quit-leading-space */
     if (g_quitting != quit_first || g_rec.state != state_first || g_rec.host_settings != host_first)
         abort();
     rec_calls_free(first, nfirst);
@@ -301,6 +421,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
         words_of((const char *)bytes, len, &w);
         check_reply(&w);
         check_arity(&w);
+        check_words(&w);
         check_refusal(state_before);
         check_round_trip(&w, state_before, host_before);
         words_free(&w);

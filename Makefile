@@ -163,7 +163,8 @@ private-refs:
 # AddressSanitizer and UndefinedBehaviorSanitizer, into build/fuzz/. Nothing of the ordinary build is touched.
 #   make fuzz                  build every harness
 #   make fuzz-run FUZZ_TIME=60 fuzz each one from its seed corpus; red on any crash
-#   make fuzz-sabotage         each mutant of fuzz/mutants/ must make its harness abort on a seed, in its own property
+#   make fuzz-sabotage         each mutant of fuzz/sabotage/ must make its harness abort on a seed, in its own property
+#   make fuzz-records          each check's mutant: record must make that check abort on its input: seed
 #   make fuzz-coverage         the coverage witness: llvm-cov over the corpus, held to fuzz/coverage-floor.txt
 #   make fuzz-corpus           write fuzz/corpus/ again from the declared protocol and the README examples
 FUZZ_CC        ?= clang
@@ -190,6 +191,11 @@ fuzz-run: fuzz
 
 fuzz-sabotage:
 	FUZZ_BUILD=$(FUZZ_BUILD) MAKE="$(MAKE)" fuzz/sabotage.sh
+
+# every check's comment names a one-line change and the seed on which that check aborts, or why it is not a property;
+# each change is applied alone to the plain harness (fuzz/records.sh)
+fuzz-records:
+	FUZZ_BUILD=$(FUZZ_BUILD) FUZZ_CC=$(FUZZ_CC) PROTOCOL_CFLAGS="$(PROTOCOL_CFLAGS)" fuzz/records.sh
 
 # the coverage witness: the same harnesses without sanitizers, instrumented for llvm-cov, each run once over its seed
 # corpus (-runs=0 executes the corpus and nothing else); the llvm-cov and llvm-profdata of FUZZ_CC's own LLVM
@@ -221,7 +227,7 @@ fuzz-corpus-check:
 	@set -e; tmp=$$(mktemp -d); trap 'rm -rf $$tmp' EXIT; \
 	python3 fuzz/gen_corpus.py $$tmp; diff -r $$tmp fuzz/corpus; echo "the seed corpus is current"
 
-.PHONY: fuzz fuzz-run fuzz-sabotage fuzz-coverage fuzz-corpus fuzz-corpus-check
+.PHONY: fuzz fuzz-run fuzz-sabotage fuzz-records fuzz-coverage fuzz-corpus fuzz-corpus-check
 
 # clean rule
 clean:

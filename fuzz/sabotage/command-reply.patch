@@ -1,3 +1,6 @@
+Breaks the check of fuzz/fuzz_command.c:205 (the reply is a string that ends where the message the socket sends ends).
+Caught by the seed input "add-default" of fuzz_command.
+
 diff --git a/src/verbs.c b/src/verbs.c
 index 78daab7..6b8af56 100644
 --- a/src/verbs.c

@@ -1,3 +1,6 @@
+Breaks the check of fuzz/fuzz_command.c:383 (a command's words joined by one space make the same calls).
+Caught by the seed input "mod-host-add-tabs" of fuzz_command.
+
 diff --git a/src/verbs.c b/src/verbs.c
 index 78daab7..bf45b47 100644
 --- a/src/verbs.c
