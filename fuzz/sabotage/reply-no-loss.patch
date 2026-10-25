@@ -1,4 +1,4 @@
-Breaks the check of fuzz/fuzz_reply.c:419 (every complete line a worker wrote is read by the controller).
+Breaks the check of fuzz/fuzz_reply.c:423 (every complete line a worker wrote is read by the controller).
 Caught by the seed input "line-at-the-limit" of fuzz_reply.
 
 diff --git a/src/relay.c b/src/relay.c
