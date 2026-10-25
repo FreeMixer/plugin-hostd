@@ -38,3 +38,8 @@ The gaps that matter for a chain of single-processor slots were three: the order
 autoconnect and said nothing of it), removal healing, and a host bypass for plugins without a bypass port. This branch
 closes those three through the strip; the remaining gaps are user features (preset saving, GUIs, custom widgets,
 parameter feedback, file parameters) and do not stop a chain from running.
+
+The strip column is the record of PR 129. plugin-hostd#149 replaces the strip with the chain line
+(`chain-profile.md`, "One Zynthian chain, one chain line"): the order, the removal healing and the move are the chain
+verb's, read back with `chain_get`; the host bypass stays as it is; a parallel slot is refused
+`PARALLEL_SLOT_REFUSED` until omx-plugins#229 gives it a mixer.
