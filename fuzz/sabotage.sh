@@ -2,13 +2,14 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 #
-# make fuzz-sabotage: A PROPERTY NO MUTANT CAN BREAK CHECKS NOTHING. fuzz/sabotage/<harness>-<property>.patch is a
-# one-line bug in the code the harness drives, one for each property the harness checks; the two lines above its
-# `diff --git` name the check it breaks and the seed that catches it, for the OSS Verify enrolment, whose project.yaml
-# names this directory as its `mutants`, and git apply skips them. This applies each, rebuilds
-# the harness, and runs it over every seed of its corpus, one at a time. The mutant is found when at least one seed
+# make fuzz-sabotage: A PROPERTY NO MUTANT CAN BREAK CHECKS NOTHING. fuzz/sabotage/<harness>-<property>[-<part>].patch
+# is a one-line bug in the code the harness drives, one for each property the harness checks or a part of it; the two
+# lines above its `diff --git` name the check it breaks and the seed that catches it, for the OSS Verify enrolment,
+# whose project.yaml names this directory as its `mutants`, and git apply skips them. This applies each, rebuilds the
+# harness, and runs it over every seed of its corpus, one at a time. The mutant is found when at least one seed
 # makes the harness abort and every seed that does aborts in check_<property> (or a check_<property>_<part>), the
-# function that holds that property's checks: the innermost check_ function of the stack is that one, and the crash
+# function that holds that property's checks, or, for a patch that names a part, in the check_ function of the
+# property that part belongs to: the innermost check_ function of the stack is that one, and the crash
 # is an abort(), not a sanitizer report. A seed that crashes anywhere else makes the mutant red, since the mutant then
 # breaks a property it does not name. The source is restored with `git checkout --` on every exit path, and the
 # sanitizer build is rebuilt as the tree is at the end.
@@ -66,7 +67,8 @@ for p in fuzz/sabotage/*.patch; do
         "$B/fuzz_$h" -runs=1 -artifact_prefix="$OUT/$m-" "$seed" >"$log" 2>&1 && { rm -f "$log"; continue; }
         # the innermost check_ function of the stack, and whether the harness aborted
         where=$(grep -m1 -oE ' in check_[a-z_]+' "$log" | sed 's/^ in //')
-        if grep -q 'ERROR: libFuzzer: deadly signal' "$log" && echo "$where" | grep -qE "^$fn(_[a-z]+)*\$"; then
+        if grep -q 'ERROR: libFuzzer: deadly signal' "$log" && { echo "$where" | grep -qE "^$fn(_[a-z]+)*\$" ||
+            case $fn in "$where"_*) [ -n "$where" ] ;; *) false ;; esac; }; then
             found=$((found + 1))
             [ -n "$first" ] || first=$(basename "$seed")
         else

@@ -1,4 +1,4 @@
-Breaks the check of fuzz/fuzz_reply.c:467 (a held gesture is ended with a line that ends it).
+Breaks the check of fuzz/fuzz_reply.c:484 (a held gesture is ended with a line that ends it).
 Caught by the seed input "controller-takes-a-few-bytes-a-send" of fuzz_reply.
 
 diff --git a/src/relay.c b/src/relay.c

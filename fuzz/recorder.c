@@ -275,12 +275,13 @@ static const char *daemon_shape(const char *verb)
 
 /* ---------------------------------------------------------------- the supervisor (src/supervisor.h) */
 
+/* the daemon's own reply: no call answered it, so it is no answer */
 char *sup_resp(int code)
 {
     char buf[32];
 
     snprintf(buf, sizeof(buf), "resp %d", code);
-    return hand_back(buf);
+    return xstrdup(buf);
 }
 
 int sup_reply_code(const char *reply)
@@ -504,6 +505,16 @@ void sup_after_reply(int id, const char *verb)
 
 /* ---------------------------------------------------------------- the pins (src/pins.h) */
 
+/* the pins answer a code, which the daemon replies as "resp <code>" with sup_resp: that text is their answer */
+static int answer_code(int code)
+{
+    char buf[32];
+
+    snprintf(buf, sizeof(buf), "resp %d", code);
+    free(hand_back(buf));
+    return code;
+}
+
 int pins_set(const char *uri, const char *files, const char *layout, const char *verdict)
 {
     struct rec_call *c = record(REC_PINS_SET);
@@ -513,9 +524,9 @@ int pins_set(const char *uri, const char *files, const char *layout, const char 
     arg_s(c, layout);
     arg_s(c, verdict ? verdict : "-");
     if (g_rec.refuse)
-        return g_rec.code;
+        return answer_code(g_rec.code);
     g_rec.state = mix_call(g_rec.state, c);
-    return SUCCESS;
+    return answer_code(SUCCESS);
 }
 
 int pins_clear(const char *uri)
@@ -524,9 +535,9 @@ int pins_clear(const char *uri)
 
     arg_s(c, uri);
     if (g_rec.refuse)
-        return g_rec.code;
+        return answer_code(g_rec.code);
     g_rec.state = mix_call(g_rec.state, c);
-    return SUCCESS;
+    return answer_code(SUCCESS);
 }
 
 /* ---------------------------------------------------------------- the descriptors and the LV2 refusals */
