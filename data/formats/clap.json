@@ -1538,6 +1538,180 @@
           "word": "instrument.voices",
           "transform": "identity"
         }
+      },
+      "omx_clap_panel_control.label": {
+        "from": "omx_clap_ext.h#omx_clap_panel_control.label",
+        "dropped": {
+          "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+        }
+      },
+      "omx_clap_panel_control.label_key": {
+        "from": "omx_clap_ext.h#omx_clap_panel_control.label_key",
+        "dropped": {
+          "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+        }
+      },
+      "omx_clap_panel_control.param_id": {
+        "from": "omx_clap_ext.h#omx_clap_panel_control.param_id",
+        "dropped": {
+          "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+        }
+      },
+      "omx_clap_panel_control.section": {
+        "from": "omx_clap_ext.h#omx_clap_panel_control.section",
+        "dropped": {
+          "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+        }
+      },
+      "omx_clap_panel_control.visible_mask": {
+        "from": "omx_clap_ext.h#omx_clap_panel_control.visible_mask",
+        "dropped": {
+          "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+        }
+      },
+      "omx_clap_panel_control.visible_param_id": {
+        "from": "omx_clap_ext.h#omx_clap_panel_control.visible_param_id",
+        "dropped": {
+          "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+        }
+      },
+      "omx_clap_panel_control.widget": {
+        "from": "omx_clap_ext.h#omx_clap_panel_control.widget",
+        "dropped": {
+          "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+        }
+      },
+      "omx_clap_panel_display.curve_index": {
+        "from": "omx_clap_ext.h#omx_clap_panel_display.curve_index",
+        "dropped": {
+          "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+        }
+      },
+      "omx_clap_panel_display.floor_db": {
+        "from": "omx_clap_ext.h#omx_clap_panel_display.floor_db",
+        "dropped": {
+          "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+        }
+      },
+      "omx_clap_panel_display.floor_param_id": {
+        "from": "omx_clap_ext.h#omx_clap_panel_display.floor_param_id",
+        "dropped": {
+          "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+        }
+      },
+      "omx_clap_panel_display.kind": {
+        "from": "omx_clap_ext.h#omx_clap_panel_display.kind",
+        "dropped": {
+          "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+        }
+      },
+      "omx_clap_panel_display.label": {
+        "from": "omx_clap_ext.h#omx_clap_panel_display.label",
+        "dropped": {
+          "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+        }
+      },
+      "omx_clap_panel_display.label_key": {
+        "from": "omx_clap_ext.h#omx_clap_panel_display.label_key",
+        "dropped": {
+          "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+        }
+      },
+      "omx_clap_panel_display.meter_ids[0]": {
+        "from": "omx_clap_ext.h#omx_clap_panel_display.meter_ids[0]",
+        "dropped": {
+          "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+        }
+      },
+      "omx_clap_panel_display.meter_ids[1]": {
+        "from": "omx_clap_ext.h#omx_clap_panel_display.meter_ids[1]",
+        "dropped": {
+          "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+        }
+      },
+      "omx_clap_panel_display.section": {
+        "from": "omx_clap_ext.h#omx_clap_panel_display.section",
+        "dropped": {
+          "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+        }
+      },
+      "omx_clap_panel_display.source": {
+        "from": "omx_clap_ext.h#omx_clap_panel_display.source",
+        "dropped": {
+          "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+        }
+      },
+      "omx_clap_panel_placement_default.param_id": {
+        "from": "omx_clap_ext.h#omx_clap_panel_placement_default.param_id",
+        "dropped": {
+          "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+        }
+      },
+      "omx_clap_panel_placement_default.placement": {
+        "from": "omx_clap_ext.h#omx_clap_panel_placement_default.placement",
+        "dropped": {
+          "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+        }
+      },
+      "omx_clap_panel_placement_default.value": {
+        "from": "omx_clap_ext.h#omx_clap_panel_placement_default.value",
+        "dropped": {
+          "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+        }
+      },
+      "omx_clap_panel_role.index": {
+        "from": "omx_clap_ext.h#omx_clap_panel_role.index",
+        "dropped": {
+          "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+        }
+      },
+      "omx_clap_panel_role.param_id": {
+        "from": "omx_clap_ext.h#omx_clap_panel_role.param_id",
+        "dropped": {
+          "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+        }
+      },
+      "omx_clap_panel_role.role": {
+        "from": "omx_clap_ext.h#omx_clap_panel_role.role",
+        "dropped": {
+          "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+        }
+      },
+      "omx_clap_panel_section.key": {
+        "from": "omx_clap_ext.h#omx_clap_panel_section.key",
+        "dropped": {
+          "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+        }
+      },
+      "omx_clap_panel_section.label": {
+        "from": "omx_clap_ext.h#omx_clap_panel_section.label",
+        "dropped": {
+          "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+        }
+      },
+      "omx_clap_panel_section.label_key": {
+        "from": "omx_clap_ext.h#omx_clap_panel_section.label_key",
+        "dropped": {
+          "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+        }
+      },
+      "omx_clap_plugin_panel_description.count": {
+        "from": "omx_clap_ext.h#omx_clap_plugin_panel_description.count",
+        "dropped": {
+          "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+        }
+      },
+      "omx_clap_plugin_panel_description.family": {
+        "from": "omx_clap_ext.h#omx_clap_plugin_panel_description.family",
+        "dropped": {
+          "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+        }
+      },
+      "omx_clap_plugin_panel_description.fingerprint": {
+        "from": "omx_clap_ext.h#omx_clap_plugin_panel_description.fingerprint",
+        "dropped": {
+          "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+        }
       }
     }
   }

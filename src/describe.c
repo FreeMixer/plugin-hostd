@@ -372,7 +372,9 @@ static int parse_scope(const char *format, const char *scope, char *kind, long *
         char kind;
         const char *format;
     } SCOPES[] = { { "param", 'p', "clap" },    { "audio_in", 'i', "clap" }, { "audio_out", 'o', "clap" },
-                   { "note_in", 'n', "clap" },  { "note_out", 'N', "clap" }, { "port", 'l', "lv2" } };
+                   { "note_in", 'n', "clap" },  { "note_out", 'N', "clap" }, { "port", 'l', "lv2" },
+                   { "section", 'd', "clap" },  { "control", 'd', "clap" },  { "role", 'd', "clap" },
+                   { "display", 'd', "clap" },  { "placement_default", 'd', "clap" } };
     const char *colon = strchr(scope, ':');
     size_t i;
     char *end;
@@ -380,6 +382,11 @@ static int parse_scope(const char *format, const char *scope, char *kind, long *
     if (!strcmp(scope, "plugin"))
     {
         *kind = 'g', *index = -1;
+        return 0;
+    }
+    if (!strcmp(scope, "panel") && !strcmp(format, "clap"))
+    {
+        *kind = 'd', *index = -1;
         return 0;
     }
     if (colon == NULL)
@@ -425,6 +432,17 @@ static int read_dump(const table_t *t, const char *text, scan_t *s)
         *value++ = '\0';
         if (parse_scope(t->format, scope, &kind, &index) != 0)
             return refuse("dump line %d: %s is no %s scope", n, scope, t->format);
+        /* the panel description: a scope of no entry, each field's row a drop (docs/formats.md#what-a-table-drops) */
+        if (kind == 'd')
+        {
+            const row_t *r = find_row(t, field);
+
+            if (r == NULL)
+                return refuse("%s %s: the field has no row in the %s table", scope, field, t->format);
+            if (r->cls != C_DROPPED)
+                return refuse("%s %s: a field of the panel description is dropped, never a word or the bag", scope, field);
+            continue;
+        }
         if (record(s, t, kind == 'g' ? entry(s, "plugin", 'g', -1) : entry(s, scope, kind, index), field, value))
             return -1;
     }

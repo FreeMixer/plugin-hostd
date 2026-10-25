@@ -120,6 +120,19 @@ def main():
         bad["PLUGIN_HOSTD_CLAP_MAP"]["rows"]["clap_param_info.module"]["word"]["transform"] = "module-path"
         refused("a transform outside TRANSFORMS(X)", CASES["clap-controls"], clap, "module-path", bad)
 
+        # the panel description of omx-clap-scan 0.20.0's dump: every field dropped, the descriptor as without it
+        panel = open(os.path.join(FIELDS, "clap-panel.tsv")).read()
+        r = describe(CASES["clap-controls"], scratch(tmp, "panel.tsv", clap + panel))
+        check(r.returncode == 0 and json.loads(r.stdout or "null") == json.load(open(os.path.join(FIELDS, "clap-controls.json"))),
+              "a dump with a panel gives the descriptor without one (%d: %s)" % (r.returncode, r.stderr.strip()))
+        refused("a panel field with no row", CASES["clap-controls"], clap + "control:0\tomx_clap_panel_control.colour\tred\n",
+                "omx_clap_panel_control.colour")
+        refused("a panel scope of the other format", CASES["lv2-compressor"], lv2 + "section:0\tlv2:name\tx\n", "section:0")
+        bad = json.loads(json.dumps(table))
+        bad["PLUGIN_HOSTD_CLAP_MAP"]["rows"]["omx_clap_panel_control.widget"] = {
+            "from": "omx_clap_ext.h#omx_clap_panel_control.widget", "extension": True}
+        refused("a panel field the table carries", CASES["clap-controls"], clap + panel, "is dropped, never", bad)
+
         # the child path: a stand-in for omx-clap-scan --fields, run under the runner's limits
         child = scratch(tmp, "omx-clap-scan", "#!/bin/sh\n[ \"$1\" = --fields ] || exit 9\n"
                         "case $2 in lv2:urn:example:compressor) cat '%s' ;; *) echo 'no such plugin' >&2; exit 1 ;; esac\n"
