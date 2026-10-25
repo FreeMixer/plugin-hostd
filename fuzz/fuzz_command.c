@@ -32,10 +32,13 @@
  * returns, spaces and tabs at its end removed, split at spaces and tabs. Its verb is the first word.
  *
  * Properties, each an abort():
- *   - reply: every message gets exactly one reply, one NUL-terminated string with no NUL before its end, which is
- *     the text the supervisor answered, unchanged; a refusal is "resp <code>" of a declared code, and anything else
- *     has the reply shape its verb declares (PHD_VERBS, PHD_INSTANCE_VERBS) or mod-host's "resp 0".
+ *   - reply: every message gets exactly one reply, one NUL-terminated string with no NUL before its end. When a call
+ *     answered (the supervisor's text, or "resp <code>" of the code the pins returned), the reply is that answer,
+ *     unchanged; when none did, it is one the daemon makes itself, a refusal or "resp 0" for quit. A refusal is
+ *     "resp <code>" of a declared code, and anything else has the reply shape its verb declares (PHD_VERBS,
+ *     PHD_INSTANCE_VERBS) or mod-host's "resp 0".
  *     Mutant: fuzz/sabotage/command-reply.patch, the reply sent without its NUL.
+ *     Mutant: fuzz/sabotage/command-reply-answer.patch, a pin_set the pins refused replied "resp 0".
  *   - arity: a verb the daemon parses itself (PHD_VERBS, the rows tools/protocol-gen.c writes into
  *     protocol/plugin-hostd.json, and mod-host's remove, connect, disconnect and quit) is acted on only with an
  *     argument count its declared syntax allows; a word past PHD_LINE_WORDS_MAX is not read.
@@ -186,6 +189,31 @@ static int acted(void)
     return g_quitting || g_rec.ncalls > 0;
 }
 
+/* the reply property for where the reply comes from: the answer of the call that answered, or, when none did, a reply
+ * the daemon makes itself */
+__attribute__((noinline)) static void check_reply_answer(const struct words *w)
+{
+    if (g_rec.answer)
+    {
+        /* a call answered: the reply is its answer, as it answered it
+         * mutant: src/verbs.c:120 `text, strlen(text) + 1` -> `text + 1, strlen(text)`
+         * input: add-default
+         * mutant: src/verbs.c:90 `return rc;` -> `return SUCCESS;`
+         * input: plugin-hostd-pin_set-refused
+         * mutant: src/verbs.c:214 `return reply_text;` -> `return sup_resp(SUCCESS);`
+         * input: mod-host-set_bpm-refused */
+        if (strcmp(g_rec.reply, g_rec.answer))
+            abort();
+        return;
+    }
+    /* no call answered: the reply is one the daemon makes itself, a refusal or the reply of quit, which check_reply
+     * holds to "resp <code>" of a declared code and to "resp 0"
+     * mutant: src/verbs.c:135 `return sup_resp(ERR_INVALID_OPERATION);` -> `return sup_resp(SUCCESS);`
+     * input: add-too-few */
+    if (sup_reply_code(g_rec.reply) >= 0 && !(w->n == 1 && verb_is(w->w[0], QUIT)))
+        abort();
+}
+
 /* the reply property */
 __attribute__((noinline)) static void check_reply(const struct words *w)
 {
@@ -203,11 +231,7 @@ __attribute__((noinline)) static void check_reply(const struct words *w)
      * input: add-default */
     if (g_rec.reply[g_rec.reply_size - 1] != '\0' || memchr(g_rec.reply, '\0', g_rec.reply_size - 1))
         abort();
-    /* the supervisor's answer, as it answered it
-     * mutant: src/verbs.c:120 `text, strlen(text) + 1` -> `text + 1, strlen(text)`
-     * input: add-default */
-    if (g_rec.answer == NULL || strcmp(g_rec.reply, g_rec.answer))
-        abort();
+    check_reply_answer(w);
     code = sup_reply_code(g_rec.reply);
     if (code < 0)
     {

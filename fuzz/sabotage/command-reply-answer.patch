@@ -1,0 +1,16 @@
+Breaks the check of fuzz/fuzz_command.c:213 (a call answered: the reply is its answer, as it answered it).
+Caught by the seed input "plugin-hostd-pin_set-refused" of fuzz_command.
+
+diff --git a/src/verbs.c b/src/verbs.c
+index 3b7feba..c9732de 100644
+--- a/src/verbs.c
++++ b/src/verbs.c
+@@ -87,7 +87,7 @@ static int pin_set_words(const char *line, char **tok, int ntok)
+     /* the files of the plugin changed: the adapter may now take one it refused */
+     if (rc == SUCCESS)
+         lv2_refusals_forget(NULL);
+-    return rc;
++    return SUCCESS;
+ }
+ 
+ /* a word that is a whole number and nothing else */
