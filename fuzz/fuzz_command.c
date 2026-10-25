@@ -40,6 +40,10 @@
  *     protocol/plugin-hostd.json, and mod-host's remove, connect, disconnect and quit) is acted on only with an
  *     argument count its declared syntax allows; a word past PHD_LINE_WORDS_MAX is not read.
  *     Mutant: fuzz/sabotage/command-arity.patch, pool_config taking three words or more.
+ *   - words: each call the daemon makes is handed the message's words at the places its verb declares them, as the
+ *     harness reads them (g_call_words): a word as written, a number as atoi reads it, a line as its words joined by
+ *     one space. The round trip below compares the daemon with itself, so a word put in the wrong place twice keeps
+ *     it true; this does not.
  *   - round-trip: the words of a command the daemon acted on, joined by one space as the declaration writes them,
  *     make the same calls with the same arguments, the same reply and the same state.
  *     Mutant: fuzz/sabotage/command-round-trip.patch, words split at spaces only.
@@ -249,6 +253,89 @@ __attribute__((noinline)) static void check_arity(const struct words *w)
     }
 }
 
+/* how each call takes the message's words, one item for each argument it records (fuzz/recorder.c): "<k>" is word k
+ * as written, "#<k>" word k as atoi reads it, "?<k>" word k when the message has one, "L" the words joined by one
+ * space, and "*" an argument that is no word of the message: a count, a ledger, a word of the daemon's own, or one
+ * the verb may leave out (the placement and the client of add, the members of chain, the verdict of pin_set) */
+static const char *const g_call_words[REC_FN_COUNT] = {
+    [REC_ADD] = "1 #2 * *",
+    [REC_CALL] = "#1 L",
+    [REC_REMOVE] = "#1",
+    [REC_REMOVE_ALL] = "",
+    [REC_CONNECT] = "0 L 1 2",
+    [REC_BROADCAST] = "L",
+    [REC_HOST_SETTING] = "L * *",
+    [REC_INSTANCE_VERB] = "L *",
+    [REC_WORKER_LIST] = "",
+    [REC_INSTANCE_INFO] = "#1",
+    [REC_RESET] = "?1",
+    [REC_QUARANTINE_CLEAR] = "1",
+    [REC_POLICY_SET] = "1 2",
+    [REC_PIN_ACCEPT] = "1",
+    [REC_POOL_CONFIG] = "1 #2",
+    [REC_LV2_WORKER_SET] = "1 2",
+    [REC_WORKER_ENV] = "1 2 3",
+    [REC_CHAIN] = "#1 * *",
+    [REC_CHAIN_CLEAR] = "#1",
+    [REC_AFTER_REPLY] = "#1 0",
+    [REC_PINS_SET] = "1 2 3 *",
+    [REC_PINS_CLEAR] = "1",
+    [REC_DESCRIPTORS_ADD] = "1",
+    [REC_DESCRIPTORS_GET] = "1",
+    [REC_DESCRIPTORS_PANEL_GET] = "1",
+    [REC_LV2_REFUSALS_FORGET] = "*",
+};
+
+/* the words property: every call of the message took the words g_call_words places in it */
+__attribute__((noinline)) static void check_words(const struct words *w)
+{
+    char number[16], *line;
+    size_t len;
+    int read = w->n < PHD_LINE_WORDS_MAX ? w->n : PHD_LINE_WORDS_MAX, c;
+
+    line = joined(w, &len);
+    for (c = 0; c < g_rec.ncalls; c++)
+    {
+        const struct rec_call *call = &g_rec.calls[c];
+        const char *item = g_call_words[call->fn] ? g_call_words[call->fn] : "";
+        int a;
+
+        for (a = 0; a < call->nargs && *item; a++)
+        {
+            const char *want;
+            int k;
+
+            item += strspn(item, " ");
+            if (*item == '*')
+                want = NULL;
+            else if (*item == 'L')
+                want = line;
+            else
+            {
+                k = atoi(item + (*item == '#' || *item == '?'));
+                if (*item == '?' && k >= read)
+                    want = NULL;
+                else if (k >= read)
+                    want = "";
+                else if (*item == '#')
+                {
+                    snprintf(number, sizeof(number), "%d", atoi(w->w[k]));
+                    want = number;
+                }
+                else
+                    want = w->w[k];
+            }
+            item += strcspn(item, " ");
+            /* the argument is the word the declaration puts there, as the controller wrote it
+             * mutant: src/verbs.c:142 `atoi(tok[2])` -> `atoi(tok[1])`
+             * input: add-instance-past-the-table */
+            if (want && (call->args[a] == NULL || strcmp(call->args[a], want)))
+                abort();
+        }
+    }
+    free(line);
+}
+
 /* the refusal property */
 __attribute__((noinline)) static void check_refusal(uint64_t before)
 {
@@ -334,6 +421,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
         words_of((const char *)bytes, len, &w);
         check_reply(&w);
         check_arity(&w);
+        check_words(&w);
         check_refusal(state_before);
         check_round_trip(&w, state_before, host_before);
         words_free(&w);
