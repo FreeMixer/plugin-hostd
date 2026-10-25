@@ -1,3 +1,6 @@
+Breaks the check of fuzz/fuzz_reply.c:344 (an unfinished line the relay keeps is never past the line limit).
+Caught by the seed input "line-past-the-limit-in-parts" of fuzz_reply.
+
 diff --git a/src/relay.c b/src/relay.c
 index ff852de..a6be5b0 100644
 --- a/src/relay.c

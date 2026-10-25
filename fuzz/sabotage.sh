@@ -2,8 +2,10 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 #
-# make fuzz-sabotage: A PROPERTY NO MUTANT CAN BREAK CHECKS NOTHING. fuzz/mutants/<harness>-<property>.patch is a
-# one-line bug in the code the harness drives, one for each property the harness checks. This applies each, rebuilds
+# make fuzz-sabotage: A PROPERTY NO MUTANT CAN BREAK CHECKS NOTHING. fuzz/sabotage/<harness>-<property>.patch is a
+# one-line bug in the code the harness drives, one for each property the harness checks; the two lines above its
+# `diff --git` name the check it breaks and the seed that catches it, for the OSS Verify enrolment, whose project.yaml
+# names this directory as its `mutants`, and git apply skips them. This applies each, rebuilds
 # the harness, and runs it over every seed of its corpus, one at a time. The mutant is found when at least one seed
 # makes the harness abort and every seed that does aborts in check_<property> (or a check_<property>_<part>), the
 # function that holds that property's checks: the innermost check_ function of the stack is that one, and the crash
@@ -35,7 +37,7 @@ fi
 
 missed=
 n=0
-for p in fuzz/mutants/*.patch; do
+for p in fuzz/sabotage/*.patch; do
     m=$(basename "$p" .patch)
     h=${m%%-*}
     prop=${m#*-}
@@ -88,7 +90,7 @@ done
 $MAKE --no-print-directory fuzz >"$OUT/rebuild.log" 2>&1 || { cat "$OUT/rebuild.log"; exit 1; }
 
 if [ "$n" -eq 0 ]; then
-    echo "make fuzz-sabotage: RED -- no mutant in fuzz/mutants/"
+    echo "make fuzz-sabotage: RED -- no mutant in fuzz/sabotage/"
     exit 1
 fi
 if [ -n "$missed" ]; then

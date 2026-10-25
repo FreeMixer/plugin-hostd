@@ -1,3 +1,6 @@
+Breaks the check of fuzz/fuzz_command.c:348 (a refused command leaves the daemon's state as it was).
+Caught by the seed input "add-instance-past-the-table" of fuzz_command.
+
 diff --git a/src/verbs.c b/src/verbs.c
 index 78daab7..066bcf8 100644
 --- a/src/verbs.c

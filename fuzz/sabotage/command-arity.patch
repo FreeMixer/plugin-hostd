@@ -1,3 +1,6 @@
+Breaks the check of fuzz/fuzz_command.c:251 (a verb the daemon parses is acted on only with an argument count its syntax allows).
+Caught by the seed input "plugin-hostd-pool_config-extra" of fuzz_command.
+
 diff --git a/src/verbs.c b/src/verbs.c
 index 78daab7..e940605 100644
 --- a/src/verbs.c
