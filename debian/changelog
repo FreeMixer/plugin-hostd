@@ -1,3 +1,16 @@
+plugin-hostd (0.10.0) unstable; urgency=medium
+
+  * panel_get <uri> answers the path of the panel the plugin publishes, filed
+    by the scan of its add; docs/panel.md tells a renderer how to draw it.
+  * describe reads the six panel scopes of omx-clap-scan 0.20.0's dump as
+    drops, so the add of a plugin scanned by omx-clap-core 0.20.0 no longer
+    answers -531.
+  * plugin-hostd-probe panel prints the panel object the scan filed.
+  * Only a null panel means a plugin has no layout; every other code is a
+    failure to show, and a new scan scope or field needs its format row first.
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Sun, 25 Oct 2026 05:04:31 +0100
+
 plugin-hostd (0.9.2) unstable; urgency=medium
 
   * worker_list, supervisor_reset and quit answer -902 to a word past
