@@ -207,7 +207,7 @@ __attribute__((noinline)) static void check_reply_answer(const struct words *w)
          * input: add-default
          * mutant: src/verbs.c:90 `return rc;` -> `return SUCCESS;`
          * input: plugin-hostd-pin_set-refused
-         * mutant: src/verbs.c:214 `return reply_text;` -> `return sup_resp(SUCCESS);`
+         * mutant: src/verbs.c:220 `return reply_text;` -> `return sup_resp(SUCCESS);`
          * input: mod-host-set_bpm-refused */
         if (strcmp(g_rec.reply, g_rec.answer))
             abort();
