@@ -183,6 +183,12 @@ static char *handle(char *line, char **tok, int ntok)
 
         return ntok == 2 && number(tok[1], &id) ? sup_chain_clear(id) : sup_resp(ERR_INVALID_OPERATION);
     }
+    if (!strcmp(verb, PHD_VERB_CHAIN_GET))
+    {
+        int id;
+
+        return ntok == 2 && number(tok[1], &id) ? sup_chain_get(id) : sup_resp(ERR_INVALID_OPERATION);
+    }
     if (!strcmp(verb, PHD_VERB_PIN_SET))
         return sup_resp(pin_set_words(line, tok, ntok));
     if (!strcmp(verb, PHD_VERB_PIN_ACCEPT))

@@ -262,19 +262,25 @@ static void instance_free(instance_t *i)
     free(i);
 }
 
-static int ckpt_exists(int id)
+/* whether an entry of the checkpoint directory is instance id's: effect_<id>, or effect_<id>.<anything> */
+static int ckpt_entry_of(const char *name, int id)
 {
     char prefix[32];
-    size_t n;
+    size_t n = snprintf(prefix, sizeof(prefix), "effect_%d", id);
+
+    return !strncmp(name, prefix, n) && (name[n] == '\0' || name[n] == '.');
+}
+
+static int ckpt_exists(int id)
+{
     DIR *dir = opendir(g_ckpt);
     struct dirent *entry;
     int found = 0;
 
     if (!dir)
         return 0;
-    n = snprintf(prefix, sizeof(prefix), "effect_%d", id);
     while (!found && (entry = readdir(dir)))
-        found = !strncmp(entry->d_name, prefix, n) && (entry->d_name[n] == '\0' || entry->d_name[n] == '.');
+        found = ckpt_entry_of(entry->d_name, id);
     closedir(dir);
     return found;
 }
@@ -292,21 +298,46 @@ static void rm_tree(const char *path)
 
 static void ckpt_forget(int id)
 {
-    char prefix[32], path[PATH_MAX];
-    size_t n;
+    char path[PATH_MAX];
     DIR *dir = opendir(g_ckpt);
     struct dirent *entry;
 
     if (!dir)
         return;
-    n = snprintf(prefix, sizeof(prefix), "effect_%d", id);
     while ((entry = readdir(dir)))
-        if (!strncmp(entry->d_name, prefix, n) && (entry->d_name[n] == '\0' || entry->d_name[n] == '.'))
+        if (ckpt_entry_of(entry->d_name, id))
         {
             snprintf(path, sizeof(path), "%s/%s", g_ckpt, entry->d_name);
             rm_tree(path);
         }
     closedir(dir);
+}
+
+/* the checkpoint of one instance alone, linked into dir (under the daemon's own directory): a state_load of dir loads
+ * that instance and touches no other the worker holds. 0 when the instance has no checkpoint */
+static int ckpt_alone(int id, char *dir, size_t size)
+{
+    char from[PATH_MAX], to[PATH_MAX];
+    DIR *ckpt = opendir(g_ckpt);
+    struct dirent *entry;
+    int found = 0;
+
+    snprintf(dir, size, "%s/alone-%d", g_root, id);
+    rm_tree(dir);
+    if (!ckpt)
+        return 0;
+    if (mkdir(dir, 0700) == 0)
+        while ((entry = readdir(ckpt)))
+            if (ckpt_entry_of(entry->d_name, id))
+            {
+                snprintf(from, sizeof(from), "%s/%s", g_ckpt, entry->d_name);
+                snprintf(to, sizeof(to), "%s/%s", dir, entry->d_name);
+                found |= symlink(from, to) == 0;
+            }
+    closedir(ckpt);
+    if (!found)
+        rm_tree(dir);
+    return found;
 }
 
 /* ---------------------------------------------------------------- workers */
@@ -406,16 +437,42 @@ static const char *search_of(int fmt)
     return f->search ? f->search(&g_conf) : NULL;
 }
 
-/* the uris of a chain's members that run in its worker, in order; malloc'd, *n of them */
+/* the uris of a chain's members of the worker's own row that run in it, in order (a CLAP member of an adapter-row
+ * chain is found by its path, not in the world); malloc'd, *n of them */
 static const char **chain_uris(const worker_t *w, int *n)
 {
     const char **uris = malloc((w->ninst ? w->ninst : 1) * sizeof(char *));
     int k;
 
+    *n = 0;
     for (k = 0; k < w->ninst; k++)
-        uris[k] = w->inst[k]->uri;
-    *n = w->ninst;
+        if (w->inst[k]->fmt == w->fmt)
+            uris[(*n)++] = w->inst[k]->uri;
     return uris;
+}
+
+/* whether one chain's worker runs members of rows a and b: one row, or two rows of one worker program that both run
+ * chains in one client (clap and lv2-clap, both omx-clap-host) */
+static int chain_rows_together(int a, int b)
+{
+    const char *pa = bin_of(a), *pb = bin_of(b);
+
+    return a == b || (format_at(a)->native_chain && format_at(b)->native_chain && pa && pb && !strcmp(pa, pb));
+}
+
+/* the row of a chain's worker: the first member's row that narrows its world (the LV2 members' world is the one to
+ * build), else the first member's */
+static int chain_row_of(const int *ids, int n)
+{
+    int k;
+
+    for (k = 0; k < n; k++)
+        if (g_inst[ids[k]] && format_at(g_inst[ids[k]]->fmt)->narrow_world)
+            return g_inst[ids[k]]->fmt;
+    for (k = 0; k < n; k++)
+        if (g_inst[ids[k]])
+            return g_inst[ids[k]]->fmt;
+    return 0;
 }
 
 /* a format that can narrow its worker's world gives an own worker the world of the one plugin and a chain's worker the
@@ -917,46 +974,102 @@ static int chain_line(worker_t *w, char *line, size_t size)
     return count;
 }
 
-static void replay(worker_t *w, int64_t started)
+/* an instance's add as a replay gives it: its pin checked again, its add, its track_info. 1 when the worker holds it,
+ * 0 when its pin or the worker refused it, -1 when the worker died on it (the death is handled) */
+static int replay_add(worker_t *w, instance_t *i)
 {
-    int n, m, any_ckpt = 0, count = 0, code;
-    char msg[PATH_MAX + 16], add[32];
+    char add[32];
+    int code;
 
     snprintf(add, sizeof(add), "%.*s", verb_len(EFFECT_ADD), EFFECT_ADD);
+    switch (replay_pin(w, i))
+    {
+    case RPC_OK:
+        break;
+    case PIN_REFUSED:
+        return 0;
+    default:
+        on_death(w, i->id);
+        return -1;
+    }
+    if (replay_line_code(w, i->add_line, &code) != RPC_OK)
+    {
+        on_death(w, i->id);
+        return -1;
+    }
+    if (code < 0)
+    {
+        replay_refused(w, i, add, code);
+        return 0;
+    }
+    /* before the state: what the plugin does on hearing it is overwritten by the state it saved; mod-host
+     * has no track_info, so a worker that does not answer the instance verbs never gets it */
+    if (i->track_info && format_at(i->fmt)->native_instance_verbs && replay_line(w, i->track_info) != RPC_OK)
+    {
+        on_death(w, i->id);
+        return -1;
+    }
+    i->has_ckpt = ckpt_exists(i->id);
+    return 1;
+}
+
+/* an instance's verb ledger, after the state; -1 when the worker died on it */
+static int replay_tail(worker_t *w, instance_t *i)
+{
+    int m;
+
+    for (m = 0; m < i->ntail; m++)
+        if (replay_line(w, i->tail[m].line) != RPC_OK)
+        {
+            on_death(w, i->id);
+            return -1;
+        }
+    return 0;
+}
+
+/* an instance's connections, last: one the worker cannot make yet is asked again by the tick; -1 when it died */
+static int replay_conns(worker_t *w, instance_t *i)
+{
+    int m, code;
+
+    for (m = 0; m < i->nconns; m++)
+    {
+        if (replay_line_code(w, i->conns[m], &code) != RPC_OK)
+        {
+            on_death(w, i->id);
+            return -1;
+        }
+        if (code < 0)
+            pend_add(w, i->conns[m]);
+    }
+    return 0;
+}
+
+/* chain_formed: the order a chain's worker runs now, the members it holds and replayed */
+static void chain_formed(worker_t *w)
+{
+    char ids[1024];
+    size_t used = 0;
+    int n;
+
+    ids[0] = '\0';
+    for (n = 0; n < w->ninst && used + 8 < sizeof(ids); n++)
+        if (!w->inst[n]->unreplayed)
+            used += snprintf(ids + used, sizeof(ids) - used, "%s%d", used ? "," : "", w->inst[n]->id);
+    event(PHD_EVENT_CHAIN_FORMED_FMT, w->chain->id, w->k, used ? ids : PHD_WORD_NONE);
+}
+
+static void replay(worker_t *w, int64_t started)
+{
+    int n, added, any_ckpt = 0, count = 0;
+    char msg[PATH_MAX + 16];
 
     for (n = 0; n < w->ninst; n++)
     {
-        instance_t *i = w->inst[n];
-
-        switch (replay_pin(w, i))
-        {
-        case RPC_OK:
-            break;
-        case PIN_REFUSED:
-            continue;
-        default:
-            on_death(w, i->id);
+        added = replay_add(w, w->inst[n]);
+        if (added < 0)
             return;
-        }
-        if (replay_line_code(w, i->add_line, &code) != RPC_OK)
-        {
-            on_death(w, i->id);
-            return;
-        }
-        if (code < 0)
-        {
-            replay_refused(w, i, add, code);
-            continue;
-        }
-        /* before the state: what the plugin does on hearing it is overwritten by the state it saved; mod-host
-         * has no track_info, so a worker that does not answer the instance verbs never gets it */
-        if (i->track_info && format_at(i->fmt)->native_instance_verbs && replay_line(w, i->track_info) != RPC_OK)
-        {
-            on_death(w, i->id);
-            return;
-        }
-        i->has_ckpt = ckpt_exists(i->id);
-        any_ckpt |= i->has_ckpt;
+        any_ckpt |= added && w->inst[n]->has_ckpt;
     }
     /* the order of a chain, to a worker that runs one in one client, before the state: the members it holds */
     if (w->chain && format_at(w->fmt)->native_chain && chain_line(w, msg, sizeof(msg)) && replay_line(w, msg) != RPC_OK)
@@ -974,36 +1087,14 @@ static void replay(worker_t *w, int64_t started)
         }
     }
     for (n = 0; n < w->ninst; n++)
-    {
-        instance_t *i = w->inst[n];
-
-        if (i->unreplayed)
-            continue;
-        for (m = 0; m < i->ntail; m++)
-            if (replay_line(w, i->tail[m].line) != RPC_OK)
-            {
-                on_death(w, i->id);
-                return;
-            }
-    }
+        if (!w->inst[n]->unreplayed && replay_tail(w, w->inst[n]) < 0)
+            return;
     for (n = 0; n < w->ninst; n++)
     {
-        instance_t *i = w->inst[n];
-
-        if (i->unreplayed)
+        if (w->inst[n]->unreplayed)
             continue;
-        for (m = 0; m < i->nconns; m++)
-        {
-            int code;
-
-            if (replay_line_code(w, i->conns[m], &code) != RPC_OK)
-            {
-                on_death(w, i->id);
-                return;
-            }
-            if (code < 0)
-                pend_add(w, i->conns[m]);
-        }
+        if (replay_conns(w, w->inst[n]) < 0)
+            return;
         count++;
     }
     w->state = W_UP;
@@ -1012,16 +1103,7 @@ static void replay(worker_t *w, int64_t started)
         if (!w->inst[n]->unreplayed)
             event(PHD_EVENT_INSTANCE_RESTORED_FMT, w->inst[n]->id, w->k);
     if (w->chain)
-    {
-        char ids[1024];
-        size_t used = 0;
-
-        ids[0] = '\0';
-        for (n = 0; n < w->ninst && used + 8 < sizeof(ids); n++)
-            if (!w->inst[n]->unreplayed)
-                used += snprintf(ids + used, sizeof(ids) - used, "%s%d", used ? "," : "", w->inst[n]->id);
-        event(PHD_EVENT_CHAIN_FORMED_FMT, w->chain->id, w->k, used ? ids : PHD_WORD_NONE);
-    }
+        chain_formed(w);
 }
 
 static void respawn(worker_t *w)
@@ -2022,7 +2104,7 @@ static void chain_form(chain_t *c)
             continue;
         if (!w)
         {
-            w = worker_new(i->fmt, place);
+            w = worker_new(chain_row_of(c->ids, c->n), place);
             w->pool = 1;
             w->chain = c;
         }
@@ -2037,6 +2119,86 @@ static void chain_form(chain_t *c)
         respawn(w);
 }
 
+/* whether a chain declared again takes its new order (c->ids) in the worker that runs it now: that worker is up, no
+ * rejoin is pending, and every member that joins it is in a worker that is up, to save its state, and is of a format
+ * whose world the running worker need not be started again for */
+static int chain_in_place(const chain_t *c)
+{
+    int k;
+
+    if (!c->w || c->w->state != W_UP || c->rejoin)
+        return 0;
+    for (k = 0; k < c->n; k++)
+    {
+        instance_t *i = g_inst[c->ids[k]];
+
+        if (i->w == c->w || meta_of(i->id)->quarantined)
+            continue;
+        if (!i->w || i->w->state != W_UP || format_at(i->fmt)->narrow_world)
+            return 0;
+    }
+    return 1;
+}
+
+/* the new order in the running worker: each member that joins leaves its worker and is replayed into this one (its
+ * add, then the order, then its state alone, its ledger and its connections); no other member is restarted */
+static void chain_update(chain_t *c)
+{
+    worker_t *w = c->w;
+    instance_t **join = malloc(c->n * sizeof(instance_t *));
+    char msg[PATH_MAX + 16], dir[PATH_MAX];
+    int k, n = 0, nj = 0, rc;
+
+    for (k = 0; k < c->n; k++)
+    {
+        instance_t *i = g_inst[c->ids[k]];
+
+        if (i->w == w || meta_of(i->id)->quarantined)
+            continue;
+        evict(i);
+        worker_attach(w, i);
+        join[nj++] = i;
+    }
+    /* the worker holds its members in the chain's order */
+    for (k = 0; k < c->n; k++)
+        if (g_inst[c->ids[k]]->w == w)
+            w->inst[n++] = g_inst[c->ids[k]];
+    for (k = 0; k < nj; k++)
+        if (replay_add(w, join[k]) < 0)
+            goto out;
+    if (format_at(w->fmt)->native_chain && chain_line(w, msg, sizeof(msg)) && replay_line(w, msg) != RPC_OK)
+    {
+        on_death(w, -1);
+        goto out;
+    }
+    for (k = 0; k < nj; k++)
+        if (!join[k]->unreplayed && join[k]->has_ckpt && ckpt_alone(join[k]->id, dir, sizeof(dir)))
+        {
+            snprintf(msg, sizeof(msg), STATE_LOAD, dir);
+            rc = replay_line(w, msg);
+            rm_tree(dir);
+            if (rc != RPC_OK)
+            {
+                on_death(w, join[k]->id);
+                goto out;
+            }
+        }
+    for (k = 0; k < nj; k++)
+        if (!join[k]->unreplayed && replay_tail(w, join[k]) < 0)
+            goto out;
+    for (k = 0; k < nj; k++)
+    {
+        if (join[k]->unreplayed)
+            continue;
+        if (replay_conns(w, join[k]) < 0)
+            goto out;
+        event(PHD_EVENT_INSTANCE_RESTORED_FMT, join[k]->id, w->k);
+    }
+    chain_formed(w);
+out:
+    free(join);
+}
+
 /* a plugin that may not share a worker: the rule of a pool, while require_pins is on; a chain's worker sees the union of
  * its members' worlds, so what a format pins in a world of its own holds there and is judged by chain_world_found */
 static int must_run_own(const instance_t *i)
@@ -2045,14 +2207,15 @@ static int must_run_own(const instance_t *i)
            !pins_in_process(i->uri);
 }
 
-/* while require_pins is on, a chain of a format that pins in a world of its own forms only if the format can narrow its
- * worker's world to the union of the members': it is built once in a scratch directory, every member found */
+/* while require_pins is on, a chain whose worker's row pins in a world of its own forms only if the row can narrow the
+ * worker's world to the union of its members of that row: it is built once in a scratch directory, every one found */
 static int chain_world_found(const int *ids, int n)
 {
-    const format_t *f = format_at(g_inst[ids[0]]->fmt);
+    int row = chain_row_of(ids, n);
+    const format_t *f = format_at(row);
     const char **uris;
     char dir[PATH_MAX], *world;
-    int k, found;
+    int k, m = 0, found;
 
     if (!g_conf.require_pins || !f->pinned_own_only)
         return 1;
@@ -2060,9 +2223,10 @@ static int chain_world_found(const int *ids, int n)
         return 0;
     uris = malloc(n * sizeof(char *));
     for (k = 0; k < n; k++)
-        uris[k] = g_inst[ids[k]]->uri;
+        if (g_inst[ids[k]]->fmt == row)
+            uris[m++] = g_inst[ids[k]]->uri;
     snprintf(dir, sizeof(dir), "%s/world-check", g_root);
-    world = f->narrow_world(&g_conf, dir, uris, n);
+    world = f->narrow_world(&g_conf, dir, uris, m);
     free(uris);
     rm_tree(dir);
     found = world != NULL;
@@ -2088,7 +2252,7 @@ char *sup_chain(int id, const int *ids, int n)
                 return sup_resp(PHD_ERR_CHAIN_DUPLICATE);
         if (i->chain && i->chain != c)
             return sup_resp(PHD_ERR_CHAIN_INSTANCE_BUSY);
-        if (i->fmt != g_inst[ids[0]]->fmt)
+        if (!chain_rows_together(i->fmt, g_inst[ids[0]]->fmt))
             return sup_resp(PHD_ERR_CHAIN_MIXED_FORMAT);
         if (must_run_own(i))
             return sup_resp(PHD_ERR_PLACEMENT_INVALID);
@@ -2121,7 +2285,10 @@ char *sup_chain(int id, const int *ids, int n)
     c->n = n;
     for (k = 0; k < n; k++)
         g_inst[ids[k]]->chain = c;
-    chain_form(c);
+    if (chain_in_place(c))
+        chain_update(c);
+    else
+        chain_form(c);
     return sup_resp(SUCCESS);
 }
 
@@ -2145,4 +2312,29 @@ char *sup_chain_clear(int id)
     }
     chain_free(c);
     return sup_resp(SUCCESS);
+}
+
+char *sup_chain_get(int id)
+{
+    chain_t *c = (id >= 0 && id < MAX_INSTANCE) ? g_chain[id] : NULL;
+    size_t used = 0, cap = 64;
+    char *buf;
+    int k, any = 0;
+
+    if (!c)
+        return sup_resp(PHD_ERR_NO_SUCH_CHAIN);
+    buf = malloc(cap);
+    if (c->w)
+        put(&buf, &used, &cap, "resp 0 w%d ", c->w->k);
+    else
+        put(&buf, &used, &cap, "resp 0 " PHD_WORD_NONE " ");
+    for (k = 0; k < c->n; k++)
+        put(&buf, &used, &cap, "%s%d", k ? "," : "", c->ids[k]);
+    put(&buf, &used, &cap, " ");
+    for (k = 0; c->w && k < c->w->ninst; k++)
+        if (!c->w->inst[k]->unreplayed)
+            put(&buf, &used, &cap, "%s%d", any++ ? "," : "", c->w->inst[k]->id);
+    if (!any)
+        put(&buf, &used, &cap, PHD_WORD_NONE);
+    return buf;
 }

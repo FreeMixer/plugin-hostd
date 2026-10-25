@@ -2824,6 +2824,153 @@ def a_worker_that_runs_no_chain_refuses_the_line_and_the_members_still_share_it(
         d.close()
 
 
+@test
+def chain_get_reads_a_chain_back_as_declared_and_as_it_runs():
+    d = daemon()
+    try:
+        for i in (50, 51, 52):
+            d.expect("add clap:fake#m%d %d" % (i, i), "resp %d" % i)
+        d.expect("chain_get 8", resp("NO_SUCH_CHAIN"))
+        for bad in ("chain_get", "chain_get x", "chain_get 8 9"):
+            d.expect(bad, "resp -902")
+        mark = d.mark()
+        d.expect("chain 8 52 50 51", "resp 0")
+        d.wait_event("chain_formed 8 ", since=mark)
+        k = list(chain_of(d, 8))[0]
+        d.expect("chain_get 8", "resp 0 %s 52,50,51 52,50,51" % k)
+        # a crashed member is declared and not running
+        mark = d.mark()
+        d.expect("param_set 50 crash 1", "resp 0")
+        d.wait_event("instance_quarantined 50 ", since=mark)
+        d.wait_event("chain_formed 8 ", since=mark)
+        k2 = list(chain_of(d, 8))[0]
+        wait_for(lambda: d.workers()[k2]["state"] == "up", "the chain's worker up")
+        d.expect("chain_get 8", "resp 0 %s 52,50,51 52,51" % k2)
+        d.expect("chain_clear 8", "resp 0")
+        d.expect("chain_get 8", resp("NO_SUCH_CHAIN"))
+    finally:
+        d.close()
+
+
+@test
+def a_chain_declared_again_keeps_its_running_worker_and_restarts_no_survivor():
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(env={"FAKE_LOG": log})
+    try:
+        for i in (1, 3, 4):
+            d.expect("add clap:fake#m%d %d" % (i, i), "resp %d" % i)
+            d.expect("param_set %d gain 0.%d000" % (i, i), "resp 0")
+        d.expect("connect effect_4:out_1 system:playback_1", "resp 0")
+        mark = d.mark()
+        d.expect("chain 2 1 3", "resp 0")
+        d.wait_event("chain_formed 2 ", since=mark)
+        k, w = list(chain_of(d, 2).items())[0]
+        pid, own4 = w["pid"], d.holder(4)[1]["pid"]
+        # a survivor's value moved since its checkpoint: the joiner's state must not load the survivors' again
+        d.expect("param_set 1 gain 0.9000", "resp 0")
+        # a member joins at a position: the same worker, its add, the order, its state, its connection
+        seen, mark = len(sent_to(log, pid)), d.mark()
+        d.expect("chain 2 1 4 3", "resp 0")
+        formed = d.wait_event("chain_formed 2 ", since=mark)
+        check(chain_of(d, 2) == {k: dict(w, inst=[1, 4, 3])}, "the same worker, the new order: %s" % d.workers())
+        check(formed == "chain_formed 2 %s 1,4,3" % k, "chain_formed names the same worker: " + formed)
+        got = sent_to(log, pid)[seen:]
+        check([c.split()[0] for c in got] == ["add", "chain", "state_load", "connect"] and got[0] == "add clap:fake#m4 4"
+              and got[1] == "chain 2 1 4 3" and got[3] == "connect effect_4:out_1 system:playback_1",
+              "the running worker is sent the add, the order, the joiner's state and its connection only: %s" % got)
+        check(not any(x["pid"] == own4 for x in d.workers().values()), "the joiner's own worker is retired: %s" % d.workers())
+        gains(d, (3, 4))
+        d.expect("param_get 1 gain", "resp 0 0.9000")
+        d.expect("chain_get 2", "resp 0 %s 1,4,3 1,4,3" % k)
+        # a move is the order and nothing else
+        seen, mark = len(sent_to(log, pid)), d.mark()
+        d.expect("chain 2 3 1 4", "resp 0")
+        d.wait_event("chain_formed 2 %s 3,1,4" % k, since=mark)
+        check(sent_to(log, pid)[seen:] == ["chain 2 3 1 4"], "a move sends the order only: %s" % sent_to(log, pid)[seen:])
+        d.expect("chain_get 2", "resp 0 %s 3,1,4 3,1,4" % k)
+        # a member left out goes to a worker of its own; the chain's worker goes on
+        seen, mark = len(sent_to(log, pid)), d.mark()
+        d.expect("chain 2 3 4", "resp 0")
+        d.wait_event("chain_formed 2 %s 3,4" % k, since=mark)
+        check(sent_to(log, pid)[seen:][-2:] == ["remove 1", "chain 2 3 4"], "removed, then the order: %s" % sent_to(log, pid)[seen:])
+        _, w1 = d.wait_up(1)
+        check(w1["place"] == "own" and w1["inst"] == [1], "the member left out is alone: %s" % w1)
+        check(chain_of(d, 2)[k]["pid"] == pid, "no survivor restarted: %s" % d.workers())
+        gains(d, (3, 4))
+        d.expect("param_get 1 gain", "resp 0 0.9000")
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
+
+
+@test
+def a_clap_member_and_an_lv2_member_of_the_adapter_row_form_one_chain():
+    """clap and lv2-clap are two rows of one program, both running chains in one client; lv2 (mod-host) and clap are two
+    programs and stay refused. An LV2 member joining a running chain forms it again: its bundle is not in the world"""
+    d, programs, log = lv2_run(lv2_worker="omx-clap-host")
+    try:
+        d.expect("add clap:fake#a 1", "resp 1")
+        d.expect("add lv2:urn:test:b 2", "resp 2")
+        mark = d.mark()
+        d.expect("chain 1 1 2", "resp 0")
+        d.wait_event("chain_formed 1 ", since=mark)
+        k, w = list(chain_of(d, 1).items())[0]
+        check(w["inst"] == [1, 2] and w["fmt"] == "lv2-clap" and len(d.workers()) == 1,
+              "one worker, of the row that narrows its world: %s" % d.workers())
+        check(programs.of(w["pid"])[0] == "omx-clap-host", "omx-clap-host runs it: %s" % (programs.of(w["pid"]),))
+        got = sent_to(log, w["pid"])
+        check(adds_of(log, w["pid"]) == ["add clap:fake#a 1", "add lv2:urn:test:b 2"] and "chain 1 1 2" in got,
+              "each member's own add, then the order: %s" % got)
+        d.expect("chain_get 1", "resp 0 %s 1,2 1,2" % k)
+        # a CLAP member joins in place
+        d.expect("add clap:fake#c 3", "resp 3")
+        mark = d.mark()
+        d.expect("chain 1 3 1 2", "resp 0")
+        d.wait_event("chain_formed 1 %s 3,1,2" % k, since=mark)
+        check(chain_of(d, 1)[k]["pid"] == w["pid"], "the CLAP joiner restarts no one: %s" % d.workers())
+        # an LV2 member forms the chain again, in a world with its bundle
+        d.expect("add lv2:urn:test:d 4", "resp 4")
+        mark = d.mark()
+        d.expect("chain 1 3 4 1 2", "resp 0")
+        d.wait_event("chain_formed 1 ", since=mark)
+        k2, w2 = list(chain_of(d, 1).items())[0]
+        check(k2 != k and w2["inst"] == [3, 4, 1, 2], "an LV2 joiner forms the chain again: %s" % d.workers())
+        # two programs are still two workers
+        d.expect("lv2_worker_set urn:test:e mod-host", "resp 0")
+        d.expect("add lv2:urn:test:e 5", "resp 5")
+        d.expect("add clap:fake#f 6", "resp 6")
+        d.expect("chain 2 6 5", resp("CHAIN_MIXED_FORMAT"))
+        d.expect("chain 2 5 6", resp("CHAIN_MIXED_FORMAT"))
+    finally:
+        d.close()
+        programs.close()
+
+
+@test
+def under_require_pins_a_chain_of_a_clap_and_an_lv2_member_sees_the_lv2_members_bundle_only():
+    programs = Programs()
+    p = Plugins()
+    d = p.daemon(conf=programs.conf(lv2_worker="omx-clap-host"))
+    try:
+        d.expect(p.lv2_pin(), "resp 0")
+        d.expect(p.clap_pin(), "resp 0")
+        d.expect("add %s 1" % p.clap_uri, "resp 1")
+        d.expect("add %s 2" % LV2_URI, "resp 2")
+        mark = d.mark()
+        d.expect("chain 3 1 2", "resp 0")
+        d.wait_event("chain_formed 3 ", since=mark)
+        _, w = list(chain_of(d, 3).items())[0]
+        check(w["inst"] == [1, 2] and w["fmt"] == "lv2-clap", "one adapter-row worker: %s" % d.workers())
+        program, world = programs.of(w["pid"])
+        check(program == "omx-clap-host" and world != p.lv2_dir and os.listdir(world) == ["pinned.lv2"],
+              "the world is the LV2 member's bundle, the CLAP member found by its path: %s %s" % (program, world))
+    finally:
+        d.close()
+        p.close()
+        programs.close()
+
+
 
 # ---------------------------------------------------------------- descriptors
 

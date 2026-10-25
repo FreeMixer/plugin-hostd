@@ -331,9 +331,10 @@ static inline int phd_pool_name_valid(const char *name)
     X(CHAIN_DUPLICATE, "an instance is named twice in one " PHD_VERB_CHAIN ": the chain is not declared") \
     X(CHAIN_INSTANCE_BUSY, "a member of " PHD_VERB_CHAIN " is already in another chain: the chain is not declared; " \
                            PHD_VERB_CHAIN_CLEAR " of the other chain frees it") \
-    X(CHAIN_MIXED_FORMAT, "the members of " PHD_VERB_CHAIN " are not all of one format of " PHD_VERB_WORKER_LIST \
-                          ", so no one worker runs them: the chain is not declared") \
-    X(NO_SUCH_CHAIN, PHD_VERB_CHAIN_CLEAR " of a chain no " PHD_VERB_CHAIN " declared") \
+    X(CHAIN_MIXED_FORMAT, "the members of " PHD_VERB_CHAIN " are not all run by one worker program, or are of two " \
+                          "rows of one program and a row does not run chains in one client, so no one worker runs " \
+                          "them: the chain is not declared") \
+    X(NO_SUCH_CHAIN, PHD_VERB_CHAIN_CLEAR " or " PHD_VERB_CHAIN_GET " of a chain no " PHD_VERB_CHAIN " declared") \
     X(PRESET_NOT_OFFERED, "the worker: preset_load or preset_show of a stable name the plugin does not offer, or of a " \
                           "plugin with no preset system and no state") \
     X(PRESET_INVALID, "preset_save with a file path that is not absolute or with no name, or preset_load or " \
@@ -376,6 +377,7 @@ static inline int phd_pool_name_valid(const char *name)
 #define PHD_VERB_LV2_WORKER_SET   "lv2_worker_set"
 #define PHD_VERB_CHAIN            "chain"
 #define PHD_VERB_CHAIN_CLEAR      "chain_clear"
+#define PHD_VERB_CHAIN_GET        "chain_get"
 #define PHD_VERB_DESCRIPTOR_GET   "descriptor_get"
 #define PHD_VERB_PANEL_GET        "panel_get"
 
@@ -474,18 +476,25 @@ static inline int phd_pool_name_valid(const char *name)
     X(CHAIN, PHD_VERB_CHAIN, "<chain> <instance> [<instance> ...]", "resp 0", \
       "the instances, in this order, are one chain, run in one worker of place " PHD_PLACE_CHAIN_PREFIX "<chain>: each " \
       "member's state is saved, it is removed from the worker it was in and replayed in the chain's. A chain already " \
-      "declared takes the new order, and a member left out of it goes back to a worker of its own. A worker that runs " \
+      "declared takes the new order, and a member left out of it goes back to a worker of its own; while its worker " \
+      "is up that worker is kept: a new member joins it (its add, the order, its state, its ledger, its connections) " \
+      "and no other member is restarted, unless the new member's format narrows the worker's world, which forms the " \
+      "chain again. Members of " PHD_FORMAT_CLAP " and " PHD_FORMAT_LV2_CLAP " form one chain. A worker that runs " \
       "chains in one client (" PHD_FORMAT_CLAP ", " PHD_FORMAT_LV2_CLAP ") is sent this line, with the members it holds, " \
       "after the adds of its replay; one that does not (mod-host) never is, and a refusal of it is written to stderr " \
       "and is no failure. Every instance verb still names one member by its own number. A member that crashes the " \
       "worker is quarantined to a worker of its own and the chain goes on without it; quarantine_clear puts it back. " \
-      "-518 for an instance no add made, -519 for one named twice, -520 for one in another chain, -521 for members of " \
-      "more than one format, -501 for a plugin that may not share a worker while require_pins is on (a CLAP plugin " \
+      "-518 for an instance no add made, -519 for one named twice, -520 for one in another chain, -521 for members no " \
+      "one worker program runs together, -501 for a plugin that may not share a worker while require_pins is on (a CLAP plugin " \
       "whose first-use pin is not in-process; an LV2 member whose bundle is not found, since a chain's worker sees " \
       "a world narrowed to the union of its members' bundles), -902 for a chain " \
       "or an instance that is not a number, or fewer than chain_members_min (" PHD_STR(PHD_CHAIN_MEMBERS_MIN) ") instances") \
     X(CHAIN_CLEAR, PHD_VERB_CHAIN_CLEAR, "<chain>", "resp 0", \
       "forget the chain: each member goes to a worker of its own; -522 for a chain no " PHD_VERB_CHAIN " declared") \
+    X(CHAIN_GET, PHD_VERB_CHAIN_GET, "<chain>", "resp 0 <worker> <instance>,... <instance>,...", \
+      "read a chain back: its worker (" PHD_WORD_NONE " when it has none), its members in the declared order, and the " \
+      "members its worker runs now in their order (" PHD_WORD_NONE " for none); a quarantined member is declared and " \
+      "not running; -522 for a chain no " PHD_VERB_CHAIN " declared, -902 for a chain that is not a number") \
     X(DESCRIPTOR_GET, PHD_VERB_DESCRIPTOR_GET, "<uri>", "resp 0 \"<path>\"", \
       "the scanned descriptor of the plugin, answered from descriptor_dir: the file named for its binary as it is now " \
       "(" PHD_DESCRIPTOR_NAME_SYNTAX "), written by the scan the plugin's add ran. -529 when there is none, -530 while " \
@@ -825,6 +834,7 @@ static inline int phd_is_note_verb(const char *verb)
     X(PHD_VERB_LV2_WORKER_SET, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
     X(PHD_VERB_CHAIN, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
     X(PHD_VERB_CHAIN_CLEAR, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X(PHD_VERB_CHAIN_GET, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
     X(PHD_VERB_DESCRIPTOR_GET, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
     X(PHD_VERB_PANEL_GET, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED)
 
