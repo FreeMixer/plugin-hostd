@@ -437,16 +437,42 @@ static const char *search_of(int fmt)
     return f->search ? f->search(&g_conf) : NULL;
 }
 
-/* the uris of a chain's members that run in its worker, in order; malloc'd, *n of them */
+/* the uris of a chain's members of the worker's own row that run in it, in order (a CLAP member of an adapter-row
+ * chain is found by its path, not in the world); malloc'd, *n of them */
 static const char **chain_uris(const worker_t *w, int *n)
 {
     const char **uris = malloc((w->ninst ? w->ninst : 1) * sizeof(char *));
     int k;
 
+    *n = 0;
     for (k = 0; k < w->ninst; k++)
-        uris[k] = w->inst[k]->uri;
-    *n = w->ninst;
+        if (w->inst[k]->fmt == w->fmt)
+            uris[(*n)++] = w->inst[k]->uri;
     return uris;
+}
+
+/* whether one chain's worker runs members of rows a and b: one row, or two rows of one worker program that both run
+ * chains in one client (clap and lv2-clap, both omx-clap-host) */
+static int chain_rows_together(int a, int b)
+{
+    const char *pa = bin_of(a), *pb = bin_of(b);
+
+    return a == b || (format_at(a)->native_chain && format_at(b)->native_chain && pa && pb && !strcmp(pa, pb));
+}
+
+/* the row of a chain's worker: the first member's row that narrows its world (the LV2 members' world is the one to
+ * build), else the first member's */
+static int chain_row_of(const int *ids, int n)
+{
+    int k;
+
+    for (k = 0; k < n; k++)
+        if (g_inst[ids[k]] && format_at(g_inst[ids[k]]->fmt)->narrow_world)
+            return g_inst[ids[k]]->fmt;
+    for (k = 0; k < n; k++)
+        if (g_inst[ids[k]])
+            return g_inst[ids[k]]->fmt;
+    return 0;
 }
 
 /* a format that can narrow its worker's world gives an own worker the world of the one plugin and a chain's worker the
@@ -2078,7 +2104,7 @@ static void chain_form(chain_t *c)
             continue;
         if (!w)
         {
-            w = worker_new(i->fmt, place);
+            w = worker_new(chain_row_of(c->ids, c->n), place);
             w->pool = 1;
             w->chain = c;
         }
@@ -2181,14 +2207,15 @@ static int must_run_own(const instance_t *i)
            !pins_in_process(i->uri);
 }
 
-/* while require_pins is on, a chain of a format that pins in a world of its own forms only if the format can narrow its
- * worker's world to the union of the members': it is built once in a scratch directory, every member found */
+/* while require_pins is on, a chain whose worker's row pins in a world of its own forms only if the row can narrow the
+ * worker's world to the union of its members of that row: it is built once in a scratch directory, every one found */
 static int chain_world_found(const int *ids, int n)
 {
-    const format_t *f = format_at(g_inst[ids[0]]->fmt);
+    int row = chain_row_of(ids, n);
+    const format_t *f = format_at(row);
     const char **uris;
     char dir[PATH_MAX], *world;
-    int k, found;
+    int k, m = 0, found;
 
     if (!g_conf.require_pins || !f->pinned_own_only)
         return 1;
@@ -2196,9 +2223,10 @@ static int chain_world_found(const int *ids, int n)
         return 0;
     uris = malloc(n * sizeof(char *));
     for (k = 0; k < n; k++)
-        uris[k] = g_inst[ids[k]]->uri;
+        if (g_inst[ids[k]]->fmt == row)
+            uris[m++] = g_inst[ids[k]]->uri;
     snprintf(dir, sizeof(dir), "%s/world-check", g_root);
-    world = f->narrow_world(&g_conf, dir, uris, n);
+    world = f->narrow_world(&g_conf, dir, uris, m);
     free(uris);
     rm_tree(dir);
     found = world != NULL;
@@ -2224,7 +2252,7 @@ char *sup_chain(int id, const int *ids, int n)
                 return sup_resp(PHD_ERR_CHAIN_DUPLICATE);
         if (i->chain && i->chain != c)
             return sup_resp(PHD_ERR_CHAIN_INSTANCE_BUSY);
-        if (i->fmt != g_inst[ids[0]]->fmt)
+        if (!chain_rows_together(i->fmt, g_inst[ids[0]]->fmt))
             return sup_resp(PHD_ERR_CHAIN_MIXED_FORMAT);
         if (must_run_own(i))
             return sup_resp(PHD_ERR_PLACEMENT_INVALID);

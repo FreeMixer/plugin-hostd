@@ -2904,6 +2904,74 @@ def a_chain_declared_again_keeps_its_running_worker_and_restarts_no_survivor():
             os.unlink(log)
 
 
+@test
+def a_clap_member_and_an_lv2_member_of_the_adapter_row_form_one_chain():
+    """clap and lv2-clap are two rows of one program, both running chains in one client; lv2 (mod-host) and clap are two
+    programs and stay refused. An LV2 member joining a running chain forms it again: its bundle is not in the world"""
+    d, programs, log = lv2_run(lv2_worker="omx-clap-host")
+    try:
+        d.expect("add clap:fake#a 1", "resp 1")
+        d.expect("add lv2:urn:test:b 2", "resp 2")
+        mark = d.mark()
+        d.expect("chain 1 1 2", "resp 0")
+        d.wait_event("chain_formed 1 ", since=mark)
+        k, w = list(chain_of(d, 1).items())[0]
+        check(w["inst"] == [1, 2] and w["fmt"] == "lv2-clap" and len(d.workers()) == 1,
+              "one worker, of the row that narrows its world: %s" % d.workers())
+        check(programs.of(w["pid"])[0] == "omx-clap-host", "omx-clap-host runs it: %s" % (programs.of(w["pid"]),))
+        got = sent_to(log, w["pid"])
+        check(adds_of(log, w["pid"]) == ["add clap:fake#a 1", "add lv2:urn:test:b 2"] and "chain 1 1 2" in got,
+              "each member's own add, then the order: %s" % got)
+        d.expect("chain_get 1", "resp 0 %s 1,2 1,2" % k)
+        # a CLAP member joins in place
+        d.expect("add clap:fake#c 3", "resp 3")
+        mark = d.mark()
+        d.expect("chain 1 3 1 2", "resp 0")
+        d.wait_event("chain_formed 1 %s 3,1,2" % k, since=mark)
+        check(chain_of(d, 1)[k]["pid"] == w["pid"], "the CLAP joiner restarts no one: %s" % d.workers())
+        # an LV2 member forms the chain again, in a world with its bundle
+        d.expect("add lv2:urn:test:d 4", "resp 4")
+        mark = d.mark()
+        d.expect("chain 1 3 4 1 2", "resp 0")
+        d.wait_event("chain_formed 1 ", since=mark)
+        k2, w2 = list(chain_of(d, 1).items())[0]
+        check(k2 != k and w2["inst"] == [3, 4, 1, 2], "an LV2 joiner forms the chain again: %s" % d.workers())
+        # two programs are still two workers
+        d.expect("lv2_worker_set urn:test:e mod-host", "resp 0")
+        d.expect("add lv2:urn:test:e 5", "resp 5")
+        d.expect("add clap:fake#f 6", "resp 6")
+        d.expect("chain 2 6 5", resp("CHAIN_MIXED_FORMAT"))
+        d.expect("chain 2 5 6", resp("CHAIN_MIXED_FORMAT"))
+    finally:
+        d.close()
+        programs.close()
+
+
+@test
+def under_require_pins_a_chain_of_a_clap_and_an_lv2_member_sees_the_lv2_members_bundle_only():
+    programs = Programs()
+    p = Plugins()
+    d = p.daemon(conf=programs.conf(lv2_worker="omx-clap-host"))
+    try:
+        d.expect(p.lv2_pin(), "resp 0")
+        d.expect(p.clap_pin(), "resp 0")
+        d.expect("add %s 1" % p.clap_uri, "resp 1")
+        d.expect("add %s 2" % LV2_URI, "resp 2")
+        mark = d.mark()
+        d.expect("chain 3 1 2", "resp 0")
+        d.wait_event("chain_formed 3 ", since=mark)
+        _, w = list(chain_of(d, 3).items())[0]
+        check(w["inst"] == [1, 2] and w["fmt"] == "lv2-clap", "one adapter-row worker: %s" % d.workers())
+        program, world = programs.of(w["pid"])
+        check(program == "omx-clap-host" and world != p.lv2_dir and os.listdir(world) == ["pinned.lv2"],
+              "the world is the LV2 member's bundle, the CLAP member found by its path: %s %s" % (program, world))
+    finally:
+        d.close()
+        p.close()
+        programs.close()
+
+
+
 # ---------------------------------------------------------------- descriptors
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
