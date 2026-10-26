@@ -107,11 +107,13 @@ static void run(LV2_Handle instance, uint32_t frames)
 
 /* stress: the gain, with the fault STRESS_FAULT names on its first run() in the process, as tests/stress_plugin.c does
  * for CLAP: crash aborts, hang spins forever, fork leaves a process of its own session behind (its pid written to the
- * file STRESS_FORK_PIDFILE names) */
+ * file STRESS_FORK_PIDFILE names before run() returns) */
 static void fault_once(void)
 {
     static int done;
     const char *fault = getenv("STRESS_FAULT");
+    int ready[2];
+    char c;
 
     if (done || !fault)
         return;
@@ -121,23 +123,31 @@ static void fault_once(void)
     if (!strcmp(fault, "hang"))
         for (;;)
             ;
-    if (!strcmp(fault, "fork") && fork() == 0)
+    if (!strcmp(fault, "fork") && pipe(ready) == 0)
     {
-        const char *pidfile = getenv("STRESS_FORK_PIDFILE");
-
-        setsid();
-        if (pidfile)
+        if (fork() == 0)
         {
-            FILE *f = fopen(pidfile, "w");
+            const char *pidfile = getenv("STRESS_FORK_PIDFILE");
 
-            if (f)
+            setsid();
+            if (pidfile)
             {
-                fprintf(f, "%d\n", (int)getpid());
-                fclose(f);
+                FILE *f = fopen(pidfile, "w");
+
+                if (f)
+                {
+                    fprintf(f, "%d\n", (int)getpid());
+                    fclose(f);
+                }
             }
+            close(ready[1]);
+            sleep(60);
+            _exit(0);
         }
-        sleep(60);
-        _exit(0);
+        close(ready[1]);
+        while (read(ready[0], &c, 1) > 0)
+            ;
+        close(ready[0]);
     }
 }
 
