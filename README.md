@@ -72,11 +72,13 @@ Building from source: see [BUILDING.md](BUILDING.md). More about FreeMixer at <h
 Protocol
 --------
 
-The verbs the daemon adds, the placement syntax, the error codes, the feedback events and the
-settings are declared once in `include/plugin-hostd/protocol.h`; the tables here, the man page's
-key list and `protocol/plugin-hostd.json` are generated from it. A C program includes the installed
-header (`pkg-config --cflags plugin-hostd`, package `plugin-hostd-devel` or `plugin-hostd-dev`); anything
-else reads `/usr/share/plugin-hostd/protocol.json`. mod-host's own protocol, which the LV2 workers speak
+The verbs the daemon adds are declared once in omx-contract's contract directory, with their formats, their replies,
+their refusal codes and what each host owes them: `/usr/share/omx-contract/contract.d/3/plugin-hostd/verbs.json`,
+package `plugin-hostd-contract`, beside the format tables. The placement syntax, the error codes, the feedback events
+and the settings are declared once in `include/plugin-hostd/protocol.h`, which includes the verbs as
+`plugin_hostd_host_verbs.h` renders them; the tables here, the man page's key list and `protocol/plugin-hostd.json`
+are generated from both. A C program includes the installed header (`pkg-config --cflags plugin-hostd`, package
+`plugin-hostd-devel` or `plugin-hostd-dev`); anything else reads `/usr/share/plugin-hostd/protocol.json`. mod-host's own protocol, which the LV2 workers speak
 (its command and feedback templates, its parse refusals and its reply codes), is installed beside it as
 `/usr/share/plugin-hostd/mod-host.json`, written from the mod-host headers the daemon is built against.
 The development package installs the schemas beside them: `protocol.schema.json` for the protocol JSON,
