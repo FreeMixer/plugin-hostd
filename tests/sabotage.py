@@ -736,7 +736,12 @@ SABOTAGE = [
     ("a declared format is not the grammar the daemon answers", "data/verbs.json",
      '"format": "chain_get %i",', '"format": "chain_get %i %i",', "verbs_declared", "verbs"),
     ("a declared code is not the one the daemon answers", "data/verbs.json",
-     '"resp": -3,', '"resp": -101,', "verbs_declared", "verbs"),
+     '"resp": -522,', '"resp": -101,', "verbs_declared", "verbs"),
+    ("a number omx-clap-core names is named again by plugin-hostd", "data/verbs.json",
+     '    "codes": {\n      "placementInvalid": {',
+     '    "codes": {\n      "invalidOperation": {\n        "code": "reply.plugin-hostd.invalid-operation",\n'
+     '        "resp": -902,\n        "doc": "a second name for -902"\n      },\n      "placementInvalid": {',
+     "verbs_declared", "verbs"),
     ("the handler of a declared verb is deleted", "src/verbs.c",
      "    if (!strcmp(verb, OMX_VERB_CHAIN_GET))\n    {\n        int id;\n\n"
      "        return ntok == 2 && number(tok[1], &id) ? sup_chain_get(id) : sup_resp(ERR_INVALID_OPERATION);\n    }\n",

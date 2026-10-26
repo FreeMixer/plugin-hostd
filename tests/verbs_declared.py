@@ -7,11 +7,12 @@
 #   - the verbs the daemon answers itself are the declared ones and mod-host's: a word of the binary that the daemon
 #     answers without relaying it to its worker, and that no declaration and no mod-host command holds, is red;
 #   - a verb both hosts owe answers the same line in the same shape from the daemon and from a worker that speaks for
-#     omx-clap-host (tests/fake-host, the worker every test of this tree runs).
+#     omx-clap-host (tests/fake-host, the worker every test of this tree runs);
+#   - one name per number: no refusal number is named by two codes, and each number protocol.h answers is named by a
+#     code of plugin-hostd or of omx-clap-core, whose HOST_REPLY_CODES name the numbers both hosts answer.
 # omx-clap-core's declarations are read from its package in the contract directory: the first of OMX_CONTRACT_PATH
 # (directories that stand where contractdir stands) that holds 3/omx-clap-core, else pkg-config's contractdir. Without
-# one the run says PENDING, takes the verbs protocol.h still names for both hosts in their place and fails nothing for
-# them; it names which source it read either way.
+# one the run fails: data/verbs.json requires it. The run names which source it read.
 # Usage: verbs_declared.py (PLUGIN_HOSTD, FAKE_HOST, PROTOCOL from the environment, or the tree's own).
 import json, os, re, socket, subprocess, sys, tempfile, time
 
@@ -36,22 +37,52 @@ def fail(what):
 
 # ---------------------------------------------------------------- the declarations
 
-def verbs_of(docs):
-    """{word: {format, reply, codes: [resp], implementedBy}} of every verbs item of docs, each code resolved over the
-    codes items of docs"""
+def codes_of(docs):
+    """{ITEM.name: (code, resp)} of every codes item of docs"""
     codes = {}
     for doc in docs:
         for name, item in doc.items():
             if isinstance(item, dict) and item.get("kind") == "codes":
                 for key, c in item["codes"].items():
-                    codes["%s.%s" % (name, key)] = c.get("resp")
+                    codes["%s.%s" % (name, key)] = (c["code"], c.get("resp"))
+    return codes
+
+
+def verbs_of(docs, refs):
+    """{word: {format, reply, codes: [resp], implementedBy}} of every verbs item of docs, each code resolved over the
+    codes items of refs"""
+    codes = codes_of(refs)
     out = {}
     for doc in docs:
         for item in doc.values():
             if isinstance(item, dict) and item.get("kind") == "verbs":
                 for v in item["verbs"].values():
-                    out[v["verb"]] = dict(v, codes=[codes[c["ref"]] for c in v.get("codes", [])])
+                    out[v["verb"]] = dict(v, codes=[codes[c["ref"]][1] for c in v.get("codes", [])])
     return out
+
+
+def check_one_name(own_docs, shared_docs):
+    """one name per number: no resp is named by two codes, of one package or of both, and each number protocol.h's
+    PHD_ERRORS answers is named by one code of the two packages; the lower package, omx-clap-core, owns the numbers
+    both hosts answer and plugin-hostd names only its own"""
+    named = {}
+    for pkg, docs in (("plugin-hostd", own_docs), ("omx-clap-core", shared_docs)):
+        for ref, (code, resp) in codes_of(docs).items():
+            if resp is not None:
+                named.setdefault(resp, []).append("%s %s (%s)" % (pkg, code, ref))
+    for resp, names in sorted(named.items()):
+        if len(names) > 1:
+            fail("%d has %d names: %s" % (resp, len(names), ", ".join(names)))
+    with open(os.path.join(ROOT, "include", "plugin-hostd", "protocol.h")) as f:
+        header = f.read()
+    errors = {int(n) for n in re.findall(r"^#define\s+PHD_ERR_\w+\s+\((-[0-9]+)\)", header, re.M)}
+    if len(errors) < 20:
+        fail("found only %d PHD_ERR_ numbers in protocol.h" % len(errors))
+    unnamed = sorted(errors - set(named))
+    if unnamed:
+        fail("protocol.h answers %s, which no code of plugin-hostd or omx-clap-core names" % unnamed)
+    print("ok   one name per number: %d numbers, %d of protocol.h's, %d of them named by omx-clap-core"
+          % (len(named), len(errors), len([r for r in errors if any(n.startswith("omx-clap-core") for n in named.get(r, []))])))
 
 
 def contract_dirs():
@@ -348,48 +379,34 @@ def check_both(declared):
         s.close()
 
 
-# ---------------------------------------------------------------- the declarations as protocol.h still names them
-
-def pending_shared():
-    """the verbs protocol.h names for both hosts, the instance verbs and pin_expect, in the shape of a declaration:
-    what omx-clap-core declares once its package is read"""
-    with open(os.path.join(ROOT, "protocol", "plugin-hostd.json")) as f:
-        proto = json.load(f)
-    out = {}
-    for v in proto["instance_verbs"]:
-        out[v["name"]] = {"verb": v["name"], "format": None, "reply": v["reply"], "codes": [],
-                          "implementedBy": {HOSTD: "optional", CLAP_HOST: "optional"}}
-    return out
-
-
 def main():
     with open(OWN) as f:
-        own = verbs_of([json.load(f)])
+        own_docs = [json.load(f)]
     docs, source = package("omx-clap-core")
-    if docs:
-        shared = verbs_of(docs)
-        print("ok   the shared verbs are read from %s" % source)
-        dup = set(shared) & set(own)
-        if dup:
-            fail("declared by plugin-hostd and by omx-clap-core: %s" % sorted(dup))
-        declared = dict(shared, **own)
-        # the words and the formats protocol.h still names for both hosts are omx-clap-core's declarations
-        with open(os.path.join(ROOT, "include", "plugin-hostd", "protocol.h")) as f:
-            header = f.read()
-        word = dict(re.findall(r'^#define\s+(PHD_VERB_\w+)\s+"(\w+)"', header, re.M))
-        named = 0
-        for macro, verb_macro, rest in re.findall(r'^#define\s+(PHD_VERB_\w+)_FMT\s+(PHD_VERB_\w+) "([^"]*)"', header, re.M):
-            verb = word[verb_macro]
-            if verb in shared:
-                named += 1
-                if verb + rest != shared[verb]["format"]:
-                    fail("protocol.h's %s_FMT is %r, omx-clap-core declares %r" % (macro, verb + rest, shared[verb]["format"]))
-        print("ok   protocol.h names %d formats of the shared verbs, as omx-clap-core declares them" % named)
-    else:
-        shared = {k: v for k, v in pending_shared().items() if k not in own}
-        print("PENDING the shared verbs are protocol.h's (%s): no omx-clap-core package in OMX_CONTRACT_PATH or the "
-              "contract directory" % ", ".join(sorted(shared)))
-        declared = dict(own)
+    if not docs:
+        fail("no omx-clap-core package in OMX_CONTRACT_PATH or the contract directory: data/verbs.json requires it "
+             "(%s), its verbs refuse with its HOST_REPLY_CODES" % own_docs[0]["requires"].get("omx-clap-core"))
+        return 1
+    own = verbs_of(own_docs, own_docs + docs)
+    shared = verbs_of(docs, docs)
+    print("ok   the shared verbs and codes are read from %s" % source)
+    dup = set(shared) & set(own)
+    if dup:
+        fail("declared by plugin-hostd and by omx-clap-core: %s" % sorted(dup))
+    declared = dict(shared, **own)
+    check_one_name(own_docs, docs)
+    # the words and the formats protocol.h still names for both hosts are omx-clap-core's declarations
+    with open(os.path.join(ROOT, "include", "plugin-hostd", "protocol.h")) as f:
+        header = f.read()
+    word = dict(re.findall(r'^#define\s+(PHD_VERB_\w+)\s+"(\w+)"', header, re.M))
+    named = 0
+    for macro, verb_macro, rest in re.findall(r'^#define\s+(PHD_VERB_\w+)_FMT\s+(PHD_VERB_\w+) "([^"]*)"', header, re.M):
+        verb = word[verb_macro]
+        if verb in shared:
+            named += 1
+            if verb + rest != shared[verb]["format"]:
+                fail("protocol.h's %s_FMT is %r, omx-clap-core declares %r" % (macro, verb + rest, shared[verb]["format"]))
+    print("ok   protocol.h names %d formats of the shared verbs, as omx-clap-core declares them" % named)
     print("plugin-hostd declares %d verbs, %d of them owed by plugin-hostd" %
           (len(own), len([v for v in own if owes(own[v], HOSTD)])))
 
