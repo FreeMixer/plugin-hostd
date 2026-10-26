@@ -244,7 +244,8 @@ jobs:
           for rpm in rpms/plugin-hostd-tests-[0-9]*.${{ matrix.arch }}.rpm; do
             rpm -qlp "$rpm"
             rpm -qp --qf '[%{FILEMODES:perms} %{FILENAMES}\n]' "$rpm" | grep -v -e '^d' -e '/\.build-id/' | cut -d' ' -f2 | sort > files.txt
-            printf '%s\n' /usr/libexec/plugin-hostd/tests/fake-host /usr/share/licenses/plugin-hostd-tests/COPYING | sort > expected.txt
+            printf '%s\n' /usr/libexec/plugin-hostd/tests/fake-host /usr/libexec/plugin-hostd/tests/lib/protocol.sh /usr/libexec/plugin-hostd/tests/lib/plugin_hostd_client.py \
+              /usr/share/licenses/plugin-hostd-tests/COPYING | sort > expected.txt
             diff -u expected.txt files.txt
             # tied to the same build: the requirement names the exact version-release and the isa of this very package
             case "${{ matrix.arch }}" in x86_64) isa=x86-64 ;; aarch64) isa=aarch-64 ;; *) echo "no isa for ${{ matrix.arch }}"; exit 1 ;; esac
@@ -296,6 +297,9 @@ jobs:
           set -euo pipefail
           chroot /tmp/clean-root /usr/libexec/plugin-hostd/tests/fake-host -L | tee layout.txt
           test -s layout.txt
+          # and the protocol clients it ships load
+          chroot /tmp/clean-root bash -c '. /usr/libexec/plugin-hostd/tests/lib/protocol.sh && type protocol_send protocol_expect protocol_wait_ready send'
+          chroot /tmp/clean-root python3 -c 'import sys; sys.path.insert(0, "/usr/libexec/plugin-hostd/tests/lib"); import plugin_hostd_client'
           chroot /tmp/clean-root env PLUGIN_HOSTD=/usr/bin/plugin-hostd PROBE=/usr/bin/plugin-hostd-probe FAKE_HOST=/usr/libexec/plugin-hostd/tests/fake-host \
             PLUGIN_HOSTD_PROTOCOL=/usr/share/plugin-hostd/protocol.json python3 /smoke/tests/daemon_test.py
 
@@ -415,6 +419,8 @@ jobs:
           dpkg -L plugin-hostd | grep -qx /usr/share/plugin-hostd/mod-host.json
           dpkg -L plugin-hostd-tests | tee tests.txt
           grep -qx /usr/libexec/plugin-hostd/tests/fake-host tests.txt
+          grep -qx /usr/libexec/plugin-hostd/tests/lib/protocol.sh tests.txt
+          grep -qx /usr/libexec/plugin-hostd/tests/lib/plugin_hostd_client.py tests.txt
           dpkg -s libmod-host-protocol0 | grep '^Status: install ok installed'
           dpkg-deb -f debs/plugin-hostd_*.deb Depends | tee depends.txt
           grep -qF 'libmod-host-protocol0 (>= 0.1.0-6~fmx)' depends.txt
