@@ -155,9 +155,9 @@ class fake_engine:
     """what the chain asks of a plugind engine: the mark, an instance the daemon holds, its JACK client"""
     plugind = True
 
-    def __init__(self, name, lv2=False):
+    def __init__(self, name, lv2=False, uri=None):
         self.instance = S.alloc_instance()
-        reply = S.client().cmd(S.add_line(uri_of(name, lv2), self.instance))
+        reply = S.client().cmd(S.add_line(uri or uri_of(name, lv2), self.instance))
         check(S.resp_code(reply) == self.instance, "add %s -> %r" % (name, reply))
         self.jackname = "effect_%d" % self.instance
         self.processors = []
@@ -662,10 +662,14 @@ class reference:
             buf += self.sock.recv(65536)
         return buf[:-1].decode()
 
-    def series(self, first, uris):
-        """the uris as instances first, first + 1, ... one client each, linked in that order"""
+    def series(self, first, uris, params=None):
+        """the uris as instances first, first + 1, ... one client each, linked in that order; params, one list of
+        (symbol, value) per uri, are set as each is added"""
         for k, uri in enumerate(uris):
             check(self.cmd("add %s %d" % (uri, first + k)) == "resp %d" % (first + k), "reference add %s" % uri)
+            for symbol, value in (params or [[]] * len(uris))[k]:
+                check(self.cmd("param_set %d %s %s" % (first + k, symbol, value)) == "resp 0",
+                      "reference param_set %d %s %s" % (first + k, symbol, value))
         for k in range(len(uris)):
             wait(lambda: len(audio_ports("effect_%d" % (first + k), True)) == 2, "reference effect_%d's ports" % (first + k))
         for k in range(len(uris) - 1):
@@ -677,14 +681,16 @@ class reference:
         self.proc.wait()
 
 
-def play(arms, frames=24000):
+def play(arms, frames=24000, source=False):
     """end to end: one noise into each arm's head (both inputs), each arm's tail recorded, the same cycles; arms are
-    (head client, tail client); returns the recordings' bytes, two per arm"""
+    (head client, tail client); returns the recordings' bytes, two per arm, and with source the noise of the same
+    window and the graph's rate after them"""
     tmp = tempfile.mkdtemp(prefix="zyn-chain-play.")
     files = [os.path.join(tmp, "%d.%s" % (n, side)) for n in range(len(arms)) for side in "lr"]
     feeder = subprocess.Popen([os.environ["JACK_IDENTITY"], str(frames), "4", os.path.join(tmp, "source")] + files,
                               stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-    wait(lambda: feeder.stdout.readline().startswith("ready"), "the feeder ready")
+    ready = []
+    wait(lambda: ready.append(feeder.stdout.readline()) or ready[-1].startswith("ready"), "the feeder ready")
     recs = iter("abcdef")
     for head, tail in arms:
         for dst in audio_ports(head, False):
@@ -697,6 +703,9 @@ def play(arms, frames=24000):
     check(feeder.wait(60) == 0, "the feeder played and recorded: %s" % feeder.stdout.read())
     out = [open(f, "rb").read() for f in files]
     check(all(len(o) == frames * 4 for o in out), "every recording is %d frames" % frames)
+    if source:
+        # "ready rate=<rate> quantum=<frames>" (omx-clap-core tests/jack_identity.c)
+        return out, open(os.path.join(tmp, "source"), "rb").read(), int(ready[-1].split("rate=")[1].split()[0])
     return out
 
 
