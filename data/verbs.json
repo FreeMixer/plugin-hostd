@@ -1,0 +1,537 @@
+{
+  "$schema": "../schema/omx-contract.schema.json",
+  "requires": {
+    "omx-contract-schema": ">= 3.3.0"
+  },
+  "PLUGIN_HOSTD_REPLY_CODES": {
+    "kind": "codes",
+    "since": "0.12.0",
+    "doc": "The refusals plugin-hostd answers by number (include/plugin-hostd/protocol.h PHD_ERRORS), and the two of mod-host's numbers it answers for its own verbs.",
+    "codes": {
+      "invalidOperation": {
+        "code": "reply.plugin-hostd.invalid-operation",
+        "resp": -902,
+        "doc": "mod-host's ERR_INVALID_OPERATION, answered by the daemon for a line outside the grammar of one of its own verbs"
+      },
+      "instanceUnknown": {
+        "code": "reply.plugin-hostd.instance-unknown",
+        "resp": -101,
+        "doc": "mod-host's ERR_INSTANCE_NON_EXISTS, answered by the daemon for an instance no add made"
+      },
+      "placementInvalid": {
+        "code": "reply.plugin-hostd.placement-invalid",
+        "resp": -501,
+        "doc": "PHD_ERR_PLACEMENT_INVALID: not a placement, or not valid here"
+      },
+      "noBackend": {
+        "code": "reply.plugin-hostd.no-backend",
+        "resp": -502,
+        "doc": "PHD_ERR_NO_BACKEND: no worker program for the scheme"
+      },
+      "workerSpawn": {
+        "code": "reply.plugin-hostd.worker-spawn",
+        "resp": -503,
+        "doc": "PHD_ERR_WORKER_SPAWN: the worker is not up"
+      },
+      "replay": {
+        "code": "reply.plugin-hostd.replay",
+        "resp": -504,
+        "doc": "PHD_ERR_REPLAY: the name of a refused replay on stderr, never a reply"
+      },
+      "gaveUp": {
+        "code": "reply.plugin-hostd.gave-up",
+        "resp": -505,
+        "doc": "PHD_ERR_GAVE_UP: the storm bound is spent for that placement"
+      },
+      "noSuchWorker": {
+        "code": "reply.plugin-hostd.no-such-worker",
+        "resp": -506,
+        "doc": "PHD_ERR_NO_SUCH_WORKER: no such worker"
+      },
+      "verbDropped": {
+        "code": "reply.plugin-hostd.verb-dropped",
+        "resp": -507,
+        "doc": "PHD_ERR_VERB_DROPPED: the worker died on this very command and the daemon dropped it"
+      },
+      "pinAbsent": {
+        "code": "reply.plugin-hostd.pin-absent",
+        "resp": -508,
+        "doc": "PHD_ERR_PIN_ABSENT: the plugin has no pin, or its layout pin is in a scheme this version does not know"
+      },
+      "pinBinaryMismatch": {
+        "code": "reply.plugin-hostd.pin-binary-mismatch",
+        "resp": -509,
+        "doc": "PHD_ERR_PIN_BINARY_MISMATCH: a pinned file is missing or its SHA-256 differs"
+      },
+      "pinLayoutMismatch": {
+        "code": "reply.plugin-hostd.pin-layout-mismatch",
+        "resp": -510,
+        "doc": "PHD_ERR_PIN_LAYOUT_MISMATCH: the parameter layout after init differs from the layout pin"
+      },
+      "noParamContract": {
+        "code": "reply.plugin-hostd.no-param-contract",
+        "resp": -511,
+        "doc": "PHD_ERR_NO_PARAM_CONTRACT: the host holds no checked unit and scale for this parameter"
+      },
+      "lv2AdapterRefused": {
+        "code": "reply.plugin-hostd.lv2-adapter-refused",
+        "resp": -512,
+        "doc": "PHD_ERR_LV2_ADAPTER_REFUSED: the lv2-clap worker's LV2 adapter cannot run this plugin"
+      },
+      "noNoteInput": {
+        "code": "reply.plugin-hostd.no-note-input",
+        "resp": -513,
+        "doc": "PHD_ERR_NO_NOTE_INPUT: the instance's plugin takes no notes"
+      },
+      "notesByJack": {
+        "code": "reply.plugin-hostd.notes-by-jack",
+        "resp": -514,
+        "doc": "PHD_ERR_NOTES_BY_JACK: the instance's worker takes no notes on its socket"
+      },
+      "noPresetList": {
+        "code": "reply.plugin-hostd.no-preset-list",
+        "resp": -515,
+        "doc": "PHD_ERR_NO_PRESET_LIST: the instance's worker cannot list the plugin's presets"
+      },
+      "pinRefused": {
+        "code": "reply.plugin-hostd.pin-refused",
+        "resp": -516,
+        "doc": "PHD_ERR_PIN_REFUSED: the plugin's pin carries verdict=refused"
+      },
+      "noteQueueFull": {
+        "code": "reply.plugin-hostd.note-queue-full",
+        "resp": -517,
+        "doc": "PHD_ERR_NOTE_QUEUE_FULL: the instance's worker has no room for this note before its next block"
+      },
+      "chainUnknownInstance": {
+        "code": "reply.plugin-hostd.chain-unknown-instance",
+        "resp": -518,
+        "doc": "PHD_ERR_CHAIN_UNKNOWN_INSTANCE: a member is an instance no add made"
+      },
+      "chainDuplicate": {
+        "code": "reply.plugin-hostd.chain-duplicate",
+        "resp": -519,
+        "doc": "PHD_ERR_CHAIN_DUPLICATE: an instance is named twice in one chain"
+      },
+      "chainInstanceBusy": {
+        "code": "reply.plugin-hostd.chain-instance-busy",
+        "resp": -520,
+        "doc": "PHD_ERR_CHAIN_INSTANCE_BUSY: a member is already in another chain"
+      },
+      "chainMixedFormat": {
+        "code": "reply.plugin-hostd.chain-mixed-format",
+        "resp": -521,
+        "doc": "PHD_ERR_CHAIN_MIXED_FORMAT: no one worker program runs every member"
+      },
+      "noSuchChain": {
+        "code": "reply.plugin-hostd.no-such-chain",
+        "resp": -522,
+        "doc": "PHD_ERR_NO_SUCH_CHAIN: a chain no chain line declared"
+      },
+      "presetNotOffered": {
+        "code": "reply.plugin-hostd.preset-not-offered",
+        "resp": -523,
+        "doc": "PHD_ERR_PRESET_NOT_OFFERED: a stable name the plugin does not offer"
+      },
+      "presetInvalid": {
+        "code": "reply.plugin-hostd.preset-invalid",
+        "resp": -524,
+        "doc": "PHD_ERR_PRESET_INVALID: a preset file or path that is not the preset format"
+      },
+      "presetNeedsState": {
+        "code": "reply.plugin-hostd.preset-needs-state",
+        "resp": -525,
+        "doc": "PHD_ERR_PRESET_NEEDS_STATE: a preset file that carries state for a worker that cannot take state"
+      },
+      "presetPluginChanged": {
+        "code": "reply.plugin-hostd.preset-plugin-changed",
+        "resp": -526,
+        "doc": "PHD_ERR_PRESET_PLUGIN_CHANGED: the preset file's plugin id, version or fingerprint is not the instance's"
+      },
+      "loadRefused": {
+        "code": "reply.plugin-hostd.load-refused",
+        "resp": -527,
+        "doc": "PHD_ERR_LOAD_REFUSED: the plugin refused the preset or the state its file carries"
+      },
+      "dirNotWritable": {
+        "code": "reply.plugin-hostd.dir-not-writable",
+        "resp": -528,
+        "doc": "PHD_ERR_DIR_NOT_WRITABLE: descriptor_dir or qualification_dir cannot be made or written"
+      },
+      "descriptorAbsent": {
+        "code": "reply.plugin-hostd.descriptor-absent",
+        "resp": -529,
+        "doc": "PHD_ERR_DESCRIPTOR_ABSENT: no descriptor (panel) for the plugin's binary as it is now"
+      },
+      "descriptorPending": {
+        "code": "reply.plugin-hostd.descriptor-pending",
+        "resp": -530,
+        "doc": "PHD_ERR_DESCRIPTOR_PENDING: the scan its add started has not written the descriptor (panel) yet"
+      },
+      "descriptorScanFailed": {
+        "code": "reply.plugin-hostd.descriptor-scan-failed",
+        "resp": -531,
+        "doc": "PHD_ERR_DESCRIPTOR_SCAN_FAILED: the plugin's last scan wrote no descriptor (panel)"
+      }
+    }
+  },
+  "PLUGIN_HOSTD_VERBS": {
+    "kind": "verbs",
+    "since": "0.12.0",
+    "doc": "The verbs plugin-hostd adds to mod-host's protocol and answers itself, and the ones it sends a worker (README.md, Verbs the daemon adds).",
+    "verbs": {
+      "workerList": {
+        "verb": "worker_list",
+        "format": "worker_list",
+        "reply": "resp <n> <worker>:<pid>:<format>:<state>:<place>:<i>,<i>,...",
+        "codes": [
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.invalidOperation"
+          }
+        ],
+        "implementedBy": {
+          "plugin-hostd": "required"
+        },
+        "doc": "The workers, one record each."
+      },
+      "instanceInfo": {
+        "verb": "instance_info",
+        "format": "instance_info %i",
+        "reply": "resp 0 <worker> <pid> <state> <crashes> <quarantined>",
+        "codes": [
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.instanceUnknown"
+          },
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.invalidOperation"
+          }
+        ],
+        "implementedBy": {
+          "plugin-hostd": "required"
+        },
+        "doc": "Where an instance lives and what it has cost."
+      },
+      "supervisorReset": {
+        "verb": "supervisor_reset",
+        "format": "supervisor_reset ...",
+        "reply": "resp 0",
+        "codes": [
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.noSuchWorker"
+          },
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.invalidOperation"
+          }
+        ],
+        "implementedBy": {
+          "plugin-hostd": "required"
+        },
+        "doc": "Re-arm the storm bound and the backoff of a given-up placement: [<worker> | all]."
+      },
+      "quarantineClear": {
+        "verb": "quarantine_clear",
+        "format": "quarantine_clear %s",
+        "reply": "resp 0",
+        "codes": [
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.instanceUnknown"
+          },
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.invalidOperation"
+          }
+        ],
+        "implementedBy": {
+          "plugin-hostd": "required"
+        },
+        "doc": "Let a quarantined instance go back where its placement says: <instance> | all."
+      },
+      "policySet": {
+        "verb": "policy_set",
+        "format": "policy_set %s %s",
+        "reply": "resp 0",
+        "codes": [
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.placementInvalid"
+          },
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.invalidOperation"
+          }
+        ],
+        "implementedBy": {
+          "plugin-hostd": "required"
+        },
+        "doc": "The placement of an add that says default: <format | *> own | pool:<name>."
+      },
+      "poolConfig": {
+        "verb": "pool_config",
+        "format": "pool_config %s %i",
+        "reply": "resp 0",
+        "codes": [
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.placementInvalid"
+          },
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.invalidOperation"
+          }
+        ],
+        "implementedBy": {
+          "plugin-hostd": "required"
+        },
+        "doc": "The instances a pool holds before a sibling opens: <name> <max_instances>."
+      },
+      "workerEnv": {
+        "verb": "worker_env",
+        "format": "worker_env %s %s %s",
+        "reply": "resp 0",
+        "codes": [
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.invalidOperation"
+          }
+        ],
+        "implementedBy": {
+          "plugin-hostd": "required"
+        },
+        "doc": "The cpu list and the nice value of the workers of a format, at spawn and on the ones running: <format | *> <cpu-list | -> <nice | ->."
+      },
+      "pinSet": {
+        "verb": "pin_set",
+        "format": "pin_set %s %s %s ...",
+        "reply": "resp 0",
+        "codes": [
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.pinRefused"
+          },
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.invalidOperation"
+          }
+        ],
+        "implementedBy": {
+          "plugin-hostd": "required"
+        },
+        "doc": "The pin of one plugin: <uri> <path>=<sha256>[,<path>=<sha256>...] <scheme>:<sha256> [verdict=<verdict>]."
+      },
+      "pinClear": {
+        "verb": "pin_clear",
+        "format": "pin_clear %s",
+        "reply": "resp 0",
+        "codes": [
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.invalidOperation"
+          }
+        ],
+        "implementedBy": {
+          "plugin-hostd": "required"
+        },
+        "doc": "Forget the pin of one plugin, or of every one: <uri> | all."
+      },
+      "pinAccept": {
+        "verb": "pin_accept",
+        "format": "pin_accept %s",
+        "reply": "resp 0",
+        "codes": [
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.pinAbsent"
+          },
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.pinBinaryMismatch"
+          },
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.pinRefused"
+          },
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.invalidOperation"
+          }
+        ],
+        "implementedBy": {
+          "plugin-hostd": "required"
+        },
+        "doc": "Under pin_mode first-use, take the plugin's files as they are now as its pin: <uri>."
+      },
+      "pinLayout": {
+        "verb": "pin_layout",
+        "format": "pin_layout %i",
+        "reply": "resp 0 <scheme>:<sha256>",
+        "implementedBy": {
+          "omx-clap-host": "optional",
+          "mod-host": "unsupported"
+        },
+        "doc": "Sent by the daemon to a worker that checks layouts, after it accepted an add whose layout pin is unknown: the layout the worker found after init."
+      },
+      "lv2WorkerSet": {
+        "verb": "lv2_worker_set",
+        "format": "lv2_worker_set %s %s",
+        "reply": "resp 0",
+        "codes": [
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.invalidOperation"
+          }
+        ],
+        "implementedBy": {
+          "plugin-hostd": "required"
+        },
+        "doc": "The worker of one LV2 plugin, for its adds from now on: <uri> <mod-host | omx-clap-host | auto | ->."
+      },
+      "chain": {
+        "verb": "chain",
+        "format": "chain %i %i ...",
+        "reply": "resp 0",
+        "codes": [
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.chainUnknownInstance"
+          },
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.chainDuplicate"
+          },
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.chainInstanceBusy"
+          },
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.chainMixedFormat"
+          },
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.placementInvalid"
+          },
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.invalidOperation"
+          }
+        ],
+        "implementedBy": {
+          "plugin-hostd": "required",
+          "omx-clap-host": "required",
+          "mod-host": "unsupported"
+        },
+        "doc": "The instances, in this order, are one chain run in one worker: <chain> <instance> [<instance> ...]; a worker that runs chains in one client is sent the line with the members it holds."
+      },
+      "chainClear": {
+        "verb": "chain_clear",
+        "format": "chain_clear %i",
+        "reply": "resp 0",
+        "codes": [
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.noSuchChain"
+          },
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.invalidOperation"
+          }
+        ],
+        "implementedBy": {
+          "plugin-hostd": "required"
+        },
+        "doc": "Forget the chain: each member goes to a worker of its own."
+      },
+      "chainGet": {
+        "verb": "chain_get",
+        "format": "chain_get %i",
+        "reply": "resp 0 <worker> <instance>,... <instance>,...",
+        "codes": [
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.noSuchChain"
+          },
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.invalidOperation"
+          }
+        ],
+        "implementedBy": {
+          "plugin-hostd": "required"
+        },
+        "doc": "Read a chain back: its worker, its members in the declared order, and the members its worker runs now."
+      },
+      "descriptorGet": {
+        "verb": "descriptor_get",
+        "format": "descriptor_get %s",
+        "reply": "resp 0 \"<path>\"",
+        "codes": [
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.dirNotWritable"
+          },
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.descriptorAbsent"
+          },
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.descriptorPending"
+          },
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.descriptorScanFailed"
+          },
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.invalidOperation"
+          }
+        ],
+        "implementedBy": {
+          "plugin-hostd": "required"
+        },
+        "doc": "The scanned descriptor of the plugin, answered from descriptor_dir: <uri>."
+      },
+      "panelGet": {
+        "verb": "panel_get",
+        "format": "panel_get %s",
+        "reply": "resp 0 \"<path>\"",
+        "codes": [
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.dirNotWritable"
+          },
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.descriptorAbsent"
+          },
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.descriptorPending"
+          },
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.descriptorScanFailed"
+          },
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.invalidOperation"
+          }
+        ],
+        "implementedBy": {
+          "plugin-hostd": "required"
+        },
+        "doc": "The panel the plugin publishes, answered from descriptor_dir: <uri>."
+      },
+      "presetList": {
+        "verb": "preset_list",
+        "format": "preset_list %i",
+        "reply": "resp <count>",
+        "codes": [
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.noPresetList"
+          },
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.instanceUnknown"
+          },
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.invalidOperation"
+          }
+        ],
+        "implementedBy": {
+          "plugin-hostd": "optional",
+          "omx-clap-host": "optional",
+          "mod-host": "unsupported"
+        },
+        "doc": "The plugin's presets, the ones its preset discovery or its bundle lists."
+      },
+      "presetGet": {
+        "verb": "preset_get",
+        "format": "preset_get %i %i",
+        "reply": "resp 0 <load_key> <name>",
+        "codes": [
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.noPresetList"
+          },
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.instanceUnknown"
+          },
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.invalidOperation"
+          }
+        ],
+        "implementedBy": {
+          "plugin-hostd": "optional",
+          "omx-clap-host": "optional",
+          "mod-host": "unsupported"
+        },
+        "doc": "One preset, 0 to count - 1: the key preset_load takes for it, and its name."
+      }
+    }
+  }
+}
