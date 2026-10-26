@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.10.0
+Version: 0.11.0
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -25,14 +25,16 @@ BuildRequires: omx-contract-devel >= 3.0.0
 Requires: mod-host-protocol%{?_isa} >= 0.10.6.f14a230-11.1
 # omx-clap-core is a build dependency of the check stage only: the CLAP worker and the fixtures the real-worker
 # tests drive. A build with `--without check` needs nothing of omx-clap-core, so plugin-hostd and omx-clap-core
-# do not build-depend on each other. A floor only: the lowest release with what the tests need (omx-clap-core 0.9)
+# do not build-depend on each other. A floor only: the lowest release with what the tests need (omx-clap-core 0.21,
+# the first whose omx-clap-host runs a chain's members in one client in the declared order, and whose tests package
+# ships fault-14.clap and jack_identity)
 %if %{with check}
-BuildRequires: omx-clap-host-tests >= 0.9.0
+BuildRequires: omx-clap-host-tests >= 0.21.0
 %endif
 
 # the workers: a format whose worker is not installed refuses its adds (-503), the other format is unaffected
 Recommends: mod-host
-Recommends: omx-clap-host >= 0.9.0
+Recommends: omx-clap-host >= 0.21.0
 
 %description
 plugin-hostd keeps your effects and instruments running when one of them
@@ -116,6 +118,25 @@ make test-daemon check-generated
 %{_datadir}/omx-contract/contract.d/3/plugin-hostd/
 
 %changelog
+* Mon Oct 26 2026 Pau Aliagas <linuxnow@gmail.com> - 0.11.0-1
+- chain_get <chain> reads a chain back: its worker, its members in the
+  declared order and the members its worker runs now. A quarantined member
+  is declared and not running; a chain no chain declared answers -522.
+- A chain declared again while its worker is up keeps that worker: a new
+  member joins it with its add, the order, its own checkpoint and its
+  connections, a move sends the order alone, and no other member restarts
+  or loses a value set after its checkpoint. A member left out goes to a
+  worker of its own, and an LV2 joiner forms the chain again.
+- CLAP members and LV2 members of the adapter row (lv2_worker omx-clap-host)
+  form one chain in one omx-clap-host instead of answering -521; LV2 on
+  mod-host with CLAP still answers -521.
+- omx-clap-host 0.21.0 or newer is recommended, and the tests need
+  omx-clap-host-tests 0.21.0 or newer: the first release whose worker runs
+  such a chain.
+- The fuzz harnesses check each word of a command, every broadcast verb's
+  argument count, a reply against the call that answered it and that the
+  relay loses no byte a worker wrote; make fuzz-records proves every check
+  aborts on its own seed. The daemon does not change with them.
 * Sun Oct 25 2026 Pau Aliagas <linuxnow@gmail.com> - 0.10.0-1
 - panel_get <uri> answers the path of the panel the plugin publishes, filed
   by the scan of its add; docs/panel.md tells a renderer how to draw it.
