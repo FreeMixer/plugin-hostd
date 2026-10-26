@@ -434,6 +434,7 @@ class Catalog:
         self.plugins = table["plugins"]
         self.midi = table["midi"]
         self.pianoteq_dir = pianoteq_dir
+        self.manifests = {}
 
     def name(self, key):
         return self.plugins[key]["name"]
@@ -454,12 +455,25 @@ class Catalog:
                 return uri, "%s (CLAP)" % p["name"], None
             if fmt == "clap":
                 raise Refused("%s has no CLAP build" % p["name"])
+            self.lv2_installed(p)
             return "lv2:" + p["lv2"], "%s (LV2)" % p["name"], None
         if fmt == "clap":
             raise Refused("%s runs LV2 only" % HOST_PROGRAM[host])
         if "lv2" not in p:
             raise Refused("%s has no LV2 build" % p["name"])
+        self.lv2_installed(p)
         return p["lv2"], "%s (LV2)" % p["name"], p["name"] if "clap" in p else None
+
+    def lv2_installed(self, p):
+        """a plugin no bundle's manifest names is not on this machine: the row is unsupported, not a failed add"""
+        uri = "<%s>" % p["lv2"]
+        if uri not in self.manifests:
+            dirs = ([self.pianoteq_dir] if self.pianoteq_dir else []) + lv2_dirs()
+            found = [m for d in dirs for pat in ("manifest.ttl", "*.lv2/manifest.ttl")
+                     for m in glob.glob(os.path.join(d, pat))]
+            self.manifests[uri] = any(uri in read(m) for m in found)
+        if not self.manifests[uri]:
+            raise Refused("%s is not installed (no LV2 bundle names %s)" % (p["name"], p["lv2"]))
 
     def files(self):
         out = []

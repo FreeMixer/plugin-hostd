@@ -37,7 +37,8 @@ green() {
 for ex in "$here"/examples/*.json; do
     green "validate $(basename "$ex")" "$here/validate.sh" "$ex"
 done
-ex=$(ls "$here"/examples/*.json | head -n 1)
+examples=("$here"/examples/*.json)
+ex=${examples[0]}
 break_doc() {  # break_doc <name> <python statement on d>
     python3 -I - "$ex" "$work/$1.json" "$2" <<'EOF'
 import json, sys
@@ -47,19 +48,19 @@ json.dump(d, open(sys.argv[2], "w"))
 EOF
 }
 first_ok='[s for s in d["scenarios"] if s["status"] == "ok"][0]'
-break_doc status "$first_ok[\"status\"] = \"fine\""
+break_doc status "${first_ok}[\"status\"] = \"fine\""
 red "validator: a status no one declared" "status.json: scenario [a-z0-9-]+ H[1-4] [0-9]+/[0-9]+.*: scenarios/[0-9]+/status:enum" \
     "$here/validate.sh" "$work/status.json"
-break_doc dsp "$first_ok[\"dsp_load_avg\"] = None"
+break_doc dsp "${first_ok}[\"dsp_load_avg\"] = None"
 red "validator: an ok row with no DSP load" "dsp.json: scenario .*: scenarios/[0-9]+/dsp_load_avg:type" \
     "$here/validate.sh" "$work/dsp.json"
 break_doc unsupported 's = [s for s in d["scenarios"] if s["status"] != "ok"][0]; s["note"] = ""'
 red "validator: a row that did not run, with no reason" "unsupported.json: scenario .*: scenarios/[0-9]+/note:minLength" \
     "$here/validate.sh" "$work/unsupported.json"
-break_doc maxavg "$first_ok[\"dsp_load_max\"] = $first_ok[\"dsp_load_avg\"] - 0.5"
+break_doc maxavg "${first_ok}[\"dsp_load_max\"] = ${first_ok}[\"dsp_load_avg\"] - 0.5"
 red "validator: a max below its average" "maxavg.json: scenario .*: rule:max-not-below-avg" \
     "$here/validate.sh" "$work/maxavg.json"
-break_doc extra "$first_ok[\"dsp\"] = 1"
+break_doc extra "${first_ok}[\"dsp\"] = 1"
 red "validator: a field the schema does not declare" "extra.json: scenario .*: scenarios/[0-9]+:additionalProperties" \
     "$here/validate.sh" "$work/extra.json"
 

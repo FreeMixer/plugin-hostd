@@ -15,7 +15,8 @@ Run it
 ------
 
 It needs the OpenMixer channel's `plugin-hostd`, `omx-clap-host`, `omx-plugins-clap` and `omx-plugins-lv2`, plus
-`jackd2`, `jack-example-tools`, `jalv`, `calf-plugins` and `python3`. `mod-host` runs H3 where it is installed.
+`jackd2`, `jack-example-tools`, `jalv`, `calf-plugins` and `python3` (on Fedora: `jack-audio-connection-kit`,
+`jack-examples`, `jack-tools`, `jalv`, `lv2-calf-plugins`). `mod-host` runs H3 where it is installed.
 
     bench/run.sh --class rpi5 --out results/ --rates 48000,96000 --frames 128,256
 
