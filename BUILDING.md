@@ -10,7 +10,7 @@ missing. The daemon needs libc and that library and nothing else.
 
 The probe runner and the protocol generator also read omx-contract's C headers,
 `<omxcontract/omx_contract_limits.h>` and `<omxcontract/omx_vocabulary.h>`, from
-`pkg-config omx-contract` (`omx-contract-devel`, `libomx-contract-dev`, 2.18.0 or
+`pkg-config omx-contract` (`omx-contract-devel`, `libomx-contract-dev`, 3.3.0 or
 later; `CONTRACT_CFLAGS=-I<dir>` for one that is not installed). The runner's
 default rates are the contract's `ORACLE_FLOOR_RATES`, and the generator refuses
 to build or run when the protocol's parameter scales are not the contract's
@@ -46,6 +46,19 @@ The tables in README.md marked `BEGIN GENERATED protocol:...`, the key list of t
 headers the build compiles against (`pkg-config --cflags mod-host-protocol`, or `MOD_HOST_DIR/src`), by
 `tools/mod-host-json.py`; `make test-mod-host-json` checks that it follows them.
 
+The daemon's verbs
+------------------
+
+The verbs the daemon adds to mod-host's protocol, and the codes they answer, are declared in `data/verbs.json`, a
+`verbs` item of omx-contract's contract directory (schema 3.3.0 or later). `omx-contract render` writes them into
+`include/plugin-hostd/plugin_hostd_host_verbs.h` and `plugin_hostd_vocabulary.h`, which are committed and which
+`protocol.h` includes: `make render-verbs` rewrites them and `make check-rendered` fails on any drift. Both run the
+`omx-contract` command (package `omx-contract`); the build itself does not.
+
+`make install-contract` installs `data/` as the package `plugin-hostd` of the contract directory. The noarch package
+`plugin-hostd-contract` carries those files, and `plugin-hostd` and `plugin-hostd-devel` (`plugin-hostd-dev`) require
+it at the same version.
+
 Tests
 -----
 
@@ -59,9 +72,9 @@ ledger, replay to the byte, attribution, quarantine, the storm bound,
 
 The verbs are read from their declarations, never spelled: mod-host's from the
 command formats of `mod-host.h`, the daemon's own from
-`include/plugin-hostd/protocol.h`. `tests/verbs_contract.py` fails on a C string
+`data/verbs.json` through the rendered header. `tests/verbs_contract.py` fails on a C string
 that starts with one, and `tests/perturbation.py` renames a verb in a scratch
-copy of each header and requires the rebuilt daemon to answer the new name and
+copy of `data/verbs.json` and of `mod-host.h` and requires the rebuilt daemon to answer the new name and
 not the old.
 
     make test-jack OMX_CLAP_HOST=<omx-clap-host> [MOD_HOST=<mod-host> LV2_DIR=<lv2 path> LV2_URI=<a stereo effect> LV2_BUNDLE=<its bundle dir> LV2_PARAM=<a control taking 0.25>]

@@ -217,22 +217,34 @@ jobs:
             rpm -qp --requires "$rpm" | tee requires.txt
             grep -q 'libmod-host-protocol.so.0' requires.txt
             grep -qx 'mod-host-protocol(.*) >= 0.10.6.f14a230-11.1' requires.txt
+            grep -qx "plugin-hostd-contract = $(rpm -qp --qf '%{VERSION}-%{RELEASE}' "$rpm")" requires.txt
             rpm -qp --recommends "$rpm" | tee recommends.txt
             grep -q '^mod-host' recommends.txt
             grep -q '^omx-clap-host' recommends.txt
           done
-          # the development package: the header a consumer includes, its pkg-config file, the schema of the JSON
+          # the development package: the headers a consumer includes, its pkg-config file, the schema of the JSON
           for rpm in rpms/plugin-hostd-devel-[0-9]*.noarch.rpm; do
             rpm -qlp "$rpm"
             rpm -qp --qf '[%{FILEMODES:perms} %{FILENAMES}\n]' "$rpm" | grep -v '^d' | cut -d' ' -f2 | sort > files.txt
             printf '%s\n' /usr/include/plugin-hostd/protocol.h /usr/include/plugin-hostd/pin.h /usr/share/pkgconfig/plugin-hostd.pc \
+              /usr/include/plugin-hostd/plugin_hostd_host_verbs.h /usr/include/plugin-hostd/plugin_hostd_vocabulary.h \
               /usr/share/plugin-hostd/protocol.schema.json /usr/share/plugin-hostd/probe-output.schema.json /usr/share/plugin-hostd/preset.schema.json \
-              /usr/share/omx-contract/contract.d/3/plugin-hostd/MANIFEST.json \
-              /usr/share/omx-contract/contract.d/3/plugin-hostd/formats/clap.json \
-              /usr/share/omx-contract/contract.d/3/plugin-hostd/formats/lv2.json \
               /usr/share/licenses/plugin-hostd-devel/COPYING | sort > expected.txt
             diff -u expected.txt files.txt
+            rpm -qp --requires "$rpm" | grep -qx "plugin-hostd-contract = $(rpm -qp --qf '%{VERSION}-%{RELEASE}' "$rpm")"
           done
+          # the contract package: the contract directory's files, which readers read at run time, noarch
+          for rpm in rpms/plugin-hostd-contract-[0-9]*.noarch.rpm; do
+            rpm -qlp "$rpm"
+            rpm -qp --qf '[%{FILEMODES:perms} %{FILENAMES}\n]' "$rpm" | grep -v '^d' | cut -d' ' -f2 | sort > files.txt
+            printf '%s\n' /usr/share/omx-contract/contract.d/3/plugin-hostd/MANIFEST.json \
+              /usr/share/omx-contract/contract.d/3/plugin-hostd/formats/clap.json \
+              /usr/share/omx-contract/contract.d/3/plugin-hostd/formats/lv2.json \
+              /usr/share/omx-contract/contract.d/3/plugin-hostd/verbs.json \
+              /usr/share/licenses/plugin-hostd-contract/COPYING | sort > expected.txt
+            diff -u expected.txt files.txt
+          done
+          ls rpms/plugin-hostd-contract-[0-9]*.noarch.rpm
           # the tests package: the fake worker, where plugin-qualify's pins-file test finds it
           for rpm in rpms/plugin-hostd-tests-[0-9]*.${{ matrix.arch }}.rpm; do
             rpm -qlp "$rpm"
@@ -257,6 +269,7 @@ jobs:
             mod-host-rpms/mod-host-[0-9]*.rpm
             mod-host-rpms/mod-host-protocol-[0-9]*.rpm
             rpms/plugin-hostd-[0-9]*.${{ matrix.arch }}.rpm
+            rpms/plugin-hostd-contract-[0-9]*.noarch.rpm
             rpms/plugin-hostd-tests-[0-9]*.${{ matrix.arch }}.rpm
           packages: python3
 
@@ -379,11 +392,25 @@ jobs:
         run: |
           set -euo pipefail
           apt-get update -qq
-          apt-get install -y --no-install-recommends ./debs/plugin-hostd_*.deb ./debs/plugin-hostd-dev_*.deb ./debs/plugin-hostd-tests_*.deb ./dep-debs/libmod-host-protocol0_*.deb python3
+          apt-get install -y --no-install-recommends ./debs/plugin-hostd_*.deb ./debs/plugin-hostd-contract_*.deb ./debs/plugin-hostd-dev_*.deb ./debs/plugin-hostd-tests_*.deb ./dep-debs/libmod-host-protocol0_*.deb python3
           dpkg -L plugin-hostd-dev | tee dev.txt
           grep -qx /usr/include/plugin-hostd/protocol.h dev.txt
+          grep -qx /usr/include/plugin-hostd/plugin_hostd_host_verbs.h dev.txt
+          grep -qx /usr/include/plugin-hostd/plugin_hostd_vocabulary.h dev.txt
           grep -qx /usr/include/plugin-hostd/pin.h dev.txt
           grep -qx /usr/share/pkgconfig/plugin-hostd.pc dev.txt
+          ! grep -q /usr/share/omx-contract/ dev.txt
+          # the contract directory's files are the noarch contract package's, which the daemon and the headers depend on
+          test "$(dpkg-deb -f debs/plugin-hostd-contract_*.deb Architecture)" = all
+          dpkg -L plugin-hostd-contract | tee contract.txt
+          for f in MANIFEST.json formats/clap.json formats/lv2.json verbs.json; do
+            grep -qx "/usr/share/omx-contract/contract.d/3/plugin-hostd/$f" contract.txt
+          done
+          dpkg-deb -f debs/plugin-hostd-contract_*.deb Breaks Replaces | tee breaks.txt
+          test "$(grep -c '^\(Breaks\|Replaces\): plugin-hostd-dev (<< ' breaks.txt)" = 2
+          for p in plugin-hostd plugin-hostd-dev; do
+            dpkg-deb -f debs/${p}_*.deb Depends | grep -q 'plugin-hostd-contract (= '
+          done
           dpkg -L plugin-hostd | grep -qx /usr/share/plugin-hostd/protocol.json
           dpkg -L plugin-hostd | grep -qx /usr/share/plugin-hostd/mod-host.json
           dpkg -L plugin-hostd-tests | tee tests.txt

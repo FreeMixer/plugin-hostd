@@ -4,8 +4,9 @@ Priority: optional
 Maintainer: Pau Aliagas <linuxnow@gmail.com>
 Build-Depends: debhelper-compat (= 13),
                libmod-host-protocol-dev (>= 0.1.0-5),
-               libomx-contract-dev (>= 3.0.0~),
+               libomx-contract-dev (>= 3.3.0~),
                omx-clap-host-tests (>= 0.21.0~) <!nocheck>,
+               omx-contract (>= 3.3.0~) <!nocheck>,
                pkgconf,
                python3
 Standards-Version: 4.6.2
@@ -14,7 +15,8 @@ Rules-Requires-Root: no
 
 Package: plugin-hostd
 Architecture: any
-Depends: libmod-host-protocol0 (>= 0.1.0-6~fmx), ${shlibs:Depends}, ${misc:Depends}
+Depends: libmod-host-protocol0 (>= 0.1.0-6~fmx), plugin-hostd-contract (= ${source:Version}), ${shlibs:Depends},
+         ${misc:Depends}
 Recommends: omx-clap-host (>= 0.21.0)
 Suggests: mod-host
 Description: run LV2 and CLAP plugins so that one crash cannot stop the show
@@ -43,10 +45,23 @@ Description: stand-in plugin worker to test a program that drives plugin-hostd
 Package: plugin-hostd-dev
 Section: libdevel
 Architecture: all
-Depends: ${misc:Depends}
+Depends: plugin-hostd-contract (= ${source:Version}), ${misc:Depends}
 Description: C header to drive plugin-hostd from your own controller
  The C header that declares everything a controller needs to drive
  plugin-hostd: the verbs it adds to mod-host's protocol, error codes, feedback
  events and settings. Include it instead of copying the values, and pkg-config
  plugin-hostd gives the flags. The same declaration as JSON, for tools not
  written in C, ships in the plugin-hostd package.
+
+Package: plugin-hostd-contract
+Architecture: all
+Depends: ${misc:Depends}
+Breaks: plugin-hostd-dev (<< ${source:Version})
+Replaces: plugin-hostd-dev (<< ${source:Version})
+Description: plugin-hostd's format tables and verbs, read at run time
+ plugin-hostd's package of omx-contract's contract directory: the format
+ tables a scan maps a CLAP or LV2 plugin through (formats/clap.json,
+ formats/lv2.json) and the verbs the daemon adds to mod-host's protocol, with
+ their replies, their refusals and what each host owes them (verbs.json),
+ under /usr/share/omx-contract/contract.d/3/plugin-hostd. A program that reads
+ them at run time depends on this package, never on the development one.

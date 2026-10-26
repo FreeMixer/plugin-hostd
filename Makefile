@@ -125,9 +125,9 @@ install_protocol:
 	sed -e 's,@PREFIX@,$(PREFIX),g' -e 's,@VERSION@,$(VERSION),g' protocol/plugin-hostd.pc.in > $(DESTDIR)$(DATADIR)/pkgconfig/plugin-hostd.pc
 	chmod 644 $(DESTDIR)$(DATADIR)/pkgconfig/plugin-hostd.pc
 
-# the format tables this tree owns (data/formats/, docs/formats.md), installed as the package plugin-hostd into
-# omx-contract's contract directory, <contractdir>/<schema major>/plugin-hostd/formats/{clap,lv2}.json, with a
-# MANIFEST.json naming this version and the tree they came from; plugin-hostd-devel ships them. contractdir and the
+# the format tables (data/formats/, docs/formats.md) and the verbs (data/verbs.json) this tree owns, installed as the
+# package plugin-hostd into omx-contract's contract directory, <contractdir>/<schema major>/plugin-hostd/, with a
+# MANIFEST.json naming this version and the tree they came from; plugin-hostd-contract ships them. contractdir and the
 # install script are omx-contract-devel's; a checkout of omx-contract (OMX_CONTRACT_DIR) stands in for the script when
 # it is not installed.
 CONTRACT_SCHEMA_MAJOR = 3
