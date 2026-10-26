@@ -32,6 +32,8 @@ Requires: mod-host-protocol%{?_isa} >= 0.10.6.f14a230-11.1
 BuildRequires: omx-clap-host-tests >= 0.21.0
 # the reader that holds the committed render of the daemon's verbs to data/verbs.json (make check-rendered)
 BuildRequires: omx-contract >= 3.3.0
+# the shared verbs and the reply.host.* codes data/verbs.json refers to (make check-rendered, test-verbs-declared)
+BuildRequires: omx-clap-core-contract >= 0.22.0
 %endif
 # the format tables and the verbs, which readers read at run time
 Requires: %{name}-contract = %{version}-%{release}
@@ -63,6 +65,9 @@ in the plugin-hostd package.
 %package contract
 Summary: plugin-hostd's format tables and verbs, for programs that read them at run time
 BuildArch: noarch
+# verbs.json refuses with omx-clap-core's reply.host.* codes for the numbers both hosts answer: a reader of this
+# package reads that one too; a floor only
+Requires: omx-clap-core-contract >= 0.22.0
 
 %description contract
 plugin-hostd's package of omx-contract's contract directory: the format tables

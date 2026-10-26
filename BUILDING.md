@@ -53,7 +53,11 @@ The verbs the daemon adds to mod-host's protocol, and the codes they answer, are
 `verbs` item of omx-contract's contract directory (schema 3.3.0 or later). `omx-contract render` writes them into
 `include/plugin-hostd/plugin_hostd_host_verbs.h` and `plugin_hostd_vocabulary.h`, which are committed and which
 `protocol.h` includes: `make render-verbs` rewrites them and `make check-rendered` fails on any drift. Both run the
-`omx-contract` command (package `omx-contract`); the build itself does not.
+`omx-contract` command (package `omx-contract`); the build itself does not. A refusal number omx-clap-host answers
+too (mod-host's `-3` and `-902`, and the pin, parameter and note numbers) is named once, by omx-clap-core's
+`reply.host.*` codes: `data/verbs.json` requires `omx-clap-core >= 0.22.0`, so both commands and
+`make test-verbs-declared` read omx-clap-core's package of the contract directory (`omx-clap-core-contract`), or
+the first directory of `OMX_CONTRACT_PATH` that holds one.
 
 `make install-contract` installs `data/` as the package `plugin-hostd` of the contract directory. The noarch package
 `plugin-hostd-contract` carries those files, and `plugin-hostd` and `plugin-hostd-devel` (`plugin-hostd-dev`) require

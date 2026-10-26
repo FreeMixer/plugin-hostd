@@ -74,7 +74,9 @@ Protocol
 
 The verbs the daemon adds are declared once in omx-contract's contract directory, with their formats, their replies,
 their refusal codes and what each host owes them: `/usr/share/omx-contract/contract.d/3/plugin-hostd/verbs.json`,
-package `plugin-hostd-contract`, beside the format tables. The placement syntax, the error codes, the feedback events
+package `plugin-hostd-contract`, beside the format tables. A refusal number omx-clap-host answers too carries
+omx-clap-core's `reply.host.*` code (package `omx-clap-core-contract`), the others plugin-hostd's
+`reply.plugin-hostd.*`: one name per number. The placement syntax, the error codes, the feedback events
 and the settings are declared once in `include/plugin-hostd/protocol.h`, which includes the verbs as
 `plugin_hostd_host_verbs.h` renders them; the tables here, the man page's key list and `protocol/plugin-hostd.json`
 are generated from both. A C program includes the installed header (`pkg-config --cflags plugin-hostd`, package
