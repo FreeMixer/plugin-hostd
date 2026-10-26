@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.10.0
+Version: 0.11.0
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -118,6 +118,25 @@ make test-daemon check-generated
 %{_datadir}/omx-contract/contract.d/3/plugin-hostd/
 
 %changelog
+* Mon Oct 26 2026 Pau Aliagas <linuxnow@gmail.com> - 0.11.0-1
+- chain_get <chain> reads a chain back: its worker, its members in the
+  declared order and the members its worker runs now. A quarantined member
+  is declared and not running; a chain no chain declared answers -522.
+- A chain declared again while its worker is up keeps that worker: a new
+  member joins it with its add, the order, its own checkpoint and its
+  connections, a move sends the order alone, and no other member restarts
+  or loses a value set after its checkpoint. A member left out goes to a
+  worker of its own, and an LV2 joiner forms the chain again.
+- CLAP members and LV2 members of the adapter row (lv2_worker omx-clap-host)
+  form one chain in one omx-clap-host instead of answering -521; LV2 on
+  mod-host with CLAP still answers -521.
+- omx-clap-host 0.21.0 or newer is recommended, and the tests need
+  omx-clap-host-tests 0.21.0 or newer: the first release whose worker runs
+  such a chain.
+- The fuzz harnesses check each word of a command, every broadcast verb's
+  argument count, a reply against the call that answered it and that the
+  relay loses no byte a worker wrote; make fuzz-records proves every check
+  aborts on its own seed. The daemon does not change with them.
 * Sun Oct 25 2026 Pau Aliagas <linuxnow@gmail.com> - 0.10.0-1
 - panel_get <uri> answers the path of the panel the plugin publishes, filed
   by the scan of its add; docs/panel.md tells a renderer how to draw it.
