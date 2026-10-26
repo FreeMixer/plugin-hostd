@@ -5,6 +5,7 @@ Maintainer: Pau Aliagas <linuxnow@gmail.com>
 Build-Depends: debhelper-compat (= 13),
                libmod-host-protocol-dev (>= 0.1.0-5),
                libomx-contract-dev (>= 3.3.0~),
+               omx-clap-core-contract (>= 0.22.0~) <!nocheck>,
                omx-clap-host-tests (>= 0.21.0~) <!nocheck>,
                omx-contract (>= 3.3.0~) <!nocheck>,
                pkgconf,
@@ -55,7 +56,7 @@ Description: C header to drive plugin-hostd from your own controller
 
 Package: plugin-hostd-contract
 Architecture: all
-Depends: ${misc:Depends}
+Depends: omx-clap-core-contract (>= 0.22.0~), ${misc:Depends}
 Breaks: plugin-hostd-dev (<< ${source:Version})
 Replaces: plugin-hostd-dev (<< ${source:Version})
 Description: plugin-hostd's format tables and verbs, read at run time

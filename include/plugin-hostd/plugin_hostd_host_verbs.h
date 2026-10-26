@@ -40,70 +40,70 @@ struct omx_host_verb {
 #define OMX_VERB_WORKER_LIST_FMT "worker_list"
 #define OMX_VERB_WORKER_LIST_REPLY "resp <n> <worker>:<pid>:<format>:<state>:<place>:<i>,<i>,..."
 #define OMX_VERB_WORKER_LIST_CODES_COUNT 1u
-#define OMX_VERB_WORKER_LIST_CODES_INIT { -902 } /* reply.plugin-hostd.invalid-operation */
+#define OMX_VERB_WORKER_LIST_CODES_INIT { -902 } /* reply.host.invalid-operation */
 
 /* PLUGIN_HOSTD_VERBS.instanceInfo (data/verbs.json): Where an instance lives and what it has cost. */
 #define OMX_VERB_INSTANCE_INFO "instance_info"
 #define OMX_VERB_INSTANCE_INFO_FMT "instance_info %i"
 #define OMX_VERB_INSTANCE_INFO_REPLY "resp 0 <worker> <pid> <state> <crashes> <quarantined>"
 #define OMX_VERB_INSTANCE_INFO_CODES_COUNT 2u
-#define OMX_VERB_INSTANCE_INFO_CODES_INIT { -3, -902 } /* reply.plugin-hostd.instance-unknown, reply.plugin-hostd.invalid-operation */
+#define OMX_VERB_INSTANCE_INFO_CODES_INIT { -3, -902 } /* reply.host.instance-non-exists, reply.host.invalid-operation */
 
 /* PLUGIN_HOSTD_VERBS.supervisorReset (data/verbs.json): Re-arm the storm bound and the backoff of a given-up placement: [<worker> | all]. */
 #define OMX_VERB_SUPERVISOR_RESET "supervisor_reset"
 #define OMX_VERB_SUPERVISOR_RESET_FMT "supervisor_reset ..."
 #define OMX_VERB_SUPERVISOR_RESET_REPLY "resp 0"
 #define OMX_VERB_SUPERVISOR_RESET_CODES_COUNT 2u
-#define OMX_VERB_SUPERVISOR_RESET_CODES_INIT { -506, -902 } /* reply.plugin-hostd.no-such-worker, reply.plugin-hostd.invalid-operation */
+#define OMX_VERB_SUPERVISOR_RESET_CODES_INIT { -506, -902 } /* reply.plugin-hostd.no-such-worker, reply.host.invalid-operation */
 
 /* PLUGIN_HOSTD_VERBS.quarantineClear (data/verbs.json): Let a quarantined instance go back where its placement says: <instance> | all. */
 #define OMX_VERB_QUARANTINE_CLEAR "quarantine_clear"
 #define OMX_VERB_QUARANTINE_CLEAR_FMT "quarantine_clear %s"
 #define OMX_VERB_QUARANTINE_CLEAR_REPLY "resp 0"
 #define OMX_VERB_QUARANTINE_CLEAR_CODES_COUNT 2u
-#define OMX_VERB_QUARANTINE_CLEAR_CODES_INIT { -3, -902 } /* reply.plugin-hostd.instance-unknown, reply.plugin-hostd.invalid-operation */
+#define OMX_VERB_QUARANTINE_CLEAR_CODES_INIT { -3, -902 } /* reply.host.instance-non-exists, reply.host.invalid-operation */
 
 /* PLUGIN_HOSTD_VERBS.policySet (data/verbs.json): The placement of an add that says default: <format | *> own | pool:<name>. */
 #define OMX_VERB_POLICY_SET "policy_set"
 #define OMX_VERB_POLICY_SET_FMT "policy_set %s %s"
 #define OMX_VERB_POLICY_SET_REPLY "resp 0"
 #define OMX_VERB_POLICY_SET_CODES_COUNT 2u
-#define OMX_VERB_POLICY_SET_CODES_INIT { -501, -902 } /* reply.plugin-hostd.placement-invalid, reply.plugin-hostd.invalid-operation */
+#define OMX_VERB_POLICY_SET_CODES_INIT { -501, -902 } /* reply.plugin-hostd.placement-invalid, reply.host.invalid-operation */
 
 /* PLUGIN_HOSTD_VERBS.poolConfig (data/verbs.json): The instances a pool holds before a sibling opens: <name> <max_instances>. */
 #define OMX_VERB_POOL_CONFIG "pool_config"
 #define OMX_VERB_POOL_CONFIG_FMT "pool_config %s %i"
 #define OMX_VERB_POOL_CONFIG_REPLY "resp 0"
 #define OMX_VERB_POOL_CONFIG_CODES_COUNT 2u
-#define OMX_VERB_POOL_CONFIG_CODES_INIT { -501, -902 } /* reply.plugin-hostd.placement-invalid, reply.plugin-hostd.invalid-operation */
+#define OMX_VERB_POOL_CONFIG_CODES_INIT { -501, -902 } /* reply.plugin-hostd.placement-invalid, reply.host.invalid-operation */
 
 /* PLUGIN_HOSTD_VERBS.workerEnv (data/verbs.json): The cpu list and the nice value of the workers of a format, at spawn and on the ones running: <format | *> <cpu-list | -> <nice | ->. */
 #define OMX_VERB_WORKER_ENV "worker_env"
 #define OMX_VERB_WORKER_ENV_FMT "worker_env %s %s %s"
 #define OMX_VERB_WORKER_ENV_REPLY "resp 0"
 #define OMX_VERB_WORKER_ENV_CODES_COUNT 1u
-#define OMX_VERB_WORKER_ENV_CODES_INIT { -902 } /* reply.plugin-hostd.invalid-operation */
+#define OMX_VERB_WORKER_ENV_CODES_INIT { -902 } /* reply.host.invalid-operation */
 
 /* PLUGIN_HOSTD_VERBS.pinSet (data/verbs.json): The pin of one plugin: <uri> <path>=<sha256>[,<path>=<sha256>...] <scheme>:<sha256> [verdict=<verdict>]. */
 #define OMX_VERB_PIN_SET "pin_set"
 #define OMX_VERB_PIN_SET_FMT "pin_set %s %s %s ..."
 #define OMX_VERB_PIN_SET_REPLY "resp 0"
 #define OMX_VERB_PIN_SET_CODES_COUNT 2u
-#define OMX_VERB_PIN_SET_CODES_INIT { -516, -902 } /* reply.plugin-hostd.pin-refused, reply.plugin-hostd.invalid-operation */
+#define OMX_VERB_PIN_SET_CODES_INIT { -516, -902 } /* reply.plugin-hostd.pin-refused, reply.host.invalid-operation */
 
 /* PLUGIN_HOSTD_VERBS.pinClear (data/verbs.json): Forget the pin of one plugin, or of every one: <uri> | all. */
 #define OMX_VERB_PIN_CLEAR "pin_clear"
 #define OMX_VERB_PIN_CLEAR_FMT "pin_clear %s"
 #define OMX_VERB_PIN_CLEAR_REPLY "resp 0"
 #define OMX_VERB_PIN_CLEAR_CODES_COUNT 1u
-#define OMX_VERB_PIN_CLEAR_CODES_INIT { -902 } /* reply.plugin-hostd.invalid-operation */
+#define OMX_VERB_PIN_CLEAR_CODES_INIT { -902 } /* reply.host.invalid-operation */
 
 /* PLUGIN_HOSTD_VERBS.pinAccept (data/verbs.json): Under pin_mode first-use, take the plugin's files as they are now as its pin: <uri>. */
 #define OMX_VERB_PIN_ACCEPT "pin_accept"
 #define OMX_VERB_PIN_ACCEPT_FMT "pin_accept %s"
 #define OMX_VERB_PIN_ACCEPT_REPLY "resp 0"
 #define OMX_VERB_PIN_ACCEPT_CODES_COUNT 4u
-#define OMX_VERB_PIN_ACCEPT_CODES_INIT { -508, -509, -516, -902 } /* reply.plugin-hostd.pin-absent, reply.plugin-hostd.pin-binary-mismatch, reply.plugin-hostd.pin-refused, reply.plugin-hostd.invalid-operation */
+#define OMX_VERB_PIN_ACCEPT_CODES_INIT { -508, -509, -516, -902 } /* reply.host.pin-absent, reply.plugin-hostd.pin-binary-mismatch, reply.plugin-hostd.pin-refused, reply.host.invalid-operation */
 
 /* PLUGIN_HOSTD_VERBS.pinLayout (data/verbs.json): Sent by the daemon to a worker that checks layouts, after it accepted an add whose layout pin is unknown: the layout the worker found after init. */
 #define OMX_VERB_PIN_LAYOUT "pin_layout"
@@ -115,56 +115,56 @@ struct omx_host_verb {
 #define OMX_VERB_LV2_WORKER_SET_FMT "lv2_worker_set %s %s"
 #define OMX_VERB_LV2_WORKER_SET_REPLY "resp 0"
 #define OMX_VERB_LV2_WORKER_SET_CODES_COUNT 1u
-#define OMX_VERB_LV2_WORKER_SET_CODES_INIT { -902 } /* reply.plugin-hostd.invalid-operation */
+#define OMX_VERB_LV2_WORKER_SET_CODES_INIT { -902 } /* reply.host.invalid-operation */
 
 /* PLUGIN_HOSTD_VERBS.chain (data/verbs.json): The instances, in this order, are one chain run in one worker: <chain> <instance> [<instance> ...]; a worker that runs chains in one client is sent the line with the members it holds. */
 #define OMX_VERB_CHAIN "chain"
 #define OMX_VERB_CHAIN_FMT "chain %i %i ..."
 #define OMX_VERB_CHAIN_REPLY "resp 0"
 #define OMX_VERB_CHAIN_CODES_COUNT 6u
-#define OMX_VERB_CHAIN_CODES_INIT { -518, -519, -520, -521, -501, -902 } /* reply.plugin-hostd.chain-unknown-instance, reply.plugin-hostd.chain-duplicate, reply.plugin-hostd.chain-instance-busy, reply.plugin-hostd.chain-mixed-format, reply.plugin-hostd.placement-invalid, reply.plugin-hostd.invalid-operation */
+#define OMX_VERB_CHAIN_CODES_INIT { -518, -519, -520, -521, -501, -902 } /* reply.plugin-hostd.chain-unknown-instance, reply.plugin-hostd.chain-duplicate, reply.plugin-hostd.chain-instance-busy, reply.plugin-hostd.chain-mixed-format, reply.plugin-hostd.placement-invalid, reply.host.invalid-operation */
 
 /* PLUGIN_HOSTD_VERBS.chainClear (data/verbs.json): Forget the chain: each member goes to a worker of its own. */
 #define OMX_VERB_CHAIN_CLEAR "chain_clear"
 #define OMX_VERB_CHAIN_CLEAR_FMT "chain_clear %i"
 #define OMX_VERB_CHAIN_CLEAR_REPLY "resp 0"
 #define OMX_VERB_CHAIN_CLEAR_CODES_COUNT 2u
-#define OMX_VERB_CHAIN_CLEAR_CODES_INIT { -522, -902 } /* reply.plugin-hostd.no-such-chain, reply.plugin-hostd.invalid-operation */
+#define OMX_VERB_CHAIN_CLEAR_CODES_INIT { -522, -902 } /* reply.plugin-hostd.no-such-chain, reply.host.invalid-operation */
 
 /* PLUGIN_HOSTD_VERBS.chainGet (data/verbs.json): Read a chain back: its worker, its members in the declared order, and the members its worker runs now. */
 #define OMX_VERB_CHAIN_GET "chain_get"
 #define OMX_VERB_CHAIN_GET_FMT "chain_get %i"
 #define OMX_VERB_CHAIN_GET_REPLY "resp 0 <worker> <instance>,... <instance>,..."
 #define OMX_VERB_CHAIN_GET_CODES_COUNT 2u
-#define OMX_VERB_CHAIN_GET_CODES_INIT { -522, -902 } /* reply.plugin-hostd.no-such-chain, reply.plugin-hostd.invalid-operation */
+#define OMX_VERB_CHAIN_GET_CODES_INIT { -522, -902 } /* reply.plugin-hostd.no-such-chain, reply.host.invalid-operation */
 
 /* PLUGIN_HOSTD_VERBS.descriptorGet (data/verbs.json): The scanned descriptor of the plugin, answered from descriptor_dir: <uri>. */
 #define OMX_VERB_DESCRIPTOR_GET "descriptor_get"
 #define OMX_VERB_DESCRIPTOR_GET_FMT "descriptor_get %s"
 #define OMX_VERB_DESCRIPTOR_GET_REPLY "resp 0 \"<path>\""
 #define OMX_VERB_DESCRIPTOR_GET_CODES_COUNT 5u
-#define OMX_VERB_DESCRIPTOR_GET_CODES_INIT { -528, -529, -530, -531, -902 } /* reply.plugin-hostd.dir-not-writable, reply.plugin-hostd.descriptor-absent, reply.plugin-hostd.descriptor-pending, reply.plugin-hostd.descriptor-scan-failed, reply.plugin-hostd.invalid-operation */
+#define OMX_VERB_DESCRIPTOR_GET_CODES_INIT { -528, -529, -530, -531, -902 } /* reply.plugin-hostd.dir-not-writable, reply.plugin-hostd.descriptor-absent, reply.plugin-hostd.descriptor-pending, reply.plugin-hostd.descriptor-scan-failed, reply.host.invalid-operation */
 
 /* PLUGIN_HOSTD_VERBS.panelGet (data/verbs.json): The panel the plugin publishes, answered from descriptor_dir: <uri>. */
 #define OMX_VERB_PANEL_GET "panel_get"
 #define OMX_VERB_PANEL_GET_FMT "panel_get %s"
 #define OMX_VERB_PANEL_GET_REPLY "resp 0 \"<path>\""
 #define OMX_VERB_PANEL_GET_CODES_COUNT 5u
-#define OMX_VERB_PANEL_GET_CODES_INIT { -528, -529, -530, -531, -902 } /* reply.plugin-hostd.dir-not-writable, reply.plugin-hostd.descriptor-absent, reply.plugin-hostd.descriptor-pending, reply.plugin-hostd.descriptor-scan-failed, reply.plugin-hostd.invalid-operation */
+#define OMX_VERB_PANEL_GET_CODES_INIT { -528, -529, -530, -531, -902 } /* reply.plugin-hostd.dir-not-writable, reply.plugin-hostd.descriptor-absent, reply.plugin-hostd.descriptor-pending, reply.plugin-hostd.descriptor-scan-failed, reply.host.invalid-operation */
 
 /* PLUGIN_HOSTD_VERBS.presetList (data/verbs.json): The plugin's presets, the ones its preset discovery or its bundle lists. */
 #define OMX_VERB_PRESET_LIST "preset_list"
 #define OMX_VERB_PRESET_LIST_FMT "preset_list %i"
 #define OMX_VERB_PRESET_LIST_REPLY "resp <count>"
 #define OMX_VERB_PRESET_LIST_CODES_COUNT 3u
-#define OMX_VERB_PRESET_LIST_CODES_INIT { -515, -3, -902 } /* reply.plugin-hostd.no-preset-list, reply.plugin-hostd.instance-unknown, reply.plugin-hostd.invalid-operation */
+#define OMX_VERB_PRESET_LIST_CODES_INIT { -515, -3, -902 } /* reply.plugin-hostd.no-preset-list, reply.host.instance-non-exists, reply.host.invalid-operation */
 
 /* PLUGIN_HOSTD_VERBS.presetGet (data/verbs.json): One preset, 0 to count - 1: the key preset_load takes for it, and its name. */
 #define OMX_VERB_PRESET_GET "preset_get"
 #define OMX_VERB_PRESET_GET_FMT "preset_get %i %i"
 #define OMX_VERB_PRESET_GET_REPLY "resp 0 <load_key> <name>"
 #define OMX_VERB_PRESET_GET_CODES_COUNT 3u
-#define OMX_VERB_PRESET_GET_CODES_INIT { -515, -3, -902 } /* reply.plugin-hostd.no-preset-list, reply.plugin-hostd.instance-unknown, reply.plugin-hostd.invalid-operation */
+#define OMX_VERB_PRESET_GET_CODES_INIT { -515, -3, -902 } /* reply.plugin-hostd.no-preset-list, reply.host.instance-non-exists, reply.host.invalid-operation */
 
 #define PLUGIN_HOSTD_HOST_VERB_COUNT 19u
 

@@ -259,7 +259,10 @@ static inline int phd_pool_name_valid(const char *name)
 
 /* ---------------------------------------------------------------- error codes */
 
-/* the codes the supervisor adds to mod-host's, the -5xx hundred; a reply is "resp <code>" */
+/* the codes the supervisor adds to mod-host's, the -5xx hundred; a reply is "resp <code>". Each number has one name in
+ * the contract: the ones omx-clap-host answers too are omx-clap-core's reply.host.* codes (its HOST_REPLY_CODES), the
+ * others plugin-hostd's reply.plugin-hostd.* (data/verbs.json PLUGIN_HOSTD_REPLY_CODES); tests/verbs_declared.py
+ * holds every number below to exactly one of them */
 #define PHD_ERR_PLACEMENT_INVALID (-501)
 #define PHD_ERR_NO_BACKEND        (-502)
 #define PHD_ERR_WORKER_SPAWN      (-503)
