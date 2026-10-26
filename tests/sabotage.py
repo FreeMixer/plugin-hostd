@@ -735,8 +735,9 @@ SABOTAGE = [
     # the declared verbs (data/verbs.json) against the daemon on its socket, and the sources against the declaration
     ("a declared format is not the grammar the daemon answers", "data/verbs.json",
      '"format": "chain_get %i",', '"format": "chain_get %i %i",', "verbs_declared", "verbs"),
-    ("a declared code is not the one the daemon answers", "data/verbs.json",
-     '"resp": -522,', '"resp": -101,', "verbs_declared", "verbs"),
+    ("a rendered code is not the one declared, so not the one the daemon answers", "include/plugin-hostd/plugin_hostd_vocabulary.h",
+     "#define OMX_REPLY_PLUGIN_HOSTD_NO_SUCH_CHAIN_RESP (-522)", "#define OMX_REPLY_PLUGIN_HOSTD_NO_SUCH_CHAIN_RESP (-101)",
+     "verbs_declared", "verbs"),
     ("a number omx-clap-core names is named again by plugin-hostd", "data/verbs.json",
      '    "codes": {\n      "placementInvalid": {',
      '    "codes": {\n      "invalidOperation": {\n        "code": "reply.plugin-hostd.invalid-operation",\n'

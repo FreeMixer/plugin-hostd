@@ -87,6 +87,12 @@ def check_one_name(own_docs, shared_docs):
     absent = [n for n in names if n not in rendered]
     if absent:
         fail("PHD_ERRORS names %s, which no rendered vocabulary header defines" % absent)
+    # the daemon is compiled against the rendered numbers: one that is not the declared resp of its code is a stale render
+    for pkg, docs in (("plugin-hostd", own_docs), ("omx-clap-core", shared_docs)):
+        for ref, (code, resp) in codes_of(docs).items():
+            macro = "OMX_" + re.sub(r"[^A-Za-z0-9]+", "_", code).upper() + "_RESP"
+            if resp is not None and macro in rendered and rendered[macro] != resp:
+                fail("%s is %d in the rendered header and %d in %s (%s): render again" % (macro, rendered[macro], resp, pkg, ref))
     errors = {rendered[n] for n in names}
     if len(errors) < 20:
         fail("found only %d numbers in protocol.h's PHD_ERRORS" % len(errors))
