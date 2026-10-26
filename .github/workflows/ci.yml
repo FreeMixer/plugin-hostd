@@ -463,10 +463,14 @@ jobs:
       # the chain runs the daemon and its workers in a user, net, pid and mount namespace of their own
       options: --cap-add SYS_ADMIN --security-opt seccomp=unconfined --security-opt apparmor=unconfined --security-opt systempaths=unconfined
     steps:
+      # pipewire-jack-audio-connection-kit before the channel's packages: the libjack.so.0 omx-clap-host, plugin-hostd and
+      # jack_identity load is then PipeWire's, never JACK2's, which looks for a jackd that does not run here. lilv-libs:
+      # omx-clap-host opens liblilv-0.so.0 itself at its first LV2 add (dlopen, no rpm requirement), without it every LV2
+      # add answers hosting.no-realisation
       - name: Install the tools
         run: |
-          dnf install -y --setopt=install_weak_deps=False git dnf5-plugins python3 pipewire pipewire-utils iproute util-linux \
-            procps-ng
+          dnf install -y --setopt=install_weak_deps=False git dnf5-plugins python3 pipewire pipewire-utils \
+            pipewire-jack-audio-connection-kit lilv-libs iproute util-linux procps-ng
 
       - uses: actions/checkout@v4
 
@@ -483,6 +487,12 @@ jobs:
                    /usr/lib/clap/omx-strip.clap /usr/lib/clap/omx-limiter.clap /usr/lib64/lv2/omx-delay.lv2/manifest.ttl; do
             test -e "$f" || { echo "::error::the channel's packages lack $f"; exit 1; }
           done
+          for b in /usr/bin/omx-clap-host /usr/bin/plugin-hostd /usr/libexec/omx-clap-host/tests/jack_identity; do
+            lib=$(ldd "$b" | sed -n 's/^\s*libjack\.so\.0 => \(\S*\) .*/\1/p')
+            test -z "$lib" || rpm -qf "$lib" | grep -q '^pipewire-jack' || {
+              echo "::error::$b loads $lib of $(rpm -qf "$lib"), not PipeWire's libjack"; exit 1; }
+          done
+          ldconfig -p | grep -q 'liblilv-0\.so\.0 ' || { echo "::error::no liblilv-0.so.0 for omx-clap-host's LV2 adds"; exit 1; }
 
       # the commit chain-e2e.sh applies the patch to, read from the script
       - name: Fetch zynthian-ui at chain-e2e.sh's commit
