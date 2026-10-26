@@ -133,6 +133,8 @@ make test-daemon check-generated check-rendered
 %license COPYING
 %{_includedir}/plugin-hostd/protocol.h
 %{_includedir}/plugin-hostd/plugin_hostd_host_verbs.h
+%{_includedir}/plugin-hostd/omx_clap_core_host_verbs.h
+%{_includedir}/plugin-hostd/omx_clap_core_vocabulary.h
 %{_includedir}/plugin-hostd/plugin_hostd_vocabulary.h
 %{_includedir}/plugin-hostd/pin.h
 %{_datadir}/pkgconfig/plugin-hostd.pc

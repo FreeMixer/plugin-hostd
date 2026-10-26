@@ -330,37 +330,37 @@ Error codes the daemon adds to mod-host's:
 <!-- BEGIN GENERATED protocol:errors -->
 | code | name | meaning |
 |---|---|---|
-| `-501` | `PHD_ERR_PLACEMENT_INVALID` | placement invalid: not a placement, or not valid here, as a pool:<name> for a plugin of a format whose pin holds only in a world of the plugin's own, while require_pins is on |
-| `-502` | `PHD_ERR_NO_BACKEND` | no worker program for the scheme |
-| `-503` | `PHD_ERR_WORKER_SPAWN` | the worker is not up: the spawn failed, or it is in backoff; ask again after instance_restored |
-| `-504` | `PHD_ERR_REPLAY` | the name of a refused replay, never a reply: a replayed add that its pin or the worker refuses is announced by the instance_replay_refused event with the refusal's own code, and written to stderr with this one and the step that refused it |
-| `-505` | `PHD_ERR_GAVE_UP` | the storm bound is spent for that placement |
-| `-506` | `PHD_ERR_NO_SUCH_WORKER` | no such worker |
-| `-507` | `PHD_ERR_VERB_DROPPED` | the worker died on this very command and the daemon dropped it: it is not replayed, and the instance_verb_dropped event names it; or it died on, or did not answer in rpc_timeout_ms, the pin_expect of an add, which is then never forwarded |
-| `-508` | `PHD_ERR_PIN_ABSENT` | pin_mode strict and the plugin has no pin, or its layout pin is in a scheme this version does not know: add is refused and no worker sees it |
-| `-509` | `PHD_ERR_PIN_BINARY_MISMATCH` | a pinned file is missing or its SHA-256 differs, or the plugin's manifest names a file the pin does not hold: add is refused and no worker sees it |
-| `-510` | `PHD_ERR_PIN_LAYOUT_MISMATCH` | the worker found the parameter layout after init differs from the layout pin: the instance is destroyed before activate |
-| `-511` | `PHD_ERR_NO_PARAM_CONTRACT` | the host holds no checked unit and scale for this parameter: fall back to qualification |
-| `-512` | `PHD_ERR_LV2_ADAPTER_REFUSED` | the lv2-clap worker's LV2 adapter cannot run this plugin (MIDI it does not feed, a required feature it lacks, a layout it does not take): the worker answered the add -102, the lv2_adapter_refused event carries the hosting.* code of that reply, and under lv2_worker auto the plugin is run by the lv2 row instead and this code is never answered; a plugin no bundle of the worker's world holds is no refusal: the worker's -101 is answered |
-| `-513` | `PHD_ERR_NO_NOTE_INPUT` | the instance's plugin takes no notes (an effect): its worker answers note_on, note_off and all_notes_off with this code |
-| `-514` | `PHD_ERR_NOTES_BY_JACK` | the instance's worker takes no notes on its socket (mod-host): the daemon answers the note verbs and note_input with this code, and the plugin is played through its jack MIDI input with connect |
-| `-515` | `PHD_ERR_NO_PRESET_LIST` | the instance's worker cannot list the plugin's presets (mod-host): the daemon answers preset_list and preset_get with this code; preset_load still takes a preset the controller knows |
-| `-516` | `PHD_ERR_PIN_REFUSED` | the plugin's pin carries verdict=refused: its files are the ones that failed qualification, so add is refused and no worker sees it, and a replayed add is refused the same way; files that differ from the pin answer (-509) first. A pins_dir pin of that verdict is never overridden: pin_set and pin_accept of its plugin answer this code |
-| `-517` | `PHD_ERR_NOTE_QUEUE_FULL` | the instance's worker has no room for this note_on, note_off or all_notes_off before its next block: the line was not taken and nothing of it is kept; the controller may send it again |
-| `-518` | `PHD_ERR_CHAIN_UNKNOWN_INSTANCE` | a member of chain is an instance no add made: the chain is not declared |
-| `-519` | `PHD_ERR_CHAIN_DUPLICATE` | an instance is named twice in one chain: the chain is not declared |
-| `-520` | `PHD_ERR_CHAIN_INSTANCE_BUSY` | a member of chain is already in another chain: the chain is not declared; chain_clear of the other chain frees it |
-| `-521` | `PHD_ERR_CHAIN_MIXED_FORMAT` | the members of chain are not all run by one worker program, or are of two rows of one program and a row does not run chains in one client, so no one worker runs them: the chain is not declared |
-| `-522` | `PHD_ERR_NO_SUCH_CHAIN` | chain_clear or chain_get of a chain no chain declared |
-| `-523` | `PHD_ERR_PRESET_NOT_OFFERED` | the worker: preset_load or preset_show of a stable name the plugin does not offer, or of a plugin with no preset system and no state |
-| `-524` | `PHD_ERR_PRESET_INVALID` | preset_save with a file path that is not absolute or with no name, or preset_load or preset_show of a file that cannot be read, is no JSON, is of a format version other than org.openmixer.preset/1 and org.openmixer.preset/2, or breaks the format (docs/presets.md): the daemon answers it and no worker sees the file |
-| `-525` | `PHD_ERR_PRESET_NEEDS_STATE` | the worker: a preset file that carries state for a worker that cannot take state yet |
-| `-526` | `PHD_ERR_PRESET_PLUGIN_CHANGED` | the worker: the preset file's plugin id, version or fingerprint is not the instance's; nothing of it is applied |
-| `-527` | `PHD_ERR_LOAD_REFUSED` | the worker: the plugin refused the preset or the state its file carries |
-| `-528` | `PHD_ERR_DIR_NOT_WRITABLE` | descriptor_dir or qualification_dir cannot be made or written: the daemon does not start, and says which key and which path on stderr with this code; a directory that turns read-only later makes the scan of an add write nothing, and descriptor_get and panel_get of that plugin answer this code |
-| `-529` | `PHD_ERR_DESCRIPTOR_ABSENT` | descriptor_get (panel_get) of a plugin that has no descriptor (panel) in descriptor_dir for its binary as it is now, and none being written: no add since it changed, or a binary that cannot be found |
-| `-530` | `PHD_ERR_DESCRIPTOR_PENDING` | descriptor_get (panel_get) of a plugin whose scan, started by its add, has not written its descriptor (panel) yet: ask again |
-| `-531` | `PHD_ERR_DESCRIPTOR_SCAN_FAILED` | descriptor_get (panel_get) of a plugin whose last scan wrote no descriptor (panel): the scanner refused the plugin, made no dump or no panel, or is not installed; the add it ran for stands, and stderr and the scan's log say why. The next add scans again |
+| `-501` | `OMX_REPLY_PLUGIN_HOSTD_PLACEMENT_INVALID_RESP` | placement invalid: not a placement, or not valid here, as a pool:<name> for a plugin of a format whose pin holds only in a world of the plugin's own, while require_pins is on |
+| `-502` | `OMX_REPLY_PLUGIN_HOSTD_NO_BACKEND_RESP` | no worker program for the scheme |
+| `-503` | `OMX_REPLY_PLUGIN_HOSTD_WORKER_SPAWN_RESP` | the worker is not up: the spawn failed, or it is in backoff; ask again after instance_restored |
+| `-504` | `OMX_REPLY_PLUGIN_HOSTD_REPLAY_RESP` | the name of a refused replay, never a reply: a replayed add that its pin or the worker refuses is announced by the instance_replay_refused event with the refusal's own code, and written to stderr with this one and the step that refused it |
+| `-505` | `OMX_REPLY_PLUGIN_HOSTD_GAVE_UP_RESP` | the storm bound is spent for that placement |
+| `-506` | `OMX_REPLY_PLUGIN_HOSTD_NO_SUCH_WORKER_RESP` | no such worker |
+| `-507` | `OMX_REPLY_PLUGIN_HOSTD_VERB_DROPPED_RESP` | the worker died on this very command and the daemon dropped it: it is not replayed, and the instance_verb_dropped event names it; or it died on, or did not answer in rpc_timeout_ms, the pin_expect of an add, which is then never forwarded |
+| `-508` | `OMX_REPLY_HOST_PIN_ABSENT_RESP` | pin_mode strict and the plugin has no pin, or its layout pin is in a scheme this version does not know: add is refused and no worker sees it |
+| `-509` | `OMX_REPLY_PLUGIN_HOSTD_PIN_BINARY_MISMATCH_RESP` | a pinned file is missing or its SHA-256 differs, or the plugin's manifest names a file the pin does not hold: add is refused and no worker sees it |
+| `-510` | `OMX_REPLY_HOST_PIN_LAYOUT_MISMATCH_RESP` | the worker found the parameter layout after init differs from the layout pin: the instance is destroyed before activate |
+| `-511` | `OMX_REPLY_HOST_NO_PARAM_CONTRACT_RESP` | the host holds no checked unit and scale for this parameter: fall back to qualification |
+| `-512` | `OMX_REPLY_PLUGIN_HOSTD_LV2_ADAPTER_REFUSED_RESP` | the lv2-clap worker's LV2 adapter cannot run this plugin (MIDI it does not feed, a required feature it lacks, a layout it does not take): the worker answered the add -102, the lv2_adapter_refused event carries the hosting.* code of that reply, and under lv2_worker auto the plugin is run by the lv2 row instead and this code is never answered; a plugin no bundle of the worker's world holds is no refusal: the worker's -101 is answered |
+| `-513` | `OMX_REPLY_HOST_NO_NOTE_INPUT_RESP` | the instance's plugin takes no notes (an effect): its worker answers note_on, note_off and all_notes_off with this code |
+| `-514` | `OMX_REPLY_HOST_NOTES_BY_JACK_RESP` | the instance's worker takes no notes on its socket (mod-host): the daemon answers the note verbs and note_input with this code, and the plugin is played through its jack MIDI input with connect |
+| `-515` | `OMX_REPLY_PLUGIN_HOSTD_NO_PRESET_LIST_RESP` | the instance's worker cannot list the plugin's presets (mod-host): the daemon answers preset_list and preset_get with this code; preset_load still takes a preset the controller knows |
+| `-516` | `OMX_REPLY_PLUGIN_HOSTD_PIN_REFUSED_RESP` | the plugin's pin carries verdict=refused: its files are the ones that failed qualification, so add is refused and no worker sees it, and a replayed add is refused the same way; files that differ from the pin answer (-509) first. A pins_dir pin of that verdict is never overridden: pin_set and pin_accept of its plugin answer this code |
+| `-517` | `OMX_REPLY_HOST_NOTE_QUEUE_FULL_RESP` | the instance's worker has no room for this note_on, note_off or all_notes_off before its next block: the line was not taken and nothing of it is kept; the controller may send it again |
+| `-518` | `OMX_REPLY_PLUGIN_HOSTD_CHAIN_UNKNOWN_INSTANCE_RESP` | a member of chain is an instance no add made: the chain is not declared |
+| `-519` | `OMX_REPLY_PLUGIN_HOSTD_CHAIN_DUPLICATE_RESP` | an instance is named twice in one chain: the chain is not declared |
+| `-520` | `OMX_REPLY_PLUGIN_HOSTD_CHAIN_INSTANCE_BUSY_RESP` | a member of chain is already in another chain: the chain is not declared; chain_clear of the other chain frees it |
+| `-521` | `OMX_REPLY_PLUGIN_HOSTD_CHAIN_MIXED_FORMAT_RESP` | the members of chain are not all run by one worker program, or are of two rows of one program and a row does not run chains in one client, so no one worker runs them: the chain is not declared |
+| `-522` | `OMX_REPLY_PLUGIN_HOSTD_NO_SUCH_CHAIN_RESP` | chain_clear or chain_get of a chain no chain declared |
+| `-523` | `OMX_REPLY_PLUGIN_HOSTD_PRESET_NOT_OFFERED_RESP` | the worker: preset_load or preset_show of a stable name the plugin does not offer, or of a plugin with no preset system and no state |
+| `-524` | `OMX_REPLY_PLUGIN_HOSTD_PRESET_INVALID_RESP` | preset_save with a file path that is not absolute or with no name, or preset_load or preset_show of a file that cannot be read, is no JSON, is of a format version other than org.openmixer.preset/1 and org.openmixer.preset/2, or breaks the format (docs/presets.md): the daemon answers it and no worker sees the file |
+| `-525` | `OMX_REPLY_PLUGIN_HOSTD_PRESET_NEEDS_STATE_RESP` | the worker: a preset file that carries state for a worker that cannot take state yet |
+| `-526` | `OMX_REPLY_PLUGIN_HOSTD_PRESET_PLUGIN_CHANGED_RESP` | the worker: the preset file's plugin id, version or fingerprint is not the instance's; nothing of it is applied |
+| `-527` | `OMX_REPLY_PLUGIN_HOSTD_LOAD_REFUSED_RESP` | the worker: the plugin refused the preset or the state its file carries |
+| `-528` | `OMX_REPLY_PLUGIN_HOSTD_DIR_NOT_WRITABLE_RESP` | descriptor_dir or qualification_dir cannot be made or written: the daemon does not start, and says which key and which path on stderr with this code; a directory that turns read-only later makes the scan of an add write nothing, and descriptor_get and panel_get of that plugin answer this code |
+| `-529` | `OMX_REPLY_PLUGIN_HOSTD_DESCRIPTOR_ABSENT_RESP` | descriptor_get (panel_get) of a plugin that has no descriptor (panel) in descriptor_dir for its binary as it is now, and none being written: no add since it changed, or a binary that cannot be found |
+| `-530` | `OMX_REPLY_PLUGIN_HOSTD_DESCRIPTOR_PENDING_RESP` | descriptor_get (panel_get) of a plugin whose scan, started by its add, has not written its descriptor (panel) yet: ask again |
+| `-531` | `OMX_REPLY_PLUGIN_HOSTD_DESCRIPTOR_SCAN_FAILED_RESP` | descriptor_get (panel_get) of a plugin whose last scan wrote no descriptor (panel): the scanner refused the plugin, made no dump or no panel, or is not installed; the add it ran for stands, and stderr and the scan's log say why. The next add scans again |
 <!-- END GENERATED protocol:errors -->
 
 A worker's own refusal is returned as it said it. An `add` that killed its worker answers mod-host's `-102`.
@@ -537,7 +537,7 @@ What cannot be pinned:
 <!-- BEGIN GENERATED protocol:pin-limits -->
 - a path holding ',', '=' or whitespace cannot be pinned: they are the separators of pin_set's words, and pin_set refuses it as a token outside its grammar.
 - a pin_set line is at most line_max, 4096 bytes, the protocol socket's buffer; a longer one is refused as outside the grammar.
-- a manifest that uses @base, or names a file of the plugin by a percent-encoded IRI, makes add answer PHD_ERR_PIN_BINARY_MISMATCH (-509): the daemon does not resolve either, so it cannot know the file the host would load.
+- a manifest that uses @base, or names a file of the plugin by a percent-encoded IRI, makes add answer OMX_REPLY_PLUGIN_HOSTD_PIN_BINARY_MISMATCH_RESP (-509): the daemon does not resolve either, so it cannot know the file the host would load.
 <!-- END GENERATED protocol:pin-limits -->
 
 Pins are the controller's policy, like `policy_set`: not in the ledger, gone with the daemon, set again by a controller

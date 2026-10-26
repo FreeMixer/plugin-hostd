@@ -33,7 +33,10 @@
 
 #include <string.h>
 
+#include "omx_clap_core_host_verbs.h"
+#include "omx_clap_core_vocabulary.h"
 #include "plugin_hostd_host_verbs.h"
+#include "plugin_hostd_vocabulary.h"
 
 /* bumped when a name, a code or the shape of a verb or an event changes incompatibly */
 #define PLUGIN_HOSTD_PROTOCOL_VERSION 1
@@ -260,111 +263,79 @@ static inline int phd_pool_name_valid(const char *name)
 /* ---------------------------------------------------------------- error codes */
 
 /* the codes the supervisor adds to mod-host's, the -5xx hundred; a reply is "resp <code>". Each number has one name in
- * the contract: the ones omx-clap-host answers too are omx-clap-core's reply.host.* codes (its HOST_REPLY_CODES), the
- * others plugin-hostd's reply.plugin-hostd.* (data/verbs.json PLUGIN_HOSTD_REPLY_CODES); tests/verbs_declared.py
- * holds every number below to exactly one of them */
-#define PHD_ERR_PLACEMENT_INVALID (-501)
-#define PHD_ERR_NO_BACKEND        (-502)
-#define PHD_ERR_WORKER_SPAWN      (-503)
-#define PHD_ERR_REPLAY            (-504)
-#define PHD_ERR_GAVE_UP           (-505)
-#define PHD_ERR_NO_SUCH_WORKER    (-506)
-#define PHD_ERR_VERB_DROPPED      (-507)
-#define PHD_ERR_PIN_ABSENT          (-508)
-#define PHD_ERR_PIN_BINARY_MISMATCH (-509)
-#define PHD_ERR_PIN_LAYOUT_MISMATCH (-510)
-#define PHD_ERR_NO_PARAM_CONTRACT   (-511)
-#define PHD_ERR_LV2_ADAPTER_REFUSED (-512)
-#define PHD_ERR_NO_NOTE_INPUT       (-513)
-#define PHD_ERR_NOTES_BY_JACK       (-514)
-#define PHD_ERR_NO_PRESET_LIST      (-515)
-#define PHD_ERR_PIN_REFUSED         (-516)
-#define PHD_ERR_NOTE_QUEUE_FULL     (-517)
-#define PHD_ERR_CHAIN_UNKNOWN_INSTANCE (-518)
-#define PHD_ERR_CHAIN_DUPLICATE     (-519)
-#define PHD_ERR_CHAIN_INSTANCE_BUSY (-520)
-#define PHD_ERR_CHAIN_MIXED_FORMAT  (-521)
-#define PHD_ERR_NO_SUCH_CHAIN       (-522)
-#define PHD_ERR_PRESET_NOT_OFFERED  (-523)
-#define PHD_ERR_PRESET_INVALID      (-524)
-#define PHD_ERR_PRESET_NEEDS_STATE  (-525)
-#define PHD_ERR_PRESET_PLUGIN_CHANGED (-526)
-#define PHD_ERR_LOAD_REFUSED        (-527)
-#define PHD_ERR_DIR_NOT_WRITABLE    (-528)
-#define PHD_ERR_DESCRIPTOR_ABSENT   (-529)
-#define PHD_ERR_DESCRIPTOR_PENDING  (-530)
-#define PHD_ERR_DESCRIPTOR_SCAN_FAILED (-531)
-
-/* X(id, meaning) */
+ * the contract, rendered as OMX_REPLY_<GROUP>_<REASON>_RESP: the ones omx-clap-host answers too are omx-clap-core's
+ * reply.host.* codes (its HOST_REPLY_CODES, omx_clap_core_vocabulary.h), the others plugin-hostd's
+ * reply.plugin-hostd.* (data/verbs.json PLUGIN_HOSTD_REPLY_CODES, plugin_hostd_vocabulary.h); the header defines none */
+/* X(id, resp, meaning): resp is the rendered number of the code */
 #define PHD_ERRORS(X) \
-    X(PLACEMENT_INVALID, "placement invalid: not a placement, or not valid here, as a " PHD_PLACE_POOL_PREFIX \
+    X(PLACEMENT_INVALID, OMX_REPLY_PLUGIN_HOSTD_PLACEMENT_INVALID_RESP, "placement invalid: not a placement, or not valid here, as a " PHD_PLACE_POOL_PREFIX \
                          "<name> for a plugin of a format whose pin holds only in a world of the plugin's own, while require_pins is on") \
-    X(NO_BACKEND, "no worker program for the scheme") \
-    X(WORKER_SPAWN, "the worker is not up: the spawn failed, or it is in backoff; ask again after instance_restored") \
-    X(REPLAY, "the name of a refused replay, never a reply: a replayed add that its pin or the worker refuses is " \
+    X(NO_BACKEND, OMX_REPLY_PLUGIN_HOSTD_NO_BACKEND_RESP, "no worker program for the scheme") \
+    X(WORKER_SPAWN, OMX_REPLY_PLUGIN_HOSTD_WORKER_SPAWN_RESP, "the worker is not up: the spawn failed, or it is in backoff; ask again after instance_restored") \
+    X(REPLAY, OMX_REPLY_PLUGIN_HOSTD_REPLAY_RESP, "the name of a refused replay, never a reply: a replayed add that its pin or the worker refuses is " \
               "announced by the instance_replay_refused event with the refusal's own code, and written to stderr " \
               "with this one and the step that refused it") \
-    X(GAVE_UP, "the storm bound is spent for that placement") \
-    X(NO_SUCH_WORKER, "no such worker") \
-    X(VERB_DROPPED, "the worker died on this very command and the daemon dropped it: it is not replayed, " \
+    X(GAVE_UP, OMX_REPLY_PLUGIN_HOSTD_GAVE_UP_RESP, "the storm bound is spent for that placement") \
+    X(NO_SUCH_WORKER, OMX_REPLY_PLUGIN_HOSTD_NO_SUCH_WORKER_RESP, "no such worker") \
+    X(VERB_DROPPED, OMX_REPLY_PLUGIN_HOSTD_VERB_DROPPED_RESP, "the worker died on this very command and the daemon dropped it: it is not replayed, " \
                     "and the instance_verb_dropped event names it; or it died on, or did not answer in rpc_timeout_ms, " \
-                    "the " PHD_VERB_PIN_EXPECT " of an add, which is then never forwarded") \
-    X(PIN_ABSENT, "pin_mode strict and the plugin has no pin, or its layout pin is in a scheme this version does " \
+                    "the " OMX_VERB_PIN_EXPECT " of an add, which is then never forwarded") \
+    X(PIN_ABSENT, OMX_REPLY_HOST_PIN_ABSENT_RESP, "pin_mode strict and the plugin has no pin, or its layout pin is in a scheme this version does " \
                   "not know: add is refused and no worker sees it") \
-    X(PIN_BINARY_MISMATCH, "a pinned file is missing or its SHA-256 differs, or the plugin's manifest names a file the " \
+    X(PIN_BINARY_MISMATCH, OMX_REPLY_PLUGIN_HOSTD_PIN_BINARY_MISMATCH_RESP, "a pinned file is missing or its SHA-256 differs, or the plugin's manifest names a file the " \
                            "pin does not hold: add is refused and no worker sees it") \
-    X(PIN_LAYOUT_MISMATCH, "the worker found the parameter layout after init differs from the layout pin: the " \
+    X(PIN_LAYOUT_MISMATCH, OMX_REPLY_HOST_PIN_LAYOUT_MISMATCH_RESP, "the worker found the parameter layout after init differs from the layout pin: the " \
                            "instance is destroyed before activate") \
-    X(NO_PARAM_CONTRACT, "the host holds no checked unit and scale for this parameter: fall back to qualification") \
-    X(LV2_ADAPTER_REFUSED, "the " PHD_FORMAT_LV2_CLAP " worker's LV2 adapter cannot run this plugin (MIDI it does not feed, a " \
+    X(NO_PARAM_CONTRACT, OMX_REPLY_HOST_NO_PARAM_CONTRACT_RESP, "the host holds no checked unit and scale for this parameter: fall back to qualification") \
+    X(LV2_ADAPTER_REFUSED, OMX_REPLY_PLUGIN_HOSTD_LV2_ADAPTER_REFUSED_RESP, "the " PHD_FORMAT_LV2_CLAP " worker's LV2 adapter cannot run this plugin (MIDI it does not feed, a " \
                            "required feature it lacks, a layout it does not take): the worker answered the add -102, the " \
                            PHD_EVENT_LV2_ADAPTER_REFUSED " event carries the hosting.* code of that reply, and under lv2_worker " \
                            PHD_LV2_WORKER_AUTO " the plugin is run by the " PHD_FORMAT_LV2 " row instead and this code is never " \
                            "answered; a plugin no bundle of the worker's world holds is no refusal: the worker's -101 is answered") \
-    X(NO_NOTE_INPUT, "the instance's plugin takes no notes (an effect): its worker answers " PHD_VERB_NOTE_ON ", " \
-                     PHD_VERB_NOTE_OFF " and " PHD_VERB_ALL_NOTES_OFF " with this code") \
-    X(NOTES_BY_JACK, "the instance's worker takes no notes on its socket (mod-host): the daemon answers the note verbs " \
-                     "and " PHD_VERB_NOTE_INPUT " with this code, and the plugin is played through its jack MIDI input " \
+    X(NO_NOTE_INPUT, OMX_REPLY_HOST_NO_NOTE_INPUT_RESP, "the instance's plugin takes no notes (an effect): its worker answers " OMX_VERB_NOTE_ON ", " \
+                     OMX_VERB_NOTE_OFF " and " OMX_VERB_ALL_NOTES_OFF " with this code") \
+    X(NOTES_BY_JACK, OMX_REPLY_HOST_NOTES_BY_JACK_RESP, "the instance's worker takes no notes on its socket (mod-host): the daemon answers the note verbs " \
+                     "and " OMX_VERB_NOTE_INPUT " with this code, and the plugin is played through its jack MIDI input " \
                      "with connect") \
-    X(NO_PRESET_LIST, "the instance's worker cannot list the plugin's presets (mod-host): the daemon answers " \
+    X(NO_PRESET_LIST, OMX_REPLY_PLUGIN_HOSTD_NO_PRESET_LIST_RESP, "the instance's worker cannot list the plugin's presets (mod-host): the daemon answers " \
                       OMX_VERB_PRESET_LIST " and " OMX_VERB_PRESET_GET " with this code; preset_load still takes a preset " \
                       "the controller knows") \
-    X(PIN_REFUSED, "the plugin's pin carries " PHD_PIN_VERDICT_KEY PHD_PIN_VERDICT_REFUSED ": its files are the ones that " \
+    X(PIN_REFUSED, OMX_REPLY_PLUGIN_HOSTD_PIN_REFUSED_RESP, "the plugin's pin carries " PHD_PIN_VERDICT_KEY PHD_PIN_VERDICT_REFUSED ": its files are the ones that " \
                    "failed qualification, so add is refused and no worker sees it, and a replayed add is refused the " \
-                   "same way; files that differ from the pin answer " PHD_STR(PHD_ERR_PIN_BINARY_MISMATCH) " first. A pins_dir " \
+                   "same way; files that differ from the pin answer " PHD_STR(OMX_REPLY_PLUGIN_HOSTD_PIN_BINARY_MISMATCH_RESP) " first. A pins_dir " \
                    "pin of that verdict is never overridden: " OMX_VERB_PIN_SET " and " OMX_VERB_PIN_ACCEPT " of its plugin " \
                    "answer this code") \
-    X(NOTE_QUEUE_FULL, "the instance's worker has no room for this " PHD_VERB_NOTE_ON ", " PHD_VERB_NOTE_OFF " or " \
-                       PHD_VERB_ALL_NOTES_OFF " before its next block: the line was not taken and nothing of it is kept; the " \
+    X(NOTE_QUEUE_FULL, OMX_REPLY_HOST_NOTE_QUEUE_FULL_RESP, "the instance's worker has no room for this " OMX_VERB_NOTE_ON ", " OMX_VERB_NOTE_OFF " or " \
+                       OMX_VERB_ALL_NOTES_OFF " before its next block: the line was not taken and nothing of it is kept; the " \
                        "controller may send it again") \
-    X(CHAIN_UNKNOWN_INSTANCE, "a member of " OMX_VERB_CHAIN " is an instance no add made: the chain is not declared") \
-    X(CHAIN_DUPLICATE, "an instance is named twice in one " OMX_VERB_CHAIN ": the chain is not declared") \
-    X(CHAIN_INSTANCE_BUSY, "a member of " OMX_VERB_CHAIN " is already in another chain: the chain is not declared; " \
+    X(CHAIN_UNKNOWN_INSTANCE, OMX_REPLY_PLUGIN_HOSTD_CHAIN_UNKNOWN_INSTANCE_RESP, "a member of " OMX_VERB_CHAIN " is an instance no add made: the chain is not declared") \
+    X(CHAIN_DUPLICATE, OMX_REPLY_PLUGIN_HOSTD_CHAIN_DUPLICATE_RESP, "an instance is named twice in one " OMX_VERB_CHAIN ": the chain is not declared") \
+    X(CHAIN_INSTANCE_BUSY, OMX_REPLY_PLUGIN_HOSTD_CHAIN_INSTANCE_BUSY_RESP, "a member of " OMX_VERB_CHAIN " is already in another chain: the chain is not declared; " \
                            OMX_VERB_CHAIN_CLEAR " of the other chain frees it") \
-    X(CHAIN_MIXED_FORMAT, "the members of " OMX_VERB_CHAIN " are not all run by one worker program, or are of two " \
+    X(CHAIN_MIXED_FORMAT, OMX_REPLY_PLUGIN_HOSTD_CHAIN_MIXED_FORMAT_RESP, "the members of " OMX_VERB_CHAIN " are not all run by one worker program, or are of two " \
                           "rows of one program and a row does not run chains in one client, so no one worker runs " \
                           "them: the chain is not declared") \
-    X(NO_SUCH_CHAIN, OMX_VERB_CHAIN_CLEAR " or " OMX_VERB_CHAIN_GET " of a chain no " OMX_VERB_CHAIN " declared") \
-    X(PRESET_NOT_OFFERED, "the worker: preset_load or preset_show of a stable name the plugin does not offer, or of a " \
+    X(NO_SUCH_CHAIN, OMX_REPLY_PLUGIN_HOSTD_NO_SUCH_CHAIN_RESP, OMX_VERB_CHAIN_CLEAR " or " OMX_VERB_CHAIN_GET " of a chain no " OMX_VERB_CHAIN " declared") \
+    X(PRESET_NOT_OFFERED, OMX_REPLY_PLUGIN_HOSTD_PRESET_NOT_OFFERED_RESP, "the worker: preset_load or preset_show of a stable name the plugin does not offer, or of a " \
                           "plugin with no preset system and no state") \
-    X(PRESET_INVALID, "preset_save with a file path that is not absolute or with no name, or preset_load or " \
+    X(PRESET_INVALID, OMX_REPLY_PLUGIN_HOSTD_PRESET_INVALID_RESP, "preset_save with a file path that is not absolute or with no name, or preset_load or " \
                       "preset_show of a file that cannot be read, is no JSON, is of a format version other than " \
                       PHD_PRESET_FORMAT_1 " and " PHD_PRESET_FORMAT_2 ", or breaks the format (docs/presets.md): the " \
                       "daemon answers it and no worker sees the file") \
-    X(PRESET_NEEDS_STATE, "the worker: a preset file that carries state for a worker that cannot take state yet") \
-    X(PRESET_PLUGIN_CHANGED, "the worker: the preset file's plugin id, version or fingerprint is not the instance's; " \
+    X(PRESET_NEEDS_STATE, OMX_REPLY_PLUGIN_HOSTD_PRESET_NEEDS_STATE_RESP, "the worker: a preset file that carries state for a worker that cannot take state yet") \
+    X(PRESET_PLUGIN_CHANGED, OMX_REPLY_PLUGIN_HOSTD_PRESET_PLUGIN_CHANGED_RESP, "the worker: the preset file's plugin id, version or fingerprint is not the instance's; " \
                              "nothing of it is applied") \
-    X(LOAD_REFUSED, "the worker: the plugin refused the preset or the state its file carries") \
-    X(DIR_NOT_WRITABLE, "descriptor_dir or qualification_dir cannot be made or written: the daemon does not start, and " \
+    X(LOAD_REFUSED, OMX_REPLY_PLUGIN_HOSTD_LOAD_REFUSED_RESP, "the worker: the plugin refused the preset or the state its file carries") \
+    X(DIR_NOT_WRITABLE, OMX_REPLY_PLUGIN_HOSTD_DIR_NOT_WRITABLE_RESP, "descriptor_dir or qualification_dir cannot be made or written: the daemon does not start, and " \
                         "says which key and which path on stderr with this code; a directory that turns read-only " \
                         "later makes the scan of an add write nothing, and " OMX_VERB_DESCRIPTOR_GET " and " \
                         OMX_VERB_PANEL_GET " of that plugin answer this code") \
-    X(DESCRIPTOR_ABSENT, OMX_VERB_DESCRIPTOR_GET " (" OMX_VERB_PANEL_GET ") of a plugin that has no descriptor (panel) " \
+    X(DESCRIPTOR_ABSENT, OMX_REPLY_PLUGIN_HOSTD_DESCRIPTOR_ABSENT_RESP, OMX_VERB_DESCRIPTOR_GET " (" OMX_VERB_PANEL_GET ") of a plugin that has no descriptor (panel) " \
                          "in descriptor_dir for its binary as it is now, and none being written: no add since it " \
                          "changed, or a binary that cannot be found") \
-    X(DESCRIPTOR_PENDING, OMX_VERB_DESCRIPTOR_GET " (" OMX_VERB_PANEL_GET ") of a plugin whose scan, started by its " \
+    X(DESCRIPTOR_PENDING, OMX_REPLY_PLUGIN_HOSTD_DESCRIPTOR_PENDING_RESP, OMX_VERB_DESCRIPTOR_GET " (" OMX_VERB_PANEL_GET ") of a plugin whose scan, started by its " \
                           "add, has not written its descriptor (panel) yet: ask again") \
-    X(DESCRIPTOR_SCAN_FAILED, OMX_VERB_DESCRIPTOR_GET " (" OMX_VERB_PANEL_GET ") of a plugin whose last scan wrote no " \
+    X(DESCRIPTOR_SCAN_FAILED, OMX_REPLY_PLUGIN_HOSTD_DESCRIPTOR_SCAN_FAILED_RESP, OMX_VERB_DESCRIPTOR_GET " (" OMX_VERB_PANEL_GET ") of a plugin whose last scan wrote no " \
                               "descriptor (panel): the scanner refused the plugin, made no dump or no panel, or is not " \
                               "installed; the add it ran for stands, and stderr and the scan's log say why. The next add " \
                               "scans again")
@@ -372,9 +343,8 @@ static inline int phd_pool_name_valid(const char *name)
 /* ---------------------------------------------------------------- verbs */
 
 /* mod-host's add, which the daemon extends with a placement; every verb of its own is OMX_VERB_<VERB> of
- * plugin_hostd_host_verbs.h */
+ * plugin_hostd_host_verbs.h, and pin_expect is omx-clap-core's, OMX_VERB_PIN_EXPECT */
 #define PHD_VERB_ADD              "add"
-#define PHD_VERB_PIN_EXPECT       "pin_expect"
 
 /* the words of a pin: <path>=<sha256>, joined by ',', and <scheme>:<sha256> */
 #define PHD_PIN_FILE_SEPARATOR   ","
@@ -420,7 +390,7 @@ static inline int phd_pool_name_valid(const char *name)
     X(LINE, "a " OMX_VERB_PIN_SET " line is at most line_max, " PHD_STR(PHD_LINE_MAX) " bytes, the protocol socket's " \
             "buffer; a longer one is refused as outside the grammar") \
     X(MANIFEST, "a manifest that uses @base, or names a file of the plugin by a percent-encoded IRI, makes add answer " \
-                "PHD_ERR_PIN_BINARY_MISMATCH " PHD_STR(PHD_ERR_PIN_BINARY_MISMATCH) ": the daemon does not resolve " \
+                "OMX_REPLY_PLUGIN_HOSTD_PIN_BINARY_MISMATCH_RESP " PHD_STR(OMX_REPLY_PLUGIN_HOSTD_PIN_BINARY_MISMATCH_RESP) ": the daemon does not resolve " \
                 "either, so it cannot know the file the host would load")
 
 /* the verbs the daemon adds to mod-host's, or extends: X(id, name, arguments, reply, meaning) */
@@ -463,7 +433,7 @@ static inline int phd_pool_name_valid(const char *name)
     X(PIN_LAYOUT, OMX_VERB_PIN_LAYOUT, "<instance>", OMX_VERB_PIN_LAYOUT_REPLY, \
       "sent by the daemon to a worker of a format that checks layouts, after it accepted the add of a plugin whose layout pin is " \
       "still unknown: the layout the worker found after init, which the daemon records in the pin") \
-    X(PIN_EXPECT, PHD_VERB_PIN_EXPECT, "<instance> <scheme>" PHD_PIN_SCHEME_SEPARATOR "<sha256>", "resp 0", \
+    X(PIN_EXPECT, OMX_VERB_PIN_EXPECT, "<instance> <scheme>" PHD_PIN_SCHEME_SEPARATOR "<sha256>", "resp 0", \
       "sent by the daemon to a worker of a format that checks layouts, just before the instance's add: the layout pin that add " \
       "checks after init and before activate; any other reply than resp 0 refuses the add with that code, and the " \
       "add is never forwarded") \
@@ -507,31 +477,13 @@ static inline int phd_pool_name_valid(const char *name)
  * worker of a format whose workers answer them from the plugin; for a format whose worker does not, it answers them
  * itself and never forwards them. A string word is quoted when it is not a plain word, and always in a reply, with \" inside it
  * for a quote: mod-host's own tokenizer reads them. */
-#define PHD_VERB_TRACK_INFO      "track_info"
-#define PHD_VERB_REMOTE_PAGES    "remote_pages"
-#define PHD_VERB_REMOTE_PAGE_GET "remote_page_get"
-#define PHD_VERB_PARAM_INFO      "param_info"
-
-/* the same verbs as a host registers them with protocol_add_command; preset_list and preset_get are the daemon's,
+/* The words and the lines of these verbs, and of the note verbs below, are omx-clap-core's declarations (its HOST_VERBS,
+ * omx_clap_core_host_verbs.h): OMX_VERB_<VERB> and OMX_VERB_<VERB>_FMT. preset_list and preset_get are the daemon's,
  * OMX_VERB_PRESET_LIST and OMX_VERB_PRESET_GET */
-#define PHD_VERB_TRACK_INFO_FMT      PHD_VERB_TRACK_INFO " %i %s %s ..."
-#define PHD_VERB_REMOTE_PAGES_FMT    PHD_VERB_REMOTE_PAGES " %i"
-#define PHD_VERB_REMOTE_PAGE_GET_FMT PHD_VERB_REMOTE_PAGE_GET " %i %i"
-#define PHD_VERB_PARAM_INFO_FMT      PHD_VERB_PARAM_INFO " %i %s"
 
 /* Notes, played on an instance by a controller that is not a jack client: the worker delivers each one as a MIDI
  * message at the start of its next cycle, on the plugin's note input. Nothing of them is kept: a note is an act, not a
  * setting, and a respawned instance starts silent. */
-#define PHD_VERB_NOTE_INPUT     "note_input"
-#define PHD_VERB_NOTE_ON        "note_on"
-#define PHD_VERB_NOTE_OFF       "note_off"
-#define PHD_VERB_ALL_NOTES_OFF  "all_notes_off"
-
-#define PHD_VERB_NOTE_INPUT_FMT    PHD_VERB_NOTE_INPUT " %i"
-#define PHD_VERB_NOTE_ON_FMT       PHD_VERB_NOTE_ON " %i %i %i %i"
-#define PHD_VERB_NOTE_OFF_FMT      PHD_VERB_NOTE_OFF " %i %i %i %i"
-#define PHD_VERB_ALL_NOTES_OFF_FMT PHD_VERB_ALL_NOTES_OFF " %i"
-
 /* the ranges of a note's words: MIDI's */
 #define PHD_NOTE_CHANNEL_MAX  15
 #define PHD_NOTE_KEY_MAX      127
@@ -555,7 +507,8 @@ static inline int phd_pool_name_valid(const char *name)
 #define PHD_NO_COLOR          PHD_WORD_NONE
 
 /* the kind of strip, the fourth word of track_info; none for an input channel: X(id, name) */
-#define PHD_TRACK_KINDS(X) X(BUS, "bus") X(RETURN, "return") X(MASTER, "master")
+#define PHD_TRACK_KINDS(X) \
+    X(BUS, OMX_HOST_TRACK_KINDS_BUS) X(RETURN, OMX_HOST_TRACK_KINDS_RETURN) X(MASTER, OMX_HOST_TRACK_KINDS_MASTER)
 
 /* how a parameter's plain value maps to a control's travel: X(id, name, meaning) */
 #define PHD_PARAM_SCALES(X) \
@@ -569,38 +522,38 @@ static inline int phd_pool_name_valid(const char *name)
 
 /* X(id, name, arguments, reply, ledger, meaning) */
 #define PHD_INSTANCE_VERBS(X) \
-    X(TRACK_INFO, PHD_VERB_TRACK_INFO, "<instance> <name> <#RRGGBB | " PHD_NO_COLOR "> [bus | return | master]", \
+    X(TRACK_INFO, OMX_VERB_TRACK_INFO, "<instance> <name> <#RRGGBB | " PHD_NO_COLOR "> [bus | return | master]", \
       "resp 0", REPLACE, \
       "the strip's name (\"\" for none), colour and kind, absent for an input channel; a worker whose plugin format " \
       "has a track-info extension passes them on; any other word is -902") \
-    X(REMOTE_PAGES, PHD_VERB_REMOTE_PAGES, "<instance>", "resp <count>", NONE, \
+    X(REMOTE_PAGES, OMX_VERB_REMOTE_PAGES, "<instance>", "resp <count>", NONE, \
       "the plugin's remote-control pages, from clap.remote-controls; 0 for an instance of a format whose worker has none") \
-    X(REMOTE_PAGE_GET, PHD_VERB_REMOTE_PAGE_GET, "<instance> <page>", \
+    X(REMOTE_PAGE_GET, OMX_VERB_REMOTE_PAGE_GET, "<instance> <page>", \
       "resp 0 <page_id> <section> <page_name> <s1> <s2> <s3> <s4> <s5> <s6> <s7> <s8>", NONE, \
       "one page, 0 to count - 1: each slot the symbol param_set takes, " PHD_EMPTY_SLOT " for an empty one; -902 " \
       "for a page that is not one") \
-    X(PARAM_INFO, PHD_VERB_PARAM_INFO, "<instance> <symbol>", \
+    X(PARAM_INFO, OMX_VERB_PARAM_INFO, "<instance> <symbol>", \
       "resp 0 <unit> <scale> <min> <max> <default> <step> <stable_symbol>", NONE, \
       "what a parameter's value means: its unit, its scale, and the symbol it keeps across hosts and versions; -103 " \
       "for a symbol that is not a parameter, the plugin's own bypass and :bypass included; " \
       "-511 for a parameter whose unit and scale the worker holds no checked contract for") \
     X(PRESET_LIST, OMX_VERB_PRESET_LIST, "<instance>", OMX_VERB_PRESET_LIST_REPLY, NONE, \
-      "the plugin's presets, the ones its preset discovery or its bundle lists; " PHD_STR(PHD_ERR_NO_PRESET_LIST) \
+      "the plugin's presets, the ones its preset discovery or its bundle lists; " PHD_STR(OMX_REPLY_PLUGIN_HOSTD_NO_PRESET_LIST_RESP) \
       " for an instance of a worker that cannot list them") \
     X(PRESET_GET, OMX_VERB_PRESET_GET, "<instance> <index>", OMX_VERB_PRESET_GET_REPLY, NONE, \
       "one preset, 0 to count - 1: the key preset_load takes for it, and its name; -902 for an index that is not one") \
-    X(NOTE_INPUT, PHD_VERB_NOTE_INPUT, "<instance>", "resp 0 <port | " PHD_NO_NOTE_INPUT ">", NONE, \
+    X(NOTE_INPUT, OMX_VERB_NOTE_INPUT, "<instance>", "resp 0 <port | " PHD_NO_NOTE_INPUT ">", NONE, \
       "whether the instance takes notes: the name of its note input on its worker's jack client, " PHD_NO_NOTE_INPUT \
-      " for a plugin that takes none; " PHD_STR(PHD_ERR_NOTES_BY_JACK) " for an instance of a worker that cannot say") \
-    X(NOTE_ON, PHD_VERB_NOTE_ON, "<instance> <channel> <key> <velocity>", "resp 0", NONE, \
+      " for a plugin that takes none; " PHD_STR(OMX_REPLY_HOST_NOTES_BY_JACK_RESP) " for an instance of a worker that cannot say") \
+    X(NOTE_ON, OMX_VERB_NOTE_ON, "<instance> <channel> <key> <velocity>", "resp 0", NONE, \
       "play a key: channel 0 to " PHD_STR(PHD_NOTE_CHANNEL_MAX) ", key 0 to " PHD_STR(PHD_NOTE_KEY_MAX) ", velocity 1 to " \
       PHD_STR(PHD_NOTE_VELOCITY_MAX) ", a MIDI note on at the start of the worker's next cycle; " \
-      PHD_STR(PHD_ERR_NO_NOTE_INPUT) " for a plugin that takes no notes, " PHD_STR(PHD_ERR_NOTES_BY_JACK) \
+      PHD_STR(OMX_REPLY_HOST_NO_NOTE_INPUT_RESP) " for a plugin that takes no notes, " PHD_STR(OMX_REPLY_HOST_NOTES_BY_JACK_RESP) \
       " for an instance of a worker that takes none on its socket, -902 for a word out of its range") \
-    X(NOTE_OFF, PHD_VERB_NOTE_OFF, "<instance> <channel> <key> <velocity>", "resp 0", NONE, \
-      "release a key, velocity 0 to " PHD_STR(PHD_NOTE_VELOCITY_MAX) ", a MIDI note off; answered as " PHD_VERB_NOTE_ON " is") \
-    X(ALL_NOTES_OFF, PHD_VERB_ALL_NOTES_OFF, "<instance>", "resp 0", NONE, \
-      "release every key of every channel, MIDI's all notes off (controller 123) on each; answered as " PHD_VERB_NOTE_ON " is")
+    X(NOTE_OFF, OMX_VERB_NOTE_OFF, "<instance> <channel> <key> <velocity>", "resp 0", NONE, \
+      "release a key, velocity 0 to " PHD_STR(PHD_NOTE_VELOCITY_MAX) ", a MIDI note off; answered as " OMX_VERB_NOTE_ON " is") \
+    X(ALL_NOTES_OFF, OMX_VERB_ALL_NOTES_OFF, "<instance>", "resp 0", NONE, \
+      "release every key of every channel, MIDI's all notes off (controller 123) on each; answered as " OMX_VERB_NOTE_ON " is")
 
 /* whether s is a string word: valid UTF-8, at most PHD_STRING_MAX bytes, no byte below 0x20 */
 static inline int phd_string_valid(const char *s)
@@ -703,14 +656,14 @@ static inline int phd_number_in(const char *word, int lo, int hi)
 /* whether the words of a note verb's line, the verb first, are its grammar; 0 for a line of another verb */
 static inline int phd_note_valid(char *const *word, int count)
 {
-    int on = !strcmp(word[0], PHD_VERB_NOTE_ON);
+    int on = !strcmp(word[0], OMX_VERB_NOTE_ON);
 
     if (count < 2 || !phd_number_in(word[1], 0, 1 << 20))
         return 0;
-    if (on || !strcmp(word[0], PHD_VERB_NOTE_OFF))
+    if (on || !strcmp(word[0], OMX_VERB_NOTE_OFF))
         return count == 5 && phd_number_in(word[2], 0, PHD_NOTE_CHANNEL_MAX) && phd_number_in(word[3], 0, PHD_NOTE_KEY_MAX) &&
                phd_number_in(word[4], on ? 1 : 0, PHD_NOTE_VELOCITY_MAX);
-    if (!strcmp(word[0], PHD_VERB_ALL_NOTES_OFF) || !strcmp(word[0], PHD_VERB_NOTE_INPUT))
+    if (!strcmp(word[0], OMX_VERB_ALL_NOTES_OFF) || !strcmp(word[0], OMX_VERB_NOTE_INPUT))
         return count == 2;
     return 0;
 }
@@ -718,8 +671,8 @@ static inline int phd_note_valid(char *const *word, int count)
 /* whether a verb is one of the note verbs */
 static inline int phd_is_note_verb(const char *verb)
 {
-    return !strcmp(verb, PHD_VERB_NOTE_ON) || !strcmp(verb, PHD_VERB_NOTE_OFF) || !strcmp(verb, PHD_VERB_ALL_NOTES_OFF) ||
-           !strcmp(verb, PHD_VERB_NOTE_INPUT);
+    return !strcmp(verb, OMX_VERB_NOTE_ON) || !strcmp(verb, OMX_VERB_NOTE_OFF) || !strcmp(verb, OMX_VERB_ALL_NOTES_OFF) ||
+           !strcmp(verb, OMX_VERB_NOTE_INPUT);
 }
 
 /* ---------------------------------------------------------------- the host verb table */
@@ -802,16 +755,16 @@ static inline int phd_is_note_verb(const char *verb)
     X("load", MOD_HOST, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
     X("save", MOD_HOST, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
     X("help", MOD_HOST, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
-    X(PHD_VERB_TRACK_INFO, MOD_HOST, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
-    X(PHD_VERB_REMOTE_PAGES, MOD_HOST, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
-    X(PHD_VERB_REMOTE_PAGE_GET, MOD_HOST, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
-    X(PHD_VERB_PARAM_INFO, MOD_HOST, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X(OMX_VERB_TRACK_INFO, MOD_HOST, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X(OMX_VERB_REMOTE_PAGES, MOD_HOST, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X(OMX_VERB_REMOTE_PAGE_GET, MOD_HOST, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X(OMX_VERB_PARAM_INFO, MOD_HOST, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
     X(OMX_VERB_PRESET_LIST, DAEMON, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
     X(OMX_VERB_PRESET_GET, DAEMON, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
-    X(PHD_VERB_NOTE_INPUT, DAEMON, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
-    X(PHD_VERB_NOTE_ON, DAEMON, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
-    X(PHD_VERB_NOTE_OFF, DAEMON, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
-    X(PHD_VERB_ALL_NOTES_OFF, DAEMON, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X(OMX_VERB_NOTE_INPUT, DAEMON, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X(OMX_VERB_NOTE_ON, DAEMON, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X(OMX_VERB_NOTE_OFF, DAEMON, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
+    X(OMX_VERB_ALL_NOTES_OFF, DAEMON, OPTIONAL, OPTIONAL, OPTIONAL, OPTIONAL) \
     X(OMX_VERB_WORKER_LIST, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
     X(OMX_VERB_INSTANCE_INFO, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
     X(OMX_VERB_SUPERVISOR_RESET, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
@@ -890,7 +843,7 @@ static inline int phd_is_note_verb(const char *verb)
       "a worker died; the instances it held, or - for none") \
     X(PHD_EVENT_INSTANCE_VERB_DROPPED, "<instance> <the command as sent>", \
       "the command a worker died on, dropped from the ledger; or the add it died on, the add as the worker was given it, " \
-      "which names the plugin, or the " PHD_VERB_PIN_EXPECT " of that add") \
+      "which names the plugin, or the " OMX_VERB_PIN_EXPECT " of that add") \
     X(PHD_EVENT_INSTANCE_VERB_DROPPED, "<instance> " PHD_EVENT_SUSPECT_PREFIX "<ms> <the command as sent>", \
       "the last verb a worker answered when it died inside suspect_window_ms, <ms> the age of the reply") \
     X(PHD_EVENT_WORKER_BACKOFF, "<worker> <ms>", "the respawn waits this long") \
@@ -912,11 +865,11 @@ static inline int phd_is_note_verb(const char *verb)
       "the LV2 adapter of the " PHD_FORMAT_LV2_CLAP " worker refused a plugin: <reason> is the hosting.* code after -102 on the " \
       "worker's reply to that add (" PHD_WORD_NONE " when it named none); the last word is the lv2_worker in force, " PHD_LV2_WORKER_AUTO " for a plugin " \
       "the " PHD_FORMAT_LV2 " row runs from now on, " PHD_LV2_WORKER_CLAP_HOST " for an add answered " \
-      PHD_STR(PHD_ERR_LV2_ADAPTER_REFUSED)) \
+      PHD_STR(OMX_REPLY_PLUGIN_HOSTD_LV2_ADAPTER_REFUSED_RESP)) \
     X(PHD_EVENT_REMOTE_PAGES_CHANGED, "<instance>", \
       "relayed from a worker: the plugin changed its remote pages; read them again") \
     X(PHD_EVENT_REMOTE_PAGE_SUGGEST, "<instance> <page_id>", \
-      "relayed from a worker: the plugin suggests the remote page of that id (a page_id of " PHD_VERB_REMOTE_PAGE_GET \
+      "relayed from a worker: the plugin suggests the remote page of that id (a page_id of " OMX_VERB_REMOTE_PAGE_GET \
       "); a surface may follow it") \
     X(PHD_EVENT_PARAM_GESTURE, "<instance> <symbol> " PHD_GESTURE_BEGIN " | " PHD_GESTURE_END, \
       "relayed from a worker: the user took hold of a control of the plugin's own, or let it go; a controller writes no " \
@@ -975,7 +928,7 @@ static inline int phd_is_note_verb(const char *verb)
 
 /* The directories of what the scan of an add gathers: state, kept across a reboot. An empty setting is the default:
  * <state home>/<subdir>, where the state home is $XDG_STATE_HOME, else /var/lib for a daemon run as root (a system
- * service), else $HOME/.local/state. A missing directory is made, mode 0700; one that cannot be written stops the daemon with PHD_ERR_DIR_NOT_WRITABLE. */
+ * service), else $HOME/.local/state. A missing directory is made, mode 0700; one that cannot be written stops the daemon with OMX_REPLY_PLUGIN_HOSTD_DIR_NOT_WRITABLE_RESP. */
 #define PHD_DIR_DESCRIPTORS_SUBDIR    "omx/descriptors"
 #define PHD_DIR_QUALIFICATION_SUBDIR  "omx/qualification"
 #define PHD_DIR_SYSTEM_STATE_HOME     "/var/lib"

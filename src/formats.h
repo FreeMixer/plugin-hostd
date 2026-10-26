@@ -39,7 +39,7 @@ typedef struct FORMAT_T {
     const char *worker_prefix;      /* put before the uri the worker is given, NULL for nothing */
     /* the row a uri of this format is run by, as a name of the table, or NULL for this one; malloc'd nothing */
     const char *(*route)(const conf_t *conf, const char *uri);
-    /* the worker runs the plugin through an adapter that may refuse it: its instantiation error is PHD_ERR_LV2_ADAPTER_REFUSED */
+    /* the worker runs the plugin through an adapter that may refuse it: its instantiation error is OMX_REPLY_PLUGIN_HOSTD_LV2_ADAPTER_REFUSED_RESP */
     int adapter;
 
     const char *(*worker)(const conf_t *conf);  /* the program that serves it */
@@ -50,7 +50,7 @@ typedef struct FORMAT_T {
     char *(*narrow_world)(const conf_t *conf, const char *dir, const char *const *uris, int n);
 
     /* the root and the relative files a host loads for the uri: what a pin holds. SUCCESS, or
-     * PHD_ERR_PIN_BINARY_MISMATCH with the reason on stderr for what cannot be pinned */
+     * OMX_REPLY_PLUGIN_HOSTD_PIN_BINARY_MISMATCH_RESP with the reason on stderr for what cannot be pinned */
     int (*pin_collect)(const char *uri, const char *search, char *root, size_t size, names_t *files);
     /* the one file the host loads the plugin's code from, as a path: what the name of its scanned descriptor hashes. 0,
      * or -1 when it cannot be told; NULL for a format whose plugins get no descriptor */

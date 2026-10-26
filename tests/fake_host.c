@@ -39,7 +39,7 @@
  *   list_connections            "resp 0 <a>><b> ..."
  *   pin_layout <n>              resp 0 <the layout pin>, the layout of the instance n (FAKE_NO_PIN_LAYOUT: the verb
  *                               is unknown, -902)
- *   pin_expect <n> <pin>        the layout pin of the next add of <n>: that add answers PHD_ERR_PIN_LAYOUT_MISMATCH
+ *   pin_expect <n> <pin>        the layout pin of the next add of <n>: that add answers OMX_REPLY_HOST_PIN_LAYOUT_MISMATCH_RESP
  *                               when the fake's own layout differs (FAKE_NO_PIN_EXPECT: the verb is unknown, -902;
  *                               FAKE_PIN_EXPECT_HANG: it is never answered)
  *   param_set <n> pages_changed <v>   v other than 0 writes "remote_pages_changed <n>" on the feedback port, as a CLAP
@@ -55,8 +55,8 @@
  *   preset_list <n>             "resp 2", and preset_get <n> <0|1> one preset each, -902 for any other index
  *   track_info <n> ...          "resp 0"; the fake keeps nothing of it (FAKE_LOG shows what it was sent)
  *   note_input <n>              "resp 0 midi_in" for an instance whose uri holds "synth", "resp 0 -" for any other
- *   note_on, note_off, all_notes_off <n> ...   "resp 0" for a synth, PHD_ERR_NOTE_QUEUE_FULL for one whose uri holds
- *                               "synth_full", PHD_ERR_NO_NOTE_INPUT for any other; the fake
+ *   note_on, note_off, all_notes_off <n> ...   "resp 0" for a synth, OMX_REPLY_HOST_NOTE_QUEUE_FULL_RESP for one whose uri holds
+ *                               "synth_full", OMX_REPLY_HOST_NO_NOTE_INPUT_RESP for any other; the fake
  *                               plays nothing (FAKE_LOG shows what it was sent)
  *   chain <chain> <n> ...       "resp 0" when it holds every <n>, -3 when not, -902 with FAKE_REFUSE_CHAIN, as an
  *                               omx-clap-host that runs no chain answers it; the fake runs nothing in order (FAKE_LOG
@@ -264,11 +264,11 @@ static void receive(msg_t *msg)
     verb = tok[0];
     n = ntok > 1 ? atoi(tok[1]) : -1;
 
-    if (verb_is(verb, PHD_VERB_PIN_EXPECT) && getenv("FAKE_NO_PIN_EXPECT"))
+    if (verb_is(verb, OMX_VERB_PIN_EXPECT) && getenv("FAKE_NO_PIN_EXPECT"))
         answer(fd, "resp -902");
-    else if (verb_is(verb, PHD_VERB_PIN_EXPECT) && getenv("FAKE_PIN_EXPECT_HANG"))
+    else if (verb_is(verb, OMX_VERB_PIN_EXPECT) && getenv("FAKE_PIN_EXPECT_HANG"))
         sleep(60);
-    else if (verb_is(verb, PHD_VERB_PIN_EXPECT) && ntok == 3 && n >= 0 && n < MAX_INST)
+    else if (verb_is(verb, OMX_VERB_PIN_EXPECT) && ntok == 3 && n >= 0 && n < MAX_INST)
     {
         snprintf(g_expect[n], sizeof(g_expect[n]), "%s", tok[2]);
         answer(fd, "resp 0");
@@ -315,7 +315,7 @@ static void receive(msg_t *msg)
         else if (id >= 0 && id < MAX_INST && g_expect[id][0] && strcmp(g_expect[id], mine))
         {
             g_expect[id][0] = '\0';
-            answer(fd, "resp %d", PHD_ERR_PIN_LAYOUT_MISMATCH);
+            answer(fd, "resp %d", OMX_REPLY_HOST_PIN_LAYOUT_MISMATCH_RESP);
         }
         else if (id < 0 || id >= MAX_INST || g_inst[id].exists)
             answer(fd, "resp -2");
@@ -489,19 +489,19 @@ static void receive(msg_t *msg)
         }
         answer(fd, "resp %d", strcmp(tok[2], "none") ? 1 : 0);
     }
-    else if (!strcmp(verb, PHD_VERB_TRACK_INFO))
+    else if (!strcmp(verb, OMX_VERB_TRACK_INFO))
         answer(fd, "resp 0");
-    else if (!strcmp(verb, PHD_VERB_NOTE_INPUT) && ntok == 2)
+    else if (!strcmp(verb, OMX_VERB_NOTE_INPUT) && ntok == 2)
         answer(fd, "resp 0 %s", g_inst[n].synth ? "midi_in" : PHD_NO_NOTE_INPUT);
-    else if (!strcmp(verb, PHD_VERB_NOTE_ON) || !strcmp(verb, PHD_VERB_NOTE_OFF) || !strcmp(verb, PHD_VERB_ALL_NOTES_OFF))
-        answer(fd, "resp %d", !g_inst[n].synth ? PHD_ERR_NO_NOTE_INPUT : g_inst[n].full ? PHD_ERR_NOTE_QUEUE_FULL : 0);
-    else if (!strcmp(verb, PHD_VERB_REMOTE_PAGES) && ntok == 2)
+    else if (!strcmp(verb, OMX_VERB_NOTE_ON) || !strcmp(verb, OMX_VERB_NOTE_OFF) || !strcmp(verb, OMX_VERB_ALL_NOTES_OFF))
+        answer(fd, "resp %d", !g_inst[n].synth ? OMX_REPLY_HOST_NO_NOTE_INPUT_RESP : g_inst[n].full ? OMX_REPLY_HOST_NOTE_QUEUE_FULL_RESP : 0);
+    else if (!strcmp(verb, OMX_VERB_REMOTE_PAGES) && ntok == 2)
         answer(fd, "resp 2");
-    else if (!strcmp(verb, PHD_VERB_REMOTE_PAGE_GET) && ntok == 3 && !strcmp(tok[2], "0"))
+    else if (!strcmp(verb, OMX_VERB_REMOTE_PAGE_GET) && ntok == 3 && !strcmp(tok[2], "0"))
         answer(fd, "resp 0 7 \"Main\" \"Page \\\"A\\\"\" 0 2 - - - - - -");
-    else if (!strcmp(verb, PHD_VERB_REMOTE_PAGE_GET) && ntok == 3 && !strcmp(tok[2], "1"))
+    else if (!strcmp(verb, OMX_VERB_REMOTE_PAGE_GET) && ntok == 3 && !strcmp(tok[2], "1"))
         answer(fd, "resp 0 8 \"\" \"Two\" 2 - - - - - - -");
-    else if (!strcmp(verb, PHD_VERB_REMOTE_PAGE_GET) && ntok == 3)
+    else if (!strcmp(verb, OMX_VERB_REMOTE_PAGE_GET) && ntok == 3)
         answer(fd, "resp -902");
     else if (!strcmp(verb, OMX_VERB_PRESET_LIST) && ntok == 2)
         answer(fd, "resp 2");
@@ -511,7 +511,7 @@ static void receive(msg_t *msg)
         answer(fd, "resp 0 urn:fake:bright \"Bright \\\"B\\\"\"");
     else if (!strcmp(verb, OMX_VERB_PRESET_GET) && ntok == 3)
         answer(fd, "resp -902");
-    else if (!strcmp(verb, PHD_VERB_PARAM_INFO) && ntok == 3)
+    else if (!strcmp(verb, OMX_VERB_PARAM_INFO) && ntok == 3)
         answer(fd, !strcmp(tok[2], "0") ? "resp 0 ms linear 1 2000 350 1 time_ms" : !strcmp(tok[2], "1") ? "resp -511" : "resp -103");
     else if (verb_is(verb, EFFECT_PATCH_SET) && ntok == 4)
     {

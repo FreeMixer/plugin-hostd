@@ -60,9 +60,11 @@ SRC = src/main.c src/conf.c src/proc.c src/supervisor.c src/verbs.c src/pins.c s
       src/descriptors.c src/describe.c src/transforms.c src/json.c
 OBJ = $(SRC:.c=.o)
 
-# the C names of the daemon's verbs and reply codes, rendered from data/verbs.json (render-verbs below); protocol.h
+# the C names of the daemon's verbs and reply codes, rendered from data/verbs.json (render-verbs below), and of the verbs
+# and reply codes it shares with omx-clap-host, rendered from omx-clap-core's package of the contract directory; protocol.h
 # includes them
-RENDERED = include/plugin-hostd/plugin_hostd_host_verbs.h include/plugin-hostd/plugin_hostd_vocabulary.h
+RENDERED = include/plugin-hostd/plugin_hostd_host_verbs.h include/plugin-hostd/plugin_hostd_vocabulary.h \
+           include/plugin-hostd/omx_clap_core_host_verbs.h include/plugin-hostd/omx_clap_core_vocabulary.h
 
 # default build
 all: $(PROG) $(PROBE)
@@ -150,6 +152,12 @@ render-verbs check-rendered:
 	sh $(INSTALL_CONTRACT_DIR) $(PROG) $(VERSION) $(CONTRACT_SCHEMA_MAJOR) data $$tmp data >/dev/null; \
 	OMX_CONTRACT_PATH=$$tmp$(if $(OMX_CONTRACT_PATH),:$(OMX_CONTRACT_PATH)):$(CONTRACTDIR) \
 	  $(OMX_CONTRACT) render --target c --package $(PROG) --installed --out include/plugin-hostd $(if $(filter check-rendered,$@),--check)
+	@set -e; tmp=$$(mktemp -d); trap 'rm -rf $$tmp' EXIT; \
+	OMX_CONTRACT_PATH=$(if $(OMX_CONTRACT_PATH),$(OMX_CONTRACT_PATH):)$(CONTRACTDIR) \
+	  $(OMX_CONTRACT) render --target c --package omx-clap-core --installed --out $$tmp; \
+	for f in omx_clap_core_host_verbs.h omx_clap_core_vocabulary.h; do \
+	  $(if $(filter check-rendered,$@),cmp -s $$tmp/$$f include/plugin-hostd/$$f || { echo "include/plugin-hostd/$$f is not the render of omx-clap-core's package" >&2; exit 1; },cp $$tmp/$$f include/plugin-hostd/$$f); \
+	done
 
 # the tables cover their format (tests/format_coverage.py, docs/formats.md#the-coverage-test): every term of
 # omx-contract's installed TERM files and every row with a from, once per format, each field one row; then its sabotage
