@@ -1,3 +1,22 @@
+plugin-hostd (0.12.0) unstable; urgency=medium
+
+  * The verbs the daemon adds are declared in its package of omx-contract's
+    contract directory, verbs.json beside the format tables: each verb's
+    format, reply, refusal codes and what plugin-hostd, omx-clap-host and
+    mod-host owe it. The C names come from plugin_hostd_host_verbs.h, which
+    protocol.h includes, and plugin_hostd_vocabulary.h names the codes (#131).
+  * New package plugin-hostd-contract (Architecture: all): the contract
+    directory's files, /usr/share/omx-contract/contract.d/3/plugin-hostd
+    (MANIFEST.json, formats/clap.json, formats/lv2.json, verbs.json), which
+    programs read at run time. plugin-hostd and plugin-hostd-dev depend on
+    it; it Breaks and Replaces the plugin-hostd-dev that shipped them.
+  * The build needs libomx-contract-dev 3.3.0 or newer, the first schema with
+    the verbs kind, and its check stage the omx-contract command.
+  * A test holds the declared verbs to the daemon on its socket: replies,
+    codes, the verbs it answers itself, and the shapes both hosts answer.
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Mon, 26 Oct 2026 18:00:00 +0100
+
 plugin-hostd (0.11.0) unstable; urgency=medium
 
   * chain_get <chain> reads a chain back: its worker, its members in the
