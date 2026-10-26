@@ -263,7 +263,7 @@ static void line_write(FILE *file, const pin_t *p)
 {
     int n;
 
-    fprintf(file, "%s %s ", PHD_VERB_PIN_SET, p->uri);
+    fprintf(file, "%s %s ", OMX_VERB_PIN_SET, p->uri);
     for (n = 0; n < p->nfiles; n++)
         fprintf(file, "%s%s" PHD_PIN_DIGEST_SEPARATOR "%s", n ? PHD_PIN_FILE_SEPARATOR : "", p->path[n], p->digest[n]);
     fprintf(file, " %s", p->layout);
@@ -332,7 +332,7 @@ static int held_names(const char *line, const char *uri)
 
     snprintf(copy, sizeof(copy), "%s", line);
     t = strtok_r(copy, " \t", &save);
-    if (t && !strcmp(t, PHD_VERB_PIN_SET))
+    if (t && !strcmp(t, OMX_VERB_PIN_SET))
         t = strtok_r(NULL, " \t", &save);
     return t && !strcmp(bare(t), uri);
 }
@@ -440,7 +440,7 @@ static int line_read(char *line, layer_t layer, const char *path, int lineno)
         tok[ntok++] = t;
     if (ntok == 0 || tok[0][0] == '#')
         return SUCCESS;
-    if (!strcmp(tok[0], PHD_VERB_PIN_SET))
+    if (!strcmp(tok[0], OMX_VERB_PIN_SET))
         first = 1;
     if (ntok - first != 3 && ntok - first != 4)
         return ERR_INVALID_OPERATION;

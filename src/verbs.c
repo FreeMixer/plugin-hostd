@@ -145,9 +145,9 @@ static char *handle(char *line, char **tok, int ntok)
             descriptors_add(tok[1]);
         return reply_text;
     }
-    if (!strcmp(verb, PHD_VERB_DESCRIPTOR_GET))
+    if (!strcmp(verb, OMX_VERB_DESCRIPTOR_GET))
         return ntok == 2 ? descriptors_get(tok[1]) : sup_resp(ERR_INVALID_OPERATION);
-    if (!strcmp(verb, PHD_VERB_PANEL_GET))
+    if (!strcmp(verb, OMX_VERB_PANEL_GET))
         return ntok == 2 ? descriptors_panel_get(tok[1]) : sup_resp(ERR_INVALID_OPERATION);
     if (verb_is(verb, EFFECT_REMOVE))
     {
@@ -155,45 +155,45 @@ static char *handle(char *line, char **tok, int ntok)
             return sup_resp(ERR_INVALID_OPERATION);
         return atoi(tok[1]) == -1 ? sup_remove_all() : sup_remove(atoi(tok[1]));
     }
-    if (!strcmp(verb, PHD_VERB_WORKER_LIST))
+    if (!strcmp(verb, OMX_VERB_WORKER_LIST))
         return ntok == 1 ? sup_worker_list() : sup_resp(ERR_INVALID_OPERATION);
-    if (!strcmp(verb, PHD_VERB_INSTANCE_INFO))
+    if (!strcmp(verb, OMX_VERB_INSTANCE_INFO))
         return ntok == 2 ? sup_instance_info(atoi(tok[1])) : sup_resp(ERR_INVALID_OPERATION);
-    if (!strcmp(verb, PHD_VERB_SUPERVISOR_RESET))
+    if (!strcmp(verb, OMX_VERB_SUPERVISOR_RESET))
     {
         if (ntok > 2)
             return sup_resp(ERR_INVALID_OPERATION);
         return sup_reset(ntok > 1 ? tok[1] : PHD_WORD_ALL);
     }
-    if (!strcmp(verb, PHD_VERB_QUARANTINE_CLEAR))
+    if (!strcmp(verb, OMX_VERB_QUARANTINE_CLEAR))
         return ntok == 2 ? sup_quarantine_clear(tok[1]) : sup_resp(ERR_INVALID_OPERATION);
-    if (!strcmp(verb, PHD_VERB_POLICY_SET))
+    if (!strcmp(verb, OMX_VERB_POLICY_SET))
         return ntok == 3 ? sup_policy_set(tok[1], tok[2]) : sup_resp(ERR_INVALID_OPERATION);
-    if (!strcmp(verb, PHD_VERB_LV2_WORKER_SET))
+    if (!strcmp(verb, OMX_VERB_LV2_WORKER_SET))
         return ntok == 3 ? sup_lv2_worker_set(tok[1], tok[2]) : sup_resp(ERR_INVALID_OPERATION);
-    if (!strcmp(verb, PHD_VERB_POOL_CONFIG))
+    if (!strcmp(verb, OMX_VERB_POOL_CONFIG))
         return ntok == 3 ? sup_pool_config(tok[1], atoi(tok[2])) : sup_resp(ERR_INVALID_OPERATION);
-    if (!strcmp(verb, PHD_VERB_WORKER_ENV))
+    if (!strcmp(verb, OMX_VERB_WORKER_ENV))
         return ntok == 4 ? sup_worker_env(tok[1], tok[2], tok[3]) : sup_resp(ERR_INVALID_OPERATION);
-    if (!strcmp(verb, PHD_VERB_CHAIN))
+    if (!strcmp(verb, OMX_VERB_CHAIN))
         return chain_words(tok, ntok);
-    if (!strcmp(verb, PHD_VERB_CHAIN_CLEAR))
+    if (!strcmp(verb, OMX_VERB_CHAIN_CLEAR))
     {
         int id;
 
         return ntok == 2 && number(tok[1], &id) ? sup_chain_clear(id) : sup_resp(ERR_INVALID_OPERATION);
     }
-    if (!strcmp(verb, PHD_VERB_CHAIN_GET))
+    if (!strcmp(verb, OMX_VERB_CHAIN_GET))
     {
         int id;
 
         return ntok == 2 && number(tok[1], &id) ? sup_chain_get(id) : sup_resp(ERR_INVALID_OPERATION);
     }
-    if (!strcmp(verb, PHD_VERB_PIN_SET))
+    if (!strcmp(verb, OMX_VERB_PIN_SET))
         return sup_resp(pin_set_words(line, tok, ntok));
-    if (!strcmp(verb, PHD_VERB_PIN_ACCEPT))
+    if (!strcmp(verb, OMX_VERB_PIN_ACCEPT))
         return ntok == 2 ? sup_pin_accept(tok[1]) : sup_resp(ERR_INVALID_OPERATION);
-    if (!strcmp(verb, PHD_VERB_PIN_CLEAR))
+    if (!strcmp(verb, OMX_VERB_PIN_CLEAR))
     {
         int rc = ntok == 2 ? pins_clear(tok[1]) : ERR_INVALID_OPERATION;
 

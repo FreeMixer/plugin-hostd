@@ -273,9 +273,9 @@ static void receive(msg_t *msg)
         snprintf(g_expect[n], sizeof(g_expect[n]), "%s", tok[2]);
         answer(fd, "resp 0");
     }
-    else if (verb_is(verb, PHD_VERB_PIN_LAYOUT) && getenv("FAKE_NO_PIN_LAYOUT"))
+    else if (verb_is(verb, OMX_VERB_PIN_LAYOUT) && getenv("FAKE_NO_PIN_LAYOUT"))
         answer(fd, "resp -902");
-    else if (verb_is(verb, PHD_VERB_PIN_LAYOUT) && ntok == 2 && n >= 0 && n < MAX_INST && g_inst[n].exists)
+    else if (verb_is(verb, OMX_VERB_PIN_LAYOUT) && ntok == 2 && n >= 0 && n < MAX_INST && g_inst[n].exists)
     {
         char mine[PHD_SHA256_HEX_LEN + 64];
 
@@ -347,9 +347,9 @@ static void receive(msg_t *msg)
                 g_out[k--] = g_out[--g_nout];
         answer(fd, "resp 0");
     }
-    else if (!strcmp(verb, PHD_VERB_CHAIN) && getenv("FAKE_REFUSE_CHAIN"))
+    else if (!strcmp(verb, OMX_VERB_CHAIN) && getenv("FAKE_REFUSE_CHAIN"))
         answer(fd, "resp -902");
-    else if (!strcmp(verb, PHD_VERB_CHAIN))
+    else if (!strcmp(verb, OMX_VERB_CHAIN))
     {
         int held = ntok >= 3;
 
@@ -503,13 +503,13 @@ static void receive(msg_t *msg)
         answer(fd, "resp 0 8 \"\" \"Two\" 2 - - - - - - -");
     else if (!strcmp(verb, PHD_VERB_REMOTE_PAGE_GET) && ntok == 3)
         answer(fd, "resp -902");
-    else if (!strcmp(verb, PHD_VERB_PRESET_LIST) && ntok == 2)
+    else if (!strcmp(verb, OMX_VERB_PRESET_LIST) && ntok == 2)
         answer(fd, "resp 2");
-    else if (!strcmp(verb, PHD_VERB_PRESET_GET) && ntok == 3 && !strcmp(tok[2], "0"))
+    else if (!strcmp(verb, OMX_VERB_PRESET_GET) && ntok == 3 && !strcmp(tok[2], "0"))
         answer(fd, "resp 0 \"file:///presets/warm.clap-preset\" \"Warm\"");
-    else if (!strcmp(verb, PHD_VERB_PRESET_GET) && ntok == 3 && !strcmp(tok[2], "1"))
+    else if (!strcmp(verb, OMX_VERB_PRESET_GET) && ntok == 3 && !strcmp(tok[2], "1"))
         answer(fd, "resp 0 urn:fake:bright \"Bright \\\"B\\\"\"");
-    else if (!strcmp(verb, PHD_VERB_PRESET_GET) && ntok == 3)
+    else if (!strcmp(verb, OMX_VERB_PRESET_GET) && ntok == 3)
         answer(fd, "resp -902");
     else if (!strcmp(verb, PHD_VERB_PARAM_INFO) && ntok == 3)
         answer(fd, !strcmp(tok[2], "0") ? "resp 0 ms linear 1 2000 350 1 time_ms" : !strcmp(tok[2], "1") ? "resp -511" : "resp -103");

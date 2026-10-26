@@ -60,6 +60,10 @@ SRC = src/main.c src/conf.c src/proc.c src/supervisor.c src/verbs.c src/pins.c s
       src/descriptors.c src/describe.c src/transforms.c src/json.c
 OBJ = $(SRC:.c=.o)
 
+# the C names of the daemon's verbs and reply codes, rendered from data/verbs.json (render-verbs below); protocol.h
+# includes them
+RENDERED = include/plugin-hostd/plugin_hostd_host_verbs.h include/plugin-hostd/plugin_hostd_vocabulary.h
+
 # default build
 all: $(PROG) $(PROBE)
 
@@ -69,7 +73,7 @@ $(PROG): $(OBJ) $(PROTOCOL_LIB)
 # the probe runner: it loads no plugin and links nothing of the daemon or of mod-host
 # describe reads the installed table of a format by default (docs/formats.md)
 PROBE_SRC = src/probe.c src/json.c src/describe.c src/transforms.c
-$(PROBE): $(PROBE_SRC) src/json.h src/describe.h src/transforms.h include/plugin-hostd/protocol.h include/plugin-hostd/pin.h
+$(PROBE): $(PROBE_SRC) src/json.h src/describe.h src/transforms.h include/plugin-hostd/protocol.h $(RENDERED) include/plugin-hostd/pin.h
 	$(CC) -Iinclude -Isrc $(CONTRACT_CFLAGS) $(CFLAGS) -D_GNU_SOURCE -DPROBE_VERSION='"$(VERSION)"' \
 	  -DPROBE_CONTRACTDIR='"$(CONTRACTDIR)"' -DPROBE_CONTRACT_MAJOR='"$(CONTRACT_SCHEMA_MAJOR)"' -o $@ $(PROBE_SRC) -lm
 
@@ -79,7 +83,7 @@ $(PROTOCOL_LIB):
 endif
 
 # the declared protocol is compiled into every object
-$(OBJ): include/plugin-hostd/protocol.h include/plugin-hostd/pin.h
+$(OBJ): include/plugin-hostd/protocol.h $(RENDERED) include/plugin-hostd/pin.h
 
 src/descriptors.o: src/descriptors.h src/describe.h src/json.h src/formats.h src/supervisor.h
 
@@ -115,6 +119,7 @@ install_protocol:
 	install -d $(DESTDIR)$(DATADIR)/plugin-hostd/pins.d
 	install -d $(DESTDIR)$(INCLUDEDIR)/plugin-hostd
 	install -m 644 include/plugin-hostd/protocol.h $(DESTDIR)$(INCLUDEDIR)/plugin-hostd/protocol.h
+	install -m 644 $(RENDERED) $(DESTDIR)$(INCLUDEDIR)/plugin-hostd/
 	install -m 644 include/plugin-hostd/pin.h $(DESTDIR)$(INCLUDEDIR)/plugin-hostd/pin.h
 	install -d $(DESTDIR)$(DATADIR)/pkgconfig
 	sed -e 's,@PREFIX@,$(PREFIX),g' -e 's,@VERSION@,$(VERSION),g' protocol/plugin-hostd.pc.in > $(DESTDIR)$(DATADIR)/pkgconfig/plugin-hostd.pc
@@ -132,6 +137,19 @@ INSTALL_CONTRACT_DIR = $(firstword $(wildcard $(shell $(PKG_CONFIG) --variable=d
 install-contract:
 	@test -n "$(INSTALL_CONTRACT_DIR)" || { echo "install-contract: no install-contract-dir.sh: install omx-contract-devel, or set OMX_CONTRACT_DIR to a checkout" >&2; exit 1; }
 	sh $(INSTALL_CONTRACT_DIR) $(PROG) $(VERSION) $(CONTRACT_SCHEMA_MAJOR) data $(DESTDIR)$(CONTRACTDIR) data
+
+# the daemon's verbs and reply codes (data/verbs.json), rendered by omx-contract as the package installs them, beside
+# the packages of OMX_CONTRACT_PATH and of the installed contract directory: the C names every source and protocol.h
+# read (OMX_VERB_<VERB>, its _FMT, _REPLY and _CODES_INIT). `make render-verbs` writes them, `make check-rendered`
+# fails on any drift.
+OMX_CONTRACT ?= omx-contract
+.PHONY: render-verbs check-rendered
+render-verbs check-rendered:
+	@test -n "$(INSTALL_CONTRACT_DIR)" || { echo "$@: no install-contract-dir.sh: install omx-contract-devel, or set OMX_CONTRACT_DIR to a checkout" >&2; exit 1; }
+	@set -e; tmp=$$(mktemp -d); trap 'rm -rf $$tmp' EXIT; \
+	sh $(INSTALL_CONTRACT_DIR) $(PROG) $(VERSION) $(CONTRACT_SCHEMA_MAJOR) data $$tmp data >/dev/null; \
+	OMX_CONTRACT_PATH=$$tmp$(if $(OMX_CONTRACT_PATH),:$(OMX_CONTRACT_PATH)):$(CONTRACTDIR) \
+	  $(OMX_CONTRACT) render --target c --package $(PROG) --installed --out include/plugin-hostd $(if $(filter check-rendered,$@),--check)
 
 # the tables cover their format (tests/format_coverage.py, docs/formats.md#the-coverage-test): every term of
 # omx-contract's installed TERM files and every row with a from, once per format, each field one row; then its sabotage
@@ -178,7 +196,7 @@ FUZZ_INCS      := -Iinclude -Isrc -Ifuzz $(PROTOCOL_CFLAGS)
 # reply harness includes src/relay.c itself
 FUZZ_SRC_command := src/verbs.c fuzz/recorder.c
 FUZZ_SRC_reply   :=
-FUZZ_DEPS        := fuzz/fuzz.h fuzz/syntax.h fuzz/recorder.h src/relay.c src/verbs.h include/plugin-hostd/protocol.h
+FUZZ_DEPS        := fuzz/fuzz.h fuzz/syntax.h fuzz/recorder.h src/relay.c src/verbs.h include/plugin-hostd/protocol.h $(RENDERED)
 
 $(FUZZ_BUILD)/fuzz_%: fuzz/fuzz_%.c $(FUZZ_DEPS) $(FUZZ_SRC_command)
 	@mkdir -p $(dir $@)
@@ -288,7 +306,7 @@ $(TRANSFORMS_TEST): tests/transforms_test.c src/transforms.c src/transforms.h
 test-relay: $(RELAY_TEST)
 	./$(RELAY_TEST)
 
-$(RELAY_TEST): tests/relay_test.c src/relay.c src/relay.h include/plugin-hostd/protocol.h
+$(RELAY_TEST): tests/relay_test.c src/relay.c src/relay.h include/plugin-hostd/protocol.h $(RENDERED)
 	$(CC) -Iinclude $(CFLAGS) -Werror -Drealloc=relay_test_realloc -c -o tests/relay-test-relay.o src/relay.c
 	$(CC) -Isrc $(CFLAGS) -Werror -o $@ tests/relay_test.c tests/relay-test-relay.o -pthread
 # the relay's gesture table and lv2.c's refusal and pick tables when memory runs out: each is built with its realloc
@@ -297,7 +315,7 @@ test-alloc: $(GESTURE_ALLOC_TEST) $(LV2_ALLOC_TEST)
 	./$(GESTURE_ALLOC_TEST)
 	./$(LV2_ALLOC_TEST)
 
-$(GESTURE_ALLOC_TEST): tests/gesture_alloc_test.c src/relay.c src/relay.h include/plugin-hostd/protocol.h
+$(GESTURE_ALLOC_TEST): tests/gesture_alloc_test.c src/relay.c src/relay.h include/plugin-hostd/protocol.h $(RENDERED)
 	$(CC) -Iinclude -Isrc $(CFLAGS) -Werror -Drealloc=alloc_test_realloc -o $@ tests/gesture_alloc_test.c -pthread
 
 $(LV2_ALLOC_TEST): tests/lv2_alloc_test.c src/lv2.c src/formats.h
@@ -361,7 +379,7 @@ tests/jack_levels: tests/jack_levels.c
 GEN = tools/protocol-gen
 GENERATED = README.md doc/plugin-hostd.1 protocol/plugin-hostd.json protocol/mod-host.json protocol/probe-output.schema.json
 
-$(GEN): tools/protocol-gen.c include/plugin-hostd/protocol.h
+$(GEN): tools/protocol-gen.c include/plugin-hostd/protocol.h $(RENDERED)
 	$(CC) -Wall -Wextra -Werror -std=gnu99 -Iinclude $(CONTRACT_CFLAGS) -o $@ tools/protocol-gen.c
 
 gen: $(GEN)

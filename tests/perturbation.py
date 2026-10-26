@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# The declaration is the one copy: change values in a scratch copy of include/plugin-hostd/protocol.h, regenerate,
+# The declaration is the one copy: change values in a scratch copy of include/plugin-hostd/protocol.h, and a verb in
+# one of data/verbs.json, the daemon's verbs that omx-contract renders, render and regenerate,
 import sys as _s; _s.stdout.reconfigure(line_buffering=True)
 # rebuild, and the daemon's behaviour and the docs follow, with no other copy of an old value left in src/, the README
 # or the man page. The same behaviour test runs on the tree as it is, so it reads every value from the declared JSON and
@@ -105,7 +106,10 @@ EDITS = [
     ("an error code", r"(#define PHD_ERR_GAVE_UP +)\(-505\)", r"\g<1>(-595)", r"\b505\b"),
     ("the pool name limit", r"(#define PHD_POOL_NAME_MAX )32\b", r"\g<1>5", None),
     ("the readiness line", r'(#define PHD_READY_LINE )"plugin-hostd ready!"', r'\g<1>"plugin-hostd is up!"', r"plugin.hostd ready!"),
-    ("a verb", r'(#define PHD_VERB_INSTANCE_INFO +)"instance_info"', r'\g<1>"instance_where"', r"\binstance_info\b"),
+]
+# a verb of the daemon is declared in data/verbs.json and rendered: (what, pattern, replacement, old) on that file
+DATA_EDITS = [
+    ("a verb", r'"instance_info( %i)?"', lambda m: '"instance_where%s"' % (m.group(1) or ""), r"\binstance_info\b"),
 ]
 # the verb the daemon has after the edit, and the one it has before, which the perturbed daemon must not have
 VERB_AFTER, VERB_BEFORE = "instance_where", "instance_info"
@@ -170,36 +174,54 @@ def main():
     try:
         tree = os.path.join(work, "t")
         os.mkdir(tree)
-        for name in ("include", "src", "tools", "protocol", "doc", "packaging", "tests", "Makefile", "README.md"):
+        for name in ("data", "include", "src", "tools", "protocol", "doc", "packaging", "tests", "Makefile", "README.md"):
             src = os.path.join(ROOT, name)
             (shutil.copytree if os.path.isdir(src) else shutil.copy)(src, os.path.join(tree, name))
         header = os.path.join(tree, "include", "plugin-hostd", "protocol.h")
         text = open(header).read()
+        declaration = os.path.join(tree, "data", "verbs.json")
+        verbs = open(declaration).read()
 
         # positive control: the greps find the old values where they are declared and documented
-        for what, pattern, _, old in EDITS:
+        for what, pattern, _, old in EDITS + DATA_EDITS:
             if old:
                 found = grep(old, os.path.join(tree, "include"), os.path.join(tree, "README.md"), os.path.join(tree, "doc"))
                 assert found, "control: the grep for the old value of %s finds nothing where it is declared" % what
         # and the generated files are current before anything is touched
-        r = make(tree, "check-generated")
-        assert r.returncode == 0, "the scratch copy is not current before the edit: " + r.stdout + r.stderr
+        for target in ("check-generated", "check-rendered"):
+            r = make(tree, target)
+            assert r.returncode == 0, "the scratch copy is not current before the edit: " + r.stdout + r.stderr
 
         for what, pattern, repl, _ in EDITS:
             text, n = re.subn(pattern, repl, text)
             assert n == 1, "the edit of %s matched %d times" % (what, n)
         open(header, "w").write(text)
+        for what, pattern, repl, _ in DATA_EDITS:
+            verbs, n = re.subn(pattern, repl, verbs)
+            assert n == 2, "the edit of %s matched %d times, not its word and its format" % (what, n)
+        open(declaration, "w").write(verbs)
+        # the render names a verb's macro after its word, so a renamed verb renames its C name, which every reader of it
+        # follows; a reader of the old name does not compile
+        for base, _, files in os.walk(tree):
+            for f in files:
+                if f.endswith((".c", ".h")) and not f.startswith("plugin_hostd_"):
+                    path = os.path.join(base, f)
+                    old = open(path).read()
+                    if "OMX_VERB_INSTANCE_INFO" in old:
+                        open(path, "w").write(old.replace("OMX_VERB_INSTANCE_INFO", "OMX_VERB_INSTANCE_WHERE"))
 
-        # the guard: a header changed and not regenerated is drift
+        # the guards: a header changed and not regenerated is drift, and so is a declaration not rendered
         r = make(tree, "check-generated")
         assert r.returncode != 0, "check-generated passed over a changed declaration"
-        print("ok   check-generated fails on a changed declaration that was not regenerated")
+        r = make(tree, "check-rendered")
+        assert r.returncode != 0, "check-rendered passed over a changed verbs declaration"
+        print("ok   check-generated and check-rendered fail on a changed declaration that was not regenerated")
 
-        for target in ("gen", "check-generated", "plugin-hostd"):
+        for target in ("render-verbs", "gen", "check-generated", "check-rendered", "plugin-hostd"):
             r = make(tree, target)
             assert r.returncode == 0, "make %s in the scratch copy: %s%s" % (target, r.stdout, r.stderr)
 
-        for what, _, _, old in EDITS:
+        for what, _, _, old in EDITS + DATA_EDITS:
             if old:
                 left = grep(old, os.path.join(tree, "src"), os.path.join(tree, "README.md"), os.path.join(tree, "doc"))
                 assert not left, "a copy of the old value of %s remains:\n%s" % (what, "\n".join(left))

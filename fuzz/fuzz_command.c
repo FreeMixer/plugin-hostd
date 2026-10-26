@@ -264,7 +264,7 @@ __attribute__((noinline)) static void check_reply(const struct words *w)
  * grammar is mod-host's, so each worker's mod-host refuses them */
 static int passed_on(const char *verb)
 {
-    return !strcmp(verb, PHD_VERB_PIN_LAYOUT) || !strcmp(verb, PHD_VERB_PIN_EXPECT) || verb_is(verb, EFFECT_CONNECT) ||
+    return !strcmp(verb, OMX_VERB_PIN_LAYOUT) || !strcmp(verb, PHD_VERB_PIN_EXPECT) || verb_is(verb, EFFECT_CONNECT) ||
            verb_is(verb, EFFECT_DISCONNECT);
 }
 
