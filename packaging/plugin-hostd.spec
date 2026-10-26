@@ -25,14 +25,16 @@ BuildRequires: omx-contract-devel >= 3.0.0
 Requires: mod-host-protocol%{?_isa} >= 0.10.6.f14a230-11.1
 # omx-clap-core is a build dependency of the check stage only: the CLAP worker and the fixtures the real-worker
 # tests drive. A build with `--without check` needs nothing of omx-clap-core, so plugin-hostd and omx-clap-core
-# do not build-depend on each other. A floor only: the lowest release with what the tests need (omx-clap-core 0.9)
+# do not build-depend on each other. A floor only: the lowest release with what the tests need (omx-clap-core 0.21,
+# the first whose omx-clap-host runs a chain's members in one client in the declared order, and whose tests package
+# ships fault-14.clap and jack_identity)
 %if %{with check}
-BuildRequires: omx-clap-host-tests >= 0.9.0
+BuildRequires: omx-clap-host-tests >= 0.21.0
 %endif
 
 # the workers: a format whose worker is not installed refuses its adds (-503), the other format is unaffected
 Recommends: mod-host
-Recommends: omx-clap-host >= 0.9.0
+Recommends: omx-clap-host >= 0.21.0
 
 %description
 plugin-hostd keeps your effects and instruments running when one of them
