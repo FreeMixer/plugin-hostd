@@ -1,7 +1,8 @@
 usr/include/plugin-hostd/protocol.h
+usr/include/plugin-hostd/plugin_hostd_host_verbs.h
+usr/include/plugin-hostd/plugin_hostd_vocabulary.h
 usr/include/plugin-hostd/pin.h
 usr/share/pkgconfig/plugin-hostd.pc
 usr/share/plugin-hostd/protocol.schema.json
 usr/share/plugin-hostd/probe-output.schema.json
 usr/share/plugin-hostd/preset.schema.json
-usr/share/omx-contract/contract.d/3/plugin-hostd

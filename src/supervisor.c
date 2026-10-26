@@ -962,7 +962,7 @@ static int replay_pin(worker_t *w, instance_t *i)
 /* "chain <chain> <instance> ...": the members a chain's worker holds and replayed, in order; 0 when it holds none */
 static int chain_line(worker_t *w, char *line, size_t size)
 {
-    size_t used = snprintf(line, size, PHD_VERB_CHAIN " %d", w->chain->id);
+    size_t used = snprintf(line, size, OMX_VERB_CHAIN " %d", w->chain->id);
     int n, count = 0;
 
     for (n = 0; n < w->ninst && used + 12 < size; n++)
@@ -1281,7 +1281,7 @@ static void learn_layout(worker_t *w, int id, const char *uri)
     char line[64], *reply = NULL, *save = NULL, *word;
     int rc;
 
-    snprintf(line, sizeof(line), PHD_VERB_PIN_LAYOUT " %d", id);
+    snprintf(line, sizeof(line), OMX_VERB_PIN_LAYOUT " %d", id);
     rc = proc_rpc(&g_conf, w->pid, w->fd, line, &reply);
     if (rc == RPC_OK && resp_code(reply) >= 0)
     {
@@ -1819,7 +1819,7 @@ char *sup_instance_verb(const char *line, int ledger)
         reply = count == 3 ? format_at(i->fmt)->param_info(id, word[2]) : sup_resp(ERR_INVALID_OPERATION);
     else if (phd_is_note_verb(word[0]))
         reply = sup_resp(PHD_ERR_NOTES_BY_JACK);
-    else if (!strcmp(word[0], PHD_VERB_PRESET_LIST) || !strcmp(word[0], PHD_VERB_PRESET_GET))
+    else if (!strcmp(word[0], OMX_VERB_PRESET_LIST) || !strcmp(word[0], OMX_VERB_PRESET_GET))
         reply = sup_resp(PHD_ERR_NO_PRESET_LIST);
     else
         reply = sup_resp(ERR_INVALID_OPERATION);

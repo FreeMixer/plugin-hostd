@@ -377,8 +377,8 @@ static void region_placement(void)
     printf("The placement of an `add` is `%s`. `%s` is a worker for that instance alone; `%s<name>` is the pool's worker, "
            "opened on first use and capped by `%s`, and a full pool opens `<name>%s2`, `<name>%s3`, and so on; `%s` is "
            "the policy of `%s`. A pool name matches `%s`.\n",
-           PHD_PLACEMENT_SYNTAX, PHD_PLACE_OWN, PHD_PLACE_POOL_PREFIX, PHD_VERB_POOL_CONFIG, PHD_POOL_SIBLING_SEPARATOR,
-           PHD_POOL_SIBLING_SEPARATOR, PHD_PLACE_DEFAULT, PHD_VERB_POLICY_SET, PHD_POOL_NAME_PATTERN);
+           PHD_PLACEMENT_SYNTAX, PHD_PLACE_OWN, PHD_PLACE_POOL_PREFIX, OMX_VERB_POOL_CONFIG, PHD_POOL_SIBLING_SEPARATOR,
+           PHD_POOL_SIBLING_SEPARATOR, PHD_PLACE_DEFAULT, OMX_VERB_POLICY_SET, PHD_POOL_NAME_PATTERN);
 }
 
 static void region_verbs(void)
@@ -548,7 +548,7 @@ static void region_man_dirs(void)
     printf(".\n.PP\nThe answered\n.B add\nof a plugin whose files have no descriptor yet runs\n.I probe\n.B describe\n"
            "in a child of its own and files its stdout as\n.IR \"");
     roff_escape(PHD_DESCRIPTOR_NAME_SYNTAX);
-    printf("\" ,\nwritten once; the add never waits for it.\n.B " PHD_VERB_DESCRIPTOR_GET "\n.I uri\n"
+    printf("\" ,\nwritten once; the add never waits for it.\n.B " OMX_VERB_DESCRIPTOR_GET "\n.I uri\n"
            "answers the file's path, or ");
     snprintf(buffer, sizeof(buffer), "%d (none), %d (the scan runs), %d (the scan wrote nothing)",
              PHD_ERR_DESCRIPTOR_ABSENT, PHD_ERR_DESCRIPTOR_PENDING, PHD_ERR_DESCRIPTOR_SCAN_FAILED);
@@ -556,7 +556,7 @@ static void region_man_dirs(void)
     printf(".\nOnce the descriptor is in place the same scan runs\n.I probe\n.B panel\nand files the plugin's panel as\n"
            ".IR \"");
     roff_escape(PHD_PANEL_NAME_SYNTAX);
-    printf("\" ,\nunder the descriptor's name;\n.B " PHD_VERB_PANEL_GET "\n.I uri\nanswers its path, with the same codes.\n");
+    printf("\" ,\nunder the descriptor's name;\n.B " OMX_VERB_PANEL_GET "\n.I uri\nanswers its path, with the same codes.\n");
 }
 
 static void region_man_ready(void)

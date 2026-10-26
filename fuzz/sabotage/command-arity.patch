@@ -7,8 +7,8 @@ index 78daab7..e940605 100644
 +++ b/src/verbs.c
 @@ -171,5 +171,5 @@ static char *handle(char *line, char **tok, int ntok)
          return ntok == 3 ? sup_lv2_worker_set(tok[1], tok[2]) : sup_resp(ERR_INVALID_OPERATION);
-     if (!strcmp(verb, PHD_VERB_POOL_CONFIG))
+     if (!strcmp(verb, OMX_VERB_POOL_CONFIG))
 -        return ntok == 3 ? sup_pool_config(tok[1], atoi(tok[2])) : sup_resp(ERR_INVALID_OPERATION);
 +        return ntok >= 3 ? sup_pool_config(tok[1], atoi(tok[2])) : sup_resp(ERR_INVALID_OPERATION);
-     if (!strcmp(verb, PHD_VERB_WORKER_ENV))
+     if (!strcmp(verb, OMX_VERB_WORKER_ENV))
          return ntok == 4 ? sup_worker_env(tok[1], tok[2], tok[3]) : sup_resp(ERR_INVALID_OPERATION);

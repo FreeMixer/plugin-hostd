@@ -261,7 +261,7 @@ static char *answer(struct rec_call *c, const char *shape, int changes)
     if (changes)
         g_rec.state = mix_call(g_rec.state, c);
     /* the reply a verb declares fits one line of the protocol
-     * mutant: include/plugin-hostd/protocol.h:46 `4096` -> `4`
+     * mutant: include/plugin-hostd/protocol.h:53 `4096` -> `4`
      * input: mod-host-bypass */
     if (syntax_instantiate(shape, buf, sizeof(buf)) < 0)
         abort();
@@ -389,7 +389,7 @@ char *sup_instance_verb(const char *line, int ledger)
 
 char *sup_worker_list(void)
 {
-    return answer(record(REC_WORKER_LIST), daemon_shape(PHD_VERB_WORKER_LIST), 0);
+    return answer(record(REC_WORKER_LIST), daemon_shape(OMX_VERB_WORKER_LIST), 0);
 }
 
 char *sup_instance_info(int id)
@@ -397,7 +397,7 @@ char *sup_instance_info(int id)
     struct rec_call *c = record(REC_INSTANCE_INFO);
 
     arg_i(c, id);
-    return answer(c, daemon_shape(PHD_VERB_INSTANCE_INFO), 0);
+    return answer(c, daemon_shape(OMX_VERB_INSTANCE_INFO), 0);
 }
 
 char *sup_reset(const char *which)
@@ -405,7 +405,7 @@ char *sup_reset(const char *which)
     struct rec_call *c = record(REC_RESET);
 
     arg_s(c, which);
-    return answer(c, daemon_shape(PHD_VERB_SUPERVISOR_RESET), 1);
+    return answer(c, daemon_shape(OMX_VERB_SUPERVISOR_RESET), 1);
 }
 
 char *sup_quarantine_clear(const char *which)
@@ -413,7 +413,7 @@ char *sup_quarantine_clear(const char *which)
     struct rec_call *c = record(REC_QUARANTINE_CLEAR);
 
     arg_s(c, which);
-    return answer(c, daemon_shape(PHD_VERB_QUARANTINE_CLEAR), 1);
+    return answer(c, daemon_shape(OMX_VERB_QUARANTINE_CLEAR), 1);
 }
 
 char *sup_policy_set(const char *format, const char *place)
@@ -422,7 +422,7 @@ char *sup_policy_set(const char *format, const char *place)
 
     arg_s(c, format);
     arg_s(c, place);
-    return answer(c, daemon_shape(PHD_VERB_POLICY_SET), 1);
+    return answer(c, daemon_shape(OMX_VERB_POLICY_SET), 1);
 }
 
 char *sup_pin_accept(const char *uri)
@@ -430,7 +430,7 @@ char *sup_pin_accept(const char *uri)
     struct rec_call *c = record(REC_PIN_ACCEPT);
 
     arg_s(c, uri);
-    return answer(c, daemon_shape(PHD_VERB_PIN_ACCEPT), 1);
+    return answer(c, daemon_shape(OMX_VERB_PIN_ACCEPT), 1);
 }
 
 char *sup_pool_config(const char *name, int max)
@@ -439,7 +439,7 @@ char *sup_pool_config(const char *name, int max)
 
     arg_s(c, name);
     arg_i(c, max);
-    return answer(c, daemon_shape(PHD_VERB_POOL_CONFIG), 1);
+    return answer(c, daemon_shape(OMX_VERB_POOL_CONFIG), 1);
 }
 
 char *sup_lv2_worker_set(const char *uri, const char *worker)
@@ -448,7 +448,7 @@ char *sup_lv2_worker_set(const char *uri, const char *worker)
 
     arg_s(c, uri);
     arg_s(c, worker);
-    return answer(c, daemon_shape(PHD_VERB_LV2_WORKER_SET), 1);
+    return answer(c, daemon_shape(OMX_VERB_LV2_WORKER_SET), 1);
 }
 
 char *sup_worker_env(const char *format, const char *cpus, const char *nice)
@@ -458,7 +458,7 @@ char *sup_worker_env(const char *format, const char *cpus, const char *nice)
     arg_s(c, format);
     arg_s(c, cpus);
     arg_s(c, nice);
-    return answer(c, daemon_shape(PHD_VERB_WORKER_ENV), 1);
+    return answer(c, daemon_shape(OMX_VERB_WORKER_ENV), 1);
 }
 
 char *sup_chain(int id, const int *ids, int n)
@@ -475,7 +475,7 @@ char *sup_chain(int id, const int *ids, int n)
         o += (size_t)sprintf(list + o, k ? " %d" : "%d", ids[k]);
     arg_s(c, list);
     free(list);
-    return answer(c, daemon_shape(PHD_VERB_CHAIN), 1);
+    return answer(c, daemon_shape(OMX_VERB_CHAIN), 1);
 }
 
 char *sup_chain_clear(int id)
@@ -483,7 +483,7 @@ char *sup_chain_clear(int id)
     struct rec_call *c = record(REC_CHAIN_CLEAR);
 
     arg_i(c, id);
-    return answer(c, daemon_shape(PHD_VERB_CHAIN_CLEAR), 1);
+    return answer(c, daemon_shape(OMX_VERB_CHAIN_CLEAR), 1);
 }
 
 char *sup_chain_get(int id)
@@ -491,7 +491,7 @@ char *sup_chain_get(int id)
     struct rec_call *c = record(REC_CHAIN_GET);
 
     arg_i(c, id);
-    return answer(c, daemon_shape(PHD_VERB_CHAIN_GET), 1);
+    return answer(c, daemon_shape(OMX_VERB_CHAIN_GET), 1);
 }
 
 /* a checkpoint of what a preset or patch changed: it writes down state, it changes none */
@@ -556,7 +556,7 @@ char *descriptors_get(const char *uri)
     struct rec_call *c = record(REC_DESCRIPTORS_GET);
 
     arg_s(c, uri);
-    return answer(c, daemon_shape(PHD_VERB_DESCRIPTOR_GET), 0);
+    return answer(c, daemon_shape(OMX_VERB_DESCRIPTOR_GET), 0);
 }
 
 char *descriptors_panel_get(const char *uri)
@@ -564,7 +564,7 @@ char *descriptors_panel_get(const char *uri)
     struct rec_call *c = record(REC_DESCRIPTORS_PANEL_GET);
 
     arg_s(c, uri);
-    return answer(c, daemon_shape(PHD_VERB_PANEL_GET), 0);
+    return answer(c, daemon_shape(OMX_VERB_PANEL_GET), 0);
 }
 
 /* the adapter is asked again about what it refused: a change */

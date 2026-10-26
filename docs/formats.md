@@ -19,7 +19,8 @@ is the proof.
 
 `make install-contract` installs both tables, with omx-contract-devel's `install-contract-dir.sh`, as the package
 `plugin-hostd` of the contract directory: `<contractdir>/3/plugin-hostd/formats/{clap,lv2}.json`, with its
-`MANIFEST.json`. plugin-hostd-devel ships them.
+`MANIFEST.json`, beside the daemon's verbs (`verbs.json`). The noarch package plugin-hostd-contract
+(`plugin-hostd-contract` on Debian too) ships them, and a program that reads them at run time requires it.
 
 A table's `rows` are keyed by the source field, and each row has exactly one class:
 

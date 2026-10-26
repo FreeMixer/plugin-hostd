@@ -415,8 +415,8 @@ SABOTAGE = [
      "    else if (!begin && n < s->nheld)\n", "    else if (0)\n",
      "a_gesture_the_value_it_moved_and_a_suggested_page_reach_the_controller_unchanged_and_in_order"),
     ("an LV2 instance's preset list goes to mod-host", "src/supervisor.c",
-     "    else if (!strcmp(word[0], PHD_VERB_PRESET_LIST) || !strcmp(word[0], PHD_VERB_PRESET_GET))\n        reply = sup_resp(PHD_ERR_NO_PRESET_LIST);",
-     "    else if (!strcmp(word[0], PHD_VERB_PRESET_LIST) || !strcmp(word[0], PHD_VERB_PRESET_GET))\n        reply = sup_call(id, line);",
+     "    else if (!strcmp(word[0], OMX_VERB_PRESET_LIST) || !strcmp(word[0], OMX_VERB_PRESET_GET))\n        reply = sup_resp(PHD_ERR_NO_PRESET_LIST);",
+     "    else if (!strcmp(word[0], OMX_VERB_PRESET_LIST) || !strcmp(word[0], OMX_VERB_PRESET_GET))\n        reply = sup_call(id, line);",
      "presets_are_listed_by_a_clap_worker_and_an_lv2_instance_on_mod_host_answers_no_list"),
     ("pin_accept leaves the adapter's refusals in place", "src/supervisor.c", "    if (rc == SUCCESS)\n        lv2_refusals_forget(NULL);\n    return sup_resp(rc);",
      "    return sup_resp(rc);", "pin_accept_makes_the_adapter_be_asked_again"),
@@ -650,12 +650,12 @@ SABOTAGE = [
     ("a row of the host verb table is dropped", "include/plugin-hostd/protocol.h",
      '    X("cpu_load", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \\\n', "", "verb table", "verbtable"),
     ("a verb is added to the daemon with no row in the host verb table", "include/plugin-hostd/protocol.h",
-     '    X(CHAIN_CLEAR, PHD_VERB_CHAIN_CLEAR, "<chain>", "resp 0", \\\n',
+     '    X(CHAIN_CLEAR, OMX_VERB_CHAIN_CLEAR, "<chain>", OMX_VERB_CHAIN_CLEAR_REPLY, \\\n',
      '    X(SABOTAGE, "verb_table_sabotage", "", "resp 0", "a verb with no row") \\\n'
-     '    X(CHAIN_CLEAR, PHD_VERB_CHAIN_CLEAR, "<chain>", "resp 0", \\\n', "verb table", "verbtable"),
+     '    X(CHAIN_CLEAR, OMX_VERB_CHAIN_CLEAR, "<chain>", OMX_VERB_CHAIN_CLEAR_REPLY, \\\n', "verb table", "verbtable"),
     ("a verb the daemon answers itself is absent from a profile", "include/plugin-hostd/protocol.h",
-     "    X(PHD_VERB_CHAIN, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \\\n",
-     "    X(PHD_VERB_CHAIN, DAEMON, REQUIRED, REQUIRED, ABSENT, REQUIRED) \\\n", "verb table", "verbtable"),
+     "    X(OMX_VERB_CHAIN, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \\\n",
+     "    X(OMX_VERB_CHAIN, DAEMON, REQUIRED, REQUIRED, ABSENT, REQUIRED) \\\n", "verb table", "verbtable"),
     ("a verb mod-host never had is required of a profile", "include/plugin-hostd/protocol.h",
      '    X("set_midi_program_change_pedalboard_bank_channel", MOD_UI, ABSENT, ABSENT, ABSENT, ABSENT) \\\n',
      '    X("set_midi_program_change_pedalboard_bank_channel", MOD_UI, ABSENT, REQUIRED, ABSENT, ABSENT) \\\n',
@@ -732,6 +732,26 @@ SABOTAGE = [
     ("the preset schema takes params+state with no state body", "protocol/preset.schema.json",
      '"then": {"required": ["params", "state"]}', '"then": {"required": ["params"]}',
      "params+state with the state body dropped is refused", "presetschema"),
+    # the declared verbs (data/verbs.json) against the daemon on its socket, and the sources against the declaration
+    ("a declared format is not the grammar the daemon answers", "data/verbs.json",
+     '"format": "chain_get %i",', '"format": "chain_get %i %i",', "verbs_declared", "verbs"),
+    ("a declared code is not the one the daemon answers", "data/verbs.json",
+     '"resp": -522,', '"resp": -101,', "verbs_declared", "verbs"),
+    ("a number omx-clap-core names is named again by plugin-hostd", "data/verbs.json",
+     '    "codes": {\n      "placementInvalid": {',
+     '    "codes": {\n      "invalidOperation": {\n        "code": "reply.plugin-hostd.invalid-operation",\n'
+     '        "resp": -902,\n        "doc": "a second name for -902"\n      },\n      "placementInvalid": {',
+     "verbs_declared", "verbs"),
+    ("the handler of a declared verb is deleted", "src/verbs.c",
+     "    if (!strcmp(verb, OMX_VERB_CHAIN_GET))\n    {\n        int id;\n\n"
+     "        return ntok == 2 && number(tok[1], &id) ? sup_chain_get(id) : sup_resp(ERR_INVALID_OPERATION);\n    }\n",
+     "", "verbs_declared", "verbs"),
+    ("the daemon answers a verb no declaration holds", "src/verbs.c",
+     "    if (!strcmp(verb, OMX_VERB_WORKER_LIST))\n",
+     '    if (!strcmp(verb, "verb_sabotage"))\n        return sup_resp(SUCCESS);\n'
+     "    if (!strcmp(verb, OMX_VERB_WORKER_LIST))\n", "verbs_declared", "verbs"),
+    ("a declared verb is typed by hand in the daemon", "src/verbs.c",
+     "if (!strcmp(verb, OMX_VERB_CHAIN_GET))", 'if (!strcmp(verb, "chain_get"))', "verbs_contract", "verbs"),
 ]
 
 
@@ -801,7 +821,23 @@ def run_alloc_test(tree):
     return p.returncode, p.stdout + p.stderr + ("ok   alloc_test\n" if p.returncode == 0 else "")
 
 
+def run_verbs_test(tree, name):
+    """tests/verbs_declared.py against the tree's daemon and declaration ("ok   verbs_declared"), or the tree's
+    tests/verbs_contract.py over its sources ("ok   verbs_contract")"""
+    if name == "verbs_contract":
+        p = subprocess.run([sys.executable, os.path.join(tree, "tests", "verbs_contract.py")], capture_output=True,
+                           text=True, timeout=60, env=dict(os.environ, MOD_HOST_DIR=MOD_HOST_DIR))
+    else:
+        env = dict(os.environ, PLUGIN_HOSTD=os.path.join(tree, "plugin-hostd"), FAKE_HOST=FAKE,
+                   PROBE=os.path.join(tree, "plugin-hostd-probe"), PLUGIN_HOSTD_VERBS=os.path.join(tree, "data", "verbs.json"))
+        p = subprocess.run([sys.executable, os.path.join(tree, "tests", "verbs_declared.py")], env=env, capture_output=True,
+                           text=True, timeout=300)
+    return p.returncode, p.stdout + p.stderr + ("ok   %s\n" % name if p.returncode == 0 else "")
+
+
 def run_test(tree, name, jack=False):
+    if jack == "verbs":
+        return run_verbs_test(tree, name)
     if jack == "consumer":
         return run_consumer_test(tree)
     if jack == "alloc":
@@ -925,6 +961,13 @@ try:
                 shutil.copy(os.path.join(ROOT, f), os.path.join(tree, f))
         elif jack == "ciguards":
             shutil.copytree(os.path.join(ROOT, ".github", "workflows"), os.path.join(tree, ".github", "workflows"))
+        elif jack == "verbs":
+            # the declaration, what renders and builds from it, and the tests that read it
+            for d in ("data", "src", "include", "tools", "protocol", "tests", "packaging", "fuzz"):
+                shutil.copytree(os.path.join(ROOT, d), os.path.join(tree, d), ignore=shutil.ignore_patterns("*.o"))
+            shutil.copy(os.path.join(ROOT, "Makefile"), tree)
+            build(tree)
+            build_probe(tree)
         else:
             shutil.copytree(os.path.join(ROOT, "src"), os.path.join(tree, "src"))
             shutil.copytree(os.path.join(ROOT, "include"), os.path.join(tree, "include"))
@@ -941,6 +984,10 @@ try:
             failed += 1
             continue
         open(os.path.join(tree, path), "w").write(src.replace(text, repl))
+        if path.startswith("data/"):
+            # a changed declaration is rendered, as make render-verbs does, before the daemon is built from it
+            subprocess.run(["make", "-s", "MOD_HOST_DIR=" + MOD_HOST_DIR, "render-verbs"], cwd=tree, check=True,
+                           stdout=subprocess.DEVNULL)
         if jack == "probe":
             build_probe(tree)
         elif jack not in ("readme", "nopins", "ciguards", "format", "relay", "contract", "consumer", "probeschema", "presetschema", "vocabulary", "alloc",
