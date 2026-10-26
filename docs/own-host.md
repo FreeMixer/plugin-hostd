@@ -16,8 +16,8 @@ The commands, in order. Run them as a normal user with `sudo`, or as root:
 
 ```sh own-host
 send() { printf '%s\0' "$1" | nc -w3 127.0.0.1 5555 | tr '\0' '\n'; }
-sudo curl -fsSL --create-dirs -o /etc/apt/keyrings/freemixer.asc https://freemixer.github.io/deb/freemixer.asc
-echo "deb [signed-by=/etc/apt/keyrings/freemixer.asc] https://freemixer.github.io/deb/debian/$(. /etc/os-release; echo $VERSION_CODENAME) ./" | sudo tee /etc/apt/sources.list.d/freemixer.list
+curl -fsSLO https://www.openmixer.org/deb/openmixer-release.deb
+sudo apt-get install -y ./openmixer-release.deb
 sudo apt-get update && sudo apt-get install -y plugin-hostd omx-clap-host omx-plugins-clap jackd2 netcat-openbsd
 jackd -r -d dummy >/dev/null 2>&1 & sleep 2
 plugin-hostd -n -p 5555 >plugin-hostd.log 2>&1 & sleep 2
