@@ -449,10 +449,11 @@ jobs:
   # over the chain verb, and the real omx-clap-host runs it in a PipeWire of its own: each member's gain and delay
   # measured on the chain's output in the declared order, chain_get's read-back, a removal that forms the chain again
   # and a crashed member that leaves the other three playing (tools/zynthian/test-chain-round-trip.py), then each
-  # sabotage red on its own check. The daemon is plugin-hostd main at PLUGIN_HOSTD_REF (chain_get, #162, which this
-  # branch does not carry yet) and the worker omx-clap-host of omx-clap-core main at OMX_CLAP_CORE_REF (the chain host,
-  # omx-clap-core#104): no release carries either yet, so both are commits of main, built here. It is an x86_64 Fedora
-  # container: no Zynthian image, no ARM board, no Zynthian UI.
+  # sabotage red on its own check. Everything comes from the FreeMixer channel, by what it must be able to do, never
+  # built from source (tests/no_pins.py): the daemon plugin-hostd with chain_get (#162), omx-clap-host 0.21.0 or later
+  # (the chain host, omx-clap-core#104) and omx-clap-host-tests with fault-14.clap and jack_identity (omx-clap-core#351).
+  # A channel that lacks one fails the job by name. It is an x86_64 Fedora container: no Zynthian image, no ARM board,
+  # no Zynthian UI.
   zynthian-chain:
     name: a Zynthian chain of omx-plugins members, run by omx-clap-host, its audio measured member by member
     runs-on: ubuntu-latest
@@ -461,68 +462,45 @@ jobs:
       image: fedora:44
       # the chain runs the daemon and its workers in a user, net, pid and mount namespace of their own
       options: --cap-add SYS_ADMIN --security-opt seccomp=unconfined --security-opt apparmor=unconfined --security-opt systempaths=unconfined
-    env:
-      PLUGIN_HOSTD_REF: 78bea7444808159a307f96f5da094362729d2a59
-      OMX_CLAP_CORE_REF: b339c92d5c7ed9c43733044e7b31050d0595441c
-      ZYNTHIAN_UI_REF: f46b0189b6163472db39aa607369f397ed23b65a
     steps:
-      - name: Install the build tools
+      - name: Install the tools
         run: |
-          dnf install -y --setopt=install_weak_deps=False git dnf5-plugins gcc make python3 perl-interpreter pkgconf-pkg-config \
-            clap-devel lv2-devel lilv-devel libxcb-devel pipewire-jack-audio-connection-kit-devel pipewire pipewire-utils \
-            iproute util-linux procps-ng diffutils
+          dnf install -y --setopt=install_weak_deps=False git dnf5-plugins python3 pipewire pipewire-utils iproute util-linux \
+            procps-ng
 
       - uses: actions/checkout@v4
 
-      # the members (omx-plugins-clap, omx-plugins-lv2) and what omx-clap-core builds against (omx-dsp-devel,
-      # omx-contract-devel), from the FreeMixer channel
-      - name: Install omx-plugins and omx-clap-core's build dependencies from the FreeMixer channel
+      - name: Install the daemon, the worker, its fixtures and the members from the FreeMixer channel
         run: |
           set -euo pipefail
           dnf config-manager addrepo --setopt=retries=10 --from-repofile=https://freemixer.github.io/rpm/freemixer.repo
-          dnf install -y --setopt=install_weak_deps=False --setopt=retries=10 omx-plugins-clap omx-plugins-lv2 omx-dsp-devel \
-            'omx-contract-devel >= 3.1.0'
-          rpm -q omx-plugins-clap omx-plugins-lv2
-          for f in /usr/lib/clap/omx-strip.clap /usr/lib/clap/omx-limiter.clap /usr/lib64/lv2/omx-delay.lv2/manifest.ttl; do
-            test -e "$f" || { echo "missing $f"; exit 1; }
+          dnf install -y --setopt=install_weak_deps=False --setopt=retries=10 plugin-hostd 'omx-clap-host >= 0.21.0' \
+            omx-clap-host-tests omx-plugins-clap omx-plugins-lv2
+          rpm -q plugin-hostd omx-clap-host omx-clap-host-tests omx-plugins-clap omx-plugins-lv2
+          grep -q '"chain_get"' /usr/share/plugin-hostd/protocol.json || {
+            echo "::error::the channel's plugin-hostd has no chain_get (#162)"; exit 1; }
+          for f in /usr/libexec/omx-clap-host/tests/fault-14.clap /usr/libexec/omx-clap-host/tests/jack_identity \
+                   /usr/lib/clap/omx-strip.clap /usr/lib/clap/omx-limiter.clap /usr/lib64/lv2/omx-delay.lv2/manifest.ttl; do
+            test -e "$f" || { echo "::error::the channel's packages lack $f"; exit 1; }
           done
 
-      - uses: FreeMixer/.github/.github/actions/mod-host-protocol@v1
-
-      - name: Build plugin-hostd at PLUGIN_HOSTD_REF, and install its protocol headers
+      # the commit chain-e2e.sh applies the patch to, read from the script
+      - name: Fetch zynthian-ui at chain-e2e.sh's commit
         run: |
           set -euo pipefail
-          git init -q /tmp/plugin-hostd
-          git -C /tmp/plugin-hostd fetch -q --depth 1 https://github.com/FreeMixer/plugin-hostd "$PLUGIN_HOSTD_REF"
-          git -C /tmp/plugin-hostd checkout -q FETCH_HEAD
-          make -C /tmp/plugin-hostd plugin-hostd
-          make -C /tmp/plugin-hostd install_protocol PREFIX=/opt/plugin-hostd
-          /tmp/plugin-hostd/plugin-hostd --version
-
-      - name: Build omx-clap-host, its noise feeder and the fault plugin at OMX_CLAP_CORE_REF
-        run: |
-          set -euo pipefail
-          git init -q /tmp/omx-clap-core
-          git -C /tmp/omx-clap-core fetch -q --depth 1 https://github.com/FreeMixer/omx-clap-core "$OMX_CLAP_CORE_REF"
-          git -C /tmp/omx-clap-core checkout -q FETCH_HEAD
-          export PKG_CONFIG_PATH=/opt/plugin-hostd/share/pkgconfig:$PKG_CONFIG_PATH
-          make -C /tmp/omx-clap-core omx-clap-host tests/jack_identity tests/fault-14.clap
-          /tmp/omx-clap-core/omx-clap-host --version
-
-      - name: Fetch zynthian-ui at ZYNTHIAN_UI_REF
-        run: |
-          set -euo pipefail
+          sha=$(sed -n 's/^ZUI_SHA=\([0-9a-f]\{40\}\)$/\1/p' tools/zynthian/chain-e2e.sh)
+          test -n "$sha"
           git init -q /tmp/zynthian-ui
-          git -C /tmp/zynthian-ui fetch -q --depth 1 https://github.com/zynthian/zynthian-ui "$ZYNTHIAN_UI_REF"
+          git -C /tmp/zynthian-ui fetch -q --depth 1 https://github.com/zynthian/zynthian-ui "$sha"
           git -C /tmp/zynthian-ui checkout -q FETCH_HEAD
           git config --global --add safe.directory '*'
 
       - name: The chain round trip, then break every guard on purpose
         run: |
           set -euo pipefail
-          export PLUGIN_HOSTD=/tmp/plugin-hostd/plugin-hostd CLAP_HOST=/tmp/omx-clap-core/omx-clap-host
-          export JACK_IDENTITY=/tmp/omx-clap-core/tests/jack_identity
-          export FAULT_CLAP_URI='clap:/tmp/omx-clap-core/tests/fault-14.clap#org.openmixer.fault.14'
+          export PLUGIN_HOSTD=/usr/bin/plugin-hostd CLAP_HOST=/usr/bin/omx-clap-host
+          export JACK_IDENTITY=/usr/libexec/omx-clap-host/tests/jack_identity
+          export FAULT_CLAP_URI='clap:/usr/libexec/omx-clap-host/tests/fault-14.clap#org.openmixer.fault.14'
           export CHAIN_FAULT_PARAM='param_set %d 0 0.95'
           if unshare --user --map-root-user --net --pid --fork --mount-proc true; then
             tools/zynthian/chain-e2e.sh --round-trip /tmp/zynthian-ui /tmp/round-trip 2>&1 | tee round-trip.log
