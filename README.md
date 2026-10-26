@@ -17,13 +17,12 @@ Install
 
 Fedora:
 
-    sudo dnf config-manager addrepo --from-repofile=https://freemixer.github.io/rpm/freemixer.repo
+    sudo dnf install https://www.openmixer.org/rpm/openmixer-release.noarch.rpm
     sudo dnf install plugin-hostd omx-clap-host
 
 Debian bookworm and trixie and Raspberry Pi OS (amd64 and arm64):
 
-    curl -fsSL https://freemixer.github.io/deb/freemixer.asc | sudo tee /usr/share/keyrings/freemixer.asc >/dev/null
-    echo "deb [signed-by=/usr/share/keyrings/freemixer.asc] https://freemixer.github.io/deb/debian/$(. /etc/os-release; echo $VERSION_CODENAME) ./" | sudo tee /etc/apt/sources.list.d/freemixer.list
+    curl -fsSLO https://www.openmixer.org/deb/openmixer-release.deb && sudo apt install ./openmixer-release.deb
     sudo apt update && sudo apt install plugin-hostd omx-clap-host
 
 The LV2 worker is mod-host, which Debian does not package; without it CLAP plugins still work.
@@ -67,7 +66,7 @@ you would a mod-host plugin. `man plugin-hostd` has the options; the full protoc
 Using it from your own host (Zynthian, a Raspberry Pi, any Debian): [docs/own-host.md](docs/own-host.md), nine commands from
 nothing to a plugin running.
 
-Building from source: see [BUILDING.md](BUILDING.md). More about FreeMixer at <https://freemixer.github.io>.
+Building from source: see [BUILDING.md](BUILDING.md). More about FreeMixer at <https://www.openmixer.org>.
 
 Protocol
 --------

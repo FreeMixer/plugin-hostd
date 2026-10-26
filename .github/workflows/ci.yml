@@ -6,7 +6,7 @@ name: ci
 #
 # The protocol library, the mod-host RPMs and the RPM build are the composite actions of
 # FreeMixer/.github. The real CLAP worker the jack test drives, and its fixtures, are the omx-clap-host and
-# omx-clap-host-tests packages of the FreeMixer channel, installed by dnf builddep / apt-get build-dep from the
+# omx-clap-host-tests packages of the OpenMixer channel, installed by dnf builddep / apt-get build-dep from the
 # floor the spec and debian/control declare; nothing of omx-clap-core is checked out or built here.
 
 on:
@@ -44,9 +44,9 @@ jobs:
 
       - uses: actions/checkout@v4
 
-      # the FreeMixer channel: where the BuildRequires Fedora does not carry (omx-clap-host-tests) come from
-      - name: Add the FreeMixer channel
-        run: dnf config-manager addrepo --setopt=retries=10 --from-repofile=https://freemixer.github.io/rpm/freemixer.repo
+      # the OpenMixer channel: where the BuildRequires Fedora does not carry (omx-clap-host-tests) come from
+      - name: Add the OpenMixer channel
+        uses: FreeMixer/.github/.github/actions/add-openmixer@v1
 
       # the worker and the fixtures: omx-clap-host-tests Requires omx-clap-host, so this installs both
       - name: Install the build dependencies from the channel
@@ -72,7 +72,7 @@ jobs:
           dnf install -y --setopt=retries=10 omx-plugins-clap
           make test-panel-wire
 
-      # mod-host itself, the LV2 worker, from the FreeMixer channel: the build the RPM job packages, with the patches
+      # mod-host itself, the LV2 worker, from the OpenMixer channel: the build the RPM job packages, with the patches
       # FreeMixer/.github carries. The floor is the one the spec requires of the protocol library.
       - name: Install mod-host from the channel
         run: |
@@ -129,14 +129,9 @@ jobs:
 
       - uses: actions/checkout@v4
 
-      # the FreeMixer channel: where the Build-Depends Debian does not carry (omx-clap-host-tests) come from
-      - name: Add the FreeMixer channel
-        run: |
-          set -euo pipefail
-          install -d /etc/apt/keyrings
-          curl -fsSL --retry 5 --retry-all-errors --connect-timeout 20 -o /etc/apt/keyrings/freemixer.asc https://freemixer.github.io/deb/freemixer.asc
-          echo "deb [signed-by=/etc/apt/keyrings/freemixer.asc] https://freemixer.github.io/deb/debian/$(. /etc/os-release; echo $VERSION_CODENAME) ./" > /etc/apt/sources.list.d/freemixer.list
-          apt-get update -qq
+      # the OpenMixer channel: where the Build-Depends Debian does not carry (omx-clap-host-tests) come from
+      - name: Add the OpenMixer channel
+        uses: FreeMixer/.github/.github/actions/add-openmixer@v1
 
       # the worker and the fixtures: omx-clap-host-tests Depends on omx-clap-host, so this installs both
       - name: Install the build dependencies from the channel
@@ -195,9 +190,9 @@ jobs:
         with:
           fetch-depth: 0
 
-      # the FreeMixer channel: where the BuildRequires Fedora does not carry (omx-clap-host-tests) come from
-      - name: Add the FreeMixer channel
-        run: dnf config-manager addrepo --setopt=retries=10 --from-repofile=https://freemixer.github.io/rpm/freemixer.repo
+      # the OpenMixer channel: where the BuildRequires Fedora does not carry (omx-clap-host-tests) come from
+      - name: Add the OpenMixer channel
+        uses: FreeMixer/.github/.github/actions/add-openmixer@v1
 
       - uses: FreeMixer/.github/.github/actions/mod-host-rpms@v1
 
@@ -335,14 +330,9 @@ jobs:
         with:
           fetch-depth: 0
 
-      # the FreeMixer channel: where the Build-Depends Debian does not carry (omx-clap-host-tests) come from
-      - name: Add the FreeMixer channel
-        run: |
-          set -euo pipefail
-          install -d /etc/apt/keyrings
-          curl -fsSL --retry 5 --retry-all-errors --connect-timeout 20 -o /etc/apt/keyrings/freemixer.asc https://freemixer.github.io/deb/freemixer.asc
-          echo "deb [signed-by=/etc/apt/keyrings/freemixer.asc] https://freemixer.github.io/deb/debian/$(. /etc/os-release; echo $VERSION_CODENAME) ./" > /etc/apt/sources.list.d/freemixer.list
-          apt-get update -qq
+      # the OpenMixer channel: where the Build-Depends Debian does not carry (omx-clap-host-tests) come from
+      - name: Add the OpenMixer channel
+        uses: FreeMixer/.github/.github/actions/add-openmixer@v1
 
       - uses: FreeMixer/.github/.github/actions/deb-deps@v1
 
@@ -455,7 +445,7 @@ jobs:
             PLUGIN_HOSTD_PROTOCOL=/usr/share/plugin-hostd/protocol.json python3 smoke/tests/daemon_test.py
 
   # docs/own-host.md, command by command, as a reader would type it: a clean Debian with nothing but what the page
-  # lists, the published packages of the FreeMixer channel, on both architectures (arm64 is a native runner).
+  # lists, the published packages of the OpenMixer channel, on both architectures (arm64 is a native runner).
   # A step of the page that stops working fails this job. The page's LV2 block runs an LV2 URI with
   # `lv2_worker omx-clap-host`, and --audio then measures the gain of a sine that went through that instance.
   own-host-page:
