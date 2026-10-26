@@ -15,7 +15,7 @@
       },
       "instanceUnknown": {
         "code": "reply.plugin-hostd.instance-unknown",
-        "resp": -101,
+        "resp": -3,
         "doc": "mod-host's ERR_INSTANCE_NON_EXISTS, answered by the daemon for an instance no add made"
       },
       "placementInvalid": {

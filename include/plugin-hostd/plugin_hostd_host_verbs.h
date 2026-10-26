@@ -47,7 +47,7 @@ struct omx_host_verb {
 #define OMX_VERB_INSTANCE_INFO_FMT "instance_info %i"
 #define OMX_VERB_INSTANCE_INFO_REPLY "resp 0 <worker> <pid> <state> <crashes> <quarantined>"
 #define OMX_VERB_INSTANCE_INFO_CODES_COUNT 2u
-#define OMX_VERB_INSTANCE_INFO_CODES_INIT { -101, -902 } /* reply.plugin-hostd.instance-unknown, reply.plugin-hostd.invalid-operation */
+#define OMX_VERB_INSTANCE_INFO_CODES_INIT { -3, -902 } /* reply.plugin-hostd.instance-unknown, reply.plugin-hostd.invalid-operation */
 
 /* PLUGIN_HOSTD_VERBS.supervisorReset (data/verbs.json): Re-arm the storm bound and the backoff of a given-up placement: [<worker> | all]. */
 #define OMX_VERB_SUPERVISOR_RESET "supervisor_reset"
@@ -61,7 +61,7 @@ struct omx_host_verb {
 #define OMX_VERB_QUARANTINE_CLEAR_FMT "quarantine_clear %s"
 #define OMX_VERB_QUARANTINE_CLEAR_REPLY "resp 0"
 #define OMX_VERB_QUARANTINE_CLEAR_CODES_COUNT 2u
-#define OMX_VERB_QUARANTINE_CLEAR_CODES_INIT { -101, -902 } /* reply.plugin-hostd.instance-unknown, reply.plugin-hostd.invalid-operation */
+#define OMX_VERB_QUARANTINE_CLEAR_CODES_INIT { -3, -902 } /* reply.plugin-hostd.instance-unknown, reply.plugin-hostd.invalid-operation */
 
 /* PLUGIN_HOSTD_VERBS.policySet (data/verbs.json): The placement of an add that says default: <format | *> own | pool:<name>. */
 #define OMX_VERB_POLICY_SET "policy_set"
@@ -157,14 +157,14 @@ struct omx_host_verb {
 #define OMX_VERB_PRESET_LIST_FMT "preset_list %i"
 #define OMX_VERB_PRESET_LIST_REPLY "resp <count>"
 #define OMX_VERB_PRESET_LIST_CODES_COUNT 3u
-#define OMX_VERB_PRESET_LIST_CODES_INIT { -515, -101, -902 } /* reply.plugin-hostd.no-preset-list, reply.plugin-hostd.instance-unknown, reply.plugin-hostd.invalid-operation */
+#define OMX_VERB_PRESET_LIST_CODES_INIT { -515, -3, -902 } /* reply.plugin-hostd.no-preset-list, reply.plugin-hostd.instance-unknown, reply.plugin-hostd.invalid-operation */
 
 /* PLUGIN_HOSTD_VERBS.presetGet (data/verbs.json): One preset, 0 to count - 1: the key preset_load takes for it, and its name. */
 #define OMX_VERB_PRESET_GET "preset_get"
 #define OMX_VERB_PRESET_GET_FMT "preset_get %i %i"
 #define OMX_VERB_PRESET_GET_REPLY "resp 0 <load_key> <name>"
 #define OMX_VERB_PRESET_GET_CODES_COUNT 3u
-#define OMX_VERB_PRESET_GET_CODES_INIT { -515, -101, -902 } /* reply.plugin-hostd.no-preset-list, reply.plugin-hostd.instance-unknown, reply.plugin-hostd.invalid-operation */
+#define OMX_VERB_PRESET_GET_CODES_INIT { -515, -3, -902 } /* reply.plugin-hostd.no-preset-list, reply.plugin-hostd.instance-unknown, reply.plugin-hostd.invalid-operation */
 
 #define PLUGIN_HOSTD_HOST_VERB_COUNT 19u
 
