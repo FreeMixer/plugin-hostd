@@ -732,6 +732,21 @@ SABOTAGE = [
     ("the preset schema takes params+state with no state body", "protocol/preset.schema.json",
      '"then": {"required": ["params", "state"]}', '"then": {"required": ["params"]}',
      "params+state with the state body dropped is refused", "presetschema"),
+    # the declared verbs (data/verbs.json) against the daemon on its socket, and the sources against the declaration
+    ("a declared format is not the grammar the daemon answers", "data/verbs.json",
+     '"format": "chain_get %i",', '"format": "chain_get %i %i",', "verbs_declared", "verbs"),
+    ("a declared code is not the one the daemon answers", "data/verbs.json",
+     '"resp": -3,', '"resp": -101,', "verbs_declared", "verbs"),
+    ("the handler of a declared verb is deleted", "src/verbs.c",
+     "    if (!strcmp(verb, OMX_VERB_CHAIN_GET))\n    {\n        int id;\n\n"
+     "        return ntok == 2 && number(tok[1], &id) ? sup_chain_get(id) : sup_resp(ERR_INVALID_OPERATION);\n    }\n",
+     "", "verbs_declared", "verbs"),
+    ("the daemon answers a verb no declaration holds", "src/verbs.c",
+     "    if (!strcmp(verb, OMX_VERB_WORKER_LIST))\n",
+     '    if (!strcmp(verb, "verb_sabotage"))\n        return sup_resp(SUCCESS);\n'
+     "    if (!strcmp(verb, OMX_VERB_WORKER_LIST))\n", "verbs_declared", "verbs"),
+    ("a declared verb is typed by hand in the daemon", "src/verbs.c",
+     "if (!strcmp(verb, OMX_VERB_CHAIN_GET))", 'if (!strcmp(verb, "chain_get"))', "verbs_contract", "verbs"),
 ]
 
 
@@ -801,7 +816,23 @@ def run_alloc_test(tree):
     return p.returncode, p.stdout + p.stderr + ("ok   alloc_test\n" if p.returncode == 0 else "")
 
 
+def run_verbs_test(tree, name):
+    """tests/verbs_declared.py against the tree's daemon and declaration ("ok   verbs_declared"), or the tree's
+    tests/verbs_contract.py over its sources ("ok   verbs_contract")"""
+    if name == "verbs_contract":
+        p = subprocess.run([sys.executable, os.path.join(tree, "tests", "verbs_contract.py")], capture_output=True,
+                           text=True, timeout=60, env=dict(os.environ, MOD_HOST_DIR=MOD_HOST_DIR))
+    else:
+        env = dict(os.environ, PLUGIN_HOSTD=os.path.join(tree, "plugin-hostd"), FAKE_HOST=FAKE,
+                   PROBE=os.path.join(tree, "plugin-hostd-probe"), PLUGIN_HOSTD_VERBS=os.path.join(tree, "data", "verbs.json"))
+        p = subprocess.run([sys.executable, os.path.join(tree, "tests", "verbs_declared.py")], env=env, capture_output=True,
+                           text=True, timeout=300)
+    return p.returncode, p.stdout + p.stderr + ("ok   %s\n" % name if p.returncode == 0 else "")
+
+
 def run_test(tree, name, jack=False):
+    if jack == "verbs":
+        return run_verbs_test(tree, name)
     if jack == "consumer":
         return run_consumer_test(tree)
     if jack == "alloc":
@@ -925,6 +956,13 @@ try:
                 shutil.copy(os.path.join(ROOT, f), os.path.join(tree, f))
         elif jack == "ciguards":
             shutil.copytree(os.path.join(ROOT, ".github", "workflows"), os.path.join(tree, ".github", "workflows"))
+        elif jack == "verbs":
+            # the declaration, what renders and builds from it, and the tests that read it
+            for d in ("data", "src", "include", "tools", "protocol", "tests", "packaging", "fuzz"):
+                shutil.copytree(os.path.join(ROOT, d), os.path.join(tree, d), ignore=shutil.ignore_patterns("*.o"))
+            shutil.copy(os.path.join(ROOT, "Makefile"), tree)
+            build(tree)
+            build_probe(tree)
         else:
             shutil.copytree(os.path.join(ROOT, "src"), os.path.join(tree, "src"))
             shutil.copytree(os.path.join(ROOT, "include"), os.path.join(tree, "include"))
@@ -941,6 +979,10 @@ try:
             failed += 1
             continue
         open(os.path.join(tree, path), "w").write(src.replace(text, repl))
+        if path.startswith("data/"):
+            # a changed declaration is rendered, as make render-verbs does, before the daemon is built from it
+            subprocess.run(["make", "-s", "MOD_HOST_DIR=" + MOD_HOST_DIR, "render-verbs"], cwd=tree, check=True,
+                           stdout=subprocess.DEVNULL)
         if jack == "probe":
             build_probe(tree)
         elif jack not in ("readme", "nopins", "ciguards", "format", "relay", "contract", "consumer", "probeschema", "presetschema", "vocabulary", "alloc",

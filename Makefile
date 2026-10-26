@@ -254,12 +254,18 @@ clean:
 
 # the daemon against workers that are not plugin hosts at all (tests/fake-host speaks the same protocol and can be
 # made to die on cue): placement, forwarding, ledger, replay, attribution, the storm bound; no jack, no plugin
-test: test-pin test-transforms test-format-coverage test-describe test-relay test-alloc test-format test-daemon check-generated check-schema test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-mod-host-json test-socket check-verb-table check-preset-schema test-install-schemas
+test: test-pin test-transforms test-format-coverage test-describe test-relay test-alloc test-format test-daemon test-verbs-declared check-rendered check-generated check-schema test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-mod-host-json test-socket check-verb-table check-preset-schema test-install-schemas
 	MOD_HOST_DIR=$(MOD_HOST_DIR) python3 tests/verbs_contract.py
 
 # the same without the verb table, which is read from a mod-host checkout's README
 test-daemon: $(PROG) $(FAKE)
 	PLUGIN_HOSTD=./$(PROG) FAKE_HOST=./$(FAKE) python3 tests/daemon_test.py
+
+# the declared verbs on the daemon's socket (tests/verbs_declared.py): each answers its declared reply and codes, the
+# daemon answers no undeclared word itself, and a verb both hosts owe answers in one shape from both; omx-clap-core's
+# declarations come from OMX_CONTRACT_PATH or the installed contract directory
+test-verbs-declared: $(PROG) $(PROBE) $(FAKE)
+	PLUGIN_HOSTD=./$(PROG) PROBE=./$(PROBE) FAKE_HOST=./$(FAKE) python3 tests/verbs_declared.py
 
 # panel_get on the wire against the installed omx-clap-scan (omx-clap-core 0.20.0 or later) and real plugins: one that
 # publishes a panel (omx-plugins-clap's omx-delay) and one that publishes none (omx-clap-host-tests' fake compressor)
