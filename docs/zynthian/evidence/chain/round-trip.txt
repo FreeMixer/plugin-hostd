@@ -2,7 +2,7 @@ Date: 2026-10-26, host r1 (x86_64), rootless podman.
 Where: a clean fedora:44 x86_64 container, CAP_SYS_ADMIN, seccomp unconfined, /proc unmasked, running the steps of the
 zynthian-chain job of .github/workflows/ci.yml at da783af in order. That revision of the job built the daemon and the
 worker from source at the commits below; the job now takes both from the FreeMixer channel (tests/no_pins.py), and
-the channel does not carry them yet, so this run and the GitHub run of 6870dda are the runs of the round trip. Not a
+round-trip-channel.txt is its run with the channel's packages. Not a
 Zynthian image, not trixie arm64, no ARM board, no Zynthian hardware: the zynthian-ui Python modules (zynthian_chain,
 zynthian_processor, the patched plugind engine and chain) imported with zyncoder, pyliblo3 and zynautoconnect stubbed.
 No Zynthian screen, UI, encoder or autoconnect pass was seen. A claim about Zynthian is trixie arm64 container only
