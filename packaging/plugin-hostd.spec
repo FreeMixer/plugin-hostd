@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.11.0
+Version: 0.12.0
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -145,6 +145,22 @@ make test-daemon check-generated check-rendered
 %{_datadir}/omx-contract/contract.d/3/plugin-hostd/
 
 %changelog
+* Mon Oct 26 2026 Pau Aliagas <linuxnow@gmail.com> - 0.12.0-1
+- The verbs the daemon adds are declared in its package of omx-contract's
+  contract directory, verbs.json beside the format tables: each verb's
+  format, reply, refusal codes and what plugin-hostd, omx-clap-host and
+  mod-host owe it. The C names come from plugin_hostd_host_verbs.h, which
+  protocol.h includes, and plugin_hostd_vocabulary.h names the codes (#131).
+- New noarch package plugin-hostd-contract: the contract directory's files,
+  share/omx-contract/contract.d/3/plugin-hostd (MANIFEST.json,
+  formats/clap.json, formats/lv2.json, verbs.json), which programs read at
+  run time. plugin-hostd and plugin-hostd-devel require it; the files leave
+  plugin-hostd-devel.
+- The build needs omx-contract-devel 3.3.0 or newer, the first schema with
+  the verbs kind, and its check stage the omx-contract command.
+- A test holds the declared verbs to the daemon on its socket: replies,
+  codes, the verbs it answers itself, and the shapes both hosts answer.
+
 * Mon Oct 26 2026 Pau Aliagas <linuxnow@gmail.com> - 0.11.0-1
 - chain_get <chain> reads a chain back: its worker, its members in the
   declared order and the members its worker runs now. A quarantined member
