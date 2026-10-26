@@ -147,6 +147,9 @@
         "reply": "resp <n> <worker>:<pid>:<format>:<state>:<place>:<i>,<i>,...",
         "codes": [
           {
+            "ref": "HOST_REPLY_CODES.memoryAllocation"
+          },
+          {
             "ref": "HOST_REPLY_CODES.invalidOperation"
           }
         ],
@@ -162,6 +165,9 @@
         "codes": [
           {
             "ref": "HOST_REPLY_CODES.instanceNonExists"
+          },
+          {
+            "ref": "HOST_REPLY_CODES.memoryAllocation"
           },
           {
             "ref": "HOST_REPLY_CODES.invalidOperation"
@@ -181,6 +187,9 @@
             "ref": "PLUGIN_HOSTD_REPLY_CODES.noSuchWorker"
           },
           {
+            "ref": "HOST_REPLY_CODES.memoryAllocation"
+          },
+          {
             "ref": "HOST_REPLY_CODES.invalidOperation"
           }
         ],
@@ -196,6 +205,9 @@
         "codes": [
           {
             "ref": "HOST_REPLY_CODES.instanceNonExists"
+          },
+          {
+            "ref": "HOST_REPLY_CODES.memoryAllocation"
           },
           {
             "ref": "HOST_REPLY_CODES.invalidOperation"
@@ -215,6 +227,9 @@
             "ref": "PLUGIN_HOSTD_REPLY_CODES.placementInvalid"
           },
           {
+            "ref": "HOST_REPLY_CODES.memoryAllocation"
+          },
+          {
             "ref": "HOST_REPLY_CODES.invalidOperation"
           }
         ],
@@ -232,6 +247,9 @@
             "ref": "PLUGIN_HOSTD_REPLY_CODES.placementInvalid"
           },
           {
+            "ref": "HOST_REPLY_CODES.memoryAllocation"
+          },
+          {
             "ref": "HOST_REPLY_CODES.invalidOperation"
           }
         ],
@@ -245,6 +263,9 @@
         "format": "worker_env %s %s %s",
         "reply": "resp 0",
         "codes": [
+          {
+            "ref": "HOST_REPLY_CODES.memoryAllocation"
+          },
           {
             "ref": "HOST_REPLY_CODES.invalidOperation"
           }
@@ -263,6 +284,9 @@
             "ref": "PLUGIN_HOSTD_REPLY_CODES.pinRefused"
           },
           {
+            "ref": "HOST_REPLY_CODES.memoryAllocation"
+          },
+          {
             "ref": "HOST_REPLY_CODES.invalidOperation"
           }
         ],
@@ -276,6 +300,9 @@
         "format": "pin_clear %s",
         "reply": "resp 0",
         "codes": [
+          {
+            "ref": "HOST_REPLY_CODES.memoryAllocation"
+          },
           {
             "ref": "HOST_REPLY_CODES.invalidOperation"
           }
@@ -298,6 +325,9 @@
           },
           {
             "ref": "PLUGIN_HOSTD_REPLY_CODES.pinRefused"
+          },
+          {
+            "ref": "HOST_REPLY_CODES.memoryAllocation"
           },
           {
             "ref": "HOST_REPLY_CODES.invalidOperation"
@@ -323,6 +353,9 @@
         "format": "lv2_worker_set %s %s",
         "reply": "resp 0",
         "codes": [
+          {
+            "ref": "HOST_REPLY_CODES.memoryAllocation"
+          },
           {
             "ref": "HOST_REPLY_CODES.invalidOperation"
           }
@@ -353,6 +386,9 @@
             "ref": "PLUGIN_HOSTD_REPLY_CODES.placementInvalid"
           },
           {
+            "ref": "HOST_REPLY_CODES.memoryAllocation"
+          },
+          {
             "ref": "HOST_REPLY_CODES.invalidOperation"
           }
         ],
@@ -372,6 +408,9 @@
             "ref": "PLUGIN_HOSTD_REPLY_CODES.noSuchChain"
           },
           {
+            "ref": "HOST_REPLY_CODES.memoryAllocation"
+          },
+          {
             "ref": "HOST_REPLY_CODES.invalidOperation"
           }
         ],
@@ -387,6 +426,9 @@
         "codes": [
           {
             "ref": "PLUGIN_HOSTD_REPLY_CODES.noSuchChain"
+          },
+          {
+            "ref": "HOST_REPLY_CODES.memoryAllocation"
           },
           {
             "ref": "HOST_REPLY_CODES.invalidOperation"
@@ -415,6 +457,9 @@
             "ref": "PLUGIN_HOSTD_REPLY_CODES.descriptorScanFailed"
           },
           {
+            "ref": "HOST_REPLY_CODES.memoryAllocation"
+          },
+          {
             "ref": "HOST_REPLY_CODES.invalidOperation"
           }
         ],
@@ -441,6 +486,9 @@
             "ref": "PLUGIN_HOSTD_REPLY_CODES.descriptorScanFailed"
           },
           {
+            "ref": "HOST_REPLY_CODES.memoryAllocation"
+          },
+          {
             "ref": "HOST_REPLY_CODES.invalidOperation"
           }
         ],
@@ -459,6 +507,9 @@
           },
           {
             "ref": "HOST_REPLY_CODES.instanceNonExists"
+          },
+          {
+            "ref": "HOST_REPLY_CODES.memoryAllocation"
           },
           {
             "ref": "HOST_REPLY_CODES.invalidOperation"
@@ -481,6 +532,9 @@
           },
           {
             "ref": "HOST_REPLY_CODES.instanceNonExists"
+          },
+          {
+            "ref": "HOST_REPLY_CODES.memoryAllocation"
           },
           {
             "ref": "HOST_REPLY_CODES.invalidOperation"
