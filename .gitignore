@@ -21,6 +21,7 @@ tests/rt_interpose.so
 tests/gesture-alloc-test
 tests/lv2-alloc-test
 tests/lv2-alloc-lv2.o
+tests/verbs-alloc-test
 tests/transforms-test
 /build/
 fuzz/findings/

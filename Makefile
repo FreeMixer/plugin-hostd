@@ -14,6 +14,7 @@ QUALCOST_TEST = tests/qualcost-test
 RELAY_TEST = tests/relay-test
 GESTURE_ALLOC_TEST = tests/gesture-alloc-test
 LV2_ALLOC_TEST = tests/lv2-alloc-test
+VERBS_ALLOC_TEST = tests/verbs-alloc-test
 TRANSFORMS_TEST = tests/transforms-test
 PROBE = plugin-hostd-probe
 
@@ -266,7 +267,7 @@ fuzz-corpus-check:
 
 # clean rule
 clean:
-	@rm -f src/*.o $(PROG) $(PROBE) tests/probe-child tests/lv2-probe-child tests/rt_interpose.so $(FAKE) $(PIN_TEST) $(HISTORY_TEST) $(PROC_TEST) $(PLANNER_TEST) $(QUALCOST_TEST) $(RELAY_TEST) tests/relay-test-relay.o $(FORMAT_TEST) $(GESTURE_ALLOC_TEST) $(LV2_ALLOC_TEST) tests/lv2-alloc-lv2.o $(TRANSFORMS_TEST) $(GEN) tests/stress.clap tests/jack_levels tests/host_scenarios $(LV2_FIXTURE)
+	@rm -f src/*.o $(PROG) $(PROBE) tests/probe-child tests/lv2-probe-child tests/rt_interpose.so $(FAKE) $(PIN_TEST) $(HISTORY_TEST) $(PROC_TEST) $(PLANNER_TEST) $(QUALCOST_TEST) $(RELAY_TEST) tests/relay-test-relay.o $(FORMAT_TEST) $(GESTURE_ALLOC_TEST) $(LV2_ALLOC_TEST) tests/lv2-alloc-lv2.o $(VERBS_ALLOC_TEST) $(TRANSFORMS_TEST) $(GEN) tests/stress.clap tests/jack_levels tests/host_scenarios $(LV2_FIXTURE)
 	@rm -rf build
 
 # the daemon against workers that are not plugin hosts at all (tests/fake-host speaks the same protocol and can be
@@ -314,8 +315,8 @@ test-socket: $(PROG)
 test-format: $(FORMAT_TEST) $(FAKE)
 	PLUGIN_HOSTD_FORMAT_TEST_DIR=$${TMPDIR:-$${XDG_RUNTIME_DIR:-.}} ./$(FORMAT_TEST) ./$(FAKE)
 
-# the daemon's parts without its main and its verbs: the test calls the supervisor as the verbs do
-FORMAT_OBJ = src/conf.o src/proc.o src/supervisor.o src/pins.o src/fsutil.o src/machine.o src/history.o src/relay.o src/formats.o src/lv2.o src/planner.o src/qualcost.o src/json.o
+# the daemon's parts without its main and its verbs: format_test calls the supervisor as the verbs do
+FORMAT_OBJ = $(filter-out src/main.o src/verbs.o,$(OBJ))
 
 $(FORMAT_TEST): tests/format_test.c $(FORMAT_OBJ) $(PROTOCOL_LIB)
 	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -o $@ tests/format_test.c $(FORMAT_OBJ) $(PROTOCOL_LIBS) -pthread -lm
@@ -375,11 +376,12 @@ test-relay: $(RELAY_TEST)
 $(RELAY_TEST): tests/relay_test.c src/relay.c src/relay.h include/plugin-hostd/protocol.h $(RENDERED)
 	$(CC) -Iinclude $(CFLAGS) -Werror -Drealloc=relay_test_realloc -c -o tests/relay-test-relay.o src/relay.c
 	$(CC) -Isrc $(CFLAGS) -Werror -o $@ tests/relay_test.c tests/relay-test-relay.o -pthread
-# the relay's gesture table and lv2.c's refusal and pick tables when memory runs out: each is built with its realloc
-# calls renamed, so the test picks the one that fails
-test-alloc: $(GESTURE_ALLOC_TEST) $(LV2_ALLOC_TEST)
+# the relay's gesture table, lv2.c's refusal and pick tables, and the verbs' copies and answer when memory runs out:
+# each is built with its allocation calls renamed, so the test picks the one that fails
+test-alloc: $(GESTURE_ALLOC_TEST) $(LV2_ALLOC_TEST) $(VERBS_ALLOC_TEST)
 	./$(GESTURE_ALLOC_TEST)
 	./$(LV2_ALLOC_TEST)
+	./$(VERBS_ALLOC_TEST)
 
 $(GESTURE_ALLOC_TEST): tests/gesture_alloc_test.c src/relay.c src/relay.h include/plugin-hostd/protocol.h $(RENDERED)
 	$(CC) -Iinclude -Isrc $(CFLAGS) -Werror -Drealloc=alloc_test_realloc -o $@ tests/gesture_alloc_test.c -pthread
@@ -387,6 +389,10 @@ $(GESTURE_ALLOC_TEST): tests/gesture_alloc_test.c src/relay.c src/relay.h includ
 $(LV2_ALLOC_TEST): tests/lv2_alloc_test.c src/lv2.c src/formats.h
 	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -Drealloc=alloc_test_realloc -c -o tests/lv2-alloc-lv2.o src/lv2.c
 	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -o $@ tests/lv2_alloc_test.c tests/lv2-alloc-lv2.o
+
+$(VERBS_ALLOC_TEST): tests/verbs_alloc_test.c src/verbs.c src/verbs.h $(FORMAT_OBJ) $(PROTOCOL_LIB)
+	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -Dstrndup=alloc_test_strndup -Dstrdup=alloc_test_strdup \
+	  -Dfree=alloc_test_free -o $@ tests/verbs_alloc_test.c $(FORMAT_OBJ) $(PROTOCOL_LIBS) -pthread -lm
 
 tests/stress.clap: tests/stress_plugin.c
 	$(CC) $(CLAP_CFLAGS) $(CFLAGS) -Werror -shared -o $@ $<

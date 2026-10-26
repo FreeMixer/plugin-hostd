@@ -130,6 +130,15 @@ static char *plan_words(char **tok, int ntok)
 
 static void reply(int fd, char *text)
 {
+    char refusal[32];
+
+    /* an answer there was no memory for: mod-host's refusal, written on the stack */
+    if (!text)
+    {
+        snprintf(refusal, sizeof(refusal), "resp %d", ERR_MEMORY_ALLOCATION);
+        socket_send(fd, refusal, strlen(refusal) + 1);
+        return;
+    }
     socket_send(fd, text, strlen(text) + 1);
     free(text);
 }
@@ -256,10 +265,22 @@ void verbs_receive(msg_t *msg)
     char *line = strndup(msg->data, msg->data_size), *tok[MAX_TOKENS], *save = NULL, *t, *copy, *end;
     int ntok = 0;
 
+    /* a message there is no memory to copy is refused, and not read */
+    if (!line)
+    {
+        reply(msg->sender_id, NULL);
+        return;
+    }
     end = line + strlen(line);
     while (end > line && (end[-1] == '\n' || end[-1] == '\r' || end[-1] == ' ' || end[-1] == '\t'))
         *--end = '\0';
     copy = strdup(line);
+    if (!copy)
+    {
+        reply(msg->sender_id, NULL);
+        free(line);
+        return;
+    }
     for (t = strtok_r(copy, " \t", &save); t && ntok < MAX_TOKENS; t = strtok_r(NULL, " \t", &save))
         tok[ntok++] = t;
     if (ntok == 0)
