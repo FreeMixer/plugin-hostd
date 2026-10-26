@@ -154,7 +154,9 @@ away from the two other ways the three can sound. Removing the limiter forms the
 strip's gain times the delay's taps with no lookahead; a fault plugin crashing between strip and limiter is quarantined
 and the three play as before. Its sabotages (the line reversed, the line without its last member, the chain not formed
 again after a removal) each turn a check of the audio red. CI runs it (`zynthian-chain` in `.github/workflows/ci.yml`)
-with plugin-hostd main and omx-clap-host of omx-clap-core main, both built at a pinned commit.
+with everything from the FreeMixer channel, by what it must do: plugin-hostd with `chain_get`, omx-clap-host 0.21.0 or
+later, and omx-clap-host-tests with `fault-14.clap` and `jack_identity` (omx-clap-core#351). Until the channel carries
+all three, the job fails by name.
 `evidence/chain/` holds the runs with their commands. A claim about Zynthian
 here is trixie arm64 container only until the Vangelis hardware run is dated, and these runs are less than that:
 Fedora 44 containers on x86_64, the zynthian-ui Python modules imported with zyncoder and autoconnect stubbed. No
