@@ -23,7 +23,7 @@
  *   STRESS_FAULT=crash          the first process call aborts
  *   STRESS_FAULT=hang           the first process call never returns
  *   STRESS_FAULT=fork           the first process call leaves a process behind that starts its own session and sleeps a
- *                               minute; its pid is written to the file STRESS_FORK_PIDFILE names
+ *                               minute; the call returns once its pid is written to the file STRESS_FORK_PIDFILE names
  */
 /* A stereo passthrough .clap the daemon's tests break on purpose:
  *   org.plugin-hostd.test.stress        parameters
@@ -302,6 +302,8 @@ static void fault_once(void)
 {
     static int done;
     const char *fault = getenv("STRESS_FAULT");
+    int ready[2];
+    char c;
 
     if (done || !fault)
         return;
@@ -311,7 +313,7 @@ static void fault_once(void)
     if (!strcmp(fault, "hang"))
         for (;;)
             ;
-    if (!strcmp(fault, "fork"))
+    if (!strcmp(fault, "fork") && pipe(ready) == 0)
     {
         pid_t pid = fork();
 
@@ -330,9 +332,14 @@ static void fault_once(void)
                     fclose(f);
                 }
             }
+            close(ready[1]);
             sleep(60);
             _exit(0);
         }
+        close(ready[1]);
+        while (read(ready[0], &c, 1) > 0)
+            ;
+        close(ready[0]);
     }
 }
 
