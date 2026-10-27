@@ -86,12 +86,14 @@ typedef struct PLAN_T {
     char *segments;             /* plan's answer after resp 0 */
     char *reasons;              /* plan_get's second word */
     int replan;                 /* a member was quarantined: the tick plans it again */
+    int64_t regroup_ms;         /* when a plan whose group a death split is made again, 0 for never */
 } plan_t;
 static plan_t *g_plan[MAX_INSTANCE];
 static int g_nplans;
 
 static void chain_form(chain_t *c);
 static void plans_replan_for(int id);
+static void plans_regroup(int id, int64_t now, int arm);
 static void plan_again(int id);
 
 /* a chain as the controller names it: the number chain declared, or <plan>.<k> for segment k of a plan */
@@ -908,6 +910,9 @@ static void on_death(worker_t *w, int in_flight)
 
     /* the history: the window it was in, and who was in the worker; before the process is reaped */
     hist_death(w, now);
+    /* a plan waiting to gather its group again waits for steady running: this death puts it off */
+    for (n = 0; n < w->ninst; n++)
+        plans_regroup(w->inst[n]->id, now, 0);
     if (grouped && (members = malloc(nmembers * sizeof(instance_t *))))
         memcpy(members, w->inst, nmembers * sizeof(instance_t *));
     for (n = 0; n < 50 && !(done = proc_exited(w->pid, &status)); n++)
@@ -969,6 +974,10 @@ static void on_death(worker_t *w, int in_flight)
             }
             else if (w->ninst > 1)
             {
+                /* the group is split, and the plan that holds it gathers it again after history_regroup_s of steady
+                 * running */
+                for (n = 0; n < w->ninst; n++)
+                    plans_regroup(w->inst[n]->id, now, 1);
                 while (w->ninst)
                     move_to_own(w->inst[0], now, 1);
             }
@@ -1331,10 +1340,10 @@ void sup_tick(void)
     for (n = 0; n < g_nworkers; n++)
         hist_tick(g_workers[n], now);
     history_tick(now / 1000);
-    /* a plan is made again at a quarantine of a member, here and never mid-cycle of a worker: before the chains are
-     * gathered, so that a segment the new plan dissolves is not formed first */
+    /* a plan is made again at a quarantine of a member and when its regroup timer is due, here and never mid-cycle of a
+     * worker: before the chains are gathered, so that a segment the new plan dissolves is not formed first */
     for (n = 0; g_nplans && n < MAX_INSTANCE; n++)
-        if (g_plan[n] && g_plan[n]->replan)
+        if (g_plan[n] && (g_plan[n]->replan || (g_plan[n]->regroup_ms && now >= g_plan[n]->regroup_ms)))
             plan_again(n);
     for (n = 0; g_nchains && n < MAX_INSTANCE; n++)
         if (g_chain[n] && g_chain[n]->rejoin)
@@ -2782,6 +2791,11 @@ static void plan_apply(plan_t *old, plan_t *p, const planner_plan_t *pp, const i
     for (k = 0; k < pp->nseg; k++)
         if (at[k])
             p->seg[p->nseg++] = at[k];
+    /* a segment that did not change but whose members a death split is gathered again: that is what a plan made again
+     * after the regroup timer is for */
+    for (k = 0; k < pp->nseg; k++)
+        if (at[k] && !formed[k] && !chain_whole(at[k]))
+            formed[k] = 1;
     /* the new plan stands before its segments form: a member that leaves one finds it there */
     g_plan[p->id] = p;
     for (k = 0; k < pp->nseg; k++)
@@ -2883,7 +2897,8 @@ char *sup_plan(int id, const int *ids, int n)
     return reply;
 }
 
-/* the plan of a chain is made again over the members it was given: after a quarantine, which the history now knows. A member that is gone, or taken by a chain of the controller's, leaves the plan as it
+/* the plan of a chain is made again over the members it was given: after a quarantine, which the history now knows, or
+ * when the regroup timer is due. A member that is gone, or taken by a chain of the controller's, leaves the plan as it
  * was: it is the controller's to declare again. */
 static void plan_again(int id)
 {
@@ -2891,6 +2906,7 @@ static void plan_again(int id)
     int *ids, k, refused;
 
     p->replan = 0;
+    p->regroup_ms = 0;
     for (k = 0; k < p->n; k++)
     {
         instance_t *i = g_inst[p->ids[k]];
@@ -2913,6 +2929,20 @@ static void plans_replan_for(int id)
         for (k = 0; g_plan[n] && k < g_plan[n]->n; k++)
             if (g_plan[n]->ids[k] == id)
                 g_plan[n]->replan = 1;
+}
+
+/* the regroup timer of every plan that holds the instance: armed (arm), or put off when it is already running; a
+ * history_regroup_s of 0 keeps it off */
+static void plans_regroup(int id, int64_t now, int arm)
+{
+    int n, k;
+
+    if (g_conf.history_regroup_s <= 0)
+        return;
+    for (n = 0; g_nplans && n < MAX_INSTANCE; n++)
+        for (k = 0; g_plan[n] && k < g_plan[n]->n; k++)
+            if (g_plan[n]->ids[k] == id && (arm || g_plan[n]->regroup_ms))
+                g_plan[n]->regroup_ms = now + (int64_t)g_conf.history_regroup_s * 1000;
 }
 
 char *sup_plan_get(int id)

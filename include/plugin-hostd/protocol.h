@@ -509,8 +509,8 @@ static inline int phd_pool_name_valid(const char *name)
       "a member that shares with no neighbour is placed " PHD_PLACE_OWN ". The reply names the segments in order, " \
       "the members of one joined by commas and the segments by semicolons. A chain planned again keeps the running " \
       "worker of every segment that did not change, and the daemon plans it again by itself when a member is " \
-      "quarantined or its quarantine is cleared. The plan numbers are its own, apart from chain's. While the " \
-      "setting grouping is off the plan is answered and kept for " OMX_VERB_PLAN_GET " and nothing moves. A segment " \
+      "quarantined and, history_regroup_s after a death that split its group, to gather it. The plan numbers are its " \
+      "own, apart from chain's. While the setting grouping is off the plan is answered and kept for " OMX_VERB_PLAN_GET " and nothing moves. A segment " \
       "that cannot be formed refuses the whole plan with its own code, moves nothing and is told by " OMX_VERB_PLAN_GET \
       " as plan-refused:<code>. -518 for an instance no add made, -519 for one named twice, -520 for one in a chain " \
       "or in the plan of another chain, -501 for a segment no world can be built for, -902 for a chain or an " \
@@ -1032,6 +1032,7 @@ static inline int phd_is_note_verb(const char *verb)
 #define PHD_DEFAULT_PROBE             "plugin-hostd-probe"
 #define PHD_DEFAULT_HISTORY_WINDOW_S  60
 #define PHD_DEFAULT_HISTORY_SAVE_S    300
+#define PHD_DEFAULT_HISTORY_REGROUP_S 600
 
 /* The running history (the grouping-planner design note, The history record): what each plugin did on
  * this machine, one line per <uri> <binary digest> <host class> in a file of the daemon's own, whose keys are the words
@@ -1130,6 +1131,10 @@ static inline int phd_is_note_verb(const char *verb)
       "once per window, and a window the plugin was up less than half of is not counted; 0 keeps no history") \
     X(history_save_s, PHD_DEFAULT_HISTORY_SAVE_S, "s", "the history is written at most once this often when it changed, " \
       "and at quit") \
+    X(history_regroup_s, PHD_DEFAULT_HISTORY_REGROUP_S, "s", \
+      "a plan whose group was split by a death that named no culprit is made again after this many seconds without " \
+      "another death of its members, and the members that share are gathered in a worker again; 0 never makes it again " \
+      "by itself") \
     X(group_max, PHD_DEFAULT_GROUP_MAX, "instances", "most members of one segment of a plan; 0 sets no limit") \
     X(group_cost_max, PHD_DEFAULT_GROUP_COST_MAX, "percent of a core", \
       "most the costs of the members of one segment of a plan add to, each a member's coreFractionP95 of its " \

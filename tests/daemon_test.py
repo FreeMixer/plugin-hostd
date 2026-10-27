@@ -3374,6 +3374,85 @@ def a_member_that_is_quarantined_leaves_its_plan_alone_and_the_segments_that_did
         d.close()
 
 
+def kill_chain(d, plan, k):
+    """kill the worker of segment k of a plan from outside: it names no culprit, so the group is split"""
+    os.kill(plan_of(d, plan)[k]["pid"], signal.SIGKILL)
+    wait_for(lambda: len(plan_of(d, plan)) == 0, "the group split")
+    t0 = time.monotonic()
+    for i in (1, 2, 3):
+        d.wait_up(i)
+    return t0
+
+
+@test
+def a_group_split_by_a_death_with_no_culprit_is_gathered_again_after_history_regroup_s_of_steady_running():
+    d = daemon(conf={"grouping": "on", "history_regroup_s": 3})
+    try:
+        for i in (1, 2, 3):
+            d.expect("add clap:fake#m%d %d" % (i, i), "resp %d" % i)
+        d.expect("plan 1 1 2 3", "resp 0 1,2,3")
+        d.wait_event("chain_formed 1.0 ")
+        mark = d.mark()
+        t0 = kill_chain(d, 1, 0)
+        time.sleep(1.2)
+        check(not plan_of(d, 1) and not any(e.startswith("chain_formed") for e in d.events[mark:]),
+              "not before its time: %s %s" % (d.workers(), d.events[mark:]))
+        d.wait_event("chain_formed 1.0 ", since=mark)
+        late = time.monotonic() - t0
+        check(2.0 < late < 8.0, "about 3 s of steady running after the death: %.1f s" % late)
+        check(places(d) == {"chain:1.0": [1, 2, 3]}, "the group runs as one again: %s" % d.workers())
+        d.expect("plan_get 1", "resp 0 1,2,3 1:cost-assumed,2:cost-assumed,3:cost-assumed")
+    finally:
+        d.close()
+
+
+@test
+def another_death_of_a_member_puts_the_regroup_off_by_another_history_regroup_s():
+    d = daemon(conf={"grouping": "on", "history_regroup_s": 3, "group_max": 2})
+    try:
+        for i in (1, 2, 3):
+            d.expect("add clap:fake#m%d %d" % (i, i), "resp %d" % i)
+        d.expect("plan 1 1 2 3", "resp 0 1,2;3")
+        d.wait_event("chain_formed 1.0 ")
+        mark = d.mark()
+        os.kill(plan_of(d, 1)[0]["pid"], signal.SIGKILL)
+        t0 = time.monotonic()
+        wait_for(lambda: not plan_of(d, 1), "the group split")
+        time.sleep(1.8)
+        # member 3 is alone and not of the split group: its death is steady running broken
+        _, w3 = d.holder(3)
+        os.kill(w3["pid"], signal.SIGKILL)
+        t1 = time.monotonic()
+        d.wait_up(3)
+        time.sleep(max(0, 3.6 - (time.monotonic() - t0)))
+        check(not plan_of(d, 1), "3 s after the first death, 1.8 s after the second: still apart: %s" % d.workers())
+        d.wait_event("chain_formed 1.0 ", since=mark)
+        late = time.monotonic() - t1
+        check(late > 2.0, "3 s after the second death, not 3 s after the first: %.1f s" % late)
+        check(places(d) == {"chain:1.0": [1, 2], "own": [3]}, "gathered: %s" % d.workers())
+    finally:
+        d.close()
+
+
+@test
+def history_regroup_s_zero_leaves_a_split_group_apart_until_the_controller_plans_it_again():
+    d = daemon(conf={"grouping": "on", "history_regroup_s": 0})
+    try:
+        for i in (1, 2, 3):
+            d.expect("add clap:fake#m%d %d" % (i, i), "resp %d" % i)
+        d.expect("plan 1 1 2 3", "resp 0 1,2,3")
+        d.wait_event("chain_formed 1.0 ")
+        kill_chain(d, 1, 0)
+        time.sleep(4.5)
+        check(not plan_of(d, 1) and [w["place"] for w in d.workers().values()] == ["own", "own", "own"], "apart after longer than the timer of the other tests: %s" % d.workers())
+        mark = d.mark()
+        d.expect("plan 1 1 2 3", "resp 0 1,2,3")
+        d.wait_event("chain_formed 1.0 ", since=mark)
+        check(places(d) == {"chain:1.0": [1, 2, 3]}, "and a plan call gathers it, though the segment did not change: %s" % d.workers())
+    finally:
+        d.close()
+
+
 @test
 def a_clap_member_and_an_lv2_member_of_the_adapter_row_form_one_chain():
     """clap and lv2-clap are two rows of one program, both running chains in one client; lv2 (mod-host) and clap are two
