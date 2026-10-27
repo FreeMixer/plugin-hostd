@@ -841,8 +841,8 @@ static void quarantine(instance_t *i, worker_t *w)
     {
         m->quarantined = 1;
         event(PHD_EVENT_INSTANCE_QUARANTINED_FMT, i->id, w->k);
-        hist_quarantine(i->uri);
         plans_replan_for(i->id);
+        hist_quarantine(i->uri);
     }
     /* the culprit of a chain that was split: the others are gathered again, without it, by the tick */
     if (i->chain && !chain_whole(i->chain))
@@ -908,11 +908,11 @@ static void on_death(worker_t *w, int in_flight)
     int64_t now = proc_now_ms();
     instance_t **members = NULL, *blamed = NULL;
 
-    /* the history: the window it was in, and who was in the worker; before the process is reaped */
-    hist_death(w, now);
     /* a plan waiting to gather its group again waits for steady running: this death puts it off */
     for (n = 0; n < w->ninst; n++)
         plans_regroup(w->inst[n]->id, now, 0);
+    /* the history: the window it was in, and who was in the worker; before the process is reaped */
+    hist_death(w, now);
     if (grouped && (members = malloc(nmembers * sizeof(instance_t *))))
         memcpy(members, w->inst, nmembers * sizeof(instance_t *));
     for (n = 0; n < 50 && !(done = proc_exited(w->pid, &status)); n++)
@@ -2808,14 +2808,14 @@ static void plan_apply(plan_t *old, plan_t *p, const planner_plan_t *pp, const i
 /* the members are planned and the plan is applied, or only kept while grouping is off or a segment cannot be formed; the
  * plan before it is dropped, its segments that did not change are the new plan's. *refused is the code of the refusal, 0
  * for none. The members are checked by the caller. */
-static plan_t *plan_run(int id, const int *ids, int n, int *refused)
+static plan_t *plan_run(int id, const int *ids, int n, int *code)
 {
     plan_t *old = g_plan[id], *p;
     planner_member_t m[PLANNER_MEMBERS_MAX];
     planner_history_t h[PLANNER_MEMBERS_MAX];
     planner_settings_t s;
     planner_plan_t pp;
-    int k, first;
+    int k, first, refused = 0;
 
     for (k = 0; k < n; k++)
         plan_member(g_inst[ids[k]], &m[k], &h[k]);
@@ -2828,10 +2828,9 @@ static plan_t *plan_run(int id, const int *ids, int n, int *refused)
     planner_plan(&s, m, n, &pp);
 
     /* every segment is checked before any is made: a plan that cannot be formed moves nothing */
-    *refused = 0;
-    for (k = 0, first = 0; s.grouping_on && !*refused && k < pp.nseg; first += pp.seg_len[k++])
+    for (k = 0, first = 0; s.grouping_on && !refused && k < pp.nseg; first += pp.seg_len[k++])
         if (pp.seg_len[k] > 1)
-            *refused = segment_refusal(ids + first, pp.seg_len[k]);
+            refused = segment_refusal(ids + first, pp.seg_len[k]);
 
     p = calloc(1, sizeof(*p));
     p->id = id;
@@ -2840,9 +2839,9 @@ static plan_t *plan_run(int id, const int *ids, int n, int *refused)
     memcpy(p->ids, ids, n * sizeof(int));
     p->seg = calloc(pp.nseg, sizeof(chain_t *));
     p->segments = plan_text(segments_text, m, &pp, 0);
-    p->reasons = plan_text(planner_format_reasons, m, &pp, *refused);
+    p->reasons = plan_text(planner_format_reasons, m, &pp, refused);
 
-    if (s.grouping_on && !*refused)
+    if (s.grouping_on && !refused)
         plan_apply(old, p, &pp, ids);
     else
     {
@@ -2864,6 +2863,7 @@ static plan_t *plan_run(int id, const int *ids, int n, int *refused)
     }
     else
         g_nplans++;
+    *code = refused;
     return p;
 }
 

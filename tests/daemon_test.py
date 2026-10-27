@@ -3370,6 +3370,14 @@ def a_member_that_is_quarantined_leaves_its_plan_alone_and_the_segments_that_did
         wait_for(lambda: d.send("plan_get 1").startswith("resp 0 1,2;3,4;5 "), "the plan once more: %s" % d.send("plan_get 1"))
         d.wait_event("chain_formed 1.1 ", since=mark)
         check(places(d)["chain:1.1"] == [3, 4] and plan_of(d, 1)[0]["pid"] == first, "3 and 4 share again: %s" % d.workers())
+        # quarantined again, and all quarantines cleared at once: the same
+        mark = d.mark()
+        d.expect("param_set 4 crash 1", "resp 0")
+        d.wait_event("instance_quarantined 4 ", since=mark)
+        wait_for(lambda: "4:history-crashed" in d.send("plan_get 1"), "the plan again: %s" % d.send("plan_get 1"))
+        d.expect("quarantine_clear all", "resp 0")
+        wait_for(lambda: d.send("plan_get 1").startswith("resp 0 1,2;3,4;5 "), "the plan once more: %s" % d.send("plan_get 1"))
+        check(plan_of(d, 1)[0]["pid"] == first, "and the first segment never restarted: %s" % d.workers())
     finally:
         d.close()
 

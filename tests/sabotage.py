@@ -1174,7 +1174,7 @@ SABOTAGE = [
      '    s.history_unavailable = 0;',
      'a_history_that_cannot_be_read_or_is_off_plans_as_without_one_and_says_so'),
     ('a quarantine does not make the plan again', 'src/supervisor.c',
-     '        hist_quarantine(i->uri);\n        plans_replan_for(i->id);\n',
+     '        plans_replan_for(i->id);\n        hist_quarantine(i->uri);\n',
      '        hist_quarantine(i->uri);\n',
      'a_member_that_is_quarantined_leaves_its_plan_alone_and_the_segments_that_did_not_change_keep_their_workers'),
     ('a quarantine that is cleared does not make the plan again', 'src/supervisor.c',
