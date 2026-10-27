@@ -299,5 +299,89 @@ class Stress(unittest.TestCase):
                              ["chain", "individual"])
 
 
+def run_row(**kw):
+    row = {"id": "cvp8", "title": "t", "host": "H2", "mode": "chain", "rate": 48000, "frames": 256, "plugins": ["a"],
+           "dsp_load_avg": 4.0, "dsp_load_max": 5.0, "samples": 10, "rss_mb": 100.0, "add_ms": 50.0,
+           "recover_ms": None, "status": "ok", "note": "", "processes": 2, "rss_mb_total": 100.0,
+           "pss_mb_total": 40.0, "cpu_pct": 7.0, "ctx_switches": 1000, "ctx_involuntary": 10, "xruns": 0,
+           "latency_frames": 256, "stress": "none"}
+    row.update(kw)
+    return row
+
+
+class Repeats(unittest.TestCase):
+    def test_the_median_and_the_spread_of_three_runs(self):
+        runs = [run_row(xruns=0, cpu_pct=7.0), run_row(xruns=5, cpu_pct=9.5), run_row(xruns=2, cpu_pct=8.0)]
+        row = bench.aggregate(runs, 3)
+        self.assertEqual(row["xruns"], 2)
+        self.assertEqual(row["spread"]["xruns"], [0, 5])
+        self.assertEqual(row["cpu_pct"], 8.0)
+        self.assertEqual(row["spread"]["cpu_pct"], [7.0, 9.5])
+        self.assertEqual(row["repeats"], 3)
+        self.assertEqual(row["status"], "ok")
+
+    def test_a_count_stays_a_count_and_is_never_understated(self):
+        row = bench.aggregate([run_row(xruns=1, ctx_switches=10), run_row(xruns=4, ctx_switches=20)], 2)
+        self.assertEqual(row["xruns"], 4)
+        self.assertIsInstance(row["xruns"], int)
+        self.assertEqual(row["ctx_switches"], 20)
+        self.assertEqual(row["spread"]["xruns"], [1, 4])
+
+    def test_the_median_is_the_middle_run_not_the_mean(self):
+        row = bench.aggregate([run_row(dsp_load_avg=1.0), run_row(dsp_load_avg=2.0), run_row(dsp_load_avg=90.0)], 3)
+        self.assertEqual(row["dsp_load_avg"], 2.0)
+
+    def test_the_aggregate_row_is_a_valid_row(self):
+        doc = example()
+        doc["scenarios"] = [bench.aggregate([run_row(xruns=x, recover_ms=r) for x, r in
+                                             ((0, 900.0), (3, 1100.0), (1, 1000.0))], 3)]
+        code, out = validate(doc)
+        self.assertEqual(code, 0, out)
+
+    def test_one_run_is_a_row_with_no_spread(self):
+        row = bench.aggregate([run_row(xruns=3)], 1)
+        self.assertEqual(row["xruns"], 3)
+        self.assertEqual(row["repeats"], 1)
+        self.assertNotIn("spread", row)
+
+    def test_a_measure_missing_from_a_run_has_no_median(self):
+        row = bench.aggregate([run_row(recover_ms=None), run_row(recover_ms=1000.0), run_row(recover_ms=None)], 3)
+        self.assertIsNone(row["recover_ms"])
+        self.assertNotIn("recover_ms", row["spread"])
+
+    def test_a_failed_repeat_fails_the_row_and_names_it(self):
+        runs = [run_row(xruns=0), run_row(status="failed", note="the chain did not form", xruns=7)]
+        row = bench.aggregate(runs, 3)
+        self.assertEqual(row["status"], "failed")
+        self.assertEqual(row["note"], "repeat 2 of 3: the chain did not form")
+        self.assertNotIn("spread", row)
+        self.assertNotIn("repeats", row)
+
+    def test_an_unsupported_row_is_not_a_failure_of_a_repeat(self):
+        row = bench.aggregate([run_row(status="unsupported", note="jalv is not installed")], 3)
+        self.assertEqual(row["status"], "unsupported")
+        self.assertEqual(row["note"], "jalv is not installed")
+
+    def test_the_runner_stops_repeating_at_the_first_row_that_is_not_ok(self):
+        import types
+        calls = []
+        answers = [run_row(), run_row(status="failed", note="broke")]
+        fake = types.SimpleNamespace(args=types.SimpleNamespace(repeats=3))
+        fake.row = lambda *a: calls.append(a) or answers[len(calls) - 1]
+        row = bench.Runner.measure(fake, {}, "H2", "chain", 48000, 256, False)
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(row["status"], "failed")
+
+    def test_the_runner_runs_the_row_as_many_times_as_asked(self):
+        import types
+        calls = []
+        fake = types.SimpleNamespace(args=types.SimpleNamespace(repeats=3))
+        fake.row = lambda *a: calls.append(a) or run_row(xruns=len(calls))
+        row = bench.Runner.measure(fake, {}, "H2", "chain", 48000, 256, False)
+        self.assertEqual(len(calls), 3)
+        self.assertEqual(row["xruns"], 2)
+        self.assertEqual(row["spread"]["xruns"], [1, 3])
+
+
 if __name__ == "__main__":
     unittest.main()

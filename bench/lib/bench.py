@@ -11,6 +11,7 @@ import re
 import shutil
 import signal
 import socket
+import statistics
 import subprocess
 import sys
 import tempfile
@@ -220,6 +221,45 @@ def samples(pids):
         except (OSError, IndexError, ValueError):
             pass
     return out
+
+
+# ---------------------------------------------------------------- repeats
+
+MEASURED = ("dsp_load_avg", "dsp_load_max", "rss_mb", "add_ms", "recover_ms", "processes", "rss_mb_total",
+            "pss_mb_total", "cpu_pct", "ctx_switches", "ctx_involuntary", "xruns", "latency_frames")
+COUNTS = ("processes", "ctx_switches", "ctx_involuntary", "xruns", "latency_frames", "samples")
+
+
+def aggregate(runs, wanted=None):
+    """one row from the repeats of one row: the median of every measure and, for each, its [min, max] under
+    `spread`. A count stays a count: with an even number of runs it takes the higher middle one, so a number of xruns
+    is never understated. A run that is failed ends it: that run's row, naming the repeat of `wanted`, and no figures
+    from the runs before it; one that is unsupported ends it as it is."""
+    for n, run in enumerate(runs, 1):
+        if run["status"] != "ok":
+            row = dict(run)
+            if row["status"] == "failed" and (wanted or len(runs)) > 1:
+                row["note"] = "repeat %d of %d: %s" % (n, wanted or len(runs), row["note"])
+            return row
+    row = dict(runs[0])
+    row["repeats"] = len(runs)
+    if len(runs) == 1:
+        return row
+    spread = {}
+    for key in MEASURED + ("samples",):
+        vals = [r[key] for r in runs if r.get(key) is not None]
+        if len(vals) != len(runs):
+            continue
+        if key in COUNTS:
+            row[key] = int(statistics.median_high(vals))
+        else:
+            row[key] = round(statistics.median(vals), 2)
+        if key != "samples":
+            spread[key] = [min(vals), max(vals)]
+    row["spread"] = spread
+    notes = list(dict.fromkeys(r["note"] for r in runs if r["note"]))
+    row["note"] = "; ".join(notes)
+    return row
 
 
 # ---------------------------------------------------------------- the stress load
@@ -976,6 +1016,15 @@ class Runner:
             self.assert_only_jack("after %s %s %d/%d" % (s["id"], hkey, rate, frames))
         return r
 
+    def measure(self, s, hkey, mode, rate, frames, stress):
+        """the row, run args.repeats times; a row that cannot run, or breaks, ends the repeats"""
+        runs = []
+        for _ in range(self.args.repeats):
+            runs.append(self.row(s, hkey, mode, rate, frames, stress))
+            if runs[-1]["status"] != "ok":
+                break
+        return aggregate(runs, self.args.repeats)
+
     def chain_formed(self, host, insts):
         want = ",".join(map(str, insts))
         end = time.monotonic() + READY_LIMIT_S
@@ -1070,7 +1119,7 @@ class Runner:
             for frames in self.args.frames:
                 self.jack_start(rate, frames)
                 for s, h, mode, stress in rows:
-                    r = self.row(s, h, mode, rate, frames, stress)
+                    r = self.measure(s, h, mode, rate, frames, stress)
                     log("%-8s %s %-14s %6d/%-4d %-11s dsp %s%% rss %s MB add %s ms xruns %s %s%s" % (
                         r["id"], h, r.get("mode", "-"), rate, frames, r["status"], r["dsp_load_avg"], r["rss_mb"],
                         r["add_ms"], r.get("xruns"), "" if r["stress"] == "none" else r["stress"] + " ", r["note"]))
@@ -1116,12 +1165,16 @@ def main():
     ap.add_argument("--hosts", type=lambda t: [x for x in t.split(",") if x], default=list(HOSTS))
     ap.add_argument("--stress", choices=["none", "on", "both"], default="both",
                     help="the scenarios that declare a stress run without it, with it, or both")
+    ap.add_argument("--repeats", type=int, default=3, help="runs of each row; the document holds the median and the "
+                    "spread (1 for a quick look, 3 at least for a document that says anything)")
     ap.add_argument("--window", type=int, default=10, help="seconds of DSP load and /proc sampling per row")
     ap.add_argument("--pianoteq-dir", default=None, help="the directory of Pianoteq's LV2 bundle")
     ap.add_argument("--qualify", action="store_true", help="also time plugin-qualify --all --isolate")
     ap.add_argument("--keep-governor", action="store_true", help="leave the CPU governor as it is")
     ap.add_argument("--logs", default=None, help="keep the host logs in this directory")
     args = ap.parse_args()
+    if args.repeats < 1:
+        ap.error("--repeats takes 1 or more")
     if set(args.hosts) - set(HOSTS):
         ap.error("--hosts takes H1,H2,H3,H4")
     table = json.load(open(os.path.join(BENCH, "scenarios.json")))

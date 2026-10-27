@@ -75,7 +75,7 @@ s = open(p).read()
 assert s.count(old) == 1, "the sabotage did not land: " + old
 open(p, "w").write(s.replace(old, new))
 PY
-    red "unit: $1" "FAIL: ${5##*.}" python3 -I "$copy/tests/test_bench.py" "$5"
+    red "unit: $1" "(FAIL|ERROR): ${5##*.}" python3 -I "$copy/tests/test_bench.py" "$5"
 }
 break_unit spread-median lib/validate.py 'elif isinstance(s[field], (int, float)) and not span[0] <= s[field] <= span[1]:' \
     'elif False:' Schema.test_a_spread_that_does_not_hold_the_median_is_red
@@ -93,6 +93,12 @@ break_unit stress-pin lib/bench.py 'os.sched_setaffinity(0, {int(sys.argv[1])})'
 break_unit stress-mem lib/bench.py 'bytearray(int(sys.argv[1]) << 20)' 'bytearray(int(sys.argv[1]) << 10)' Stress.test_the_memory_touch_holds_its_size
 break_unit stress-cores lib/bench.py 'return "busy%d+mem%d" % (len(cores), STRESS_MEM_MB)' 'return "busy1+mem%d" % STRESS_MEM_MB' Stress.test_the_profile_names_the_cores_and_the_memory
 break_unit stress-both lib/bench.py '"both": [False, True]' '"both": [True]' Stress.test_stress_rows_are_the_same_scenario_with_and_without
+break_unit rep-high lib/bench.py 'statistics.median_high(vals)' 'statistics.median_low(vals)' Repeats.test_a_count_stays_a_count_and_is_never_understated
+break_unit rep-mean lib/bench.py 'round(statistics.median(vals), 2)' 'round(statistics.mean(vals), 2)' Repeats.test_the_median_is_the_middle_run_not_the_mean
+break_unit rep-spread lib/bench.py 'spread[key] = [min(vals), max(vals)]' 'spread[key] = [min(vals), min(vals)]' Repeats.test_the_median_and_the_spread_of_three_runs
+break_unit rep-failed lib/bench.py 'if row["status"] == "failed" and (wanted or len(runs)) > 1:' 'if False:' Repeats.test_a_failed_repeat_fails_the_row_and_names_it
+break_unit rep-stop lib/bench.py 'if runs[-1]["status"] != "ok":' 'if False:' Repeats.test_the_runner_stops_repeating_at_the_first_row_that_is_not_ok
+break_unit rep-count lib/bench.py 'for _ in range(self.args.repeats):' 'for _ in range(1):' Repeats.test_the_runner_runs_the_row_as_many_times_as_asked
 green "unit tests as they are" python3 -I "$here/tests/test_bench.py"
 
 # --- the teardown
