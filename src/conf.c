@@ -124,6 +124,19 @@ int conf_check(const conf_t *conf)
         return -1;
     }
     ok = 0;
+#define X(id, name, meaning) ok |= !strcmp(conf->grouping, name);
+    PHD_GROUPING_MODES(X)
+#undef X
+    if (!ok)
+    {
+        fprintf(stderr, "grouping '%s' is not one of:", conf->grouping);
+#define X(id, name, meaning) fprintf(stderr, " %s", name);
+        PHD_GROUPING_MODES(X)
+#undef X
+        fprintf(stderr, "\n");
+        return -1;
+    }
+    ok = 0;
 #define X(id, name, meaning) ok |= !strcmp(conf->lv2_worker, name);
     PHD_LV2_WORKERS(X)
 #undef X
@@ -152,4 +165,9 @@ int conf_check(const conf_t *conf)
 int conf_pins_first_use(const conf_t *conf)
 {
     return !strcmp(conf->pin_mode, PHD_PIN_MODE_FIRST_USE);
+}
+
+int conf_grouping_on(const conf_t *conf)
+{
+    return !strcmp(conf->grouping, PHD_GROUPING_ON);
 }

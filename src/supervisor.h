@@ -112,6 +112,9 @@ typedef struct CHAIN_T {
     int n;
     worker_t *w;                /* NULL while no worker holds it */
     int rejoin;                 /* its members are to be gathered in one worker again, by the tick */
+    int planned;                /* a segment of a plan, not a chain the controller declared: id is the plan's number, seg the
+                                 * segment's place in the plan, and no g_chain row holds it */
+    int seg;
 } chain_t;
 
 void sup_init(const conf_t *conf);
@@ -154,6 +157,12 @@ char *sup_chain(int id, const int *ids, int n);
 char *sup_chain_clear(int id);
 /* chain_get: the chain's worker, its members as declared and the ones its worker runs, each in order */
 char *sup_chain_get(int id);
+/* plan: the instances ids, in signal order, planned into segments (src/planner.c); applied as chains of place
+ * chain:<id>.<k> and workers of their own while grouping is on, answered and kept while it is off. plan_get reads the
+ * last plan back, plan_clear gives each member a worker of its own */
+char *sup_plan(int id, const int *ids, int n);
+char *sup_plan_get(int id);
+char *sup_plan_clear(int id);
 
 /* history_get: the summary of the binary the uri's pin holds, on this host class (src/history.c); history_clear: the
  * lines of one uri or all of them. Both answer as the verbs do */

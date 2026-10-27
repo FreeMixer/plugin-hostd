@@ -47,5 +47,7 @@ int conf_load(conf_t *conf, const char *path, int required);
 int conf_check(const conf_t *conf);
 /* whether pin_mode is first-use */
 int conf_pins_first_use(const conf_t *conf);
+/* whether grouping is on */
+int conf_grouping_on(const conf_t *conf);
 
 #endif

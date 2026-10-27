@@ -203,11 +203,11 @@ __attribute__((noinline)) static void check_reply_answer(const struct words *w)
     if (g_rec.answer)
     {
         /* a call answered: the reply is its answer, as it answered it
-         * mutant: src/verbs.c:120 `text, strlen(text) + 1` -> `text + 1, strlen(text)`
+         * mutant: src/verbs.c:133 `text, strlen(text) + 1` -> `text + 1, strlen(text)`
          * input: add-default
          * mutant: src/verbs.c:90 `return rc;` -> `return SUCCESS;`
          * input: plugin-hostd-pin_set-refused
-         * mutant: src/verbs.c:224 `return reply_text;` -> `return sup_resp(SUCCESS);`
+         * mutant: src/verbs.c:247 `return reply_text;` -> `return sup_resp(SUCCESS);`
          * input: mod-host-set_bpm-refused */
         if (strcmp(g_rec.reply, g_rec.answer))
             abort();
@@ -215,7 +215,7 @@ __attribute__((noinline)) static void check_reply_answer(const struct words *w)
     }
     /* no call answered: the reply is one the daemon makes itself, a refusal or the reply of quit, which check_reply
      * holds to "resp <code>" of a declared code and to "resp 0"
-     * mutant: src/verbs.c:135 `return sup_resp(ERR_INVALID_OPERATION);` -> `return sup_resp(SUCCESS);`
+     * mutant: src/verbs.c:148 `return sup_resp(ERR_INVALID_OPERATION);` -> `return sup_resp(SUCCESS);`
      * input: add-too-few */
     if (sup_reply_code(g_rec.reply) >= 0 && !(w->n == 1 && verb_is(w->w[0], QUIT)))
         abort();
@@ -229,12 +229,12 @@ __attribute__((noinline)) static void check_reply(const struct words *w)
     int code;
 
     /* one reply, and nothing sent empty
-     * mutant: src/verbs.c:242 `reply(msg->sender_id, handle(line, tok, ntok));` -> `free(handle(line, tok, ntok));`
+     * mutant: src/verbs.c:265 `reply(msg->sender_id, handle(line, tok, ntok));` -> `free(handle(line, tok, ntok));`
      * input: add-default */
     if (g_rec.nreplies != 1 || g_rec.reply_size == 0)
         abort();
     /* the reply is a string that ends where the message the socket sends ends
-     * mutant: src/verbs.c:120 `strlen(text) + 1` -> `strlen(text)`
+     * mutant: src/verbs.c:133 `strlen(text) + 1` -> `strlen(text)`
      * input: add-default */
     if (g_rec.reply[g_rec.reply_size - 1] != '\0' || memchr(g_rec.reply, '\0', g_rec.reply_size - 1))
         abort();
@@ -252,7 +252,7 @@ __attribute__((noinline)) static void check_reply(const struct words *w)
     }
     shape = w->n ? rec_shape_of(w->w[0], strlen(w->w[0])) : REC_MOD_HOST_SHAPE;
     /* anything else has the shape its verb declares, or mod-host's
-     * mutant: src/verbs.c:213 `sup_resp(SUCCESS)` -> `sup_resp(1)`
+     * mutant: src/verbs.c:236 `sup_resp(SUCCESS)` -> `sup_resp(1)`
      * input: mod-host-quit */
     if (!syntax_reply_matches(shape, g_rec.reply) && !syntax_reply_matches(REC_MOD_HOST_SHAPE, g_rec.reply))
         abort();
@@ -286,9 +286,9 @@ __attribute__((noinline)) static void check_arity(const struct words *w)
         else
             syntax_arity(g_parsed[n].syntax, &min, &max);
         /* acted on, by its own call or by a broadcast, with an argument count the declaration allows
-         * mutant: src/verbs.c:175 `ntok == 3` -> `ntok >= 3`
+         * mutant: src/verbs.c:188 `ntok == 3` -> `ntok >= 3`
          * input: plugin-hostd-pool_config-extra
-         * mutant: src/verbs.c:152 `verb_is(verb, EFFECT_REMOVE)` -> `verb_is(verb, EFFECT_REMOVE) && ntok == 2`
+         * mutant: src/verbs.c:165 `verb_is(verb, EFFECT_REMOVE)` -> `verb_is(verb, EFFECT_REMOVE) && ntok == 2`
          * input: mod-host-remove-extra */
         if (read - 1 < min || read - 1 > max)
             abort();
@@ -322,6 +322,9 @@ static const char *const g_call_words[REC_FN_COUNT] = {
     [REC_CHAIN] = "#1 * *",
     [REC_CHAIN_CLEAR] = "#1",
     [REC_CHAIN_GET] = "#1",
+    [REC_PLAN] = "#1 * *",
+    [REC_PLAN_GET] = "#1",
+    [REC_PLAN_CLEAR] = "#1",
     [REC_AFTER_REPLY] = "#1 0",
     [REC_PINS_SET] = "1 2 3 *",
     [REC_PINS_CLEAR] = "1",
@@ -348,13 +351,13 @@ __attribute__((noinline)) static void check_words_add(const struct rec_call *cal
     const char *client = read > next ? w[next] : "-";
 
     /* the placement and the client, each where the message has it
-     * mutant: src/verbs.c:142 `placement, client` -> `client, placement`
+     * mutant: src/verbs.c:155 `placement, client` -> `client, placement`
      * input: add-pool-p-fuzz_client */
     if (call->nargs != 4 || strcmp(call->args[2], placement) || strcmp(call->args[3], client))
         abort();
 }
 
-/* the words property for chain <chain> <instance> [<instance> ...]: the members are word 2 and every word after it, as
+/* the words property for chain and plan, <verb> <chain> <instance> [<instance> ...]: the members are word 2 and every word after it, as
  * numbers, and their count is how many they are */
 __attribute__((noinline)) static void check_words_chain(const struct rec_call *call, const char *const *w, int read)
 {
@@ -431,14 +434,14 @@ __attribute__((noinline)) static void check_words(const struct words *w)
             }
             item += strcspn(item, " ");
             /* the argument is the word the declaration puts there, as the controller wrote it
-             * mutant: src/verbs.c:142 `atoi(tok[2])` -> `atoi(tok[1])`
+             * mutant: src/verbs.c:155 `atoi(tok[2])` -> `atoi(tok[1])`
              * input: add-instance-past-the-table */
             if (want && (call->args[a] == NULL || strcmp(call->args[a], want)))
                 abort();
         }
         if (call->fn == REC_ADD)
             check_words_add(call, (const char *const *)w->w, read);
-        else if (call->fn == REC_CHAIN)
+        else if (call->fn == REC_CHAIN || call->fn == REC_PLAN)
             check_words_chain(call, (const char *const *)w->w, read);
         else if (call->fn == REC_PINS_SET)
             check_words_pin_set(call, (const char *const *)w->w, read);
@@ -452,7 +455,7 @@ __attribute__((noinline)) static void check_refusal(uint64_t before)
     if (g_rec.reply == NULL || sup_reply_code(g_rec.reply) >= 0)
         return;
     /* nothing changed: no accepted call, no follow-up, no quit
-     * mutant: src/verbs.c:144 `reply_text && sup_reply_code(reply_text) >= 0` -> `reply_text`
+     * mutant: src/verbs.c:157 `reply_text && sup_reply_code(reply_text) >= 0` -> `reply_text`
      * input: add-instance-past-the-table */
     if (g_rec.state != before || g_quitting)
         abort();
@@ -487,17 +490,17 @@ __attribute__((noinline)) static void check_round_trip(const struct words *w, ui
     free(line);
 
     /* the same calls with the same arguments
-     * mutant: src/verbs.c:236 `strtok_r(copy, " \t", &save)` -> `strtok_r(copy, " ", &save)`
+     * mutant: src/verbs.c:259 `strtok_r(copy, " \t", &save)` -> `strtok_r(copy, " ", &save)`
      * input: mod-host-add-tabs */
     if (!rec_calls_equal(first, nfirst, g_rec.calls, g_rec.ncalls))
         abort();
     /* the same reply
-     * mutant: src/verbs.c:210 `ntok != 1` -> `ntok != 1 || line[0] != ' '`
+     * mutant: src/verbs.c:233 `ntok != 1` -> `ntok != 1 || line[0] != ' '`
      * input: quit-leading-space */
     if (g_rec.reply == NULL || strcmp(g_rec.reply, reply_first))
         abort();
     /* the same state, the same host settings, and quitting the same
-     * mutant: src/verbs.c:212 `g_quitting = 1;` -> `g_quitting = line[0] == ' ';`
+     * mutant: src/verbs.c:235 `g_quitting = 1;` -> `g_quitting = line[0] == ' ';`
      * input: quit-leading-space */
     if (g_quitting != quit_first || g_rec.state != state_first || g_rec.host_settings != host_first)
         abort();

@@ -53,6 +53,9 @@ int pins_known(const char *uri);
  * under. -1 when the uri has no pin */
 int pins_digest(const char *uri, char hex[PHD_SHA256_HEX_LEN + 1]);
 int pins_in_process(const char *uri);
+/* the verdict of the uri's pin as the pin line spells it (one of PHD_PIN_VERDICTS), "" for a pin without one, NULL when
+ * there is no pin; valid until the next pin verb */
+const char *pins_verdict(const char *uri);
 
 /* first use: the files the format loads for the uri, hashed, recorded with an unknown layout and written to the store.
  * SUCCESS, or PHD_ERR_PIN_BINARY_MISMATCH when they cannot be collected (nothing is recorded) */

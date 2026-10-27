@@ -2902,6 +2902,308 @@ def a_chain_declared_again_keeps_its_running_worker_and_restarts_no_survivor():
             os.unlink(log)
 
 
+# ---------------------------------------------------------------- plan (the grouping planner, src/planner.c)
+
+def plan_of(d, plan):
+    """{k: worker} of the segment workers of a plan, place chain:<plan>.<k>, by the segment's k"""
+    prefix = "chain:%d." % plan
+    return {int(w["place"][len(prefix):]): dict(w, name=name) for name, w in d.workers().items() if w["place"].startswith(prefix)}
+
+
+def clap_n(p, n):
+    """the uri of the n-th plugin of one file: five plugins in one .clap, each with a pin of its own"""
+    return "clap:%s#org.openmixer.fault.%d" % (p.clap, n)
+
+
+def pin_n(p, n, verdict=None):
+    return "pin_set %s omx-fault.clap=%s %s%s" % (clap_n(p, n), sha(p.clap), fake_layout(), " verdict=" + verdict if verdict else "")
+
+
+def record_for(d, plugin_id, ns_p95, rate=48000, quantum=128, name=None):
+    """a qualification record of plugin-qualify, as far as the daemon reads one: the cost of one grid point"""
+    point = {"rate": rate, "quantum": quantum, "outcome": "probe.ok",
+             "cost": {"median": ns_p95 / 2, "percentile": {"p": 95, "value": ns_p95}, "blocks": 100, "warmupBlocks": 10}}
+    doc = {"schema": "plugin-qualify.qualification-record/1", "plugin": {"format": "clap", "id": plugin_id},
+           "measurements": {"grid": [point]}}
+    path = os.path.join(d.tmp, "qualification", name or "%s@1.0-0123456789ab.default.qualification.json" % plugin_id)
+    with open(path, "w") as f:
+        json.dump(doc, f)
+
+
+def plan_run(conf=None):
+    """five pinned plugins of one file under first-use, 3 of verdict isolated and 6 never given a verdict, a daemon with
+    grouping on"""
+    p = Plugins()
+    c = {"pin_mode": "first-use", "grouping": "on"}
+    c.update(conf or {})
+    d = p.daemon(conf=c)
+    for n in (1, 2, 4, 5):
+        d.expect(pin_n(p, n, "in-process"), "resp 0")
+    d.expect(pin_n(p, 3, "isolated"), "resp 0")
+    for n in range(1, 7):
+        d.expect("add %s %d" % (clap_n(p, n), n), "resp %d" % n)
+    return p, d
+
+
+@test
+def a_plan_forms_the_runs_that_may_share_and_leaves_the_member_that_may_not_in_a_worker_of_its_own():
+    """A B C D E with C isolated is [A B] [C] [D E]: chain workers of place chain:1.0 and chain:1.2 (k counts the segments of
+    the plan, the lone one too), and C own"""
+    p, d = plan_run()
+    try:
+        for n in range(1, 6):
+            d.expect("param_set %d gain 0.%d000" % (n, n), "resp 0")
+        mark = d.mark()
+        d.expect("plan 1 1 2 3 4 5", "resp 0 1,2;3;4,5")
+        e0 = d.wait_event("chain_formed 1.0 ", since=mark)
+        e1 = d.wait_event("chain_formed 1.2 ", since=mark)
+        segs = plan_of(d, 1)
+        check(sorted(segs) == [0, 2] and segs[0]["inst"] == [1, 2] and segs[2]["inst"] == [4, 5], "two chain workers: %s" % d.workers())
+        check(e0 == "chain_formed 1.0 %s 1,2" % segs[0]["name"] and e1 == "chain_formed 1.2 %s 4,5" % segs[2]["name"],
+              "the events name the segments: %s / %s" % (e0, e1))
+        _, w3 = d.wait_up(3)
+        check(w3["place"] == "own" and w3["inst"] == [3], "the isolated member is alone: %s" % w3)
+        gains(d, (1, 2, 3, 4, 5))
+        d.expect("plan_get 1", "resp 0 1,2;3;4,5 1:cost-assumed,2:cost-assumed,3:verdict-isolated,4:cost-assumed,5:cost-assumed")
+        check(d.wait_event("plan_reason 1 ", since=mark) == "plan_reason 1 1:cost-assumed,2:cost-assumed,3:verdict-isolated,"
+              "4:cost-assumed,5:cost-assumed", "the plan_reason event carries the reasons")
+        # a member that was never given a verdict is alone as well
+        d.expect("plan 2 6", "resp 0 6")
+        d.expect("plan_get 2", "resp 0 6 6:no-verdict")
+        d.expect("plan 3 5", resp("CHAIN_INSTANCE_BUSY"))
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def a_plan_again_keeps_the_worker_of_a_segment_that_did_not_change_and_forms_the_ones_that_did():
+    p, d = plan_run()
+    try:
+        d.expect("plan 1 1 2 3 4 5", "resp 0 1,2;3;4,5")
+        d.wait_event("chain_formed 1.2 ")
+        segs = plan_of(d, 1)
+        first, second = segs[0], segs[2]
+        d.expect("plan 1 1 2 3 4 5", "resp 0 1,2;3;4,5")
+        again = plan_of(d, 1)
+        check(again[0]["pid"] == first["pid"] and again[2]["pid"] == second["pid"] and again[0]["name"] == first["name"],
+              "the same plan moves nothing: %s" % d.workers())
+        # the plan loses its last two members: [1 2] stays where it runs, 4 and 5 are alone
+        d.expect("plan 1 1 2 3", "resp 0 1,2;3")
+        now = plan_of(d, 1)
+        check(sorted(now) == [0] and now[0]["pid"] == first["pid"], "the segment that did not change keeps its worker: %s" % d.workers())
+        for n in (4, 5):
+            _, w = d.wait_up(n)
+            check(w["place"] == "own" and w["inst"] == [n], "%d is alone: %s" % (n, w))
+        # 3 earns an in-process verdict: all of 1 2 3 are one segment, in a worker that is formed again
+        d.expect(pin_n(p, 3, "in-process"), "resp 0")
+        mark = d.mark()
+        d.expect("plan 1 1 2 3", "resp 0 1,2,3")
+        d.wait_event("chain_formed 1.0 ", since=mark)
+        now = plan_of(d, 1)
+        check(sorted(now) == [0] and now[0]["inst"] == [1, 2, 3], "one segment of three: %s" % d.workers())
+        # a segment that moves to another place in the plan keeps its worker and takes the place's name
+        d.expect("plan 1 4 1 2 3", "resp 0 4,1,2,3")
+        moved = plan_of(d, 1)
+        check(sorted(moved) == [0] and moved[0]["inst"] == [4, 1, 2, 3], "four in one: %s" % d.workers())
+        d.expect(pin_n(p, 4, "isolated"), "resp 0")
+        d.expect("plan 1 4 1 2 3", "resp 0 4;1,2,3")
+        moved2 = plan_of(d, 1)
+        check(sorted(moved2) == [1] and moved2[1]["inst"] == [1, 2, 3],
+              "the segment of 1 2 3 is the plan's second now and its worker is named for it: %s" % d.workers())
+        check(any(w["place"] == "own" and w["inst"] == [4] for w in d.workers().values()), "and 4 is alone: %s" % d.workers())
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def a_plan_that_keeps_a_segment_in_another_place_renames_its_worker_and_restarts_nothing():
+    p, d = plan_run()
+    try:
+        d.expect(pin_n(p, 1, "isolated"), "resp 0")
+        d.expect("plan 1 2 3 4 5", "resp 0 2;3;4,5")
+        d.wait_event("chain_formed 1.2 ")
+        was = plan_of(d, 1)[2]
+        check(was["inst"] == [4, 5], "4 5 is the plan's third segment: %s" % d.workers())
+        d.expect("plan 1 1 2 3 4 5", "resp 0 1;2;3;4,5")
+        now = plan_of(d, 1)
+        check(sorted(now) == [3] and now[3]["pid"] == was["pid"] and now[3]["inst"] == [4, 5],
+              "the same worker, named for the place it stands in now: %s" % d.workers())
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def while_grouping_is_off_a_plan_is_answered_and_kept_and_nothing_moves():
+    d = daemon()
+    try:
+        for i in (1, 2, 3):
+            d.expect("add clap:fake#m%d %d" % (i, i), "resp %d" % i)
+        before = d.workers()
+        d.expect("plan 1 1 2 3", "resp 0 1,2,3")
+        check(d.workers() == before and not any(w["place"].startswith("chain:") for w in d.workers().values()),
+              "nothing moved: %s" % d.workers())
+        d.expect("plan_get 1", "resp 0 1,2,3 1:grouping-off,2:grouping-off,3:grouping-off")
+        d.expect("plan_clear 1", "resp 0")
+        check(d.workers() == before, "and clearing it moves nothing: %s" % d.workers())
+        d.expect("plan_get 1", resp("NO_SUCH_PLAN"))
+    finally:
+        d.close()
+
+
+@test
+def a_setting_that_is_none_of_the_grouping_modes_stops_the_daemon_and_names_the_modes():
+    p = Plugins()
+    try:
+        try:
+            d = p.daemon(conf={"grouping": "maybe"})
+        except Fail as e:
+            check("grouping 'maybe' is not one of: off on" in str(e), "stderr names the modes: %s" % e)
+        else:
+            d.close()
+            raise Fail("a daemon started with grouping maybe")
+    finally:
+        p.close()
+
+
+@test
+def a_plan_is_refused_for_what_chain_refuses_and_moves_nothing():
+    d = daemon(conf={"grouping": "on"})
+    try:
+        for i in (1, 2, 3):
+            d.expect("add clap:fake#m%d %d" % (i, i), "resp %d" % i)
+        before = d.workers()
+        d.expect("plan 1 1 2 77", resp("CHAIN_UNKNOWN_INSTANCE"))
+        d.expect("plan 1 1 2 1", resp("CHAIN_DUPLICATE"))
+        for bad in ("plan 1", "plan x 1 2", "plan 1 1 two", "plan -1 1 2", "plan_get", "plan_get x", "plan_clear", "plan_clear x"):
+            d.expect(bad, "resp -902")
+        d.expect("plan_get 1", resp("NO_SUCH_PLAN"))
+        d.expect("plan_clear 1", resp("NO_SUCH_PLAN"))
+        check(d.workers() == before, "a refused plan moves nothing: %s" % d.workers())
+        # a member of a chain, or of another chain's plan, is not the plan's to place
+        d.expect("chain 9 1 2", "resp 0")
+        d.expect("plan 1 2 3", resp("CHAIN_INSTANCE_BUSY"))
+        d.expect("chain_clear 9", "resp 0")
+        d.expect("plan 1 2 3", "resp 0 2,3")
+        d.expect("plan 2 3", resp("CHAIN_INSTANCE_BUSY"))
+        d.expect("chain 9 3 1", resp("CHAIN_INSTANCE_BUSY"))
+        # a plan and a chain of one number are two things
+        d.expect("chain 1 1", "resp 0")
+        d.expect("chain_get 1", "resp 0 " + [k for k, w in d.workers().items() if w["place"] == "chain:1"][0] + " 1 1")
+        d.expect("plan_get 1", "resp 0 2,3 2:cost-assumed,3:cost-assumed")
+    finally:
+        d.close()
+
+
+@test
+def plan_clear_gives_every_member_a_worker_of_its_own_and_forgets_the_plan():
+    d = daemon(conf={"grouping": "on"})
+    try:
+        for i in (1, 2, 3):
+            d.expect("add clap:fake#m%d %d" % (i, i), "resp %d" % i)
+            d.expect("param_set %d gain 0.%d000" % (i, i), "resp 0")
+        mark = d.mark()
+        d.expect("plan 4 1 2 3", "resp 0 1,2,3")
+        d.wait_event("chain_formed 4.0 ", since=mark)
+        check(plan_of(d, 4)[0]["inst"] == [1, 2, 3], "one worker: %s" % d.workers())
+        d.expect("plan_clear 4", "resp 0")
+        for i in (1, 2, 3):
+            _, w = d.wait_up(i)
+            check(w["place"] == "own" and w["inst"] == [i], "plan_clear gives %d a worker of its own: %s" % (i, w))
+        check(plan_of(d, 4) == {}, "the segment worker is gone: %s" % d.workers())
+        gains(d, (1, 2, 3))
+        d.expect("plan_get 4", resp("NO_SUCH_PLAN"))
+        d.expect("plan_clear 4", resp("NO_SUCH_PLAN"))
+        d.expect("chain 4 1 2", "resp 0")
+    finally:
+        d.close()
+
+
+@test
+def a_member_that_is_removed_leaves_its_segment_and_the_worker_is_told_the_order_without_it():
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(conf={"grouping": "on"}, env={"FAKE_LOG": log})
+    try:
+        for i in (1, 2, 3):
+            d.expect("add clap:fake#m%d %d" % (i, i), "resp %d" % i)
+        d.expect("plan 1 1 2 3", "resp 0 1,2,3")
+        w = plan_of(d, 1)[0]
+        d.expect("remove 2", "resp 0")
+        check(plan_of(d, 1)[0]["inst"] == [1, 3], "the segment goes on without it: %s" % d.workers())
+        check(sent_to(log, w["pid"])[-1] == "chain 1 1 3", "the worker is told: %s" % sent_to(log, w["pid"])[-3:])
+        d.expect("remove 1", "resp 0")
+        d.expect("remove 3", "resp 0")
+        check(plan_of(d, 1) == {}, "no segment is left: %s" % d.workers())
+        d.expect("plan_clear 1", "resp 0")
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
+
+
+@test
+def a_segment_whose_worker_dies_is_respawned_with_its_members_in_order_and_its_plan_is_still_read_back():
+    d = daemon(conf={"grouping": "on"})
+    try:
+        for i in (10, 11, 12):
+            d.expect("add clap:fake#m%d %d" % (i, i), "resp %d" % i)
+        d.expect("plan 7 10 11 12", "resp 0 10,11,12")
+        d.wait_event("chain_formed 7.0 ")
+        os.kill(plan_of(d, 7)[0]["pid"], signal.SIGKILL)
+        _, w = d.wait_up(10)
+        check(w["place"] == "chain:7.0" and w["inst"] == [10, 11, 12], "the same place, the same order: %s" % d.workers())
+        d.expect("plan_get 7", "resp 0 10,11,12 10:cost-assumed,11:cost-assumed,12:cost-assumed")
+    finally:
+        d.close()
+
+
+@test
+def the_cost_a_qualification_record_holds_decides_the_segments_and_a_missing_one_is_assumed():
+    """a record's p95 nanoseconds per sample at group_rate and group_quantum is a fraction of a core: 5000 ns at 48 kHz is
+    24 %, and the segment adds them up against group_cost_max"""
+    p, d = plan_run(conf={"group_cost_max": 50, "group_rate": 48000, "group_quantum": 128, "group_max": 3})
+    try:
+        for n in (1, 2, 4, 5):
+            d.expect(pin_n(p, n, "in-process"), "resp 0")
+        d.expect(pin_n(p, 3, "in-process"), "resp 0")
+        record_for(d, "org.openmixer.fault.1", 5000)
+        record_for(d, "org.openmixer.fault.2", 5000)
+        record_for(d, "org.openmixer.fault.3", 5000)
+        record_for(d, "org.openmixer.fault.4", 12500)        # 60 %: over the limit alone
+        record_for(d, "org.openmixer.fault.5", 5000, rate=96000)   # another rate: not this plan's figure
+        d.expect("plan 1 1 2 3 4 5", "resp 0 1,2;3;4;5")
+        d.expect("plan_get 1", "resp 0 1,2;3;4;5 3:group-cost,4:cost-over,5:no-neighbour")
+        # a record of the plugin at a lower cost, in another version, is not preferred: the larger figure stands
+        record_for(d, "org.openmixer.fault.2", 1000, name="org.openmixer.fault.2@0.9-fedcba987654.default.qualification.json")
+        d.expect("plan 1 1 2 3 4 5", "resp 0 1,2;3;4;5")
+        # the plugin's figure lowered, in the record that held it: 24 + 24 + 0.5 % fits 50
+        record_for(d, "org.openmixer.fault.3", 100, name="org.openmixer.fault.3@1.0-0123456789ab.default.qualification.json")
+        d.expect("plan 1 1 2 3", "resp 0 1,2,3")
+        d.expect("plan_get 1", "resp 0 1,2,3 -")
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def the_same_members_are_planned_into_the_same_segments_and_reasons_by_every_daemon_and_every_time():
+    answers = []
+    for _ in range(2):
+        p, d = plan_run()
+        try:
+            run = []
+            for _ in range(3):
+                d.expect("plan 1 1 2 3 4 5", "resp 0 1,2;3;4,5")
+                run.append(d.send("plan_get 1"))
+            answers.append(run)
+        finally:
+            d.close()
+            p.close()
+    check(len(set(answers[0] + answers[1])) == 1, "six plan_get answers, one text: %s" % answers)
+
+
 @test
 def a_clap_member_and_an_lv2_member_of_the_adapter_row_form_one_chain():
     """clap and lv2-clap are two rows of one program, both running chains in one client; lv2 (mod-host) and clap are two
