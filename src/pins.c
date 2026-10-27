@@ -35,6 +35,7 @@
 #include <plugin-hostd/protocol.h>
 
 #include "formats.h"
+#include "fsutil.h"
 #include "pins.h"
 
 #define SCHEME_MAX   32
@@ -287,23 +288,6 @@ static size_t line_size(const pin_t *p)
     return size;
 }
 
-static int mkdir_parents(char *path)
-{
-    char *slash;
-
-    for (slash = path + 1; (slash = strchr(slash, '/')); slash++)
-    {
-        *slash = '\0';
-        if (mkdir(path, 0700) != 0 && errno != EEXIST)
-        {
-            *slash = '/';
-            return -1;
-        }
-        *slash = '/';
-    }
-    return 0;
-}
-
 /* Lines of the store this version could not parse. They are kept verbatim and written back by every save, so a corrupt
  * line is never dropped by the next save, and the uri they name (when one can be read) is never learned again: the pin
  * that line held is the operator's to repair or remove by hand. A store that could not be read at all blocks every
@@ -356,27 +340,6 @@ static void held_free(void)
     g_store_unreadable = 0;
 }
 
-static void sync_dir(const char *path)
-{
-    char dir[PATH_MAX + 8], *slash;
-    int fd;
-
-    snprintf(dir, sizeof(dir), "%s", path);
-    slash = strrchr(dir, '/');
-    if (!slash)
-        snprintf(dir, sizeof(dir), ".");
-    else if (slash == dir)
-        dir[1] = '\0';
-    else
-        *slash = '\0';
-    fd = open(dir, O_RDONLY | O_DIRECTORY);
-    if (fd >= 0)
-    {
-        fsync(fd);
-        close(fd);
-    }
-}
-
 /* the pins the daemon learned, to the store: a temporary file of its own beside it (mkstemp, so two daemons on one
  * store never share a name), written, fsynced and renamed over it, then the directory fsynced. A failure is announced
  * on stderr, with what it costs, and leaves the pins in memory */
@@ -396,7 +359,7 @@ static void store_save(void)
     }
     snprintf(tmp, sizeof(tmp), "%s.XXXXXX", g_store);
     fd = -1;
-    if (mkdir_parents(tmp) != 0 || (fd = mkstemp(tmp)) < 0 || !(file = fdopen(fd, "w")))
+    if (fs_mkdir_parents(tmp) != 0 || (fd = mkstemp(tmp)) < 0 || !(file = fdopen(fd, "w")))
     {
         int err = errno;
 
@@ -423,7 +386,7 @@ static void store_save(void)
         unlink(tmp);
         return;
     }
-    sync_dir(g_store);
+    fs_sync_dir(g_store);
 }
 
 /* where a file of pin lines goes, and what a line outside the grammar costs there */
@@ -619,6 +582,16 @@ static void own_free(void)
 int pins_known(const char *uri)
 {
     return find(bare(uri)) != NULL;
+}
+
+int pins_digest(const char *uri, char hex[PHD_SHA256_HEX_LEN + 1])
+{
+    const pin_t *p = find(bare(uri));
+
+    if (!p || p->nfiles < 1)
+        return -1;
+    memcpy(hex, p->digest[0], PHD_SHA256_HEX_LEN + 1);
+    return 0;
 }
 
 int pins_in_process(const char *uri)

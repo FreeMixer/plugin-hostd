@@ -116,6 +116,8 @@ The settings live in a file, `-c`, `$PLUGIN_HOSTD_CONF` or
 | `descriptor_dir` | `$OMX_DESCRIPTOR_DIR`, else `` | the scanned descriptors, one file per plugin binary (<id>@<version>-<hash>.json, the hash the binary's SHA-256), written by the scan of an add and read by descriptor_get; empty is $XDG_STATE_HOME/omx/descriptors, else /var/lib/omx/descriptors run as root (a system service), else $HOME/.local/state/omx/descriptors; its variable is for tests only |
 | `qualification_dir` | `$OMX_QUALIFICATION_DIR`, else `` | plugin-qualify's qualification records (verdict, cost, version tested), kept apart from the descriptors; empty is $XDG_STATE_HOME/omx/qualification, else /var/lib/omx/qualification run as root (a system service), else $HOME/.local/state/omx/qualification; its variable is for tests only |
 | `probe` | `plugin-hostd-probe` | the scanner an add runs, as <probe> describe <target>, in a child of its own once per plugin binary; its stdout is the descriptor |
+| `history_file` | `` | the running history: what each plugin did on this machine, kept per plugin, binary and host class; empty is $XDG_STATE_HOME/plugin-hostd/history, else $HOME/.local/state/plugin-hostd/history; local to this machine, mode 0600, written by the daemon alone, and deleted by history_clear |
+| `host_class` | `` | the host class the history is kept under, as arch/cores/clock (x86_64/5-8/2.5-3.5GHz); empty is the class of this machine, as the probe writes it; no white space |
 | `ready_timeout_ms` | 5000 ms | a worker that does not accept in this long is a failed spawn |
 | `rpc_timeout_ms` | 5000 ms | a worker that does not answer in this long is killed |
 | `backoff_base_ms` | 250 ms | respawn backoff, doubling per death in the window |
@@ -126,6 +128,8 @@ The settings live in a file, `-c`, `$PLUGIN_HOSTD_CONF` or
 | `checkpoint_ms` | 5000 ms | a quiet interval with a changed ledger writes a checkpoint |
 | `idle_ms` | 25 ms | the period of the idle tick: reap, respawn, checkpoint |
 | `pool_max` | 8 instances | instances in a pool before a sibling opens |
+| `history_window_s` | 60 s | the length of one history window: a worker's CPU and memory are read and folded into the history of its plugins once per window, and a window the plugin was up less than half of is not counted; 0 keeps no history |
+| `history_save_s` | 300 s | the history is written at most once this often when it changed, and at quit |
 | `require_pins` | 1  | 1: add admits only a plugin that has a pin (see pin_mode), its files hashed before any worker sees it, and a plugin of a format whose pin holds only in a world of its own gets a worker of its own, its world the plugin's files (a default that resolves to a pool is placed own); 0: no pin is checked |
 <!-- END GENERATED protocol:config -->
 
@@ -181,6 +185,8 @@ Verbs the daemon adds
 | `chain_get` | `<chain>` | `resp 0 <worker> <instance>,... <instance>,...` | read a chain back: its worker (- when it has none), its members in the declared order, and the members its worker runs now in their order (- for none); a quarantined member is declared and not running; -522 for a chain no chain declared, -902 for a chain that is not a number |
 | `descriptor_get` | `<uri>` | `resp 0 "<path>"` | the scanned descriptor of the plugin, answered from descriptor_dir: the file named for its binary as it is now (<id>@<version>-<hash>.json), written by the scan the plugin's add ran. -529 when there is none, -530 while its scan runs, -531 when its last scan wrote nothing, -528 when the directory could not be written |
 | `panel_get` | `<uri>` | `resp 0 "<path>"` | the panel the plugin publishes (org.openmixer.panel-description/1), answered from descriptor_dir: the file panels/<id>@<version>-<hash>.json, named as its descriptor, which the same scan writes once the descriptor is in place, {"plugin": {"format", "id"}, "panel": <the panel object omx-clap-scan --json prints for the plugin, null when it serves none>}; an LV2 plugin's panel is null. The codes are descriptor_get's: -529 when there is none, -530 while its scan runs, -531 when its last scan wrote nothing, -528 when the directory could not be written |
+| `history_get` | `<uri>` | `resp 0 <history>` | what the daemon kept of the plugin on this host class, for the binary its pin holds now (the running history: the windows it ran alone and in a group, its crashes, restarts and quarantines): one word of comma-joined digest=<sha256>, class=<host class>, crashed=<0\|1>, raises_xruns=<0\|1> and then every key=value of the record (data/history.json); - when the plugin has no pin or no record, unavailable while the history file is blocked or history_window_s is 0, -902 for a line that is not one word |
+| `history_clear` | `<uri> \| all` | `resp 0` | delete the history of one plugin (every binary and host class of it), or all of it, from memory and from the file at once; -902 while the history is blocked or off, or for a line that is not one word |
 
 A `<state>` is `up` (accepting commands), `starting` (spawned, not yet accepting), `backoff` (dead, waiting to be respawned), `given-up` (the storm bound is spent for its placement).
 <!-- END GENERATED protocol:verbs -->
@@ -321,6 +327,8 @@ mechanism, and they stay optional. The preset verbs and the preset file are [doc
 | `chain_get` | daemon | required | required | required | required |
 | `descriptor_get` | daemon | required | required | required | required |
 | `panel_get` | daemon | required | required | required | required |
+| `history_get` | daemon | required | required | required | required |
+| `history_clear` | daemon | required | required | required | required |
 
 The profiles: `lv2-worker`, an LV2 plugin's worker: mod-host, or omx-clap-host's LV2 adapter; `clap-worker`, a CLAP plugin's worker, omx-clap-host; `console`, the openmixer console as a controller of the daemon; `zynthian`, Zynthian's mod-ui and its plugind engine as a controller of the daemon. `required` is answered as its grammar says; `optional` is answered, or refused with -902, and never misread; `absent` is refused on purpose, and no client of the profile may need it.
 <!-- END GENERATED protocol:host-verbs -->
@@ -546,6 +554,42 @@ the daemon emits `instance_replay_refused <instance> <code>` with the refusal's 
 when it refuses the replayed `pin_expect` or `add`), writes `PHD_ERR_REPLAY`, the step and that code to stderr, and
 the worker does not hold that instance until a later replay passes. The hashing and the layout serialisation are `include/plugin-hostd/pin.h`, installed beside the
 protocol header for the hosts that check a layout.
+
+The running history
+-------------------
+
+The daemon keeps what each plugin did on this machine, per plugin, per binary and per host class: the file named by
+`history_file`, else `$XDG_STATE_HOME/plugin-hostd/history`, else `$HOME/.local/state/plugin-hostd/history`. It is
+local: it holds URIs, digests and counters, no audio, no path, no user, session or preset name, the daemon sends it
+nowhere and no verb writes it from outside; `history_clear <uri | all>` deletes it. Only the daemon writes it, mode
+0600 in a directory of mode 0700, to a temporary file that is renamed over it, at most once per `history_save_s` and
+at quit. `history_window_s` 0 keeps none.
+
+The first line is `# plugin-hostd history/1`, then one line per key, `history <uri> <binary digest> <host class>
+key=value ...`. The binary digest is the SHA-256 of the first file the plugin's pin holds, so a plugin with no pin has
+no history and a changed plugin starts a record of its own, the old one kept and not read. The host class is
+`arch/cores/clock` as the probe writes it (`x86_64/5-8/2.5-3.5GHz`), or the `host_class` setting. The keys are the
+words of `PLUGIN_HOSTD_HISTORY_KEYS` in [data/history.json](data/history.json): `first`, `last`, `windows_solo`,
+`windows_grouped`, `cpu_p95_solo`, `cpu_max_solo`, `pss_mb_solo`, `xrun_windows_solo`, `xrun_windows_grouped`,
+`crashes_solo`, `crashes_grouped`, `restarts_grouped`, `quarantines`, `last_crash`, `last_crash_grouped`.
+
+A window is `history_window_s` seconds of one worker: its utime plus stime from `/proc/<pid>/stat` as percent of one
+core, and the `Pss` of its `smaps_rollup`. A worker of its own gives a window to the plugin it holds; a worker of two
+or more gives one to each member, counted in `windows_grouped` and nowhere else, because a group's CPU cannot be split
+among its members. `cpu_p95_solo` is an estimate that needs no list of windows: each window above it moves it up
+by 0.95 of 2 percent of itself and each one not above moves it down by 0.05 of that. A window in which the members of
+the worker changed is dropped, and a worker that died is counted if it had been up for half the window. A crash is
+counted when the daemon names a culprit (`crashes_solo` in a worker of its own, `crashes_grouped` in a group), the
+members that went down with it and were not the culprit get `restarts_grouped`, and a quarantine counts in
+`quarantines`. No worker reports xruns yet, so `xrun_windows_*` stay 0.
+
+A line this version cannot read, or with a key it does not know, is kept as it is by every save and is not read. A file
+that cannot be read, or whose first line is another version, is neither read nor overwritten: stderr says why, and
+`history_get` answers `unavailable` until the operator repairs or removes it.
+
+`history_get <uri>` answers the record of the binary the pin holds now, on this host class, as one word: `digest=`,
+`class=`, `crashed=1` when a crash is within 30 days, `raises_xruns=1` when the share of xrun windows in a group
+exceeds the share alone by 5 points (from 30 windows in a group), and then every key. `-` is no record.
 
 What a worker must do
 ---------------------

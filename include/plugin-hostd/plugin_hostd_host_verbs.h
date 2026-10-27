@@ -166,7 +166,21 @@ struct omx_host_verb {
 #define OMX_VERB_PRESET_GET_CODES_COUNT 3u
 #define OMX_VERB_PRESET_GET_CODES_INIT { -515, -3, -902 } /* reply.plugin-hostd.no-preset-list, reply.host.instance-non-exists, reply.host.invalid-operation */
 
-#define PLUGIN_HOSTD_HOST_VERB_COUNT 19u
+/* PLUGIN_HOSTD_VERBS.historyGet (data/verbs.json): What the daemon kept of one plugin on this host class, for the binary its pin holds now: <uri>. The history is one word, digest=<sha256>,class=<host class>,crashed=<0|1>,raises_xruns=<0|1> and then every key=value of PLUGIN_HOSTD_HISTORY_KEYS, joined by commas; - when the plugin has no record or no pin, unavailable while the history file is blocked. */
+#define OMX_VERB_HISTORY_GET "history_get"
+#define OMX_VERB_HISTORY_GET_FMT "history_get %s"
+#define OMX_VERB_HISTORY_GET_REPLY "resp 0 <history>"
+#define OMX_VERB_HISTORY_GET_CODES_COUNT 1u
+#define OMX_VERB_HISTORY_GET_CODES_INIT { -902 } /* reply.host.invalid-operation */
+
+/* PLUGIN_HOSTD_VERBS.historyClear (data/verbs.json): Delete the history of one plugin, every binary and host class, or all of it: <uri> | all. Refused while the history file is blocked. */
+#define OMX_VERB_HISTORY_CLEAR "history_clear"
+#define OMX_VERB_HISTORY_CLEAR_FMT "history_clear %s"
+#define OMX_VERB_HISTORY_CLEAR_REPLY "resp 0"
+#define OMX_VERB_HISTORY_CLEAR_CODES_COUNT 1u
+#define OMX_VERB_HISTORY_CLEAR_CODES_INIT { -902 } /* reply.host.invalid-operation */
+
+#define PLUGIN_HOSTD_HOST_VERB_COUNT 21u
 
 /* Every verb, in the order of its items, with what each host owes it. */
 static inline const struct omx_host_verb *plugin_hostd_host_verbs(void) {
@@ -190,6 +204,8 @@ static inline const struct omx_host_verb *plugin_hostd_host_verbs(void) {
     { OMX_VERB_PANEL_GET, OMX_VERB_PANEL_GET_FMT, OMX_VERB_PANEL_GET_REPLY, { OMX_HOST_VERB_REQUIRED, OMX_HOST_VERB_UNSUPPORTED, OMX_HOST_VERB_UNSUPPORTED } },
     { OMX_VERB_PRESET_LIST, OMX_VERB_PRESET_LIST_FMT, OMX_VERB_PRESET_LIST_REPLY, { OMX_HOST_VERB_OPTIONAL, OMX_HOST_VERB_OPTIONAL, OMX_HOST_VERB_UNSUPPORTED } },
     { OMX_VERB_PRESET_GET, OMX_VERB_PRESET_GET_FMT, OMX_VERB_PRESET_GET_REPLY, { OMX_HOST_VERB_OPTIONAL, OMX_HOST_VERB_OPTIONAL, OMX_HOST_VERB_UNSUPPORTED } },
+    { OMX_VERB_HISTORY_GET, OMX_VERB_HISTORY_GET_FMT, OMX_VERB_HISTORY_GET_REPLY, { OMX_HOST_VERB_REQUIRED, OMX_HOST_VERB_UNSUPPORTED, OMX_HOST_VERB_UNSUPPORTED } },
+    { OMX_VERB_HISTORY_CLEAR, OMX_VERB_HISTORY_CLEAR_FMT, OMX_VERB_HISTORY_CLEAR_REPLY, { OMX_HOST_VERB_REQUIRED, OMX_HOST_VERB_UNSUPPORTED, OMX_HOST_VERB_UNSUPPORTED } },
   };
   return table;
 }

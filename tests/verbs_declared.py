@@ -202,6 +202,8 @@ LINES = {
     "chain": ("7 1 2", "7", ("8 99", "8 1 1")),
     "chain_get": ("7", "x", ("9",)),
     "chain_clear": ("7", "x", ("7",)),
+    "history_get": ("{uri}", "", ()),
+    "history_clear": ("clap:/nowhere.clap#x", "", ()),
     "pin_clear": ("all", "", ()),
 }
 ORDER = list(LINES)

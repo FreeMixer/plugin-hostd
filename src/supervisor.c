@@ -26,6 +26,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -37,6 +38,7 @@
 
 /* mod-host's pseudo port of the host's own bypass, which param_info names no parameter */
 
+#include "history.h"
 #include "pins.h"
 #include "relay.h"
 #include "supervisor.h"
@@ -675,6 +677,133 @@ static int chain_whole(const chain_t *c)
     return 1;
 }
 
+/* ---------------------------------------------------------------- the running history */
+
+/* The history is kept by plugin binary: the first file its pin holds. A plugin with no pin (require_pins off, or never
+ * pinned) has none, and nothing is kept of it. src/history.c does nothing when the history is off or unavailable. */
+static long long utc_now(void)
+{
+    return (long long)time(NULL);
+}
+
+static void hist_quarantine(const char *uri)
+{
+    char digest[PHD_SHA256_HEX_LEN + 1];
+
+    if (pins_digest(uri, digest) == 0)
+        history_quarantine(uri, digest, utc_now());
+}
+
+static void hist_crash(const char *uri, int grouped)
+{
+    char digest[PHD_SHA256_HEX_LEN + 1];
+
+    if (pins_digest(uri, digest) == 0)
+        history_crash(uri, digest, grouped, utc_now());
+}
+
+static void hist_restart(const char *uri, int grouped)
+{
+    char digest[PHD_SHA256_HEX_LEN + 1];
+
+    if (pins_digest(uri, digest) == 0)
+        history_restart(uri, digest, grouped, utc_now());
+}
+
+/* the window [hist_start_ms, at_ms] of a worker, its CPU over it as percent of one core, folded into every member */
+static void hist_fold(worker_t *w, int64_t at_ms, double cpu1, long long pss_kb)
+{
+    double seconds = (double)(at_ms - w->hist_start_ms) / 1000.0, pct = 0;
+    int n, grouped = w->ninst >= 2;
+
+    if (seconds > 0 && cpu1 > w->hist_cpu0)
+        pct = (cpu1 - w->hist_cpu0) / seconds * 100.0;
+    for (n = 0; n < w->ninst; n++)
+    {
+        char digest[PHD_SHA256_HEX_LEN + 1];
+
+        if (pins_digest(w->inst[n]->uri, digest) == 0)
+            history_window(w->inst[n]->uri, digest, grouped, pct, (double)pss_kb / 1024.0, 0, utc_now());
+    }
+}
+
+static void hist_begin(worker_t *w, int64_t now)
+{
+    w->hist_pid = 0;
+    if (proc_cpu_seconds(w->pid, &w->hist_cpu0) != 0)
+        return;
+    w->hist_pid = w->pid;
+    w->hist_start_ms = now;
+    w->hist_ninst = w->ninst;
+    w->hist_half_ms = 0;
+}
+
+/* the idle tick of one worker: a window opens when it is up, takes its mid-window sample, and closes after
+ * history_window_s; members that came or went open it again, uncounted */
+static void hist_tick(worker_t *w, int64_t now)
+{
+    int64_t window_ms = (int64_t)g_conf.history_window_s * 1000;
+    double cpu;
+    long long pss = 0;
+
+    if (g_conf.history_window_s <= 0)
+        return;
+    if (w->state != W_UP || w->pid <= 0)
+    {
+        w->hist_pid = 0;
+        return;
+    }
+    if (w->hist_pid != w->pid || w->hist_ninst != w->ninst)
+    {
+        hist_begin(w, now);
+        return;
+    }
+    if (!w->hist_half_ms && now - w->hist_start_ms >= window_ms / 2)
+    {
+        if (proc_cpu_seconds(w->pid, &w->hist_half_cpu) != 0)
+        {
+            w->hist_pid = 0;
+            return;
+        }
+        proc_pss_kb(w->pid, &w->hist_half_pss_kb);
+        w->hist_half_ms = now;
+    }
+    if (now - w->hist_start_ms < window_ms)
+        return;
+    if (proc_cpu_seconds(w->pid, &cpu) != 0)
+    {
+        w->hist_pid = 0;
+        return;
+    }
+    proc_pss_kb(w->pid, &pss);
+    if (w->hist_half_pss_kb > pss)
+        pss = w->hist_half_pss_kb;
+    hist_fold(w, now, cpu, pss);
+    w->hist_half_pss_kb = 0;
+    hist_begin(w, now);
+}
+
+/* a worker that died: its window counts if it was up for half of it. The dead process is not yet reaped, so its CPU is
+ * still readable; when it is not, the mid-window sample stands for the window */
+static void hist_death(worker_t *w, int64_t now)
+{
+    double cpu;
+    long long pss = w->hist_half_pss_kb;
+
+    if (g_conf.history_window_s > 0 && w->hist_pid && w->hist_pid == w->pid)
+    {
+        int64_t window_ms = (int64_t)g_conf.history_window_s * 1000;
+
+        if (now - w->hist_start_ms >= window_ms / 2 && proc_cpu_seconds(w->pid, &cpu) == 0)
+            hist_fold(w, now, cpu, pss);
+        else if (w->hist_half_ms)
+            hist_fold(w, w->hist_half_ms, w->hist_half_cpu, pss);
+    }
+    w->hist_pid = 0;
+    w->hist_half_ms = 0;
+    w->hist_half_pss_kb = 0;
+}
+
 static void quarantine(instance_t *i, worker_t *w)
 {
     meta_t *m = meta_of(i->id);
@@ -683,6 +812,7 @@ static void quarantine(instance_t *i, worker_t *w)
     {
         m->quarantined = 1;
         event(PHD_EVENT_INSTANCE_QUARANTINED_FMT, i->id, w->k);
+        hist_quarantine(i->uri);
     }
     /* the culprit of a chain that was split: the others are gathered again, without it, by the tick */
     if (i->chain && !chain_whole(i->chain))
@@ -743,10 +873,15 @@ static void clear_suspects(worker_t *w)
 
 static void on_death(worker_t *w, int in_flight)
 {
-    int status = 0, n, done = 0;
+    int status = 0, n, done = 0, grouped = w->ninst >= 2, nmembers = w->ninst;
     char ids[1024], how[32];
     int64_t now = proc_now_ms();
+    instance_t **members = NULL, *blamed = NULL;
 
+    /* the history: the window it was in, and who was in the worker; before the process is reaped */
+    hist_death(w, now);
+    if (grouped && (members = malloc(nmembers * sizeof(instance_t *))))
+        memcpy(members, w->inst, nmembers * sizeof(instance_t *));
     for (n = 0; n < 50 && !(done = proc_exited(w->pid, &status)); n++)
         usleep(10000);
     if (!done)
@@ -782,6 +917,7 @@ static void on_death(worker_t *w, int in_flight)
             if (w->ninst == 1)
             {
                 meta_of(w->inst[0]->id)->crashes++;
+                hist_crash(w->inst[0]->uri, 0);
                 if (w->from_split)
                     quarantine(w->inst[0], w);
             }
@@ -798,6 +934,8 @@ static void on_death(worker_t *w, int in_flight)
             if (culprit)
             {
                 meta_of(culprit->id)->crashes++;
+                hist_crash(culprit->uri, w->ninst >= 2);
+                blamed = culprit;
                 quarantine(culprit, w);
                 move_to_own(culprit, now, 0);
             }
@@ -808,6 +946,11 @@ static void on_death(worker_t *w, int in_flight)
             }
         }
     }
+    /* the members of a group that went down with it and were not the culprit */
+    for (n = 0; members && n < nmembers; n++)
+        if (members[n] != blamed)
+            hist_restart(members[n]->uri, 1);
+    free(members);
     if (w->ninst == 0)
     {
         worker_free(w);
@@ -1156,6 +1299,9 @@ void sup_tick(void)
         if (due)
             checkpoint(w);
     }
+    for (n = 0; n < g_nworkers; n++)
+        hist_tick(g_workers[n], now);
+    history_tick(now / 1000);
     for (n = 0; g_nchains && n < MAX_INSTANCE; n++)
         if (g_chain[n] && g_chain[n]->rejoin)
         {
@@ -1448,10 +1594,13 @@ static char *add(const char *uri, int id, const char *placement, const char *cli
             event(PHD_EVENT_VERB_DROPPED_FMT, id, line);
         m->crashes++;
         note_death(m->deaths, &m->ndeaths, now);
+        /* the plugin it was adding is not in the worker yet: it joins the members that are */
+        hist_crash(fwd, w->ninst >= 1);
         if (w->pool)
         {
             m->quarantined = 1;
             event(PHD_EVENT_INSTANCE_QUARANTINED_FMT, id, w->k);
+            hist_quarantine(fwd);
         }
         on_death(w, ATTRIBUTED);
         return sup_resp(code);
@@ -1898,6 +2047,32 @@ char *sup_instance_info(int id)
     snprintf(buffer, sizeof(buffer), "resp 0 w%d %d %s %d %d", i->w->k, (int)i->w->pid, g_state_states[i->w->state],
              m->crashes, m->quarantined);
     return strdup(buffer);
+}
+
+char *sup_history_get(const char *uri)
+{
+    char digest[PHD_SHA256_HEX_LEN + 1], *summary, *text;
+    const char *bare_uri;
+
+    format_of_uri(uri, &bare_uri);
+    if (!history_available())
+        return strdup("resp 0 " PHD_WORD_UNAVAILABLE);
+    if (pins_digest(bare_uri, digest) != 0 || !(summary = history_summary(bare_uri, digest, utc_now())))
+        return strdup("resp 0 " PHD_WORD_NONE);
+    text = malloc(strlen(summary) + 8);
+    if (text)
+        sprintf(text, "resp 0 %s", summary);
+    free(summary);
+    return text ? text : sup_resp(ERR_MEMORY_ALLOCATION);
+}
+
+char *sup_history_clear(const char *uri)
+{
+    const char *bare_uri = uri;
+
+    if (strcmp(uri, PHD_WORD_ALL))
+        format_of_uri(uri, &bare_uri);
+    return sup_resp(history_clear(bare_uri) == 0 ? SUCCESS : ERR_INVALID_OPERATION);
 }
 
 char *sup_reset(const char *which)

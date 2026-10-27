@@ -494,6 +494,22 @@ char *sup_chain_get(int id)
     return answer(c, daemon_shape(OMX_VERB_CHAIN_GET), 1);
 }
 
+char *sup_history_get(const char *uri)
+{
+    struct rec_call *c = record(REC_HISTORY_GET);
+
+    arg_s(c, uri);
+    return answer(c, daemon_shape(OMX_VERB_HISTORY_GET), 0);
+}
+
+char *sup_history_clear(const char *uri)
+{
+    struct rec_call *c = record(REC_HISTORY_CLEAR);
+
+    arg_s(c, uri);
+    return answer(c, daemon_shape(OMX_VERB_HISTORY_CLEAR), 1);
+}
+
 /* a checkpoint of what a preset or patch changed: it writes down state, it changes none */
 void sup_after_reply(int id, const char *verb)
 {
