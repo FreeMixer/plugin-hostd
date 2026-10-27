@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.12.0
+Version: 0.13.0
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -149,6 +149,22 @@ make test-daemon check-generated check-rendered
 %{_datadir}/omx-contract/contract.d/3/plugin-hostd/
 
 %changelog
+* Tue Oct 27 2026 Pau Aliagas <linuxnow@gmail.com> - 0.13.0-1
+- A configured state_root that does not exist is made at start, as the
+  directories below it already were; an add no longer answers -503 over a
+  missing directory (#180).
+- plugin-hostd-tests ships one protocol client for shell and Python tests,
+  lib/protocol.sh and lib/plugin_hostd_client.py, and the harness and the
+  verbs test use it (#177).
+- bench/: a harness that runs the same plugins under omx-clap-host, under
+  plugin-hostd, under mod-host and under jalv, and writes omx-bench/1
+  documents; plan and pool modes, xruns, latency, stress and repeats with
+  their spread (#188).
+- plugin_hostd_vocabulary.h is rendered by omx-contract 3.4.0, which writes
+  a reply code's number as an OMX_..._RESP define; the build needs
+  omx-contract-devel 3.4.0 or newer and its check stage the omx-contract
+  command.
+
 * Mon Oct 26 2026 Pau Aliagas <linuxnow@gmail.com> - 0.12.0-1
 - The verbs the daemon adds are declared in its package of omx-contract's
   contract directory, verbs.json beside the format tables: each verb's
