@@ -2,6 +2,8 @@
 # Break the daemon on purpose, one guard at a time, and require the named test to go red; the unbroken daemon must
 # pass the same test first, or a red proves nothing. A guard whose sabotage leaves its test green is decoration.
 import os, shutil, subprocess, sys, tempfile
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import sabotage_pool
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MOD_HOST_DIR = os.path.abspath(os.environ.get("MOD_HOST_DIR", os.path.join(ROOT, "..", "mod-host")))
@@ -16,7 +18,8 @@ FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "
 # tests/probe_schema.py; "relay" breaks src/relay.c and runs tests/relay_test.c; "history" breaks src/history.c or src/fsutil.c and runs tests/history_test.c; "proc" breaks src/proc.c and runs tests/proc_test.c; "alloc" breaks src/relay.c or src/lv2.c and runs make test-alloc; "contract" breaks the probe runner or the generator and runs tests/contract_derived.py; "consumer" breaks the header and compiles tests/consumer.c against it; "probe" breaks src/probe.c and runs tests/probe_test.py; "nopins" breaks the packaging or a workflow and runs tests/no_pins.py; "ciguards" breaks a workflow and runs tests/ci_guards.py;
 # "vocabulary" breaks the probe schema, its template or a copy of omx-contract's omx-vocabulary.schema.json and runs
 # tests/vocabulary_derived.py; "verbtable" breaks the header and runs tests/verb_table.py; "presetschema" breaks
-# protocol/preset.schema.json and runs tests/preset_format.py
+# protocol/preset.schema.json and runs tests/preset_format.py; "pool" breaks tests/sabotage_pool.py or the port range of
+# tests/harness.py and runs tests/sabotage_pool_test.py
 SABOTAGE = [
     ("a runner that refuses unshare passes build-and-test with a warning", ".github/workflows/ci.yml",
      '            echo "::error::test-jack did not run: this runner refuses a private user and pid namespace with its own /proc"\n            exit 1\n',
@@ -1171,6 +1174,21 @@ SABOTAGE = [
      'a_plan_forms_the_runs_that_may_share_and_leaves_the_member_that_may_not_in_a_worker_of_its_own'),
     ("any word is a grouping mode", "src/conf.c", "ok |= !strcmp(conf->grouping, name);", "ok |= 1;",
      "a_setting_that_is_none_of_the_grouping_modes_stops_the_daemon_and_names_the_modes"),
+    ("two arms build in one directory", "tests/sabotage_pool.py", 'return os.path.join(work, "arm%04d" % index)',
+     'return os.path.join(work, "arm")', "no_two_arms_share_a_tree", "pool"),
+    ("an arm is printed when it is done, not in its place in the table", "tests/sabotage_pool.py",
+     "        for arm, future in futures:\n            emit(arm, future.result())\n",
+     "        from concurrent.futures import as_completed\n        done = {f: arm for arm, f in futures}\n"
+     "        for future in as_completed(done):\n            emit(done[future], future.result())\n",
+     "a_slow_arm_does_not_reorder_the_output", "pool"),
+    ("the arms that start a jack server may start it together", "tests/sabotage_pool.py", "    if exclusive:\n", "    if False:\n",
+     "an_exclusive_arm_never_runs_beside_another_exclusive_arm", "pool"),
+    ("every job draws its ports from the same range", "tests/sabotage_pool.py", "str(PORT_BASE + slot * PORTS_PER_SLOT)",
+     "str(PORT_BASE)", "arms_running_together_draw_their_ports_from_ranges_of_their_own", "pool"),
+    ("the jobs are every core", "tests/sabotage_pool.py", "return max(1, min(cpus, 8))", "return max(1, cpus)",
+     "the_number_of_jobs_is_the_cores_to_eight_or_what_is_asked", "pool"),
+    ("a range of ports is ignored", "tests/harness.py", 'base = os.environ.get("PLUGIN_HOSTD_TEST_PORT_BASE")',
+     'base = None', "a_port_pair_inside_a_range_comes_from_that_range", "pool"),
     ("the handler of a declared verb is deleted: plan", "src/verbs.c",
      "    if (!strcmp(verb, OMX_VERB_PLAN))\n        return plan_words(tok, ntok);\n", "", "verbs_declared", "verbs"),
 ]
@@ -1335,6 +1353,10 @@ def run_test(tree, name, jack=False):
         p = subprocess.run([sys.executable, os.path.join(ROOT, "tests", "preset_format.py"), tree], capture_output=True,
                            text=True, timeout=60)
         return p.returncode, p.stdout
+    if jack == "pool":
+        p = subprocess.run([sys.executable, os.path.join(tree, "tests", "sabotage_pool_test.py"), name], capture_output=True,
+                           text=True, timeout=120)
+        return p.returncode, p.stdout
     if jack in ("nopins", "ciguards"):
         script = {"nopins": "no_pins.py", "ciguards": "ci_guards.py"}[jack]
         p = subprocess.run([sys.executable, os.path.join(ROOT, "tests", script), tree], capture_output=True,
@@ -1346,134 +1368,175 @@ def run_test(tree, name, jack=False):
     return p.returncode, p.stdout
 
 
+
+def selected(entry):
+    """None when the arm runs, '' when the filters leave it out, else the line that says why it is skipped"""
+    what, path, text, repl, name = entry[:5]
+    # SABOTAGE_ONLY=<words>: the arms whose test name holds them, for a change that touches a few guards
+    if os.environ.get("SABOTAGE_ONLY") and os.environ["SABOTAGE_ONLY"] not in name:
+        return ""
+    jack = entry[5] if len(entry) > 5 else False
+    # SABOTAGE_KIND=<kind>: only the arms of that kind ("history", "pin", ...)
+    if os.environ.get("SABOTAGE_KIND") and os.environ["SABOTAGE_KIND"] != jack:
+        return ""
+    if os.geteuid() == 0 and name in ROOT_WRITES_READ_ONLY:
+        return "skip sabotage (root writes a 0500 directory, so the test skips itself): %s" % what
+    if jack == "meters" and not (os.environ.get("FAKE_COMPRESSOR_CLAP") and os.environ.get("JACK_METER_SOURCE")):
+        return "skip sabotage (no FAKE_COMPRESSOR_CLAP and JACK_METER_SOURCE of omx-clap-host): %s" % what
+    if jack == "info" and not os.environ.get("FAKE_CLAP"):
+        return "skip sabotage (no FAKE_CLAP of omx-clap-host): %s" % what
+    if jack in ("jack", "lv2", "meters", "info") and not os.environ.get("OMX_CLAP_HOST"):
+        return "skip sabotage (no OMX_CLAP_HOST): %s" % what
+    if entry[5:] == ("lv2",) and not all(os.environ.get(v) for v in ("MOD_HOST", "LV2_DIR", "LV2_URI", "LV2_BUNDLE", "LV2_PARAM")):
+        return "skip sabotage (no LV2 bundle to drive mod-host with): %s" % what
+    return None
+
+
+# the arms that start a jack server of their own: one at a time, whatever the number of jobs
+JACK_KINDS = ("jack", "lv2", "meters", "info")
+
+
+def run_arm(job):
+    """one arm in a tree of its own; returns (the line it prints, 1 if it failed else 0)"""
+    index, entry, skipped = job
+    if skipped:
+        return skipped, 0
+    tree = sabotage_pool.arm_tree(work, index)
+    try:
+        return arm(entry, tree)
+    finally:
+        sabotage_pool.remove(tree)
+
+
+def arm(entry, tree):
+    what, path, text, repl, name = entry[:5]
+    jack = entry[5] if len(entry) > 5 else False
+    shutil.rmtree(tree, ignore_errors=True)
+    if jack == "readme":
+        os.makedirs(tree)
+        for f in ("README.md", "BUILDING.md"):
+            shutil.copy(os.path.join(ROOT, f), tree)
+    elif jack in ("history", "proc"):
+        for d in ("src", "include"):
+            shutil.copytree(os.path.join(ROOT, d), os.path.join(tree, d), ignore=shutil.ignore_patterns("*.o"))
+        shutil.copy(os.path.join(ROOT, "Makefile"), tree)
+    elif jack == "alloc":
+        shutil.copytree(os.path.join(ROOT, "src"), os.path.join(tree, "src"))
+        shutil.copytree(os.path.join(ROOT, "include"), os.path.join(tree, "include"))
+        shutil.copy(os.path.join(ROOT, "Makefile"), tree)
+        os.makedirs(os.path.join(tree, "tests"))
+        for f in ("gesture_alloc_test.c", "lv2_alloc_test.c"):
+            shutil.copy(os.path.join(ROOT, "tests", f), os.path.join(tree, "tests"))
+    elif jack == "probe":
+        # the probe is built by the Makefile's own rule: its sources, headers and the spec its VERSION is read from
+        shutil.copytree(os.path.join(ROOT, "src"), os.path.join(tree, "src"))
+        shutil.copytree(os.path.join(ROOT, "include"), os.path.join(tree, "include"))
+        shutil.copytree(os.path.join(ROOT, "packaging"), os.path.join(tree, "packaging"))
+        shutil.copy(os.path.join(ROOT, "Makefile"), tree)
+        build_probe(tree)
+    elif jack == "presetschema":
+        os.makedirs(os.path.join(tree, "protocol"))
+        shutil.copy(os.path.join(ROOT, "protocol", "preset.schema.json"), os.path.join(tree, "protocol"))
+    elif jack == "probeschema":
+        os.makedirs(os.path.join(tree, "protocol"))
+        shutil.copy(os.path.join(ROOT, "protocol", "probe-output.schema.json"), os.path.join(tree, "protocol"))
+    elif jack == "vocabulary":
+        shutil.copytree(os.path.join(ROOT, "protocol"), os.path.join(tree, "protocol"))
+        datadir = subprocess.run(["pkg-config", "--variable=datadir", "omx-contract"], capture_output=True, text=True,
+                                 check=True).stdout.strip()
+        shutil.copy(os.path.join(datadir, "omx-vocabulary.schema.json"), tree)
+    elif jack == "contract":
+        for d in ("src", "include", "tools", "protocol"):
+            shutil.copytree(os.path.join(ROOT, d), os.path.join(tree, d))
+        os.makedirs(os.path.join(tree, "tests"))
+        shutil.copy(os.path.join(ROOT, "tests", "contract_derived.py"), os.path.join(tree, "tests"))
+        for f in ("Makefile",):
+            shutil.copy(os.path.join(ROOT, f), tree)
+        os.makedirs(os.path.join(tree, "packaging"))
+        shutil.copy(os.path.join(ROOT, "packaging", "plugin-hostd.spec"), os.path.join(tree, "packaging"))
+    elif jack in ("planner", "qualcost"):
+        shutil.copytree(os.path.join(ROOT, "src"), os.path.join(tree, "src"))
+        shutil.copytree(os.path.join(ROOT, "include"), os.path.join(tree, "include"))
+        shutil.copy(os.path.join(ROOT, "Makefile"), tree)
+    elif jack in ("consumer", "verbtable"):
+        shutil.copytree(os.path.join(ROOT, "include"), os.path.join(tree, "include"))
+    elif jack == "nopins":
+        for f in ("packaging/plugin-hostd.spec", "debian/control", ".github/workflows/ci.yml"):
+            os.makedirs(os.path.dirname(os.path.join(tree, f)), exist_ok=True)
+            shutil.copy(os.path.join(ROOT, f), os.path.join(tree, f))
+    elif jack == "pool":
+        os.makedirs(os.path.join(tree, "protocol"))
+        shutil.copy(os.path.join(ROOT, "protocol", "plugin-hostd.json"), os.path.join(tree, "protocol"))
+        shutil.copytree(os.path.join(ROOT, "tests", "lib"), os.path.join(tree, "tests", "lib"))
+        for f in ("sabotage_pool.py", "sabotage_pool_test.py", "harness.py"):
+            shutil.copy(os.path.join(ROOT, "tests", f), os.path.join(tree, "tests"))
+    elif jack == "ciguards":
+        shutil.copytree(os.path.join(ROOT, ".github", "workflows"), os.path.join(tree, ".github", "workflows"))
+    elif jack == "verbs":
+        # the declaration, what renders and builds from it, and the tests that read it
+        for d in ("data", "src", "include", "tools", "protocol", "tests", "packaging", "fuzz"):
+            shutil.copytree(os.path.join(ROOT, d), os.path.join(tree, d), ignore=shutil.ignore_patterns("*.o"))
+        shutil.copy(os.path.join(ROOT, "Makefile"), tree)
+        build(tree)
+        build_probe(tree)
+    else:
+        shutil.copytree(os.path.join(ROOT, "src"), os.path.join(tree, "src"))
+        shutil.copytree(os.path.join(ROOT, "include"), os.path.join(tree, "include"))
+        shutil.copy(os.path.join(ROOT, "Makefile"), tree)
+        build(tree)
+    code, out = run_test(tree, name, jack)
+    if code != 0 or "ok   " + name not in out:
+        return ("FAIL control: %s does not pass on the unbroken daemon:\n%s" % (name, out), 1)
+    src = open(os.path.join(tree, path)).read()
+    if src.count(text) != 1:
+        return ("FAIL %s: the text to break occurs %d times in %s" % (what, src.count(text), path), 1)
+    open(os.path.join(tree, path), "w").write(src.replace(text, repl))
+    if path.startswith("data/"):
+        # a changed declaration is rendered, as make render-verbs does, before the daemon is built from it
+        subprocess.run(["make", "-s", "MOD_HOST_DIR=" + MOD_HOST_DIR, "render-verbs"], cwd=tree, check=True,
+                       stdout=subprocess.DEVNULL)
+    if jack == "probe":
+        build_probe(tree)
+    elif jack not in ("readme", "nopins", "ciguards", "format", "relay", "history", "proc", "contract", "consumer", "probeschema", "presetschema", "vocabulary", "alloc",
+                      "verbtable", "planner", "qualcost", "pool"):
+        for f in os.listdir(os.path.join(tree, "src")):
+            if f.endswith(".o"):
+                os.unlink(os.path.join(tree, "src", f))
+        build(tree)
+    code, out = run_test(tree, name, jack)
+    if code == 0:
+        return ("FAIL sabotage survived: %s (%s still passes)" % (what, name), 1)
+    return ("ok   sabotage caught: %s -> %s red" % (what, name), 0)
+
+
+def report(job, result):
+    global failed
+    line, bad = result
+    print(line, flush=True)
+    failed += bad
+
+
 failed = 0
 # the tests that need a directory root cannot be refused, and so skip themselves as root
 ROOT_WRITES_READ_ONLY = ("a_read_only_directory_stops_the_daemon_with_its_code_and_names_the_key",
                          "a_directory_that_turns_read_only_makes_the_scan_answer_its_code")
-work = tempfile.mkdtemp(prefix="plugin-hostd-sabotage.")
-try:
-    for entry in SABOTAGE:
-        what, path, text, repl, name = entry[:5]
-        # SABOTAGE_ONLY=<words>: the arms whose test name holds them, for a change that touches a few guards
-        if os.environ.get("SABOTAGE_ONLY") and os.environ["SABOTAGE_ONLY"] not in name:
-            continue
-        jack = entry[5] if len(entry) > 5 else False
-        # SABOTAGE_KIND=<kind>: only the arms of that kind ("history", "pin", ...)
-        if os.environ.get("SABOTAGE_KIND") and os.environ["SABOTAGE_KIND"] != jack:
-            continue
-        if os.geteuid() == 0 and name in ROOT_WRITES_READ_ONLY:
-            print("skip sabotage (root writes a 0500 directory, so the test skips itself): %s" % what)
-            continue
-        if jack == "meters" and not (os.environ.get("FAKE_COMPRESSOR_CLAP") and os.environ.get("JACK_METER_SOURCE")):
-            print("skip sabotage (no FAKE_COMPRESSOR_CLAP and JACK_METER_SOURCE of omx-clap-host): %s" % what)
-            continue
-        if jack == "info" and not os.environ.get("FAKE_CLAP"):
-            print("skip sabotage (no FAKE_CLAP of omx-clap-host): %s" % what)
-            continue
-        if jack in ("jack", "lv2", "meters", "info") and not os.environ.get("OMX_CLAP_HOST"):
-            print("skip sabotage (no OMX_CLAP_HOST): %s" % what)
-            continue
-        if entry[5:] == ("lv2",) and not all(os.environ.get(v) for v in ("MOD_HOST", "LV2_DIR", "LV2_URI", "LV2_BUNDLE", "LV2_PARAM")):
-            print("skip sabotage (no LV2 bundle to drive mod-host with): %s" % what)
-            continue
-        tree = os.path.join(work, "t")
-        shutil.rmtree(tree, ignore_errors=True)
-        if jack == "readme":
-            os.makedirs(tree)
-            for f in ("README.md", "BUILDING.md"):
-                shutil.copy(os.path.join(ROOT, f), tree)
-        elif jack in ("history", "proc"):
-            for d in ("src", "include"):
-                shutil.copytree(os.path.join(ROOT, d), os.path.join(tree, d), ignore=shutil.ignore_patterns("*.o"))
-            shutil.copy(os.path.join(ROOT, "Makefile"), tree)
-        elif jack == "alloc":
-            shutil.copytree(os.path.join(ROOT, "src"), os.path.join(tree, "src"))
-            shutil.copytree(os.path.join(ROOT, "include"), os.path.join(tree, "include"))
-            shutil.copy(os.path.join(ROOT, "Makefile"), tree)
-            os.makedirs(os.path.join(tree, "tests"))
-            for f in ("gesture_alloc_test.c", "lv2_alloc_test.c"):
-                shutil.copy(os.path.join(ROOT, "tests", f), os.path.join(tree, "tests"))
-        elif jack == "probe":
-            # the probe is built by the Makefile's own rule: its sources, headers and the spec its VERSION is read from
-            shutil.copytree(os.path.join(ROOT, "src"), os.path.join(tree, "src"))
-            shutil.copytree(os.path.join(ROOT, "include"), os.path.join(tree, "include"))
-            shutil.copytree(os.path.join(ROOT, "packaging"), os.path.join(tree, "packaging"))
-            shutil.copy(os.path.join(ROOT, "Makefile"), tree)
-            build_probe(tree)
-        elif jack == "presetschema":
-            os.makedirs(os.path.join(tree, "protocol"))
-            shutil.copy(os.path.join(ROOT, "protocol", "preset.schema.json"), os.path.join(tree, "protocol"))
-        elif jack == "probeschema":
-            os.makedirs(os.path.join(tree, "protocol"))
-            shutil.copy(os.path.join(ROOT, "protocol", "probe-output.schema.json"), os.path.join(tree, "protocol"))
-        elif jack == "vocabulary":
-            shutil.copytree(os.path.join(ROOT, "protocol"), os.path.join(tree, "protocol"))
-            datadir = subprocess.run(["pkg-config", "--variable=datadir", "omx-contract"], capture_output=True, text=True,
-                                     check=True).stdout.strip()
-            shutil.copy(os.path.join(datadir, "omx-vocabulary.schema.json"), tree)
-        elif jack == "contract":
-            for d in ("src", "include", "tools", "protocol"):
-                shutil.copytree(os.path.join(ROOT, d), os.path.join(tree, d))
-            os.makedirs(os.path.join(tree, "tests"))
-            shutil.copy(os.path.join(ROOT, "tests", "contract_derived.py"), os.path.join(tree, "tests"))
-            for f in ("Makefile",):
-                shutil.copy(os.path.join(ROOT, f), tree)
-            os.makedirs(os.path.join(tree, "packaging"))
-            shutil.copy(os.path.join(ROOT, "packaging", "plugin-hostd.spec"), os.path.join(tree, "packaging"))
-        elif jack in ("planner", "qualcost"):
-            shutil.copytree(os.path.join(ROOT, "src"), os.path.join(tree, "src"))
-            shutil.copytree(os.path.join(ROOT, "include"), os.path.join(tree, "include"))
-            shutil.copy(os.path.join(ROOT, "Makefile"), tree)
-        elif jack in ("consumer", "verbtable"):
-            shutil.copytree(os.path.join(ROOT, "include"), os.path.join(tree, "include"))
-        elif jack == "nopins":
-            for f in ("packaging/plugin-hostd.spec", "debian/control", ".github/workflows/ci.yml"):
-                os.makedirs(os.path.dirname(os.path.join(tree, f)), exist_ok=True)
-                shutil.copy(os.path.join(ROOT, f), os.path.join(tree, f))
-        elif jack == "ciguards":
-            shutil.copytree(os.path.join(ROOT, ".github", "workflows"), os.path.join(tree, ".github", "workflows"))
-        elif jack == "verbs":
-            # the declaration, what renders and builds from it, and the tests that read it
-            for d in ("data", "src", "include", "tools", "protocol", "tests", "packaging", "fuzz"):
-                shutil.copytree(os.path.join(ROOT, d), os.path.join(tree, d), ignore=shutil.ignore_patterns("*.o"))
-            shutil.copy(os.path.join(ROOT, "Makefile"), tree)
-            build(tree)
-            build_probe(tree)
-        else:
-            shutil.copytree(os.path.join(ROOT, "src"), os.path.join(tree, "src"))
-            shutil.copytree(os.path.join(ROOT, "include"), os.path.join(tree, "include"))
-            shutil.copy(os.path.join(ROOT, "Makefile"), tree)
-            build(tree)
-        code, out = run_test(tree, name, jack)
-        if code != 0 or "ok   " + name not in out:
-            print("FAIL control: %s does not pass on the unbroken daemon:\n%s" % (name, out))
-            failed += 1
-            continue
-        src = open(os.path.join(tree, path)).read()
-        if src.count(text) != 1:
-            print("FAIL %s: the text to break occurs %d times in %s" % (what, src.count(text), path))
-            failed += 1
-            continue
-        open(os.path.join(tree, path), "w").write(src.replace(text, repl))
-        if path.startswith("data/"):
-            # a changed declaration is rendered, as make render-verbs does, before the daemon is built from it
-            subprocess.run(["make", "-s", "MOD_HOST_DIR=" + MOD_HOST_DIR, "render-verbs"], cwd=tree, check=True,
-                           stdout=subprocess.DEVNULL)
-        if jack == "probe":
-            build_probe(tree)
-        elif jack not in ("readme", "nopins", "ciguards", "format", "relay", "history", "proc", "contract", "consumer", "probeschema", "presetschema", "vocabulary", "alloc",
-                          "verbtable", "planner", "qualcost"):
-            for f in os.listdir(os.path.join(tree, "src")):
-                if f.endswith(".o"):
-                    os.unlink(os.path.join(tree, "src", f))
-            build(tree)
-        code, out = run_test(tree, name, jack)
-        if code == 0:
-            print("FAIL sabotage survived: %s (%s still passes)" % (what, name))
-            failed += 1
-        else:
-            print("ok   sabotage caught: %s -> %s red" % (what, name))
-finally:
-    shutil.rmtree(work, ignore_errors=True)
-print("sabotage FAILED (%d)" % failed if failed else "sabotage ok")
-sys.exit(1 if failed else 0)
+work = None
+
+if __name__ == "__main__":
+    # every arm in the order of the table; the arms run SABOTAGE_JOBS at a time (default: the cores, at most 8; 1 is one
+    # after the other) and print in that order whichever finishes first
+    plan = []
+    for index, entry in enumerate(SABOTAGE):
+        why = selected(entry)
+        if why is None:
+            plan.append((index, entry, None))
+        elif why:
+            plan.append((index, entry, why))
+    work = tempfile.mkdtemp(prefix="plugin-hostd-sabotage.")
+    try:
+        sabotage_pool.run(plan, run_arm, sabotage_pool.jobs_from(os.environ), report,
+                          exclusive=lambda job: not job[2] and (job[1][5] if len(job[1]) > 5 else False) in JACK_KINDS)
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+    print("sabotage FAILED (%d)" % failed if failed else "sabotage ok")
+    sys.exit(1 if failed else 0)

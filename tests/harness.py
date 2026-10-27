@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # The daemon under test and a controller for it: a command socket, a feedback socket read on a thread, and
 # helpers that wait for what the daemon does instead of sleeping and hoping.
-import json, os, re, shutil, signal, socket, subprocess, sys, tempfile, threading, time
+import json, os, random, re, shutil, signal, socket, subprocess, sys, tempfile, threading, time
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 import plugin_hostd_client
@@ -34,6 +34,23 @@ def check(cond, what):
 
 
 def port_pair():
+    # PLUGIN_HOSTD_TEST_PORT_BASE (tests/sabotage_pool.py): arms that run side by side each draw from a range of their own
+    base = os.environ.get("PLUGIN_HOSTD_TEST_PORT_BASE")
+    if base:
+        span = int(os.environ["PLUGIN_HOSTD_TEST_PORT_SPAN"])
+        ports = []
+        for port in random.sample(range(int(base), int(base) + span), span):
+            s = socket.socket()
+            try:
+                s.bind(("127.0.0.1", port))
+            except OSError:
+                continue
+            finally:
+                s.close()
+            ports.append(port)
+            if len(ports) == 2:
+                return ports
+        raise Fail("no two free ports in %s..%d" % (base, int(base) + span))
     socks = []
     ports = []
     for _ in range(2):
