@@ -1,3 +1,12 @@
+plugin-hostd (0.13.1) unstable; urgency=medium
+
+  * The daemon reads the xruns line a worker writes (omx-clap-core 0.23.0,
+    now the floor) and adds a window to xrun_windows_solo or
+    xrun_windows_grouped of every member of the worker when the count rose
+    in it; the first count of a worker is its baseline (#187).
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Tue, 27 Oct 2026 14:00:00 +0100
+
 plugin-hostd (0.13.0) unstable; urgency=medium
 
   * A configured state_root that does not exist is made at start, as the

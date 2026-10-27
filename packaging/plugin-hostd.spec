@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.13.0
+Version: 0.13.1
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -149,6 +149,12 @@ make test-daemon check-generated check-rendered
 %{_datadir}/omx-contract/contract.d/3/plugin-hostd/
 
 %changelog
+* Tue Oct 27 2026 Pau Aliagas <linuxnow@gmail.com> - 0.13.1-1
+- The daemon reads the xruns line a worker writes (omx-clap-core 0.23.0,
+  now the floor) and adds a window to xrun_windows_solo or
+  xrun_windows_grouped of every member of the worker when the count rose
+  in it; the first count of a worker is its baseline (#187).
+
 * Tue Oct 27 2026 Pau Aliagas <linuxnow@gmail.com> - 0.13.0-1
 - A configured state_root that does not exist is made at start, as the
   directories below it already were; an add no longer answers -503 over a
