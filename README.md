@@ -165,6 +165,32 @@ A token after the instance that is not a placement is the fork's optional
 jack client name, passed on. An instance that crashed in a pool is placed
 `own` whatever the hint until `quarantine_clear`.
 
+Grouped workers against one process per plugin
+----------------------------------------------
+
+A chain runs its plugins in one worker; the other way is one process per plugin. One measurement of the two, with
+16 plugins, with the numbers of the page at <https://www.openmixer.org/docs/grouped-vs-processes>:
+
+| | grouped | one process per plugin | |
+|---|---|---|---|
+| resident memory (RSS), 48 kHz | 125.4 MB | 1764.6 MB | 14x smaller grouped |
+| proportional memory (PSS), 48 kHz | 42.9 MB | 118.2 MB | 2.8x smaller grouped |
+
+- RSS counts a shared library once for every process that maps it, so a design with many processes looks larger than
+  it is. PSS divides shared pages between the processes that use them, so it is the honest figure. Do not read the RSS
+  ratio as the saving in real memory.
+- CPU: 1.2 to 1.9x less when grouped, across 3, 8 and 16 plugins at 48 and 96 kHz.
+- Context switches: up to about 14x fewer when grouped, 13.9x at 48 kHz and 14.8x at 96 kHz with 16 plugins.
+- Xruns over the 12 runs of each mode: 10 grouped against 41 with one process per plugin. Each run is one window of
+  10 seconds and the xruns in it are few and unevenly spread, so the 10 against 41 is suggestive and not proof.
+
+How: a Raspberry Pi 5 with 4 cores, CPU governor on performance during the runs, plugin-hostd 0.12.0 with
+omx-clap-host 0.22.1 as the worker, N omx plugins in series, 256 frames, on a private JACK server.
+
+Not measured: only 256 frames; only plugin-hostd, with omx plugins; the grouping planner is not part of the result and
+no default has been changed because of the numbers; DSP load and xruns are those of the JACK dummy driver, so no claim
+about real audio hardware is made.
+
 Verbs the daemon adds
 ---------------------
 
