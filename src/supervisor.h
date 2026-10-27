@@ -103,6 +103,11 @@ typedef struct WORKER_T {
     int64_t hist_half_ms;       /* the mid-window sample, 0 before it: what a window that ends in a death is counted from */
     double hist_half_cpu;
     long long hist_half_pss_kb;
+    /* its xruns (PHD_EVENT_XRUNS): the count the last window ended at, the baseline of the next; the first count a
+     * process writes is only that baseline */
+    pid_t xr_pid;               /* the process xr_base is of */
+    int xr_known;
+    unsigned long long xr_base;
 } worker_t;
 
 /* the instances a chain verb declared, in order; the ones not quarantined run in its worker */

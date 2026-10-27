@@ -446,6 +446,7 @@ Events on the feedback port, one NUL-terminated line each:
 | `remote_pages_changed` | `<instance>` | relayed from a worker: the plugin changed its remote pages; read them again |
 | `remote_page_suggest` | `<instance> <page_id>` | relayed from a worker: the plugin suggests the remote page of that id (a page_id of remote_page_get); a surface may follow it |
 | `param_gesture` | `<instance> <symbol> begin \| end` | relayed from a worker: the user took hold of a control of the plugin's own, or let it go; a controller writes no automation of that parameter in between. The values the plugin moves meanwhile, or at any time by itself, are mod-host's param_set feedback lines, relayed as written. A gesture whose worker died, or whose instance was removed, before its end is ended by the daemon, before the worker_died event |
+| `xruns` | `<count>` | relayed from a worker, and read by the daemon: the JACK xruns the worker has counted since it started, written when the count changes and at most once a second; a worker that never writes it counted none. The daemon takes the first count of a worker as its baseline and, at the close of each history window, adds the window to xrun_windows_solo or xrun_windows_grouped of every member of the worker when the count rose in it; a line that is not the word and one whole number is not a count |
 | `param_set` | `<instance> <symbol> <value>` | relayed from a worker: parameter feedback, a value the plugin moved by itself (its automation, an LFO, a preset load, a MIDI map, the user's knob of the plugin's own), as mod-host writes it; a controller updates its control to it. A worker never writes it for a value a controller's param_set gave it, and a worker that writes none changes nothing: the daemon adds no line of its own |
 <!-- END GENERATED protocol:events -->
 
@@ -620,7 +621,12 @@ by 0.95 of 2 percent of itself and each one not above moves it down by 0.05 of t
 the worker changed is dropped, and a worker that died is counted if it had been up for half the window. A crash is
 counted when the daemon names a culprit (`crashes_solo` in a worker of its own, `crashes_grouped` in a group), the
 members that went down with it and were not the culprit get `restarts_grouped`, and a quarantine counts in
-`quarantines`. No worker reports xruns yet, so `xrun_windows_*` stay 0.
+`quarantines`. A worker writes `xruns <count>` on its feedback port, the JACK xruns it has counted since it started,
+when the count changes. The daemon takes the first count of a process as its baseline, never as xruns of the window it
+arrives in, and at the close of a window adds one to `xrun_windows_solo` or `xrun_windows_grouped` of every member of
+the worker when the count rose in it, however many xruns it rose by. A worker that wrote no count counted none; a
+restarted worker counts from zero and its first count is a baseline again; a line that is not the word and one whole
+number is not a count.
 
 A line this version cannot read, or with a key it does not know, is kept as it is by every save and is not read. A file
 that cannot be read, or whose first line is another version, is neither read nor overwritten: stderr says why, and

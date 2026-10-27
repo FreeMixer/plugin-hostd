@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.13.0
+Version: 0.13.1
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -33,7 +33,7 @@ BuildRequires: omx-clap-host-tests >= 0.21.0
 # the reader that holds the committed render of the daemon's verbs to data/verbs.json (make check-rendered)
 BuildRequires: omx-contract >= 3.4.0
 # the shared verbs and the reply.host.* codes data/verbs.json refers to (make check-rendered, test-verbs-declared)
-BuildRequires: omx-clap-core-contract >= 0.22.0
+BuildRequires: omx-clap-core-contract >= 0.23.0
 %endif
 # the format tables and the verbs, which readers read at run time
 Requires: %{name}-contract = %{version}-%{release}
@@ -67,7 +67,7 @@ Summary: plugin-hostd's format tables and verbs, for programs that read them at 
 BuildArch: noarch
 # verbs.json refuses with omx-clap-core's reply.host.* codes for the numbers both hosts answer: a reader of this
 # package reads that one too; a floor only
-Requires: omx-clap-core-contract >= 0.22.0
+Requires: omx-clap-core-contract >= 0.23.0
 
 %description contract
 plugin-hostd's package of omx-contract's contract directory: the format tables
@@ -149,6 +149,12 @@ make test-daemon check-generated check-rendered
 %{_datadir}/omx-contract/contract.d/3/plugin-hostd/
 
 %changelog
+* Tue Oct 27 2026 Pau Aliagas <linuxnow@gmail.com> - 0.13.1-1
+- The daemon reads the xruns line a worker writes (omx-clap-core 0.23.0,
+  now the floor) and adds a window to xrun_windows_solo or
+  xrun_windows_grouped of every member of the worker when the count rose
+  in it; the first count of a worker is its baseline (#187).
+
 * Tue Oct 27 2026 Pau Aliagas <linuxnow@gmail.com> - 0.13.0-1
 - A configured state_root that does not exist is made at start, as the
   directories below it already were; an add no longer answers -503 over a

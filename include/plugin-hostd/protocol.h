@@ -904,6 +904,8 @@ static inline int phd_is_note_verb(const char *verb)
 #define PHD_EVENT_REMOTE_PAGES_CHANGED    "remote_pages_changed"
 #define PHD_EVENT_REMOTE_PAGE_SUGGEST     "remote_page_suggest"
 #define PHD_EVENT_PARAM_GESTURE           "param_gesture"
+/* a worker's own count, not an instance's: omx-clap-core's HOST_EVENTS word xruns (tests/verbs_declared.py holds this to it) */
+#define PHD_EVENT_XRUNS                   "xruns"
 /* mod-host's own feedback line for a parameter, the same word as its command */
 #define PHD_EVENT_PARAM_SET               "param_set"
 
@@ -926,6 +928,7 @@ static inline int phd_is_note_verb(const char *verb)
 #define PHD_EVENT_REMOTE_PAGES_CHANGED_FMT  PHD_EVENT_REMOTE_PAGES_CHANGED " %d"
 #define PHD_EVENT_REMOTE_PAGE_SUGGEST_FMT   PHD_EVENT_REMOTE_PAGE_SUGGEST " %d %u"
 #define PHD_EVENT_PARAM_GESTURE_FMT         PHD_EVENT_PARAM_GESTURE " %d %s %s"
+#define PHD_EVENT_XRUNS_FMT                 PHD_EVENT_XRUNS " %llu"
 #define PHD_EVENT_PARAM_SET_FMT             PHD_EVENT_PARAM_SET " %d %s %s"
 #define PHD_EVENT_PIN_CHANGED_FMT           PHD_EVENT_PIN_CHANGED " %s %s"
 #define PHD_EVENT_LV2_ADAPTER_REFUSED_FMT   PHD_EVENT_LV2_ADAPTER_REFUSED " %s %s %s"
@@ -974,6 +977,12 @@ static inline int phd_is_note_verb(const char *verb)
       "automation of that parameter in between. The values the plugin moves meanwhile, or at any time by itself, are " \
       "mod-host's param_set feedback lines, relayed as written. A gesture whose worker died, or whose instance was " \
       "removed, before its " PHD_GESTURE_END " is ended by the daemon, before the worker_died event") \
+    X(PHD_EVENT_XRUNS, "<count>", \
+      "relayed from a worker, and read by the daemon: the JACK xruns the worker has counted since it started, written " \
+      "when the count changes and at most once a second; a worker that never writes it counted none. The daemon takes " \
+      "the first count of a worker as its baseline and, at the close of each history window, adds the window to " \
+      "xrun_windows_solo or xrun_windows_grouped of every member of the worker when the count rose in it; a line that " \
+      "is not the word and one whole number is not a count") \
     X(PHD_EVENT_PARAM_SET, "<instance> <symbol> <value>", \
       "relayed from a worker: parameter feedback, a value the plugin moved by itself (its automation, an LFO, a " \
       "preset load, a MIDI map, the user's knob of the plugin's own), as mod-host writes it; a controller updates its " \

@@ -55,7 +55,7 @@ The verbs the daemon adds to mod-host's protocol, and the codes they answer, are
 `protocol.h` includes: `make render-verbs` rewrites them and `make check-rendered` fails on any drift. Both run the
 `omx-contract` command (package `omx-contract`); the build itself does not. A refusal number omx-clap-host answers
 too (mod-host's `-3` and `-902`, and the pin, parameter and note numbers) is named once, by omx-clap-core's
-`reply.host.*` codes: `data/verbs.json` requires `omx-clap-core >= 0.22.0`, so both commands and
+`reply.host.*` codes: `data/verbs.json` requires `omx-clap-core >= 0.23.0`, so both commands and
 `make test-verbs-declared` read omx-clap-core's package of the contract directory (`omx-clap-core-contract`), or
 the first directory of `OMX_CONTRACT_PATH` that holds one.
 

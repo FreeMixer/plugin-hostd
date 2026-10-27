@@ -49,6 +49,9 @@ typedef struct SOURCE_T {
     /* the gestures the worker began and has not ended, each its line up to the last word */
     char **held;
     int nheld;
+    /* the worker's last xruns line (PHD_EVENT_XRUNS), a cumulative count; counted is 0 until one was read */
+    int counted;
+    unsigned long long xruns;
 } source_t;
 
 static pthread_mutex_t g_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -118,6 +121,25 @@ static void gesture_seen(source_t *s, const char *line)
         free(s->held[n]);
         s->held[n] = s->held[--s->nheld];
     }
+}
+
+/* an xruns line the worker wrote: the word, a space and one whole number, nothing else; any other line is none of this. A
+ * count that does not fit is no count either */
+static void xruns_seen(source_t *s, const char *line)
+{
+    size_t word = strlen(PHD_EVENT_XRUNS);
+    const char *digits = line + word + 1;
+    unsigned long long count;
+    char *end;
+
+    if (strncmp(line, PHD_EVENT_XRUNS, word) || line[word] != ' ' || *digits < '0' || *digits > '9')
+        return;
+    errno = 0;
+    count = strtoull(digits, &end, 10);
+    if (errno != 0 || *end != '\0')
+        return;
+    s->xruns = count;
+    s->counted = 1;
 }
 
 /* the end of a held gesture, its line up to the last word and the word end, as one line of whatever length; g_lock is
@@ -210,6 +232,7 @@ static void drain(source_t *s)
             {
                 send_line(start, nul - start + 1);
                 gesture_seen(s, start);
+                xruns_seen(s, start);
             }
             start = nul + 1;
         }
@@ -434,6 +457,25 @@ int relay_add(int fd)
     pthread_mutex_unlock(&g_lock);
     wake();
     return 0;
+}
+
+int relay_xruns(int fd, unsigned long long *count)
+{
+    int i, counted = 0;
+
+    pthread_mutex_lock(&g_lock);
+    for (i = 0; i < g_nsrc; i++)
+        if (g_src[i].fd == fd)
+        {
+            if (!g_src[i].eof)
+                drain(&g_src[i]);
+            counted = g_src[i].counted;
+            if (counted)
+                *count = g_src[i].xruns;
+            break;
+        }
+    pthread_mutex_unlock(&g_lock);
+    return counted;
 }
 
 void relay_instance_gone(int id)
