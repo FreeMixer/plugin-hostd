@@ -46,6 +46,11 @@ int relay_add(int fd);
 /* A worker's feedback socket, closed: what the worker wrote before it is read and sent first. */
 void relay_remove(int fd);
 
+/* The last xruns count (PHD_EVENT_XRUNS) the worker of this feedback socket wrote, read up to now: 1 and *count, or 0 when
+ * it has written none since the socket was added (a worker that counted no xrun writes none). The count is the worker's
+ * own, cumulative since it started. */
+int relay_xruns(int fd, unsigned long long *count);
+
 /* An instance removed: every gesture it held is ended at the controller, once, whichever worker the instance was on. */
 void relay_instance_gone(int id);
 
