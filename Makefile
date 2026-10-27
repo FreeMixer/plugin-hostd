@@ -57,7 +57,7 @@ LDFLAGS += -Wl,--no-undefined
 
 # source and object files
 SRC = src/main.c src/conf.c src/proc.c src/supervisor.c src/verbs.c src/pins.c src/relay.c src/formats.c src/lv2.c \
-      src/descriptors.c src/describe.c src/transforms.c src/json.c src/fsutil.c
+      src/descriptors.c src/describe.c src/transforms.c src/json.c src/fsutil.c src/machine.c
 OBJ = $(SRC:.c=.o)
 
 # the C names of the daemon's verbs and reply codes, rendered from data/verbs.json (render-verbs below); protocol.h
@@ -72,8 +72,8 @@ $(PROG): $(OBJ) $(PROTOCOL_LIB)
 
 # the probe runner: it loads no plugin and links nothing of the daemon or of mod-host
 # describe reads the installed table of a format by default (docs/formats.md)
-PROBE_SRC = src/probe.c src/json.c src/describe.c src/transforms.c
-$(PROBE): $(PROBE_SRC) src/json.h src/describe.h src/transforms.h include/plugin-hostd/protocol.h $(RENDERED) include/plugin-hostd/pin.h
+PROBE_SRC = src/probe.c src/json.c src/describe.c src/transforms.c src/machine.c
+$(PROBE): $(PROBE_SRC) src/json.h src/describe.h src/transforms.h src/machine.h include/plugin-hostd/protocol.h $(RENDERED) include/plugin-hostd/pin.h
 	$(CC) -Iinclude -Isrc $(CONTRACT_CFLAGS) $(CFLAGS) -D_GNU_SOURCE -DPROBE_VERSION='"$(VERSION)"' \
 	  -DPROBE_CONTRACTDIR='"$(CONTRACTDIR)"' -DPROBE_CONTRACT_MAJOR='"$(CONTRACT_SCHEMA_MAJOR)"' -o $@ $(PROBE_SRC) -lm
 
@@ -84,6 +84,9 @@ endif
 
 # the declared protocol is compiled into every object
 $(OBJ): include/plugin-hostd/protocol.h $(RENDERED) include/plugin-hostd/pin.h
+
+# the host class of the history is the probe's machine class: the contract's band words
+src/machine.o: INCS += $(CONTRACT_CFLAGS)
 
 src/descriptors.o: src/descriptors.h src/describe.h src/json.h src/formats.h src/supervisor.h
 
