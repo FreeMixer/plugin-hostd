@@ -1,6 +1,6 @@
 # Grouping: the fewest workers the pins and the history allow
 
-Status: proposed 2026-10-27, for plugin-hostd#182, plugin-qualify#157 and openmixer#2263. No code in this note's pull
+Status: proposed 2026-10-27, for plugin-hostd#182, plugin-qualify#157 and the console project's benchmark issue. No code in this note's pull
 request. Operator priority of 2026-10-27: use plugin-hostd's ability to run many plugins in one process to save CPU and
 RAM, on Zynthian first and then wherever the host runs. A grouping that does not win in the benchmark is not the
 default.
@@ -16,7 +16,7 @@ default.
   plugin's own (LV2: `pinned_own_only`) is never pooled, and always answers -501 for a pool. A pin with
   `verdict=refused` answers -516 at `add` and at every replay.
 - **Chains.** `chain <chain> <instance>...` puts the members in one worker, `chain:<chain>`, that omx-clap-host runs as one
-  JACK client and one process callback, in the declared order (`docs/design/notes/2026-10-21-chains.md`). A member that
+  JACK client and one process callback, in the declared order (the chains note, 2026-10-21). A member that
   `must_run_own` (require_pins, first-use, no `in-process` verdict, not an LV2 member) makes `chain` answer -501. An LV2
   member is accepted because the chain's world is the union of its members' bundles. Rows of two programs answer -521. A
   member that crashes the worker is quarantined and moved to a worker of its own; a death that names no culprit splits the
@@ -299,7 +299,7 @@ lanes with no arrow can run in parallel.
 | L7 (plugin-qualify#158) | plugin-qualify | `adjust --history`, the `history` block in the record, `--pins` writes the adjusted verdict, the table above in `data/` | L1 |
 | L8 (plugin-hostd#190, zynthian-ui has issues off) | zynthian-ui | `sync_chain` through `plan`, the reason in the plugin menu, the old fallback removed | L2 |
 | L9 (openmixer-www#46) | openmixer-www | the benchmark page reads the new fields and shows medians, spreads and the stress rows | L6 |
-| L10 (openmixer#2263) | openmixer (#2263) | run the family on the Pi 5 and the desk, publish the documents | L6, L8, L9 |
+| L10 (console project tracker) | the console project | run the family on the Pi 5 and the desk, publish the documents | L6, L8, L9 |
 | L11 (plugin-hostd#189) | plugin-hostd | turn `grouping` on by default, with the winning `group_max` and `group_cost_max`; a conformance test that reads the published documents and refuses the flip without them | L10 |
 
 The default does not flip before L11, and L11 does not start before L10 has published numbers that meet the acceptance.
