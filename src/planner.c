@@ -46,8 +46,8 @@ static double member_cost(const planner_member_t *m)
 {
     double cost = m->cost;
 
-    if (m->history && m->history->cpu_p95_solo != PLANNER_COST_UNKNOWN &&
-        (cost == PLANNER_COST_UNKNOWN || m->history->cpu_p95_solo > cost))
+    /* PLANNER_COST_UNKNOWN is below every cost, so a solo cost also stands for a qualified one nobody has */
+    if (m->history && m->history->cpu_p95_solo > cost)
         cost = m->history->cpu_p95_solo;
     return cost;
 }
