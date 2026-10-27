@@ -160,6 +160,23 @@ make test-daemon check-generated check-rendered
   plugin-hostd, under mod-host and under jalv, and writes omx-bench/1
   documents; plan and pool modes, xruns, latency, stress and repeats with
   their spread (#188).
+- history_get and history_clear: what each plugin did on this machine, kept
+  per plugin, binary and host class: the worker's CPU time and Pss read
+  from /proc into windows, and its deaths. Settings history_file,
+  history_window_s, history_save_s and host_class (#184).
+- plan, plan_get and plan_clear: the grouping planner, a pure function over
+  the pins and the history that gathers the members of a strip, applies the
+  segments as chains (chain places are chain:<n>.<k>) and keeps the ones
+  that did not change. The reason codes are declared in data/grouping.json
+  and the plan_reason event says why a plan changed. Settings grouping
+  (off by default), group_max, group_cost_max, group_rate and
+  group_quantum (#185).
+- The probe runner copies lv2_measure's latency and cost into the LV2 grid
+  point (#200).
+- README: grouped workers against one process per plugin, measured.
+- CI: superseded pull request runs are cancelled, package and fuzz runs a
+  pull request cannot change are skipped, and build and test has 60
+  minutes (#198).
 - plugin_hostd_vocabulary.h is rendered by omx-contract 3.4.0, which writes
   a reply code's number as an OMX_..._RESP define; the build needs
   omx-contract-devel 3.4.0 or newer and its check stage the omx-contract
