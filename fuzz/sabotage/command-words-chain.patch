@@ -1,4 +1,4 @@
-Breaks the check of fuzz/fuzz_command.c:370 (every member, in the order of the message, and their count).
+Breaks the check of fuzz/fuzz_command.c:375 (every member, in the order of the message, and their count).
 Caught by the seed input "plugin-hostd-chain" of fuzz_command.
 
 diff --git a/src/verbs.c b/src/verbs.c
