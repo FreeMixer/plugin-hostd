@@ -109,6 +109,11 @@ break_unit pins-missing lib/bench.py 'if missing:' 'if False:' Pins.test_a_uri_t
 break_unit conf-grouping lib/bench.py '"pins_dir", "grouping on")' '"pins_dir")' Pins.test_the_conf_of_a_plan_row_turns_pins_and_grouping_on_and_package_pins_off
 break_unit conf-verdict lib/bench.py '"isolated" if u in alone else "in-process"' '"in-process" if u in alone else "isolated"' Pins.test_the_conf_of_a_plan_row_turns_pins_and_grouping_on_and_package_pins_off
 break_unit scenario-strip scenarios.json '"count": 8, "unshared": ["drive"]' '"count": 8, "unshared": ["comp", "delay", "drive"]' Scenarios.test_the_grouping_scenarios_have_all_four_modes_and_a_strip_the_pins_cut
+break_unit table-ratio lib/table.py 'ind[key] / grp[key]' 'grp[key] / ind[key]' Table.test_the_ratios_of_individual_over_chain
+break_unit table-stress lib/table.py 'key = (label(r), r.get("stress", "none") != "none")' 'key = (label(r), False)' Table.test_xruns_are_summed_per_mode_with_and_without_stress
+break_unit table-spread lib/table.py 'if lo != hi:' 'if False:' Table.test_a_spread_shows_beside_its_median
+break_unit table-failed lib/table.py 'if r["status"] != "ok":' 'if False:' Table.test_a_failed_row_is_shown_with_its_reason
+break_unit table-family lib/table.py '(cvp|grp)[0-9]+$' '.*$' Table.test_a_scenario_that_is_not_a_family_is_left_out
 green "unit tests as they are" python3 -I "$here/tests/test_bench.py"
 
 # --- the teardown

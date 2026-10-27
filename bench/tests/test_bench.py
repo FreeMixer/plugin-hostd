@@ -589,6 +589,52 @@ class Scenarios(unittest.TestCase):
             self.assertGreaterEqual(len(single), 2, "%s leaves fewer than two shareable members alone" % sc["id"])
 
 
+table = load("bench_table", os.path.join(BENCH, "lib", "table.py"))
+
+
+def family_doc():
+    def row(mode, stress, procs, rss, pss, cpu, ctx, dsp, xr, **kw):
+        r = run_row(id="cvp8", plugins=["a"] * 8, mode=mode, stress=stress, processes=procs, rss_mb_total=rss,
+                    pss_mb_total=pss, cpu_pct=cpu, ctx_switches=ctx, dsp_load_avg=dsp, dsp_load_max=dsp + 1,
+                    xruns=xr, rss_mb=rss)
+        r.update(kw)
+        return r
+    doc = example()
+    doc["scenarios"] = [
+        row("individual", "none", 9, 880.0, 92.0, 6.0, 20000, 4.8, 0),
+        row("chain", "none", 2, 118.0, 36.0, 4.0, 2800, 3.9, 0),
+        row("individual", "busy4+mem256", 9, 881.0, 92.5, 6.5, 19800, 4.9, 10, repeats=3, spread={"xruns": [4, 18]}),
+        row("chain", "busy4+mem256", 2, 118.0, 36.0, 4.1, 2810, 3.9, 3),
+        row("plan", "none", 0, 0.0, 0.0, 0.0, 0, 0.0, 0, status="failed", note="the plan is one segment"),
+        run_row(id="idle", plugins=[], mode="individual")]
+    return doc
+
+
+class Table(unittest.TestCase):
+    def test_the_ratios_of_individual_over_chain(self):
+        lines = table.ratios(family_doc())
+        self.assertEqual(lines[2], "| cvp8 | 48000/256 | 8 | 9 vs 2 | 7.46x | 2.56x | 1.50x | 7.14x | 1.23x |")
+
+    def test_xruns_are_summed_per_mode_with_and_without_stress(self):
+        lines = table.xrun_sums(family_doc())
+        self.assertIn("| chain | no | 1 | 0 |", lines)
+        self.assertIn("| chain | yes | 1 | 3 |", lines)
+        self.assertIn("| individual | yes | 1 | 10 |", lines)
+
+    def test_a_spread_shows_beside_its_median(self):
+        lines = table.table(family_doc())
+        row = [x for x in lines if "individual | 9 | 881.0" in x][0]
+        self.assertIn("| 10 [4-18] |", row)
+        self.assertTrue(row.endswith("| 3 |"))
+
+    def test_a_failed_row_is_shown_with_its_reason(self):
+        lines = table.table(family_doc())
+        self.assertIn("| cvp8 | 48000/256 | 8 | none | plan | failed: the plan is one segment |", lines)
+
+    def test_a_scenario_that_is_not_a_family_is_left_out(self):
+        self.assertFalse([x for x in table.table(family_doc()) if "idle" in x])
+
+
 class Pins(unittest.TestCase):
     store = ("pin_set clap:/c#comp /c.clap=aa omx-layout/1:11\n"
              "pin_set clap:/x#drive /x.clap=bb omx-layout/1:22 verdict=in-process\n"
