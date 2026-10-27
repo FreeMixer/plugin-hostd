@@ -64,6 +64,28 @@ break_doc extra "${first_ok}[\"dsp\"] = 1"
 red "validator: a field the schema does not declare" "extra.json: scenario .*: scenarios/[0-9]+:additionalProperties" \
     "$here/validate.sh" "$work/extra.json"
 
+# --- the rules the unit tests guard: a copy of bench/ with one line changed must turn the named test red
+break_unit() {  # break_unit <label> <file under bench/> <old> <new> <test name>
+    local copy="$work/unit-$1"
+    cp -r "$here" "$copy"
+    python3 -I - "$copy/$2" "$3" "$4" <<'PY'
+import sys
+p, old, new = sys.argv[1:]
+s = open(p).read()
+assert s.count(old) == 1, "the sabotage did not land: " + old
+open(p, "w").write(s.replace(old, new))
+PY
+    red "unit: $1" "FAIL: ${5##*.}" python3 -I "$copy/tests/test_bench.py" "$5"
+}
+break_unit spread-median lib/validate.py 'elif isinstance(s[field], (int, float)) and not span[0] <= s[field] <= span[1]:' \
+    'elif False:' Schema.test_a_spread_that_does_not_hold_the_median_is_red
+break_unit stress-key lib/validate.py 's.get("rate"), s.get("frames"), s.get("stress", "none"))' \
+    's.get("rate"), s.get("frames"))' Schema.test_the_same_row_with_and_without_stress_are_two_rows
+break_unit stress-xruns lib/validate.py 'and s.get("status") == "ok" and "xruns" not in s:' 'and False:' \
+    Schema.test_a_stressed_row_without_xruns_is_red
+break_unit spread-repeats lib/validate.py 'if s.get("repeats", 1) < 2:' 'if False:' Schema.test_a_spread_of_one_run_is_red
+green "unit tests as they are" python3 -I "$here/tests/test_bench.py"
+
 # --- the teardown
 if [ "${1:-}" = "--teardown" ]; then
     sabotage() {  # sabotage <name> <old> <new>: a copy of bench/ with one line of the runner changed
