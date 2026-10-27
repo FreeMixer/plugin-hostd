@@ -18,8 +18,8 @@ BuildRequires: python3
 BuildRequires: mod-host-protocol-devel >= 0.10.6.f14a230-11
 # the probe runner's default rates, the protocol's parameter scales and the probe output's shared words are read from
 # omx-contract's C headers, the format tables are items of its schema 3, and the daemon's verbs are a verbs item
-# (3.3.0 is the first with the verbs kind); a floor only
-BuildRequires: omx-contract-devel >= 3.3.0
+# (3.3.0 is the first with the verbs kind, 3.4.0 the first that renders a reply code's resp); a floor only
+BuildRequires: omx-contract-devel >= 3.4.0
 # a command of exactly the socket's buffer size, or several commands in one read, needs mod-audio/mod-host#113:
 # FreeMixer's build carrying it (11.1.fmx) or audinux's once it carries it (12); a floor only
 Requires: mod-host-protocol%{?_isa} >= 0.10.6.f14a230-11.1
@@ -31,7 +31,7 @@ Requires: mod-host-protocol%{?_isa} >= 0.10.6.f14a230-11.1
 %if %{with check}
 BuildRequires: omx-clap-host-tests >= 0.21.0
 # the reader that holds the committed render of the daemon's verbs to data/verbs.json (make check-rendered)
-BuildRequires: omx-contract >= 3.3.0
+BuildRequires: omx-contract >= 3.4.0
 # the shared verbs and the reply.host.* codes data/verbs.json refers to (make check-rendered, test-verbs-declared)
 BuildRequires: omx-clap-core-contract >= 0.22.0
 %endif

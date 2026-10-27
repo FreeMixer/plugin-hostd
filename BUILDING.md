@@ -10,7 +10,7 @@ missing. The daemon needs libc and that library and nothing else.
 
 The probe runner and the protocol generator also read omx-contract's C headers,
 `<omxcontract/omx_contract_limits.h>` and `<omxcontract/omx_vocabulary.h>`, from
-`pkg-config omx-contract` (`omx-contract-devel`, `libomx-contract-dev`, 3.3.0 or
+`pkg-config omx-contract` (`omx-contract-devel`, `libomx-contract-dev`, 3.4.0 or
 later; `CONTRACT_CFLAGS=-I<dir>` for one that is not installed). The runner's
 default rates are the contract's `ORACLE_FLOOR_RATES`, and the generator refuses
 to build or run when the protocol's parameter scales are not the contract's
@@ -50,7 +50,7 @@ The daemon's verbs
 ------------------
 
 The verbs the daemon adds to mod-host's protocol, and the codes they answer, are declared in `data/verbs.json`, a
-`verbs` item of omx-contract's contract directory (schema 3.3.0 or later). `omx-contract render` writes them into
+`verbs` item of omx-contract's contract directory (schema 3.4.0 or later). `omx-contract render` writes them into
 `include/plugin-hostd/plugin_hostd_host_verbs.h` and `plugin_hostd_vocabulary.h`, which are committed and which
 `protocol.h` includes: `make render-verbs` rewrites them and `make check-rendered` fails on any drift. Both run the
 `omx-contract` command (package `omx-contract`); the build itself does not. A refusal number omx-clap-host answers
