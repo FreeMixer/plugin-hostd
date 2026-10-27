@@ -269,6 +269,22 @@ int main(int argc, char **argv)
                "\"syscallsInRun\":0,\"events\":[]}", block, atol(getenv("PROBE_CHILD_NOTE_ALLOCATIONS")));
     else
         printf(",\"noteSweep\":{\"applicable\":false}");
-    printf("}}\n");
+    printf("}");
+    /* the latency and cost lv2_measure prints at the run's rate: PROBE_CHILD_LATENCY "declared,measured", or "silent" for a
+     * response that never came; the cost is the same fixed figures in the CLAP prober's shape */
+    if (getenv("PROBE_CHILD_LATENCY"))
+    {
+        const char *l = getenv("PROBE_CHILD_LATENCY");
+        unsigned decl = 0, meas = 0;
+
+        if (sscanf(l, "%u,%u", &decl, &meas) == 2)
+            printf(",\"latency\":{\"%.0f\":{\"declaredFrames\":%u,\"declaredFrom\":\"port\",\"measuredFrames\":%u}}", rate, decl, meas);
+        else
+            printf(",\"latency\":{\"%.0f\":{\"declaredFrames\":0,\"declaredFrom\":\"none\",\"unmeasuredReason\":\"silent-output\","
+                   "\"unmeasuredDetail\":\"the impulse never came out\"}}", rate);
+        printf(",\"cost\":{\"stimulus\":\"noise\",\"blockFrames\":%u,\"warmupBlocks\":64,\"percentile\":95,\"perRate\":{\"%.0f\":"
+               "{\"nsPerSampleMedian\":1.5,\"nsPerSampleP95\":2.5,\"nsPerSampleMin\":1,\"nsPerSampleMax\":9,\"blocks\":512}}}", block, rate);
+    }
+    printf("}\n");
     return 0;
 }
