@@ -411,6 +411,19 @@ def main():
             if verb + rest != shared[verb]["format"]:
                 fail("protocol.h's %s_FMT is %r, omx-clap-core declares %r" % (macro, verb + rest, shared[verb]["format"]))
     print("ok   protocol.h names %d formats of the shared verbs, as omx-clap-core declares them" % named)
+    # the line a worker writes on its feedback port that the daemon reads is omx-clap-core's HOST_EVENTS word
+    events = {}
+    for doc in docs:
+        item = doc.get("HOST_EVENTS")
+        if isinstance(item, dict) and item.get("kind") == "words":
+            events = {k: w["word"] for k, w in item["words"].items()}
+    xruns = re.search(r'^#define\s+PHD_EVENT_XRUNS\s+"(\w+)"', header, re.M)
+    if "xruns" not in events:
+        fail("omx-clap-core declares no HOST_EVENTS.xruns: the daemon reads that line (%s)" % own_docs[0]["requires"].get("omx-clap-core"))
+    elif not xruns or xruns.group(1) != events["xruns"]:
+        fail("protocol.h's PHD_EVENT_XRUNS is %r, omx-clap-core's HOST_EVENTS.xruns is %r" % (xruns and xruns.group(1), events["xruns"]))
+    else:
+        print("ok   protocol.h reads the worker's %s line, as omx-clap-core's HOST_EVENTS declares it" % events["xruns"])
     print("plugin-hostd declares %d verbs, %d of them owed by plugin-hostd" %
           (len(own), len([v for v in own if owes(own[v], HOSTD)])))
 
