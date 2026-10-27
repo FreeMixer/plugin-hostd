@@ -256,6 +256,105 @@ def connected(env, a, b):
     return b in run(["jack_lsp", "-c", a], env).split()
 
 
+class JackProbe:
+    """a JACK client of the private server that counts its xruns and reads the latency JACK reports. It registers no
+    port and no process callback, so it adds nothing to the cycle it watches. `lib` is libjack, or a stand-in in the
+    unit tests."""
+
+    NO_START = 0x01  # JackNoStartServer
+    SERVER_NAME = 0x04  # JackServerName
+    CAPTURE = 0  # JackCaptureLatency
+
+    class Range(ctypes.Structure):
+        _fields_ = [("min", ctypes.c_uint32), ("max", ctypes.c_uint32)]
+
+    def __init__(self, server, lib=None, name="omx-bench-probe"):
+        if lib is None:
+            for so in ("libjack.so.0", "libjack.so"):
+                try:
+                    lib = ctypes.CDLL(so, use_errno=True)
+                    break
+                except OSError:
+                    pass
+            else:
+                raise SystemExit("bench: libjack is needed to count xruns (package jackd2)")
+        self.lib = lib
+        self.total = 0
+        self._bind()
+        status = ctypes.c_int(0)
+        self.client = lib.jack_client_open(name.encode(), self.NO_START | self.SERVER_NAME, ctypes.byref(status),
+                                           server.encode())
+        if not self.client:
+            raise SystemExit("bench: cannot open a JACK client on server %s (status %d)" % (server, status.value))
+        self._callback = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_void_p)(self._on_xrun)
+        if lib.jack_set_xrun_callback(self.client, self._callback, None) != 0:
+            raise SystemExit("bench: cannot set the xrun callback on server %s" % server)
+        if lib.jack_activate(self.client) != 0:
+            raise SystemExit("bench: cannot activate the xrun probe on server %s" % server)
+
+    def _bind(self):
+        lib = self.lib
+        vp, ci = ctypes.c_void_p, ctypes.c_int
+        for name, res, args in (
+                ("jack_client_open", vp, [ctypes.c_char_p, ci, ctypes.POINTER(ci), ctypes.c_char_p]),
+                ("jack_set_xrun_callback", ci, [vp, vp, vp]),
+                ("jack_activate", ci, [vp]),
+                ("jack_deactivate", ci, [vp]),
+                ("jack_client_close", ci, [vp]),
+                ("jack_port_by_name", vp, [vp, ctypes.c_char_p]),
+                ("jack_recompute_total_latencies", ci, [vp]),
+                ("jack_port_get_latency_range", None, [vp, ci, ctypes.POINTER(self.Range)])):
+            fn = getattr(lib, name)
+            try:
+                fn.restype, fn.argtypes = res, args
+            except AttributeError:
+                pass  # a stand-in function, not a ctypes one
+
+    def _on_xrun(self, _arg):
+        self.total += 1
+        return 0
+
+    def count(self):
+        """xruns since the probe opened"""
+        return self.total
+
+    def latency_frames(self, port):
+        """the capture latency JACK reports at an input port, in frames, the longest of its range: the delay from
+        the sources to the port as the clients on the path declared it; None when the port is not there"""
+        p = self.lib.jack_port_by_name(self.client, port.encode())
+        if not p:
+            return None
+        self.lib.jack_recompute_total_latencies(self.client)
+        rng = self.Range()
+        self.lib.jack_port_get_latency_range(p, self.CAPTURE, ctypes.byref(rng))
+        return int(rng.max)
+
+    def close(self):
+        if self.client:
+            self.lib.jack_deactivate(self.client)
+            self.lib.jack_client_close(self.client)
+            self.client = None
+
+
+def jack_log_xruns(path, offset):
+    """lines of the JACK server's own log from offset on that name an xrun, and the new end of the file"""
+    try:
+        with open(path, "rb") as f:
+            f.seek(offset)
+            raw = f.read()
+    except OSError:
+        return 0, offset
+    return sum(1 for line in raw.decode(errors="replace").splitlines() if "xrun" in line.lower()), offset + len(raw)
+
+
+def window_xruns(counted, logged):
+    """the xruns of one window: what the probe counted, unless the server's own log names xruns the probe never
+    heard, which would mean the probe is deaf and every row would read 0"""
+    if counted == 0 and logged > 0:
+        raise Failed("jackd logged %d xrun line(s) in the window and the probe counted none" % logged)
+    return counted
+
+
 # ---------------------------------------------------------------- the protocol
 
 
@@ -632,6 +731,9 @@ class Runner:
             self.env["LV2_PATH"] = ":".join([args.pianoteq_dir] + [d for d in lv2_dirs() if os.path.isdir(d)])
         self.saved_governor = {}
         self.jackd = None
+        self.probe = None
+        self.jack_log = None
+        self.jack_log_end = 0
         self.port = 5700
 
     # -- governor
@@ -668,8 +770,14 @@ class Runner:
                 raise SystemExit("bench: the private JACK server did not start at %d Hz / %d frames (see %s)"
                                  % (rate, frames, self.logdir))
             time.sleep(0.1)
+        self.probe = JackProbe(self.server)
+        self.jack_log = os.path.join(self.logdir, "jackd-%d-%d.log" % (rate, frames))
+        self.jack_log_end = jack_log_xruns(self.jack_log, 0)[1]
 
     def jack_stop(self):
+        if self.probe:
+            self.probe.close()
+            self.probe = None
         if self.jackd:
             self.procs.stop(self.jackd)
             self.jackd = None
@@ -787,7 +895,11 @@ class Runner:
             pids = host.pids()
             before = samples(pids)
             t_start = time.monotonic()
+            x_before = self.probe.count()
+            self.jack_log_end = jack_log_xruns(self.jack_log, self.jack_log_end)[1]
             loads = self.dsp_window(self.args.window)
+            logged, self.jack_log_end = jack_log_xruns(self.jack_log, self.jack_log_end)
+            r["xruns"] = window_xruns(self.probe.count() - x_before, logged)
             after = samples(pids)
             span = time.monotonic() - t_start
             if not host.pids() or any(not alive(p) for p in pids):
@@ -811,6 +923,7 @@ class Runner:
             invol = sum(after[p]["invol"] - before[p]["invol"] for p in common)
             r["ctx_switches"] = vol + invol
             r["ctx_involuntary"] = invol
+            r["latency_frames"] = self.probe.latency_frames("system:playback_1")
             r["status"] = "ok"
 
             if s.get("kill"):

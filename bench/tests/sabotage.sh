@@ -84,6 +84,11 @@ break_unit stress-key lib/validate.py 's.get("rate"), s.get("frames"), s.get("st
 break_unit stress-xruns lib/validate.py 'and s.get("status") == "ok" and "xruns" not in s:' 'and False:' \
     Schema.test_a_stressed_row_without_xruns_is_red
 break_unit spread-repeats lib/validate.py 'if s.get("repeats", 1) < 2:' 'if False:' Schema.test_a_spread_of_one_run_is_red
+break_unit probe-count lib/bench.py 'self.total += 1' 'self.total += 0' Xruns.test_the_probe_counts_what_jack_reports
+break_unit probe-server lib/bench.py 'self.NO_START | self.SERVER_NAME' 'self.SERVER_NAME' Xruns.test_the_probe_joins_the_private_server_only
+break_unit probe-deaf lib/bench.py 'if counted == 0 and logged > 0:' 'if False:' Xruns.test_a_deaf_probe_is_failed_not_zero
+break_unit probe-latency lib/bench.py 'return int(rng.max)' 'return int(rng.min)' Xruns.test_the_latency_is_the_longest_of_the_range
+break_unit log-offset lib/bench.py 'f.seek(offset)' 'f.seek(0)' Xruns.test_the_servers_log_counts_new_xrun_lines_only
 green "unit tests as they are" python3 -I "$here/tests/test_bench.py"
 
 # --- the teardown
