@@ -8,6 +8,7 @@
  */
 
 #include <math.h>
+#include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -79,6 +80,15 @@ static void the_larger_of_two_records_of_one_plugin_stands(void)
     CHECK(fabs(c - 0.48) < 1e-12, "10000 ns beats 2000 ns: %g", c);
 }
 
+/* whichever of the two files the directory lists first holds the smaller figure, so a reader that keeps the first record
+ * it meets gives 2000 ns and not 10000 */
+static void the_larger_record_stands_whichever_the_directory_lists_first(void)
+{
+    double c = qualcost_read(g_dir, "org.example.d", 48000, 128);
+
+    CHECK(fabs(c - 0.48) < 1e-12, "10000 ns beats 2000 ns, listed first or last: %g", c);
+}
+
 static void a_record_of_another_plugin_is_not_this_ones(void)
 {
     CHECK(qualcost_read(g_dir, "org.example.c", 48000, 128) == -1.0, "c has no record");
@@ -103,6 +113,7 @@ static const struct { const char *name; void (*fn)(void); } g_tests[] = {
     T(the_figure_is_the_p95_at_the_rate_and_quantum_as_a_fraction_of_a_core),
     T(a_rate_or_quantum_the_record_lacks_is_unknown),
     T(the_larger_of_two_records_of_one_plugin_stands),
+    T(the_larger_record_stands_whichever_the_directory_lists_first),
     T(a_record_of_another_plugin_is_not_this_ones),
     T(a_file_that_is_no_record_is_skipped),
     T(a_directory_that_is_not_there_gives_no_figure),
@@ -122,6 +133,30 @@ int main(int argc, char **argv)
     record("org.example.b@1.0-bbbbbbbbbbbb.default.qualification.json", "org.example.b", 48000, 128, 2000);
     record("org.example.b@2.0-cccccccccccc.default.qualification.json", "org.example.b", 48000, 128, 10000);
     record("org.example.liar@1.0-dddddddddddd.default.qualification.json", "org.example.other", 48000, 128, 5000);
+    {
+        /* two records of one plugin: the one the directory lists first is made the smaller */
+        const char *names[2] = { "org.example.d@1.0-111111111111.default.qualification.json",
+                                 "org.example.d@2.0-222222222222.default.qualification.json" };
+        char first[300] = "";
+        struct dirent *e;
+        DIR *d;
+        int k;
+
+        record(names[0], "org.example.d", 48000, 128, 2000);
+        record(names[1], "org.example.d", 48000, 128, 2000);
+        if (!(d = opendir(g_dir)))
+            return 2;
+        while ((e = readdir(d)) != NULL)
+            if (!strncmp(e->d_name, "org.example.d@", 14))
+            {
+                snprintf(first, sizeof(first), "%s", e->d_name);
+                break;
+            }
+        closedir(d);
+        for (k = 0; k < 2; k++)
+            if (strcmp(first, names[k]))
+                record(names[k], "org.example.d", 48000, 128, 10000);
+    }
     put("org.example.junk@1.0-eeeeeeeeeeee.default.qualification.json", "{not json");
     put("org.example.empty@1.0-ffffffffffff.default.qualification.json", "");
     for (n = 0; n < sizeof(g_tests) / sizeof(g_tests[0]); n++)

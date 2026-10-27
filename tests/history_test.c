@@ -508,16 +508,15 @@ static void test_the_file(void)
     group("the_history_file_is_mode_0600_in_a_private_directory_with_no_temporary_beside_it");
 }
 
+/* A save that fails has to fail for root too, so the directory is not made unwritable (root writes it anyway): the name
+ * of the history file is taken by a directory that is not empty, and renaming the finished temporary file over it is
+ * refused. */
 static void test_a_failed_save(void)
 {
-    char *before, *after;
+    char *before, *after, stray[420], cmd[900], l[32] = "";
+    struct stat st;
+    FILE *p;
 
-    if (geteuid() == 0)
-    {
-        printf("skip history: a failed save needs a directory root can't write to\n");
-        printf("ok   a_save_that_fails_leaves_the_old_file_whole_and_is_tried_again\n");
-        return;
-    }
     fresh();
     start();
     history_tick(0);
@@ -526,12 +525,24 @@ static void test_a_failed_save(void)
     before = file_text();
     check(strlen(before) > strlen(HEADER), "the first save wrote the record");
     history_window(URI, DIGEST, 0, 2.0, 2.0, 0, 70);
-    chmod(dir, 0500);
+    snprintf(stray, sizeof(stray), "%s/stray", file);
+    if (unlink(file) != 0 || mkdir(file, 0700) != 0)
+    {
+        printf("FAIL history: test can't put a directory in the history's place\n");
+        exit(2);
+    }
+    put(stray, "x");
     history_tick(1000);
-    chmod(dir, 0700);
-    after = file_text();
-    check_str(after, before, "a save that can't write leaves the old file as it was");
-    free(after);
+    check(stat(file, &st) == 0 && S_ISDIR(st.st_mode), "a save that can't write leaves what was there as it was");
+    snprintf(cmd, sizeof(cmd), "ls -A '%s' | wc -l", dir);
+    p = popen(cmd, "r");
+    if (p && fgets(l, sizeof(l), p))
+        check(atoi(l) == 1, "a failed save leaves no temporary file behind");
+    if (p)
+        pclose(p);
+    unlink(stray);
+    rmdir(file);
+    put(file, before);
     history_tick(1299);
     after = file_text();
     check_str(after, before, "a failed save is tried again after the interval, not at every tick");
