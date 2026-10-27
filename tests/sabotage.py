@@ -13,7 +13,7 @@ FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "
 # an LV2 bundle (MOD_HOST, LV2_DIR, LV2_URI, LV2_BUNDLE, LV2_PARAM) and is skipped without them; "pin" breaks
 # include/plugin-hostd/pin.h and runs tests/pin_test.c; "readme" breaks README.md or BUILDING.md and runs
 # tests/readme_build.py, with no daemon to build; "probeschema" breaks protocol/probe-output.schema.json and runs
-# tests/probe_schema.py; "relay" breaks src/relay.c and runs tests/relay_test.c; "alloc" breaks src/relay.c or src/lv2.c and runs make test-alloc; "contract" breaks the probe runner or the generator and runs tests/contract_derived.py; "consumer" breaks the header and compiles tests/consumer.c against it; "probe" breaks src/probe.c and runs tests/probe_test.py; "nopins" breaks the packaging or a workflow and runs tests/no_pins.py; "ciguards" breaks a workflow and runs tests/ci_guards.py;
+# tests/probe_schema.py; "relay" breaks src/relay.c and runs tests/relay_test.c; "history" breaks src/history.c or src/fsutil.c and runs tests/history_test.c; "proc" breaks src/proc.c and runs tests/proc_test.c; "alloc" breaks src/relay.c or src/lv2.c and runs make test-alloc; "contract" breaks the probe runner or the generator and runs tests/contract_derived.py; "consumer" breaks the header and compiles tests/consumer.c against it; "probe" breaks src/probe.c and runs tests/probe_test.py; "nopins" breaks the packaging or a workflow and runs tests/no_pins.py; "ciguards" breaks a workflow and runs tests/ci_guards.py;
 # "vocabulary" breaks the probe schema, its template or a copy of omx-contract's omx-vocabulary.schema.json and runs
 # tests/vocabulary_derived.py; "verbtable" breaks the header and runs tests/verb_table.py; "presetschema" breaks
 # protocol/preset.schema.json and runs tests/preset_format.py
@@ -580,8 +580,8 @@ SABOTAGE = [
      '            put(&buf, &used, &cap, "%s%d", any++ ? "," : "", c->ids[k]);',
      "chain_get_reads_a_chain_back_as_declared_and_as_it_runs"),
     ('an unknown member of a chain is refused without its named code', "src/supervisor.c",
-     '            return sup_resp(PHD_ERR_CHAIN_UNKNOWN_INSTANCE);',
-     '            return sup_resp(ERR_INSTANCE_NON_EXISTS);',
+     '            return sup_resp(PHD_ERR_CHAIN_UNKNOWN_INSTANCE);\n        for (m = 0; m < k; m++)',
+     '            return sup_resp(ERR_INSTANCE_NON_EXISTS);\n        for (m = 0; m < k; m++)',
      "a_chain_is_declared_over_existing_instances_and_each_refusal_is_named"),
     ('an instance named twice is a chain', "src/supervisor.c",
      '            if (ids[m] == ids[k])\n                return sup_resp(PHD_ERR_CHAIN_DUPLICATE);',
@@ -664,7 +664,8 @@ SABOTAGE = [
      "#define PHD_CHAIN_MEMBERS_MIN    1\n", "#define PHD_CHAIN_MEMBERS_MIN    2\n",
      "a_chain_of_one_runs_in_a_worker_of_its_own_and_a_chain_of_none_is_refused"),
     ("the grammar of chain asks two members, not the declared floor", "src/verbs.c",
-     "if (ntok < 2 + PHD_CHAIN_MEMBERS_MIN || ", "if (ntok < 4 || ",
+     "if (ntok < 2 + PHD_CHAIN_MEMBERS_MIN || !number(tok[1], &id))\n        return sup_resp(ERR_INVALID_OPERATION);\n    for (n = 2; n < ntok; n++)\n        if (!number(tok[n], &ids[n - 2]))\n            return sup_resp(ERR_INVALID_OPERATION);\n    return sup_chain(",
+     "if (ntok < 4 || !number(tok[1], &id))\n        return sup_resp(ERR_INVALID_OPERATION);\n    for (n = 2; n < ntok; n++)\n        if (!number(tok[n], &ids[n - 2]))\n            return sup_resp(ERR_INVALID_OPERATION);\n    return sup_chain(",
      "a_chain_of_one_runs_in_a_worker_of_its_own_and_a_chain_of_none_is_refused"),
     ("the supervisor asks two members of a chain, not the declared floor", "src/supervisor.c",
      "|| n < PHD_CHAIN_MEMBERS_MIN)", "|| n < 2)",
@@ -752,6 +753,426 @@ SABOTAGE = [
      "    if (!strcmp(verb, OMX_VERB_WORKER_LIST))\n", "verbs_declared", "verbs"),
     ("a declared verb is typed by hand in the daemon", "src/verbs.c",
      "if (!strcmp(verb, OMX_VERB_CHAIN_GET))", 'if (!strcmp(verb, "chain_get"))', "verbs_contract", "verbs"),
+    ('the history file is left readable by others', 'src/history.c',
+     '    ok = fflush(file) == 0 && !ferror(file) && fsync(fileno(file)) == 0;',
+     '    fchmod(fileno(file), 0644);\n    ok = fflush(file) == 0 && !ferror(file) && fsync(fileno(file)) == 0;',
+     'the_history_file_is_mode_0600_in_a_private_directory_with_no_temporary_beside_it', "history"),
+    ("the history's directories are made world readable", 'src/fsutil.c',
+     'mkdir(path, 0700)',
+     'mkdir(path, 0755)',
+     'the_history_file_is_mode_0600_in_a_private_directory_with_no_temporary_beside_it', "history"),
+    ('a line this version cannot read is dropped by the next save', 'src/history.c',
+     '            held_add(line, n);\n        }\n        else if (rec_at(',
+     '        }\n        else if (rec_at(',
+     'a_line_outside_the_grammar_is_kept_verbatim_and_not_read', "history"),
+    ('a second line of one binary is dropped by the next save', 'src/history.c',
+     '            rec_free(&rec);\n            held_add(line, n);',
+     '            rec_free(&rec);',
+     'a_second_line_of_one_binary_and_class_is_kept_and_not_read', "history"),
+    ('a negative count is read', 'src/history.c',
+     "if (!*text || *text == '-' || ",
+     "if (!*text || ",
+     'a_line_outside_the_grammar_is_kept_verbatim_and_not_read', "history"),
+    ('a decimal that is not a number is read', 'src/history.c',
+     'if (*end || errno || !isfinite(v))',
+     'if (*end || errno)',
+     'a_line_outside_the_grammar_is_kept_verbatim_and_not_read', "history"),
+    ('a key twice in one line is read', 'src/history.c',
+     '(seen & (1u << key)) || ',
+     '(seen & 0) || ',
+     'a_line_outside_the_grammar_is_kept_verbatim_and_not_read', "history"),
+    ('a digest that is not a digest is read', 'src/history.c',
+     '!phd_pin_hex_valid(tok[2]))',
+     '0)',
+     'a_line_outside_the_grammar_is_kept_verbatim_and_not_read', "history"),
+    ('a file of another version is read', 'src/history.c',
+     'if (n != strlen(PHD_HISTORY_HEADER) || strncmp(line, PHD_HISTORY_HEADER, n))',
+     'if (0)',
+     'a_file_with_an_unknown_version_or_that_cannot_be_read_blocks_the_history_and_is_never_touched', "history"),
+    ('a blocked history is cleared', 'src/history.c',
+     '    if (!g_started || g_blocked)\n        return -1;',
+     '    if (!g_started)\n        return -1;',
+     'a_file_with_an_unknown_version_or_that_cannot_be_read_blocks_the_history_and_is_never_touched', "history"),
+    ("the file's header is not written", 'src/history.c',
+     '    fprintf(file, "%s\\n", PHD_HISTORY_HEADER);\n',
+     '',
+     'a_record_round_trips_through_its_file_value_for_value', "history"),
+    ('the pss is written to two decimals', 'src/history.c',
+     '"%c%s=%.1f"',
+     '"%c%s=%.2f"',
+     'a_record_round_trips_through_its_file_value_for_value', "history"),
+    ('a restart of a plugin alone is counted', 'src/history.c',
+     'history_rec_t *r = grouped ? rec_get(uri, digest) : NULL;',
+     'history_rec_t *r = ((void)grouped, rec_get(uri, digest));',
+     'a_record_round_trips_through_its_file_value_for_value', "history"),
+    ('the cpu estimate moves up and down by one half', 'src/history.c',
+     '0.95 * step : -0.05 * step',
+     '0.5 * step : -0.5 * step',
+     'windows_fold_alone_and_in_a_group_into_their_own_fields', "history"),
+    ("a group's window is folded into the plugin's own cpu", 'src/history.c',
+     '    if (grouped)\n    {\n        r->windows_grouped++;',
+     '    if (!grouped)\n    {\n        r->windows_grouped++;',
+     'windows_fold_alone_and_in_a_group_into_their_own_fields', "history"),
+    ('a space in a uri makes a record', 'src/history.c',
+     ' || strpbrk(uri, " \\t\\r\\n")',
+     '',
+     'a_key_that_is_not_a_plugin_binary_makes_no_record', "history"),
+    ('a digest that is not one makes a record', 'src/history.c',
+     '|| !phd_pin_hex_valid(digest) ',
+     '',
+     'a_key_that_is_not_a_plugin_binary_makes_no_record', "history"),
+    ('a crash 30 days old no longer counts', 'src/history.c',
+     'now - last <= (long long)PHD_HISTORY_KEEP_DAYS',
+     'now - last < (long long)PHD_HISTORY_KEEP_DAYS',
+     'the_summary_marks_crashes_and_raised_xruns_at_the_declared_margins', "history"),
+    ('the xrun margin is not strict', 'src/history.c',
+     'return 100 * xg * ws > 100 * xs * wg',
+     'return 100 * xg * ws >= 100 * xs * wg',
+     'the_summary_marks_crashes_and_raised_xruns_at_the_declared_margins', "history"),
+    ('thirty windows are too few', 'src/history.c',
+     'if (wg < PHD_HISTORY_MIN_WINDOWS)',
+     'if (wg <= PHD_HISTORY_MIN_WINDOWS)',
+     'the_summary_marks_crashes_and_raised_xruns_at_the_declared_margins', "history"),
+    ('the xrun floor of a plugin that never ran alone is not strict', 'src/history.c',
+     'return 100 * xg > (long long)PHD_HISTORY_XRUN_MARGIN_PCT * wg;',
+     'return 100 * xg >= (long long)PHD_HISTORY_XRUN_MARGIN_PCT * wg;',
+     'the_summary_marks_crashes_and_raised_xruns_at_the_declared_margins', "history"),
+    ("another host class's record is read as this one's", 'src/history.c',
+     '            !strcmp(g_entry[n].rec.klass, klass))',
+     '            klass != NULL)',
+     'a_record_of_another_host_class_is_kept_and_never_read_as_this_ones', "history"),
+    ('a clear leaves the lines it could not read', 'src/history.c',
+     'g_entry[n].raw ? raw_names(g_entry[n].raw, uri) :',
+     'g_entry[n].raw ? raw_names(g_entry[n].raw, "") :',
+     'clear_removes_a_plugins_lines_of_every_binary_and_class_or_all_of_them_at_once', "history"),
+    ('the history is saved at every tick', 'src/history.c',
+     'if (g_dirty && now - g_saved_at >= g_save_s)',
+     'if (g_dirty)',
+     'the_history_is_saved_at_most_once_per_interval_and_at_quit', "history"),
+    ('a failed save forgets the change', 'src/history.c',
+     '    g_saved_at = now;\n    if (file_write() == 0)\n        g_dirty = 0;',
+     '    g_saved_at = now;\n    file_write();\n    g_dirty = 0;',
+     'a_save_that_fails_leaves_the_old_file_whole_and_is_tried_again', "history"),
+    ('the state home is not looked at', 'src/history.c',
+     '    else if (state && *state)',
+     '    else if (0 && state && *state)',
+     'the_default_path_is_the_xdg_state_home_then_home_and_history_file_overrides_both', "history"),
+    ('history_file does not override', 'src/history.c',
+     '    if (*configured)\n        snprintf(g_path, sizeof(g_path), "%s", configured);\n    else if',
+     '    if (0)\n        snprintf(g_path, sizeof(g_path), "%s", configured);\n    else if',
+     'the_default_path_is_the_xdg_state_home_then_home_and_history_file_overrides_both', "history"),
+    ("the stat line's fields are counted from the first parenthesis", 'src/proc.c',
+     "const char *p = strrchr(text, ')');",
+     "const char *p = strchr(text, ')');",
+     "proc_test", "proc"),
+    ('utime is read from the field before it', 'src/proc.c',
+     'if (field != 14 && field != 15)',
+     'if (field != 13 && field != 14)',
+     "proc_test", "proc"),
+    ('Pss_Anon is taken for Pss', 'src/proc.c',
+     'if (!strncmp(p, "Pss:", 4))',
+     'if (!strncmp(p, "Pss", 3))',
+     "proc_test", "proc"),
+    ('a Pss that is not a number is taken for 0', 'src/proc.c',
+     'if (end == p + 4 || v < 0 || strncmp(end, " kB", 3))',
+     'if (v < 0 || strncmp(end, " kB", 3))',
+     "proc_test", "proc"),
+    ('CPU time is counted in ticks, not seconds', 'src/proc.c',
+     '*seconds = (double)(u + s) / (double)hz;',
+     '*seconds = (double)(u + s);',
+     "proc_test", "proc"),
+    ('a machine of 8 cores is in the band of 9 to 16', 'src/machine.c',
+     'ncpu <= 8 ?',
+     'ncpu < 8 ?',
+     "the_host_class_is_arch_cores_clock_with_the_contracts_bands_cut_where_the_contract_cuts_them", "history"),
+    ('a clock of 2.5 GHz is in the band under it', 'src/machine.c',
+     'khz < 2500000 ?',
+     'khz <= 2500000 ?',
+     "the_host_class_is_arch_cores_clock_with_the_contracts_bands_cut_where_the_contract_cuts_them", "history"),
+    ('the class is cores/arch/clock', 'src/machine.c',
+     'n = snprintf(out, size, "%s/%s/%s", u.machine, core, clock);',
+     'n = snprintf(out, size, "%s/%s/%s", core, u.machine, clock);',
+     "the_host_class_is_arch_cores_clock_with_the_contracts_bands_cut_where_the_contract_cuts_them", "history"),
+    ('a class that does not fit is cut', 'src/machine.c',
+     'return n > 0 && (size_t)n < size ? 0 : -1;',
+     'return n > 0 ? 0 : -1;',
+     "the_host_class_is_arch_cores_clock_with_the_contracts_bands_cut_where_the_contract_cuts_them", "history"),
+    ('the first interval is over before it began', 'src/history.c',
+     'if (g_saved_at < 0)\n        g_saved_at = now;',
+     'if (g_saved_at < 0)\n        g_saved_at = now - g_save_s;',
+     'the_history_is_saved_at_most_once_per_interval_and_at_quit', "history"),
+    ('a plugin alone in a worker is counted as a group', 'src/supervisor.c',
+     'int n, grouped = w->ninst >= 2;',
+     'int n, grouped = w->ninst >= 1;',
+     'a_pinned_plugin_leaves_a_record_of_its_windows_alone_and_in_a_group'),
+    ('a window never closes', 'src/supervisor.c',
+     '    if (now - w->hist_start_ms < window_ms)\n        return;',
+     '    if (1)\n        return;',
+     'a_pinned_plugin_leaves_a_record_of_its_windows_alone_and_in_a_group'),
+    ('the Pss is taken for MiB when it is kB', 'src/supervisor.c',
+     '(double)pss_kb / 1024.0',
+     '(double)pss_kb',
+     'a_pinned_plugin_leaves_a_record_of_its_windows_alone_and_in_a_group'),
+    ('a file is written at no save', 'src/supervisor.c',
+     '    history_tick(now / 1000);\n',
+     '',
+     'a_pinned_plugin_leaves_a_record_of_its_windows_alone_and_in_a_group'),
+    ('the history is not written at quit', 'src/main.c',
+     '    sup_finish();\n    history_finish();',
+     '    sup_finish();',
+     'the_history_is_written_when_the_daemon_quits_and_found_again_by_the_next_one'),
+    ('a crash of a worker of its own is counted as a crash of a group', 'src/supervisor.c',
+     'hist_crash(w->inst[0]->uri, 0);',
+     'hist_crash(w->inst[0]->uri, 1);',
+     'crashes_restarts_and_quarantines_are_counted_for_the_plugin_that_earned_them'),
+    ('the culprit of a pool is counted as a crash alone', 'src/supervisor.c',
+     'hist_crash(culprit->uri, w->ninst >= 2);',
+     'hist_crash(culprit->uri, 0);',
+     'crashes_restarts_and_quarantines_are_counted_for_the_plugin_that_earned_them'),
+    ('the culprit is also counted as a restart', 'src/supervisor.c',
+     '        if (members[n] != blamed)',
+     '        if (1)',
+     'crashes_restarts_and_quarantines_are_counted_for_the_plugin_that_earned_them'),
+    ('the members of a group that went down are not counted', 'src/supervisor.c',
+     '            hist_restart(members[n]->uri, 1);',
+     '            ;',
+     'crashes_restarts_and_quarantines_are_counted_for_the_plugin_that_earned_them'),
+    ('a quarantine is not counted', 'src/supervisor.c',
+     '        hist_quarantine(i->uri);\n    }\n    /* the culprit of a chain',
+     '    }\n    /* the culprit of a chain',
+     'crashes_restarts_and_quarantines_are_counted_for_the_plugin_that_earned_them'),
+    ('a window of less than half counts at a death', 'src/supervisor.c',
+     'if (now - w->hist_start_ms >= window_ms / 2 && proc_cpu_seconds(w->pid, &cpu) == 0)',
+     'if (proc_cpu_seconds(w->pid, &cpu) == 0)',
+     'a_worker_that_dies_after_half_a_window_still_counts_it_and_before_half_does_not'),
+    ('a death does not close the window it ended', 'src/supervisor.c',
+     '    hist_death(w, now);\n    if (grouped &&',
+     '    if (grouped &&',
+     'a_worker_that_dies_after_half_a_window_still_counts_it_and_before_half_does_not'),
+    ('a window in which the members changed is counted', 'src/supervisor.c',
+     'if (w->hist_pid != w->pid || w->hist_ninst != w->ninst)',
+     'if (w->hist_pid != w->pid)',
+     'a_window_in_which_the_members_of_a_worker_changed_is_not_counted'),
+    ('history_window_s 0 keeps a history', 'src/main.c',
+     '    if (conf->history_window_s <= 0)\n        return;\n    if (*conf->host_class)',
+     '    if (*conf->host_class)',
+     'with_history_window_s_zero_nothing_is_kept_and_a_plugin_runs_as_before'),
+    ('a blocked history answers history_clear', 'src/supervisor.c',
+     'history_clear(bare_uri) == 0 ? SUCCESS : ERR_INVALID_OPERATION',
+     'SUCCESS',
+     'a_history_file_of_another_version_is_neither_read_nor_overwritten_and_the_daemon_runs_on'),
+    ('a blocked history does not say so', 'src/supervisor.c',
+     '    if (!history_available())\n        return strdup("resp 0 " PHD_WORD_UNAVAILABLE);\n',
+     '',
+     'a_history_file_of_another_version_is_neither_read_nor_overwritten_and_the_daemon_runs_on'),
+    ('the history is kept under the last file of the pin', 'src/pins.c',
+     'memcpy(hex, p->digest[0], PHD_SHA256_HEX_LEN + 1);',
+     'memcpy(hex, p->digest[p->nfiles - 1], PHD_SHA256_HEX_LEN + 1);',
+     'an_lv2_plugins_record_is_under_the_first_file_its_pin_holds'),
+    ('the lv2 prefix is part of the uri history_get is asked for', 'src/supervisor.c',
+     '    format_of_uri(uri, &bare_uri);\n    if (!history_available())',
+     '    bare_uri = uri;\n    if (!history_available())',
+     'an_lv2_plugins_record_is_under_the_first_file_its_pin_holds'),
+    ('a host class with white space is taken', 'src/conf.c',
+     'if (strpbrk(conf->host_class, " \\t"))',
+     'if (0)',
+     'the_history_goes_to_the_xdg_state_home_by_default_and_to_the_machines_class_unless_host_class_says_otherwise'),
+    ('history_clear of a uri does not strip the lv2 prefix', 'src/supervisor.c',
+     '    if (strcmp(uri, PHD_WORD_ALL))\n        format_of_uri(uri, &bare_uri);\n',
+     '',
+     'an_lv2_plugins_record_is_under_the_first_file_its_pin_holds'),
+    ('a refused pin is no reason to stay alone', 'src/planner.c',
+     'if (m->pin == PLANNER_PIN_REFUSED)',
+     'if (0 && m->pin == PLANNER_PIN_REFUSED)',
+     'refused_leaves_the_member_alone', "planner"),
+    ('no pin under strict shares', 'src/planner.c',
+     'if (m->pin == PLANNER_PIN_NONE && !s->pins_first_use)',
+     'if (0 && m->pin == PLANNER_PIN_NONE && !s->pins_first_use)',
+     'no_pin_under_strict_leaves_the_member_alone', "planner"),
+    ('a pin without a verdict shares under first-use', 'src/planner.c',
+     'if ((m->pin == PLANNER_PIN_NONE || m->pin == PLANNER_PIN_NO_VERDICT) && s->pins_first_use)',
+     'if (0 && (m->pin == PLANNER_PIN_NONE || m->pin == PLANNER_PIN_NO_VERDICT) && s->pins_first_use)',
+     'no_verdict_leaves_the_member_alone', "planner"),
+    ('a pin that is gone under first-use shares', 'src/planner.c',
+     '(m->pin == PLANNER_PIN_NONE || m->pin == PLANNER_PIN_NO_VERDICT) && s->pins_first_use)',
+     '(m->pin == PLANNER_PIN_NO_VERDICT) && s->pins_first_use)',
+     'a_pin_that_is_gone_under_first_use_has_no_verdict', "planner"),
+    ('a pin without a verdict is alone under strict as well', 'src/planner.c',
+     'm->pin == PLANNER_PIN_NO_VERDICT) && s->pins_first_use)',
+     'm->pin == PLANNER_PIN_NO_VERDICT))',
+     'under_strict_a_pin_without_a_verdict_shares', "planner"),
+    ('verdict isolated shares', 'src/planner.c',
+     'if (m->pin == PLANNER_PIN_ISOLATED)',
+     'if (0 && m->pin == PLANNER_PIN_ISOLATED)',
+     'verdict_isolated_leaves_the_member_alone', "planner"),
+    ('a format with no world shares', 'src/planner.c',
+     'if (!m->world_ok)',
+     'if (0)',
+     'format_world_leaves_the_member_alone', "planner"),
+    ('the world is judged before the verdict', 'src/planner.c',
+     '        if (m->pin == PLANNER_PIN_ISOLATED)\n            return PLANNER_REASON_VERDICT_ISOLATED;\n        if (!m->world_ok)\n            return PLANNER_REASON_FORMAT_WORLD;',
+     '        if (!m->world_ok)\n            return PLANNER_REASON_FORMAT_WORLD;\n        if (m->pin == PLANNER_PIN_ISOLATED)\n            return PLANNER_REASON_VERDICT_ISOLATED;',
+     'the_first_rule_that_matches_decides', "planner"),
+    ('the pins are read without require_pins', 'src/planner.c',
+     '    if (s->require_pins)\n    {',
+     '    if (1)\n    {',
+     'without_require_pins_no_pin_is_read', "planner"),
+    ('a member over the cost limit shares', 'src/planner.c',
+     '        return PLANNER_REASON_COST_OVER;',
+     '        return PLANNER_REASON_NONE;',
+     'cost_over_leaves_the_member_alone', "planner"),
+    ('a cost at the limit is over it', 'src/planner.c',
+     'member_cost(m) > s->group_cost_max',
+     'member_cost(m) >= s->group_cost_max',
+     'a_cost_at_the_limit_is_not_over', "planner"),
+    ("a program that runs no chain of the others' joins the segment", 'src/planner.c',
+     'if (strcmp(m[first].klass, m[k].klass))',
+     'if (0)',
+     'format_mixed_starts_a_new_segment', "planner"),
+    ('a full segment takes another member', 'src/planner.c',
+     'else if (s->group_max > 0 && open >= s->group_max)',
+     'else if (0)',
+     'group_full_starts_a_new_segment', "planner"),
+    ('group_max 0 is a limit of 0', 'src/planner.c',
+     'else if (s->group_max > 0 && open >= s->group_max)',
+     'else if (open >= s->group_max)',
+     'group_max_zero_is_no_limit', "planner"),
+    ('a segment over its cost takes another member', 'src/planner.c',
+     'else if (s->group_cost_max > 0 && sum + own > s->group_cost_max)',
+     'else if (s->group_cost_max > 0 && sum + own > s->group_cost_max * 1e9)',
+     'group_cost_starts_a_new_segment', "planner"),
+    ('a segment exactly at its cost limit is full', 'src/planner.c',
+     'sum + own > s->group_cost_max',
+     'sum + own >= s->group_cost_max',
+     'the_costs_of_a_segment_add_up', "planner"),
+    ('the costs of a segment do not add', 'src/planner.c',
+     '                open++;\n                sum += own;',
+     '                open++;\n                sum += 0 * own;',
+     'the_costs_of_a_segment_add_up', "planner"),
+    ('a member of unknown cost counts for nothing', 'src/planner.c',
+     'double own = cost == PLANNER_COST_UNKNOWN ? assumed_cost(m, first, open) : cost;',
+     'double own = cost == PLANNER_COST_UNKNOWN ? 0 * assumed_cost(m, first, open) : cost;',
+     'a_member_of_unknown_cost_counts_as_the_median_of_its_segment', "planner"),
+    ('the median of an odd number is the first', 'src/planner.c',
+     'return n % 2 ? known[n / 2] :',
+     'return n % 2 ? known[0] :',
+     'a_member_of_unknown_cost_counts_as_the_median_of_its_segment', "planner"),
+    ('the median of an even number is the upper middle', 'src/planner.c',
+     '(known[n / 2 - 1] + known[n / 2]) / 2',
+     'known[n / 2]',
+     'the_median_of_an_even_number_is_the_mean_of_the_middle_two', "planner"),
+    ('cost-assumed is never said', 'src/planner.c',
+     'out->reason[j] = PLANNER_REASON_COST_ASSUMED;',
+     'out->reason[j] = PLANNER_REASON_NONE;',
+     'cost_assumed_is_said_of_a_member_that_joined_on_an_assumption', "planner"),
+    ('no-neighbour is never said', 'src/planner.c',
+     'out->reason[j] = PLANNER_REASON_NO_NEIGHBOUR;',
+     'out->reason[j] = PLANNER_REASON_NONE;',
+     'no_neighbour_is_said_of_a_member_alone_for_the_members_around_it', "planner"),
+    ('grouping-off is never said', 'src/planner.c',
+     'else if (!s->grouping_on)',
+     'else if (0)',
+     'grouping_off_says_what_would_have_shared', "planner"),
+    ('group-full is judged before format-mixed', 'src/planner.c',
+     'if (strcmp(m[first].klass, m[k].klass))\n                r = PLANNER_REASON_FORMAT_MIXED;\n            else if (s->group_max > 0 && open >= s->group_max)\n                r = PLANNER_REASON_GROUP_FULL;',
+     'if (s->group_max > 0 && open >= s->group_max)\n                r = PLANNER_REASON_GROUP_FULL;\n            else if (strcmp(m[first].klass, m[k].klass))\n                r = PLANNER_REASON_FORMAT_MIXED;',
+     'format_mixed_comes_before_group_full_and_group_cost', "planner"),
+    ('a plan of too many members is planned', 'src/planner.c',
+     'if (n < 1 || n > PLANNER_MEMBERS_MAX)',
+     'if (n < 1)',
+     'a_plan_of_no_member_or_too_many_is_refused', "planner"),
+    ('the planner remembers what it planned before', 'src/planner.c',
+     'sum + own > s->group_cost_max',
+     'sum + own > s->group_cost_max - ({ static double drift; drift += 0.02; drift; })',
+     'the_same_members_give_the_same_bytes', "planner"),
+    ('the segments are joined by commas', 'src/planner.c',
+     '            put(buf, size, &used, ";");',
+     '            put(buf, size, &used, ",");',
+     'the_text_of_a_plan_is_the_one_the_bench_parses', "planner"),
+    ('no reason is the empty text', 'src/planner.c',
+     '        put(buf, size, &used, PHD_WORD_NONE);',
+     '        put(buf, size, &used, "");',
+     'no_reason_is_a_dash', "planner"),
+    ('a refused plan is told another way', 'src/planner.c',
+     '"%s%d:%s:%d"',
+     '"%s%d:%s=%d"',
+     'a_refused_plan_gives_every_member_the_refusal', "planner"),
+    ('the reasons are not the declared words', 'src/planner.c',
+     'const char *planner_reason_word(int reason)\n{',
+     'const char *planner_reason_word(int reason)\n{\n    if (reason == PLANNER_REASON_NO_PIN)\n        return "no_pin";',
+     'the_reasons_are_the_words_of_the_declaration', "planner"),
+    ('the rate is not read', 'src/qualcost.c',
+     'r != rate ||',
+     '0 ||',
+     'a_rate_or_quantum_the_record_lacks_is_unknown', "qualcost"),
+    ('the quantum is not read', 'src/qualcost.c',
+     'q != quantum)',
+     '(q != quantum && 0))',
+     'a_rate_or_quantum_the_record_lacks_is_unknown', "qualcost"),
+    ('the first record of a plugin stands', 'src/qualcost.c',
+     'if (v > best)',
+     'if (best < 0)',
+     'the_larger_record_stands_whichever_the_directory_lists_first', "qualcost"),
+    ('the id inside the record is not read', 'src/qualcost.c',
+     'if (!got || strcmp(got, id) || !grid',
+     'if (!got || (strcmp(got, id) && 0) || !grid',
+     'a_record_of_another_plugin_is_not_this_ones', "qualcost"),
+    ('the fraction is nanoseconds over a second', 'src/qualcost.c',
+     'return ns * rate / 1e9;',
+     'return ns / 1e9;',
+     'the_figure_is_the_p95_at_the_rate_and_quantum_as_a_fraction_of_a_core', "qualcost"),
+    ('a plan again forms every segment again', 'src/supervisor.c',
+     'if (!kept[j] && was[j]->n == pp->seg_len[k]',
+     'if (0 && !kept[j] && was[j]->n == pp->seg_len[k]',
+     'a_plan_again_keeps_the_worker_of_a_segment_that_did_not_change_and_forms_the_ones_that_did'),
+    ('a kept segment keeps the name of its old place', 'src/supervisor.c',
+     '                    snprintf(at[k]->w->place, sizeof(at[k]->w->place), PHD_PLACE_CHAIN_PREFIX "%s", word);\n',
+     '',
+     'a_plan_that_keeps_a_segment_in_another_place_renames_its_worker_and_restarts_nothing'),
+    ('a member the new plan leaves out stays in the worker of its old segment', 'src/supervisor.c',
+     '                    if (c->w && i->w == c->w)\n                        to_own(i);\n                }\n            }\n            chain_free(c);',
+     '                }\n            }\n            chain_free(c);',
+     'a_plan_again_keeps_the_worker_of_a_segment_that_did_not_change_and_forms_the_ones_that_did'),
+    ('a plan under grouping off is applied', 'src/supervisor.c',
+     'if (s.grouping_on && !refused)\n        plan_apply',
+     'if (!refused)\n        plan_apply',
+     'while_grouping_is_off_a_plan_is_answered_and_kept_and_nothing_moves'),
+    ("a member of another chain's plan is the plan's to place", 'src/supervisor.c',
+     'if (i->chain && !(i->chain->planned && i->chain->id == id))',
+     'if (0)',
+     'a_plan_is_refused_for_what_chain_refuses_and_moves_nothing'),
+    ("plan_clear leaves the members in the segment's worker", 'src/supervisor.c',
+     '            if (c->w && i->w == c->w)\n                to_own(i);\n        }\n        chain_free(c);\n    }\n    /* the members that share',
+     '        }\n        chain_free(c);\n    }\n    /* the members that share',
+     'plan_clear_gives_every_member_a_worker_of_its_own_and_forgets_the_plan'),
+    ('a changed plan is not announced', 'src/supervisor.c',
+     '        event(PHD_EVENT_PLAN_REASON_FMT, id, p->reasons);',
+     '        ;',
+     'a_plan_forms_the_runs_that_may_share_and_leaves_the_member_that_may_not_in_a_worker_of_its_own'),
+    ("a segment's worker is named for the plan alone", 'src/supervisor.c',
+     '    snprintf(place, sizeof(place), PHD_PLACE_CHAIN_PREFIX "%s", word);',
+     '    snprintf(place, sizeof(place), PHD_PLACE_CHAIN_PREFIX "%d", c->id);',
+     'a_plan_forms_the_runs_that_may_share_and_leaves_the_member_that_may_not_in_a_worker_of_its_own'),
+    ('a cost is never read from a record', 'src/supervisor.c',
+     '? qualcost_read(g_conf.qualification_dir, record_id(i->uri), g_conf.group_rate, g_conf.group_quantum)',
+     '? PLANNER_COST_UNKNOWN',
+     'the_cost_a_qualification_record_holds_decides_the_segments_and_a_missing_one_is_assumed'),
+    ('group_cost_max is read as a fraction already', 'src/supervisor.c',
+     's.group_cost_max = g_conf.group_cost_max / 100.0;',
+     's.group_cost_max = g_conf.group_cost_max / 10.0;',
+     'the_cost_a_qualification_record_holds_decides_the_segments_and_a_missing_one_is_assumed'),
+    ('a CLAP plugin is found by its path in the records', 'src/supervisor.c',
+     'return hash ? hash + 1 : uri;',
+     'return uri;',
+     'the_cost_a_qualification_record_holds_decides_the_segments_and_a_missing_one_is_assumed'),
+    ('a verdict of isolated is read as none', 'src/supervisor.c',
+     '    else if (!strcmp(verdict, PHD_PIN_VERDICT_ISOLATED))\n        m->pin = PLANNER_PIN_ISOLATED;\n',
+     '',
+     'a_plan_forms_the_runs_that_may_share_and_leaves_the_member_that_may_not_in_a_worker_of_its_own'),
+    ("any word is a grouping mode", "src/conf.c", "ok |= !strcmp(conf->grouping, name);", "ok |= 1;",
+     "a_setting_that_is_none_of_the_grouping_modes_stops_the_daemon_and_names_the_modes"),
+    ("the handler of a declared verb is deleted: plan", "src/verbs.c",
+     "    if (!strcmp(verb, OMX_VERB_PLAN))\n        return plan_words(tok, ntok);\n", "", "verbs_declared", "verbs"),
 ]
 
 
@@ -811,6 +1232,26 @@ def run_consumer_test(tree):
     p = subprocess.run([exe], capture_output=True, text=True, timeout=60)
     return p.returncode, p.stdout + ("ok   consumer\n" if p.returncode == 0 else "")
 
+def run_history_test(tree):
+    """tests/history_test.c against the tree's src/history.c; it prints "ok   <group>" for each group that passed"""
+    os.makedirs(os.path.join(tree, "tests"), exist_ok=True)
+    shutil.copy(os.path.join(ROOT, "tests", "history_test.c"), os.path.join(tree, "tests"))
+    subprocess.run(["make", "-s", "-B", "MOD_HOST_DIR=" + MOD_HOST_DIR, "tests/history-test"], cwd=tree, check=True,
+                   stdout=subprocess.DEVNULL)
+    p = subprocess.run([os.path.join(tree, "tests", "history-test")], capture_output=True, text=True, timeout=120)
+    return p.returncode, p.stdout
+
+
+def run_proc_test(tree):
+    """tests/proc_test.c against the tree's src/proc.c; it prints "ok   proc_test" when no check failed"""
+    os.makedirs(os.path.join(tree, "tests"), exist_ok=True)
+    shutil.copy(os.path.join(ROOT, "tests", "proc_test.c"), os.path.join(tree, "tests"))
+    subprocess.run(["make", "-s", "-B", "MOD_HOST_DIR=" + MOD_HOST_DIR, "tests/proc-test"], cwd=tree, check=True,
+                   stdout=subprocess.DEVNULL)
+    p = subprocess.run([os.path.join(tree, "tests", "proc-test")], capture_output=True, text=True, timeout=120)
+    return p.returncode, p.stdout
+
+
 def run_alloc_test(tree):
     """make test-alloc: the tables of src/relay.c and src/lv2.c when realloc fails; prints "ok   alloc_test" when no check failed"""
     for f in ("tests/gesture-alloc-test", "tests/lv2-alloc-test", "tests/lv2-alloc-lv2.o"):
@@ -835,7 +1276,22 @@ def run_verbs_test(tree, name):
     return p.returncode, p.stdout + p.stderr + ("ok   %s\n" % name if p.returncode == 0 else "")
 
 
+def run_unit_test(tree, target, source, name):
+    """a C unit test of the tree's sources, built by the Makefile's rule for `target`; it runs the one test and prints
+    "ok   <name>" when it passes"""
+    os.makedirs(os.path.join(tree, "tests"), exist_ok=True)
+    shutil.copy(os.path.join(ROOT, "tests", source), os.path.join(tree, "tests"))
+    subprocess.run(["make", "-s", "-B", "MOD_HOST_DIR=" + MOD_HOST_DIR, target], cwd=tree, check=True,
+                   stdout=subprocess.DEVNULL)
+    p = subprocess.run([os.path.join(tree, target), name], capture_output=True, text=True, timeout=60)
+    return p.returncode, p.stdout + p.stderr
+
+
 def run_test(tree, name, jack=False):
+    if jack == "planner":
+        return run_unit_test(tree, "tests/planner-test", "planner_test.c", name)
+    if jack == "qualcost":
+        return run_unit_test(tree, "tests/qualcost-test", "qualcost_test.c", name)
     if jack == "verbs":
         return run_verbs_test(tree, name)
     if jack == "consumer":
@@ -846,6 +1302,10 @@ def run_test(tree, name, jack=False):
         return run_format_test(tree)
     if jack == "relay":
         return run_relay_test(tree)
+    if jack == "history":
+        return run_history_test(tree)
+    if jack == "proc":
+        return run_proc_test(tree)
     if jack == "contract":
         return run_contract_test(tree)
     if jack == "pin":
@@ -898,6 +1358,9 @@ try:
         if os.environ.get("SABOTAGE_ONLY") and os.environ["SABOTAGE_ONLY"] not in name:
             continue
         jack = entry[5] if len(entry) > 5 else False
+        # SABOTAGE_KIND=<kind>: only the arms of that kind ("history", "pin", ...)
+        if os.environ.get("SABOTAGE_KIND") and os.environ["SABOTAGE_KIND"] != jack:
+            continue
         if os.geteuid() == 0 and name in ROOT_WRITES_READ_ONLY:
             print("skip sabotage (root writes a 0500 directory, so the test skips itself): %s" % what)
             continue
@@ -919,6 +1382,10 @@ try:
             os.makedirs(tree)
             for f in ("README.md", "BUILDING.md"):
                 shutil.copy(os.path.join(ROOT, f), tree)
+        elif jack in ("history", "proc"):
+            for d in ("src", "include"):
+                shutil.copytree(os.path.join(ROOT, d), os.path.join(tree, d), ignore=shutil.ignore_patterns("*.o"))
+            shutil.copy(os.path.join(ROOT, "Makefile"), tree)
         elif jack == "alloc":
             shutil.copytree(os.path.join(ROOT, "src"), os.path.join(tree, "src"))
             shutil.copytree(os.path.join(ROOT, "include"), os.path.join(tree, "include"))
@@ -953,6 +1420,10 @@ try:
                 shutil.copy(os.path.join(ROOT, f), tree)
             os.makedirs(os.path.join(tree, "packaging"))
             shutil.copy(os.path.join(ROOT, "packaging", "plugin-hostd.spec"), os.path.join(tree, "packaging"))
+        elif jack in ("planner", "qualcost"):
+            shutil.copytree(os.path.join(ROOT, "src"), os.path.join(tree, "src"))
+            shutil.copytree(os.path.join(ROOT, "include"), os.path.join(tree, "include"))
+            shutil.copy(os.path.join(ROOT, "Makefile"), tree)
         elif jack in ("consumer", "verbtable"):
             shutil.copytree(os.path.join(ROOT, "include"), os.path.join(tree, "include"))
         elif jack == "nopins":
@@ -990,8 +1461,8 @@ try:
                            stdout=subprocess.DEVNULL)
         if jack == "probe":
             build_probe(tree)
-        elif jack not in ("readme", "nopins", "ciguards", "format", "relay", "contract", "consumer", "probeschema", "presetschema", "vocabulary", "alloc",
-                          "verbtable"):
+        elif jack not in ("readme", "nopins", "ciguards", "format", "relay", "history", "proc", "contract", "consumer", "probeschema", "presetschema", "vocabulary", "alloc",
+                          "verbtable", "planner", "qualcost"):
             for f in os.listdir(os.path.join(tree, "src")):
                 if f.endswith(".o"):
                     os.unlink(os.path.join(tree, "src", f))

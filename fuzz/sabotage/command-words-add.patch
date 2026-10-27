@@ -1,4 +1,4 @@
-Breaks the check of fuzz/fuzz_command.c:351 (the placement and the client, each where the message has it).
+Breaks the check of fuzz/fuzz_command.c:356 (the placement and the client, each where the message has it).
 Caught by the seed input "add-pool-p-fuzz_client" of fuzz_command.
 
 diff --git a/src/verbs.c b/src/verbs.c

@@ -81,6 +81,7 @@
 
 #include "describe.h"
 #include "json.h"
+#include "machine.h"
 
 /* ---------------------------------------------------------------- options */
 
@@ -414,13 +415,8 @@ static void put_machine(sb_t *b, const cpu_set_t *pinned, int pinned_by_option)
         khz = atol(text);
     if (read_text("/sys/kernel/realtime", text, sizeof(text)) == 0)
         preempt_rt = atoi(text) == 1;
-    /* the bands are omx-contract's MACHINE_CORE_BANDS and MACHINE_CLOCK_BANDS */
-    core_band = ncpu <= 2 ? OMX_MACHINE_CORE_BANDS_CORES1_TO2 : ncpu <= 4 ? OMX_MACHINE_CORE_BANDS_CORES3_TO4 :
-                ncpu <= 8 ? OMX_MACHINE_CORE_BANDS_CORES5_TO8 : ncpu <= 16 ? OMX_MACHINE_CORE_BANDS_CORES9_TO16 :
-                ncpu <= 32 ? OMX_MACHINE_CORE_BANDS_CORES17_TO32 : OMX_MACHINE_CORE_BANDS_CORES33_UP;
-    clock_band = khz < 1500000 ? OMX_MACHINE_CLOCK_BANDS_UNDER1500_MHZ : khz < 2500000 ? OMX_MACHINE_CLOCK_BANDS_FROM1500_TO2500_MHZ :
-                 khz < 3500000 ? OMX_MACHINE_CLOCK_BANDS_FROM2500_TO3500_MHZ :
-                 khz < 4500000 ? OMX_MACHINE_CLOCK_BANDS_FROM3500_TO4500_MHZ : OMX_MACHINE_CLOCK_BANDS_FROM4500_MHZ;
+    /* the bands are omx-contract's MACHINE_CORE_BANDS and MACHINE_CLOCK_BANDS, the daemon's host class too */
+    machine_bands(ncpu, khz, &core_band, &clock_band);
     for (i = 0; i < g_nidle; i++)
     {
         if (g_idle_after[i].latency_us > DEEP_IDLE_US && !g_idle_after[i].disabled)

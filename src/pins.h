@@ -21,6 +21,8 @@
 #ifndef PINS_H
 #define PINS_H
 
+#include <plugin-hostd/pin.h>
+
 #include "formats.h"
 
 /* The pins by URI: policy, like placement, and not in the ledger. Two layers. The host's: pin_set, a pin file at start,
@@ -47,7 +49,13 @@ int pins_clear(const char *uri);
 
 /* whether the uri has a pin, and whether it is one a verdict of in-process qualified */
 int pins_known(const char *uri);
+/* the SHA-256 of the first file the pin of the uri holds, as the pin holds it: the binary the running history is kept
+ * under. -1 when the uri has no pin */
+int pins_digest(const char *uri, char hex[PHD_SHA256_HEX_LEN + 1]);
 int pins_in_process(const char *uri);
+/* the verdict of the uri's pin as the pin line spells it (one of PHD_PIN_VERDICTS), "" for a pin without one, NULL when
+ * there is no pin; valid until the next pin verb */
+const char *pins_verdict(const char *uri);
 
 /* first use: the files the format loads for the uri, hashed, recorded with an unknown layout and written to the store.
  * SUCCESS, or PHD_ERR_PIN_BINARY_MISMATCH when they cannot be collected (nothing is recorded) */
