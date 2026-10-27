@@ -96,10 +96,10 @@ def cross_rules(doc, errors):
     for n, s in enumerate(doc.get("scenarios", [])):
         if not isinstance(s, dict):
             continue
-        key = (s.get("id"), s.get("host"), s.get("mode"), s.get("rate"), s.get("frames"))
+        key = (s.get("id"), s.get("host"), s.get("mode"), s.get("rate"), s.get("frames"), s.get("stress", "none"))
         if key in seen:
-            errors.append((["scenarios", n], "rule:unique-row", "repeats row #%d (same id, host, mode, rate, frames)"
-                           % seen[key]))
+            errors.append((["scenarios", n], "rule:unique-row",
+                           "repeats row #%d (same id, host, mode, rate, frames, stress)" % seen[key]))
         seen[key] = n
         avg, mx = s.get("dsp_load_avg"), s.get("dsp_load_max")
         if isinstance(avg, (int, float)) and isinstance(mx, (int, float)) and mx < avg:
@@ -109,6 +109,22 @@ def cross_rules(doc, errors):
             errors.append((["scenarios", n], "rule:recover-only-ok", "has recover_ms on a row that is not ok"))
         if s.get("status") == "ok" and s.get("plugins") and s.get("add_ms") is None:
             errors.append((["scenarios", n], "rule:add-measured", "is ok with plugins and no add_ms"))
+        spread = s.get("spread")
+        if isinstance(spread, dict):
+            if s.get("repeats", 1) < 2:
+                errors.append((["scenarios", n], "rule:spread-needs-repeats", "has a spread and fewer than two repeats"))
+            for field, span in spread.items():
+                if field not in s:
+                    errors.append((["scenarios", n], "rule:spread-names-a-field", "spread of %s, which the row lacks"
+                                   % field))
+                elif len(span) != 2 or span[0] > span[1]:
+                    errors.append((["scenarios", n], "rule:spread-min-max", "spread of %s is %s, not [min, max]"
+                                   % (field, json.dumps(span))))
+                elif isinstance(s[field], (int, float)) and not span[0] <= s[field] <= span[1]:
+                    errors.append((["scenarios", n], "rule:spread-holds-median", "%s %s is outside its spread %s"
+                                   % (field, s[field], json.dumps(span))))
+        if s.get("stress", "none") != "none" and s.get("status") == "ok" and "xruns" not in s:
+            errors.append((["scenarios", n], "rule:stress-reports-xruns", "ran under stress and reports no xruns"))
         if "rss_mb_total" in s and "processes" not in s:
             errors.append((["scenarios", n], "rule:totals-name-processes", "has totals and no processes count"))
     m = re.match(r"^([a-z0-9]+)-", str(doc.get("id", "")))

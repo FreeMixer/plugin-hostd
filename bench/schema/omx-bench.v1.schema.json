@@ -58,13 +58,25 @@
           "recover_ms": { "type": ["number", "null"], "minimum": 0 },
           "status": { "enum": ["ok", "unsupported", "failed"] },
           "note": { "type": "string" },
-          "mode": { "enum": ["individual", "chain", "shared-process"] },
+          "mode": { "enum": ["individual", "chain", "shared-process", "plan", "pool"] },
           "processes": { "type": "integer", "minimum": 0 },
           "rss_mb_total": { "type": "number", "minimum": 0 },
           "pss_mb_total": { "type": "number", "minimum": 0 },
           "cpu_pct": { "type": "number", "minimum": 0 },
           "ctx_switches": { "type": "integer", "minimum": 0 },
-          "ctx_involuntary": { "type": "integer", "minimum": 0 }
+          "ctx_involuntary": { "type": "integer", "minimum": 0 },
+          "xruns": { "type": "integer", "minimum": 0 },
+          "latency_frames": { "type": ["integer", "null"], "minimum": 0 },
+          "stress": { "type": "string", "pattern": "^(none|busy[0-9]+\\+mem[0-9]+)$" },
+          "repeats": { "type": "integer", "minimum": 1 },
+          "spread": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "minItems": 2,
+              "items": { "type": "number", "minimum": 0 }
+            }
+          }
         },
         "allOf": [
           {

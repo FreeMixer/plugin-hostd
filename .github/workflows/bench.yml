@@ -49,7 +49,10 @@ jobs:
           done
 
       - name: shellcheck
-        run: shellcheck bench/run.sh bench/validate.sh bench/lib/send.sh bench/tests/sabotage.sh
+        run: shellcheck bench/run.sh bench/validate.sh bench/table.sh bench/lib/send.sh bench/tests/sabotage.sh
+
+      - name: Unit tests of the harness
+        run: python3 -I bench/tests/test_bench.py
 
       - name: Every guard of the harness goes red when broken
         run: bench/tests/sabotage.sh --teardown
@@ -59,7 +62,7 @@ jobs:
           set -euo pipefail
           export XDG_RUNTIME_DIR=/tmp/xdg
           mkdir -p "$XDG_RUNTIME_DIR"
-          bench/run.sh --class ci --out smoke --rates 48000 --frames 256 --window 2 --scenarios lv2-1 --keep-governor
+          bench/run.sh --class ci --out smoke --rates 48000 --frames 256 --window 2 --repeats 1 --scenarios lv2-1 --keep-governor
           bench/validate.sh smoke/*.json
           python3 - smoke/*.json <<'EOF'
           import json, shutil, sys
