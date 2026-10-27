@@ -57,7 +57,7 @@ LDFLAGS += -Wl,--no-undefined
 
 # source and object files
 SRC = src/main.c src/conf.c src/proc.c src/supervisor.c src/verbs.c src/pins.c src/relay.c src/formats.c src/lv2.c \
-      src/descriptors.c src/describe.c src/transforms.c src/json.c
+      src/descriptors.c src/describe.c src/transforms.c src/json.c src/fsutil.c
 OBJ = $(SRC:.c=.o)
 
 # the C names of the daemon's verbs and reply codes, rendered from data/verbs.json (render-verbs below); protocol.h
@@ -295,7 +295,7 @@ test-format: $(FORMAT_TEST) $(FAKE)
 	PLUGIN_HOSTD_FORMAT_TEST_DIR=$${TMPDIR:-$${XDG_RUNTIME_DIR:-.}} ./$(FORMAT_TEST) ./$(FAKE)
 
 # the daemon's parts without its main and its verbs: the test calls the supervisor as the verbs do
-FORMAT_OBJ = src/conf.o src/proc.o src/supervisor.o src/pins.o src/relay.o src/formats.o src/lv2.o
+FORMAT_OBJ = src/conf.o src/proc.o src/supervisor.o src/pins.o src/fsutil.o src/relay.o src/formats.o src/lv2.o
 
 $(FORMAT_TEST): tests/format_test.c $(FORMAT_OBJ) $(PROTOCOL_LIB)
 	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -o $@ tests/format_test.c $(FORMAT_OBJ) $(PROTOCOL_LIBS) -pthread -lm
