@@ -383,5 +383,249 @@ class Repeats(unittest.TestCase):
         self.assertEqual(row["spread"]["xruns"], [1, 3])
 
 
+class FakeDaemon:
+    """plugin-hostd as far as the plan and pool modes talk to it, on a socket, NUL-framed like the real one: add,
+    remove, plan, worker_list. Its planner is the simplest honest one: runs of consecutive members that are not
+    `isolated` share a worker. `pool_apart` makes it put each pooled member in a worker of its own, and `pool_as` puts them
+    in a pool of another name, as a daemon that ignored the place would"""
+
+    def __init__(self, isolated, pool_apart=False, one_segment=False, pool_as=None):
+        import socketserver
+        import threading
+        self.isolated, self.pool_apart, self.one_segment, self.pool_as = set(isolated), pool_apart, one_segment, pool_as
+        self.inst = {}  # instance -> place
+        self.log = []
+        daemon = self
+
+        class Handler(socketserver.BaseRequestHandler):
+            def handle(self):
+                buf = b""
+                while True:
+                    chunk = self.request.recv(4096)
+                    if not chunk:
+                        return
+                    buf += chunk
+                    while b"\0" in buf:
+                        line, buf = buf.split(b"\0", 1)
+                        self.request.sendall(daemon.reply(line.decode()).encode() + b"\0")
+
+        self.server = socketserver.ThreadingTCPServer(("127.0.0.1", 0), Handler)
+        self.server.daemon_threads = True
+        self.port = self.server.server_address[1]
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+
+    def close(self):
+        self.server.shutdown()
+        self.server.server_close()
+
+    def reply(self, line):
+        self.log.append(line)
+        w = line.split()
+        if w[0] == "add":
+            place = w[3] if len(w) > 3 else "own"
+            self.inst[int(w[2])] = self.pool_as if self.pool_as and place.startswith("pool:") else place
+            return "resp %s" % w[2]
+        if w[0] == "remove":
+            self.inst.pop(int(w[1]))
+            return "resp 0"
+        if w[0] == "plan":
+            members = [int(x) for x in w[2:]]
+            segs, cur = [], []
+            for i in members:
+                if i in self.isolated:
+                    if cur:
+                        segs.append(cur)
+                    segs.append([i])
+                    cur = []
+                else:
+                    cur.append(i)
+            if cur:
+                segs.append(cur)
+            if self.one_segment:
+                segs = [members]
+            for k, seg in enumerate(segs):
+                for i in seg:
+                    self.inst[i] = "chain:1.%d" % k if len(seg) > 1 else "own"
+            return "resp 0 " + ";".join(",".join(map(str, g)) for g in segs)
+        if w[0] == "worker_list":
+            workers = {}
+            for i, place in sorted(self.inst.items()):
+                key = place if place.startswith(("chain:", "pool:")) and not (
+                    self.pool_apart and place.startswith("pool:")) else "own%d" % i
+                workers.setdefault(key, (place, []))[1].append(i)
+            recs = ["%d:%d:clap:up:%s:%s" % (n, 1000 + n, place, ",".join(map(str, ids)))
+                    for n, (place, ids) in enumerate(workers.values())]
+            return "resp 0 " + " ".join(recs)
+        return "resp -902"
+
+
+class Gone:
+    def poll(self):
+        return None
+
+
+def daemon_host(daemon, case):
+    host = bench.Host.__new__(bench.Host)
+    host.key = "H2"
+    host.ctl = bench.Control(daemon.port, Gone())
+    case.addCleanup(host.ctl.close)
+    return host
+
+
+class Grouping(unittest.TestCase):
+    def setUp(self):
+        keep = bench.READY_LIMIT_S
+        bench.READY_LIMIT_S = 0.5
+        self.addCleanup(setattr, bench, "READY_LIMIT_S", keep)
+
+    uris = ["clap:/c#comp", "clap:/d#delay", "clap:/x#drive", "clap:/c#comp", "clap:/x#drive", "clap:/c#comp"]
+
+    def test_the_plan_is_read_as_segments_and_waited_for(self):
+        d = FakeDaemon(isolated=[2, 4])
+        try:
+            host = daemon_host(d, self)
+            for i, u in enumerate(self.uris):
+                host.add(u, i)
+            segs = host.declare_plan(list(range(6)))
+            self.assertEqual(segs, [[0, 1], [2], [3], [4], [5]])
+            self.assertIn("plan 1 0 1 2 3 4 5", d.log)
+        finally:
+            d.close()
+
+    def test_a_plan_of_one_segment_fails_the_row(self):
+        d = FakeDaemon(isolated=[], one_segment=True)
+        try:
+            host = daemon_host(d, self)
+            for i, u in enumerate(self.uris):
+                host.add(u, i)
+            with self.assertRaisesRegex(bench.Failed, "one segment"):
+                host.declare_plan(list(range(6)))
+        finally:
+            d.close()
+
+    def test_a_refused_plan_is_failed_with_the_daemons_words(self):
+        d = FakeDaemon(isolated=[])
+        d.reply = lambda line: "resp -501 0,1"
+        try:
+            with self.assertRaisesRegex(bench.Failed, "plan answered 'resp -501 0,1'"):
+                daemon_host(d, self).declare_plan([0, 1])
+        finally:
+            d.close()
+
+    def test_the_pool_takes_the_shareable_members_the_plan_left_alone(self):
+        d = FakeDaemon(isolated=[2, 4])
+        try:
+            host = daemon_host(d, self)
+            for i, u in enumerate(self.uris):
+                host.add(u, i)
+            segs, pooled = host.declare_pool(list(range(6)), self.uris, alone={2, 4})
+            self.assertEqual(segs, [[0, 1], [2], [3], [4], [5]])
+            self.assertEqual(pooled, [3, 5], "the isolated members stay out of the pool")
+            self.assertEqual(d.inst[3], "pool:g1")
+            self.assertEqual(d.inst[5], "pool:g1")
+            self.assertEqual(d.inst[2], "own")
+            self.assertIn("add clap:/c#comp 3 pool:g1", d.log)
+        finally:
+            d.close()
+
+    def test_a_pool_the_daemon_split_is_failed(self):
+        d = FakeDaemon(isolated=[2, 4], pool_apart=True)
+        try:
+            host = daemon_host(d, self)
+            for i, u in enumerate(self.uris):
+                host.add(u, i)
+            with self.assertRaises(bench.Failed):
+                host.declare_pool(list(range(6)), self.uris, alone={2, 4})
+        finally:
+            d.close()
+
+    def test_a_pool_under_another_name_is_failed(self):
+        d = FakeDaemon(isolated=[2, 4], pool_as="pool:other")
+        try:
+            host = daemon_host(d, self)
+            for i, u in enumerate(self.uris):
+                host.add(u, i)
+            with self.assertRaisesRegex(bench.Failed, "pool:g1 holds"):
+                host.declare_pool(list(range(6)), self.uris, alone={2, 4})
+        finally:
+            d.close()
+
+    def test_a_pool_of_one_is_not_a_pool(self):
+        d = FakeDaemon(isolated=[2, 3, 4])
+        try:
+            host = daemon_host(d, self)
+            for i, u in enumerate(self.uris):
+                host.add(u, i)
+            with self.assertRaisesRegex(bench.Failed, "left 1 shareable"):
+                host.declare_pool(list(range(6)), self.uris, alone={2, 3, 4})
+        finally:
+            d.close()
+
+
+class Scenarios(unittest.TestCase):
+    def test_every_name_a_scenario_uses_is_declared(self):
+        with open(os.path.join(BENCH, "scenarios.json")) as f:
+            table = json.load(f)
+        for sc in table["scenarios"]:
+            for key in sc["plugins"] + sc.get("unshared", []):
+                self.assertIn(key, table["plugins"], sc["id"])
+            if sc.get("family"):
+                self.assertIn(sc["family"], table["modes"], sc["id"])
+            self.assertTrue(set(sc.get("unshared", [])) <= set(sc["plugins"]), sc["id"])
+
+    def test_the_grouping_scenarios_have_all_four_modes_and_a_strip_the_pins_cut(self):
+        with open(os.path.join(BENCH, "scenarios.json")) as f:
+            table = json.load(f)
+        modes = [m["mode"] for m in table["modes"]["grouping-vs-processes"]]
+        self.assertEqual(modes, ["individual", "chain", "plan", "pool"])
+        for sc in table["scenarios"]:
+            if sc.get("family") != "grouping-vs-processes":
+                continue
+            keys = [sc["plugins"][n % len(sc["plugins"])] for n in range(sc["count"])]
+            cut = [k in sc["unshared"] for k in keys]
+            self.assertTrue(any(cut), "%s has nothing for the pins to refuse" % sc["id"])
+            single = [i for i, c in enumerate(cut) if not c and (i == 0 or cut[i - 1])
+                      and (i == len(cut) - 1 or cut[i + 1])]
+            self.assertGreaterEqual(len(single), 2, "%s leaves fewer than two shareable members alone" % sc["id"])
+
+
+class Pins(unittest.TestCase):
+    store = ("pin_set clap:/c#comp /c.clap=aa omx-layout/1:11\n"
+             "pin_set clap:/x#drive /x.clap=bb omx-layout/1:22 verdict=in-process\n"
+             "# a comment\n")
+
+    def test_each_uri_gets_its_verdict_and_the_rest_is_kept(self):
+        out = bench.set_verdicts(self.store, {"clap:/c#comp": "in-process", "clap:/x#drive": "isolated"})
+        self.assertEqual(out.splitlines(), ["pin_set clap:/c#comp /c.clap=aa omx-layout/1:11 verdict=in-process",
+                                            "pin_set clap:/x#drive /x.clap=bb omx-layout/1:22 verdict=isolated",
+                                            "# a comment"])
+
+    def test_a_uri_the_daemon_never_learned_is_failed(self):
+        with self.assertRaisesRegex(bench.Failed, "no pin for clap:/nobody#x"):
+            bench.set_verdicts(self.store, {"clap:/nobody#x": "in-process"})
+
+    def test_the_conf_of_a_plan_row_turns_pins_and_grouping_on_and_package_pins_off(self):
+        import types
+        with tempfile.TemporaryDirectory() as wd:
+            fake = types.SimpleNamespace(learn_pins=lambda uris: self.store)
+            conf = bench.Runner.plan_conf(fake, wd, ["clap:/c#comp", "clap:/x#drive"], {"clap:/x#drive"})
+            self.assertEqual(conf, ("require_pins 1", "pin_mode first-use", "pin_store " + os.path.join(wd, "pins"),
+                                    "pins_dir", "grouping on"))
+            with open(os.path.join(wd, "pins")) as f:
+                lines = f.read().splitlines()
+            self.assertIn("pin_set clap:/x#drive /x.clap=bb omx-layout/1:22 verdict=isolated", lines)
+            self.assertIn("pin_set clap:/c#comp /c.clap=aa omx-layout/1:11 verdict=in-process", lines)
+
+    def test_a_host_log_is_read_from_where_the_row_began(self):
+        with tempfile.TemporaryDirectory() as d:
+            with open(os.path.join(d, "H2.log"), "w") as f:
+                f.write("old: bad setting 'grouping'\n")
+            end = bench.log_size(d, "H2")
+            with open(os.path.join(d, "H2.log"), "a") as f:
+                f.write("new line\n")
+            self.assertEqual(bench.log_since(d, "H2", end), "new line\n")
+            self.assertEqual(bench.log_since(d, "none", 0), "")
+
+
 if __name__ == "__main__":
     unittest.main()

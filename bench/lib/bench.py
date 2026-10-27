@@ -27,6 +27,7 @@ MARK = "OMX_BENCH_RUN"
 TAG = "omx-bench-%d" % os.getpid()
 RECOVER_LIMIT_S = 30.0
 READY_LIMIT_S = 20.0
+POOL_MAX = 8  # plugin-hostd's pool_max: a full pool opens a second one, which these rows do not read
 
 
 def log(msg):
@@ -402,6 +403,23 @@ class JackProbe:
             self.client = None
 
 
+def log_size(logdir, name):
+    try:
+        return os.path.getsize(os.path.join(logdir, name + ".log"))
+    except OSError:
+        return 0
+
+
+def log_since(logdir, name, start):
+    """what a host wrote to its log after byte start"""
+    try:
+        with open(os.path.join(logdir, name + ".log"), "rb") as f:
+            f.seek(start)
+            return f.read().decode(errors="replace")
+    except OSError:
+        return ""
+
+
 def jack_log_xruns(path, offset):
     """lines of the JACK server's own log from offset on that name an xrun, and the new end of the file"""
     try:
@@ -671,14 +689,34 @@ class Catalog:
         return list(dict.fromkeys(out))
 
 
+# ---------------------------------------------------------------- pins for the plan and pool modes
+
+
+def set_verdicts(store, verdicts):
+    """the daemon's pin store with a verdict on the line of each uri in verdicts ({uri: word}), replacing any it had;
+    the other lines as they were. Failed when a uri has no line: the daemon never learned it"""
+    out, seen = [], set()
+    for line in store.splitlines():
+        words = line.split()
+        if len(words) >= 4 and words[0] == "pin_set" and words[1] in verdicts:
+            seen.add(words[1])
+            line = " ".join([w for w in words if not w.startswith("verdict=")] + ["verdict=" + verdicts[words[1]]])
+        out.append(line)
+    missing = sorted(set(verdicts) - seen)
+    if missing:
+        raise Failed("the daemon recorded no pin for %s" % ", ".join(missing))
+    return "\n".join(out) + "\n"
+
+
 # ---------------------------------------------------------------- hosts
 
 
 class Host:
     """one host program started for one scenario row"""
 
-    def __init__(self, key, procs, env, workdir, port):
+    def __init__(self, key, procs, env, workdir, port, conf=("require_pins 0",)):
         self.key, self.procs, self.env, self.workdir, self.port = key, procs, env, workdir, port
+        self.conf = conf
         self.proc = None
         self.ctl = None
         self.jalvs = {}
@@ -689,7 +727,7 @@ class Host:
         elif self.key == "H2":
             conf = os.path.join(self.workdir, "plugin-hostd.conf")
             with open(conf, "w") as f:
-                f.write("require_pins 0\n")
+                f.write("".join(line + "\n" for line in self.conf))
             self.proc = self.procs.spawn(["plugin-hostd", "-n", "-p", str(self.port), "-c", conf], "H2", self.env)
         elif self.key == "H3":
             self.proc = self.procs.spawn(["mod-host", "-n", "-p", str(self.port)], "H3", self.env)
@@ -717,6 +755,53 @@ class Host:
             insts = [int(i) for i in f[-1].split(",") if i.isdigit()]
             out.append((f[0], int(f[1]), f[2], f[3], ":".join(f[4:-1]), insts))
         return out
+
+    def wait_workers(self, want, what):
+        """until worker_list shows `want` workers, all up; the workers, or Failed after READY_LIMIT_S"""
+        end = time.monotonic() + READY_LIMIT_S
+        while True:
+            ws = self.workers()
+            if len(ws) == want and all(w[3] == "up" for w in ws):
+                return ws
+            if time.monotonic() > end:
+                raise Failed("%s: %d workers up of %d wanted after %.0f s" % (
+                    what, sum(1 for w in ws if w[3] == "up"), want, READY_LIMIT_S))
+            time.sleep(0.01)
+
+    def declare_plan(self, insts):
+        """plan 1 <insts>: the segments the daemon made, [[inst, ...], ...], once their workers are up"""
+        reply = self.ctl.cmd("plan 1 " + " ".join(map(str, insts)))
+        words = reply.split()
+        if len(words) < 3 or words[:2] != ["resp", "0"]:
+            raise Failed("plan answered '%s'" % reply)
+        segments = [[int(i) for i in seg.split(",")] for seg in words[2].split(";")]
+        if sorted(i for seg in segments for i in seg) != sorted(insts):
+            raise Failed("plan answered segments '%s' for instances %s" % (words[2], insts))
+        if len(segments) < 2:
+            raise Failed("the plan is one segment: no member of the strip was left alone, so it is the chain row")
+        self.wait_workers(len(segments), "plan")
+        return segments
+
+    def declare_pool(self, insts, uris, alone, name="g1"):
+        """plan, then the members the plan left alone that the pins would let share (every segment of one that is not
+        an `alone` instance) leave their workers for the pool: remove and add again with the pool's place. Returns
+        (segments, pooled instances)"""
+        segments = self.declare_plan(insts)
+        pooled = [seg[0] for seg in segments if len(seg) == 1 and seg[0] not in alone]
+        if len(pooled) < 2:
+            raise Failed("the plan left %d shareable member(s) alone: a pool needs two" % len(pooled))
+        if len(pooled) > POOL_MAX:
+            raise Failed("%d members for one pool, which holds %d" % (len(pooled), POOL_MAX))
+        for i in pooled:
+            reply = self.ctl.cmd("remove %d" % i)
+            if reply != "resp 0":
+                raise Failed("remove %d answered '%s'" % (i, reply))
+            self.add(uris[i], i, "pool:" + name)
+        ws = self.wait_workers(len(segments) - len(pooled) + 1, "pool")
+        holder = [w for w in ws if w[4] == "pool:" + name]
+        if len(holder) != 1 or sorted(holder[0][5]) != sorted(pooled):
+            raise Failed("pool:%s holds %s, not %s" % (name, [w[5] for w in holder], pooled))
+        return segments, pooled
 
     def add(self, uri, inst, placement=None):
         """add one plugin; returns the client name"""
@@ -798,6 +883,7 @@ class Runner:
         self.saved_governor = {}
         self.jackd = None
         self.probe = None
+        self.learned = {}
         self.jack_log = None
         self.jack_log_end = 0
         self.port = 5700
@@ -917,8 +1003,22 @@ class Runner:
 
             self.port = free_port(self.port + 2)
             wd = tempfile.mkdtemp(dir=self.work)
-            host = Host(hkey, self.procs, self.env, wd, self.port)
-            host.start()
+            conf, alone, uris = ("require_pins 0",), set(), [u for u, _, _ in picks]
+            if mode in ("plan", "pool"):
+                if hkey != "H2":
+                    raise Refused("only plugin-hostd plans and pools")
+                alone = {i for i, k in enumerate(keys) if k in s.get("unshared", [])}
+                conf = self.plan_conf(wd, uris, {uris[i] for i in alone})
+                notes.append("pins: in-process, isolated for %s" % ", ".join(
+                    dict.fromkeys(self.cat.name(keys[i]) for i in sorted(alone))))
+            host = Host(hkey, self.procs, self.env, wd, self.port, conf)
+            log_end = log_size(self.logdir, hkey)
+            try:
+                host.start()
+            except Failed:
+                if mode in ("plan", "pool") and "bad setting 'grouping'" in log_since(self.logdir, hkey, log_end):
+                    raise Refused("this plugin-hostd has no grouping setting: it predates the planner (plugin-hostd#185)")
+                raise
             if instrument:
                 sources.append(self.procs.spawn(["jack_midiseq", "seq"] + self.cat.midi["chords"], "midiseq"))
                 want = "seq"
@@ -943,6 +1043,13 @@ class Runner:
                 if reply != "resp 0":
                     raise Failed("chain answered '%s'" % reply)
                 self.chain_formed(host, insts)
+            elif mode == "plan":
+                segments = host.declare_plan(insts)
+                notes.append("plan: " + ";".join(",".join(map(str, g)) for g in segments))
+            elif mode == "pool":
+                segments, pooled = host.declare_pool(insts, uris, alone)
+                notes.append("plan: " + ";".join(",".join(map(str, g)) for g in segments)
+                             + "; pool:g1 holds " + ",".join(map(str, pooled)))
             add_ms = (time.monotonic() - t0) * 1000 if insts else None
             if clients:
                 graph = ports(self.env)
@@ -1015,6 +1122,35 @@ class Runner:
                 self.procs.stop(p)
             self.assert_only_jack("after %s %s %d/%d" % (s["id"], hkey, rate, frames))
         return r
+
+    def plan_conf(self, wd, uris, alone):
+        """the conf of a plan or pool row: pins on, the store holding a verdict for each plugin the strip uses
+        (in-process, and isolated for those in `alone`), grouping on, no package pins to say otherwise"""
+        store = os.path.join(wd, "pins")
+        learned = self.learn_pins(uris)
+        with open(store, "w") as f:
+            f.write(set_verdicts(learned, {u: "isolated" if u in alone else "in-process" for u in uris}))
+        return ("require_pins 1", "pin_mode first-use", "pin_store " + store, "pins_dir", "grouping on")
+
+    def learn_pins(self, uris):
+        """the pin store a daemon writes when it first sees each plugin (files hashed, layout learned): the pins a
+        plugin-qualify run would write, minus the verdicts. One daemon start for each set of plugins in the run"""
+        key = tuple(dict.fromkeys(uris))
+        if key not in self.learned:
+            wd = tempfile.mkdtemp(dir=self.work)
+            store = os.path.join(wd, "pins")
+            self.port = free_port(self.port + 2)
+            host = Host("H2", self.procs, self.env, wd, self.port,
+                        ("require_pins 1", "pin_mode first-use", "pin_store " + store, "pins_dir"))
+            try:
+                host.start()
+                for i, uri in enumerate(key):
+                    host.add(uri, i, "own")
+            finally:
+                host.stop()
+            with open(store) as f:
+                self.learned[key] = f.read()
+        return self.learned[key]
 
     def measure(self, s, hkey, mode, rate, frames, stress):
         """the row, run args.repeats times; a row that cannot run, or breaks, ends the repeats"""

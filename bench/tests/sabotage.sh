@@ -99,6 +99,16 @@ break_unit rep-spread lib/bench.py 'spread[key] = [min(vals), max(vals)]' 'sprea
 break_unit rep-failed lib/bench.py 'if row["status"] == "failed" and (wanted or len(runs)) > 1:' 'if False:' Repeats.test_a_failed_repeat_fails_the_row_and_names_it
 break_unit rep-stop lib/bench.py 'if runs[-1]["status"] != "ok":' 'if False:' Repeats.test_the_runner_stops_repeating_at_the_first_row_that_is_not_ok
 break_unit rep-count lib/bench.py 'for _ in range(self.args.repeats):' 'for _ in range(1):' Repeats.test_the_runner_runs_the_row_as_many_times_as_asked
+break_unit plan-one lib/bench.py 'if len(segments) < 2:' 'if False:' Grouping.test_a_plan_of_one_segment_fails_the_row
+break_unit plan-reply lib/bench.py 'words[:2] != ["resp", "0"]' 'False' Grouping.test_a_refused_plan_is_failed_with_the_daemons_words
+break_unit pool-alone lib/bench.py 'and seg[0] not in alone]' 'and True]' Grouping.test_the_pool_takes_the_shareable_members_the_plan_left_alone
+break_unit pool-holder lib/bench.py 'if len(holder) != 1 or sorted(holder[0][5]) != sorted(pooled):' 'if False:' Grouping.test_a_pool_under_another_name_is_failed
+break_unit pool-min lib/bench.py 'if len(pooled) < 2:' 'if False:' Grouping.test_a_pool_of_one_is_not_a_pool
+break_unit pins-replace lib/bench.py '[w for w in words if not w.startswith("verdict=")]' 'list(words)' Pins.test_each_uri_gets_its_verdict_and_the_rest_is_kept
+break_unit pins-missing lib/bench.py 'if missing:' 'if False:' Pins.test_a_uri_the_daemon_never_learned_is_failed
+break_unit conf-grouping lib/bench.py '"pins_dir", "grouping on")' '"pins_dir")' Pins.test_the_conf_of_a_plan_row_turns_pins_and_grouping_on_and_package_pins_off
+break_unit conf-verdict lib/bench.py '"isolated" if u in alone else "in-process"' '"in-process" if u in alone else "isolated"' Pins.test_the_conf_of_a_plan_row_turns_pins_and_grouping_on_and_package_pins_off
+break_unit scenario-strip scenarios.json '"count": 8, "unshared": ["drive"]' '"count": 8, "unshared": ["comp", "delay", "drive"]' Scenarios.test_the_grouping_scenarios_have_all_four_modes_and_a_strip_the_pins_cut
 green "unit tests as they are" python3 -I "$here/tests/test_bench.py"
 
 # --- the teardown

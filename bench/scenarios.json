@@ -19,7 +19,13 @@
     { "id": "kill1",    "title": "one plugin, its process killed", "plugins": ["comp"], "kill": true },
     { "id": "cvp3",  "title": "chains vs processes, 3 plugins",  "plugins": ["comp", "calf", "delay", "drive"], "count": 3, "stress": true, "family": "chains-vs-processes" },
     { "id": "cvp8",  "title": "chains vs processes, 8 plugins",  "plugins": ["comp", "calf", "delay", "drive"], "count": 8, "stress": true, "family": "chains-vs-processes" },
-    { "id": "cvp16", "title": "chains vs processes, 16 plugins", "plugins": ["comp", "calf", "delay", "drive"], "count": 16, "stress": true, "family": "chains-vs-processes" }
+    { "id": "cvp16", "title": "chains vs processes, 16 plugins", "plugins": ["comp", "calf", "delay", "drive"], "count": 16, "stress": true, "family": "chains-vs-processes" },
+    { "id": "grp8",  "title": "grouping vs processes, 8 plugins, some of them pinned isolated",
+      "plugins": ["comp", "drive", "delay", "drive", "comp"], "count": 8, "unshared": ["drive"], "stress": true,
+      "family": "grouping-vs-processes" },
+    { "id": "grp16", "title": "grouping vs processes, 16 plugins, some of them pinned isolated",
+      "plugins": ["comp", "drive", "delay", "drive", "comp"], "count": 16, "unshared": ["drive"], "stress": true,
+      "family": "grouping-vs-processes" }
   ],
   "modes": {
     "chains-vs-processes": [
@@ -28,6 +34,12 @@
       { "host": "H1", "mode": "shared-process" },
       { "host": "H3", "mode": "shared-process" },
       { "host": "H4", "mode": "individual" }
+    ],
+    "grouping-vs-processes": [
+      { "host": "H2", "mode": "individual" },
+      { "host": "H2", "mode": "chain" },
+      { "host": "H2", "mode": "plan" },
+      { "host": "H2", "mode": "pool" }
     ]
   }
 }
