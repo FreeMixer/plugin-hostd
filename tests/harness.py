@@ -1,7 +1,10 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # The daemon under test and a controller for it: a command socket, a feedback socket read on a thread, and
 # helpers that wait for what the daemon does instead of sleeping and hoping.
-import json, os, re, shutil, signal, socket, subprocess, tempfile, threading, time
+import json, os, re, shutil, signal, socket, subprocess, sys, tempfile, threading, time
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+import plugin_hostd_client
 
 # The protocol the daemon declares, read from the file a consumer reads: the tree's own, or PLUGIN_HOSTD_PROTOCOL (the
 # installed package's /usr/share/plugin-hostd/protocol.json, in the smoke test of a package). No value of it is
@@ -116,6 +119,7 @@ class Daemon:
         self.events = []
         self.lock = threading.Lock()
         self.sock = socket.create_connection(("127.0.0.1", self.cmd_port), timeout=10)
+        self.client = plugin_hostd_client.Client(self.sock)
         self.fb = socket.create_connection(("127.0.0.1", self.fb_port), timeout=10) if feedback else None
         if self.fb:
             self.fb.settimeout(None)   # silence on the feedback port is not an error
@@ -142,14 +146,10 @@ class Daemon:
                     self.events.append(line.decode())
 
     def send(self, msg):
-        self.sock.sendall(msg.encode() + b"\0")
-        buf = b""
-        while not buf.endswith(b"\0"):
-            c = self.sock.recv(65536)
-            if not c:
-                raise Fail("daemon closed on " + msg)
-            buf += c
-        return buf[:-1].decode()
+        try:
+            return self.client.send(msg)
+        except ConnectionError:
+            raise Fail("daemon closed on " + msg)
 
     def ok(self, msg, expect=None):
         r = self.send(msg)

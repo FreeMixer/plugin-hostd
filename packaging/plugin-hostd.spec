@@ -128,6 +128,8 @@ make test-daemon check-generated check-rendered
 %files tests
 %license COPYING
 %{_libexecdir}/plugin-hostd/tests/fake-host
+%{_libexecdir}/plugin-hostd/tests/lib/protocol.sh
+%{_libexecdir}/plugin-hostd/tests/lib/plugin_hostd_client.py
 
 %files devel
 %license COPYING
