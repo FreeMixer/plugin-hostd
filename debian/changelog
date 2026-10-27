@@ -1,3 +1,22 @@
+plugin-hostd (0.13.0) unstable; urgency=medium
+
+  * A configured state_root that does not exist is made at start, as the
+    directories below it already were; an add no longer answers -503 over a
+    missing directory (#180).
+  * plugin-hostd-tests ships one protocol client for shell and Python tests,
+    lib/protocol.sh and lib/plugin_hostd_client.py, and the harness and the
+    verbs test use it (#177).
+  * bench/: a harness that runs the same plugins under omx-clap-host, under
+    plugin-hostd, under mod-host and under jalv, and writes omx-bench/1
+    documents; plan and pool modes, xruns, latency, stress and repeats with
+    their spread (#188).
+  * plugin_hostd_vocabulary.h is rendered by omx-contract 3.4.0, which writes
+    a reply code's number as an OMX_..._RESP define; the build needs
+    libomx-contract-dev 3.4.0 or newer and its check stage the omx-contract
+    command.
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Tue, 27 Oct 2026 09:30:00 +0100
+
 plugin-hostd (0.12.0) unstable; urgency=medium
 
   * The verbs the daemon adds are declared in its package of omx-contract's
