@@ -17,9 +17,9 @@
     { "id": "clap16",   "title": "16 instances of one CLAP plugin, sine in", "plugins": ["comp"], "repeat": 16 },
     { "id": "pianoteq", "title": "Pianoteq 9, five-note chords", "plugins": ["pianoteq"] },
     { "id": "kill1",    "title": "one plugin, its process killed", "plugins": ["comp"], "kill": true },
-    { "id": "cvp3",  "title": "chains vs processes, 3 plugins",  "plugins": ["comp", "calf", "delay", "drive"], "count": 3,  "family": "chains-vs-processes" },
-    { "id": "cvp8",  "title": "chains vs processes, 8 plugins",  "plugins": ["comp", "calf", "delay", "drive"], "count": 8,  "family": "chains-vs-processes" },
-    { "id": "cvp16", "title": "chains vs processes, 16 plugins", "plugins": ["comp", "calf", "delay", "drive"], "count": 16, "family": "chains-vs-processes" }
+    { "id": "cvp3",  "title": "chains vs processes, 3 plugins",  "plugins": ["comp", "calf", "delay", "drive"], "count": 3, "stress": true, "family": "chains-vs-processes" },
+    { "id": "cvp8",  "title": "chains vs processes, 8 plugins",  "plugins": ["comp", "calf", "delay", "drive"], "count": 8, "stress": true, "family": "chains-vs-processes" },
+    { "id": "cvp16", "title": "chains vs processes, 16 plugins", "plugins": ["comp", "calf", "delay", "drive"], "count": 16, "stress": true, "family": "chains-vs-processes" }
   ],
   "modes": {
     "chains-vs-processes": [

@@ -222,6 +222,32 @@ def samples(pids):
     return out
 
 
+# ---------------------------------------------------------------- the stress load
+
+STRESS_MEM_MB = 256
+# one busy loop per core, each pinned to its core; one process that keeps touching a buffer of a fixed size
+BUSY_CODE = "import os, sys\nos.sched_setaffinity(0, {int(sys.argv[1])})\nwhile True:\n    pass\n"
+MEM_CODE = ("import sys, time\nbuf = bytearray(int(sys.argv[1]) << 20)\nwhile True:\n"
+            "    for i in range(0, len(buf), 4096):\n        buf[i] = (buf[i] + 1) & 255\n    time.sleep(0.1)\n")
+
+
+def stress_cores():
+    """the cores the host may run on: the stress sits on every one of them"""
+    return sorted(os.sched_getaffinity(0))
+
+
+def stress_profile(cores):
+    """the name a row carries: the same name on the same machine means the same load"""
+    return "busy%d+mem%d" % (len(cores), STRESS_MEM_MB)
+
+
+def stress_argvs(cores, mem_mb=STRESS_MEM_MB):
+    """[(process name, argv)] of the load: a busy loop pinned to each core, and the memory touch"""
+    out = [("stress-busy-%d" % c, [sys.executable, "-I", "-c", BUSY_CODE, str(c)]) for c in cores]
+    out.append(("stress-mem", [sys.executable, "-I", "-c", MEM_CODE, str(mem_mb)]))
+    return out
+
+
 # ---------------------------------------------------------------- JACK
 
 
@@ -804,13 +830,17 @@ class Runner:
         for s in self.table["scenarios"]:
             if self.args.scenarios and s["id"] not in self.args.scenarios:
                 continue
+            loads = {"none": [False], "on": [True], "both": [False, True]}[self.args.stress] if s.get("stress") \
+                else [False]
             if s.get("family"):
-                for m in self.table["modes"][s["family"]]:
-                    if m["host"] in hosts:
-                        rows.append((s, m["host"], m["mode"]))
+                for load in loads:
+                    for m in self.table["modes"][s["family"]]:
+                        if m["host"] in hosts:
+                            rows.append((s, m["host"], m["mode"], load))
             else:
-                for h in hosts:
-                    rows.append((s, h, None))
+                for load in loads:
+                    for h in hosts:
+                        rows.append((s, h, None, load))
         return rows
 
     def plugin_list(self, s):
@@ -821,10 +851,12 @@ class Runner:
             keys = keys * s["repeat"]
         return keys
 
-    def row(self, s, hkey, mode, rate, frames):
+    def row(self, s, hkey, mode, rate, frames, stress=False):
+        cores = stress_cores()
         r = {"id": s["id"], "title": s["title"], "host": hkey, "rate": rate, "frames": frames, "plugins": [],
              "dsp_load_avg": None, "dsp_load_max": None, "samples": 0, "rss_mb": None, "add_ms": None,
-             "recover_ms": None, "status": "failed", "note": ""}
+             "recover_ms": None, "status": "failed", "note": "",
+             "stress": stress_profile(cores) if stress else "none"}
         if mode:
             r["mode"] = mode
         host = None
@@ -890,7 +922,10 @@ class Runner:
                 mode = mode or ("individual" if hkey == "H4" else "shared-process")
             if mode:
                 r["mode"] = mode
-            time.sleep(1.0)
+            if stress:
+                for name, argv in stress_argvs(cores):
+                    sources.append(self.procs.spawn(argv, name))
+            time.sleep(2.0 if stress else 1.0)
 
             pids = host.pids()
             before = samples(pids)
@@ -1034,11 +1069,11 @@ class Runner:
         for rate in self.args.rates:
             for frames in self.args.frames:
                 self.jack_start(rate, frames)
-                for s, h, mode in rows:
-                    r = self.row(s, h, mode, rate, frames)
-                    log("%-8s %s %-14s %6d/%-4d %-11s dsp %s%% rss %s MB add %s ms %s" % (
+                for s, h, mode, stress in rows:
+                    r = self.row(s, h, mode, rate, frames, stress)
+                    log("%-8s %s %-14s %6d/%-4d %-11s dsp %s%% rss %s MB add %s ms xruns %s %s%s" % (
                         r["id"], h, r.get("mode", "-"), rate, frames, r["status"], r["dsp_load_avg"], r["rss_mb"],
-                        r["add_ms"], r["note"]))
+                        r["add_ms"], r.get("xruns"), "" if r["stress"] == "none" else r["stress"] + " ", r["note"]))
                     doc["scenarios"].append(r)
                 self.jack_stop()
         if self.args.qualify:
@@ -1079,6 +1114,8 @@ def main():
     ap.add_argument("--frames", type=csv_ints, default=[128, 256])
     ap.add_argument("--scenarios", type=lambda t: [x for x in t.split(",") if x], default=None)
     ap.add_argument("--hosts", type=lambda t: [x for x in t.split(",") if x], default=list(HOSTS))
+    ap.add_argument("--stress", choices=["none", "on", "both"], default="both",
+                    help="the scenarios that declare a stress run without it, with it, or both")
     ap.add_argument("--window", type=int, default=10, help="seconds of DSP load and /proc sampling per row")
     ap.add_argument("--pianoteq-dir", default=None, help="the directory of Pianoteq's LV2 bundle")
     ap.add_argument("--qualify", action="store_true", help="also time plugin-qualify --all --isolate")

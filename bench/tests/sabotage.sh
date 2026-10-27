@@ -89,6 +89,10 @@ break_unit probe-server lib/bench.py 'self.NO_START | self.SERVER_NAME' 'self.SE
 break_unit probe-deaf lib/bench.py 'if counted == 0 and logged > 0:' 'if False:' Xruns.test_a_deaf_probe_is_failed_not_zero
 break_unit probe-latency lib/bench.py 'return int(rng.max)' 'return int(rng.min)' Xruns.test_the_latency_is_the_longest_of_the_range
 break_unit log-offset lib/bench.py 'f.seek(offset)' 'f.seek(0)' Xruns.test_the_servers_log_counts_new_xrun_lines_only
+break_unit stress-pin lib/bench.py 'os.sched_setaffinity(0, {int(sys.argv[1])})' 'pass' Stress.test_a_busy_loop_runs_on_its_core_only
+break_unit stress-mem lib/bench.py 'bytearray(int(sys.argv[1]) << 20)' 'bytearray(int(sys.argv[1]) << 10)' Stress.test_the_memory_touch_holds_its_size
+break_unit stress-cores lib/bench.py 'return "busy%d+mem%d" % (len(cores), STRESS_MEM_MB)' 'return "busy1+mem%d" % STRESS_MEM_MB' Stress.test_the_profile_names_the_cores_and_the_memory
+break_unit stress-both lib/bench.py '"both": [False, True]' '"both": [True]' Stress.test_stress_rows_are_the_same_scenario_with_and_without
 green "unit tests as they are" python3 -I "$here/tests/test_bench.py"
 
 # --- the teardown

@@ -8,6 +8,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -227,6 +228,75 @@ class Xruns(unittest.TestCase):
             self.assertEqual(n2, 2)
             self.assertEqual(bench.jack_log_xruns(path, end2), (0, end2))
             self.assertEqual(bench.jack_log_xruns(os.path.join(d, "none"), 5), (0, 5))
+
+
+def proc_field(pid, key):
+    with open("/proc/%d/status" % pid) as f:
+        for line in f:
+            if line.startswith(key + ":"):
+                return line.split(":", 1)[1].strip()
+
+
+class Stress(unittest.TestCase):
+    def test_the_profile_names_the_cores_and_the_memory(self):
+        self.assertEqual(bench.stress_profile([0, 1, 2, 3]), "busy4+mem256")
+        self.assertEqual(bench.stress_profile(list(range(24))), "busy24+mem256")
+
+    def test_the_profile_is_one_the_schema_accepts(self):
+        doc = example()
+        s = first_ok(doc)
+        s.update({"stress": bench.stress_profile([0, 1]), "xruns": 0})
+        code, out = validate(doc)
+        self.assertEqual(code, 0, out)
+
+    def test_one_busy_loop_per_core_and_one_memory_touch(self):
+        argvs = bench.stress_argvs([2, 5, 7])
+        self.assertEqual([n for n, _ in argvs], ["stress-busy-2", "stress-busy-5", "stress-busy-7", "stress-mem"])
+        self.assertEqual([a[-1] for _, a in argvs], ["2", "5", "7", "256"])
+        for _, a in argvs:
+            self.assertEqual(a[1], "-I", "no code from the current directory")
+
+    def test_a_busy_loop_runs_on_its_core_only(self):
+        core = bench.stress_cores()[-1]
+        _, argv = bench.stress_argvs([core])[0]
+        p = subprocess.Popen(argv)
+        try:
+            deadline = time.monotonic() + 5
+            while proc_field(p.pid, "Cpus_allowed_list") != str(core):
+                self.assertLess(time.monotonic(), deadline, "never pinned to core %d" % core)
+                time.sleep(0.02)
+            self.assertEqual(proc_field(p.pid, "State")[0], "R", "it should be busy, not asleep")
+        finally:
+            p.kill()
+            p.wait()
+
+    def test_the_memory_touch_holds_its_size(self):
+        _, argv = bench.stress_argvs([0], mem_mb=64)[-1]
+        p = subprocess.Popen(argv)
+        try:
+            deadline = time.monotonic() + 10
+            kb = 0
+            while kb < 64 * 1024:
+                self.assertLess(time.monotonic(), deadline, "resident only %d kB" % kb)
+                kb = int(proc_field(p.pid, "VmRSS").split()[0])
+                time.sleep(0.05)
+        finally:
+            p.kill()
+            p.wait()
+
+    def test_stress_rows_are_the_same_scenario_with_and_without(self):
+        import types
+        with open(os.path.join(BENCH, "scenarios.json")) as f:
+            table = json.load(f)
+        for choice, want in (("none", [False]), ("on", [True]), ("both", [False, True])):
+            fake = types.SimpleNamespace(args=types.SimpleNamespace(hosts=["H2"], scenarios=["cvp8", "clap1"],
+                                                                    stress=choice), table=table)
+            rows = bench.Runner.plan(fake)
+            self.assertEqual(sorted({st for sc, _, _, st in rows if sc["id"] == "cvp8"}), want)
+            self.assertEqual({st for sc, _, _, st in rows if sc["id"] == "clap1"}, {False},
+                             "a scenario that declares no stress never runs under it")
+            self.assertEqual(sorted(m for sc, _, m, st in rows if sc["id"] == "cvp8" and st == want[0]),
+                             ["chain", "individual"])
 
 
 if __name__ == "__main__":
