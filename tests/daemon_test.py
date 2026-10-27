@@ -3820,6 +3820,134 @@ def a_window_in_which_the_members_of_a_worker_changed_is_not_counted():
         p.close()
 
 
+def history_windows(d, uri):
+    """the windows the plugin has, alone and in a group"""
+    h = history_of(d, uri)
+    return int(h["windows_solo"]) + int(h["windows_grouped"]) if isinstance(h, dict) else 0
+
+
+def worker_writes_xruns(d, uri, inst, count):
+    """the worker of the instance writes `xruns <count>` as the fake is told to, and the call returns when two windows of the
+    plugin have closed since: the second began after the line, so the line is inside a window that is folded by then"""
+    before = history_windows(d, uri)
+    d.expect("param_get %d xruns=%s" % (inst, count), "resp 0 0")
+    wait_for(lambda: history_windows(d, uri) >= before + 2, "two windows after xruns %s" % count, timeout=15.0)
+
+
+@test
+def a_window_in_which_the_count_of_xruns_rose_is_counted_once_for_the_plugin_alone():
+    p = Plugins()
+    d = p.daemon(conf=history_conf(p))
+    try:
+        pin_in_process(p, d)
+        d.expect("add %s 0 own" % p.clap_uri, "resp 0")
+        wait_for(lambda: history_windows(d, p.clap_uri) >= 2 or None, "two windows")
+        h = history_of(d, p.clap_uri)
+        check(h["xrun_windows_solo"] == "0" and h["xrun_windows_grouped"] == "0",
+              "a worker that wrote no count had no xruns: %s" % h)
+        worker_writes_xruns(d, p.clap_uri, 0, 5)
+        h = history_of(d, p.clap_uri)
+        check(h["xrun_windows_solo"] == "0", "the first count is where the daemon begins to look, not xruns: %s" % h)
+        worker_writes_xruns(d, p.clap_uri, 0, 8)
+        h = history_of(d, p.clap_uri)
+        check(h["xrun_windows_solo"] == "1" and h["xrun_windows_grouped"] == "0", "3 xruns in a window are one window, alone: %s" % h)
+        worker_writes_xruns(d, p.clap_uri, 0, 8)
+        h = history_of(d, p.clap_uri)
+        check(h["xrun_windows_solo"] == "1", "the same count again is no new xrun, the count is the worker's since it started: %s" % h)
+        worker_writes_xruns(d, p.clap_uri, 0, 11)
+        h = history_of(d, p.clap_uri)
+        check(h["xrun_windows_solo"] == "2", "3 more are the next window: %s" % h)
+        # lines that are not a count: none of them moves the baseline or counts
+        for bad in ("14x", "-5", "abc", "99999999999999999999999"):
+            d.expect("param_get 0 xruns=%s" % bad, "resp 0 0")
+        before = history_windows(d, p.clap_uri)
+        wait_for(lambda: history_windows(d, p.clap_uri) >= before + 2, "two windows after the lines that are no count", timeout=15.0)
+        h = history_of(d, p.clap_uri)
+        check(h["xrun_windows_solo"] == "2", "a line that is not a whole number counts nothing: %s" % h)
+        worker_writes_xruns(d, p.clap_uri, 0, 12)
+        h = history_of(d, p.clap_uri)
+        check(h["xrun_windows_solo"] == "3", "and the baseline was where it was: %s" % h)
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def a_worker_that_restarts_begins_its_xruns_count_again_and_its_first_count_is_a_baseline_again():
+    p = Plugins()
+    d = p.daemon(conf=history_conf(p))
+    try:
+        pin_in_process(p, d)
+        d.expect("add %s 0 own" % p.clap_uri, "resp 0")
+        wait_for(lambda: history_windows(d, p.clap_uri) >= 1 or None, "a window")
+        worker_writes_xruns(d, p.clap_uri, 0, 2)
+        worker_writes_xruns(d, p.clap_uri, 0, 3)
+        check(history_of(d, p.clap_uri)["xrun_windows_solo"] == "1", "one window of xruns before the restart: %s" % history_of(d, p.clap_uri))
+        mark = d.mark()
+        d.expect("param_set 0 crash 1", "resp 0")
+        d.wait_event("instance_restored 0 ", since=mark)
+        d.wait_up(0)
+        # the new process counts from zero: 40 is its first count, above the 3 the old one ended at
+        worker_writes_xruns(d, p.clap_uri, 0, 40)
+        h = history_of(d, p.clap_uri)
+        check(h["xrun_windows_solo"] == "1", "the restarted worker's first count is a baseline, not 37 more xruns: %s" % h)
+        worker_writes_xruns(d, p.clap_uri, 0, 41)
+        h = history_of(d, p.clap_uri)
+        check(h["xrun_windows_solo"] == "2", "and its next is counted: %s" % h)
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def the_xruns_of_a_worker_of_two_are_a_window_of_each_member_in_a_group_and_none_alone():
+    p = Plugins()
+    other, other_uri = other_clap(p)
+    d = p.daemon(conf=history_conf(p))
+    try:
+        pin_in_process(p, d)
+        pin_in_process(p, d, other_uri, other)
+        d.expect("add %s 0 pool:g" % p.clap_uri, "resp 0")
+        d.expect("add %s 1 pool:g" % other_uri, "resp 1")
+        wait_for(lambda: history_windows(d, p.clap_uri) >= 1 or None, "a window of the two")
+        worker_writes_xruns(d, p.clap_uri, 0, 1)
+        worker_writes_xruns(d, p.clap_uri, 0, 4)
+        for uri in (p.clap_uri, other_uri):
+            h = history_of(d, uri)
+            check(h["xrun_windows_grouped"] == "1" and h["xrun_windows_solo"] == "0",
+                  "every member of the worker has the window, in the grouped count: %s %s" % (uri, h))
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def xruns_in_a_window_dropped_because_the_members_changed_are_nobodys():
+    p = Plugins()
+    other, other_uri = other_clap(p)
+    d = p.daemon(conf=history_conf(p, history_window_s=2))
+    try:
+        pin_in_process(p, d)
+        pin_in_process(p, d, other_uri, other)
+        d.expect("add %s 0 pool:g" % p.clap_uri, "resp 0")
+        wait_for(lambda: history_windows(d, p.clap_uri) >= 1 or None, "a window")
+        worker_writes_xruns(d, p.clap_uri, 0, 1)
+        # just after a window closed: the count rises, and the second member comes, inside the next one
+        before = history_windows(d, p.clap_uri)
+        wait_for(lambda: history_windows(d, p.clap_uri) > before or None, "the next window to close", timeout=15.0)
+        d.expect("param_get 0 xruns=4", "resp 0 0")
+        d.expect("add %s 1 pool:g" % other_uri, "resp 1")
+        grouped = int(history_of(d, p.clap_uri)["windows_grouped"])
+        wait_for(lambda: int(history_of(d, p.clap_uri)["windows_grouped"]) >= grouped + 2 or None, "two windows of the two", timeout=15.0)
+        for uri in (p.clap_uri, other_uri):
+            h = history_of(d, uri)
+            check(h["xrun_windows_grouped"] == "0" and h["xrun_windows_solo"] == "0",
+                  "the window the xruns came in was dropped with the change of members, and no later one has them: %s %s" % (uri, h))
+    finally:
+        d.close()
+        p.close()
+
+
 @test
 def an_lv2_plugins_record_is_under_the_first_file_its_pin_holds():
     p = Plugins()
