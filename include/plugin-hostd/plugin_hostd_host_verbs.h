@@ -166,7 +166,42 @@ struct omx_host_verb {
 #define OMX_VERB_PRESET_GET_CODES_COUNT 4u
 #define OMX_VERB_PRESET_GET_CODES_INIT { -515, -3, -901, -902 } /* reply.plugin-hostd.no-preset-list, reply.host.instance-non-exists, reply.host.memory-allocation, reply.host.invalid-operation */
 
-#define PLUGIN_HOSTD_HOST_VERB_COUNT 19u
+/* PLUGIN_HOSTD_VERBS.historyGet (data/verbs.json): What the daemon kept of one plugin on this host class, for the binary its pin holds now: <uri>. The history is one word, digest=<sha256>,class=<host class>,crashed=<0|1>,raises_xruns=<0|1> and then every key=value of PLUGIN_HOSTD_HISTORY_KEYS, joined by commas; - when the plugin has no record or no pin, unavailable while the history file is blocked. */
+#define OMX_VERB_HISTORY_GET "history_get"
+#define OMX_VERB_HISTORY_GET_FMT "history_get %s"
+#define OMX_VERB_HISTORY_GET_REPLY "resp 0 <history>"
+#define OMX_VERB_HISTORY_GET_CODES_COUNT 1u
+#define OMX_VERB_HISTORY_GET_CODES_INIT { -902 } /* reply.host.invalid-operation */
+
+/* PLUGIN_HOSTD_VERBS.historyClear (data/verbs.json): Delete the history of one plugin, every binary and host class, or all of it: <uri> | all. Refused while the history file is blocked. */
+#define OMX_VERB_HISTORY_CLEAR "history_clear"
+#define OMX_VERB_HISTORY_CLEAR_FMT "history_clear %s"
+#define OMX_VERB_HISTORY_CLEAR_REPLY "resp 0"
+#define OMX_VERB_HISTORY_CLEAR_CODES_COUNT 1u
+#define OMX_VERB_HISTORY_CLEAR_CODES_INIT { -902 } /* reply.host.invalid-operation */
+
+/* PLUGIN_HOSTD_VERBS.plan (data/verbs.json): The instances, in signal order, are planned into the fewest workers their pins and costs allow: <chain> <instance> [<instance> ...]. Each run of consecutive members that may share a worker becomes a chain of place chain:<chain>.<k>, the others stay alone in a worker of their own; the reply names the segments in order, the members of a segment joined by commas and the segments by semicolons. With the setting grouping off the plan is answered and kept, and nothing moves. */
+#define OMX_VERB_PLAN "plan"
+#define OMX_VERB_PLAN_FMT "plan %i %i ..."
+#define OMX_VERB_PLAN_REPLY "resp 0 <instance>,...;<instance>,...;..."
+#define OMX_VERB_PLAN_CODES_COUNT 5u
+#define OMX_VERB_PLAN_CODES_INIT { -518, -519, -520, -501, -902 } /* reply.plugin-hostd.chain-unknown-instance, reply.plugin-hostd.chain-duplicate, reply.plugin-hostd.chain-instance-busy, reply.plugin-hostd.placement-invalid, reply.host.invalid-operation */
+
+/* PLUGIN_HOSTD_VERBS.planGet (data/verbs.json): Read the last plan of a chain back: its segments as plan answered them, then the reason of each member that has one (a word of PLUGIN_HOSTD_GROUPING_REASONS, plan-refused followed by the refusal's number), instance:reason joined by commas, - for none. */
+#define OMX_VERB_PLAN_GET "plan_get"
+#define OMX_VERB_PLAN_GET_FMT "plan_get %i"
+#define OMX_VERB_PLAN_GET_REPLY "resp 0 <instance>,...;<instance>,...;... <instance>:<reason>,..."
+#define OMX_VERB_PLAN_GET_CODES_COUNT 2u
+#define OMX_VERB_PLAN_GET_CODES_INIT { -532, -902 } /* reply.plugin-hostd.no-such-plan, reply.host.invalid-operation */
+
+/* PLUGIN_HOSTD_VERBS.planClear (data/verbs.json): Forget the plan: each member goes to a worker of its own, as chain_clear does. */
+#define OMX_VERB_PLAN_CLEAR "plan_clear"
+#define OMX_VERB_PLAN_CLEAR_FMT "plan_clear %i"
+#define OMX_VERB_PLAN_CLEAR_REPLY "resp 0"
+#define OMX_VERB_PLAN_CLEAR_CODES_COUNT 2u
+#define OMX_VERB_PLAN_CLEAR_CODES_INIT { -532, -902 } /* reply.plugin-hostd.no-such-plan, reply.host.invalid-operation */
+
+#define PLUGIN_HOSTD_HOST_VERB_COUNT 24u
 
 /* Every verb, in the order of its items, with what each host owes it. */
 static inline const struct omx_host_verb *plugin_hostd_host_verbs(void) {
@@ -190,6 +225,11 @@ static inline const struct omx_host_verb *plugin_hostd_host_verbs(void) {
     { OMX_VERB_PANEL_GET, OMX_VERB_PANEL_GET_FMT, OMX_VERB_PANEL_GET_REPLY, { OMX_HOST_VERB_REQUIRED, OMX_HOST_VERB_UNSUPPORTED, OMX_HOST_VERB_UNSUPPORTED } },
     { OMX_VERB_PRESET_LIST, OMX_VERB_PRESET_LIST_FMT, OMX_VERB_PRESET_LIST_REPLY, { OMX_HOST_VERB_OPTIONAL, OMX_HOST_VERB_OPTIONAL, OMX_HOST_VERB_UNSUPPORTED } },
     { OMX_VERB_PRESET_GET, OMX_VERB_PRESET_GET_FMT, OMX_VERB_PRESET_GET_REPLY, { OMX_HOST_VERB_OPTIONAL, OMX_HOST_VERB_OPTIONAL, OMX_HOST_VERB_UNSUPPORTED } },
+    { OMX_VERB_HISTORY_GET, OMX_VERB_HISTORY_GET_FMT, OMX_VERB_HISTORY_GET_REPLY, { OMX_HOST_VERB_REQUIRED, OMX_HOST_VERB_UNSUPPORTED, OMX_HOST_VERB_UNSUPPORTED } },
+    { OMX_VERB_HISTORY_CLEAR, OMX_VERB_HISTORY_CLEAR_FMT, OMX_VERB_HISTORY_CLEAR_REPLY, { OMX_HOST_VERB_REQUIRED, OMX_HOST_VERB_UNSUPPORTED, OMX_HOST_VERB_UNSUPPORTED } },
+    { OMX_VERB_PLAN, OMX_VERB_PLAN_FMT, OMX_VERB_PLAN_REPLY, { OMX_HOST_VERB_REQUIRED, OMX_HOST_VERB_UNSUPPORTED, OMX_HOST_VERB_UNSUPPORTED } },
+    { OMX_VERB_PLAN_GET, OMX_VERB_PLAN_GET_FMT, OMX_VERB_PLAN_GET_REPLY, { OMX_HOST_VERB_REQUIRED, OMX_HOST_VERB_UNSUPPORTED, OMX_HOST_VERB_UNSUPPORTED } },
+    { OMX_VERB_PLAN_CLEAR, OMX_VERB_PLAN_CLEAR_FMT, OMX_VERB_PLAN_CLEAR_REPLY, { OMX_HOST_VERB_REQUIRED, OMX_HOST_VERB_UNSUPPORTED, OMX_HOST_VERB_UNSUPPORTED } },
   };
   return table;
 }

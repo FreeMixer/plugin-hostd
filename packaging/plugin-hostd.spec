@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.12.0
+Version: 0.13.1
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -18,8 +18,8 @@ BuildRequires: python3
 BuildRequires: mod-host-protocol-devel >= 0.10.6.f14a230-11
 # the probe runner's default rates, the protocol's parameter scales and the probe output's shared words are read from
 # omx-contract's C headers, the format tables are items of its schema 3, and the daemon's verbs are a verbs item
-# (3.3.0 is the first with the verbs kind); a floor only
-BuildRequires: omx-contract-devel >= 3.3.0
+# (3.3.0 is the first with the verbs kind, 3.4.0 the first that renders a reply code's resp); a floor only
+BuildRequires: omx-contract-devel >= 3.4.0
 # a command of exactly the socket's buffer size, or several commands in one read, needs mod-audio/mod-host#113:
 # FreeMixer's build carrying it (11.1.fmx) or audinux's once it carries it (12); a floor only
 Requires: mod-host-protocol%{?_isa} >= 0.10.6.f14a230-11.1
@@ -31,9 +31,9 @@ Requires: mod-host-protocol%{?_isa} >= 0.10.6.f14a230-11.1
 %if %{with check}
 BuildRequires: omx-clap-host-tests >= 0.21.0
 # the reader that holds the committed render of the daemon's verbs to data/verbs.json (make check-rendered)
-BuildRequires: omx-contract >= 3.3.0
+BuildRequires: omx-contract >= 3.4.0
 # the shared verbs and the reply.host.* codes data/verbs.json refers to (make check-rendered, test-verbs-declared)
-BuildRequires: omx-clap-core-contract >= 0.22.0
+BuildRequires: omx-clap-core-contract >= 0.23.0
 %endif
 # the format tables and the verbs, which readers read at run time
 Requires: %{name}-contract = %{version}-%{release}
@@ -67,13 +67,15 @@ Summary: plugin-hostd's format tables and verbs, for programs that read them at 
 BuildArch: noarch
 # verbs.json refuses with omx-clap-core's reply.host.* codes for the numbers both hosts answer: a reader of this
 # package reads that one too; a floor only
-Requires: omx-clap-core-contract >= 0.22.0
+Requires: omx-clap-core-contract >= 0.23.0
 
 %description contract
 plugin-hostd's package of omx-contract's contract directory: the format tables
 a scan maps a CLAP or LV2 plugin through (formats/clap.json, formats/lv2.json)
 and the verbs the daemon adds to mod-host's protocol, with their replies,
-their refusals and what each host owes them (verbs.json), under
+their refusals and what each host owes them (verbs.json), the keys of the
+running history (history.json) and the reasons a plan gives for a plugin it
+leaves alone (grouping.json), under
 share/omx-contract/contract.d/3/plugin-hostd. A program that reads them at run
 time requires this package, never the development one.
 
@@ -128,6 +130,8 @@ make test-daemon check-generated check-rendered
 %files tests
 %license COPYING
 %{_libexecdir}/plugin-hostd/tests/fake-host
+%{_libexecdir}/plugin-hostd/tests/lib/protocol.sh
+%{_libexecdir}/plugin-hostd/tests/lib/plugin_hostd_client.py
 
 %files devel
 %license COPYING
@@ -145,6 +149,45 @@ make test-daemon check-generated check-rendered
 %{_datadir}/omx-contract/contract.d/3/plugin-hostd/
 
 %changelog
+* Tue Oct 27 2026 Pau Aliagas <linuxnow@gmail.com> - 0.13.1-1
+- The daemon reads the xruns line a worker writes (omx-clap-core 0.23.0,
+  now the floor) and adds a window to xrun_windows_solo or
+  xrun_windows_grouped of every member of the worker when the count rose
+  in it; the first count of a worker is its baseline (#187).
+
+* Tue Oct 27 2026 Pau Aliagas <linuxnow@gmail.com> - 0.13.0-1
+- A configured state_root that does not exist is made at start, as the
+  directories below it already were; an add no longer answers -503 over a
+  missing directory (#180).
+- plugin-hostd-tests ships one protocol client for shell and Python tests,
+  lib/protocol.sh and lib/plugin_hostd_client.py, and the harness and the
+  verbs test use it (#177).
+- bench/: a harness that runs the same plugins under omx-clap-host, under
+  plugin-hostd, under mod-host and under jalv, and writes omx-bench/1
+  documents; plan and pool modes, xruns, latency, stress and repeats with
+  their spread (#188).
+- history_get and history_clear: what each plugin did on this machine, kept
+  per plugin, binary and host class: the worker's CPU time and Pss read
+  from /proc into windows, and its deaths. Settings history_file,
+  history_window_s, history_save_s and host_class (#184).
+- plan, plan_get and plan_clear: the grouping planner, a pure function over
+  the pins and the history that gathers the members of a strip, applies the
+  segments as chains (chain places are chain:<n>.<k>) and keeps the ones
+  that did not change. The reason codes are declared in data/grouping.json
+  and the plan_reason event says why a plan changed. Settings grouping
+  (off by default), group_max, group_cost_max, group_rate and
+  group_quantum (#185).
+- The probe runner copies lv2_measure's latency and cost into the LV2 grid
+  point (#200).
+- README: grouped workers against one process per plugin, measured.
+- CI: superseded pull request runs are cancelled, package and fuzz runs a
+  pull request cannot change are skipped, and build and test has 60
+  minutes (#198).
+- plugin_hostd_vocabulary.h is rendered by omx-contract 3.4.0, which writes
+  a reply code's number as an OMX_..._RESP define; the build needs
+  omx-contract-devel 3.4.0 or newer and its check stage the omx-contract
+  command.
+
 * Mon Oct 26 2026 Pau Aliagas <linuxnow@gmail.com> - 0.12.0-1
 - The verbs the daemon adds are declared in its package of omx-contract's
   contract directory, verbs.json beside the format tables: each verb's

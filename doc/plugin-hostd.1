@@ -1,4 +1,4 @@
-.TH PLUGIN\-HOSTD 1 "October 2026" "plugin-hostd 0.12.0" "User Commands"
+.TH PLUGIN\-HOSTD 1 "October 2026" "plugin-hostd 0.13.1" "User Commands"
 .SH NAME
 plugin\-hostd \- supervisor of plugin host processes behind one mod\-host protocol socket
 .SH SYNOPSIS
@@ -72,7 +72,7 @@ or in
 one
 .\" BEGIN GENERATED protocol:man-keys
 .RI \(dq key " value" \(dq
-per line: mod_host, clap_host, lv2_worker, lv2_path, state_root, pin_mode, pin_store, pin_file, pins_dir, descriptor_dir, qualification_dir, probe, ready_timeout_ms, rpc_timeout_ms, backoff_base_ms, backoff_max_ms, storm_deaths, storm_window_ms, suspect_window_ms, checkpoint_ms, idle_ms, pool_max, require_pins.
+per line: mod_host, clap_host, lv2_worker, lv2_path, state_root, pin_mode, grouping, pin_store, pin_file, pins_dir, descriptor_dir, qualification_dir, probe, history_file, host_class, ready_timeout_ms, rpc_timeout_ms, backoff_base_ms, backoff_max_ms, storm_deaths, storm_window_ms, suspect_window_ms, checkpoint_ms, idle_ms, pool_max, history_window_s, history_save_s, group_max, group_cost_max, group_rate, group_quantum, require_pins.
 .\" END GENERATED protocol:man-keys
 .PP
 The development package installs the schemas of the documents the daemon and its probe write or read, beside

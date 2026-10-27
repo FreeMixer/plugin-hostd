@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://www.openmixer.org/schema/omx-bench.v1.schema.json",
+  "title": "omx-bench/1: one benchmark run of plugin hosts on one machine",
+  "type": "object",
+  "required": ["schema", "id", "machine", "software", "scenarios"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": { "const": "omx-bench/1" },
+    "id": { "type": "string", "pattern": "^(rpi5|desk|ci)-[0-9]{8}-[0-9]+$" },
+    "machine": {
+      "type": "object",
+      "required": ["class", "model", "cpu", "cores", "ram_mb", "os", "kernel", "governor"],
+      "additionalProperties": false,
+      "properties": {
+        "class": { "enum": ["rpi5", "desk", "ci"] },
+        "model": { "type": "string", "minLength": 1 },
+        "cpu": { "type": "string", "minLength": 1 },
+        "cores": { "type": "integer", "minimum": 1 },
+        "ram_mb": { "type": "integer", "minimum": 1 },
+        "os": { "type": "string", "minLength": 1 },
+        "kernel": { "type": "string", "minLength": 1 },
+        "governor": { "type": "string", "minLength": 1 }
+      }
+    },
+    "software": {
+      "type": "object",
+      "required": ["plugin-hostd", "omx-clap-host", "mod-host", "jalv", "jack"],
+      "additionalProperties": { "type": ["string", "null"] },
+      "properties": {
+        "plugin-hostd": { "type": ["string", "null"] },
+        "omx-clap-host": { "type": ["string", "null"] },
+        "mod-host": { "type": ["string", "null"] },
+        "jalv": { "type": ["string", "null"] },
+        "jack": { "type": ["string", "null"] }
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "host", "rate", "frames", "plugins", "dsp_load_avg", "dsp_load_max", "samples",
+                     "rss_mb", "add_ms", "recover_ms", "status", "note"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+          "title": { "type": "string", "minLength": 1 },
+          "host": { "enum": ["H1", "H2", "H3", "H4"] },
+          "rate": { "type": "integer", "minimum": 8000 },
+          "frames": { "type": "integer", "minimum": 16 },
+          "plugins": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+          "dsp_load_avg": { "type": ["number", "null"], "minimum": 0 },
+          "dsp_load_max": { "type": ["number", "null"], "minimum": 0 },
+          "samples": { "type": "integer", "minimum": 0 },
+          "rss_mb": { "type": ["number", "null"], "minimum": 0 },
+          "add_ms": { "type": ["number", "null"], "minimum": 0 },
+          "recover_ms": { "type": ["number", "null"], "minimum": 0 },
+          "status": { "enum": ["ok", "unsupported", "failed"] },
+          "note": { "type": "string" },
+          "mode": { "enum": ["individual", "chain", "shared-process", "plan", "pool"] },
+          "processes": { "type": "integer", "minimum": 0 },
+          "rss_mb_total": { "type": "number", "minimum": 0 },
+          "pss_mb_total": { "type": "number", "minimum": 0 },
+          "cpu_pct": { "type": "number", "minimum": 0 },
+          "ctx_switches": { "type": "integer", "minimum": 0 },
+          "ctx_involuntary": { "type": "integer", "minimum": 0 },
+          "xruns": { "type": "integer", "minimum": 0 },
+          "latency_frames": { "type": ["integer", "null"], "minimum": 0 },
+          "stress": { "type": "string", "pattern": "^(none|busy[0-9]+\\+mem[0-9]+)$" },
+          "repeats": { "type": "integer", "minimum": 1 },
+          "spread": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "minItems": 2,
+              "items": { "type": "number", "minimum": 0 }
+            }
+          }
+        },
+        "allOf": [
+          {
+            "if": { "properties": { "status": { "const": "ok" } } },
+            "then": {
+              "properties": {
+                "dsp_load_avg": { "type": "number" },
+                "dsp_load_max": { "type": "number" },
+                "samples": { "minimum": 1 },
+                "rss_mb": { "type": "number" }
+              }
+            }
+          },
+          {
+            "if": { "properties": { "status": { "enum": ["unsupported", "failed"] } } },
+            "then": { "properties": { "note": { "minLength": 1 } } }
+          }
+        ]
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "required": ["set"],
+      "additionalProperties": { "type": "integer", "minimum": 0 },
+      "properties": { "set": { "type": "string", "minLength": 1 } }
+    },
+    "qualification": {
+      "type": "object",
+      "required": ["plugins", "seconds", "rates", "quanta", "suitable", "unsuitable"],
+      "additionalProperties": false,
+      "properties": {
+        "plugins": { "type": "integer", "minimum": 0 },
+        "files": { "type": "integer", "minimum": 0 },
+        "seconds": { "type": "number", "minimum": 0 },
+        "rates": { "type": "array", "minItems": 1, "items": { "type": "integer" } },
+        "quanta": { "type": "array", "minItems": 1, "items": { "type": "integer" } },
+        "suitable": { "type": "integer", "minimum": 0 },
+        "unsuitable": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

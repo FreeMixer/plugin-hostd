@@ -439,3 +439,91 @@ char *proc_find_lv2_bundle(const char *lv2_path, const char *uri)
     free(copy);
     return result;
 }
+
+int proc_parse_stat(const char *text, long long *utime, long long *stime)
+{
+    const char *p = strrchr(text, ')');
+    char copy[1024], *save = NULL, *t, *end;
+    int field = 3;
+
+    if (!p || strlen(p + 1) >= sizeof(copy))
+        return -1;
+    snprintf(copy, sizeof(copy), "%s", p + 1);
+    /* the words after the name: state is field 3, utime field 14, stime field 15 */
+    for (t = strtok_r(copy, " \n", &save); t; t = strtok_r(NULL, " \n", &save), field++)
+    {
+        if (field != 14 && field != 15)
+            continue;
+        long long v = strtoll(t, &end, 10);
+
+        if (end == t || *end || v < 0)
+            return -1;
+        if (field == 14)
+            *utime = v;
+        else
+        {
+            *stime = v;
+            return 0;
+        }
+    }
+    return -1;
+}
+
+int proc_parse_pss(const char *text, long long *kb)
+{
+    const char *p = text;
+
+    /* "Pss:" at the start of a line: not Pss_Anon, Pss_File or Pss_Shmem */
+    while (p && *p)
+    {
+        if (!strncmp(p, "Pss:", 4))
+        {
+            char *end;
+            long long v = strtoll(p + 4, &end, 10);
+
+            if (end == p + 4 || v < 0 || strncmp(end, " kB", 3))
+                return -1;
+            *kb = v;
+            return 0;
+        }
+        p = strchr(p, '\n');
+        if (p)
+            p++;
+    }
+    return -1;
+}
+
+static int read_proc(pid_t pid, const char *name, char *buf, size_t size)
+{
+    char path[64];
+    int fd, n;
+
+    snprintf(path, sizeof(path), "/proc/%d/%s", (int)pid, name);
+    if ((fd = open(path, O_RDONLY | O_CLOEXEC)) < 0)
+        return -1;
+    n = read(fd, buf, size - 1);
+    close(fd);
+    if (n <= 0)
+        return -1;
+    buf[n] = '\0';
+    return 0;
+}
+
+int proc_cpu_seconds(pid_t pid, double *seconds)
+{
+    char text[1024];
+    long long u = 0, s = 0;
+    long hz = sysconf(_SC_CLK_TCK);
+
+    if (hz <= 0 || read_proc(pid, "stat", text, sizeof(text)) != 0 || proc_parse_stat(text, &u, &s) != 0)
+        return -1;
+    *seconds = (double)(u + s) / (double)hz;
+    return 0;
+}
+
+int proc_pss_kb(pid_t pid, long long *kb)
+{
+    char text[4096];
+
+    return read_proc(pid, "smaps_rollup", text, sizeof(text)) == 0 ? proc_parse_pss(text, kb) : -1;
+}

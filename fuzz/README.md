@@ -76,7 +76,7 @@ seed.
 
 | Harness | Lines | Covered | Lines no seed reaches |
 | --- | ---: | ---: | --- |
-| command | 178 | 92.13% | the paths taken when the message's copies or an answer get no memory (`tests/verbs_alloc_test.c` drives them) |
+| command | 194 | 92.78% | the paths taken when the message's copies or an answer get no memory (`tests/verbs_alloc_test.c` drives them) |
 | reply | 210 | 90.00% | the paths taken when `realloc` fails (`tests/relay_test.c` and `tests/gesture_alloc_test.c` drive them), the relay thread's join and the listening socket in `relay_finish`, and the `fd < 0` guards of `relay_add` and `relay_remove` |
 
 The records

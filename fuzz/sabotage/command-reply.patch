@@ -5,7 +5,7 @@ diff --git a/src/verbs.c b/src/verbs.c
 index aebc6c6..4859ca8 100644
 --- a/src/verbs.c
 +++ b/src/verbs.c
-@@ -127,5 +127,5 @@ static void reply(int fd, char *text)
+@@ -140,5 +140,5 @@ static void reply(int fd, char *text)
          return;
      }
 -    socket_send(fd, text, strlen(text) + 1);

@@ -26,6 +26,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -37,7 +38,10 @@
 
 /* mod-host's pseudo port of the host's own bypass, which param_info names no parameter */
 
+#include "history.h"
 #include "pins.h"
+#include "planner.h"
+#include "qualcost.h"
 #include "relay.h"
 #include "supervisor.h"
 #include "verbs.h"
@@ -72,7 +76,29 @@ static worker_env_t g_env[FORMATS_MAX];
 static chain_t *g_chain[MAX_INSTANCE];
 static int g_nchains;
 
+/* what plan last answered for a chain: its segments, and the chain of each segment of two or more that runs */
+typedef struct PLAN_T {
+    int id;
+    int n;
+    int *ids;                   /* the members, in the order plan was given them */
+    chain_t **seg;              /* the segments of two or more members that run, in plan order */
+    int nseg;
+    char *segments;             /* plan's answer after resp 0 */
+    char *reasons;              /* plan_get's second word */
+} plan_t;
+static plan_t *g_plan[MAX_INSTANCE];
+static int g_nplans;
+
 static void chain_form(chain_t *c);
+
+/* a chain as the controller names it: the number chain declared, or <plan>.<k> for segment k of a plan */
+static void chain_word(const chain_t *c, char *word, size_t size)
+{
+    if (c->planned)
+        snprintf(word, size, "%d" PHD_PLACE_PLAN_SEPARATOR "%d", c->id, c->seg);
+    else
+        snprintf(word, size, "%d", c->id);
+}
 
 static const char *const g_state_states[W_COUNT] = {
 #define X(id, name, meaning) name,
@@ -675,6 +701,157 @@ static int chain_whole(const chain_t *c)
     return 1;
 }
 
+/* ---------------------------------------------------------------- the running history */
+
+/* The history is kept by plugin binary: the first file its pin holds. A plugin with no pin (require_pins off, or never
+ * pinned) has none, and nothing is kept of it. src/history.c does nothing when the history is off or unavailable. */
+static long long utc_now(void)
+{
+    return (long long)time(NULL);
+}
+
+static void hist_quarantine(const char *uri)
+{
+    char digest[PHD_SHA256_HEX_LEN + 1];
+
+    if (pins_digest(uri, digest) == 0)
+        history_quarantine(uri, digest, utc_now());
+}
+
+static void hist_crash(const char *uri, int grouped)
+{
+    char digest[PHD_SHA256_HEX_LEN + 1];
+
+    if (pins_digest(uri, digest) == 0)
+        history_crash(uri, digest, grouped, utc_now());
+}
+
+static void hist_restart(const char *uri, int grouped)
+{
+    char digest[PHD_SHA256_HEX_LEN + 1];
+
+    if (pins_digest(uri, digest) == 0)
+        history_restart(uri, digest, grouped, utc_now());
+}
+
+/* the xruns the worker's process counted since the last time this was asked, and 0 when it counted none, wrote no count
+ * yet or restarted. A process writes its count from the start and nothing while it is 0, so the first count seen is
+ * where the daemon begins to look, never xruns of the window it arrives in; a count below the last is a counter that began
+ * again, and begins the baseline again */
+static long hist_xruns(worker_t *w)
+{
+    unsigned long long count, rose = 0;
+
+    if (w->xr_pid != w->pid)
+    {
+        w->xr_pid = w->pid;
+        w->xr_known = 0;
+    }
+    if (w->fb_fd < 0 || !relay_xruns(w->fb_fd, &count))
+        return 0;
+    if (w->xr_known && count > w->xr_base)
+        rose = count - w->xr_base;
+    w->xr_known = 1;
+    w->xr_base = count;
+    return rose > (unsigned long long)LONG_MAX ? LONG_MAX : (long)rose;
+}
+
+/* the window [hist_start_ms, at_ms] of a worker, its CPU over it as percent of one core, folded into every member */
+static void hist_fold(worker_t *w, int64_t at_ms, double cpu1, long long pss_kb)
+{
+    double seconds = (double)(at_ms - w->hist_start_ms) / 1000.0, pct = 0;
+    int n, grouped = w->ninst >= 2;
+    long xruns = hist_xruns(w);
+
+    if (seconds > 0 && cpu1 > w->hist_cpu0)
+        pct = (cpu1 - w->hist_cpu0) / seconds * 100.0;
+    for (n = 0; n < w->ninst; n++)
+    {
+        char digest[PHD_SHA256_HEX_LEN + 1];
+
+        if (pins_digest(w->inst[n]->uri, digest) == 0)
+            history_window(w->inst[n]->uri, digest, grouped, pct, (double)pss_kb / 1024.0, xruns, utc_now());
+    }
+}
+
+static void hist_begin(worker_t *w, int64_t now)
+{
+    w->hist_pid = 0;
+    if (proc_cpu_seconds(w->pid, &w->hist_cpu0) != 0)
+        return;
+    hist_xruns(w);              /* what rose before this window is not its */
+    w->hist_pid = w->pid;
+    w->hist_start_ms = now;
+    w->hist_ninst = w->ninst;
+    w->hist_half_ms = 0;
+}
+
+/* the idle tick of one worker: a window opens when it is up, takes its mid-window sample, and closes after
+ * history_window_s; members that came or went open it again, uncounted */
+static void hist_tick(worker_t *w, int64_t now)
+{
+    int64_t window_ms = (int64_t)g_conf.history_window_s * 1000;
+    double cpu;
+    long long pss = 0;
+
+    if (g_conf.history_window_s <= 0)
+        return;
+    if (w->state != W_UP || w->pid <= 0)
+    {
+        w->hist_pid = 0;
+        return;
+    }
+    if (w->hist_pid != w->pid || w->hist_ninst != w->ninst)
+    {
+        hist_begin(w, now);
+        return;
+    }
+    if (!w->hist_half_ms && now - w->hist_start_ms >= window_ms / 2)
+    {
+        if (proc_cpu_seconds(w->pid, &w->hist_half_cpu) != 0)
+        {
+            w->hist_pid = 0;
+            return;
+        }
+        proc_pss_kb(w->pid, &w->hist_half_pss_kb);
+        w->hist_half_ms = now;
+    }
+    if (now - w->hist_start_ms < window_ms)
+        return;
+    if (proc_cpu_seconds(w->pid, &cpu) != 0)
+    {
+        w->hist_pid = 0;
+        return;
+    }
+    proc_pss_kb(w->pid, &pss);
+    if (w->hist_half_pss_kb > pss)
+        pss = w->hist_half_pss_kb;
+    hist_fold(w, now, cpu, pss);
+    w->hist_half_pss_kb = 0;
+    hist_begin(w, now);
+}
+
+/* a worker that died: its window counts if it was up for half of it. The dead process is not yet reaped, so its CPU is
+ * still readable; when it is not, the mid-window sample stands for the window */
+static void hist_death(worker_t *w, int64_t now)
+{
+    double cpu;
+    long long pss = w->hist_half_pss_kb;
+
+    if (g_conf.history_window_s > 0 && w->hist_pid && w->hist_pid == w->pid)
+    {
+        int64_t window_ms = (int64_t)g_conf.history_window_s * 1000;
+
+        if (now - w->hist_start_ms >= window_ms / 2 && proc_cpu_seconds(w->pid, &cpu) == 0)
+            hist_fold(w, now, cpu, pss);
+        else if (w->hist_half_ms)
+            hist_fold(w, w->hist_half_ms, w->hist_half_cpu, pss);
+    }
+    w->hist_pid = 0;
+    w->hist_half_ms = 0;
+    w->hist_half_pss_kb = 0;
+}
+
 static void quarantine(instance_t *i, worker_t *w)
 {
     meta_t *m = meta_of(i->id);
@@ -683,6 +860,7 @@ static void quarantine(instance_t *i, worker_t *w)
     {
         m->quarantined = 1;
         event(PHD_EVENT_INSTANCE_QUARANTINED_FMT, i->id, w->k);
+        hist_quarantine(i->uri);
     }
     /* the culprit of a chain that was split: the others are gathered again, without it, by the tick */
     if (i->chain && !chain_whole(i->chain))
@@ -743,10 +921,15 @@ static void clear_suspects(worker_t *w)
 
 static void on_death(worker_t *w, int in_flight)
 {
-    int status = 0, n, done = 0;
+    int status = 0, n, done = 0, grouped = w->ninst >= 2, nmembers = w->ninst;
     char ids[1024], how[32];
     int64_t now = proc_now_ms();
+    instance_t **members = NULL, *blamed = NULL;
 
+    /* the history: the window it was in, and who was in the worker; before the process is reaped */
+    hist_death(w, now);
+    if (grouped && (members = malloc(nmembers * sizeof(instance_t *))))
+        memcpy(members, w->inst, nmembers * sizeof(instance_t *));
     for (n = 0; n < 50 && !(done = proc_exited(w->pid, &status)); n++)
         usleep(10000);
     if (!done)
@@ -782,6 +965,7 @@ static void on_death(worker_t *w, int in_flight)
             if (w->ninst == 1)
             {
                 meta_of(w->inst[0]->id)->crashes++;
+                hist_crash(w->inst[0]->uri, 0);
                 if (w->from_split)
                     quarantine(w->inst[0], w);
             }
@@ -798,6 +982,8 @@ static void on_death(worker_t *w, int in_flight)
             if (culprit)
             {
                 meta_of(culprit->id)->crashes++;
+                hist_crash(culprit->uri, w->ninst >= 2);
+                blamed = culprit;
                 quarantine(culprit, w);
                 move_to_own(culprit, now, 0);
             }
@@ -808,6 +994,11 @@ static void on_death(worker_t *w, int in_flight)
             }
         }
     }
+    /* the members of a group that went down with it and were not the culprit */
+    for (n = 0; members && n < nmembers; n++)
+        if (members[n] != blamed)
+            hist_restart(members[n]->uri, 1);
+    free(members);
     if (w->ninst == 0)
     {
         worker_free(w);
@@ -1048,7 +1239,7 @@ static int replay_conns(worker_t *w, instance_t *i)
 /* chain_formed: the order a chain's worker runs now, the members it holds and replayed */
 static void chain_formed(worker_t *w)
 {
-    char ids[1024];
+    char ids[1024], word[24];
     size_t used = 0;
     int n;
 
@@ -1056,7 +1247,8 @@ static void chain_formed(worker_t *w)
     for (n = 0; n < w->ninst && used + 8 < sizeof(ids); n++)
         if (!w->inst[n]->unreplayed)
             used += snprintf(ids + used, sizeof(ids) - used, "%s%d", used ? "," : "", w->inst[n]->id);
-    event(PHD_EVENT_CHAIN_FORMED_FMT, w->chain->id, w->k, used ? ids : PHD_WORD_NONE);
+    chain_word(w->chain, word, sizeof(word));
+    event(PHD_EVENT_CHAIN_FORMED_FMT, word, w->k, used ? ids : PHD_WORD_NONE);
 }
 
 static void replay(worker_t *w, int64_t started)
@@ -1156,6 +1348,9 @@ void sup_tick(void)
         if (due)
             checkpoint(w);
     }
+    for (n = 0; n < g_nworkers; n++)
+        hist_tick(g_workers[n], now);
+    history_tick(now / 1000);
     for (n = 0; g_nchains && n < MAX_INSTANCE; n++)
         if (g_chain[n] && g_chain[n]->rejoin)
         {
@@ -1163,6 +1358,19 @@ void sup_tick(void)
             if (!chain_whole(g_chain[n]))
                 chain_form(g_chain[n]);
         }
+    for (n = 0; g_nplans && n < MAX_INSTANCE; n++)
+    {
+        int k;
+
+        /* chain_form retires and makes workers, not segments: the list holds while it runs */
+        for (k = 0; g_plan[n] && k < g_plan[n]->nseg; k++)
+            if (g_plan[n]->seg[k]->rejoin)
+            {
+                g_plan[n]->seg[k]->rejoin = 0;
+                if (!chain_whole(g_plan[n]->seg[k]))
+                    chain_form(g_plan[n]->seg[k]);
+            }
+    }
 }
 
 /* ---------------------------------------------------------------- init and finish */
@@ -1172,6 +1380,7 @@ void sup_init(const conf_t *conf)
     int f;
 
     g_conf = *conf;
+    mkdir(g_conf.state_root, 0755);
     snprintf(g_root, sizeof(g_root), "%s/plugin-hostd", g_conf.state_root);
     mkdir(g_root, 0755);
     snprintf(g_root, sizeof(g_root), "%s/plugin-hostd/%d", g_conf.state_root, (int)getpid());
@@ -1447,10 +1656,13 @@ static char *add(const char *uri, int id, const char *placement, const char *cli
             event(PHD_EVENT_VERB_DROPPED_FMT, id, line);
         m->crashes++;
         note_death(m->deaths, &m->ndeaths, now);
+        /* the plugin it was adding is not in the worker yet: it joins the members that are */
+        hist_crash(fwd, w->ninst >= 1);
         if (w->pool)
         {
             m->quarantined = 1;
             event(PHD_EVENT_INSTANCE_QUARANTINED_FMT, id, w->k);
+            hist_quarantine(fwd);
         }
         on_death(w, ATTRIBUTED);
         return sup_resp(code);
@@ -1511,8 +1723,20 @@ static void chain_free(chain_t *c)
             g_inst[c->ids[n]]->chain = NULL;
     if (c->w)
         c->w->chain = NULL;
-    g_chain[c->id] = NULL;
-    g_nchains--;
+    if (c->planned)
+    {
+        plan_t *p = g_plan[c->id];
+        int k;
+
+        for (k = 0; p && k < p->nseg; k++)
+            if (p->seg[k] == c)
+                p->seg[k] = p->seg[--p->nseg];
+    }
+    else
+    {
+        g_chain[c->id] = NULL;
+        g_nchains--;
+    }
     free(c->ids);
     free(c);
 }
@@ -1899,6 +2123,32 @@ char *sup_instance_info(int id)
     return strdup(buffer);
 }
 
+char *sup_history_get(const char *uri)
+{
+    char digest[PHD_SHA256_HEX_LEN + 1], *summary, *text;
+    const char *bare_uri;
+
+    format_of_uri(uri, &bare_uri);
+    if (!history_available())
+        return strdup("resp 0 " PHD_WORD_UNAVAILABLE);
+    if (pins_digest(bare_uri, digest) != 0 || !(summary = history_summary(bare_uri, digest, utc_now())))
+        return strdup("resp 0 " PHD_WORD_NONE);
+    text = malloc(strlen(summary) + 8);
+    if (text)
+        sprintf(text, "resp 0 %s", summary);
+    free(summary);
+    return text ? text : sup_resp(ERR_MEMORY_ALLOCATION);
+}
+
+char *sup_history_clear(const char *uri)
+{
+    const char *bare_uri = uri;
+
+    if (strcmp(uri, PHD_WORD_ALL))
+        format_of_uri(uri, &bare_uri);
+    return sup_resp(history_clear(bare_uri) == 0 ? SUCCESS : ERR_INVALID_OPERATION);
+}
+
 char *sup_reset(const char *which)
 {
     int n, all = !which || !*which || !strcmp(which, PHD_WORD_ALL), found = 0, id;
@@ -1937,8 +2187,14 @@ char *sup_quarantine_clear(const char *which)
             if (g_meta[id])
                 g_meta[id]->quarantined = 0;
         for (id = 0; id < MAX_INSTANCE; id++)
+        {
+            int k;
+
             if (g_chain[id])
                 g_chain[id]->rejoin = 1;
+            for (k = 0; g_plan[id] && k < g_plan[id]->nseg; k++)
+                g_plan[id]->seg[k]->rejoin = 1;
+        }
         return sup_resp(SUCCESS);
     }
     id = atoi(which);
@@ -2091,11 +2347,12 @@ static void to_own(instance_t *i)
 /* the chain's members that are not quarantined, gathered in order in one new worker and replayed there */
 static void chain_form(chain_t *c)
 {
-    char place[48];
+    char place[48], word[24];
     worker_t *w = NULL;
     int n;
 
-    snprintf(place, sizeof(place), PHD_PLACE_CHAIN_PREFIX "%d", c->id);
+    chain_word(c, word, sizeof(word));
+    snprintf(place, sizeof(place), PHD_PLACE_CHAIN_PREFIX "%s", word);
     for (n = 0; n < c->n; n++)
     {
         instance_t *i = g_inst[c->ids[n]];
@@ -2337,4 +2594,299 @@ char *sup_chain_get(int id)
     if (!any)
         put(&buf, &used, &cap, PHD_WORD_NONE);
     return buf;
+}
+
+/* ---------------------------------------------------------------- plans */
+
+/* the id the qualification records name a plugin by: the CLAP id after the '#' of clap:<path>#<id>, else the uri */
+static const char *record_id(const char *uri)
+{
+    const char *hash = strrchr(uri, '#');
+
+    return hash ? hash + 1 : uri;
+}
+
+/* what the planner is told of an instance: its worker program's class, its pin, whether a world can be built for it, its cost */
+static void plan_member(const instance_t *i, planner_member_t *m)
+{
+    const format_t *f = format_at(i->fmt);
+    const char *bin = bin_of(i->fmt), *verdict = pins_verdict(i->uri);
+
+    memset(m, 0, sizeof(*m));
+    m->id = i->id;
+    m->klass = f->native_chain && bin ? bin : f->name;
+    if (!verdict)
+        m->pin = PLANNER_PIN_NONE;
+    else if (!strcmp(verdict, PHD_PIN_VERDICT_IN_PROCESS))
+        m->pin = PLANNER_PIN_IN_PROCESS;
+    else if (!strcmp(verdict, PHD_PIN_VERDICT_ISOLATED))
+        m->pin = PLANNER_PIN_ISOLATED;
+    else if (!strcmp(verdict, PHD_PIN_VERDICT_REFUSED))
+        m->pin = PLANNER_PIN_REFUSED;
+    else
+        m->pin = PLANNER_PIN_NO_VERDICT;
+    m->world_ok = chain_world_found(&m->id, 1);
+    m->cost = g_conf.group_rate > 0 && g_conf.group_quantum > 0
+                  ? qualcost_read(g_conf.qualification_dir, record_id(i->uri), g_conf.group_rate, g_conf.group_quantum)
+                  : PLANNER_COST_UNKNOWN;
+    if (m->cost < 0)
+        m->cost = PLANNER_COST_UNKNOWN;
+    m->history = NULL;
+}
+
+/* the refusal chain would give the members of a segment of two or more, apart from the ones of the numbers: 0 for none */
+static int segment_refusal(const int *ids, int n)
+{
+    int k;
+
+    for (k = 0; k < n; k++)
+    {
+        if (!chain_rows_together(g_inst[ids[k]]->fmt, g_inst[ids[0]]->fmt))
+            return PHD_ERR_CHAIN_MIXED_FORMAT;
+        if (must_run_own(g_inst[ids[k]]))
+            return PHD_ERR_PLACEMENT_INVALID;
+    }
+    return chain_world_found(ids, n) ? 0 : PHD_ERR_PLACEMENT_INVALID;
+}
+
+static void plan_free(plan_t *p)
+{
+    if (!p)
+        return;
+    free(p->ids);
+    free(p->seg);
+    free(p->segments);
+    free(p->reasons);
+    free(p);
+}
+
+/* a member is alone in a worker of its own, or is made so */
+static void make_alone(instance_t *i)
+{
+    if (i->w && i->w->ninst == 1 && !i->w->pool && !i->w->chain)
+        return;
+    to_own(i);
+}
+
+/* a text of the planner's, malloc'd */
+static char *plan_text(size_t (*format)(const planner_member_t *, const planner_plan_t *, int, char *, size_t),
+                       const planner_member_t *m, const planner_plan_t *pp, int refused)
+{
+    size_t need = format(m, pp, refused, NULL, 0);
+    char *text = malloc(need + 1);
+
+    format(m, pp, refused, text, need + 1);
+    return text;
+}
+
+static size_t segments_text(const planner_member_t *m, const planner_plan_t *pp, int refused, char *buf, size_t size)
+{
+    (void)refused;
+    return planner_format_segments(m, pp, buf, size);
+}
+
+/* the plan p, made over the ids, is applied: the running segment of the old plan that did not change is kept, wherever
+ * it now stands, the others are dissolved, a member that shares with no one gets a worker of its own, and a segment that
+ * is new forms in a worker of its own. p->seg holds the segments of two or more, in plan order. */
+static void plan_apply(plan_t *old, plan_t *p, const planner_plan_t *pp, const int *ids)
+{
+    chain_t **at = calloc(pp->nseg, sizeof(chain_t *)), **was = NULL;
+    char *kept = NULL, *formed = calloc(pp->nseg, 1);
+    int k, j, first, nwas = old ? old->nseg : 0;
+
+    if (nwas)
+    {
+        was = malloc(nwas * sizeof(chain_t *));
+        memcpy(was, old->seg, nwas * sizeof(chain_t *));
+        kept = calloc(nwas, 1);
+    }
+    for (k = 0, first = 0; k < pp->nseg; first += pp->seg_len[k++])
+        for (j = 0; pp->seg_len[k] > 1 && j < nwas && !at[k]; j++)
+            if (!kept[j] && was[j]->n == pp->seg_len[k] && !memcmp(was[j]->ids, ids + first, pp->seg_len[k] * sizeof(int)))
+            {
+                kept[j] = 1;
+                at[k] = was[j];
+                at[k]->seg = k;
+                if (at[k]->w)
+                {
+                    char word[24];
+
+                    chain_word(at[k], word, sizeof(word));
+                    snprintf(at[k]->w->place, sizeof(at[k]->w->place), PHD_PLACE_CHAIN_PREFIX "%s", word);
+                }
+            }
+    for (j = 0; j < nwas; j++)
+        if (!kept[j])
+        {
+            chain_t *c = was[j];
+
+            /* a member the new plan leaves out goes back to a worker of its own, as one chain leaves out does */
+            for (k = 0; k < c->n; k++)
+            {
+                instance_t *i = g_inst[c->ids[k]];
+                int in_plan = 0, u;
+
+                for (u = 0; u < p->n; u++)
+                    in_plan |= ids[u] == c->ids[k];
+                if (i && !in_plan)
+                {
+                    i->chain = NULL;
+                    if (c->w && i->w == c->w)
+                        to_own(i);
+                }
+            }
+            chain_free(c);
+        }
+    free(was);
+    free(kept);
+    for (k = 0, first = 0; k < pp->nseg; first += pp->seg_len[k++])
+        if (pp->seg_len[k] == 1)
+            make_alone(g_inst[ids[first]]);
+    for (k = 0, first = 0; k < pp->nseg; first += pp->seg_len[k++])
+        if (pp->seg_len[k] > 1 && !at[k])
+        {
+            chain_t *c = calloc(1, sizeof(chain_t));
+
+            c->id = p->id;
+            c->planned = 1;
+            c->seg = k;
+            c->n = pp->seg_len[k];
+            c->ids = malloc(c->n * sizeof(int));
+            memcpy(c->ids, ids + first, c->n * sizeof(int));
+            for (j = 0; j < c->n; j++)
+                g_inst[c->ids[j]]->chain = c;
+            at[k] = c;
+            formed[k] = 1;
+        }
+    for (k = 0; k < pp->nseg; k++)
+        if (at[k])
+            p->seg[p->nseg++] = at[k];
+    /* the new plan stands before its segments form: a member that leaves one finds it there */
+    g_plan[p->id] = p;
+    for (k = 0; k < pp->nseg; k++)
+        if (formed[k])
+            chain_form(at[k]);
+    free(formed);
+    free(at);
+}
+
+char *sup_plan(int id, const int *ids, int n)
+{
+    plan_t *old = (id >= 0 && id < MAX_INSTANCE) ? g_plan[id] : NULL, *p;
+    planner_member_t m[PLANNER_MEMBERS_MAX];
+    planner_settings_t s;
+    planner_plan_t pp;
+    int k, j, first, refused = 0;
+    char *reply;
+    size_t used = 0, cap = 64;
+
+    if (id < 0 || id >= MAX_INSTANCE || n < PHD_CHAIN_MEMBERS_MIN || n > PLANNER_MEMBERS_MAX)
+        return sup_resp(ERR_INVALID_OPERATION);
+    for (k = 0; k < n; k++)
+    {
+        instance_t *i = (ids[k] >= 0 && ids[k] < MAX_INSTANCE) ? g_inst[ids[k]] : NULL;
+
+        if (!i)
+            return sup_resp(PHD_ERR_CHAIN_UNKNOWN_INSTANCE);
+        for (j = 0; j < k; j++)
+            if (ids[j] == ids[k])
+                return sup_resp(PHD_ERR_CHAIN_DUPLICATE);
+        /* the member of a chain, or of the plan of another chain, is not this plan's to place */
+        if (i->chain && !(i->chain->planned && i->chain->id == id))
+            return sup_resp(PHD_ERR_CHAIN_INSTANCE_BUSY);
+        plan_member(i, &m[k]);
+    }
+    s.require_pins = g_conf.require_pins;
+    s.pins_first_use = conf_pins_first_use(&g_conf);
+    s.grouping_on = conf_grouping_on(&g_conf);
+    s.group_max = g_conf.group_max;
+    s.group_cost_max = g_conf.group_cost_max / 100.0;
+    if (planner_plan(&s, m, n, &pp) != 0)
+        return sup_resp(ERR_INVALID_OPERATION);
+
+    /* every segment is checked before any is made: a plan that cannot be formed moves nothing */
+    for (k = 0, first = 0; s.grouping_on && !refused && k < pp.nseg; first += pp.seg_len[k++])
+        if (pp.seg_len[k] > 1)
+            refused = segment_refusal(ids + first, pp.seg_len[k]);
+
+    p = calloc(1, sizeof(*p));
+    p->id = id;
+    p->n = n;
+    p->ids = malloc(n * sizeof(int));
+    memcpy(p->ids, ids, n * sizeof(int));
+    p->seg = calloc(pp.nseg, sizeof(chain_t *));
+    p->segments = plan_text(segments_text, m, &pp, 0);
+    p->reasons = plan_text(planner_format_reasons, m, &pp, refused);
+
+    if (s.grouping_on && !refused)
+        plan_apply(old, p, &pp, ids);
+    else
+    {
+        /* nothing moves: the segments that run stay as they are, and the plan is kept to be read back */
+        if (old)
+        {
+            memcpy(p->seg, old->seg, old->nseg * sizeof(chain_t *));
+            p->nseg = old->nseg;
+        }
+        g_plan[id] = p;
+    }
+    if (!old || strcmp(old->segments, p->segments) || strcmp(old->reasons, p->reasons))
+        event(PHD_EVENT_PLAN_REASON_FMT, id, p->reasons);
+    if (old)
+    {
+        /* the old plan's list is dropped, not its chains: they are p's now, or were freed */
+        old->nseg = 0;
+        plan_free(old);
+    }
+    else
+        g_nplans++;
+    if (refused)
+        return sup_resp(refused);
+    reply = malloc(cap);
+    put(&reply, &used, &cap, "resp 0 %s", p->segments);
+    return reply;
+}
+
+char *sup_plan_get(int id)
+{
+    plan_t *p = (id >= 0 && id < MAX_INSTANCE) ? g_plan[id] : NULL;
+    size_t used = 0, cap = 64;
+    char *buf;
+
+    if (!p)
+        return sup_resp(PHD_ERR_NO_SUCH_PLAN);
+    buf = malloc(cap);
+    put(&buf, &used, &cap, "resp 0 %s %s", p->segments, p->reasons);
+    return buf;
+}
+
+char *sup_plan_clear(int id)
+{
+    plan_t *p = (id >= 0 && id < MAX_INSTANCE) ? g_plan[id] : NULL;
+    int j;
+
+    if (!p)
+        return sup_resp(PHD_ERR_NO_SUCH_PLAN);
+    while (p->nseg)
+    {
+        chain_t *c = p->seg[p->nseg - 1];
+
+        for (j = 0; j < c->n; j++)
+        {
+            instance_t *i = g_inst[c->ids[j]];
+
+            if (!i)
+                continue;
+            i->chain = NULL;
+            /* one already alone, quarantined or split, stays where it is */
+            if (c->w && i->w == c->w)
+                to_own(i);
+        }
+        chain_free(c);
+    }
+    /* the members that share with no one are alone already: a plan that is cleared leaves them where they stand */
+    g_plan[id] = NULL;
+    g_nplans--;
+    plan_free(p);
+    return sup_resp(SUCCESS);
 }

@@ -1,0 +1,75 @@
+name: bench
+
+# The benchmark harness, cheaply: the shipped example satisfies its schema, the scripts pass shellcheck, every guard of
+# the harness goes red when broken, and one small scenario runs under each host the container has, on JACK's dummy
+# driver at 48 kHz. It checks that a valid document comes out, not the numbers.
+
+on:
+  pull_request:
+    paths: ['bench/**', '.github/workflows/bench.yml']
+  push:
+    branches: [main]
+    paths: ['bench/**', '.github/workflows/bench.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  bench:
+    name: harness check and smoke run
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    container:
+      image: debian:trixie
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Install the hosts, JACK and the plugins from the OpenMixer channel
+        run: |
+          set -euo pipefail
+          apt-get update -qq
+          apt-get install -y --no-install-recommends ca-certificates curl
+          curl -fsSLO https://www.openmixer.org/deb/openmixer-release.deb
+          apt-get install -y ./openmixer-release.deb
+          apt-get update -qq
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends python3 python3-jsonschema \
+            shellcheck procps netcat-openbsd plugin-hostd omx-clap-host omx-plugins-clap omx-plugins-lv2 \
+            jackd2 jack-example-tools jalv calf-plugins
+
+      - uses: actions/checkout@v4
+
+      - name: The shipped example satisfies the schema, read by the harness and by python3-jsonschema
+        run: |
+          set -euo pipefail
+          bench/validate.sh bench/examples/*.json
+          for f in bench/examples/*.json; do
+            python3 -c 'import json, sys, jsonschema; jsonschema.validate(json.load(open(sys.argv[1])), json.load(open(sys.argv[2])))' \
+              "$f" bench/schema/omx-bench.v1.schema.json
+          done
+
+      - name: shellcheck
+        run: shellcheck bench/run.sh bench/validate.sh bench/table.sh bench/lib/send.sh bench/tests/sabotage.sh
+
+      - name: Unit tests of the harness
+        run: python3 -I bench/tests/test_bench.py
+
+      - name: Every guard of the harness goes red when broken
+        run: bench/tests/sabotage.sh --teardown
+
+      - name: One small scenario under each host, and a valid document out
+        run: |
+          set -euo pipefail
+          export XDG_RUNTIME_DIR=/tmp/xdg
+          mkdir -p "$XDG_RUNTIME_DIR"
+          bench/run.sh --class ci --out smoke --rates 48000 --frames 256 --window 2 --repeats 1 --scenarios lv2-1 --keep-governor
+          bench/validate.sh smoke/*.json
+          python3 - smoke/*.json <<'EOF'
+          import json, shutil, sys
+          rows = json.load(open(sys.argv[1]))["scenarios"]
+          for host, prog in (("H1", "omx-clap-host"), ("H2", "plugin-hostd"), ("H3", "mod-host"), ("H4", "jalv")):
+              row = [r for r in rows if r["host"] == host][0]
+              print(host, prog, row["status"], row["note"])
+              if shutil.which(prog) and row["status"] == "unsupported":
+                  sys.exit("%s is installed and its row says unsupported" % prog)
+          EOF

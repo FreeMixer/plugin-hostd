@@ -81,6 +81,7 @@
 
 #include "describe.h"
 #include "json.h"
+#include "machine.h"
 
 /* ---------------------------------------------------------------- options */
 
@@ -170,6 +171,7 @@ typedef struct
     long elapsed_ms;
     char signal[16];
     int exit_status; /* -1 none */
+    char hosting_code[64]; /* the hosting code of a step that says why a figure is absent */
     char detail[256];
 } step_t;
 
@@ -414,13 +416,8 @@ static void put_machine(sb_t *b, const cpu_set_t *pinned, int pinned_by_option)
         khz = atol(text);
     if (read_text("/sys/kernel/realtime", text, sizeof(text)) == 0)
         preempt_rt = atoi(text) == 1;
-    /* the bands are omx-contract's MACHINE_CORE_BANDS and MACHINE_CLOCK_BANDS */
-    core_band = ncpu <= 2 ? OMX_MACHINE_CORE_BANDS_CORES1_TO2 : ncpu <= 4 ? OMX_MACHINE_CORE_BANDS_CORES3_TO4 :
-                ncpu <= 8 ? OMX_MACHINE_CORE_BANDS_CORES5_TO8 : ncpu <= 16 ? OMX_MACHINE_CORE_BANDS_CORES9_TO16 :
-                ncpu <= 32 ? OMX_MACHINE_CORE_BANDS_CORES17_TO32 : OMX_MACHINE_CORE_BANDS_CORES33_UP;
-    clock_band = khz < 1500000 ? OMX_MACHINE_CLOCK_BANDS_UNDER1500_MHZ : khz < 2500000 ? OMX_MACHINE_CLOCK_BANDS_FROM1500_TO2500_MHZ :
-                 khz < 3500000 ? OMX_MACHINE_CLOCK_BANDS_FROM2500_TO3500_MHZ :
-                 khz < 4500000 ? OMX_MACHINE_CLOCK_BANDS_FROM3500_TO4500_MHZ : OMX_MACHINE_CLOCK_BANDS_FROM4500_MHZ;
+    /* the bands are omx-contract's MACHINE_CORE_BANDS and MACHINE_CLOCK_BANDS, the daemon's host class too */
+    machine_bands(ncpu, khz, &core_band, &clock_band);
     for (i = 0; i < g_nidle; i++)
     {
         if (g_idle_after[i].latency_us > DEEP_IDLE_US && !g_idle_after[i].disabled)
@@ -970,6 +967,8 @@ static void put_step(sb_t *b, const step_t *s)
         sb_printf(b, ", \"signal\": \"%s\"", s->signal);
     if (s->exit_status >= 0)
         sb_printf(b, ", \"exitStatus\": %d", s->exit_status);
+    if (s->hosting_code[0])
+        sb_printf(b, ", \"hostingCode\": \"%s\"", s->hosting_code);
     if (s->detail[0])
     {
         sb_printf(b, ", \"detail\": ");
@@ -1151,6 +1150,33 @@ static int has_suffix(const char *s, const char *suffix)
     return n >= m && !strcmp(s + n - m, suffix);
 }
 
+/* The step of a figure lv2_measure took at `rate` (its `latency` map, its cost's `perRate`): ok when the child measured
+ * it, else not attempted, with the hosting code and the child's reason and words. A child whose line has no such map
+ * (an older lv2_measure) was not asked for the figure and gets no step. */
+static void add_lv2_figure_step(const char *name, const jnode_t *map, long rate, unsigned quantum, const char *hosting_code)
+{
+    char key[24];
+    const jnode_t *at;
+    double v;
+    step_t *s;
+
+    if (map == NULL)
+        return;
+    snprintf(key, sizeof(key), "%ld", rate);
+    at = jget(map, key);
+    if (!strcmp(name, "latency") ? jnum(at, "measuredFrames", &v) : jnum(at, "nsPerSampleMedian", &v))
+        s = add_step(name, OUT_OK, 0);
+    else
+    {
+        s = add_step(name, OUT_NOT_ATTEMPTED, 0);
+        snprintf(s->hosting_code, sizeof(s->hosting_code), "%s", hosting_code);
+        set_detail(s, "%s: %s", jstr(at, "unmeasuredReason") ? jstr(at, "unmeasuredReason") : "probe-error",
+                   jstr(at, "unmeasuredDetail") ? jstr(at, "unmeasuredDetail") : "the child's line holds no figure at this rate");
+    }
+    s->rate = rate;
+    s->quantum = quantum;
+}
+
 /* lv2_measure's passes as today's LV2 hosting pass runs them: the pin (--pin, nothing instantiated), then one measurement
  * at `rate` in blocks of the run's quantum, PHD_PROBE_LV2_LIFECYCLES instantiate/destroy cycles and
  * PHD_PROBE_LV2_REPEATS swept rt-safety runs. Each pass is a child of its own under the same limits and the one wall
@@ -1222,6 +1248,9 @@ static int run_lv2(const options_t *o, const char *uri, long rate, const cpu_set
         s->rate = rate;
         s->quantum = o->quantum;
         set_detail(s, "%s", with_dropped(jbool(rt, "interposer", 0) ? "read from the child's line" : no_interposer_reason()));
+        add_lv2_figure_step("latency", jget(*measure, "latency"), rate, o->quantum, "hosting.latency.unmeasured");
+        add_lv2_figure_step("cost", jget(jget(*measure, "cost"), "perRate"), rate, o->quantum,
+                            "hosting.cost.unmeasured-at-rate-and-quantum");
     }
     else if (*measure && jbool(*measure, "found", 0))
     {
@@ -1263,13 +1292,31 @@ static void put_note_sweep(sb_t *b, const jnode_t *ns)
 /* lv2_measure's measurement line: the grid point of its rate and block, with what run() did under the interposer, and
  * its note sweep, and the plugin's behaviour over the pass (lifecycles, threads, the features it requires); a
  * translation, no judgement */
+static void put_cost(sb_t *b, const jnode_t *cost, const char *rate);
+
 static void put_lv2_measure(sb_t *b, const jnode_t *m, long rate, unsigned quantum)
 {
     const jnode_t *rt = jget(m, "rtSafety"), *ev = jget(rt, "events"), *life = jget(m, "lifecycle"), *th = jget(m, "threads"),
                   *req = jget(m, "requiredFeatures");
     size_t k;
 
+    char key[24];
+    const jnode_t *lat;
+    double decl, meas;
+
+    snprintf(key, sizeof(key), "%ld", rate);
+    lat = jget(jget(m, "latency"), key);
     sb_printf(b, ",\n  \"grid\": [\n    {\"rate\": %ld, \"quantum\": %u, \"outcome\": \"%s\"", rate, quantum, OUT_OK);
+    /* the figures under the CLAP point's field names: latency (declared, and measured by the impulse or from a note), cost */
+    if (jnum(lat, "declaredFrames", &decl) && jnum(lat, "measuredFrames", &meas))
+    {
+        int from_note = jstr(lat, "from") && !strcmp(jstr(lat, "from"), "note");
+
+        sb_printf(b, ", \"latency\": {\"declaredFrames\": %.0f, \"measuredFrames\": %.0f, \"method\": \"%s\"%s}", decl, meas,
+                  from_note ? OMX_MEASUREMENT_LATENCY_METHODS_NOTE_ONSET : OMX_MEASUREMENT_LATENCY_METHODS_IMPULSE_ONSET,
+                  from_note ? ", \"heard\": true" : "");
+    }
+    put_cost(b, jget(m, "cost"), key);
     if (rt)
     {
         sb_printf(b, ", \"rtSafety\": {\"interposer\": %s", jbool(rt, "interposer", 0) ? "true" : "false");

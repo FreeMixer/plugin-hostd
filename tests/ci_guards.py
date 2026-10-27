@@ -49,6 +49,33 @@ def scan(root):
     return found
 
 
+# A pull request's older run is cancelled when a newer push supersedes it, and nothing else ever is: ci.yml and fuzz.yml
+# carry a concurrency group whose cancel-in-progress is true on a pull request only, release.yml (a tag publishes from
+# it) carries none. A workflow-level paths: filter on ci.yml or fuzz.yml would leave a required check that never reports,
+# so the filters are the changes job's and the trigger has none.
+CANCEL_LINE = "cancel-in-progress: ${{ github.event_name == 'pull_request' }}"
+PATHS_FILTER = re.compile(r"^ {4}paths(-ignore)?:", re.M)
+
+
+def cancel_scan(root):
+    """every finding as 'path what'"""
+    found = []
+    d = os.path.join(root, ".github", "workflows")
+    for name in ("ci.yml", "fuzz.yml"):
+        path = os.path.join(d, name)
+        if not os.path.exists(path):
+            continue
+        text = open(path).read()
+        if not re.search(r"^concurrency:", text, re.M) or CANCEL_LINE not in text:
+            found.append("%s has no concurrency group that cancels on a pull request only (%s)" % (name, CANCEL_LINE))
+        if PATHS_FILTER.search(text):
+            found.append("%s filters its trigger by paths: a required check that never reports blocks the pull request; use the changes job" % name)
+    release = os.path.join(d, "release.yml")
+    if os.path.exists(release) and re.search(r"^\s*(concurrency|cancel-in-progress):", open(release).read(), re.M):
+        found.append("release.yml has a concurrency group: a run on a tag must never be cancelled")
+    return found
+
+
 def main():
     tmp = tempfile.mkdtemp(prefix="ci-guards.", dir=os.environ.get("TMPDIR") or ROOT)
     try:
@@ -66,7 +93,26 @@ def main():
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     print("ok   the scan sees a planted warn-only else and a planted missing else, and passes one that exits 1")
+    bad = tempfile.mkdtemp(prefix="ci-guards.", dir=os.environ.get("TMPDIR") or ROOT)
+    try:
+        wf = os.path.join(bad, ".github", "workflows")
+        os.makedirs(wf)
+        open(os.path.join(wf, "ci.yml"), "w").write("on:\n  pull_request:\n    paths: [src/]\nconcurrency:\n  cancel-in-progress: true\n")
+        open(os.path.join(wf, "fuzz.yml"), "w").write("on:\n  pull_request:\n")
+        open(os.path.join(wf, "release.yml"), "w").write("concurrency:\n  group: x\n")
+        seen = cancel_scan(bad)
+        if len(seen) != 4:
+            print("FAIL the cancel scan misses a planted fault: saw %s" % seen)
+            return 1
+    finally:
+        shutil.rmtree(bad, ignore_errors=True)
+    print("ok   the cancel scan sees a planted paths filter, a missing group, a cancelling group and a release group")
     failed = 0
+    for f in cancel_scan(ROOT):
+        print("FAIL %s" % f)
+        failed += 1
+    if not failed:
+        print("ok   ci.yml and fuzz.yml cancel a superseded pull request run only, release.yml never, no workflow paths filter")
     for f in scan(ROOT):
         print("FAIL %s" % f)
         failed += 1

@@ -29,13 +29,15 @@
 
 #include "conf.h"
 #include "descriptors.h"
+#include "history.h"
+#include "machine.h"
 #include "pins.h"
 #include "relay.h"
 #include "supervisor.h"
 #include "verbs.h"
 
 #ifndef VERSION
-#define VERSION "0.12.0"
+#define VERSION "0.13.1"
 #endif
 
 #define SOCKET_DEFAULT_PORT     PHD_DEFAULT_COMMAND_PORT
@@ -43,6 +45,23 @@
 
 static volatile int running;
 static conf_t g_conf;
+
+/* the running history, unless history_window_s is 0: under the class of this machine, or the one host_class names */
+static void history_start(const conf_t *conf)
+{
+    char klass[64];
+
+    if (conf->history_window_s <= 0)
+        return;
+    if (*conf->host_class)
+        snprintf(klass, sizeof(klass), "%s", conf->host_class);
+    else if (machine_class(klass, sizeof(klass)) != 0)
+    {
+        fprintf(stderr, "plugin-hostd: the host class of this machine does not fit; no history is kept\n");
+        return;
+    }
+    history_init(conf->history_file, klass, conf->history_save_s);
+}
 
 static void idle_cb(void)
 {
@@ -146,6 +165,7 @@ int main(int argc, char **argv)
     if (g_conf.require_pins && pins_init(g_conf.pin_store, g_conf.pin_file, g_conf.pins_dir) != 0)
         return EXIT_FAILURE;
 
+    history_start(&g_conf);
     signal(SIGPIPE, SIG_IGN);
     sup_init(&g_conf);
     /* the feedback port is the relay's: the daemon's events and the workers' lines go out on it through one writer */
@@ -175,6 +195,7 @@ int main(int argc, char **argv)
     socket_finish();
     descriptors_finish();
     sup_finish();
+    history_finish();
     relay_finish();
     return 0;
 }
