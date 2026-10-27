@@ -10,6 +10,25 @@
  * literal of its own.
  */
 
+/* PLUGIN_HOSTD_HISTORY_KEYS (data/history.json) */
+#define OMX_PLUGIN_HOSTD_HISTORY_KEYS_FIRST "first" ///< UTC seconds of the first window.
+#define OMX_PLUGIN_HOSTD_HISTORY_KEYS_LAST "last" ///< UTC seconds of the last window.
+#define OMX_PLUGIN_HOSTD_HISTORY_KEYS_WINDOWS_SOLO "windows_solo" ///< Windows the plugin ran in a worker of its own.
+#define OMX_PLUGIN_HOSTD_HISTORY_KEYS_WINDOWS_GROUPED "windows_grouped" ///< Windows the plugin ran in a worker of two or more.
+#define OMX_PLUGIN_HOSTD_HISTORY_KEYS_CPU_P95_SOLO "cpu_p95_solo" ///< Percent of one core, the worker's utime plus stime over a window, an estimate of the 95th percentile of the windows run alone.
+#define OMX_PLUGIN_HOSTD_HISTORY_KEYS_CPU_MAX_SOLO "cpu_max_solo" ///< Percent of one core, the largest window run alone.
+#define OMX_PLUGIN_HOSTD_HISTORY_KEYS_PSS_MB_SOLO "pss_mb_solo" ///< MiB, the Pss of the worker's smaps_rollup, the largest window run alone.
+#define OMX_PLUGIN_HOSTD_HISTORY_KEYS_XRUN_WINDOWS_SOLO "xrun_windows_solo" ///< Windows run alone in which JACK counted at least one xrun.
+#define OMX_PLUGIN_HOSTD_HISTORY_KEYS_XRUN_WINDOWS_GROUPED "xrun_windows_grouped" ///< Windows run in a group in which JACK counted at least one xrun.
+#define OMX_PLUGIN_HOSTD_HISTORY_KEYS_CRASHES_SOLO "crashes_solo" ///< Worker deaths of a worker of its own that the daemon attributed to the plugin.
+#define OMX_PLUGIN_HOSTD_HISTORY_KEYS_CRASHES_GROUPED "crashes_grouped" ///< Worker deaths of a group that the daemon attributed to the plugin.
+#define OMX_PLUGIN_HOSTD_HISTORY_KEYS_RESTARTS_GROUPED "restarts_grouped" ///< Worker deaths of a group the plugin was a member of and was not the culprit of.
+#define OMX_PLUGIN_HOSTD_HISTORY_KEYS_QUARANTINES "quarantines" ///< Times the supervisor quarantined the plugin.
+#define OMX_PLUGIN_HOSTD_HISTORY_KEYS_LAST_CRASH "last_crash" ///< UTC seconds of the last crash the plugin was blamed for alone.
+#define OMX_PLUGIN_HOSTD_HISTORY_KEYS_LAST_CRASH_GROUPED "last_crash_grouped" ///< UTC seconds of the last crash the plugin was blamed for in a group.
+#define OMX_PLUGIN_HOSTD_HISTORY_KEYS_COUNT 15u
+#define OMX_PLUGIN_HOSTD_HISTORY_KEYS_INIT { "first", "last", "windows_solo", "windows_grouped", "cpu_p95_solo", "cpu_max_solo", "pss_mb_solo", "xrun_windows_solo", "xrun_windows_grouped", "crashes_solo", "crashes_grouped", "restarts_grouped", "quarantines", "last_crash", "last_crash_grouped" }
+
 /* PLUGIN_HOSTD_REPLY_CODES (data/verbs.json) */
 #define OMX_REPLY_PLUGIN_HOSTD_PLACEMENT_INVALID "reply.plugin-hostd.placement-invalid" ///< PHD_ERR_PLACEMENT_INVALID: not a placement, or not valid here
 #define OMX_REPLY_PLUGIN_HOSTD_PLACEMENT_INVALID_RESP (-501)

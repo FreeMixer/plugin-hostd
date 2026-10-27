@@ -116,6 +116,8 @@ The settings live in a file, `-c`, `$PLUGIN_HOSTD_CONF` or
 | `descriptor_dir` | `$OMX_DESCRIPTOR_DIR`, else `` | the scanned descriptors, one file per plugin binary (<id>@<version>-<hash>.json, the hash the binary's SHA-256), written by the scan of an add and read by descriptor_get; empty is $XDG_STATE_HOME/omx/descriptors, else /var/lib/omx/descriptors run as root (a system service), else $HOME/.local/state/omx/descriptors; its variable is for tests only |
 | `qualification_dir` | `$OMX_QUALIFICATION_DIR`, else `` | plugin-qualify's qualification records (verdict, cost, version tested), kept apart from the descriptors; empty is $XDG_STATE_HOME/omx/qualification, else /var/lib/omx/qualification run as root (a system service), else $HOME/.local/state/omx/qualification; its variable is for tests only |
 | `probe` | `plugin-hostd-probe` | the scanner an add runs, as <probe> describe <target>, in a child of its own once per plugin binary; its stdout is the descriptor |
+| `history_file` | `` | the running history: what each plugin did on this machine, kept per plugin, binary and host class; empty is $XDG_STATE_HOME/plugin-hostd/history, else $HOME/.local/state/plugin-hostd/history; local to this machine, mode 0600, written by the daemon alone, and deleted by history_clear |
+| `host_class` | `` | the host class the history is kept under, as arch/cores/clock (x86_64/5-8/2.5-3.5GHz); empty is the class of this machine, as the probe writes it; no white space |
 | `ready_timeout_ms` | 5000 ms | a worker that does not accept in this long is a failed spawn |
 | `rpc_timeout_ms` | 5000 ms | a worker that does not answer in this long is killed |
 | `backoff_base_ms` | 250 ms | respawn backoff, doubling per death in the window |
@@ -126,6 +128,8 @@ The settings live in a file, `-c`, `$PLUGIN_HOSTD_CONF` or
 | `checkpoint_ms` | 5000 ms | a quiet interval with a changed ledger writes a checkpoint |
 | `idle_ms` | 25 ms | the period of the idle tick: reap, respawn, checkpoint |
 | `pool_max` | 8 instances | instances in a pool before a sibling opens |
+| `history_window_s` | 60 s | the length of one history window: a worker's CPU and memory are read and folded into the history of its plugins once per window, and a window the plugin was up less than half of is not counted; 0 keeps no history |
+| `history_save_s` | 300 s | the history is written at most once this often when it changed, and at quit |
 | `require_pins` | 1  | 1: add admits only a plugin that has a pin (see pin_mode), its files hashed before any worker sees it, and a plugin of a format whose pin holds only in a world of its own gets a worker of its own, its world the plugin's files (a default that resolves to a pool is placed own); 0: no pin is checked |
 <!-- END GENERATED protocol:config -->
 

@@ -231,6 +231,8 @@
     {"key": "descriptor_dir", "type": "string", "default": "", "env": "OMX_DESCRIPTOR_DIR", "meaning": "the scanned descriptors, one file per plugin binary (<id>@<version>-<hash>.json, the hash the binary's SHA-256), written by the scan of an add and read by descriptor_get; empty is $XDG_STATE_HOME/omx/descriptors, else /var/lib/omx/descriptors run as root (a system service), else $HOME/.local/state/omx/descriptors; its variable is for tests only"},
     {"key": "qualification_dir", "type": "string", "default": "", "env": "OMX_QUALIFICATION_DIR", "meaning": "plugin-qualify's qualification records (verdict, cost, version tested), kept apart from the descriptors; empty is $XDG_STATE_HOME/omx/qualification, else /var/lib/omx/qualification run as root (a system service), else $HOME/.local/state/omx/qualification; its variable is for tests only"},
     {"key": "probe", "type": "string", "default": "plugin-hostd-probe", "env": "", "meaning": "the scanner an add runs, as <probe> describe <target>, in a child of its own once per plugin binary; its stdout is the descriptor"},
+    {"key": "history_file", "type": "string", "default": "", "env": "", "meaning": "the running history: what each plugin did on this machine, kept per plugin, binary and host class; empty is $XDG_STATE_HOME/plugin-hostd/history, else $HOME/.local/state/plugin-hostd/history; local to this machine, mode 0600, written by the daemon alone, and deleted by history_clear"},
+    {"key": "host_class", "type": "string", "default": "", "env": "", "meaning": "the host class the history is kept under, as arch/cores/clock (x86_64/5-8/2.5-3.5GHz); empty is the class of this machine, as the probe writes it; no white space"},
     {"key": "ready_timeout_ms", "type": "int", "default": 5000, "unit": "ms", "meaning": "a worker that does not accept in this long is a failed spawn"},
     {"key": "rpc_timeout_ms", "type": "int", "default": 5000, "unit": "ms", "meaning": "a worker that does not answer in this long is killed"},
     {"key": "backoff_base_ms", "type": "int", "default": 250, "unit": "ms", "meaning": "respawn backoff, doubling per death in the window"},
@@ -241,6 +243,8 @@
     {"key": "checkpoint_ms", "type": "int", "default": 5000, "unit": "ms", "meaning": "a quiet interval with a changed ledger writes a checkpoint"},
     {"key": "idle_ms", "type": "int", "default": 25, "unit": "ms", "meaning": "the period of the idle tick: reap, respawn, checkpoint"},
     {"key": "pool_max", "type": "int", "default": 8, "unit": "instances", "meaning": "instances in a pool before a sibling opens"},
+    {"key": "history_window_s", "type": "int", "default": 60, "unit": "s", "meaning": "the length of one history window: a worker's CPU and memory are read and folded into the history of its plugins once per window, and a window the plugin was up less than half of is not counted; 0 keeps no history"},
+    {"key": "history_save_s", "type": "int", "default": 300, "unit": "s", "meaning": "the history is written at most once this often when it changed, and at quit"},
     {"key": "require_pins", "type": "int", "default": 1, "unit": "", "meaning": "1: add admits only a plugin that has a pin (see pin_mode), its files hashed before any worker sees it, and a plugin of a format whose pin holds only in a world of its own gets a worker of its own, its world the plugin's files (a default that resolves to a pool is placed own); 0: no pin is checked"}
   ]
 }

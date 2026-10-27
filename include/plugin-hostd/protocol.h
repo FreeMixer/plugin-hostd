@@ -972,6 +972,22 @@ static inline int phd_is_note_verb(const char *verb)
 #define PHD_DEFAULT_PIN_MODE          PHD_PIN_MODE_FIRST_USE
 #define PHD_DEFAULT_PINS_DIR          "/usr/share/plugin-hostd/pins.d"
 #define PHD_DEFAULT_PROBE             "plugin-hostd-probe"
+#define PHD_DEFAULT_HISTORY_WINDOW_S  60
+#define PHD_DEFAULT_HISTORY_SAVE_S    300
+
+/* The running history (docs/design/notes/2026-10-27-grouping-planner.md, The history record): what each plugin did on
+ * this machine, one line per <uri> <binary digest> <host class> in a file of the daemon's own, whose keys are the words
+ * of PLUGIN_HOSTD_HISTORY_KEYS (data/history.json). The first line is PHD_HISTORY_HEADER; the file is local, mode 0600,
+ * and only the daemon writes it. The summary history_get answers reads crashes within PHD_HISTORY_KEEP_DAYS of
+ * last_crash, and marks a plugin raises_xruns once it has PHD_HISTORY_MIN_WINDOWS grouped windows and its share of xrun
+ * windows grouped exceeds its share solo by PHD_HISTORY_XRUN_MARGIN_PCT percentage points, or exceeds
+ * PHD_HISTORY_XRUN_MARGIN_PCT percent when it never ran alone. */
+#define PHD_HISTORY_NAME              "plugin-hostd/history"
+#define PHD_HISTORY_HEADER            "# plugin-hostd history/1"
+#define PHD_HISTORY_RECORD            "history"
+#define PHD_HISTORY_KEEP_DAYS         30
+#define PHD_HISTORY_MIN_WINDOWS       30
+#define PHD_HISTORY_XRUN_MARGIN_PCT   5
 
 /* The directories of what the scan of an add gathers: state, kept across a reboot. An empty setting is the default:
  * <state home>/<subdir>, where the state home is $XDG_STATE_HOME, else /var/lib for a daemon run as root (a system
@@ -1028,7 +1044,12 @@ static inline int phd_is_note_verb(const char *verb)
       "version tested), kept apart from the descriptors; " PHD_DIR_DEFAULT_TEXT(PHD_DIR_QUALIFICATION_SUBDIR) \
       "; its variable is for tests only") \
     X(probe, path, PHD_DEFAULT_PROBE, "", "the scanner an add runs, as <probe> describe <target>, in a child of its " \
-      "own once per plugin binary; its stdout is the descriptor")
+      "own once per plugin binary; its stdout is the descriptor") \
+    X(history_file, path, "", "", "the running history: what each plugin did on this machine, kept per plugin, binary and " \
+      "host class; empty is $XDG_STATE_HOME/" PHD_HISTORY_NAME ", else $HOME/.local/state/" PHD_HISTORY_NAME "; local to " \
+      "this machine, mode 0600, written by the daemon alone, and deleted by history_clear") \
+    X(host_class, word, "", "", "the host class the history is kept under, as arch/cores/clock (x86_64/5-8/2.5-3.5GHz); " \
+      "empty is the class of this machine, as the probe writes it; no white space")
 
 /* A whole-number setting: X(key, default, unit, meaning); 0 turns off where the meaning says so */
 #define PHD_CONF_INTS(X) \
@@ -1043,6 +1064,11 @@ static inline int phd_is_note_verb(const char *verb)
     X(checkpoint_ms, PHD_DEFAULT_CHECKPOINT_MS, "ms", "a quiet interval with a changed ledger writes a checkpoint") \
     X(idle_ms, PHD_DEFAULT_IDLE_MS, "ms", "the period of the idle tick: reap, respawn, checkpoint") \
     X(pool_max, PHD_DEFAULT_POOL_MAX, "instances", "instances in a pool before a sibling opens") \
+    X(history_window_s, PHD_DEFAULT_HISTORY_WINDOW_S, "s", \
+      "the length of one history window: a worker's CPU and memory are read and folded into the history of its plugins " \
+      "once per window, and a window the plugin was up less than half of is not counted; 0 keeps no history") \
+    X(history_save_s, PHD_DEFAULT_HISTORY_SAVE_S, "s", "the history is written at most once this often when it changed, " \
+      "and at quit") \
     X(require_pins, PHD_DEFAULT_REQUIRE_PINS, "", \
       "1: add admits only a plugin that has a pin (see pin_mode), its files hashed before any worker sees it, and a plugin of a " \
       "format whose pin holds only in a world of its own gets a worker of its own, its world the plugin's files (a " \

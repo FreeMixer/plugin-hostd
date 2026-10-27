@@ -1,0 +1,73 @@
+{
+  "$schema": "../schema/omx-contract.schema.json",
+  "requires": {
+    "omx-contract-schema": ">= 3.3.0"
+  },
+  "PLUGIN_HOSTD_HISTORY_KEYS": {
+    "kind": "words",
+    "since": "0.13.0",
+    "doc": "The keys of a line of the running-history file, in the order the daemon writes them (docs/design/notes/2026-10-27-grouping-planner.md, The history record): history <uri> <binary digest> <host class> key=value ..., after the header line '# plugin-hostd history/1'. The value of every key is a whole number or a decimal, never negative. A line with a key outside these words is kept as it is by every save and never read.",
+    "words": {
+      "first": {
+        "word": "first",
+        "doc": "UTC seconds of the first window."
+      },
+      "last": {
+        "word": "last",
+        "doc": "UTC seconds of the last window."
+      },
+      "windowsSolo": {
+        "word": "windows_solo",
+        "doc": "Windows the plugin ran in a worker of its own."
+      },
+      "windowsGrouped": {
+        "word": "windows_grouped",
+        "doc": "Windows the plugin ran in a worker of two or more."
+      },
+      "cpuP95Solo": {
+        "word": "cpu_p95_solo",
+        "doc": "Percent of one core, the worker's utime plus stime over a window, an estimate of the 95th percentile of the windows run alone."
+      },
+      "cpuMaxSolo": {
+        "word": "cpu_max_solo",
+        "doc": "Percent of one core, the largest window run alone."
+      },
+      "pssMbSolo": {
+        "word": "pss_mb_solo",
+        "doc": "MiB, the Pss of the worker's smaps_rollup, the largest window run alone."
+      },
+      "xrunWindowsSolo": {
+        "word": "xrun_windows_solo",
+        "doc": "Windows run alone in which JACK counted at least one xrun."
+      },
+      "xrunWindowsGrouped": {
+        "word": "xrun_windows_grouped",
+        "doc": "Windows run in a group in which JACK counted at least one xrun."
+      },
+      "crashesSolo": {
+        "word": "crashes_solo",
+        "doc": "Worker deaths of a worker of its own that the daemon attributed to the plugin."
+      },
+      "crashesGrouped": {
+        "word": "crashes_grouped",
+        "doc": "Worker deaths of a group that the daemon attributed to the plugin."
+      },
+      "restartsGrouped": {
+        "word": "restarts_grouped",
+        "doc": "Worker deaths of a group the plugin was a member of and was not the culprit of."
+      },
+      "quarantines": {
+        "word": "quarantines",
+        "doc": "Times the supervisor quarantined the plugin."
+      },
+      "lastCrash": {
+        "word": "last_crash",
+        "doc": "UTC seconds of the last crash the plugin was blamed for alone."
+      },
+      "lastCrashGrouped": {
+        "word": "last_crash_grouped",
+        "doc": "UTC seconds of the last crash the plugin was blamed for in a group."
+      }
+    }
+  }
+}

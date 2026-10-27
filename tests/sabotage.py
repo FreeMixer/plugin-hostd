@@ -13,7 +13,7 @@ FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "
 # an LV2 bundle (MOD_HOST, LV2_DIR, LV2_URI, LV2_BUNDLE, LV2_PARAM) and is skipped without them; "pin" breaks
 # include/plugin-hostd/pin.h and runs tests/pin_test.c; "readme" breaks README.md or BUILDING.md and runs
 # tests/readme_build.py, with no daemon to build; "probeschema" breaks protocol/probe-output.schema.json and runs
-# tests/probe_schema.py; "relay" breaks src/relay.c and runs tests/relay_test.c; "alloc" breaks src/relay.c or src/lv2.c and runs make test-alloc; "contract" breaks the probe runner or the generator and runs tests/contract_derived.py; "consumer" breaks the header and compiles tests/consumer.c against it; "probe" breaks src/probe.c and runs tests/probe_test.py; "nopins" breaks the packaging or a workflow and runs tests/no_pins.py; "ciguards" breaks a workflow and runs tests/ci_guards.py;
+# tests/probe_schema.py; "relay" breaks src/relay.c and runs tests/relay_test.c; "history" breaks src/history.c or src/fsutil.c and runs tests/history_test.c; "alloc" breaks src/relay.c or src/lv2.c and runs make test-alloc; "contract" breaks the probe runner or the generator and runs tests/contract_derived.py; "consumer" breaks the header and compiles tests/consumer.c against it; "probe" breaks src/probe.c and runs tests/probe_test.py; "nopins" breaks the packaging or a workflow and runs tests/no_pins.py; "ciguards" breaks a workflow and runs tests/ci_guards.py;
 # "vocabulary" breaks the probe schema, its template or a copy of omx-contract's omx-vocabulary.schema.json and runs
 # tests/vocabulary_derived.py; "verbtable" breaks the header and runs tests/verb_table.py; "presetschema" breaks
 # protocol/preset.schema.json and runs tests/preset_format.py
@@ -752,6 +752,114 @@ SABOTAGE = [
      "    if (!strcmp(verb, OMX_VERB_WORKER_LIST))\n", "verbs_declared", "verbs"),
     ("a declared verb is typed by hand in the daemon", "src/verbs.c",
      "if (!strcmp(verb, OMX_VERB_CHAIN_GET))", 'if (!strcmp(verb, "chain_get"))', "verbs_contract", "verbs"),
+    ('the history file is left readable by others', 'src/history.c',
+     '    ok = fflush(file) == 0 && !ferror(file) && fsync(fileno(file)) == 0;',
+     '    fchmod(fileno(file), 0644);\n    ok = fflush(file) == 0 && !ferror(file) && fsync(fileno(file)) == 0;',
+     'the_history_file_is_mode_0600_in_a_private_directory_with_no_temporary_beside_it', "history"),
+    ("the history's directories are made world readable", 'src/fsutil.c',
+     'mkdir(path, 0700)',
+     'mkdir(path, 0755)',
+     'the_history_file_is_mode_0600_in_a_private_directory_with_no_temporary_beside_it', "history"),
+    ('a line this version cannot read is dropped by the next save', 'src/history.c',
+     '            held_add(line, n);\n        }\n        else if (rec_at(',
+     '        }\n        else if (rec_at(',
+     'a_line_outside_the_grammar_is_kept_verbatim_and_not_read', "history"),
+    ('a second line of one binary is dropped by the next save', 'src/history.c',
+     '            rec_free(&rec);\n            held_add(line, n);',
+     '            rec_free(&rec);',
+     'a_second_line_of_one_binary_and_class_is_kept_and_not_read', "history"),
+    ('a negative count is read', 'src/history.c',
+     "if (!*text || *text == '-' || ",
+     "if (!*text || ",
+     'a_line_outside_the_grammar_is_kept_verbatim_and_not_read', "history"),
+    ('a decimal that is not a number is read', 'src/history.c',
+     'if (*end || errno || !isfinite(v))',
+     'if (*end || errno)',
+     'a_line_outside_the_grammar_is_kept_verbatim_and_not_read', "history"),
+    ('a key twice in one line is read', 'src/history.c',
+     '(seen & (1u << key)) || ',
+     '(seen & 0) || ',
+     'a_line_outside_the_grammar_is_kept_verbatim_and_not_read', "history"),
+    ('a digest that is not a digest is read', 'src/history.c',
+     '!phd_pin_hex_valid(tok[2]))',
+     '0)',
+     'a_line_outside_the_grammar_is_kept_verbatim_and_not_read', "history"),
+    ('a file of another version is read', 'src/history.c',
+     'if (n != strlen(PHD_HISTORY_HEADER) || strncmp(line, PHD_HISTORY_HEADER, n))',
+     'if (0)',
+     'a_file_with_an_unknown_version_or_that_cannot_be_read_blocks_the_history_and_is_never_touched', "history"),
+    ('a blocked history is cleared', 'src/history.c',
+     '    if (!g_started || g_blocked)\n        return -1;',
+     '    if (!g_started)\n        return -1;',
+     'a_file_with_an_unknown_version_or_that_cannot_be_read_blocks_the_history_and_is_never_touched', "history"),
+    ("the file's header is not written", 'src/history.c',
+     '    fprintf(file, "%s\\n", PHD_HISTORY_HEADER);\n',
+     '',
+     'a_record_round_trips_through_its_file_value_for_value', "history"),
+    ('the pss is written to two decimals', 'src/history.c',
+     '" %s=%.1f"',
+     '" %s=%.2f"',
+     'a_record_round_trips_through_its_file_value_for_value', "history"),
+    ('a restart of a plugin alone is counted', 'src/history.c',
+     'history_rec_t *r = grouped ? rec_get(uri, digest) : NULL;',
+     'history_rec_t *r = ((void)grouped, rec_get(uri, digest));',
+     'a_record_round_trips_through_its_file_value_for_value', "history"),
+    ('the cpu estimate moves up and down by one half', 'src/history.c',
+     '0.95 * step : -0.05 * step',
+     '0.5 * step : -0.5 * step',
+     'windows_fold_alone_and_in_a_group_into_their_own_fields', "history"),
+    ("a group's window is folded into the plugin's own cpu", 'src/history.c',
+     '    if (grouped)\n    {\n        r->windows_grouped++;',
+     '    if (!grouped)\n    {\n        r->windows_grouped++;',
+     'windows_fold_alone_and_in_a_group_into_their_own_fields', "history"),
+    ('a space in a uri makes a record', 'src/history.c',
+     ' || strpbrk(uri, " \\t\\r\\n")',
+     '',
+     'a_key_that_is_not_a_plugin_binary_makes_no_record', "history"),
+    ('a digest that is not one makes a record', 'src/history.c',
+     '|| !phd_pin_hex_valid(digest) ',
+     '',
+     'a_key_that_is_not_a_plugin_binary_makes_no_record', "history"),
+    ('a crash 30 days old no longer counts', 'src/history.c',
+     'now - last <= (long long)PHD_HISTORY_KEEP_DAYS',
+     'now - last < (long long)PHD_HISTORY_KEEP_DAYS',
+     'the_summary_marks_crashes_and_raised_xruns_at_the_declared_margins', "history"),
+    ('the xrun margin is not strict', 'src/history.c',
+     'return 100 * xg * ws > 100 * xs * wg',
+     'return 100 * xg * ws >= 100 * xs * wg',
+     'the_summary_marks_crashes_and_raised_xruns_at_the_declared_margins', "history"),
+    ('thirty windows are too few', 'src/history.c',
+     'if (wg < PHD_HISTORY_MIN_WINDOWS)',
+     'if (wg <= PHD_HISTORY_MIN_WINDOWS)',
+     'the_summary_marks_crashes_and_raised_xruns_at_the_declared_margins', "history"),
+    ('the xrun floor of a plugin that never ran alone is not strict', 'src/history.c',
+     'return 100 * xg > (long long)PHD_HISTORY_XRUN_MARGIN_PCT * wg;',
+     'return 100 * xg >= (long long)PHD_HISTORY_XRUN_MARGIN_PCT * wg;',
+     'the_summary_marks_crashes_and_raised_xruns_at_the_declared_margins', "history"),
+    ("another host class's record is read as this one's", 'src/history.c',
+     '            !strcmp(g_entry[n].rec.klass, klass))',
+     '            klass != NULL)',
+     'a_record_of_another_host_class_is_kept_and_never_read_as_this_ones', "history"),
+    ('a clear leaves the lines it could not read', 'src/history.c',
+     'g_entry[n].raw ? raw_names(g_entry[n].raw, uri) :',
+     'g_entry[n].raw ? raw_names(g_entry[n].raw, "") :',
+     'clear_removes_a_plugins_lines_of_every_binary_and_class_or_all_of_them_at_once', "history"),
+    ('the history is saved at every tick', 'src/history.c',
+     '(!g_saved_once || now - g_saved_at >= g_save_s)',
+     '1',
+     'the_history_is_saved_at_most_once_per_interval_and_at_quit', "history"),
+    ('a failed save forgets the change', 'src/history.c',
+     '    g_saved_once = 1;\n    if (file_write() == 0)\n        g_dirty = 0;',
+     '    g_saved_once = 1;\n    file_write();\n    g_dirty = 0;',
+     'a_save_that_fails_leaves_the_old_file_whole_and_is_tried_again', "history"),
+    ('the state home is not looked at', 'src/history.c',
+     '    else if (state && *state)',
+     '    else if (0 && state && *state)',
+     'the_default_path_is_the_xdg_state_home_then_home_and_history_file_overrides_both', "history"),
+    ('history_file does not override', 'src/history.c',
+     '    if (*configured)\n        snprintf(g_path, sizeof(g_path), "%s", configured);\n    else if',
+     '    if (0)\n        snprintf(g_path, sizeof(g_path), "%s", configured);\n    else if',
+     'the_default_path_is_the_xdg_state_home_then_home_and_history_file_overrides_both', "history"),
 ]
 
 
@@ -811,6 +919,16 @@ def run_consumer_test(tree):
     p = subprocess.run([exe], capture_output=True, text=True, timeout=60)
     return p.returncode, p.stdout + ("ok   consumer\n" if p.returncode == 0 else "")
 
+def run_history_test(tree):
+    """tests/history_test.c against the tree's src/history.c; it prints "ok   <group>" for each group that passed"""
+    os.makedirs(os.path.join(tree, "tests"), exist_ok=True)
+    shutil.copy(os.path.join(ROOT, "tests", "history_test.c"), os.path.join(tree, "tests"))
+    subprocess.run(["make", "-s", "-B", "MOD_HOST_DIR=" + MOD_HOST_DIR, "tests/history-test"], cwd=tree, check=True,
+                   stdout=subprocess.DEVNULL)
+    p = subprocess.run([os.path.join(tree, "tests", "history-test")], capture_output=True, text=True, timeout=120)
+    return p.returncode, p.stdout
+
+
 def run_alloc_test(tree):
     """make test-alloc: the tables of src/relay.c and src/lv2.c when realloc fails; prints "ok   alloc_test" when no check failed"""
     for f in ("tests/gesture-alloc-test", "tests/lv2-alloc-test", "tests/lv2-alloc-lv2.o"):
@@ -846,6 +964,8 @@ def run_test(tree, name, jack=False):
         return run_format_test(tree)
     if jack == "relay":
         return run_relay_test(tree)
+    if jack == "history":
+        return run_history_test(tree)
     if jack == "contract":
         return run_contract_test(tree)
     if jack == "pin":
@@ -898,6 +1018,9 @@ try:
         if os.environ.get("SABOTAGE_ONLY") and os.environ["SABOTAGE_ONLY"] not in name:
             continue
         jack = entry[5] if len(entry) > 5 else False
+        # SABOTAGE_KIND=<kind>: only the arms of that kind ("history", "pin", ...)
+        if os.environ.get("SABOTAGE_KIND") and os.environ["SABOTAGE_KIND"] != jack:
+            continue
         if os.geteuid() == 0 and name in ROOT_WRITES_READ_ONLY:
             print("skip sabotage (root writes a 0500 directory, so the test skips itself): %s" % what)
             continue
@@ -919,6 +1042,10 @@ try:
             os.makedirs(tree)
             for f in ("README.md", "BUILDING.md"):
                 shutil.copy(os.path.join(ROOT, f), tree)
+        elif jack == "history":
+            for d in ("src", "include"):
+                shutil.copytree(os.path.join(ROOT, d), os.path.join(tree, d), ignore=shutil.ignore_patterns("*.o"))
+            shutil.copy(os.path.join(ROOT, "Makefile"), tree)
         elif jack == "alloc":
             shutil.copytree(os.path.join(ROOT, "src"), os.path.join(tree, "src"))
             shutil.copytree(os.path.join(ROOT, "include"), os.path.join(tree, "include"))
@@ -990,7 +1117,7 @@ try:
                            stdout=subprocess.DEVNULL)
         if jack == "probe":
             build_probe(tree)
-        elif jack not in ("readme", "nopins", "ciguards", "format", "relay", "contract", "consumer", "probeschema", "presetschema", "vocabulary", "alloc",
+        elif jack not in ("readme", "nopins", "ciguards", "format", "relay", "history", "contract", "consumer", "probeschema", "presetschema", "vocabulary", "alloc",
                           "verbtable"):
             for f in os.listdir(os.path.join(tree, "src")):
                 if f.endswith(".o"):
