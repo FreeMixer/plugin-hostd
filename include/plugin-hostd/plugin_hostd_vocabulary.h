@@ -10,6 +10,42 @@
  * literal of its own.
  */
 
+/* PLUGIN_HOSTD_GROUPING_REASONS (data/grouping.json) */
+#define OMX_PLUGIN_HOSTD_GROUPING_REASONS_REFUSED "refused" ///< The pin's verdict is refused: the plugin is not run in a group, and an add of it answers -516.
+#define OMX_PLUGIN_HOSTD_GROUPING_REASONS_NO_PIN "no-pin" ///< The plugin has no pin and pin_mode is strict: an add of it answers -508.
+#define OMX_PLUGIN_HOSTD_GROUPING_REASONS_NO_VERDICT "no-verdict" ///< The pin carries no verdict (a pin the daemon learned on first use): the plugin stays alone.
+#define OMX_PLUGIN_HOSTD_GROUPING_REASONS_VERDICT_ISOLATED "verdict-isolated" ///< The pin's verdict is isolated: the plugin stays alone.
+#define OMX_PLUGIN_HOSTD_GROUPING_REASONS_FORMAT_WORLD "format-world" ///< The plugin's format pins only in a world of its own and no world holding the plugin can be built for a shared worker: it stays alone.
+#define OMX_PLUGIN_HOSTD_GROUPING_REASONS_COST_OVER "cost-over" ///< The plugin's cost, alone, is over group_cost_max: it stays alone.
+#define OMX_PLUGIN_HOSTD_GROUPING_REASONS_FORMAT_MIXED "format-mixed" ///< No one worker program runs this plugin together with the open segment: it starts a new segment.
+#define OMX_PLUGIN_HOSTD_GROUPING_REASONS_GROUP_FULL "group-full" ///< The open segment holds group_max members: the plugin starts a new segment.
+#define OMX_PLUGIN_HOSTD_GROUPING_REASONS_GROUP_COST "group-cost" ///< Adding the plugin's cost takes the open segment over group_cost_max: it starts a new segment.
+#define OMX_PLUGIN_HOSTD_GROUPING_REASONS_COST_ASSUMED "cost-assumed" ///< The plugin has no known cost and joined a segment at the median of the known costs of that segment, zero when none is known.
+#define OMX_PLUGIN_HOSTD_GROUPING_REASONS_NO_NEIGHBOUR "no-neighbour" ///< The plugin passed every rule but has no neighbour it can share a worker with: it is alone only because of the members around it.
+#define OMX_PLUGIN_HOSTD_GROUPING_REASONS_GROUPING_OFF "grouping-off" ///< The setting grouping is off: the plugin would share a worker, and the plan was answered and not applied.
+#define OMX_PLUGIN_HOSTD_GROUPING_REASONS_PLAN_REFUSED "plan-refused" ///< A segment could not be formed: the plan was not applied and nothing moved. The word is followed by a colon and the number of the refusal, plan-refused:-501.
+#define OMX_PLUGIN_HOSTD_GROUPING_REASONS_COUNT 13u
+#define OMX_PLUGIN_HOSTD_GROUPING_REASONS_INIT { "refused", "no-pin", "no-verdict", "verdict-isolated", "format-world", "cost-over", "format-mixed", "group-full", "group-cost", "cost-assumed", "no-neighbour", "grouping-off", "plan-refused" }
+
+/* PLUGIN_HOSTD_HISTORY_KEYS (data/history.json) */
+#define OMX_PLUGIN_HOSTD_HISTORY_KEYS_FIRST "first" ///< UTC seconds of the first window.
+#define OMX_PLUGIN_HOSTD_HISTORY_KEYS_LAST "last" ///< UTC seconds of the last window.
+#define OMX_PLUGIN_HOSTD_HISTORY_KEYS_WINDOWS_SOLO "windows_solo" ///< Windows the plugin ran in a worker of its own.
+#define OMX_PLUGIN_HOSTD_HISTORY_KEYS_WINDOWS_GROUPED "windows_grouped" ///< Windows the plugin ran in a worker of two or more.
+#define OMX_PLUGIN_HOSTD_HISTORY_KEYS_CPU_P95_SOLO "cpu_p95_solo" ///< Percent of one core, the worker's utime plus stime over a window, an estimate of the 95th percentile of the windows run alone.
+#define OMX_PLUGIN_HOSTD_HISTORY_KEYS_CPU_MAX_SOLO "cpu_max_solo" ///< Percent of one core, the largest window run alone.
+#define OMX_PLUGIN_HOSTD_HISTORY_KEYS_PSS_MB_SOLO "pss_mb_solo" ///< MiB, the Pss of the worker's smaps_rollup, the largest window run alone.
+#define OMX_PLUGIN_HOSTD_HISTORY_KEYS_XRUN_WINDOWS_SOLO "xrun_windows_solo" ///< Windows run alone in which JACK counted at least one xrun.
+#define OMX_PLUGIN_HOSTD_HISTORY_KEYS_XRUN_WINDOWS_GROUPED "xrun_windows_grouped" ///< Windows run in a group in which JACK counted at least one xrun.
+#define OMX_PLUGIN_HOSTD_HISTORY_KEYS_CRASHES_SOLO "crashes_solo" ///< Worker deaths of a worker of its own that the daemon attributed to the plugin.
+#define OMX_PLUGIN_HOSTD_HISTORY_KEYS_CRASHES_GROUPED "crashes_grouped" ///< Worker deaths of a group that the daemon attributed to the plugin.
+#define OMX_PLUGIN_HOSTD_HISTORY_KEYS_RESTARTS_GROUPED "restarts_grouped" ///< Worker deaths of a group the plugin was a member of and was not the culprit of.
+#define OMX_PLUGIN_HOSTD_HISTORY_KEYS_QUARANTINES "quarantines" ///< Times the supervisor quarantined the plugin.
+#define OMX_PLUGIN_HOSTD_HISTORY_KEYS_LAST_CRASH "last_crash" ///< UTC seconds of the last crash the plugin was blamed for alone.
+#define OMX_PLUGIN_HOSTD_HISTORY_KEYS_LAST_CRASH_GROUPED "last_crash_grouped" ///< UTC seconds of the last crash the plugin was blamed for in a group.
+#define OMX_PLUGIN_HOSTD_HISTORY_KEYS_COUNT 15u
+#define OMX_PLUGIN_HOSTD_HISTORY_KEYS_INIT { "first", "last", "windows_solo", "windows_grouped", "cpu_p95_solo", "cpu_max_solo", "pss_mb_solo", "xrun_windows_solo", "xrun_windows_grouped", "crashes_solo", "crashes_grouped", "restarts_grouped", "quarantines", "last_crash", "last_crash_grouped" }
+
 /* PLUGIN_HOSTD_REPLY_CODES (data/verbs.json) */
 #define OMX_REPLY_PLUGIN_HOSTD_PLACEMENT_INVALID "reply.plugin-hostd.placement-invalid" ///< PHD_ERR_PLACEMENT_INVALID: not a placement, or not valid here
 #define OMX_REPLY_PLUGIN_HOSTD_PLACEMENT_INVALID_RESP (-501)
@@ -61,5 +97,7 @@
 #define OMX_REPLY_PLUGIN_HOSTD_DESCRIPTOR_PENDING_RESP (-530)
 #define OMX_REPLY_PLUGIN_HOSTD_DESCRIPTOR_SCAN_FAILED "reply.plugin-hostd.descriptor-scan-failed" ///< PHD_ERR_DESCRIPTOR_SCAN_FAILED: the plugin's last scan wrote no descriptor (panel)
 #define OMX_REPLY_PLUGIN_HOSTD_DESCRIPTOR_SCAN_FAILED_RESP (-531)
+#define OMX_REPLY_PLUGIN_HOSTD_NO_SUCH_PLAN "reply.plugin-hostd.no-such-plan" ///< PHD_ERR_NO_SUCH_PLAN: a chain no plan verb planned
+#define OMX_REPLY_PLUGIN_HOSTD_NO_SUCH_PLAN_RESP (-532)
 
 #endif /* PLUGIN_HOSTD_VOCABULARY_H */

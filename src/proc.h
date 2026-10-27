@@ -75,4 +75,16 @@ int proc_have_binary(const char *bin);
 
 int64_t proc_now_ms(void);
 
+/* What the kernel says of a worker: the CPU time it has used and its memory, for the running history. The first two
+ * read the text of /proc/<pid>/stat and /proc/<pid>/smaps_rollup. 0, or -1 when the text is not what the kernel writes. */
+
+/* utime and stime of a stat line, in clock ticks: the fields after the last ')', since the command name before it may
+ * hold spaces and parentheses */
+int proc_parse_stat(const char *text, long long *utime, long long *stime);
+/* the Pss line of smaps_rollup, in kB */
+int proc_parse_pss(const char *text, long long *kb);
+/* seconds of CPU (utime + stime) the process has used, and its Pss in kB; -1 when the process or the file is gone */
+int proc_cpu_seconds(pid_t pid, double *seconds);
+int proc_pss_kb(pid_t pid, long long *kb);
+
 #endif
