@@ -129,7 +129,10 @@ holding `--probe-notes` at every rate of omx-contract's `ORACLE_FLOOR_RATES`, an
 beside its clean twin. Without it those tests print `skip`.
 
 `make sabotage` (`tests/sabotage.py`) breaks the daemon on purpose, one guard at a time, and
-requires the named test to go red.
+requires the named test to go red. The arms run side by side, `SABOTAGE_JOBS` at a time (default: the cores
+the process may use, at most 8), each in a directory of its own with its own range of test ports, and print in the
+order of the table; `SABOTAGE_JOBS=1` runs them one after the other. `SABOTAGE_KIND=<kind>` and `SABOTAGE_ONLY=<words>`
+run some of them.
 
 How the daemon keeps and replays state
 ======================================
