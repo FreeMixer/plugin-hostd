@@ -297,7 +297,7 @@ lanes with no arrow can run in parallel.
 | L5 (plugin-hostd#187) | plugin-hostd | the daemon reads `xruns` into the windows | L1, L4 |
 | L6 (plugin-hostd#188) | plugin-hostd | bench: the `plan` and `pool` modes, the `xruns` and `stress` fields in the schema, the stress load, three repeats and the spread | L2, L4; PR #179 |
 | L7 (plugin-qualify#158) | plugin-qualify | `adjust --history`, the `history` block in the record, `--pins` writes the adjusted verdict, the table above in `data/` | L1 |
-| L8 (plugin-hostd#190 (zynthian-ui has issues off)) | zynthian-ui | `sync_chain` through `plan`, the reason in the plugin menu, the old fallback removed | L2 |
+| L8 (plugin-hostd#190, zynthian-ui has issues off) | zynthian-ui | `sync_chain` through `plan`, the reason in the plugin menu, the old fallback removed | L2 |
 | L9 (openmixer-www#46) | openmixer-www | the benchmark page reads the new fields and shows medians, spreads and the stress rows | L6 |
 | L10 (openmixer#2263) | openmixer (#2263) | run the family on the Pi 5 and the desk, publish the documents | L6, L8, L9 |
 | L11 (plugin-hostd#189) | plugin-hostd | turn `grouping` on by default, with the winning `group_max` and `group_cost_max`; a conformance test that reads the published documents and refuses the flip without them | L10 |
