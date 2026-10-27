@@ -115,6 +115,19 @@ static char *chain_words(char **tok, int ntok)
     return sup_chain(id, ids, ntok - 2);
 }
 
+/* plan <chain> <instance> [<instance> ...]: at least PHD_CHAIN_MEMBERS_MIN members */
+static char *plan_words(char **tok, int ntok)
+{
+    int id, ids[MAX_TOKENS], n;
+
+    if (ntok < 2 + PHD_CHAIN_MEMBERS_MIN || !number(tok[1], &id))
+        return sup_resp(ERR_INVALID_OPERATION);
+    for (n = 2; n < ntok; n++)
+        if (!number(tok[n], &ids[n - 2]))
+            return sup_resp(ERR_INVALID_OPERATION);
+    return sup_plan(id, ids, ntok - 2);
+}
+
 static void reply(int fd, char *text)
 {
     socket_send(fd, text, strlen(text) + 1);
@@ -188,6 +201,20 @@ static char *handle(char *line, char **tok, int ntok)
         int id;
 
         return ntok == 2 && number(tok[1], &id) ? sup_chain_get(id) : sup_resp(ERR_INVALID_OPERATION);
+    }
+    if (!strcmp(verb, OMX_VERB_PLAN))
+        return plan_words(tok, ntok);
+    if (!strcmp(verb, OMX_VERB_PLAN_GET))
+    {
+        int id;
+
+        return ntok == 2 && number(tok[1], &id) ? sup_plan_get(id) : sup_resp(ERR_INVALID_OPERATION);
+    }
+    if (!strcmp(verb, OMX_VERB_PLAN_CLEAR))
+    {
+        int id;
+
+        return ntok == 2 && number(tok[1], &id) ? sup_plan_clear(id) : sup_resp(ERR_INVALID_OPERATION);
     }
     if (!strcmp(verb, OMX_VERB_PIN_SET))
         return sup_resp(pin_set_words(line, tok, ntok));

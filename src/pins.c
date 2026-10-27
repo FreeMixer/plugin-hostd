@@ -628,6 +628,13 @@ int pins_in_process(const char *uri)
     return p && !strcmp(p->verdict, PHD_PIN_VERDICT_IN_PROCESS);
 }
 
+const char *pins_verdict(const char *uri)
+{
+    const pin_t *p = find(bare(uri));
+
+    return p ? p->verdict : NULL;
+}
+
 int pins_clear(const char *uri)
 {
     pin_t *p;
