@@ -987,7 +987,7 @@ static inline int phd_is_note_verb(const char *verb)
 #define PHD_DEFAULT_HISTORY_WINDOW_S  60
 #define PHD_DEFAULT_HISTORY_SAVE_S    300
 
-/* The running history (docs/design/notes/2026-10-27-grouping-planner.md, The history record): what each plugin did on
+/* The running history (the grouping-planner design note, The history record): what each plugin did on
  * this machine, one line per <uri> <binary digest> <host class> in a file of the daemon's own, whose keys are the words
  * of PLUGIN_HOSTD_HISTORY_KEYS (data/history.json). The first line is PHD_HISTORY_HEADER; the file is local, mode 0600,
  * and only the daemon writes it. The summary history_get answers reads crashes within PHD_HISTORY_KEEP_DAYS of

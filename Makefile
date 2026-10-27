@@ -312,7 +312,7 @@ test-pin: $(PIN_TEST)
 $(PIN_TEST): tests/pin_test.c include/plugin-hostd/pin.h
 	$(CC) -Iinclude $(CFLAGS) -Werror -o $@ tests/pin_test.c
 
-# the running history (src/history.c, docs/design/notes/2026-10-27-grouping-planner.md): its line grammar, its file, what its
+# the running history (src/history.c, the grouping-planner design note): its line grammar, its file, what its
 # counts and its summary come to, against records written out by hand; and the host class it is kept under (src/machine.c)
 test-history: $(HISTORY_TEST)
 	./$(HISTORY_TEST)

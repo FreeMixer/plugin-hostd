@@ -26,7 +26,7 @@
 #include <plugin-hostd/pin.h>
 
 /* The running history: what each plugin did on this machine, per plugin, per binary and per host class
- * (docs/design/notes/2026-10-27-grouping-planner.md, The history record). One line per <uri> <binary digest> <host
+ * (the grouping-planner design note, The history record). One line per <uri> <binary digest> <host
  * class>: history <uri> <digest> <class> key=value ...; the keys are PLUGIN_HOSTD_HISTORY_KEYS (data/history.json), the
  * first line PHD_HISTORY_HEADER. Written only by the daemon, atomically, mode 0600; local to the machine.
  *

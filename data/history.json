@@ -6,7 +6,7 @@
   "PLUGIN_HOSTD_HISTORY_KEYS": {
     "kind": "words",
     "since": "0.13.0",
-    "doc": "The keys of a line of the running-history file, in the order the daemon writes them (docs/design/notes/2026-10-27-grouping-planner.md, The history record): history <uri> <binary digest> <host class> key=value ..., after the header line '# plugin-hostd history/1'. The value of every key is a whole number or a decimal, never negative. A line with a key outside these words is kept as it is by every save and never read.",
+    "doc": "The keys of a line of the running-history file, in the order the daemon writes them (the grouping-planner design note, The history record): history <uri> <binary digest> <host class> key=value ..., after the header line '# plugin-hostd history/1'. The value of every key is a whole number or a decimal, never negative. A line with a key outside these words is kept as it is by every save and never read.",
     "words": {
       "first": {
         "word": "first",
