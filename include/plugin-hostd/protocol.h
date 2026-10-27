@@ -508,7 +508,8 @@ static inline int phd_pool_name_valid(const char *name)
       "as a chain of place " PHD_PLACE_CHAIN_PREFIX "<chain>" PHD_PLACE_PLAN_SEPARATOR "<k>, k counting segments from 0; " \
       "a member that shares with no neighbour is placed " PHD_PLACE_OWN ". The reply names the segments in order, " \
       "the members of one joined by commas and the segments by semicolons. A chain planned again keeps the running " \
-      "worker of every segment that did not change. The plan numbers are its own, apart from chain's. While the " \
+      "worker of every segment that did not change, and the daemon plans it again by itself when a member is " \
+      "quarantined or its quarantine is cleared. The plan numbers are its own, apart from chain's. While the " \
       "setting grouping is off the plan is answered and kept for " OMX_VERB_PLAN_GET " and nothing moves. A segment " \
       "that cannot be formed refuses the whole plan with its own code, moves nothing and is told by " OMX_VERB_PLAN_GET \
       " as plan-refused:<code>. -518 for an instance no add made, -519 for one named twice, -520 for one in a chain " \

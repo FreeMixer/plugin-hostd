@@ -85,11 +85,14 @@ typedef struct PLAN_T {
     int nseg;
     char *segments;             /* plan's answer after resp 0 */
     char *reasons;              /* plan_get's second word */
+    int replan;                 /* a member was quarantined: the tick plans it again */
 } plan_t;
 static plan_t *g_plan[MAX_INSTANCE];
 static int g_nplans;
 
 static void chain_form(chain_t *c);
+static void plans_replan_for(int id);
+static void plan_again(int id);
 
 /* a chain as the controller names it: the number chain declared, or <plan>.<k> for segment k of a plan */
 static void chain_word(const chain_t *c, char *word, size_t size)
@@ -837,6 +840,7 @@ static void quarantine(instance_t *i, worker_t *w)
         m->quarantined = 1;
         event(PHD_EVENT_INSTANCE_QUARANTINED_FMT, i->id, w->k);
         hist_quarantine(i->uri);
+        plans_replan_for(i->id);
     }
     /* the culprit of a chain that was split: the others are gathered again, without it, by the tick */
     if (i->chain && !chain_whole(i->chain))
@@ -1327,6 +1331,11 @@ void sup_tick(void)
     for (n = 0; n < g_nworkers; n++)
         hist_tick(g_workers[n], now);
     history_tick(now / 1000);
+    /* a plan is made again at a quarantine of a member, here and never mid-cycle of a worker: before the chains are
+     * gathered, so that a segment the new plan dissolves is not formed first */
+    for (n = 0; g_nplans && n < MAX_INSTANCE; n++)
+        if (g_plan[n] && g_plan[n]->replan)
+            plan_again(n);
     for (n = 0; g_nchains && n < MAX_INSTANCE; n++)
         if (g_chain[n] && g_chain[n]->rejoin)
         {
@@ -2161,7 +2170,12 @@ char *sup_quarantine_clear(const char *which)
     {
         for (id = 0; id < MAX_INSTANCE; id++)
             if (g_meta[id])
+            {
+                /* the plans that held a member back for its quarantine are made again, by the tick */
+                if (g_meta[id]->quarantined)
+                    plans_replan_for(id);
                 g_meta[id]->quarantined = 0;
+            }
         for (id = 0; id < MAX_INSTANCE; id++)
         {
             int k;
@@ -2176,6 +2190,8 @@ char *sup_quarantine_clear(const char *which)
     id = atoi(which);
     if (id < 0 || id >= MAX_INSTANCE || (!g_inst[id] && !(g_meta[id] && g_meta[id]->quarantined)))
         return sup_resp(ERR_INSTANCE_NON_EXISTS);
+    if (meta_of(id)->quarantined)
+        plans_replan_for(id);
     meta_of(id)->quarantined = 0;
     /* a chain's member goes back to its chain: the tick gathers the chain again */
     if (g_inst[id] && g_inst[id]->chain)
@@ -2582,8 +2598,37 @@ static const char *record_id(const char *uri)
     return hash ? hash + 1 : uri;
 }
 
-/* what the planner is told of an instance: its worker program's class, its pin, whether a world can be built for it, its cost */
-static void plan_member(const instance_t *i, planner_member_t *m)
+/* What the planner is told of the history of an instance: the verdicts and the solo cost of its record on this host
+ * class, by the rules of src/history.c, and a crash the daemon has seen itself, a quarantine, which no record of a
+ * history that is off or blocked can hold. NULL for neither: a plugin with no history is judged by its pin alone. */
+static const planner_history_t *plan_history(const instance_t *i, planner_history_t *h)
+{
+    char digest[PHD_SHA256_HEX_LEN + 1];
+    const history_rec_t *r = pins_digest(i->uri, digest) == 0 ? history_find(i->uri, digest) : NULL;
+    int any = 0;
+
+    memset(h, 0, sizeof(*h));
+    h->cpu_p95_solo = PLANNER_COST_UNKNOWN;
+    if (r)
+    {
+        h->crashed = history_crashed(r, utc_now());
+        h->raises_xruns = history_raises_xruns(r);
+        /* percent of one core in the record, a fraction of one in the plan; none while it never ran alone */
+        if (r->windows_solo > 0)
+            h->cpu_p95_solo = r->cpu_p95_solo / 100.0;
+        any = 1;
+    }
+    if (meta_of(i->id)->quarantined)
+    {
+        h->crashed = 1;
+        any = 1;
+    }
+    return any ? h : NULL;
+}
+
+/* what the planner is told of an instance: its worker program's class, its pin, whether a world can be built for it,
+ * its cost and its history */
+static void plan_member(const instance_t *i, planner_member_t *m, planner_history_t *h)
 {
     const format_t *f = format_at(i->fmt);
     const char *bin = bin_of(i->fmt), *verdict = pins_verdict(i->uri);
@@ -2607,7 +2652,7 @@ static void plan_member(const instance_t *i, planner_member_t *m)
                   : PLANNER_COST_UNKNOWN;
     if (m->cost < 0)
         m->cost = PLANNER_COST_UNKNOWN;
-    m->history = NULL;
+    m->history = plan_history(i, h);
 }
 
 /* the refusal chain would give the members of a segment of two or more, apart from the ones of the numbers: 0 for none */
@@ -2746,44 +2791,33 @@ static void plan_apply(plan_t *old, plan_t *p, const planner_plan_t *pp, const i
     free(at);
 }
 
-char *sup_plan(int id, const int *ids, int n)
+/* the members are planned and the plan is applied, or only kept while grouping is off or a segment cannot be formed; the
+ * plan before it is dropped, its segments that did not change are the new plan's. *refused is the code of the refusal, 0
+ * for none. The members are checked by the caller. */
+static plan_t *plan_run(int id, const int *ids, int n, int *refused)
 {
-    plan_t *old = (id >= 0 && id < MAX_INSTANCE) ? g_plan[id] : NULL, *p;
+    plan_t *old = g_plan[id], *p;
     planner_member_t m[PLANNER_MEMBERS_MAX];
+    planner_history_t h[PLANNER_MEMBERS_MAX];
     planner_settings_t s;
     planner_plan_t pp;
-    int k, j, first, refused = 0;
-    char *reply;
-    size_t used = 0, cap = 64;
+    int k, first;
 
-    if (id < 0 || id >= MAX_INSTANCE || n < PHD_CHAIN_MEMBERS_MIN || n > PLANNER_MEMBERS_MAX)
-        return sup_resp(ERR_INVALID_OPERATION);
     for (k = 0; k < n; k++)
-    {
-        instance_t *i = (ids[k] >= 0 && ids[k] < MAX_INSTANCE) ? g_inst[ids[k]] : NULL;
-
-        if (!i)
-            return sup_resp(PHD_ERR_CHAIN_UNKNOWN_INSTANCE);
-        for (j = 0; j < k; j++)
-            if (ids[j] == ids[k])
-                return sup_resp(PHD_ERR_CHAIN_DUPLICATE);
-        /* the member of a chain, or of the plan of another chain, is not this plan's to place */
-        if (i->chain && !(i->chain->planned && i->chain->id == id))
-            return sup_resp(PHD_ERR_CHAIN_INSTANCE_BUSY);
-        plan_member(i, &m[k]);
-    }
+        plan_member(g_inst[ids[k]], &m[k], &h[k]);
     s.require_pins = g_conf.require_pins;
     s.pins_first_use = conf_pins_first_use(&g_conf);
     s.grouping_on = conf_grouping_on(&g_conf);
     s.group_max = g_conf.group_max;
     s.group_cost_max = g_conf.group_cost_max / 100.0;
-    if (planner_plan(&s, m, n, &pp) != 0)
-        return sup_resp(ERR_INVALID_OPERATION);
+    s.history_unavailable = !history_available();
+    planner_plan(&s, m, n, &pp);
 
     /* every segment is checked before any is made: a plan that cannot be formed moves nothing */
-    for (k = 0, first = 0; s.grouping_on && !refused && k < pp.nseg; first += pp.seg_len[k++])
+    *refused = 0;
+    for (k = 0, first = 0; s.grouping_on && !*refused && k < pp.nseg; first += pp.seg_len[k++])
         if (pp.seg_len[k] > 1)
-            refused = segment_refusal(ids + first, pp.seg_len[k]);
+            *refused = segment_refusal(ids + first, pp.seg_len[k]);
 
     p = calloc(1, sizeof(*p));
     p->id = id;
@@ -2792,9 +2826,9 @@ char *sup_plan(int id, const int *ids, int n)
     memcpy(p->ids, ids, n * sizeof(int));
     p->seg = calloc(pp.nseg, sizeof(chain_t *));
     p->segments = plan_text(segments_text, m, &pp, 0);
-    p->reasons = plan_text(planner_format_reasons, m, &pp, refused);
+    p->reasons = plan_text(planner_format_reasons, m, &pp, *refused);
 
-    if (s.grouping_on && !refused)
+    if (s.grouping_on && !*refused)
         plan_apply(old, p, &pp, ids);
     else
     {
@@ -2816,11 +2850,69 @@ char *sup_plan(int id, const int *ids, int n)
     }
     else
         g_nplans++;
+    return p;
+}
+
+char *sup_plan(int id, const int *ids, int n)
+{
+    plan_t *p;
+    int k, j, refused;
+    char *reply;
+    size_t used = 0, cap = 64;
+
+    if (id < 0 || id >= MAX_INSTANCE || n < PHD_CHAIN_MEMBERS_MIN || n > PLANNER_MEMBERS_MAX)
+        return sup_resp(ERR_INVALID_OPERATION);
+    for (k = 0; k < n; k++)
+    {
+        instance_t *i = (ids[k] >= 0 && ids[k] < MAX_INSTANCE) ? g_inst[ids[k]] : NULL;
+
+        if (!i)
+            return sup_resp(PHD_ERR_CHAIN_UNKNOWN_INSTANCE);
+        for (j = 0; j < k; j++)
+            if (ids[j] == ids[k])
+                return sup_resp(PHD_ERR_CHAIN_DUPLICATE);
+        /* the member of a chain, or of the plan of another chain, is not this plan's to place */
+        if (i->chain && !(i->chain->planned && i->chain->id == id))
+            return sup_resp(PHD_ERR_CHAIN_INSTANCE_BUSY);
+    }
+    p = plan_run(id, ids, n, &refused);
     if (refused)
         return sup_resp(refused);
     reply = malloc(cap);
     put(&reply, &used, &cap, "resp 0 %s", p->segments);
     return reply;
+}
+
+/* the plan of a chain is made again over the members it was given: after a quarantine, which the history now knows. A member that is gone, or taken by a chain of the controller's, leaves the plan as it
+ * was: it is the controller's to declare again. */
+static void plan_again(int id)
+{
+    plan_t *p = g_plan[id];
+    int *ids, k, refused;
+
+    p->replan = 0;
+    for (k = 0; k < p->n; k++)
+    {
+        instance_t *i = g_inst[p->ids[k]];
+
+        if (!i || (i->chain && !(i->chain->planned && i->chain->id == id)))
+            return;
+    }
+    ids = malloc(p->n * sizeof(int));
+    memcpy(ids, p->ids, p->n * sizeof(int));
+    plan_run(id, ids, p->n, &refused);
+    free(ids);
+}
+
+/* every plan that holds the instance is to be made again by the tick */
+static void plans_replan_for(int id)
+{
+    int n, k;
+
+    for (n = 0; g_nplans && n < MAX_INSTANCE; n++)
+        for (k = 0; g_plan[n] && k < g_plan[n]->n; k++)
+            if (g_plan[n]->ids[k] == id)
+                g_plan[n]->replan = 1;
 }
 
 char *sup_plan_get(int id)
