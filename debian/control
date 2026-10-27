@@ -4,10 +4,10 @@ Priority: optional
 Maintainer: Pau Aliagas <linuxnow@gmail.com>
 Build-Depends: debhelper-compat (= 13),
                libmod-host-protocol-dev (>= 0.1.0-5),
-               libomx-contract-dev (>= 3.3.0~),
+               libomx-contract-dev (>= 3.4.0~),
                omx-clap-core-contract (>= 0.22.0~) <!nocheck>,
                omx-clap-host-tests (>= 0.21.0~) <!nocheck>,
-               omx-contract (>= 3.3.0~) <!nocheck>,
+               omx-contract (>= 3.4.0~) <!nocheck>,
                pkgconf,
                python3
 Standards-Version: 4.6.2
