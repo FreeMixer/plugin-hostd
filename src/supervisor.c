@@ -1172,6 +1172,7 @@ void sup_init(const conf_t *conf)
     int f;
 
     g_conf = *conf;
+    mkdir(g_conf.state_root, 0755);
     snprintf(g_root, sizeof(g_root), "%s/plugin-hostd", g_conf.state_root);
     mkdir(g_root, 0755);
     snprintf(g_root, sizeof(g_root), "%s/plugin-hostd/%d", g_conf.state_root, (int)getpid());

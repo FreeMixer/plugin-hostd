@@ -17,7 +17,9 @@
 import json, os, re, socket, subprocess, sys, tempfile, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 import harness
+import plugin_hostd_client
 import scan_fixture
 from harness import Daemon, Fail, check, wait_for
 
@@ -327,6 +329,7 @@ class Worker:
         while True:
             try:
                 self.sock = socket.create_connection(("127.0.0.1", self.port), timeout=10)
+                self.client = plugin_hostd_client.Client(self.sock)
                 self.fb = socket.create_connection(("127.0.0.1", fb), timeout=10)
                 break
             except OSError:
@@ -335,14 +338,10 @@ class Worker:
                 time.sleep(0.02)
 
     def send(self, msg):
-        self.sock.sendall(msg.encode() + b"\0")
-        buf = b""
-        while not buf.endswith(b"\0"):
-            c = self.sock.recv(65536)
-            if not c:
-                raise Fail("the fake worker closed on " + msg)
-            buf += c
-        return buf[:-1].decode()
+        try:
+            return self.client.send(msg)
+        except ConnectionError:
+            raise Fail("the fake worker closed on " + msg)
 
     def close(self):
         self.proc.kill()

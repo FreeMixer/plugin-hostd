@@ -1,1 +1,3 @@
 usr/libexec/plugin-hostd/tests/fake-host
+usr/libexec/plugin-hostd/tests/lib/protocol.sh
+usr/libexec/plugin-hostd/tests/lib/plugin_hostd_client.py

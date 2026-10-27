@@ -65,6 +65,20 @@ def the_whitespace_that_ends_a_command_is_not_part_of_its_last_word():
 
 
 @test
+def a_state_root_that_does_not_exist_yet_is_made_and_the_add_answers():
+    """issue 180: a configured state_root is created at start; an add used to answer -503 with nothing in the log"""
+    base = tempfile.mkdtemp(prefix="plugin-hostd-root.")
+    root = os.path.join(base, "run")
+    d = daemon(conf={"state_root": root})
+    try:
+        d.expect("add fake:a 0", "resp 0")
+        check(os.path.isdir(os.path.join(root, "plugin-hostd")), "the daemon's directory is under the new root")
+    finally:
+        d.close()
+        shutil.rmtree(base, ignore_errors=True)
+
+
+@test
 def placement_own_default_and_pool():
     d = daemon()
     try:
