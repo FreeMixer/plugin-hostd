@@ -558,6 +558,9 @@
         "reply": "resp 0 <history>",
         "codes": [
           {
+            "ref": "HOST_REPLY_CODES.memoryAllocation"
+          },
+          {
             "ref": "HOST_REPLY_CODES.invalidOperation"
           }
         ],
@@ -571,6 +574,9 @@
         "format": "history_clear %s",
         "reply": "resp 0",
         "codes": [
+          {
+            "ref": "HOST_REPLY_CODES.memoryAllocation"
+          },
           {
             "ref": "HOST_REPLY_CODES.invalidOperation"
           }
@@ -598,6 +604,9 @@
             "ref": "PLUGIN_HOSTD_REPLY_CODES.placementInvalid"
           },
           {
+            "ref": "HOST_REPLY_CODES.memoryAllocation"
+          },
+          {
             "ref": "HOST_REPLY_CODES.invalidOperation"
           }
         ],
@@ -615,6 +624,9 @@
             "ref": "PLUGIN_HOSTD_REPLY_CODES.noSuchPlan"
           },
           {
+            "ref": "HOST_REPLY_CODES.memoryAllocation"
+          },
+          {
             "ref": "HOST_REPLY_CODES.invalidOperation"
           }
         ],
@@ -630,6 +642,9 @@
         "codes": [
           {
             "ref": "PLUGIN_HOSTD_REPLY_CODES.noSuchPlan"
+          },
+          {
+            "ref": "HOST_REPLY_CODES.memoryAllocation"
           },
           {
             "ref": "HOST_REPLY_CODES.invalidOperation"
