@@ -1,0 +1,45 @@
+{
+  "plugins": {
+    "comp":     { "name": "omx-comp",  "clap": "omx-comp.clap#org.openmixer.comp",   "lv2": "urn:openmixer:comp" },
+    "delay":    { "name": "omx-delay", "clap": "omx-delay.clap#org.openmixer.delay", "lv2": "urn:openmixer:delay" },
+    "drive":    { "name": "omx-drive", "clap": "omx-drive.clap#org.openmixer.drive", "lv2": "urn:openmixer:drive" },
+    "calf":     { "name": "Calf Compressor", "lv2": "http://calf.sourceforge.net/plugins/Compressor" },
+    "pianoteq": { "name": "Pianoteq 9", "lv2": "https://www.modartt.com/lv2/Pianoteq9", "instrument": true, "needs": "pianoteq" }
+  },
+  "midi": {
+    "chords": ["80000", "0", "60", "70000", "0", "64", "70000", "0", "67", "70000", "0", "72", "70000", "0", "76", "70000"]
+  },
+  "scenarios": [
+    { "id": "idle",     "title": "the host running, no plugin", "plugins": [] },
+    { "id": "clap1",    "title": "one CLAP plugin, sine in", "plugins": ["comp"], "format": "clap" },
+    { "id": "lv2-1",    "title": "one LV2 plugin, sine in", "plugins": ["calf"] },
+    { "id": "chain3",   "title": "three plugins in a chain, sine in", "plugins": ["comp", "calf", "delay"], "chain": true },
+    { "id": "clap16",   "title": "16 instances of one CLAP plugin, sine in", "plugins": ["comp"], "repeat": 16 },
+    { "id": "pianoteq", "title": "Pianoteq 9, five-note chords", "plugins": ["pianoteq"] },
+    { "id": "kill1",    "title": "one plugin, its process killed", "plugins": ["comp"], "kill": true },
+    { "id": "cvp3",  "title": "chains vs processes, 3 plugins",  "plugins": ["comp", "calf", "delay", "drive"], "count": 3, "stress": true, "family": "chains-vs-processes" },
+    { "id": "cvp8",  "title": "chains vs processes, 8 plugins",  "plugins": ["comp", "calf", "delay", "drive"], "count": 8, "stress": true, "family": "chains-vs-processes" },
+    { "id": "cvp16", "title": "chains vs processes, 16 plugins", "plugins": ["comp", "calf", "delay", "drive"], "count": 16, "stress": true, "family": "chains-vs-processes" },
+    { "id": "grp8",  "title": "grouping vs processes, 8 plugins, some of them pinned isolated",
+      "plugins": ["comp", "drive", "delay", "drive", "comp"], "count": 8, "unshared": ["drive"], "stress": true,
+      "family": "grouping-vs-processes" },
+    { "id": "grp16", "title": "grouping vs processes, 16 plugins, some of them pinned isolated",
+      "plugins": ["comp", "drive", "delay", "drive", "comp"], "count": 16, "unshared": ["drive"], "stress": true,
+      "family": "grouping-vs-processes" }
+  ],
+  "modes": {
+    "chains-vs-processes": [
+      { "host": "H2", "mode": "individual" },
+      { "host": "H2", "mode": "chain" },
+      { "host": "H1", "mode": "shared-process" },
+      { "host": "H3", "mode": "shared-process" },
+      { "host": "H4", "mode": "individual" }
+    ],
+    "grouping-vs-processes": [
+      { "host": "H2", "mode": "individual" },
+      { "host": "H2", "mode": "chain" },
+      { "host": "H2", "mode": "plan" },
+      { "host": "H2", "mode": "pool" }
+    ]
+  }
+}

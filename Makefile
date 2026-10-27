@@ -7,6 +7,10 @@ VERSION = $(shell sed -n "s/^Version: *//p" packaging/plugin-hostd.spec)
 FAKE = tests/fake-host
 FORMAT_TEST = tests/format-test
 PIN_TEST = tests/pin-test
+HISTORY_TEST = tests/history-test
+PROC_TEST = tests/proc-test
+PLANNER_TEST = tests/planner-test
+QUALCOST_TEST = tests/qualcost-test
 RELAY_TEST = tests/relay-test
 GESTURE_ALLOC_TEST = tests/gesture-alloc-test
 LV2_ALLOC_TEST = tests/lv2-alloc-test
@@ -57,7 +61,7 @@ LDFLAGS += -Wl,--no-undefined
 
 # source and object files
 SRC = src/main.c src/conf.c src/proc.c src/supervisor.c src/verbs.c src/pins.c src/relay.c src/formats.c src/lv2.c \
-      src/descriptors.c src/describe.c src/transforms.c src/json.c
+      src/descriptors.c src/describe.c src/transforms.c src/json.c src/fsutil.c src/machine.c src/history.c src/planner.c src/qualcost.c
 OBJ = $(SRC:.c=.o)
 
 # the C names of the daemon's verbs and reply codes, rendered from data/verbs.json (render-verbs below); protocol.h
@@ -72,8 +76,8 @@ $(PROG): $(OBJ) $(PROTOCOL_LIB)
 
 # the probe runner: it loads no plugin and links nothing of the daemon or of mod-host
 # describe reads the installed table of a format by default (docs/formats.md)
-PROBE_SRC = src/probe.c src/json.c src/describe.c src/transforms.c
-$(PROBE): $(PROBE_SRC) src/json.h src/describe.h src/transforms.h include/plugin-hostd/protocol.h $(RENDERED) include/plugin-hostd/pin.h
+PROBE_SRC = src/probe.c src/json.c src/describe.c src/transforms.c src/machine.c
+$(PROBE): $(PROBE_SRC) src/json.h src/describe.h src/transforms.h src/machine.h include/plugin-hostd/protocol.h $(RENDERED) include/plugin-hostd/pin.h
 	$(CC) -Iinclude -Isrc $(CONTRACT_CFLAGS) $(CFLAGS) -D_GNU_SOURCE -DPROBE_VERSION='"$(VERSION)"' \
 	  -DPROBE_CONTRACTDIR='"$(CONTRACTDIR)"' -DPROBE_CONTRACT_MAJOR='"$(CONTRACT_SCHEMA_MAJOR)"' -o $@ $(PROBE_SRC) -lm
 
@@ -84,6 +88,9 @@ endif
 
 # the declared protocol is compiled into every object
 $(OBJ): include/plugin-hostd/protocol.h $(RENDERED) include/plugin-hostd/pin.h
+
+# the host class of the history is the probe's machine class: the contract's band words
+src/machine.o: INCS += $(CONTRACT_CFLAGS)
 
 src/descriptors.o: src/descriptors.h src/describe.h src/json.h src/formats.h src/supervisor.h
 
@@ -160,10 +167,12 @@ test-format-coverage:
 	python3 tests/format_coverage.py --contract-dir $(CONTRACTDIR) --major $(CONTRACT_SCHEMA_MAJOR) lv2
 	python3 tests/format_coverage.py --contract-dir $(CONTRACTDIR) --major $(CONTRACT_SCHEMA_MAJOR) --self-test
 
-# the fake worker, for a program that drives plugin-hostd: away from $(BINDIR), where nothing runs it by chance
+# the fake worker and the protocol clients (lib/protocol.sh, lib/plugin_hostd_client.py), for a program that drives plugin-hostd: away from $(BINDIR), where nothing runs it by chance
 install_tests: $(FAKE)
 	install -d $(DESTDIR)$(LIBEXECDIR)/plugin-hostd/tests
 	install -m 755 $(FAKE) $(DESTDIR)$(LIBEXECDIR)/plugin-hostd/tests/fake-host
+	install -d $(DESTDIR)$(LIBEXECDIR)/plugin-hostd/tests/lib
+	install -m 644 tests/lib/protocol.sh tests/lib/plugin_hostd_client.py $(DESTDIR)$(LIBEXECDIR)/plugin-hostd/tests/lib
 
 install_man:
 	install -d $(DESTDIR)$(MANDIR)
@@ -249,13 +258,23 @@ fuzz-corpus-check:
 
 # clean rule
 clean:
-	@rm -f src/*.o $(PROG) $(PROBE) tests/probe-child tests/lv2-probe-child tests/rt_interpose.so $(FAKE) $(PIN_TEST) $(RELAY_TEST) tests/relay-test-relay.o $(FORMAT_TEST) $(GESTURE_ALLOC_TEST) $(LV2_ALLOC_TEST) tests/lv2-alloc-lv2.o $(TRANSFORMS_TEST) $(GEN) tests/stress.clap tests/jack_levels tests/host_scenarios $(LV2_FIXTURE)
+	@rm -f src/*.o $(PROG) $(PROBE) tests/probe-child tests/lv2-probe-child tests/rt_interpose.so $(FAKE) $(PIN_TEST) $(HISTORY_TEST) $(PROC_TEST) $(PLANNER_TEST) $(QUALCOST_TEST) $(RELAY_TEST) tests/relay-test-relay.o $(FORMAT_TEST) $(GESTURE_ALLOC_TEST) $(LV2_ALLOC_TEST) tests/lv2-alloc-lv2.o $(TRANSFORMS_TEST) $(GEN) tests/stress.clap tests/jack_levels tests/host_scenarios $(LV2_FIXTURE)
 	@rm -rf build
 
 # the daemon against workers that are not plugin hosts at all (tests/fake-host speaks the same protocol and can be
 # made to die on cue): placement, forwarding, ledger, replay, attribution, the storm bound; no jack, no plugin
-test: test-pin test-transforms test-format-coverage test-describe test-relay test-alloc test-format test-daemon test-verbs-declared check-rendered check-generated check-schema test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-mod-host-json test-socket check-verb-table check-preset-schema test-install-schemas
+test: test-protocol-lib test-sabotage-pool test-pin test-history test-proc test-planner test-transforms test-format-coverage test-describe test-relay test-alloc test-format test-daemon test-verbs-declared check-rendered check-generated check-schema test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-mod-host-json test-socket check-verb-table check-preset-schema test-install-schemas
 	MOD_HOST_DIR=$(MOD_HOST_DIR) python3 tests/verbs_contract.py
+
+# the protocol clients plugin-hostd-tests ships (tests/lib/), against a peer that frames by NUL, and their sabotage
+.PHONY: test-protocol-lib
+test-protocol-lib:
+	python3 tests/protocol_lib.py
+
+# the pool tests/sabotage.py runs its arms in: their order, their trees, their ports, and one run side by side against one after the other
+.PHONY: test-sabotage-pool
+test-sabotage-pool:
+	python3 tests/sabotage_pool_test.py
 
 # the same without the verb table, which is read from a mod-host checkout's README
 test-daemon: $(PROG) $(FAKE)
@@ -288,7 +307,7 @@ test-format: $(FORMAT_TEST) $(FAKE)
 	PLUGIN_HOSTD_FORMAT_TEST_DIR=$${TMPDIR:-$${XDG_RUNTIME_DIR:-.}} ./$(FORMAT_TEST) ./$(FAKE)
 
 # the daemon's parts without its main and its verbs: the test calls the supervisor as the verbs do
-FORMAT_OBJ = src/conf.o src/proc.o src/supervisor.o src/pins.o src/relay.o src/formats.o src/lv2.o
+FORMAT_OBJ = src/conf.o src/proc.o src/supervisor.o src/pins.o src/fsutil.o src/machine.o src/history.o src/relay.o src/formats.o src/lv2.o src/planner.o src/qualcost.o src/json.o
 
 $(FORMAT_TEST): tests/format_test.c $(FORMAT_OBJ) $(PROTOCOL_LIB)
 	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -o $@ tests/format_test.c $(FORMAT_OBJ) $(PROTOCOL_LIBS) -pthread -lm
@@ -299,6 +318,33 @@ test-pin: $(PIN_TEST)
 
 $(PIN_TEST): tests/pin_test.c include/plugin-hostd/pin.h
 	$(CC) -Iinclude $(CFLAGS) -Werror -o $@ tests/pin_test.c
+
+# the running history (src/history.c, the grouping-planner design note): its line grammar, its file, what its
+# counts and its summary come to, against records written out by hand; and the host class it is kept under (src/machine.c)
+test-history: $(HISTORY_TEST)
+	./$(HISTORY_TEST)
+
+$(HISTORY_TEST): tests/history_test.c src/history.c src/history.h src/fsutil.c src/fsutil.h src/machine.c src/machine.h include/plugin-hostd/protocol.h $(RENDERED)
+	$(CC) -Iinclude -Isrc $(CONTRACT_CFLAGS) $(CFLAGS) -Werror -o $@ tests/history_test.c src/history.c src/fsutil.c src/machine.c -lm
+
+# src/proc.c's readers of /proc: the text the kernel writes, and this process's own files
+test-proc: $(PROC_TEST)
+	./$(PROC_TEST)
+
+$(PROC_TEST): tests/proc_test.c src/proc.c src/proc.h src/conf.h include/plugin-hostd/protocol.h $(RENDERED)
+	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -o $@ tests/proc_test.c src/proc.c -pthread -lm
+
+# the grouping planner (src/planner.c, the grouping-planner design note), on its own: each reason it gives, the order its
+# rules decide in, the text of a plan, and that the same members give the same bytes
+test-planner: $(PLANNER_TEST) $(QUALCOST_TEST)
+	./$(PLANNER_TEST)
+	./$(QUALCOST_TEST)
+
+$(QUALCOST_TEST): tests/qualcost_test.c src/qualcost.c src/qualcost.h src/json.c src/json.h
+	$(CC) -Isrc $(CFLAGS) -Werror -o $@ tests/qualcost_test.c src/qualcost.c src/json.c -lm
+
+$(PLANNER_TEST): tests/planner_test.c src/planner.c src/planner.h include/plugin-hostd/protocol.h $(RENDERED)
+	$(CC) -Iinclude -Isrc $(CFLAGS) -Werror -o $@ tests/planner_test.c src/planner.c
 
 # the transforms the format tables name (src/transforms.c, docs/formats.md): every one and its inverse over its vectors,
 # and a lookup that is not one to one refused

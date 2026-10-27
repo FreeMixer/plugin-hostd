@@ -44,6 +44,10 @@
  *                               FAKE_PIN_EXPECT_HANG: it is never answered)
  *   param_set <n> pages_changed <v>   v other than 0 writes "remote_pages_changed <n>" on the feedback port, as a CLAP
  *                               worker does when its plugin changes its remote pages
+ *   param_get <n> xruns=<v>     writes "xruns <v>" on the feedback port, v as sent, as a worker does when the JACK xruns it
+ *                               counted change (v is the count since the worker started; the fake counts none itself),
+ *                               and answers "resp 0 0". A read is no setting, so the daemon's ledger does not keep it and
+ *                               a respawned worker does not write it again
  *   param_set <n> long_line <v>   writes a feedback line of v bytes of 'x' (v > 0), then "remote_pages_changed <n>"
  *   param_set <n> gesture <v>   v other than 0 writes what a CLAP worker relays when the user turns a knob of the plugin's
  *                               own: "param_gesture <n> 0 begin", "param_set <n> 0 <v>" (v as sent), "param_gesture <n> 0 end", then
@@ -447,6 +451,14 @@ static void receive(msg_t *msg)
             }
         }
         answer(fd, "resp 0");
+    }
+    else if (verb_is(verb, EFFECT_PARAM_GET) && ntok == 3 && !strncmp(tok[2], "xruns=", 6))
+    {
+        char event[128];
+
+        snprintf(event, sizeof(event), PHD_EVENT_XRUNS " %s", tok[2] + 6);
+        socket_send_feedback(event);
+        answer(fd, "resp 0 0");
     }
     else if (verb_is(verb, EFFECT_PARAM_GET) && ntok == 3)
     {

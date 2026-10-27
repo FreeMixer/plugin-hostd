@@ -10,7 +10,7 @@ missing. The daemon needs libc and that library and nothing else.
 
 The probe runner and the protocol generator also read omx-contract's C headers,
 `<omxcontract/omx_contract_limits.h>` and `<omxcontract/omx_vocabulary.h>`, from
-`pkg-config omx-contract` (`omx-contract-devel`, `libomx-contract-dev`, 3.3.0 or
+`pkg-config omx-contract` (`omx-contract-devel`, `libomx-contract-dev`, 3.4.0 or
 later; `CONTRACT_CFLAGS=-I<dir>` for one that is not installed). The runner's
 default rates are the contract's `ORACLE_FLOOR_RATES`, and the generator refuses
 to build or run when the protocol's parameter scales are not the contract's
@@ -50,12 +50,12 @@ The daemon's verbs
 ------------------
 
 The verbs the daemon adds to mod-host's protocol, and the codes they answer, are declared in `data/verbs.json`, a
-`verbs` item of omx-contract's contract directory (schema 3.3.0 or later). `omx-contract render` writes them into
+`verbs` item of omx-contract's contract directory (schema 3.4.0 or later). `omx-contract render` writes them into
 `include/plugin-hostd/plugin_hostd_host_verbs.h` and `plugin_hostd_vocabulary.h`, which are committed and which
 `protocol.h` includes: `make render-verbs` rewrites them and `make check-rendered` fails on any drift. Both run the
 `omx-contract` command (package `omx-contract`); the build itself does not. A refusal number omx-clap-host answers
 too (mod-host's `-3` and `-902`, and the pin, parameter and note numbers) is named once, by omx-clap-core's
-`reply.host.*` codes: `data/verbs.json` requires `omx-clap-core >= 0.22.0`, so both commands and
+`reply.host.*` codes: `data/verbs.json` requires `omx-clap-core >= 0.23.0`, so both commands and
 `make test-verbs-declared` read omx-clap-core's package of the contract directory (`omx-clap-core-contract`), or
 the first directory of `OMX_CONTRACT_PATH` that holds one.
 
@@ -129,7 +129,10 @@ holding `--probe-notes` at every rate of omx-contract's `ORACLE_FLOOR_RATES`, an
 beside its clean twin. Without it those tests print `skip`.
 
 `make sabotage` (`tests/sabotage.py`) breaks the daemon on purpose, one guard at a time, and
-requires the named test to go red.
+requires the named test to go red. The arms run side by side, `SABOTAGE_JOBS` at a time (default: the cores
+the process may use, at most 8), each in a directory of its own with its own range of test ports, and print in the
+order of the table; `SABOTAGE_JOBS=1` runs them one after the other. `SABOTAGE_KIND=<kind>` and `SABOTAGE_ONLY=<words>`
+run some of them.
 
 How the daemon keeps and replays state
 ======================================

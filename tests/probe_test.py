@@ -316,6 +316,59 @@ def an_lv2_point_carries_the_note_sweep_and_what_run_did_while_the_notes_played(
 
 
 @test
+def an_lv2_point_carries_the_latency_and_cost_the_child_took():
+    code, doc, _, _, err = run_lv2(env={"PROBE_CHILD_LATENCY": "480,483"})
+    check(doc is not None, "no document: exit %d %s" % (code, err))
+    valid(doc)
+    point = doc["grid"][0]
+    check(point["latency"] == {"declaredFrames": 480, "measuredFrames": 483, "method": "impulse-onset"}, "latency %s" % point)
+    check(point["cost"]["median"] == 1.5 and point["cost"]["percentile"] == {"p": 95, "value": 2.5} and point["cost"]["blocks"] == 512
+          and point["cost"]["warmupBlocks"] == 64, "cost %s" % point.get("cost"))
+    steps = {s["step"]: s for s in doc["steps"]}
+    check(steps["latency"]["outcome"] == "probe.ok" and steps["cost"]["outcome"] == "probe.ok", "steps %s" % doc["steps"])
+
+
+@test
+def an_lv2_latency_the_child_could_not_take_is_a_step_with_its_hosting_code_and_no_figure():
+    code, doc, _, _, err = run_lv2(env={"PROBE_CHILD_LATENCY": "silent"})
+    check(doc is not None, "no document: exit %d %s" % (code, err))
+    valid(doc)
+    check(doc["run"]["outcome"] == "probe.ok" and doc["run"]["complete"], "the run still ends well: %s" % doc["run"])
+    check("latency" not in doc["grid"][0] and "cost" in doc["grid"][0], "no guessed latency: %s" % doc["grid"][0])
+    step = [s for s in doc["steps"] if s["step"] == "latency"][0]
+    check(step["outcome"] == "probe.not-attempted" and step["hostingCode"] == "hosting.latency.unmeasured"
+          and step["detail"].startswith("silent-output: "), "step %s" % step)
+
+
+@test
+def an_lv2_child_that_prints_no_latency_gets_no_latency_step():
+    code, doc, _, _, err = run_lv2()
+    check(doc is not None, "no document: exit %d %s" % (code, err))
+    check("latency" not in [s["step"] for s in doc["steps"]] and "latency" not in doc["grid"][0], "steps %s" % doc["steps"])
+
+
+@test
+def the_real_lv2_measure_latency_and_cost_reach_the_grid():
+    build = pq("the_real_lv2_measure_latency_and_cost_reach_the_grid")
+    if not build:
+        return
+    for kind, want in (("declared", {"declaredFrames": 960, "measuredFrames": 960}), ("undeclared", {"declaredFrames": 0, "measuredFrames": 883}),
+                       ("misdeclared", {"declaredFrames": 128, "measuredFrames": 883})):
+        code, doc, _, _, err = run_lv2(uri="urn:plugin-qualify:fixture:lv2-latency-" + kind, child=os.path.join(build, "lv2_measure"),
+                                       wall=120, timeout=300, bundles=os.path.join(build, "fixtures", "lv2"))
+        check(doc is not None, "%s: no document: exit %d %s" % (kind, code, err))
+        valid(doc)
+        point = doc["grid"][0]
+        check(point["rate"] == 96000 and {k: point["latency"][k] for k in want} == want, "%s: %s" % (kind, point))
+        check(point["cost"]["median"] > 0 and point["cost"]["blocks"] == 512, "%s cost %s" % (kind, point))
+    code, doc, _, _, err = run_lv2(uri="urn:plugin-qualify:fixture:lv2-latency-mute", child=os.path.join(build, "lv2_measure"),
+                                   wall=120, timeout=300, bundles=os.path.join(build, "fixtures", "lv2"))
+    valid(doc)
+    check("latency" not in doc["grid"][0], "a mute has no measured latency: %s" % doc["grid"][0])
+    check(any(s["step"] == "latency" and s.get("hostingCode") == "hosting.latency.unmeasured" for s in doc["steps"]), "steps %s" % doc["steps"])
+
+
+@test
 def a_clap_point_carries_the_note_sweep_counts():
     code, doc, _, _, _ = run(extra=("--probe-notes", "4"), env={"PROBE_CHILD_INSTRUMENT": "1", "PROBE_CHILD_NOTE_ALLOCATIONS": "3"})
     valid(doc)

@@ -494,6 +494,55 @@ char *sup_chain_get(int id)
     return answer(c, daemon_shape(OMX_VERB_CHAIN_GET), 1);
 }
 
+char *sup_history_get(const char *uri)
+{
+    struct rec_call *c = record(REC_HISTORY_GET);
+
+    arg_s(c, uri);
+    return answer(c, daemon_shape(OMX_VERB_HISTORY_GET), 0);
+}
+
+char *sup_history_clear(const char *uri)
+{
+    struct rec_call *c = record(REC_HISTORY_CLEAR);
+
+    arg_s(c, uri);
+    return answer(c, daemon_shape(OMX_VERB_HISTORY_CLEAR), 1);
+}
+
+char *sup_plan(int id, const int *ids, int n)
+{
+    struct rec_call *c = record(REC_PLAN);
+    char *list = xmalloc((size_t)n * 12 + 1);
+    size_t o = 0;
+    int k;
+
+    arg_i(c, id);
+    arg_i(c, n);
+    list[0] = '\0';
+    for (k = 0; k < n; k++)
+        o += (size_t)sprintf(list + o, k ? " %d" : "%d", ids[k]);
+    arg_s(c, list);
+    free(list);
+    return answer(c, daemon_shape(OMX_VERB_PLAN), 1);
+}
+
+char *sup_plan_get(int id)
+{
+    struct rec_call *c = record(REC_PLAN_GET);
+
+    arg_i(c, id);
+    return answer(c, daemon_shape(OMX_VERB_PLAN_GET), 0);
+}
+
+char *sup_plan_clear(int id)
+{
+    struct rec_call *c = record(REC_PLAN_CLEAR);
+
+    arg_i(c, id);
+    return answer(c, daemon_shape(OMX_VERB_PLAN_CLEAR), 1);
+}
+
 /* a checkpoint of what a preset or patch changed: it writes down state, it changes none */
 void sup_after_reply(int id, const char *verb)
 {

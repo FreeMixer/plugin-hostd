@@ -1,4 +1,4 @@
-Breaks the check of fuzz/fuzz_command.c:386 (the verdict, the word the controller wrote after its key).
+Breaks the check of fuzz/fuzz_command.c:391 (the verdict, the word the controller wrote after its key).
 Caught by the seed input "plugin-hostd-pin_set-full" of fuzz_command.
 
 diff --git a/src/verbs.c b/src/verbs.c
