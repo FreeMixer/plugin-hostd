@@ -59,7 +59,7 @@ static planner_member_t costed(int id, double cost)
 /* require_pins, first-use pins, grouping on, no limits */
 static planner_settings_t settings(void)
 {
-    planner_settings_t s = { 1, 1, 1, 0, 0 };
+    planner_settings_t s = { 1, 1, 1, 0, 0, 0 };
 
     return s;
 }
@@ -93,11 +93,12 @@ static void the_reasons_are_the_words_of_the_declaration(void)
     static const char *const want[] = {
         OMX_PLUGIN_HOSTD_GROUPING_REASONS_REFUSED, OMX_PLUGIN_HOSTD_GROUPING_REASONS_NO_PIN,
         OMX_PLUGIN_HOSTD_GROUPING_REASONS_NO_VERDICT, OMX_PLUGIN_HOSTD_GROUPING_REASONS_VERDICT_ISOLATED,
-        OMX_PLUGIN_HOSTD_GROUPING_REASONS_FORMAT_WORLD, OMX_PLUGIN_HOSTD_GROUPING_REASONS_COST_OVER,
+        OMX_PLUGIN_HOSTD_GROUPING_REASONS_FORMAT_WORLD, OMX_PLUGIN_HOSTD_GROUPING_REASONS_HISTORY_CRASHED,
+        OMX_PLUGIN_HOSTD_GROUPING_REASONS_HISTORY_XRUNS, OMX_PLUGIN_HOSTD_GROUPING_REASONS_COST_OVER,
         OMX_PLUGIN_HOSTD_GROUPING_REASONS_FORMAT_MIXED, OMX_PLUGIN_HOSTD_GROUPING_REASONS_GROUP_FULL,
         OMX_PLUGIN_HOSTD_GROUPING_REASONS_GROUP_COST, OMX_PLUGIN_HOSTD_GROUPING_REASONS_COST_ASSUMED,
         OMX_PLUGIN_HOSTD_GROUPING_REASONS_NO_NEIGHBOUR, OMX_PLUGIN_HOSTD_GROUPING_REASONS_GROUPING_OFF,
-        OMX_PLUGIN_HOSTD_GROUPING_REASONS_PLAN_REFUSED,
+        OMX_PLUGIN_HOSTD_GROUPING_REASONS_HISTORY_UNAVAILABLE, OMX_PLUGIN_HOSTD_GROUPING_REASONS_PLAN_REFUSED,
     };
     int r;
 
@@ -531,18 +532,241 @@ static void the_same_members_give_the_same_bytes(void)
     CHECK(!strcmp(seg, "10;11;12,13;14;15"), "and the plan is the worked one: %s (%s)", seg, why);
 }
 
-/* ---------------------------------------------------------------- the seam of the history lane */
+/* ---------------------------------------------------------------- the history */
 
-static void a_history_is_neutral_until_the_history_rules_land(void)
+/* what the supervisor tells the planner of a history: crashed, raises xruns, the solo cost (a fraction of a core) */
+static planner_history_t hist(int crashed, int xruns, double cpu)
+{
+    planner_history_t h = { crashed, xruns, cpu };
+
+    return h;
+}
+
+static void history_crashed_leaves_the_member_alone(void)
 {
     planner_settings_t s = settings();
-    planner_member_t m[3] = { member(1), member(2), member(3) };
-    planner_history_t bad = { 1, 1, 0.9 };
+    planner_member_t c = member(3);
+    planner_history_t h = hist(1, 0, PLANNER_COST_UNKNOWN);
+
+    c.history = &h;
+    unfit_middle("a plugin the history marks crashed", c, &s, PLANNER_REASON_HISTORY_CRASHED, "history-crashed");
+}
+
+static void history_xruns_leaves_the_member_alone(void)
+{
+    planner_settings_t s = settings();
+    planner_member_t c = member(3);
+    planner_history_t h = hist(0, 1, PLANNER_COST_UNKNOWN);
+
+    c.history = &h;
+    unfit_middle("a plugin the history marks as raising xruns", c, &s, PLANNER_REASON_HISTORY_XRUNS, "history-xruns");
+}
+
+/* a history that marks nothing is a history that is not there: the same segments, the same reasons */
+static void a_history_that_marks_nothing_changes_nothing(void)
+{
+    planner_settings_t s = settings();
+    planner_member_t with[4] = { member(1), member(2), unknown(3), member(4) };
+    planner_member_t without[4] = { member(1), member(2), unknown(3), member(4) };
+    planner_history_t clean = hist(0, 0, PLANNER_COST_UNKNOWN);
+    planner_plan_t a, b;
+    int k;
+
+    for (k = 0; k < 4; k++)
+        with[k].history = &clean;
+    s.group_max = 3;
+    CHECK(plan(&s, with, 4, &a) == 0 && plan(&s, without, 4, &b) == 0, "planned");
+    CHECK(!strcmp(segments(with, &a), "1,2,3;4") && !strcmp(segments(without, &b), "1,2,3;4"), "the segments: %s, %s",
+          segments(with, &a), segments(without, &b));
+    CHECK(!strcmp(reasons(with, &a), "3:cost-assumed,4:group-full") && !strcmp(reasons(with, &a), reasons(without, &b)),
+          "and the reasons: %s", reasons(with, &a));
+}
+
+/* a crash is the stronger evidence, and says so first */
+static void history_crashed_comes_before_history_xruns(void)
+{
+    planner_settings_t s = settings();
+    planner_member_t c = member(3);
+    planner_history_t h = hist(1, 1, PLANNER_COST_UNKNOWN);
+
+    c.history = &h;
+    unfit_middle("both marked", c, &s, PLANNER_REASON_HISTORY_CRASHED, "history-crashed");
+}
+
+/* the pin rules decide first: a history can make the plan more careful than the pin, never less, and never says what the
+ * pin already said */
+static void the_pin_rules_come_before_the_history_rules(void)
+{
+    planner_settings_t s = settings();
+    planner_history_t h = hist(1, 1, PLANNER_COST_UNKNOWN);
+    planner_member_t c = member(3);
+
+    c.history = &h;
+    c.pin = PLANNER_PIN_ISOLATED;
+    unfit_middle("isolated and crashed", c, &s, PLANNER_REASON_VERDICT_ISOLATED, "verdict-isolated");
+    c.pin = PLANNER_PIN_NO_VERDICT;
+    unfit_middle("no verdict and crashed", c, &s, PLANNER_REASON_NO_VERDICT, "no-verdict");
+    c.pin = PLANNER_PIN_IN_PROCESS;
+    c.world_ok = 0;
+    unfit_middle("no world and crashed", c, &s, PLANNER_REASON_FORMAT_WORLD, "format-world");
+}
+
+/* and the history rules before the cost rule */
+static void the_history_rules_come_before_cost_over(void)
+{
+    planner_settings_t s = settings();
+    planner_history_t h = hist(0, 1, PLANNER_COST_UNKNOWN);
+    planner_member_t c = costed(3, 0.9);
+
+    s.group_cost_max = 0.5;
+    c.history = &h;
+    unfit_middle("raises xruns and over the cost", c, &s, PLANNER_REASON_HISTORY_XRUNS, "history-xruns");
+}
+
+/* the pins are read only while require_pins is on, the history always: a quarantine needs no pin */
+static void the_history_is_read_without_require_pins(void)
+{
+    planner_settings_t s = settings();
+    planner_history_t h = hist(1, 0, PLANNER_COST_UNKNOWN);
+    planner_member_t c = member(3);
+
+    s.require_pins = 0;
+    c.history = &h;
+    unfit_middle("crashed, no pins read", c, &s, PLANNER_REASON_HISTORY_CRASHED, "history-crashed");
+}
+
+/* a plan with the member left out of the middle keeps the order: A B C D E with C crashed is [A B] [C] [D E], and the
+ * members next to it say nothing, as for any unfit member */
+static void a_crashed_member_leaves_its_neighbours_in_their_segments(void)
+{
+    planner_settings_t s = settings();
+    planner_history_t h = hist(1, 0, PLANNER_COST_UNKNOWN);
+    planner_member_t m[5] = { member(1), member(2), member(3), member(4), member(5) };
     planner_plan_t p;
 
-    m[1].history = &bad;
-    CHECK(plan(&s, m, 3, &p) == 0 && !strcmp(segments(m, &p), "1,2,3"),
-          "a history that marks a plugin crashed changes nothing in this lane: %s", segments(m, &p));
+    m[1].history = &h;
+    CHECK(plan(&s, m, 5, &p) == 0 && !strcmp(segments(m, &p), "1;2;3,4,5"), "the second one alone: %s", segments(m, &p));
+    CHECK(!strcmp(reasons(m, &p), "1:no-neighbour,2:history-crashed"), "the reasons: %s", reasons(m, &p));
+}
+
+/* the cost of a member is the larger of what plugin-qualify measured and what the plugin did alone on this machine */
+static void a_member_costs_the_larger_of_its_qualified_cost_and_its_solo_cost(void)
+{
+    planner_settings_t s = settings();
+    planner_history_t heavy = hist(0, 0, 0.5), light = hist(0, 0, 0.0625);
+    planner_member_t m[3] = { costed(1, 0.25), costed(2, 0.25), costed(3, 0.25) };
+    planner_plan_t p;
+
+    s.group_cost_max = 0.875;
+    CHECK(plan(&s, m, 3, &p) == 0 && !strcmp(segments(m, &p), "1,2,3"), "0.75 fits 0.875: %s", segments(m, &p));
+    m[1].history = &heavy;
+    CHECK(plan(&s, m, 3, &p) == 0 && !strcmp(segments(m, &p), "1,2;3"), "the second counts 0.5, not 0.25, and the third is over: %s",
+          segments(m, &p));
+    CHECK(!strcmp(reasons(m, &p), "3:group-cost"), "the reasons: %s", reasons(m, &p));
+    m[1].history = &light;
+    CHECK(plan(&s, m, 3, &p) == 0 && !strcmp(segments(m, &p), "1,2,3"), "a solo cost under the qualified one does not lower it: %s",
+          segments(m, &p));
+    s.group_cost_max = 0.7;
+    CHECK(plan(&s, m, 3, &p) == 0 && !strcmp(segments(m, &p), "1,2;3"), "the qualified 0.25 still counts: %s", segments(m, &p));
+}
+
+/* a plugin whose qualification nobody has can still be known by the machine it runs on */
+static void a_solo_cost_stands_for_a_cost_nobody_qualified(void)
+{
+    planner_settings_t s = settings();
+    planner_history_t known = hist(0, 0, 0.5);
+    planner_member_t m[3] = { costed(1, 0.25), unknown(2), costed(3, 0.25) };
+    planner_plan_t p;
+
+    s.group_cost_max = 0.875;
+    m[1].history = &known;
+    CHECK(plan(&s, m, 3, &p) == 0 && !strcmp(segments(m, &p), "1,2;3"), "0.25 + 0.5 and 0.25 more is over 0.875: %s", segments(m, &p));
+    CHECK(!strcmp(reasons(m, &p), "3:group-cost"), "and the member is no longer an assumption: %s", reasons(m, &p));
+    s.group_cost_max = 0.4;
+    m[1].history = &known;
+    CHECK(plan(&s, m, 3, &p) == 0 && !strcmp(segments(m, &p), "1;2;3"), "0.5 alone is over 0.4: %s", segments(m, &p));
+    CHECK(p.reason[1] == PLANNER_REASON_COST_OVER, "cost-over, from the solo cost: %s", reasons(m, &p));
+}
+
+/* it is also what the median of an unknown member is made from */
+static void the_solo_cost_of_a_member_enters_the_median_of_the_unknown_ones(void)
+{
+    planner_settings_t s = settings();
+    planner_history_t known = hist(0, 0, 0.5);
+    planner_member_t m[3] = { costed(1, 0.125), unknown(2), unknown(3) };
+    planner_plan_t p;
+
+    m[0].history = &known;
+    s.group_cost_max = 1.4;
+    /* the first counts 0.5 (not 0.125); the unknown ones count 0.5 each: 1.5 is over 1.4 on the third */
+    CHECK(plan(&s, m, 3, &p) == 0 && !strcmp(segments(m, &p), "1,2;3"), "%s", segments(m, &p));
+}
+
+/* a plan made without the history says so, of every member that has nothing harder to say */
+static void history_unavailable_is_said_of_every_member_with_nothing_harder_to_say(void)
+{
+    planner_settings_t s = settings();
+    planner_member_t m[5] = { member(1), unknown(2), member(3), member(4), member(5) };
+    planner_plan_t p;
+
+    s.history_unavailable = 1;
+    m[2].pin = PLANNER_PIN_ISOLATED;
+    CHECK(plan(&s, m, 5, &p) == 0 && !strcmp(segments(m, &p), "1,2;3;4,5"), "the segments: %s", segments(m, &p));
+    CHECK(!strcmp(reasons(m, &p),
+                  "1:history-unavailable,2:history-unavailable,3:verdict-isolated,4:history-unavailable,5:history-unavailable"),
+          "the members that share say it, in place of cost-assumed: %s", reasons(m, &p));
+    s.grouping_on = 0;
+    CHECK(plan(&s, m, 5, &p) == 0 && !strcmp(segments(m, &p), "1,2;3;4,5"), "grouping off: the same segments");
+    CHECK(p.reason[0] == PLANNER_REASON_HISTORY_UNAVAILABLE && p.reason[2] == PLANNER_REASON_VERDICT_ISOLATED,
+          "it is the history that is missing, said before the setting: %s", reasons(m, &p));
+    s.grouping_on = 1;
+    CHECK(plan(&s, m, 1, &p) == 0 && !strcmp(reasons(m, &p), "1:history-unavailable"), "a lone member too: %s", reasons(m, &p));
+}
+
+/* with the history gone the plan is the pins' and the costs': the segments are those of a plugin with no history */
+static void a_plan_without_the_history_has_the_segments_of_a_plan_with_none(void)
+{
+    planner_settings_t s = settings();
+    planner_member_t m[6] = { costed(1, 0.2), member(2), costed(3, 0.3), costed(4, 0.35), member(5), costed(6, 0.1) };
+    planner_plan_t on, off;
+
+    s.group_max = 3;
+    s.group_cost_max = 0.7;
+    m[1].pin = PLANNER_PIN_ISOLATED;
+    CHECK(plan(&s, m, 6, &on) == 0, "planned with the history");
+    s.history_unavailable = 1;
+    CHECK(plan(&s, m, 6, &off) == 0, "planned without it");
+    CHECK(on.nseg == off.nseg && !memcmp(on.seg_len, off.seg_len, sizeof(int) * (size_t)on.nseg), "the segments are the same");
+    CHECK(!strcmp(segments(m, &on), "1;2;3,4,5;6"), "and they are the worked ones: %s", segments(m, &on));
+}
+
+static void the_same_members_with_a_history_give_the_same_bytes(void)
+{
+    planner_settings_t s = settings();
+    planner_history_t crashed = hist(1, 0, PLANNER_COST_UNKNOWN), slow = hist(0, 0, 0.4), bad = hist(0, 1, 0.1);
+    planner_member_t a[6] = { costed(10, 0.2), member(11), costed(12, 0.3), costed(13, 0.35), member(14), costed(15, 0.1) };
+    planner_plan_t first, again;
+    char seg[128], why[256], seg2[128], why2[256];
+    int round;
+
+    s.group_cost_max = 0.8;
+    a[1].history = &crashed;
+    a[3].history = &slow;
+    a[4].history = &bad;
+    s.history_unavailable = 0;
+    CHECK(planner_plan(&s, a, 6, &first) == 0, "planned");
+    planner_format_segments(a, &first, seg, sizeof(seg));
+    planner_format_reasons(a, &first, 0, why, sizeof(why));
+    for (round = 0; round < 20; round++)
+    {
+        memset(&again, round % 2 ? 0xff : 0x5a, sizeof(again));
+        CHECK(planner_plan(&s, a, 6, &again) == 0, "planned again");
+        planner_format_segments(a, &again, seg2, sizeof(seg2));
+        planner_format_reasons(a, &again, 0, why2, sizeof(why2));
+        CHECK(!strcmp(seg, seg2) && !strcmp(why, why2), "round %d: '%s' '%s' against '%s' '%s'", round, seg, why, seg2, why2);
+    }
+    CHECK(!strcmp(seg, "10;11;12,13;14;15") && !strcmp(why, "10:no-neighbour,11:history-crashed,14:history-xruns,15:no-neighbour"),
+          "and the plan is the worked one: %s (%s)", seg, why);
 }
 
 static const struct { const char *name; void (*fn)(void); } g_tests[] = {
@@ -578,7 +802,20 @@ static const struct { const char *name; void (*fn)(void); } g_tests[] = {
     T(the_text_of_a_plan_is_the_one_the_bench_parses),
     T(no_reason_is_a_dash),
     T(the_same_members_give_the_same_bytes),
-    T(a_history_is_neutral_until_the_history_rules_land),
+    T(history_crashed_leaves_the_member_alone),
+    T(history_xruns_leaves_the_member_alone),
+    T(a_history_that_marks_nothing_changes_nothing),
+    T(history_crashed_comes_before_history_xruns),
+    T(the_pin_rules_come_before_the_history_rules),
+    T(the_history_rules_come_before_cost_over),
+    T(the_history_is_read_without_require_pins),
+    T(a_crashed_member_leaves_its_neighbours_in_their_segments),
+    T(a_member_costs_the_larger_of_its_qualified_cost_and_its_solo_cost),
+    T(a_solo_cost_stands_for_a_cost_nobody_qualified),
+    T(the_solo_cost_of_a_member_enters_the_median_of_the_unknown_ones),
+    T(history_unavailable_is_said_of_every_member_with_nothing_harder_to_say),
+    T(a_plan_without_the_history_has_the_segments_of_a_plan_with_none),
+    T(the_same_members_with_a_history_give_the_same_bytes),
 #undef T
 };
 

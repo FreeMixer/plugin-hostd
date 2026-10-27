@@ -28,6 +28,14 @@
         "word": "format-world",
         "doc": "The plugin's format pins only in a world of its own and no world holding the plugin can be built for a shared worker: it stays alone."
       },
+      "historyCrashed": {
+        "word": "history-crashed",
+        "doc": "The history marks the plugin as crashed on this host class, a crash within the last 30 days, or the supervisor has quarantined it now: the plugin stays alone."
+      },
+      "historyXruns": {
+        "word": "history-xruns",
+        "doc": "The history marks the plugin as raising xruns when grouped, its share of xrun windows in a group over its share alone by the margin after enough windows: the plugin stays alone."
+      },
       "costOver": {
         "word": "cost-over",
         "doc": "The plugin's cost, alone, is over group_cost_max: it stays alone."
@@ -55,6 +63,10 @@
       "groupingOff": {
         "word": "grouping-off",
         "doc": "The setting grouping is off: the plugin would share a worker, and the plan was answered and not applied."
+      },
+      "historyUnavailable": {
+        "word": "history-unavailable",
+        "doc": "The history cannot be read, its file is blocked or history_window_s is 0: the plan was made from the pins and the costs alone, as for a plugin with no history, and this plugin had nothing harder to say."
       },
       "planRefused": {
         "word": "plan-refused",

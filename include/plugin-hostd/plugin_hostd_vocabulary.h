@@ -16,6 +16,8 @@
 #define OMX_PLUGIN_HOSTD_GROUPING_REASONS_NO_VERDICT "no-verdict" ///< The pin carries no verdict (a pin the daemon learned on first use): the plugin stays alone.
 #define OMX_PLUGIN_HOSTD_GROUPING_REASONS_VERDICT_ISOLATED "verdict-isolated" ///< The pin's verdict is isolated: the plugin stays alone.
 #define OMX_PLUGIN_HOSTD_GROUPING_REASONS_FORMAT_WORLD "format-world" ///< The plugin's format pins only in a world of its own and no world holding the plugin can be built for a shared worker: it stays alone.
+#define OMX_PLUGIN_HOSTD_GROUPING_REASONS_HISTORY_CRASHED "history-crashed" ///< The history marks the plugin as crashed on this host class, a crash within the last 30 days, or the supervisor has quarantined it now: the plugin stays alone.
+#define OMX_PLUGIN_HOSTD_GROUPING_REASONS_HISTORY_XRUNS "history-xruns" ///< The history marks the plugin as raising xruns when grouped, its share of xrun windows in a group over its share alone by the margin after enough windows: the plugin stays alone.
 #define OMX_PLUGIN_HOSTD_GROUPING_REASONS_COST_OVER "cost-over" ///< The plugin's cost, alone, is over group_cost_max: it stays alone.
 #define OMX_PLUGIN_HOSTD_GROUPING_REASONS_FORMAT_MIXED "format-mixed" ///< No one worker program runs this plugin together with the open segment: it starts a new segment.
 #define OMX_PLUGIN_HOSTD_GROUPING_REASONS_GROUP_FULL "group-full" ///< The open segment holds group_max members: the plugin starts a new segment.
@@ -23,9 +25,10 @@
 #define OMX_PLUGIN_HOSTD_GROUPING_REASONS_COST_ASSUMED "cost-assumed" ///< The plugin has no known cost and joined a segment at the median of the known costs of that segment, zero when none is known.
 #define OMX_PLUGIN_HOSTD_GROUPING_REASONS_NO_NEIGHBOUR "no-neighbour" ///< The plugin passed every rule but has no neighbour it can share a worker with: it is alone only because of the members around it.
 #define OMX_PLUGIN_HOSTD_GROUPING_REASONS_GROUPING_OFF "grouping-off" ///< The setting grouping is off: the plugin would share a worker, and the plan was answered and not applied.
+#define OMX_PLUGIN_HOSTD_GROUPING_REASONS_HISTORY_UNAVAILABLE "history-unavailable" ///< The history cannot be read, its file is blocked or history_window_s is 0: the plan was made from the pins and the costs alone, as for a plugin with no history, and this plugin had nothing harder to say.
 #define OMX_PLUGIN_HOSTD_GROUPING_REASONS_PLAN_REFUSED "plan-refused" ///< A segment could not be formed: the plan was not applied and nothing moved. The word is followed by a colon and the number of the refusal, plan-refused:-501.
-#define OMX_PLUGIN_HOSTD_GROUPING_REASONS_COUNT 13u
-#define OMX_PLUGIN_HOSTD_GROUPING_REASONS_INIT { "refused", "no-pin", "no-verdict", "verdict-isolated", "format-world", "cost-over", "format-mixed", "group-full", "group-cost", "cost-assumed", "no-neighbour", "grouping-off", "plan-refused" }
+#define OMX_PLUGIN_HOSTD_GROUPING_REASONS_COUNT 16u
+#define OMX_PLUGIN_HOSTD_GROUPING_REASONS_INIT { "refused", "no-pin", "no-verdict", "verdict-isolated", "format-world", "history-crashed", "history-xruns", "cost-over", "format-mixed", "group-full", "group-cost", "cost-assumed", "no-neighbour", "grouping-off", "history-unavailable", "plan-refused" }
 
 /* PLUGIN_HOSTD_HISTORY_KEYS (data/history.json) */
 #define OMX_PLUGIN_HOSTD_HISTORY_KEYS_FIRST "first" ///< UTC seconds of the first window.
