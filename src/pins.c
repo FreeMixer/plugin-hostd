@@ -584,6 +584,16 @@ int pins_known(const char *uri)
     return find(bare(uri)) != NULL;
 }
 
+int pins_digest(const char *uri, char hex[PHD_SHA256_HEX_LEN + 1])
+{
+    const pin_t *p = find(bare(uri));
+
+    if (!p || p->nfiles < 1)
+        return -1;
+    memcpy(hex, p->digest[0], PHD_SHA256_HEX_LEN + 1);
+    return 0;
+}
+
 int pins_in_process(const char *uri)
 {
     const pin_t *p = find(bare(uri));

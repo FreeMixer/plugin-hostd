@@ -91,6 +91,8 @@ class Daemon:
             "descriptor_dir": os.path.join(self.tmp, "descriptors"),
             "qualification_dir": os.path.join(self.tmp, "qualification"),
             "probe": os.path.join(self.tmp, "no-probe"),
+            # the running history is the test's own, never the user's
+            "history_file": os.path.join(self.tmp, "history"),
         }
         settings.update(conf or {})
         self.conf = os.path.join(self.tmp, "plugin-hostd.conf")

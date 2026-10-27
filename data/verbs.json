@@ -492,6 +492,34 @@
           "mod-host": "unsupported"
         },
         "doc": "One preset, 0 to count - 1: the key preset_load takes for it, and its name."
+      },
+      "historyGet": {
+        "verb": "history_get",
+        "format": "history_get %s",
+        "reply": "resp 0 <history>",
+        "codes": [
+          {
+            "ref": "HOST_REPLY_CODES.invalidOperation"
+          }
+        ],
+        "implementedBy": {
+          "plugin-hostd": "required"
+        },
+        "doc": "What the daemon kept of one plugin on this host class, for the binary its pin holds now: <uri>. The history is one word, digest=<sha256>,class=<host class>,crashed=<0|1>,raises_xruns=<0|1> and then every key=value of PLUGIN_HOSTD_HISTORY_KEYS, joined by commas; - when the plugin has no record or no pin, unavailable while the history file is blocked."
+      },
+      "historyClear": {
+        "verb": "history_clear",
+        "format": "history_clear %s",
+        "reply": "resp 0",
+        "codes": [
+          {
+            "ref": "HOST_REPLY_CODES.invalidOperation"
+          }
+        ],
+        "implementedBy": {
+          "plugin-hostd": "required"
+        },
+        "doc": "Delete the history of one plugin, every binary and host class, or all of it: <uri> | all. Refused while the history file is blocked."
       }
     }
   }

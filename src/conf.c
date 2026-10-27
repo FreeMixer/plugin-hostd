@@ -136,6 +136,16 @@ int conf_check(const conf_t *conf)
         fprintf(stderr, "\n");
         return -1;
     }
+    if (strpbrk(conf->host_class, " \t"))
+    {
+        fprintf(stderr, "host_class '%s' holds white space\n", conf->host_class);
+        return -1;
+    }
+    if (conf->history_window_s < 0 || conf->history_save_s < 0)
+    {
+        fprintf(stderr, "history_window_s and history_save_s are not negative\n");
+        return -1;
+    }
     return 0;
 }
 

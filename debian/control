@@ -63,6 +63,7 @@ Description: plugin-hostd's format tables and verbs, read at run time
  plugin-hostd's package of omx-contract's contract directory: the format
  tables a scan maps a CLAP or LV2 plugin through (formats/clap.json,
  formats/lv2.json) and the verbs the daemon adds to mod-host's protocol, with
- their replies, their refusals and what each host owes them (verbs.json),
- under /usr/share/omx-contract/contract.d/3/plugin-hostd. A program that reads
+ their replies, their refusals and what each host owes them (verbs.json), and
+ the keys of the running history (history.json), under
+ /usr/share/omx-contract/contract.d/3/plugin-hostd. A program that reads
  them at run time depends on this package, never on the development one.

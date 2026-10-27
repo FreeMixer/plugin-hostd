@@ -201,6 +201,10 @@ static char *handle(char *line, char **tok, int ntok)
             lv2_refusals_forget(NULL);
         return sup_resp(rc);
     }
+    if (!strcmp(verb, OMX_VERB_HISTORY_GET))
+        return ntok == 2 ? sup_history_get(tok[1]) : sup_resp(ERR_INVALID_OPERATION);
+    if (!strcmp(verb, OMX_VERB_HISTORY_CLEAR))
+        return ntok == 2 ? sup_history_clear(tok[1]) : sup_resp(ERR_INVALID_OPERATION);
     if (verb_is(verb, QUIT))
     {
         if (ntok != 1)

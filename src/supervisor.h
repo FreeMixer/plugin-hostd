@@ -95,6 +95,14 @@ typedef struct WORKER_T {
     int npend;
     int64_t pend_until_ms;
     struct CHAIN_T *chain;      /* the chain this worker runs, its members in w->inst in the chain's order */
+    /* the running history's window of this worker (src/history.c): what it has used since hist_start_ms */
+    pid_t hist_pid;             /* the process the window belongs to, 0 for none */
+    int64_t hist_start_ms;
+    double hist_cpu0;           /* its CPU seconds when the window began */
+    int hist_ninst;             /* its members then: a window in which they changed is not counted */
+    int64_t hist_half_ms;       /* the mid-window sample, 0 before it: what a window that ends in a death is counted from */
+    double hist_half_cpu;
+    long long hist_half_pss_kb;
 } worker_t;
 
 /* the instances a chain verb declared, in order; the ones not quarantined run in its worker */
@@ -146,6 +154,11 @@ char *sup_chain(int id, const int *ids, int n);
 char *sup_chain_clear(int id);
 /* chain_get: the chain's worker, its members as declared and the ones its worker runs, each in order */
 char *sup_chain_get(int id);
+
+/* history_get: the summary of the binary the uri's pin holds, on this host class (src/history.c); history_clear: the
+ * lines of one uri or all of them. Both answer as the verbs do */
+char *sup_history_get(const char *uri);
+char *sup_history_clear(const char *uri);
 
 /* the idle tick: reap the dead, respawn the due, checkpoint the quiet */
 void sup_tick(void);

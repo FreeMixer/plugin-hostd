@@ -97,6 +97,7 @@
 #define PHD_FORMAT_ARGUMENT "<format | " PHD_FORMAT_ANY ">"
 #define PHD_WORD_ALL    "all"
 #define PHD_WORD_NONE   "-"
+#define PHD_WORD_UNAVAILABLE "unavailable"
 
 /* the built-in formats, X(id, name) in the order of the daemon's table (src/formats.c): the rest of what a format is
  * (its prefix, its worker, the files its pin holds, whether its pin holds in a shared world, who answers its instance
@@ -499,7 +500,16 @@ static inline int phd_pool_name_valid(const char *name)
       "{\"plugin\": {\"format\", \"id\"}, \"panel\": <the panel object omx-clap-scan --json prints for the plugin, " \
       "null when it serves none>}; an LV2 plugin's panel is null. The codes are " OMX_VERB_DESCRIPTOR_GET "'s: -529 " \
       "when there is none, -530 while its scan runs, -531 when its last scan wrote nothing, -528 when the directory " \
-      "could not be written")
+      "could not be written") \
+    X(HISTORY_GET, OMX_VERB_HISTORY_GET, "<uri>", OMX_VERB_HISTORY_GET_REPLY, \
+      "what the daemon kept of the plugin on this host class, for the binary its pin holds now (the running history: " \
+      "the windows it ran alone and in a group, its crashes, restarts and quarantines): one word of comma-joined " \
+      "digest=<sha256>, class=<host class>, crashed=<0|1>, raises_xruns=<0|1> and then every key=value of the record " \
+      "(data/history.json); " PHD_WORD_NONE " when the plugin has no pin or no record, " PHD_WORD_UNAVAILABLE " while the " \
+      "history file is blocked or history_window_s is 0, -902 for a line that is not one word") \
+    X(HISTORY_CLEAR, OMX_VERB_HISTORY_CLEAR, "<uri> | " PHD_WORD_ALL, OMX_VERB_HISTORY_CLEAR_REPLY, \
+      "delete the history of one plugin (every binary and host class of it), or all of it, from memory and from the " \
+      "file at once; -902 while the history is blocked or off, or for a line that is not one word")
 
 /* ---------------------------------------------------------------- instance verbs */
 
@@ -827,7 +837,9 @@ static inline int phd_is_note_verb(const char *verb)
     X(OMX_VERB_CHAIN_CLEAR, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
     X(OMX_VERB_CHAIN_GET, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
     X(OMX_VERB_DESCRIPTOR_GET, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
-    X(OMX_VERB_PANEL_GET, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED)
+    X(OMX_VERB_PANEL_GET, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X(OMX_VERB_HISTORY_GET, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X(OMX_VERB_HISTORY_CLEAR, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED)
 
 /* ---------------------------------------------------------------- host settings */
 
