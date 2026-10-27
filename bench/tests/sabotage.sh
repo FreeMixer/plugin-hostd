@@ -84,8 +84,10 @@ EOF
     red "teardown: the JACK server left at the end" "teardown left 1 process\(es\) of this run: [0-9]+ jackd" \
         "$work/jack-left/run.sh" --out "$work/res" "${args[@]}"
     green "teardown: the runner as it is" "$here/run.sh" --out "$work/res" "${args[@]}"
-    if pgrep -x 'jackd|omx-clap-host|plugin-hostd|jalv|jack_simple_cli' >/dev/null; then
-        echo "FAIL a process is left after the teardown checks:"; pgrep -a -x 'jackd|omx-clap-host|plugin-hostd|jalv|jack_simple_cli'
+    # a zombie is no running process: a container whose pid 1 reaps nothing keeps one for each orphan that exited
+    left=$(pgrep -a -r RSDT -x 'jackd|omx-clap-host|plugin-hostd|jalv|jack_simple_cli' || true)
+    if [ -n "$left" ]; then
+        echo "FAIL a process is left after the teardown checks:"; echo "$left"
         fail=1
     fi
 fi

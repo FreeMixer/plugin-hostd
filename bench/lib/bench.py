@@ -121,6 +121,22 @@ def reap():
             return
 
 
+def stop_strays(found):
+    """SIGTERM first, so a JACK server takes its shared memory with it and the next one starts; SIGKILL after 3 s"""
+    pids = [p for p, _ in found]
+    for sig, grace in ((signal.SIGTERM, 3.0), (signal.SIGKILL, 1.0)):
+        for p in pids:
+            try:
+                os.kill(p, sig)
+            except OSError:
+                pass
+        end = time.monotonic() + grace
+        while time.monotonic() < end and any(alive(p) for p in pids):
+            reap()
+            time.sleep(0.02)
+    reap()
+
+
 def ppid_map():
     m = {}
     for d in os.listdir("/proc"):
@@ -865,11 +881,7 @@ class Runner:
         jack = {self.jackd.pid} if self.jackd and self.jackd.poll() is None else set()
         stray = [(p, c) for p, c in marked() if p not in jack]
         if stray:
-            for p, _ in stray:
-                try:
-                    os.kill(p, signal.SIGKILL)
-                except OSError:
-                    pass
+            stop_strays(stray)
             raise SystemExit("bench: teardown %s left %s" % (when, ", ".join("%d %s" % x for x in stray)))
 
     # -- the run
@@ -935,11 +947,7 @@ class Runner:
         if not self.args.logs:
             shutil.rmtree(self.work, ignore_errors=True)
         if left:
-            for p, _ in left:
-                try:
-                    os.kill(p, signal.SIGKILL)
-                except OSError:
-                    pass
+            stop_strays(left)
             log("teardown left %d process(es) of this run: %s" % (len(left), ", ".join("%d %s" % x for x in left)))
             return False
         log("teardown: no host, no JACK server, no other process of this run is left")
