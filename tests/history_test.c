@@ -26,12 +26,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/utsname.h>
 #include <unistd.h>
 
 #include <plugin-hostd/protocol.h>
 #include <plugin-hostd/plugin_hostd_vocabulary.h>
 
 #include "history.h"
+#include "machine.h"
 
 #define CLASS  "x86_64/5-8/2.5-3.5GHz"
 #define URI    "clap:/p/a.clap#org.test.a"
@@ -185,9 +187,10 @@ static void test_round_trip(void)
         check(r->last_crash == 1180 && r->last_crash_grouped == 1240, "last crashes");
     }
     summary = history_summary(URI, DIGEST, 1400);
-    check_str(summary, DIGEST " " CLASS " crashed=1 raises_xruns=0 first=1000 last=1360 windows_solo=2 windows_grouped=1 "
-              "cpu_p95_solo=10.19 cpu_max_solo=20.00 pss_mb_solo=12.3 xrun_windows_solo=1 xrun_windows_grouped=1 "
-              "crashes_solo=1 crashes_grouped=1 restarts_grouped=1 quarantines=1 last_crash=1180 last_crash_grouped=1240",
+    check_str(summary, "digest=" DIGEST ",class=" CLASS ",crashed=1,raises_xruns=0,first=1000,last=1360,windows_solo=2,"
+              "windows_grouped=1,cpu_p95_solo=10.19,cpu_max_solo=20.00,pss_mb_solo=12.3,xrun_windows_solo=1,"
+              "xrun_windows_grouped=1,crashes_solo=1,crashes_grouped=1,restarts_grouped=1,quarantines=1,last_crash=1180,"
+              "last_crash_grouped=1240",
               "the summary history_get answers");
     free(summary);
     history_finish();
@@ -252,14 +255,14 @@ static void test_summary(void)
     start();
     history_crash(URI, DIGEST, 0, 1000);
     s = history_summary(URI, DIGEST, 1000 + 30 * DAY);
-    check(s && strstr(s, "crashed=1"), "a crash exactly 30 days ago still counts");
+    check(s && strstr(s, ",crashed=1,"), "a crash exactly 30 days ago still counts");
     free(s);
     s = history_summary(URI, DIGEST, 1000 + 30 * DAY + 1);
-    check(s && strstr(s, "crashed=0"), "a crash 30 days and a second ago does not");
+    check(s && strstr(s, ",crashed=0,"), "a crash 30 days and a second ago does not");
     free(s);
     history_crash(URI, DIGEST, 1, 1000 + 20 * DAY);
     s = history_summary(URI, DIGEST, 1000 + 30 * DAY + 1);
-    check(s && strstr(s, "crashed=1"), "a recent grouped crash counts though the solo one is old");
+    check(s && strstr(s, ",crashed=1,"), "a recent grouped crash counts though the solo one is old");
     free(s);
     history_finish();
 
@@ -269,11 +272,11 @@ static void test_summary(void)
     for (int w = 0; w < 29; w++)
         history_window(URI, DIGEST, 1, 1, 1, w < 29 ? 1 : 0, 100 + w);
     s = history_summary(URI, DIGEST, 200);
-    check(s && strstr(s, "raises_xruns=0"), "29 grouped windows, all with xruns, are too few to say");
+    check(s && strstr(s, ",raises_xruns=0,"), "29 grouped windows, all with xruns, are too few to say");
     free(s);
     history_window(URI, DIGEST, 1, 1, 1, 1, 200);
     s = history_summary(URI, DIGEST, 200);
-    check(s && strstr(s, "raises_xruns=1"), "30 grouped windows, all with xruns, are enough");
+    check(s && strstr(s, ",raises_xruns=1,"), "30 grouped windows, all with xruns, are enough");
     free(s);
     history_finish();
 
@@ -282,7 +285,7 @@ static void test_summary(void)
     for (int w = 0; w < 30; w++)
         history_window(URI, DIGEST, 1, 1, 1, w < 1 ? 1 : 0, 100 + w);
     s = history_summary(URI, DIGEST, 200);
-    check(s && strstr(s, "raises_xruns=0"), "1 of 30 grouped windows is 3.3 percent: under the 5 percent");
+    check(s && strstr(s, ",raises_xruns=0,"), "1 of 30 grouped windows is 3.3 percent: under the 5 percent");
     free(s);
     history_finish();
     fresh();
@@ -290,7 +293,7 @@ static void test_summary(void)
     for (int w = 0; w < 30; w++)
         history_window(URI, DIGEST, 1, 1, 1, w < 2 ? 1 : 0, 100 + w);
     s = history_summary(URI, DIGEST, 200);
-    check(s && strstr(s, "raises_xruns=1"), "2 of 30 grouped windows is 6.7 percent: over it");
+    check(s && strstr(s, ",raises_xruns=1,"), "2 of 30 grouped windows is 6.7 percent: over it");
     free(s);
     history_finish();
     fresh();
@@ -298,7 +301,7 @@ static void test_summary(void)
     for (int w = 0; w < 40; w++)
         history_window(URI, DIGEST, 1, 1, 1, w < 2 ? 1 : 0, 100 + w);
     s = history_summary(URI, DIGEST, 200);
-    check(s && strstr(s, "raises_xruns=0"), "2 of 40 grouped windows is exactly 5 percent: not over it");
+    check(s && strstr(s, ",raises_xruns=0,"), "2 of 40 grouped windows is exactly 5 percent: not over it");
     free(s);
     history_finish();
 
@@ -310,11 +313,11 @@ static void test_summary(void)
     for (int w = 0; w < 40; w++)
         history_window(URI, DIGEST, 1, 1, 1, w < 6 ? 1 : 0, 300 + w);           /* grouped: 6 of 40 = 15 %: exactly +5 */
     s = history_summary(URI, DIGEST, 400);
-    check(s && strstr(s, "raises_xruns=0"), "exactly 5 points over the solo share does not exceed it");
+    check(s && strstr(s, ",raises_xruns=0,"), "exactly 5 points over the solo share does not exceed it");
     free(s);
     history_window(URI, DIGEST, 1, 1, 1, 1, 500);                               /* 7 of 41 = 17.07 % */
     s = history_summary(URI, DIGEST, 600);
-    check(s && strstr(s, "raises_xruns=1"), "more than 5 points over the solo share is a plugin that raises xruns");
+    check(s && strstr(s, ",raises_xruns=1,"), "more than 5 points over the solo share is a plugin that raises xruns");
     free(s);
     s = history_summary(URI, OTHER, 600);
     check(s == NULL, "no record of another binary");
@@ -443,6 +446,7 @@ static void test_blocked_files(void)
         history_crash(URI, DIGEST, 0, 4);
         check(history_clear("all") == -1, "a blocked history is not cleared");
         history_tick(100000);
+        history_tick(200000);
         history_finish();
         text = file_text();
         check_str(text, cases[n].content, "a blocked history is never overwritten");
@@ -516,8 +520,9 @@ static void test_a_failed_save(void)
     }
     fresh();
     start();
-    history_window(URI, DIGEST, 0, 1.0, 1.0, 0, 3);
     history_tick(0);
+    history_window(URI, DIGEST, 0, 1.0, 1.0, 0, 3);
+    history_tick(300);
     before = file_text();
     check(strlen(before) > strlen(HEADER), "the first save wrote the record");
     history_window(URI, DIGEST, 0, 2.0, 2.0, 0, 70);
@@ -546,22 +551,25 @@ static void test_save_interval(void)
 
     fresh();
     history_init(file, CLASS, 300);
-    history_tick(5);
-    check_str(file_text(), "", "nothing changed, nothing written");
     history_window(URI, DIGEST, 0, 1.0, 1.0, 0, 3);
-    history_tick(10);
+    history_tick(1000);                 /* the first tick opens the first interval */
+    check_str(file_text(), "", "the first interval has not passed: nothing written");
+    history_tick(1299);
+    check_str(file_text(), "", "299 s into it: still nothing");
+    history_tick(1300);
     t = file_text();
-    check(strstr(t, "windows_solo=1") != NULL, "the first change is written at the first tick");
+    check(strstr(t, "windows_solo=1") != NULL, "300 s into it the change is written");
     free(t);
     history_window(URI, DIGEST, 0, 1.0, 1.0, 0, 70);
-    history_tick(309);
+    history_tick(1599);
     t = file_text();
-    check(strstr(t, "windows_solo=1") != NULL, "299 s after the save it is not written");
+    check(strstr(t, "windows_solo=1") != NULL, "299 s after a save the next change is not written");
     free(t);
-    history_tick(310);
+    history_tick(1600);
     t = file_text();
     check(strstr(t, "windows_solo=2") != NULL, "300 s after it is");
     free(t);
+    history_tick(5000);
     history_window(URI, DIGEST, 0, 1.0, 1.0, 0, 130);
     history_finish();
     t = file_text();
@@ -630,6 +638,49 @@ static void test_the_path(void)
     group("the_default_path_is_the_xdg_state_home_then_home_and_history_file_overrides_both");
 }
 
+static void test_host_class(void)
+{
+    static const struct { long ncpu; const char *want; } cores[] = {
+        { 1, "1-2" }, { 2, "1-2" }, { 3, "3-4" }, { 4, "3-4" }, { 5, "5-8" }, { 8, "5-8" }, { 9, "9-16" }, { 16, "9-16" },
+        { 17, "17-32" }, { 32, "17-32" }, { 33, "33+" }, { 256, "33+" },
+    };
+    static const struct { long khz; const char *want; } clocks[] = {
+        { 0, "<1.5GHz" }, { 1499999, "<1.5GHz" }, { 1500000, "1.5-2.5GHz" }, { 2499999, "1.5-2.5GHz" },
+        { 2500000, "2.5-3.5GHz" }, { 3499999, "2.5-3.5GHz" }, { 3500000, "3.5-4.5GHz" }, { 4499999, "3.5-4.5GHz" },
+        { 4500000, "4.5GHz+" }, { 5800000, "4.5GHz+" },
+    };
+    const char *core, *clock;
+    char klass[64], want[96];
+    struct utsname u;
+    unsigned n;
+
+    for (n = 0; n < sizeof(cores) / sizeof(cores[0]); n++)
+    {
+        char what[48];
+
+        machine_bands(cores[n].ncpu, 3000000, &core, &clock);
+        snprintf(what, sizeof(what), "%ld cores", cores[n].ncpu);
+        check_str(core, cores[n].want, what);
+    }
+    for (n = 0; n < sizeof(clocks) / sizeof(clocks[0]); n++)
+    {
+        char what[48];
+
+        machine_bands(4, clocks[n].khz, &core, &clock);
+        snprintf(what, sizeof(what), "%ld kHz", clocks[n].khz);
+        check_str(clock, clocks[n].want, what);
+    }
+    check(machine_class(klass, sizeof(klass)) == 0, "this machine has a class");
+    uname(&u);
+    snprintf(want, sizeof(want), "%s/", u.machine);
+    check(!strncmp(klass, want, strlen(want)), "it starts with uname's machine");
+    check(strchr(klass, '/') && strchr(strchr(klass, '/') + 1, '/') && !strchr(strchr(strchr(klass, '/') + 1, '/') + 1, '/'),
+          "arch/cores/clock: two slashes");
+    check(!strpbrk(klass, " \t\n"), "and no white space");
+    check(machine_class(klass, 5) == -1, "a buffer that is too small is refused, not cut");
+    group("the_host_class_is_arch_cores_clock_with_the_contracts_bands_cut_where_the_contract_cuts_them");
+}
+
 int main(void)
 {
     snprintf(dir, sizeof(dir), "/tmp/plugin-hostd-history-test.XXXXXX");
@@ -652,6 +703,7 @@ int main(void)
     test_save_interval();
     test_clear();
     test_the_path();
+    test_host_class();
     group(NULL);
     fresh();
     rmdir(dir);

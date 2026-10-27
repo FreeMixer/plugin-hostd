@@ -313,12 +313,12 @@ $(PIN_TEST): tests/pin_test.c include/plugin-hostd/pin.h
 	$(CC) -Iinclude $(CFLAGS) -Werror -o $@ tests/pin_test.c
 
 # the running history (src/history.c, docs/design/notes/2026-10-27-grouping-planner.md): its line grammar, its file, what its
-# counts and its summary come to, against records written out by hand
+# counts and its summary come to, against records written out by hand; and the host class it is kept under (src/machine.c)
 test-history: $(HISTORY_TEST)
 	./$(HISTORY_TEST)
 
-$(HISTORY_TEST): tests/history_test.c src/history.c src/history.h src/fsutil.c src/fsutil.h include/plugin-hostd/protocol.h $(RENDERED)
-	$(CC) -Iinclude -Isrc $(CFLAGS) -Werror -o $@ tests/history_test.c src/history.c src/fsutil.c -lm
+$(HISTORY_TEST): tests/history_test.c src/history.c src/history.h src/fsutil.c src/fsutil.h src/machine.c src/machine.h include/plugin-hostd/protocol.h $(RENDERED)
+	$(CC) -Iinclude -Isrc $(CONTRACT_CFLAGS) $(CFLAGS) -Werror -o $@ tests/history_test.c src/history.c src/fsutil.c src/machine.c -lm
 
 # src/proc.c's readers of /proc: the text the kernel writes, and this process's own files
 test-proc: $(PROC_TEST)

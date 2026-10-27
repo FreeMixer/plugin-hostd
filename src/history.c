@@ -78,8 +78,7 @@ static char g_path[PATH_MAX];
 static char *g_class;
 static int g_save_s;
 static int g_dirty, g_blocked, g_started;
-static long long g_saved_at;
-static int g_saved_once;
+static long long g_saved_at = -1;   /* when the interval between two saves began; -1 until the first tick */
 
 /* ---------------------------------------------------------------- the line grammar */
 
@@ -174,8 +173,8 @@ static int rec_parse(char *line, history_rec_t *r)
     return 0;
 }
 
-/* " key=value" for every key, in the order of the words */
-static void keys_write(FILE *out, const history_rec_t *r)
+/* "<sep>key=value" for every key, in the order of the words */
+static void keys_write(FILE *out, const history_rec_t *r, char sep)
 {
     int n;
 
@@ -186,13 +185,13 @@ static void keys_write(FILE *out, const history_rec_t *r)
         switch (g_keys[n].kind)
         {
         case K_PERCENT:
-            fprintf(out, " %s=%.2f", g_words[n], *(const double *)v);
+            fprintf(out, "%c%s=%.2f", sep, g_words[n], *(const double *)v);
             break;
         case K_MIB:
-            fprintf(out, " %s=%.1f", g_words[n], *(const double *)v);
+            fprintf(out, "%c%s=%.1f", sep, g_words[n], *(const double *)v);
             break;
         default:
-            fprintf(out, " %s=%lld", g_words[n], *(const long long *)v);
+            fprintf(out, "%c%s=%lld", sep, g_words[n], *(const long long *)v);
         }
     }
 }
@@ -206,7 +205,7 @@ char *history_line(const history_rec_t *r)
     if (!mem)
         return NULL;
     fprintf(mem, "%s %s %s %s", PHD_HISTORY_RECORD, r->uri, r->digest, r->klass);
-    keys_write(mem, r);
+    keys_write(mem, r, ' ');
     fputc('\n', mem);
     fclose(mem);
     return buf;
@@ -443,7 +442,6 @@ static int file_write(void)
 static void save(long long now)
 {
     g_saved_at = now;
-    g_saved_once = 1;
     if (file_write() == 0)
         g_dirty = 0;
 }
@@ -469,7 +467,11 @@ int history_init(const char *file, const char *klass, int save_s)
 
 void history_tick(long long now)
 {
-    if (g_started && !g_blocked && g_dirty && (!g_saved_once || now - g_saved_at >= g_save_s))
+    if (!g_started || g_blocked)
+        return;
+    if (g_saved_at < 0)
+        g_saved_at = now;
+    if (g_dirty && now - g_saved_at >= g_save_s)
         save(now);
 }
 
@@ -486,8 +488,8 @@ void history_finish(void)
     g_n = 0;
     free(g_class);
     g_class = NULL;
-    g_dirty = g_blocked = g_started = g_saved_once = 0;
-    g_saved_at = 0;
+    g_dirty = g_blocked = g_started = 0;
+    g_saved_at = -1;
 }
 
 /* ---------------------------------------------------------------- what is counted */
@@ -612,8 +614,8 @@ char *history_summary(const char *uri, const char *digest, long long now)
 
     if (!r || !(mem = open_memstream(&buf, &size)))
         return NULL;
-    fprintf(mem, "%s %s crashed=%d raises_xruns=%d", r->digest, r->klass, crashed(r, now), raises_xruns(r));
-    keys_write(mem, r);
+    fprintf(mem, "digest=%s,class=%s,crashed=%d,raises_xruns=%d", r->digest, r->klass, crashed(r, now), raises_xruns(r));
+    keys_write(mem, r, ',');
     fclose(mem);
     return buf;
 }
