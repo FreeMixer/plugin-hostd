@@ -13,4 +13,4 @@ index 3b7feba..b464de3 100644
 +    return sup_chain(id, ids, ntok - 3);
  }
  
- static void reply(int fd, char *text)
+ /* plan <chain> <instance> [<instance> ...]: at least PHD_CHAIN_MEMBERS_MIN members */
