@@ -9,6 +9,7 @@ tools/protocol-gen
 *.new
 tests/pin-test
 tests/history-test
+tests/proc-test
 tests/relay-test
 tests/relay-test-relay.o
 tests/format-test

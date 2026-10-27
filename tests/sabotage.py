@@ -13,7 +13,7 @@ FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "
 # an LV2 bundle (MOD_HOST, LV2_DIR, LV2_URI, LV2_BUNDLE, LV2_PARAM) and is skipped without them; "pin" breaks
 # include/plugin-hostd/pin.h and runs tests/pin_test.c; "readme" breaks README.md or BUILDING.md and runs
 # tests/readme_build.py, with no daemon to build; "probeschema" breaks protocol/probe-output.schema.json and runs
-# tests/probe_schema.py; "relay" breaks src/relay.c and runs tests/relay_test.c; "history" breaks src/history.c or src/fsutil.c and runs tests/history_test.c; "alloc" breaks src/relay.c or src/lv2.c and runs make test-alloc; "contract" breaks the probe runner or the generator and runs tests/contract_derived.py; "consumer" breaks the header and compiles tests/consumer.c against it; "probe" breaks src/probe.c and runs tests/probe_test.py; "nopins" breaks the packaging or a workflow and runs tests/no_pins.py; "ciguards" breaks a workflow and runs tests/ci_guards.py;
+# tests/probe_schema.py; "relay" breaks src/relay.c and runs tests/relay_test.c; "history" breaks src/history.c or src/fsutil.c and runs tests/history_test.c; "proc" breaks src/proc.c and runs tests/proc_test.c; "alloc" breaks src/relay.c or src/lv2.c and runs make test-alloc; "contract" breaks the probe runner or the generator and runs tests/contract_derived.py; "consumer" breaks the header and compiles tests/consumer.c against it; "probe" breaks src/probe.c and runs tests/probe_test.py; "nopins" breaks the packaging or a workflow and runs tests/no_pins.py; "ciguards" breaks a workflow and runs tests/ci_guards.py;
 # "vocabulary" breaks the probe schema, its template or a copy of omx-contract's omx-vocabulary.schema.json and runs
 # tests/vocabulary_derived.py; "verbtable" breaks the header and runs tests/verb_table.py; "presetschema" breaks
 # protocol/preset.schema.json and runs tests/preset_format.py
@@ -860,6 +860,26 @@ SABOTAGE = [
      '    if (*configured)\n        snprintf(g_path, sizeof(g_path), "%s", configured);\n    else if',
      '    if (0)\n        snprintf(g_path, sizeof(g_path), "%s", configured);\n    else if',
      'the_default_path_is_the_xdg_state_home_then_home_and_history_file_overrides_both', "history"),
+    ("the stat line's fields are counted from the first parenthesis", 'src/proc.c',
+     "const char *p = strrchr(text, ')');",
+     "const char *p = strchr(text, ')');",
+     "proc_test", "proc"),
+    ('utime is read from the field before it', 'src/proc.c',
+     'if (field != 14 && field != 15)',
+     'if (field != 13 && field != 14)',
+     "proc_test", "proc"),
+    ('Pss_Anon is taken for Pss', 'src/proc.c',
+     'if (!strncmp(p, "Pss:", 4))',
+     'if (!strncmp(p, "Pss", 3))',
+     "proc_test", "proc"),
+    ('a Pss that is not a number is taken for 0', 'src/proc.c',
+     'if (end == p + 4 || v < 0 || strncmp(end, " kB", 3))',
+     'if (v < 0 || strncmp(end, " kB", 3))',
+     "proc_test", "proc"),
+    ('CPU time is counted in ticks, not seconds', 'src/proc.c',
+     '*seconds = (double)(u + s) / (double)hz;',
+     '*seconds = (double)(u + s);',
+     "proc_test", "proc"),
 ]
 
 
@@ -929,6 +949,16 @@ def run_history_test(tree):
     return p.returncode, p.stdout
 
 
+def run_proc_test(tree):
+    """tests/proc_test.c against the tree's src/proc.c; it prints "ok   proc_test" when no check failed"""
+    os.makedirs(os.path.join(tree, "tests"), exist_ok=True)
+    shutil.copy(os.path.join(ROOT, "tests", "proc_test.c"), os.path.join(tree, "tests"))
+    subprocess.run(["make", "-s", "-B", "MOD_HOST_DIR=" + MOD_HOST_DIR, "tests/proc-test"], cwd=tree, check=True,
+                   stdout=subprocess.DEVNULL)
+    p = subprocess.run([os.path.join(tree, "tests", "proc-test")], capture_output=True, text=True, timeout=120)
+    return p.returncode, p.stdout
+
+
 def run_alloc_test(tree):
     """make test-alloc: the tables of src/relay.c and src/lv2.c when realloc fails; prints "ok   alloc_test" when no check failed"""
     for f in ("tests/gesture-alloc-test", "tests/lv2-alloc-test", "tests/lv2-alloc-lv2.o"):
@@ -966,6 +996,8 @@ def run_test(tree, name, jack=False):
         return run_relay_test(tree)
     if jack == "history":
         return run_history_test(tree)
+    if jack == "proc":
+        return run_proc_test(tree)
     if jack == "contract":
         return run_contract_test(tree)
     if jack == "pin":
@@ -1042,7 +1074,7 @@ try:
             os.makedirs(tree)
             for f in ("README.md", "BUILDING.md"):
                 shutil.copy(os.path.join(ROOT, f), tree)
-        elif jack == "history":
+        elif jack in ("history", "proc"):
             for d in ("src", "include"):
                 shutil.copytree(os.path.join(ROOT, d), os.path.join(tree, d), ignore=shutil.ignore_patterns("*.o"))
             shutil.copy(os.path.join(ROOT, "Makefile"), tree)
@@ -1117,7 +1149,7 @@ try:
                            stdout=subprocess.DEVNULL)
         if jack == "probe":
             build_probe(tree)
-        elif jack not in ("readme", "nopins", "ciguards", "format", "relay", "history", "contract", "consumer", "probeschema", "presetschema", "vocabulary", "alloc",
+        elif jack not in ("readme", "nopins", "ciguards", "format", "relay", "history", "proc", "contract", "consumer", "probeschema", "presetschema", "vocabulary", "alloc",
                           "verbtable"):
             for f in os.listdir(os.path.join(tree, "src")):
                 if f.endswith(".o"):
