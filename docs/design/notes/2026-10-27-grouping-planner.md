@@ -290,17 +290,17 @@ lanes with no arrow can run in parallel.
 
 | lane | repo | what | needs |
 |---|---|---|---|
-| L1 | plugin-hostd | history record: line grammar in `data/`, reader and writer, windows from `/proc`, crash, restart and quarantine counts, `history_get`, `history_clear`, settings; no planner | |
-| L2 | plugin-hostd | the planner as a pure function and the `plan`, `plan_get`, `plan_clear` verbs, the reason codes, the chain place `chain:<n>.<k>`; rules from pins and costs; `grouping off` by default; determinism test (same inputs, same bytes); one test per reason | |
-| L3 | plugin-hostd | planner reads the history summary, re-plans on a quarantine, the regroup timer; the failure-mode tests | L1, L2 |
-| L4 | omx-clap-core | the worker writes `xruns <count>` on its feedback port | |
-| L5 | plugin-hostd | the daemon reads `xruns` into the windows | L1, L4 |
-| L6 | plugin-hostd | bench: the `plan` and `pool` modes, the `xruns` and `stress` fields in the schema, the stress load, three repeats and the spread | L2, L4; PR #179 |
-| L7 | plugin-qualify | `adjust --history`, the `history` block in the record, `--pins` writes the adjusted verdict, the table above in `data/` | L1 |
-| L8 | zynthian-ui | `sync_chain` through `plan`, the reason in the plugin menu, the old fallback removed | L2 |
-| L9 | openmixer-www | the benchmark page reads the new fields and shows medians, spreads and the stress rows | L6 |
-| L10 | openmixer (#2263) | run the family on the Pi 5 and the desk, publish the documents | L6, L8, L9 |
-| L11 | plugin-hostd | turn `grouping` on by default, with the winning `group_max` and `group_cost_max`; a conformance test that reads the published documents and refuses the flip without them | L10 |
+| L1 (plugin-hostd#184) | plugin-hostd | history record: line grammar in `data/`, reader and writer, windows from `/proc`, crash, restart and quarantine counts, `history_get`, `history_clear`, settings; no planner | |
+| L2 (plugin-hostd#185) | plugin-hostd | the planner as a pure function and the `plan`, `plan_get`, `plan_clear` verbs, the reason codes, the chain place `chain:<n>.<k>`; rules from pins and costs; `grouping off` by default; determinism test (same inputs, same bytes); one test per reason | |
+| L3 (plugin-hostd#186) | plugin-hostd | planner reads the history summary, re-plans on a quarantine, the regroup timer; the failure-mode tests | L1, L2 |
+| L4 (omx-clap-core#371) | omx-clap-core | the worker writes `xruns <count>` on its feedback port | |
+| L5 (plugin-hostd#187) | plugin-hostd | the daemon reads `xruns` into the windows | L1, L4 |
+| L6 (plugin-hostd#188) | plugin-hostd | bench: the `plan` and `pool` modes, the `xruns` and `stress` fields in the schema, the stress load, three repeats and the spread | L2, L4; PR #179 |
+| L7 (plugin-qualify#158) | plugin-qualify | `adjust --history`, the `history` block in the record, `--pins` writes the adjusted verdict, the table above in `data/` | L1 |
+| L8 (plugin-hostd#190 (zynthian-ui has issues off)) | zynthian-ui | `sync_chain` through `plan`, the reason in the plugin menu, the old fallback removed | L2 |
+| L9 (openmixer-www#46) | openmixer-www | the benchmark page reads the new fields and shows medians, spreads and the stress rows | L6 |
+| L10 (openmixer#2263) | openmixer (#2263) | run the family on the Pi 5 and the desk, publish the documents | L6, L8, L9 |
+| L11 (plugin-hostd#189) | plugin-hostd | turn `grouping` on by default, with the winning `group_max` and `group_cost_max`; a conformance test that reads the published documents and refuses the flip without them | L10 |
 
 The default does not flip before L11, and L11 does not start before L10 has published numbers that meet the acceptance.
 
