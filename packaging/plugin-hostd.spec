@@ -73,7 +73,8 @@ Requires: omx-clap-core-contract >= 0.22.0
 plugin-hostd's package of omx-contract's contract directory: the format tables
 a scan maps a CLAP or LV2 plugin through (formats/clap.json, formats/lv2.json)
 and the verbs the daemon adds to mod-host's protocol, with their replies,
-their refusals and what each host owes them (verbs.json), under
+their refusals and what each host owes them (verbs.json), and the reasons a
+plan gives for a plugin it leaves alone (grouping.json), under
 share/omx-contract/contract.d/3/plugin-hostd. A program that reads them at run
 time requires this package, never the development one.
 

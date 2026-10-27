@@ -235,6 +235,7 @@ jobs:
             printf '%s\n' /usr/share/omx-contract/contract.d/3/plugin-hostd/MANIFEST.json \
               /usr/share/omx-contract/contract.d/3/plugin-hostd/formats/clap.json \
               /usr/share/omx-contract/contract.d/3/plugin-hostd/formats/lv2.json \
+              /usr/share/omx-contract/contract.d/3/plugin-hostd/grouping.json \
               /usr/share/omx-contract/contract.d/3/plugin-hostd/verbs.json \
               /usr/share/licenses/plugin-hostd-contract/COPYING | sort > expected.txt
             diff -u expected.txt files.txt
@@ -407,7 +408,7 @@ jobs:
           # the contract directory's files are the noarch contract package's, which the daemon and the headers depend on
           test "$(dpkg-deb -f debs/plugin-hostd-contract_*.deb Architecture)" = all
           dpkg -L plugin-hostd-contract | tee contract.txt
-          for f in MANIFEST.json formats/clap.json formats/lv2.json verbs.json; do
+          for f in MANIFEST.json formats/clap.json formats/lv2.json grouping.json verbs.json; do
             grep -qx "/usr/share/omx-contract/contract.d/3/plugin-hostd/$f" contract.txt
           done
           dpkg-deb -f debs/plugin-hostd-contract_*.deb Breaks Replaces | tee breaks.txt

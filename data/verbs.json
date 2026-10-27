@@ -133,6 +133,11 @@
         "code": "reply.plugin-hostd.descriptor-scan-failed",
         "resp": -531,
         "doc": "PHD_ERR_DESCRIPTOR_SCAN_FAILED: the plugin's last scan wrote no descriptor (panel)"
+      },
+      "noSuchPlan": {
+        "code": "reply.plugin-hostd.no-such-plan",
+        "resp": -532,
+        "doc": "PHD_ERR_NO_SUCH_PLAN: a chain no plan verb planned"
       }
     }
   },
@@ -492,6 +497,66 @@
           "mod-host": "unsupported"
         },
         "doc": "One preset, 0 to count - 1: the key preset_load takes for it, and its name."
+      },
+      "plan": {
+        "verb": "plan",
+        "format": "plan %i %i ...",
+        "reply": "resp 0 <instance>,...;<instance>,...;...",
+        "codes": [
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.chainUnknownInstance"
+          },
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.chainDuplicate"
+          },
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.chainInstanceBusy"
+          },
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.placementInvalid"
+          },
+          {
+            "ref": "HOST_REPLY_CODES.invalidOperation"
+          }
+        ],
+        "implementedBy": {
+          "plugin-hostd": "required"
+        },
+        "doc": "The instances, in signal order, are planned into the fewest workers their pins and costs allow: <chain> <instance> [<instance> ...]. Each run of consecutive members that may share a worker becomes a chain of place chain:<chain>.<k>, the others stay alone in a worker of their own; the reply names the segments in order, the members of a segment joined by commas and the segments by semicolons. With the setting grouping off the plan is answered and kept, and nothing moves."
+      },
+      "planGet": {
+        "verb": "plan_get",
+        "format": "plan_get %i",
+        "reply": "resp 0 <instance>,...;<instance>,...;... <instance>:<reason>,...",
+        "codes": [
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.noSuchPlan"
+          },
+          {
+            "ref": "HOST_REPLY_CODES.invalidOperation"
+          }
+        ],
+        "implementedBy": {
+          "plugin-hostd": "required"
+        },
+        "doc": "Read the last plan of a chain back: its segments as plan answered them, then the reason of each member that has one (a word of PLUGIN_HOSTD_GROUPING_REASONS, plan-refused followed by the refusal's number), instance:reason joined by commas, - for none."
+      },
+      "planClear": {
+        "verb": "plan_clear",
+        "format": "plan_clear %i",
+        "reply": "resp 0",
+        "codes": [
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.noSuchPlan"
+          },
+          {
+            "ref": "HOST_REPLY_CODES.invalidOperation"
+          }
+        ],
+        "implementedBy": {
+          "plugin-hostd": "required"
+        },
+        "doc": "Forget the plan: each member goes to a worker of its own, as chain_clear does."
       }
     }
   }

@@ -72,6 +72,9 @@
 #define PHD_PLACE_POOL_PREFIX   "pool:"
 /* the place of a chain's worker in worker_list, chain:<chain>; no add names it, chain puts instances there */
 #define PHD_PLACE_CHAIN_PREFIX  "chain:"
+/* the place of the worker of segment k of a plan, chain:<plan>.<k>, k counting from 0 in the plan's order; only plan
+ * puts instances there, and the plan's number is its own, apart from the numbers of the chains chain declares */
+#define PHD_PLACE_PLAN_SEPARATOR "."
 /* a full pool opens <name><separator><n>, n counting from 2 */
 #define PHD_POOL_SIBLING_SEPARATOR "#"
 
@@ -294,6 +297,7 @@ static inline int phd_pool_name_valid(const char *name)
 #define PHD_ERR_DESCRIPTOR_ABSENT   (-529)
 #define PHD_ERR_DESCRIPTOR_PENDING  (-530)
 #define PHD_ERR_DESCRIPTOR_SCAN_FAILED (-531)
+#define PHD_ERR_NO_SUCH_PLAN        (-532)
 
 /* X(id, meaning) */
 #define PHD_ERRORS(X) \
@@ -367,7 +371,8 @@ static inline int phd_pool_name_valid(const char *name)
     X(DESCRIPTOR_SCAN_FAILED, OMX_VERB_DESCRIPTOR_GET " (" OMX_VERB_PANEL_GET ") of a plugin whose last scan wrote no " \
                               "descriptor (panel): the scanner refused the plugin, made no dump or no panel, or is not " \
                               "installed; the add it ran for stands, and stderr and the scan's log say why. The next add " \
-                              "scans again")
+                              "scans again") \
+    X(NO_SUCH_PLAN, OMX_VERB_PLAN_GET " or " OMX_VERB_PLAN_CLEAR " of a chain no " OMX_VERB_PLAN " planned")
 
 /* ---------------------------------------------------------------- verbs */
 
@@ -408,6 +413,13 @@ static inline int phd_pool_name_valid(const char *name)
     X(STRICT, PHD_PIN_MODE_STRICT, "add admits only a plugin that has a pin; a pin comes from pin_set, pin_file or pins_dir") \
     X(FIRST_USE, PHD_PIN_MODE_FIRST_USE, "add of a plugin with no pin records its pin, keeps it in the pin store and places " \
                               "the instance " PHD_PLACE_OWN "; a later change is refused until pin_accept")
+
+/* the grouping modes: X(id, name, meaning) */
+#define PHD_GROUPING_OFF "off"
+#define PHD_GROUPING_ON  "on"
+#define PHD_GROUPING_MODES(X) \
+    X(OFF, PHD_GROUPING_OFF, OMX_VERB_PLAN " answers the plan it would make and applies none") \
+    X(ON, PHD_GROUPING_ON, OMX_VERB_PLAN " applies its plan")
 
 /* a manifest's IRI that holds this is percent-encoded */
 #define PHD_PIN_PERCENT          "%"
@@ -489,6 +501,25 @@ static inline int phd_pool_name_valid(const char *name)
       "read a chain back: its worker (" PHD_WORD_NONE " when it has none), its members in the declared order, and the " \
       "members its worker runs now in their order (" PHD_WORD_NONE " for none); a quarantined member is declared and " \
       "not running; -522 for a chain no " OMX_VERB_CHAIN " declared, -902 for a chain that is not a number") \
+    X(PLAN, OMX_VERB_PLAN, "<chain> <instance> [<instance> ...]", OMX_VERB_PLAN_REPLY, \
+      "the instances, in signal order, are planned (the grouping-planner design note): the daemon decides, from the " \
+      "pin and the cost of each, which runs of consecutive members share a worker. A run of two or more is declared " \
+      "as a chain of place " PHD_PLACE_CHAIN_PREFIX "<chain>" PHD_PLACE_PLAN_SEPARATOR "<k>, k counting segments from 0; " \
+      "a member that shares with no neighbour is placed " PHD_PLACE_OWN ". The reply names the segments in order, " \
+      "the members of one joined by commas and the segments by semicolons. A chain planned again keeps the running " \
+      "worker of every segment that did not change. The plan numbers are its own, apart from chain's. While the " \
+      "setting grouping is off the plan is answered and kept for " OMX_VERB_PLAN_GET " and nothing moves. A segment " \
+      "that cannot be formed refuses the whole plan with its own code, moves nothing and is told by " OMX_VERB_PLAN_GET \
+      " as plan-refused:<code>. -518 for an instance no add made, -519 for one named twice, -520 for one in a chain " \
+      "or in the plan of another chain, -501 for a segment no world can be built for, -902 for a chain or an " \
+      "instance that is not a number, or fewer than chain_members_min (" PHD_STR(PHD_CHAIN_MEMBERS_MIN) ") instances") \
+    X(PLAN_GET, OMX_VERB_PLAN_GET, "<chain>", OMX_VERB_PLAN_GET_REPLY, \
+      "read the last plan of a chain back: its segments as " OMX_VERB_PLAN " answered them, then the members that have " \
+      "a reason, instance:reason joined by commas (" PHD_WORD_NONE " for none); the reasons are the words of " \
+      "PLUGIN_HOSTD_GROUPING_REASONS (data/grouping.json); -532 for a chain no " OMX_VERB_PLAN " planned, -902 for " \
+      "a chain that is not a number") \
+    X(PLAN_CLEAR, OMX_VERB_PLAN_CLEAR, "<chain>", OMX_VERB_PLAN_CLEAR_REPLY, \
+      "forget the plan: each member goes to a worker of its own; -532 for a chain no " OMX_VERB_PLAN " planned") \
     X(DESCRIPTOR_GET, OMX_VERB_DESCRIPTOR_GET, "<uri>", OMX_VERB_DESCRIPTOR_GET_REPLY, \
       "the scanned descriptor of the plugin, answered from descriptor_dir: the file named for its binary as it is now " \
       "(" PHD_DESCRIPTOR_NAME_SYNTAX "), written by the scan the plugin's add ran. -529 when there is none, -530 while " \
@@ -826,6 +857,9 @@ static inline int phd_is_note_verb(const char *verb)
     X(OMX_VERB_CHAIN, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
     X(OMX_VERB_CHAIN_CLEAR, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
     X(OMX_VERB_CHAIN_GET, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X(OMX_VERB_PLAN, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X(OMX_VERB_PLAN_GET, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X(OMX_VERB_PLAN_CLEAR, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
     X(OMX_VERB_DESCRIPTOR_GET, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
     X(OMX_VERB_PANEL_GET, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED)
 
@@ -853,6 +887,7 @@ static inline int phd_is_note_verb(const char *verb)
 #define PHD_EVENT_PIN_CHANGED             "pin_changed"
 #define PHD_EVENT_LV2_ADAPTER_REFUSED     "lv2_adapter_refused"
 #define PHD_EVENT_CHAIN_FORMED            "chain_formed"
+#define PHD_EVENT_PLAN_REASON             "plan_reason"
 /* written by a worker, relayed as it wrote it */
 #define PHD_EVENT_REMOTE_PAGES_CHANGED    "remote_pages_changed"
 #define PHD_EVENT_REMOTE_PAGE_SUGGEST     "remote_page_suggest"
@@ -882,7 +917,8 @@ static inline int phd_is_note_verb(const char *verb)
 #define PHD_EVENT_PARAM_SET_FMT             PHD_EVENT_PARAM_SET " %d %s %s"
 #define PHD_EVENT_PIN_CHANGED_FMT           PHD_EVENT_PIN_CHANGED " %s %s"
 #define PHD_EVENT_LV2_ADAPTER_REFUSED_FMT   PHD_EVENT_LV2_ADAPTER_REFUSED " %s %s %s"
-#define PHD_EVENT_CHAIN_FORMED_FMT          PHD_EVENT_CHAIN_FORMED " %d w%d %s"
+#define PHD_EVENT_CHAIN_FORMED_FMT          PHD_EVENT_CHAIN_FORMED " %s w%d %s"
+#define PHD_EVENT_PLAN_REASON_FMT           PHD_EVENT_PLAN_REASON " %d %s"
 
 /* the table of the docs: X(name, fields, meaning), one row per shape of a line */
 #define PHD_EVENTS(X) \
@@ -903,7 +939,10 @@ static inline int phd_is_note_verb(const char *verb)
       "the culprit of a pool or a chain death, placed own until cleared; a chain goes on without it") \
     X(PHD_EVENT_CHAIN_FORMED, "<chain> <worker> <instance>,...", \
       "a chain's worker is up with these members, in this order, after its declaration, a respawn or a member's " \
-      "quarantine; " PHD_WORD_NONE " for none") \
+      "quarantine; " PHD_WORD_NONE " for none. <chain> is the number chain declared, or <plan>" PHD_PLACE_PLAN_SEPARATOR \
+      "<k> for segment k of a plan") \
+    X(PHD_EVENT_PLAN_REASON, "<chain> <instance>:<reason>,...", \
+      "a plan of the chain changed: what " OMX_VERB_PLAN_GET " answers now after the segments, " PHD_WORD_NONE " for none") \
     X(PHD_EVENT_SUPERVISOR_GAVE_UP, "<worker> <deaths> <window_ms>", "the storm bound is spent; respawning ends") \
     X(PHD_EVENT_PIN_CHANGED, "<uri> " PHD_PIN_CHANGED_FILES " | " PHD_PIN_CHANGED_LAYOUT, \
       "an add or a replay of a plugin was refused because its files, or the layout the worker found, differ from its " \
@@ -968,6 +1007,12 @@ static inline int phd_is_note_verb(const char *verb)
 #define PHD_DEFAULT_CHECKPOINT_MS     5000
 #define PHD_DEFAULT_IDLE_MS           25
 #define PHD_DEFAULT_POOL_MAX          8
+#define PHD_DEFAULT_GROUPING          PHD_GROUPING_OFF
+/* starting values of the planner's limits; the benchmark sets the ones a release ships (the design note, The benchmark) */
+#define PHD_DEFAULT_GROUP_MAX         8
+#define PHD_DEFAULT_GROUP_COST_MAX    60
+#define PHD_DEFAULT_GROUP_RATE        48000
+#define PHD_DEFAULT_GROUP_QUANTUM     128
 #define PHD_DEFAULT_REQUIRE_PINS      1
 #define PHD_DEFAULT_PIN_MODE          PHD_PIN_MODE_FIRST_USE
 #define PHD_DEFAULT_PINS_DIR          "/usr/share/plugin-hostd/pins.d"
@@ -1015,6 +1060,9 @@ static inline int phd_is_note_verb(const char *verb)
     X(state_root, path, PHD_DEFAULT_STATE_ROOT, "XDG_RUNTIME_DIR", "the daemon's checkpoints and worker logs") \
     X(pin_mode, word, PHD_DEFAULT_PIN_MODE, "", "strict or first-use, while require_pins is 1: first-use records the pin " \
       "of a plugin on its first add, strict admits only a plugin a controller, a pin_file or pins_dir pinned") \
+    X(grouping, word, PHD_DEFAULT_GROUPING, "", "off or on: whether plan applies its plan (a run of consecutive members " \
+      "that may share a worker is declared as a chain), or only answers it; the default stays off until the benchmark " \
+      "has published a win") \
     X(pin_store, path, "", "", "the file first-use pins are kept in; empty is $XDG_STATE_HOME/plugin-hostd/pins, " \
       "else $HOME/.local/state/plugin-hostd/pins") \
     X(pin_file, path, "", "", "a file of pin lines loaded at start, as plugin-qualify --all --pins writes it; empty is none") \
@@ -1043,6 +1091,12 @@ static inline int phd_is_note_verb(const char *verb)
     X(checkpoint_ms, PHD_DEFAULT_CHECKPOINT_MS, "ms", "a quiet interval with a changed ledger writes a checkpoint") \
     X(idle_ms, PHD_DEFAULT_IDLE_MS, "ms", "the period of the idle tick: reap, respawn, checkpoint") \
     X(pool_max, PHD_DEFAULT_POOL_MAX, "instances", "instances in a pool before a sibling opens") \
+    X(group_max, PHD_DEFAULT_GROUP_MAX, "instances", "most members of one segment of a plan; 0 sets no limit") \
+    X(group_cost_max, PHD_DEFAULT_GROUP_COST_MAX, "percent of a core", \
+      "most the costs of the members of one segment of a plan add to, each a member's coreFractionP95 of its " \
+      "qualification record at group_rate and group_quantum; a member over it alone stays alone; 0 sets no limit") \
+    X(group_rate, PHD_DEFAULT_GROUP_RATE, "Hz", "the sample rate the cost of a member is read at") \
+    X(group_quantum, PHD_DEFAULT_GROUP_QUANTUM, "frames", "the quantum the cost of a member is read at") \
     X(require_pins, PHD_DEFAULT_REQUIRE_PINS, "", \
       "1: add admits only a plugin that has a pin (see pin_mode), its files hashed before any worker sees it, and a plugin of a " \
       "format whose pin holds only in a world of its own gets a worker of its own, its world the plugin's files (a " \
