@@ -734,11 +734,34 @@ static void hist_restart(const char *uri, int grouped)
         history_restart(uri, digest, grouped, utc_now());
 }
 
+/* the xruns the worker's process counted since the last time this was asked, and 0 when it counted none, wrote no count
+ * yet or restarted. A process writes its count from the start and nothing while it is 0, so the first count seen is
+ * where the daemon begins to look, never xruns of the window it arrives in; a count below the last is a counter that began
+ * again, and begins the baseline again */
+static long hist_xruns(worker_t *w)
+{
+    unsigned long long count, rose = 0;
+
+    if (w->xr_pid != w->pid)
+    {
+        w->xr_pid = w->pid;
+        w->xr_known = 0;
+    }
+    if (w->fb_fd < 0 || !relay_xruns(w->fb_fd, &count))
+        return 0;
+    if (w->xr_known && count > w->xr_base)
+        rose = count - w->xr_base;
+    w->xr_known = 1;
+    w->xr_base = count;
+    return rose > (unsigned long long)LONG_MAX ? LONG_MAX : (long)rose;
+}
+
 /* the window [hist_start_ms, at_ms] of a worker, its CPU over it as percent of one core, folded into every member */
 static void hist_fold(worker_t *w, int64_t at_ms, double cpu1, long long pss_kb)
 {
     double seconds = (double)(at_ms - w->hist_start_ms) / 1000.0, pct = 0;
     int n, grouped = w->ninst >= 2;
+    long xruns = hist_xruns(w);
 
     if (seconds > 0 && cpu1 > w->hist_cpu0)
         pct = (cpu1 - w->hist_cpu0) / seconds * 100.0;
@@ -747,7 +770,7 @@ static void hist_fold(worker_t *w, int64_t at_ms, double cpu1, long long pss_kb)
         char digest[PHD_SHA256_HEX_LEN + 1];
 
         if (pins_digest(w->inst[n]->uri, digest) == 0)
-            history_window(w->inst[n]->uri, digest, grouped, pct, (double)pss_kb / 1024.0, 0, utc_now());
+            history_window(w->inst[n]->uri, digest, grouped, pct, (double)pss_kb / 1024.0, xruns, utc_now());
     }
 }
 
@@ -756,6 +779,7 @@ static void hist_begin(worker_t *w, int64_t now)
     w->hist_pid = 0;
     if (proc_cpu_seconds(w->pid, &w->hist_cpu0) != 0)
         return;
+    hist_xruns(w);              /* what rose before this window is not its */
     w->hist_pid = w->pid;
     w->hist_start_ms = now;
     w->hist_ninst = w->ninst;
