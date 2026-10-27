@@ -1,0 +1,129 @@
+import json
+import os
+import tempfile
+import unittest
+
+import make_report as m
+
+FACTS = os.path.join(os.path.dirname(os.path.abspath(m.__file__)), "facts.json")
+
+
+def scen(sid, host, rate=48000, frames=256, **kw):
+    d = dict(id=sid, title=sid, host=host, rate=rate, frames=frames, plugins=[], dsp_load_avg=1.5, dsp_load_max=2.0,
+             samples=10, rss_mb=10.0, add_ms=5.0, recover_ms=None, status="ok", note="")
+    d.update(kw)
+    return d
+
+
+def bench(cls, scens, id="rpi5-20261027-1"):
+    return {"schema": "omx-bench/1", "id": id, "machine": {"class": cls, "model": "x", "governor": "performance"},
+            "software": {"plugin-hostd": "0.12.0"}, "scenarios": scens}
+
+
+class Case(unittest.TestCase):
+    def setUp(self):
+        self.t = tempfile.TemporaryDirectory()
+        self.d = self.t.name
+        self.empty = os.path.join(self.d, "empty")
+        os.makedirs(self.empty)
+
+    def tearDown(self):
+        self.t.cleanup()
+
+    def write(self, name, text):
+        p = os.path.join(self.d, name)
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        with open(p, "w") as fh:
+            fh.write(text if isinstance(text, str) else json.dumps(text))
+        return p
+
+    def report(self, name="report.md"):
+        with open(os.path.join(self.d, "o", name)) as fh:
+            return fh.read()
+
+    def run_main(self, *extra, results=None):
+        return m.main(["--bench", os.path.join(self.d, "b"), "--results", results or self.empty, "--earlier", self.empty,
+                       "--qualification", self.empty, "--coverage", os.path.join(self.d, "none"),
+                       "--prs", os.path.join(self.d, "none"), "--facts", FACTS, "--out", os.path.join(self.d, "o")] + list(extra))
+
+    def test_strict_fails_with_no_data_and_says_not_measured(self):
+        self.assertEqual(self.run_main("--strict"), 1)
+        self.assertIn("not measured yet", self.report())
+
+    def test_non_strict_exits_zero(self):
+        self.assertEqual(self.run_main(), 0)
+
+    def test_ci_run_is_never_shown_as_pi_numbers(self):
+        self.write("b/ci.json", bench("ci", [scen("chain3", "H2", dsp_load_avg=77.77)], "ci-1"))
+        self.run_main()
+        self.assertNotIn("77.77", self.report())
+
+    def test_host_table_and_ratio_values(self):
+        sc = [scen("chain3", h, dsp_load_avg=v) for h, v in (("H1", 1.11), ("H2", 2.22))]
+        sc.append(scen("chain3", "H3", status="unsupported", note="no mod-host", dsp_load_avg=None,
+                       dsp_load_max=None, rss_mb=None, samples=0))
+        sc += [scen("cvp3", "H2", mode="individual", processes=3, pss_mb_total=30.0, rss_mb_total=60.0, cpu_pct=1.0),
+               scen("cvp3", "H2", mode="chain", processes=1, pss_mb_total=15.0, rss_mb_total=30.0, cpu_pct=0.5)]
+        self.write("b/rpi.json", bench("rpi5", sc))
+        self.run_main()
+        md = self.report()
+        self.assertIn("1.11 (2.00)", md)
+        self.assertIn("unsupported (no mod-host)", md)
+        self.assertIn("uses 0.50 times the proportional memory", md)
+        self.assertIn("<svg", self.report("report.html"))
+
+    def test_failed_pianoteq_add_is_not_a_measurement(self):
+        self.write("e/zy-96test.out", "pianoteq lv2 uri: x\n=== 48000 Hz, 256 frames: a\n"
+                   "3-plugin chain + sine:  avg 0.4% max 0.5% (10 samples)\nadd PIANOTEQ lv2 (3): resp -101\n\n"
+                   "+ Pianoteq 5-note chords: avg 0.4% max 0.4% (12 samples)\n")
+        r = m.parse_earlier(os.path.join(self.d, "e"))
+        self.assertNotIn("pianoteq", r["runs"][48000])
+        self.assertEqual(r["runs"][48000]["chain3"]["avg"], 0.4)
+
+    def test_earlier_good_pianoteq(self):
+        self.write("e/zy-96test2.out", "pianoteq lv2 uri: u\n=== 96000 Hz, 256 frames: a\nadd PIANOTEQ lv2 (3): resp 3\n"
+                   "+ Pianoteq 5-note chords: avg 20.5% max 24.0% (12 samples)\n")
+        self.assertEqual(m.parse_earlier(os.path.join(self.d, "e"))["runs"][96000]["pianoteq"]["avg"], 20.5)
+
+    def test_qpilot_counts(self):
+        self.write("e/zy-qpilot.out", "exit=1 seconds=271\n-- verdict summary\n    125 unsuitable\n    122 suitable\n"
+                   "      1 verdict\n-- sample\nplugin verdict reason host\nurn:a  unsuitable   hosting.x  h\n-- stderr\n")
+        q = m.parse_qpilot(os.path.join(self.d, "e"))
+        self.assertEqual((q["seconds"], q["counts"]), (271, {"unsuitable": 125, "suitable": 122}))
+        self.assertEqual(q["sample_reasons"], {"hosting.x": 1})
+
+    def test_qdocs_reasons(self):
+        self.write("q/a.json", {"verdicts": [{"rating": "suitable"}, {"rating": "unsuitable", "deciding": "r1"},
+                                              {"rating": "unsuitable", "deciding": "r1"}]})
+        r = m.parse_qdocs(os.path.join(self.d, "q"))
+        self.assertEqual(r["reasons"], {"r1": 2})
+        self.assertEqual(r["counts"], {"suitable": 1, "unsuitable": 2})
+
+    def test_coverage(self):
+        t = "jalv 1.8.0 (x):\n  hosted 977 of 979 (a)\nmod-host 0.10.6 f:\n  hosted 975 of 979\nomx-clap-core: 979 of 979 on main\n"
+        self.assertEqual(m.parse_coverage(self.write("c.txt", t)),
+                         {"jalv": (977, 979), "mod-host": (975, 979), "omx-clap-core": (979, 979)})
+        self.assertIsNone(m.parse_coverage(self.write("c2.txt", "nothing")))
+
+    def test_grouped_notes_are_quoted_not_modified(self):
+        self.write("r/grouped-vs-processes.md", "device says 42")
+        self.run_main(results=os.path.join(self.d, "r"))
+        self.assertIn("> device says 42", self.report())
+        with open(os.path.join(self.d, "r", "grouped-vs-processes.md")) as fh:
+            self.assertEqual(fh.read(), "device says 42")
+
+    def test_fetch_prs_uses_gh_and_fails_loudly(self):
+        class R:
+            def __init__(s, rc, out):
+                s.returncode, s.stdout, s.stderr = rc, out, "boom"
+        facts = {"prs": [{"repo": "o/r", "number": 1, "role": "x"}]}
+        out = os.path.join(self.d, "prs.json")
+        m.fetch_prs(facts, out, run=lambda *a, **k: R(0, json.dumps({"number": 1, "title": "t", "state": "OPEN", "baseRefName": "b"})))
+        with open(out) as fh:
+            self.assertEqual(json.load(fh)[0]["repo"], "o/r")
+        with self.assertRaises(SystemExit):
+            m.fetch_prs(facts, out, run=lambda *a, **k: R(1, ""))
+
+
+if __name__ == "__main__":
+    unittest.main()
