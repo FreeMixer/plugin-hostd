@@ -76,7 +76,34 @@ def cancel_scan(root):
     return found
 
 
+# The contract directory as installed is validated in ci.yml (#165): a step of the job that builds and tests runs
+# `make check-contract-dir`, which is red without the omx-contract command, never a skip.
+GATE_RUN = re.compile(r"^\s+run:\s*make check-contract-dir\s*$", re.M)
+
+
+def gate_scan(root):
+    """every finding as 'path what'"""
+    path = os.path.join(root, ".github", "workflows", "ci.yml")
+    text = open(path).read() if os.path.exists(path) else ""
+    if not GATE_RUN.search(text):
+        return ["ci.yml has no step that runs make check-contract-dir: a table the installed schema refuses ships unseen"]
+    return []
+
+
 def main():
+    gate = tempfile.mkdtemp(prefix="ci-guards.", dir=os.environ.get("TMPDIR") or ROOT)
+    try:
+        wf = os.path.join(gate, ".github", "workflows")
+        os.makedirs(wf)
+        open(os.path.join(wf, "ci.yml"), "w").write("      - run: make test\n      # run: make check-contract-dir\n")
+        missed = gate_scan(gate)
+        open(os.path.join(wf, "ci.yml"), "w").write("      - name: x\n        run: make check-contract-dir\n")
+        if len(missed) != 1 or gate_scan(gate):
+            print("FAIL the gate scan misses a planted ci.yml without make check-contract-dir, or refuses one with it")
+            return 1
+    finally:
+        shutil.rmtree(gate, ignore_errors=True)
+    print("ok   the gate scan sees a planted ci.yml without make check-contract-dir and passes one with it")
     tmp = tempfile.mkdtemp(prefix="ci-guards.", dir=os.environ.get("TMPDIR") or ROOT)
     try:
         scratch = os.path.join(tmp, "t")
@@ -113,6 +140,11 @@ def main():
         failed += 1
     if not failed:
         print("ok   ci.yml and fuzz.yml cancel a superseded pull request run only, release.yml never, no workflow paths filter")
+    for f in gate_scan(ROOT):
+        print("FAIL %s" % f)
+        failed += 1
+    if not failed:
+        print("ok   ci.yml validates the staged contract directory (make check-contract-dir)")
     for f in scan(ROOT):
         print("FAIL %s" % f)
         failed += 1

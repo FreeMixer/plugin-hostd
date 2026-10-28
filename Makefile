@@ -147,6 +147,17 @@ install-contract:
 	@test -n "$(INSTALL_CONTRACT_DIR)" || { echo "install-contract: no install-contract-dir.sh: install omx-contract-devel, or set OMX_CONTRACT_DIR to a checkout" >&2; exit 1; }
 	sh $(INSTALL_CONTRACT_DIR) $(PROG) $(VERSION) $(CONTRACT_SCHEMA_MAJOR) data $(DESTDIR)$(CONTRACTDIR) data
 
+# the contract directory as a reader of it sees it: install-contract into a staging directory, then omx-contract validate
+# of the staged package together with the installed contract directory (omx-contract's own tables, omx-clap-core's),
+# red on any table the installed schema refuses (#165; tests/format_coverage.py walks the schema for the words, never
+# for the row keys). An absent omx-contract command is red, never a skip
+.PHONY: check-contract-dir
+check-contract-dir:
+	@command -v $(OMX_CONTRACT) >/dev/null || { echo "$@: no $(OMX_CONTRACT) command: install omx-contract 3.2.0 or later" >&2; exit 1; }
+	@set -e; tmp=$$(mktemp -d); trap 'rm -rf $$tmp' EXIT; \
+	$(MAKE) --no-print-directory install-contract DESTDIR=$$tmp >/dev/null; \
+	OMX_CONTRACT_PATH=$$tmp$(CONTRACTDIR)$(if $(OMX_CONTRACT_PATH),:$(OMX_CONTRACT_PATH)):$(CONTRACTDIR) $(OMX_CONTRACT) validate --installed
+
 # the daemon's verbs and reply codes (data/verbs.json), rendered by omx-contract as the package installs them, beside
 # the packages of OMX_CONTRACT_PATH and of the installed contract directory: the C names every source and protocol.h
 # read (OMX_VERB_<VERB>, its _FMT, _REPLY and _CODES_INIT). `make render-verbs` writes them, `make check-rendered`
