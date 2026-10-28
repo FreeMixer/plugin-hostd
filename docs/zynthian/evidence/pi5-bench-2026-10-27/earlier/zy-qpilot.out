@@ -1,0 +1,17 @@
+exit=1 seconds=271
+lines: 248  pins: 242  descriptors: 0
+-- verdict summary
+    125 unsuitable
+    122 suitable
+      1 verdict
+-- sample
+plugin                                            verdict      reason                                    host
+urn:clap:studio.kx.distrho.MVerb                  unsuitable   hosting.rt-safety.violations-in-run       openmixer-console
+urn:clap:niallmoody.ndcplugs.ampimposer           unsuitable   hosting.rt-safety.violations-in-run       openmixer-console
+urn:clap:niallmoody.ndcplugs.cycleshifter         unsuitable   hosting.rt-safety.violations-in-run       openmixer-console
+-- stderr
+plugin-qualify: host profile openmixer-console (in-process)
+plugin-qualify: target urn:clap:studio.kx.distrho.MVerb (/usr/lib/clap)
+plugin-qualify: target urn:clap:niallmoody.ndcplugs.ampimposer (/usr/lib/clap)
+plugin-qualify: target urn:clap:niallmoody.ndcplugs.cycleshifter (/usr/lib/clap)
+exit=0

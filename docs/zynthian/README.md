@@ -7,6 +7,18 @@ Zynthian chain written as a strip profile ([chain-profile.md](chain-profile.md))
 give a chain ([engine-gaps.md](engine-gaps.md)), and the raw logs of every run ([evidence/](evidence/)). The tools
 and tests are under [tools/zynthian/](../../tools/zynthian/).
 
+Benchmarks, trade-offs and the acceptance report
+------------------------------------------------
+
+For a review of the zynthian-ui and zynthian-sys changes:
+
+- [benchmarks.md](benchmarks.md): every measurement on the Pi 5 and in the containers, a table and a figure per topic,
+  each row with the file it comes from; what is not measured yet, with the command that would measure it.
+- [tradeoffs.md](tradeoffs.md): the pros and cons of one worker per chain, CLAP hosting, qualification and pins, the
+  mod-host protocol, the packaging, and what is not done, each tied to a measurement or a public fact.
+- [acceptance-report.md](acceptance-report.md): the report `bench/report/make_report.py` writes from the measurement
+  files, with every section it has no data for marked "not measured yet".
+
 The engine lives in the FreeMixer/zynthian-ui fork
 --------------------------------------------------
 

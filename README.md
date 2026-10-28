@@ -66,6 +66,10 @@ you would a mod-host plugin. `man plugin-hostd` has the options; the full protoc
 Using it from your own host (Zynthian, a Raspberry Pi, any Debian): [docs/own-host.md](docs/own-host.md), nine commands from
 nothing to a plugin running.
 
+Under Zynthian on a Raspberry Pi 5: the measurements are [docs/zynthian/benchmarks.md](docs/zynthian/benchmarks.md), the
+pros and cons for a reviewer [docs/zynthian/tradeoffs.md](docs/zynthian/tradeoffs.md), and the acceptance report
+[docs/zynthian/acceptance-report.md](docs/zynthian/acceptance-report.md).
+
 Building from source: see [BUILDING.md](BUILDING.md). More about FreeMixer at <https://www.openmixer.org>.
 
 Protocol
