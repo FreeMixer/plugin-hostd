@@ -713,11 +713,12 @@ static void memlock_choose(const options_t *o)
     getrlimit(RLIMIT_MEMLOCK, &r);
     g_lock.unbounded = r.rlim_max == RLIM_INFINITY;
     g_lock.bound = g_lock.unbounded || r.rlim_max > (rlim_t)o->data_bytes ? (rlim_t)o->data_bytes : r.rlim_max;
-    if (!g_lock.unbounded && r.rlim_max < (rlim_t)o->data_bytes)
+    /* a missing preload first: it is the reason on every machine, whatever its bound */
+    if (access(g_lock_preload, R_OK) != 0)
+        snprintf(g_lock.reason, sizeof(g_lock.reason), "no lock preload at %s", g_lock_preload);
+    else if (!g_lock.unbounded && r.rlim_max < (rlim_t)o->data_bytes)
         snprintf(g_lock.reason, sizeof(g_lock.reason), "RLIMIT_MEMLOCK is %llu bytes, below the memory limit of %lld: a "
                  "lock would fail the plugin's own allocations first", (unsigned long long)r.rlim_max, o->data_bytes);
-    else if (access(g_lock_preload, R_OK) != 0)
-        snprintf(g_lock.reason, sizeof(g_lock.reason), "no lock preload at %s", g_lock_preload);
     else
         g_lock.asked = 1;
 }
