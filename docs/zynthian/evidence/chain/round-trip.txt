@@ -1,0 +1,49 @@
+Date: 2026-10-26, host r1 (x86_64), rootless podman.
+Where: a clean fedora:44 x86_64 container, CAP_SYS_ADMIN, seccomp unconfined, /proc unmasked, running the steps of the
+zynthian-chain job of .github/workflows/ci.yml at da783af in order. That revision of the job built the daemon and the
+worker from source at the commits below; the job now takes both from the FreeMixer channel (tests/no_pins.py), and
+round-trip-channel.txt is its run with the channel's packages. Not a
+Zynthian image, not trixie arm64, no ARM board, no Zynthian hardware: the zynthian-ui Python modules (zynthian_chain,
+zynthian_processor, the patched plugind engine and chain) imported with zyncoder, pyliblo3 and zynautoconnect stubbed.
+No Zynthian screen, UI, encoder or autoconnect pass was seen. A claim about Zynthian is trixie arm64 container only
+until the Vangelis hardware run is dated; this is less than that.
+zynthian-ui: f46b0189b6163472db39aa607369f397ed23b65a with docs/zynthian/zynthian_engine_plugind.patch of this branch.
+plugin-hostd: FreeMixer/plugin-hostd main at 78bea7444808159a307f96f5da094362729d2a59, "version: 0.10.0" (chain_get,
+#162; no release carries it yet).
+Worker: omx-clap-host built from FreeMixer/omx-clap-core main at b339c92d5c7ed9c43733044e7b31050d0595441c (the merge of
+PR 348, the chain host of omx-clap-core#104), "version: 0.21.0"; its tests/fault-14.clap (a gain of 0.1 that aborts on a
+write of 0.9 or more) and tests/jack_identity from the same tree.
+Members: omx-plugins-clap and omx-plugins-lv2 0.13.0 of the FreeMixer channel: omx-strip and omx-limiter CLAP
+(/usr/lib/clap), omx-delay LV2 (/usr/lib64/lv2) on the adapter row. Fedora 44's PipeWire, private, in a user, net and
+pid namespace of its own.
+
+Command (the job's last step):
+  PLUGIN_HOSTD=/tmp/plugin-hostd/plugin-hostd CLAP_HOST=/tmp/omx-clap-core/omx-clap-host \
+  JACK_IDENTITY=/tmp/omx-clap-core/tests/jack_identity \
+  FAULT_CLAP_URI='clap:/tmp/omx-clap-core/tests/fault-14.clap#org.openmixer.fault.14' CHAIN_FAULT_PARAM='param_set %d 0 0.95' \
+  tools/zynthian/chain-e2e.sh --round-trip /tmp/zynthian-ui /tmp/round-trip
+
+Output:
+plugin-hostd: /tmp/plugin-hostd/plugin-hostd version: 0.10.0
+omx-clap-host: /tmp/omx-clap-core/omx-clap-host
+members: omx-strip, omx-limiter (CLAP, /usr/lib/clap), omx-delay (LV2, adapter row); clap:/tmp/omx-clap-core/tests/fault-14.clap#org.openmixer.fault.14 (CLAP, the culprit)
+     alone at 48000 Hz: strip {0: 3.9811 (12.00 dB)}, limiter {108: 1.0000 (0.00 dB)}, delay {0: 0.5000 (-6.02 dB), 480: 0.4992 (-6.03 dB)}
+     the chain plays strip, limiter, delay (as declared), against strip, delay, limiter: peak 0.32529 (reference 0.32529, other order 0.40778); against the reference bit for bit; against the other order 0.111, -19.1 dBFS; two references of one order bit for bit
+     the chain plays strip, limiter, delay (as declared), against limiter, strip, delay: peak 0.32529 (reference 0.32529, other order 0.99078); against the reference bit for bit; against the other order 0.698, -3.1 dBFS; two references of one order bit for bit
+     as declared: taps {108: 0.6219 (-4.13 dB), 588: 0.6208 (-4.14 dB)}, peak -9.75 dBFS
+ok   three_members_play_in_the_declared_order
+     the re-formed chain plays strip, delay, against strip, limiter, delay: peak 0.99078 (reference 0.99078, other order 0.32529); against the reference bit for bit; against the other order 1.24, 1.9 dBFS; two references of one order bit for bit
+     after the removal: taps {0: 1.9905 (5.98 dB), 480: 1.9873 (5.97 dB)} (want {0: 1.9905 (5.98 dB), 480: 1.9873 (5.97 dB)}), peak -0.08 dBFS
+ok   removing_the_limiter_re_forms_the_chain
+     the four, fault's gain 0.10: taps {108: 0.1991 (-14.02 dB), 588: 0.1987 (-14.03 dB)} (want {108: 0.1991 (-14.02 dB), 588: 0.1987 (-14.03 dB)})
+     the chain plays strip, limiter, delay (after the crash), against strip, delay, limiter: peak 0.32529 (reference 0.32529, other order 0.40778); against the reference bit for bit; against the other order 0.111, -19.1 dBFS; two references of one order bit for bit
+     the chain plays strip, limiter, delay (after the crash), against limiter, strip, delay: peak 0.32529 (reference 0.32529, other order 0.99078); against the reference bit for bit; against the other order 0.698, -3.1 dBFS; two references of one order bit for bit
+     after the crash: taps {108: 0.6219 (-4.13 dB), 588: 0.6208 (-4.14 dB)}, peak -9.75 dBFS
+ok   a_crashed_member_leaves_the_three_playing
+     the chain plays strip, limiter, delay (as declared), against strip, delay, limiter: peak 0.99078 (reference 0.32529, other order 0.40778); against the reference 0.698, -3.1 dBFS; against the other order 0.624, -4.1 dBFS; two references of one order bit for bit
+ok   sabotage red: the chain line in reverse slot order -> three_members_play_in_the_declared_order (Fail: the chain plays strip, limiter, delay (as declared), against strip, delay, limiter: peak 0.99078 (reference 0.32529, other order 0.40778); against the reference 0.698, -3.1 dBFS; against the other order 0.624, -4.1 dBFS; two references of one order bit for bit)
+     the chain plays strip, limiter, delay (as declared), against strip, delay, limiter: peak 0.24887 (reference 0.32529, other order 0.40778); against the reference 0.523, -5.6 dBFS; against the other order 0.6, -4.4 dBFS; two references of one order bit for bit
+ok   sabotage red: the chain line without its last member -> three_members_play_in_the_declared_order (Fail: the chain plays strip, limiter, delay (as declared), against strip, delay, limiter: peak 0.24887 (reference 0.32529, other order 0.40778); against the reference 0.523, -5.6 dBFS; against the other order 0.6, -4.4 dBFS; two references of one order bit for bit)
+     the re-formed chain plays strip, delay, against strip, limiter, delay: peak 0.32529 (reference 0.99078, other order 0.32529); against the reference 1.24, 1.9 dBFS; against the other order bit for bit; two references of one order bit for bit
+ok   sabotage red: the chain not formed again after a removal -> removing_the_limiter_re_forms_the_chain (Fail: the re-formed chain plays strip, delay, against strip, limiter, delay: peak 0.32529 (reference 0.99078, other order 0.32529); against the reference 1.24, 1.9 dBFS; against the other order bit for bit; two references of one order bit for bit)
+ROUND TRIP PASS: 0 failed

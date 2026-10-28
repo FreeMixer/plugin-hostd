@@ -1,0 +1,37 @@
+add	add http://calf.sourceforge.net/plugins/Compressor 0	resp 0	resp 0	resp 0
+bypass	bypass 0 1	resp 0	resp 0	resp 0
+bypass	bypass 0 0	resp 0	resp 0	resp 0
+param_set	param_set 0 threshold 0.5	resp 0	resp 0	resp 0
+patch_get	patch_get 0 urn:spike:property	resp -902	resp -902	resp -902
+patch_set	patch_set 0 urn:spike:property 1	resp -902	resp -902	resp -902
+monitor_output	monitor_output 0 compression	resp 1	resp 1	resp 0
+midi_learn	midi_learn 0 threshold 0 1	resp 1	resp 1	resp -902
+midi_map	midi_map 0 threshold 0 7 0 1	resp 1	resp 1	resp -902
+midi_unmap	midi_unmap 0 threshold	resp 1	resp 1	resp -902
+cc_map	cc_map 0 threshold 1 1 Knob 0.5 0 1 32 0 none 0	resp -401	resp -401	resp -902
+cc_value_set	cc_value_set 0 threshold 0.5	resp -401	resp -401	resp -902
+cc_unmap	cc_unmap 0 threshold	resp -401	resp -401	resp -902
+cv_map	cv_map 0 threshold system:capture_1 0 1 +	resp 0	resp 0	resp -902
+cv_unmap	cv_unmap 0 threshold	resp 0	resp 0	resp -902
+hmi_map	hmi_map 0 threshold 0 0 0 0 0 Knob 0 1 32	resp -403	resp -403	resp -902
+hmi_unmap	hmi_unmap 0 threshold	resp -403	resp -403	resp -902
+preset_save	preset_save 0 "spike" /tmp/spike/patha/probe-ref/spike.lv2 spike.ttl	resp 0	resp 0	resp -902
+bundle_add	bundle_add "/tmp/spike/patha/probe-ref/spike.lv2"	resp 0	resp 0	resp -902
+preset_load	preset_load 0 file:///tmp/spike/patha/probe-ref/spike.lv2/spike.ttl	resp 0	resp 0	resp -902
+preset_show	preset_show file:///tmp/spike/patha/probe-ref/spike.lv2/spike.ttl	<text 717 bytes>	<text 717 bytes>	resp -902
+bundle_remove	bundle_remove "/tmp/spike/patha/probe-ref/spike.lv2" ""	resp 0	resp 0	resp -902
+state_tmpdir	state_tmpdir /tmp/spike/patha/probe-ref/tmp	resp 0	resp 0	resp -902
+state_save	state_save /tmp/spike/patha/probe-ref/state	resp 0	resp 0	resp 0
+state_load	state_load /tmp/spike/patha/probe-ref/state	resp 0	resp 0	resp -105
+feature_enable	feature_enable processing 1	resp 0	resp 0	resp -902
+feature_enable	feature_enable aggregated-midi 1	resp -202	resp -202	resp -902
+transport	transport 1 4 120	resp 0	resp 0	resp 0
+transport_sync	transport_sync none	resp 0	resp 0	resp 0
+monitor_midi_program	monitor_midi_program 0 1	resp 0	resp 0	resp -902
+connect	connect system:capture_1 effect_0:in_l	resp 0	resp 0	resp 0
+connect	connect effect_0:out_l system:playback_1	resp 0	resp 0	resp 0
+connect	connect system:capture_1 mod-monitor:in_1	resp 0	resp 0	resp -205
+cpu_load	cpu_load	resp 0	resp 0	resp 0
+output_data_ready	output_data_ready	resp 0	resp 0	resp -902
+show_external_ui	show_external_ui 0	resp -902	resp -902	resp -902
+remove	remove 0	resp 0	resp 0	resp 0

@@ -1,0 +1,50 @@
+root partition offset 541065216
+== /etc/os-release
+== /etc/debian_version
+13.7
+== /zynthian/build_info.txt
+ZynthianOS Vangelis-2610.1
+
+Timestamp: 2026-10-15
+
+Built from RaspberryPiOS Trixie (aarch64)
+== packages: 2125
+jackd2 1.9.22~dfsg-4
+libjack-jackd2-0 1.9.22~dfsg-4
+python3 3.13.5-1
+liblilv-0-0 0.24.26-1
+linux-image-rpi-v8 1:6.18.50-1+rpt1
+linux-image-rpi-2712 1:6.18.50-1+rpt1
+raspi-firmware 1:1.20260915-1
+a2jmidid 9-3.1
+== zynthian-ui refs/heads/vangelis b82dfccf9ba3cc80317118abad32a326cc9ffb04
+== zynthian-sys refs/heads/vangelis f5e41b3b270ae5152c43b90f1556a2c85aa63896
+== zynthian-webconf refs/heads/vangelis 7c229b35f96f04941cb6e7605be83b007ddf7f33
+== zyncoder refs/heads/vangelis fa1198a4806c7680666f805d1facb4c82241729e
+== /zynthian/zynthian-sw
+(12) (12) (16) (16) (20) (284) (32) (3564) (36) (92) 623361 623363 628244 63145 644434 652453 656471 754405 872997 875560 filebrowser jalv mod-host mod-ui noVNC pianoteq plugins setBfree 
+== mod-host / jalv / mod-ui
+/usr/local/bin/mod-host: Inode: 37196   Type: regular    Mode:  0755   Flags: 0x80000
+/usr/local/bin/jalv: Inode: 805   Type: regular    Mode:  0755   Flags: 0x80000
+/zynthian/zynthian-sw/mod-ui/server.py: Inode: 73890   Type: regular    Mode:  0755   Flags: 0x80000
+== LV2 bundles
+/usr/lib/lv2 262
+/usr/local/lib/lv2 50
+/zynthian/zynthian-plugins/lv2 297
+== /zynthian/config/zynthian_envars.sh (audio, JACK, board)
+29:export ZYNTHIAN_KIT_VERSION=""
+41:export SOUNDCARD_NAME=""
+42:export SOUNDCARD_CONFIG=""
+43:export SOUNDCARD_MIXER=""
+44:export JACKD_OPTIONS=""
+45:export ZYNTHIAN_DISABLE_RBPI_AUDIO="0"
+46:export ZYNTHIAN_RBPI_HEADPHONES="0"
+49:export DISPLAY_NAME="MIPI DSI 800x480 (inverted)"
+58:export ZYNTHIAN_WIRING_LAYOUT=""
+59:export ZYNTHIAN_WIRING_ENCODER_A=""
+60:export ZYNTHIAN_WIRING_ENCODER_B=""
+61:export ZYNTHIAN_WIRING_SWITCHES=""
+62:export ZYNTHIAN_WIRING_MCP23017_I2C_ADDRESS=""
+63:export ZYNTHIAN_WIRING_MCP23017_INTA_PIN=""
+64:export ZYNTHIAN_WIRING_MCP23017_INTB_PIN=""
+== /boot/firmware/config.txt (dtoverlay, governor-relevant)

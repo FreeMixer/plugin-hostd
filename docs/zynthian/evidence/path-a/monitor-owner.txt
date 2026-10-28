@@ -1,0 +1,20 @@
+resp 0
+resp 1
+resp 2 w1:10612:lv2:up:own:0 w2:10621:lv2:up:own:1
+mod-host:midi_in
+mod-monitor:in_1
+mod-monitor:in_2
+mod-monitor:out_1
+mod-monitor:out_2
+effect_0:in
+effect_0:out
+mod-host-01:midi_in
+effect_1:in
+effect_1:out
+--- remove 0
+resp 0
+resp -205
+resp -205
+mod-host-01:midi_in
+effect_1:in
+effect_1:out
