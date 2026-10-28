@@ -15,7 +15,7 @@ FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "
 # an LV2 bundle (MOD_HOST, LV2_DIR, LV2_URI, LV2_BUNDLE, LV2_PARAM) and is skipped without them; "pin" breaks
 # include/plugin-hostd/pin.h and runs tests/pin_test.c; "readme" breaks README.md or BUILDING.md and runs
 # tests/readme_build.py, with no daemon to build; "probeschema" breaks protocol/probe-output.schema.json and runs
-# tests/probe_schema.py; "relay" breaks src/relay.c and runs tests/relay_test.c; "history" breaks src/history.c or src/fsutil.c and runs tests/history_test.c; "proc" breaks src/proc.c and runs tests/proc_test.c; "alloc" breaks src/relay.c or src/lv2.c and runs make test-alloc; "contract" breaks the probe runner or the generator and runs tests/contract_derived.py; "consumer" breaks the header and compiles tests/consumer.c against it; "probe" breaks src/probe.c and runs tests/probe_test.py; "nopins" breaks the packaging or a workflow and runs tests/no_pins.py; "ciguards" breaks a workflow and runs tests/ci_guards.py;
+# tests/probe_schema.py; "relay" breaks src/relay.c and runs tests/relay_test.c; "history" breaks src/history.c or src/fsutil.c and runs tests/history_test.c; "proc" breaks src/proc.c and runs tests/proc_test.c; "alloc" breaks src/relay.c, src/lv2.c or src/verbs.c and runs make test-alloc; "contract" breaks the probe runner or the generator and runs tests/contract_derived.py; "consumer" breaks the header and compiles tests/consumer.c against it; "probe" breaks src/probe.c and runs tests/probe_test.py; "nopins" breaks the packaging or a workflow and runs tests/no_pins.py; "ciguards" breaks a workflow and runs tests/ci_guards.py;
 # "vocabulary" breaks the probe schema, its template or a copy of omx-contract's omx-vocabulary.schema.json and runs
 # tests/vocabulary_derived.py; "verbtable" breaks the header and runs tests/verb_table.py; "presetschema" breaks
 # protocol/preset.schema.json and runs tests/preset_format.py; "pool" breaks tests/sabotage_pool.py or the port range of
@@ -355,6 +355,13 @@ SABOTAGE = [
      "    if (grown == NULL)\n        return;\n", "", "alloc_test", "alloc"),
     ("a pick the lv2 table has no memory for takes the table with it", "src/lv2.c",
      "        if (grown == NULL)\n            return -1;\n", "", "alloc_test", "alloc"),
+    ("a message there is no memory to copy is read anyway", "src/verbs.c", "    if (!line)\n", "    if (0)\n",
+     "alloc_test", "alloc"),
+    ("a message there is no memory to split is split anyway", "src/verbs.c", "    if (!copy)\n", "    if (0)\n",
+     "alloc_test", "alloc"),
+    ("a message there is no memory to split leaks its line", "src/verbs.c",
+     "        reply(msg->sender_id, NULL);\n        free(line);\n", "        reply(msg->sender_id, NULL);\n", "alloc_test", "alloc"),
+    ("an answer there is no memory for is sent anyway", "src/verbs.c", "    if (!text)\n", "    if (0)\n", "alloc_test", "alloc"),
     ("the host's pin overrides a pins.d refusal", "src/pins.c", "    pin_t *p = pkg_refusal(uri);\n\n    if (!p)\n",
      "    pin_t *p = NULL;\n\n    if (!p)\n", "a_pins_d_refusal_wins_over_any_other_pins_d_pin_and_over_the_host"),
     ("pin_set overrides a pins.d refusal", "src/pins.c", "    if (pkg_refusal(pin.uri))\n", "    if (0)\n", "a_pins_d_refusal_wins_over_any_other_pins_d_pin_and_over_the_host"),
@@ -1427,8 +1434,9 @@ def run_proc_test(tree):
 
 
 def run_alloc_test(tree):
-    """make test-alloc: the tables of src/relay.c and src/lv2.c when realloc fails; prints "ok   alloc_test" when no check failed"""
-    for f in ("tests/gesture-alloc-test", "tests/lv2-alloc-test", "tests/lv2-alloc-lv2.o"):
+    """make test-alloc: the tables of src/relay.c and src/lv2.c when realloc fails, and the copies and the answer of
+    src/verbs.c when memory runs out; prints "ok   alloc_test" when no check failed"""
+    for f in ("tests/gesture-alloc-test", "tests/lv2-alloc-test", "tests/lv2-alloc-lv2.o", "tests/verbs-alloc-test"):
         if os.path.exists(os.path.join(tree, f)):
             os.unlink(os.path.join(tree, f))
     p = subprocess.run(["make", "-s", "MOD_HOST_DIR=" + MOD_HOST_DIR, "test-alloc"], cwd=tree, capture_output=True, text=True,
@@ -1581,7 +1589,7 @@ def arm(entry, tree):
         shutil.copytree(os.path.join(ROOT, "include"), os.path.join(tree, "include"))
         shutil.copy(os.path.join(ROOT, "Makefile"), tree)
         os.makedirs(os.path.join(tree, "tests"))
-        for f in ("gesture_alloc_test.c", "lv2_alloc_test.c"):
+        for f in ("gesture_alloc_test.c", "lv2_alloc_test.c", "verbs_alloc_test.c"):
             shutil.copy(os.path.join(ROOT, "tests", f), os.path.join(tree, "tests"))
     elif jack == "probe":
         # the probe is built by the Makefile's own rule: its sources, headers and the spec its VERSION is read from

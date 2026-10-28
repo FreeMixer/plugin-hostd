@@ -2,12 +2,12 @@ Breaks the check of fuzz/fuzz_command.c:240 (the reply is a string that ends whe
 Caught by the seed input "add-default" of fuzz_command.
 
 diff --git a/src/verbs.c b/src/verbs.c
-index 78daab7..6b8af56 100644
+index aebc6c6..4859ca8 100644
 --- a/src/verbs.c
 +++ b/src/verbs.c
-@@ -118,5 +118,5 @@ static char *chain_words(char **tok, int ntok)
- static void reply(int fd, char *text)
- {
+@@ -127,5 +127,5 @@ static void reply(int fd, char *text)
+         return;
+     }
 -    socket_send(fd, text, strlen(text) + 1);
 +    socket_send(fd, text, strlen(text));
      free(text);
