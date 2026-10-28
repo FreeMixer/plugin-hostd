@@ -1,33 +1,5 @@
 {
-  "_note": "Fixed facts the report states in words. Each carries the file or PR it was read from. Measured numbers never live here.",
-  "device": {
-    "value": "Raspberry Pi 5, 4 cores, 4 GB, Zynthian vangelis-2610.1-2, Debian 13 trixie arm64, kernel 6.18",
-    "source": "memory reference_zynthian_rpi5_2026-10-26.md"
-  },
-  "live_ms": {
-    "value": 5,
-    "source": "FreeMixer/zynthian-ui PR 2, ZYNTHIAN_PLUGIN_LIVE_MS"
-  },
-  "ph_port": {
-    "value": 5570,
-    "source": "FreeMixer/zynthian-ui PR 1"
-  },
-  "modhost_port": {
-    "value": 5555,
-    "source": "FreeMixer/zynthian-sys PR 2"
-  },
-  "clap_files": {
-    "value": 57,
-    "source": "bench-harness brief, Pi 5 /usr/lib/clap"
-  },
-  "qualify_command": {
-    "value": "plugin-qualify --all --isolate --rates 48000 --quanta 256",
-    "source": "bench-harness brief"
-  },
-  "upstream_state": {
-    "value": "All changes are pull requests inside the FreeMixer forks. None is open on the zynthian organisation yet.",
-    "source": "briefs 2026-10-26-zynthian-ui-engine and zynthian-sys-openmixer: open nothing on the upstream organisation"
-  },
+  "_note": "Fixed facts the report states in words. Each carries a public source: a pull request or issue of a public repository, or a file of this repository. Measured numbers never live here.",
   "prs": [
     {
       "repo": "FreeMixer/zynthian-sys",

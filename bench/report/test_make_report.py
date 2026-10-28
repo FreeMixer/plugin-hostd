@@ -62,6 +62,19 @@ class Case(unittest.TestCase):
                 self.assertRegex(s["source"], r"^FreeMixer/zynthian-(ui|sys)#[0-9]+$", key)
                 self.assertIn("%s (%s)" % (s["text"], s["source"]), md)
 
+    def test_facts_cite_only_public_sources(self):
+        facts = json.load(open(FACTS))
+        self.assertEqual(sorted(k for k in facts if not k.startswith("_")), ["prs", "statements"])
+        public = r"^FreeMixer/(zynthian-ui|zynthian-sys|plugin-hostd)#[0-9]+$"
+        sources = [s["source"] for items in facts["statements"].values() for s in items]
+        sources += ["%s#%d" % (p["repo"], p["number"]) for p in facts["prs"]]
+        self.assertTrue(sources)
+        for src in sources:
+            self.assertRegex(src, public)
+        text = open(FACTS).read().lower()
+        for private in ("memory", "brief", "reference_", "notes"):
+            self.assertNotIn(private, text)
+
     def test_machine_line_is_read_from_the_document(self):
         self.write("b/rpi.json", bench("rpi5", [scen("idle", "H1")]))
         self.run_main()
