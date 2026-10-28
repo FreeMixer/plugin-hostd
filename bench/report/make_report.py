@@ -120,15 +120,14 @@ def _read(path):
 def parse_earlier(dirpath):
     """Hand runs on the Pi 5: per rate the 3-plugin chain and Pianoteq, with the file they came from."""
     runs = {}
-    gov = None
     for f in sorted(glob.glob(os.path.join(dirpath, "zy-96test*.out"))):
         text = _read(f)
         if not text:
             continue
         m = re.search(r"uri: (\S+)", text)
         uri = m.group(1) if m else None
-        if re.search(r"governor: \w+ -> performance", text):
-            gov = "performance"
+        g = re.search(r"governor: \w+ -> (\w+)", text)
+        gov = g.group(1) if g else "not recorded in the file"
         for block in re.split(r"(?m)^=== ", text)[1:]:
             h = re.match(r"(\d+) Hz, (\d+) frames", block)
             if not h:
@@ -137,12 +136,12 @@ def parse_earlier(dirpath):
             r = runs.setdefault(rate, {"frames": frames})
             c = re.search(r"3-plugin chain \+ sine:\s+avg ([\d.]+)% max ([\d.]+)% \((\d+) samples\)", block)
             if c:
-                r["chain3"] = {"avg": float(c.group(1)), "max": float(c.group(2)), "n": int(c.group(3)), "src": os.path.basename(f)}
+                r["chain3"] = {"avg": float(c.group(1)), "max": float(c.group(2)), "n": int(c.group(3)), "src": os.path.basename(f), "gov": gov}
             add = re.search(r"add PIANOTEQ lv2 \(\d+\): resp (-?\d+)", block)
             p = re.search(r"Pianoteq 5-note chords:\s+avg ([\d.]+)% max ([\d.]+)% \((\d+) samples\)", block)
             if add and p and int(add.group(1)) >= 0:
                 r["pianoteq"] = {"avg": float(p.group(1)), "max": float(p.group(2)), "n": int(p.group(3)), "src": os.path.basename(f), "uri": uri}
-    return {"runs": runs, "governor": gov} if runs else None
+    return {"runs": runs} if runs else None
 
 
 def parse_qpilot(dirpath):
@@ -481,11 +480,11 @@ def sec_measure(doc, facts, rpi, earlier, results_dir, ci_docs):
         doc.na("Pianoteq 9 at both rates")
     # hand-run chain3 when the bench doc has none
     if earlier and not any(s["id"] == "chain3" and s["host"] == "H2" for s in scen):
-        r = [[str(rate), str(e["frames"]), num(e["chain3"]["avg"]), num(e["chain3"]["max"]), str(e["chain3"]["n"]), e["chain3"]["src"]]
+        r = [[str(rate), str(e["frames"]), e["chain3"]["gov"], num(e["chain3"]["avg"]), num(e["chain3"]["max"]), str(e["chain3"]["n"]), e["chain3"]["src"]]
              for rate, e in sorted(earlier["runs"].items()) if e.get("chain3")]
         if r:
-            doc.p("Hand run of the three-plugin chain under plugin-hostd, governor %s:" % (earlier.get("governor") or "unrecorded"))
-            doc.table(["rate", "frames", "DSP load avg %", "max %", "samples", "source"], r)
+            doc.p("Hand run of the three-plugin chain under plugin-hostd:")
+            doc.table(["rate", "frames", "governor", "DSP load avg %", "max %", "samples", "source"], r)
 
 
 def sec_qual(doc, facts, rpi, qpilot, qdocs, coverage):

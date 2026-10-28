@@ -292,6 +292,12 @@ class Case(unittest.TestCase):
         self.assertNotIn("pianoteq", r["runs"][48000])
         self.assertEqual(r["runs"][48000]["chain3"]["avg"], 0.4)
 
+    def test_governor_is_read_per_hand_run_file(self):
+        self.write("e/zy-96test1.out", "governor: ondemand -> performance\n=== 48000 Hz, 256 frames: a\n3-plugin chain + sine:  avg 0.4% max 0.5% (10 samples)\n")
+        self.write("e/zy-96test2.out", "=== 96000 Hz, 256 frames: a\n3-plugin chain + sine:  avg 0.6% max 0.7% (10 samples)\n")
+        r = m.parse_earlier(os.path.join(self.d, "e"))["runs"]
+        self.assertEqual((r[48000]["chain3"]["gov"], r[96000]["chain3"]["gov"]), ("performance", "not recorded in the file"))
+
     def test_earlier_good_pianoteq(self):
         self.write("e/zy-96test2.out", "pianoteq lv2 uri: u\n=== 96000 Hz, 256 frames: a\nadd PIANOTEQ lv2 (3): resp 3\n"
                    "+ Pianoteq 5-note chords: avg 20.5% max 24.0% (12 samples)\n")
