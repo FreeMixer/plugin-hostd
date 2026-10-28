@@ -52,6 +52,8 @@ enum {
     PLANNER_REASON_NO_VERDICT,
     PLANNER_REASON_VERDICT_ISOLATED,
     PLANNER_REASON_FORMAT_WORLD,
+    PLANNER_REASON_HISTORY_CRASHED,
+    PLANNER_REASON_HISTORY_XRUNS,
     PLANNER_REASON_COST_OVER,
     PLANNER_REASON_FORMAT_MIXED,
     PLANNER_REASON_GROUP_FULL,
@@ -59,15 +61,18 @@ enum {
     PLANNER_REASON_COST_ASSUMED,
     PLANNER_REASON_NO_NEIGHBOUR,
     PLANNER_REASON_GROUPING_OFF,
+    PLANNER_REASON_HISTORY_UNAVAILABLE,
     PLANNER_REASON_PLAN_REFUSED,
     PLANNER_REASON_COUNT
 };
 
 /* What the history of a plugin on this host class comes to (the design note, The history record), for the rules that
- * read it. Nothing reads it yet: the history record and the rules that use it are the next lane's. A member's history
- * is NULL when there is none, which is neutral. */
+ * read it: history-crashed, history-xruns, and the cost of a member, which is the larger of the qualified one and
+ * cpu_p95_solo. The supervisor fills it from src/history.c, whose rules (history_crashed, history_raises_xruns) are the
+ * source of truth, and from the quarantine, which is a crash the daemon has seen itself. A member's history is NULL
+ * when there is none, which is neutral: a plugin with none is judged by its pin and its cost. */
 typedef struct PLANNER_HISTORY_T {
-    int crashed;                /* a crash within history_keep_days */
+    int crashed;                /* a crash within history_keep_days, or a quarantine now */
     int raises_xruns;           /* more xrun windows grouped than alone */
     double cpu_p95_solo;        /* fraction of one core over the windows run alone, PLANNER_COST_UNKNOWN for none */
 } planner_history_t;
@@ -88,6 +93,7 @@ typedef struct PLANNER_SETTINGS_T {
     int grouping_on;            /* off: the plan is the plan the daemon would apply */
     int group_max;              /* most members of a segment, 0 for no limit */
     double group_cost_max;      /* most the costs of a segment add to, a fraction of one core, 0 for no limit */
+    int history_unavailable;    /* the history is blocked or off: the plan is made without it, and says so */
 } planner_settings_t;
 
 /* seg_len[0..nseg) are the lengths of the segments, which are consecutive runs of the members in the order given;

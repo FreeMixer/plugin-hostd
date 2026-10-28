@@ -36,22 +36,32 @@ const char *planner_reason_word(int reason)
     return g_reason_words[reason];
 }
 
-/* ---------------------------------------------------------------- the seams the history record fills in */
+/* ---------------------------------------------------------------- what the history says */
 
-/* The cost a member counts for in a segment. Today it is the qualification cost the supervisor read. With the history
- * it is the larger of that and the member's cpu_p95_solo (the design note, The history record), which is this
- * function's one line to change. PLANNER_COST_UNKNOWN when nobody measured it. */
+/* The cost a member counts for in a segment: the larger of the qualification cost the supervisor read and the member's
+ * cpu_p95_solo (the design note, The history record), since a group's worker time cannot be split among its members and
+ * only the windows a plugin ran alone say what it costs. A cost nobody measured does not lower the other: when only one
+ * is known that one stands. PLANNER_COST_UNKNOWN when neither is. */
 static double member_cost(const planner_member_t *m)
 {
-    return m->cost;
+    double cost = m->cost;
+
+    /* PLANNER_COST_UNKNOWN is below every cost, so a solo cost also stands for a qualified one nobody has */
+    if (m->history && m->history->cpu_p95_solo > cost)
+        cost = m->history->cpu_p95_solo;
+    return cost;
 }
 
-/* The reason the history keeps a member alone, or PLANNER_REASON_NONE. history-crashed and history-xruns are the rules
- * of the history lane: until they exist a history is neutral, whatever it holds, so a plugin with none and a plugin
- * with some are judged alike. */
+/* The reason the history keeps a member alone, or PLANNER_REASON_NONE. A crash is judged before the xruns: it is the
+ * stronger evidence. Both only ever make the plan more careful than the pin; a member with no history is neutral. */
 static int history_reason(const planner_member_t *m)
 {
-    (void)m;
+    if (!m->history)
+        return PLANNER_REASON_NONE;
+    if (m->history->crashed)
+        return PLANNER_REASON_HISTORY_CRASHED;
+    if (m->history->raises_xruns)
+        return PLANNER_REASON_HISTORY_XRUNS;
     return PLANNER_REASON_NONE;
 }
 
@@ -173,7 +183,10 @@ int planner_plan(const planner_settings_t *s, const planner_member_t *m, int n, 
         {
             if (out->reason[j] != PLANNER_REASON_NONE)
                 continue;
-            if (len == 1)
+            /* a plan made without the history says so of every member that has nothing harder to say */
+            if (s->history_unavailable)
+                out->reason[j] = PLANNER_REASON_HISTORY_UNAVAILABLE;
+            else if (len == 1)
                 out->reason[j] = PLANNER_REASON_NO_NEIGHBOUR;
             else if (!s->grouping_on)
                 out->reason[j] = PLANNER_REASON_GROUPING_OFF;

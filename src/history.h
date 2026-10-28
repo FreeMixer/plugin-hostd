@@ -69,7 +69,12 @@ void history_crash(const char *uri, const char *digest, int grouped, long long n
 void history_restart(const char *uri, const char *digest, int grouped, long long now);
 void history_quarantine(const char *uri, const char *digest, long long now);
 
-/* the summary the planner reads: crashed when a crash is within PHD_HISTORY_KEEP_DAYS of `now`, raises_xruns by the
+/* the two verdicts of the summary, for the caller that holds the record: the daemon's rules, which plugin-qualify's
+ * adjust --history copies. crashed: a crash within PHD_HISTORY_KEEP_DAYS of `now`; raises_xruns: the margin of protocol.h */
+int history_crashed(const history_rec_t *rec, long long now);
+int history_raises_xruns(const history_rec_t *rec);
+
+/* the summary history_get answers: crashed when a crash is within PHD_HISTORY_KEEP_DAYS of `now`, raises_xruns by the
  * margin of protocol.h; malloc'd, one word: "digest=<digest>,class=<class>,crashed=<0|1>,raises_xruns=<0|1>,key=value,..." with every key
  * of the record, NULL for no record */
 char *history_summary(const char *uri, const char *digest, long long now);

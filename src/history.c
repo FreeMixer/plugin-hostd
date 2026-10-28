@@ -586,7 +586,7 @@ void history_quarantine(const char *uri, const char *digest, long long now)
 
 /* ---------------------------------------------------------------- what is read */
 
-static int crashed(const history_rec_t *r, long long now)
+int history_crashed(const history_rec_t *r, long long now)
 {
     long long last = r->last_crash > r->last_crash_grouped ? r->last_crash : r->last_crash_grouped;
 
@@ -594,7 +594,7 @@ static int crashed(const history_rec_t *r, long long now)
 }
 
 /* the share of xrun windows grouped exceeds the share alone by the margin: xg/wg > xs/ws + m/100, cross-multiplied */
-static int raises_xruns(const history_rec_t *r)
+int history_raises_xruns(const history_rec_t *r)
 {
     long long wg = r->windows_grouped, xg = r->xrun_windows_grouped, ws = r->windows_solo, xs = r->xrun_windows_solo;
 
@@ -614,7 +614,7 @@ char *history_summary(const char *uri, const char *digest, long long now)
 
     if (!r || !(mem = open_memstream(&buf, &size)))
         return NULL;
-    fprintf(mem, "digest=%s,class=%s,crashed=%d,raises_xruns=%d", r->digest, r->klass, crashed(r, now), raises_xruns(r));
+    fprintf(mem, "digest=%s,class=%s,crashed=%d,raises_xruns=%d", r->digest, r->klass, history_crashed(r, now), history_raises_xruns(r));
     keys_write(mem, r, ',');
     fclose(mem);
     return buf;

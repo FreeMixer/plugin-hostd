@@ -2931,11 +2931,21 @@ def record_for(d, plugin_id, ns_p95, rate=48000, quantum=128, name=None):
         json.dump(doc, f)
 
 
-def plan_run(conf=None):
+def plan_run(conf=None, history=None):
     """five pinned plugins of one file under first-use, 3 of verdict isolated and 6 never given a verdict, a daemon with
-    grouping on"""
+    grouping on. history is the body of a history file the daemon finds at start: the lines of {n: "key=value ..."}, each
+    for the n-th plugin and the binary its pin holds, under the test's own host class, or a string written as it is"""
     p = Plugins()
     c = {"pin_mode": "first-use", "grouping": "on"}
+    if history is not None:
+        path = os.path.join(p.dir, "history")
+        if isinstance(history, str):
+            body = history
+        else:
+            body = "# plugin-hostd history/1\n" + "".join(
+                "history %s %s %s %s\n" % (clap_n(p, n), sha(p.clap), HISTORY_CLASS, kv) for n, kv in sorted(history.items()))
+        write(path, body.encode())
+        c.update({"history_file": path, "host_class": HISTORY_CLASS, "history_window_s": 3600})
     c.update(conf or {})
     d = p.daemon(conf=c)
     for n in (1, 2, 4, 5):
@@ -3203,6 +3213,253 @@ def the_same_members_are_planned_into_the_same_segments_and_reasons_by_every_dae
             d.close()
             p.close()
     check(len(set(answers[0] + answers[1])) == 1, "six plan_get answers, one text: %s" % answers)
+
+
+# ---------------------------------------------------------------- the planner reads the history, and plans again
+
+HISTORY_CLASS = "testarch/1-2/<1.5GHz"
+DAY = 86400
+
+
+def plan_after_history(history, conf=None, records=None):
+    """the plan of 1 2 3 4 5 under a history, all five pinned in-process, then the daemon's two answers"""
+    p, d = plan_run(conf=conf, history=history)
+    try:
+        for n in range(1, 6):
+            d.expect(pin_n(p, n, "in-process"), "resp 0")
+        for plugin_id, ns, kw in records or []:
+            record_for(d, plugin_id, ns, **kw)
+        segments = d.send("plan 1 1 2 3 4 5")
+        return segments, d.send("plan_get 1")
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def a_plugin_the_history_marks_crashed_stays_alone_for_30_days_and_says_so():
+    now = int(time.time())
+    seg, got = plan_after_history({3: "crashes_solo=1 last_crash=%d" % (now - 29 * DAY)})
+    check(seg == "resp 0 1,2;3;4,5", "the crashed one is alone: %s" % seg)
+    check(got == "resp 0 1,2;3;4,5 1:cost-assumed,2:cost-assumed,3:history-crashed,4:cost-assumed,5:cost-assumed", got)
+    # a crash in a group counts the same; one 31 days old does not
+    seg, got = plan_after_history({2: "crashes_grouped=2 last_crash_grouped=%d" % (now - DAY),
+                                   4: "crashes_solo=3 last_crash=%d" % (now - 31 * DAY)})
+    check(seg == "resp 0 1;2;3,4,5", "plugin 2 alone, plugin 4 forgiven: %s" % seg)
+    check(got == "resp 0 1;2;3,4,5 1:no-neighbour,2:history-crashed,3:cost-assumed,4:cost-assumed,5:cost-assumed", got)
+
+
+@test
+def a_plugin_the_history_marks_as_raising_xruns_stays_alone_and_says_so():
+    # 20 of 40 windows in a group with an xrun, none of 40 alone: far over the 5 point margin
+    seg, got = plan_after_history({3: "windows_solo=40 windows_grouped=40 xrun_windows_grouped=20"})
+    check(seg == "resp 0 1,2;3;4,5", seg)
+    check(got == "resp 0 1,2;3;4,5 1:cost-assumed,2:cost-assumed,3:history-xruns,4:cost-assumed,5:cost-assumed", got)
+    # too few windows, or a share that is not over the margin: it joins
+    seg, got = plan_after_history({3: "windows_solo=40 windows_grouped=29 xrun_windows_grouped=29",
+                                   4: "windows_solo=40 windows_grouped=40 xrun_windows_solo=20 xrun_windows_grouped=22"})
+    check(seg == "resp 0 1,2,3,4,5", "29 windows are too few, 22 of 40 against 20 of 40 is no margin: %s" % seg)
+
+
+@test
+def a_crash_is_said_before_xruns_and_the_pin_is_said_before_both():
+    now = int(time.time())
+    hist = {3: "crashes_solo=1 last_crash=%d windows_solo=40 windows_grouped=40 xrun_windows_grouped=40" % now,
+            2: "crashes_solo=1 last_crash=%d" % now}
+    p, d = plan_run(history=hist)
+    try:
+        for n in (1, 3, 4, 5):
+            d.expect(pin_n(p, n, "in-process"), "resp 0")
+        # 2 is crashed and isolated, 3 is crashed and raises xruns
+        d.expect(pin_n(p, 2, "isolated"), "resp 0")
+        d.expect("plan 1 1 2 3 4 5", "resp 0 1;2;3;4,5")
+        d.expect("plan_get 1", "resp 0 1;2;3;4,5 1:no-neighbour,2:verdict-isolated,3:history-crashed,4:cost-assumed,5:cost-assumed")
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def the_solo_cost_the_history_holds_is_the_cost_when_it_is_larger_than_the_qualified_one():
+    # 48 kHz: 5000 ns/sample is 24 %, 12500 ns is 60 %
+    hist = {2: "windows_solo=40 cpu_p95_solo=55.00", 4: "windows_solo=40 cpu_p95_solo=10.00"}
+    conf = {"group_cost_max": 50, "group_rate": 48000, "group_quantum": 128}
+    recs = [("org.openmixer.fault.2", 5000, {}), ("org.openmixer.fault.4", 12500, {})]
+    seg, got = plan_after_history(hist, conf=conf, records=recs)
+    # 2 costs 55 % (history over 24 %): over the limit alone; 4 costs 60 % (the record over 10 %): over it too
+    check(seg == "resp 0 1;2;3;4;5", seg)
+    check(got == "resp 0 1;2;3;4;5 1:no-neighbour,2:cost-over,3:no-neighbour,4:cost-over,5:no-neighbour", got)
+    # a plugin with no record: the larger of nothing and 55 percent is 55 percent, which the segment adds up
+    seg, got = plan_after_history({2: "windows_solo=40 cpu_p95_solo=55.00"}, conf={"group_cost_max": 60})
+    check(seg == "resp 0 1,2;3,4,5", "1 (unknown) and 2 (55 percent) fit 60; 3 would add the median of them again: %s" % seg)
+    check(got == "resp 0 1,2;3,4,5 1:cost-assumed,3:group-cost,4:cost-assumed,5:cost-assumed", got)
+    # a plugin that never ran alone has no solo cost, whatever cpu_p95_solo says
+    seg, got = plan_after_history({2: "windows_solo=0 windows_grouped=40 cpu_p95_solo=55.00"}, conf={"group_cost_max": 60})
+    check(seg == "resp 0 1,2,3,4,5", seg)
+
+
+@test
+def a_history_that_cannot_be_read_or_is_off_plans_as_without_one_and_says_so():
+    now = int(time.time())
+    line = "crashes_solo=1 last_crash=%d" % now
+    want = "resp 0 1,2,3,4,5 " + ",".join("%d:history-unavailable" % n for n in range(1, 6))
+    # a file of another version: blocked, so the crash in it is not read
+    p, d = plan_run(history="# plugin-hostd history/2\nhistory x y z %s\n" % line)
+    try:
+        for n in range(1, 6):
+            d.expect(pin_n(p, n, "in-process"), "resp 0")
+        d.expect("plan 1 1 2 3 4 5", "resp 0 1,2,3,4,5")
+        d.expect("plan_get 1", want)
+    finally:
+        d.close()
+        p.close()
+    # window 0: the history is off, and so is the crash in its file
+    p, d = plan_run(history={3: line}, conf={"history_window_s": 0})
+    try:
+        for n in range(1, 6):
+            d.expect(pin_n(p, n, "in-process"), "resp 0")
+        d.expect("plan 1 1 2 3 4 5", "resp 0 1,2,3,4,5")
+        d.expect("plan_get 1", want)
+        # a member that has a harder reason says that one
+        d.expect(pin_n(p, 3, "isolated"), "resp 0")
+        d.expect("plan 1 1 2 3 4 5", "resp 0 1,2;3;4,5")
+        d.expect("plan_get 1", "resp 0 1,2;3;4,5 1:history-unavailable,2:history-unavailable,3:verdict-isolated,"
+                 "4:history-unavailable,5:history-unavailable")
+    finally:
+        d.close()
+        p.close()
+
+
+def plan_of_five(conf=None):
+    """a fake-host daemon with grouping on and the members 1 to 5 planned"""
+    c = {"grouping": "on"}
+    c.update(conf or {})
+    d = daemon(conf=c)
+    for i in range(1, 6):
+        d.expect("add clap:fake#m%d %d" % (i, i), "resp %d" % i)
+    return d
+
+
+def places(d):
+    """{place: [members]} of the workers, by place"""
+    return {w["place"]: w["inst"] for w in d.workers().values()}
+
+
+@test
+def a_member_that_is_quarantined_leaves_its_plan_alone_and_the_segments_that_did_not_change_keep_their_workers():
+    d = plan_of_five({"group_max": 2})
+    try:
+        d.expect("plan 1 1 2 3 4 5", "resp 0 1,2;3,4;5")
+        d.wait_event("chain_formed 1.1 ")
+        first = plan_of(d, 1)[0]["pid"]
+        mark = d.mark()
+        d.expect("param_set 4 crash 1", "resp 0")
+        d.wait_event("instance_quarantined 4 ", since=mark)
+        wait_for(lambda: d.send("plan_get 1").startswith("resp 0 1,2;3;4;5 "), "the plan again: %s" % d.send("plan_get 1"))
+        d.expect("plan_get 1", "resp 0 1,2;3;4;5 1:cost-assumed,2:cost-assumed,3:group-full,4:history-crashed,5:no-neighbour")
+        d.wait_event("plan_reason 1 1:cost-assumed,2:cost-assumed,3:group-full,4:history-crashed,5:no-neighbour", since=mark)
+        for i in (1, 2, 3, 4, 5):
+            d.wait_up(i)
+        check(places(d)["chain:1.0"] == [1, 2], "the first segment runs: %s" % d.workers())
+        check(plan_of(d, 1)[0]["pid"] == first, "and it is the worker it was: no restart")
+        check(not any(w["place"].startswith("chain:1.") and w["place"] != "chain:1.0" for w in d.workers().values()),
+              "the dissolved segment left no worker: %s" % d.workers())
+        check(sorted(w["inst"][0] for w in d.workers().values() if w["place"] == "own") == [3, 4, 5], "three alone: %s" % d.workers())
+        # cleared, the daemon plans it again and the member goes back in its place: the history holds nothing against it
+        mark = d.mark()
+        d.expect("quarantine_clear 4", "resp 0")
+        wait_for(lambda: d.send("plan_get 1").startswith("resp 0 1,2;3,4;5 "), "the plan once more: %s" % d.send("plan_get 1"))
+        d.wait_event("chain_formed 1.1 ", since=mark)
+        check(places(d)["chain:1.1"] == [3, 4] and plan_of(d, 1)[0]["pid"] == first, "3 and 4 share again: %s" % d.workers())
+        # quarantined again, and all quarantines cleared at once: the same
+        mark = d.mark()
+        d.expect("param_set 4 crash 1", "resp 0")
+        d.wait_event("instance_quarantined 4 ", since=mark)
+        wait_for(lambda: "4:history-crashed" in d.send("plan_get 1"), "the plan again: %s" % d.send("plan_get 1"))
+        d.expect("quarantine_clear all", "resp 0")
+        wait_for(lambda: d.send("plan_get 1").startswith("resp 0 1,2;3,4;5 "), "the plan once more: %s" % d.send("plan_get 1"))
+        check(plan_of(d, 1)[0]["pid"] == first, "and the first segment never restarted: %s" % d.workers())
+    finally:
+        d.close()
+
+
+def kill_chain(d, plan, k):
+    """kill the worker of segment k of a plan from outside: it names no culprit, so the group is split"""
+    os.kill(plan_of(d, plan)[k]["pid"], signal.SIGKILL)
+    wait_for(lambda: len(plan_of(d, plan)) == 0, "the group split")
+    t0 = time.monotonic()
+    for i in (1, 2, 3):
+        d.wait_up(i)
+    return t0
+
+
+@test
+def a_group_split_by_a_death_with_no_culprit_is_gathered_again_after_history_regroup_s_of_steady_running():
+    d = daemon(conf={"grouping": "on", "history_regroup_s": 3})
+    try:
+        for i in (1, 2, 3):
+            d.expect("add clap:fake#m%d %d" % (i, i), "resp %d" % i)
+        d.expect("plan 1 1 2 3", "resp 0 1,2,3")
+        d.wait_event("chain_formed 1.0 ")
+        mark = d.mark()
+        t0 = kill_chain(d, 1, 0)
+        time.sleep(1.2)
+        check(not plan_of(d, 1) and not any(e.startswith("chain_formed") for e in d.events[mark:]),
+              "not before its time: %s %s" % (d.workers(), d.events[mark:]))
+        d.wait_event("chain_formed 1.0 ", since=mark)
+        late = time.monotonic() - t0
+        check(2.0 < late < 8.0, "about 3 s of steady running after the death: %.1f s" % late)
+        check(places(d) == {"chain:1.0": [1, 2, 3]}, "the group runs as one again: %s" % d.workers())
+        d.expect("plan_get 1", "resp 0 1,2,3 1:cost-assumed,2:cost-assumed,3:cost-assumed")
+    finally:
+        d.close()
+
+
+@test
+def another_death_of_a_member_puts_the_regroup_off_by_another_history_regroup_s():
+    d = daemon(conf={"grouping": "on", "history_regroup_s": 3, "group_max": 2})
+    try:
+        for i in (1, 2, 3):
+            d.expect("add clap:fake#m%d %d" % (i, i), "resp %d" % i)
+        d.expect("plan 1 1 2 3", "resp 0 1,2;3")
+        d.wait_event("chain_formed 1.0 ")
+        mark = d.mark()
+        os.kill(plan_of(d, 1)[0]["pid"], signal.SIGKILL)
+        t0 = time.monotonic()
+        wait_for(lambda: not plan_of(d, 1), "the group split")
+        time.sleep(1.8)
+        # member 3 is alone and not of the split group: its death is steady running broken
+        _, w3 = d.holder(3)
+        os.kill(w3["pid"], signal.SIGKILL)
+        t1 = time.monotonic()
+        d.wait_up(3)
+        time.sleep(max(0, 3.6 - (time.monotonic() - t0)))
+        check(not plan_of(d, 1), "3 s after the first death, 1.8 s after the second: still apart: %s" % d.workers())
+        d.wait_event("chain_formed 1.0 ", since=mark)
+        late = time.monotonic() - t1
+        check(late > 2.0, "3 s after the second death, not 3 s after the first: %.1f s" % late)
+        check(places(d) == {"chain:1.0": [1, 2], "own": [3]}, "gathered: %s" % d.workers())
+    finally:
+        d.close()
+
+
+@test
+def history_regroup_s_zero_leaves_a_split_group_apart_until_the_controller_plans_it_again():
+    d = daemon(conf={"grouping": "on", "history_regroup_s": 0})
+    try:
+        for i in (1, 2, 3):
+            d.expect("add clap:fake#m%d %d" % (i, i), "resp %d" % i)
+        d.expect("plan 1 1 2 3", "resp 0 1,2,3")
+        d.wait_event("chain_formed 1.0 ")
+        kill_chain(d, 1, 0)
+        time.sleep(4.5)
+        check(not plan_of(d, 1) and [w["place"] for w in d.workers().values()] == ["own", "own", "own"], "apart after longer than the timer of the other tests: %s" % d.workers())
+        mark = d.mark()
+        d.expect("plan 1 1 2 3", "resp 0 1,2,3")
+        d.wait_event("chain_formed 1.0 ", since=mark)
+        check(places(d) == {"chain:1.0": [1, 2, 3]}, "and a plan call gathers it, though the segment did not change: %s" % d.workers())
+    finally:
+        d.close()
 
 
 @test
