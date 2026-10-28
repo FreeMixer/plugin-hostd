@@ -239,9 +239,9 @@ Verbs a worker answers, by instance
 
 What a host knows of a strip and of a plugin's controls. For a CLAP instance the daemon routes them like mod-host's
 instance verbs and passes the worker's reply through; the worker answers them from the plugin (`clap.track-info`,
-`clap.remote-controls`, `clap.params`), except `param_info`: omx-clap-host 0.8.0 answers it `-511` for every parameter
-(and `-103` for a symbol that is no parameter), because it holds no checked unit and scale for any of them. `-511` is
-the stable answer to read as "no contract; fall back to the layout from `omx-clap-scan`"; the daemon passes it through
+`clap.remote-controls`, `clap.params`), except `param_info`: omx-clap-host answers it from the param contract (`org.openmixer.param-contract/1`), and
+`-511` for a parameter the worker holds no checked contract for (and `-103` for a symbol that is no parameter). `-511`
+is the stable answer to read as "no contract; fall back to the layout from `omx-clap-scan`"; the daemon passes it through
 and drops nothing. For an LV2 instance the daemon answers them itself, never forwarding them, so
 mod-host learns none of them: `track_info` is kept and answered `resp 0`, an LV2 plugin has no remote pages, and
 `param_info` answers `-511` until the daemon reads the bundle's port data. When a CLAP plugin changes its pages, its
@@ -255,7 +255,7 @@ played through its jack MIDI input with `connect`. omx-clap-host does not answer
 
 `preset_list` and `preset_get` list a plugin's presets the way `remote_pages` and `remote_page_get` list its pages; the
 key `preset_get` gives is the one `preset_load` takes. mod-host cannot list presets, so for an LV2 instance on mod-host
-the daemon answers both `-515`. omx-clap-host does not list them yet (FreeMixer/omx-clap-core#95).
+the daemon answers both `-515`. omx-clap-host lists them with `preset_list` and `preset_get`.
 
 A plugin with a window or a surface of its own tells its host when the user takes hold of one of its knobs and lets go,
 moves values by itself, and suggests a remote page. Its worker writes `param_gesture`, mod-host's `param_set` and
