@@ -72,8 +72,9 @@ jobs:
     container:
       image: fedora:44
       # the jack test runs the daemon and its workers in a user, net, pid and mount namespace of their own
-      # CAP_SYS_NICE lets the probe test measure at the highest SCHED_FIFO priority, as the sync service does with its grant
-      options: --cap-add SYS_ADMIN --cap-add SYS_NICE --security-opt seccomp=unconfined --security-opt apparmor=unconfined --security-opt systempaths=unconfined
+      # CAP_SYS_NICE lets the probe test measure at the highest SCHED_FIFO priority, as the sync service does with its grant;
+      # CAP_SYS_RESOURCE lets it raise RLIMIT_RTPRIO and RLIMIT_MEMLOCK, as LimitRTPRIO= and LimitMEMLOCK= do
+      options: --cap-add SYS_ADMIN --cap-add SYS_NICE --cap-add SYS_RESOURCE --security-opt seccomp=unconfined --security-opt apparmor=unconfined --security-opt systempaths=unconfined
     steps:
       - name: Install the build tools
         run: |
@@ -101,6 +102,9 @@ jobs:
       # satisfies its schema, a C consumer compiles against the installed header, and changing the declaration in a
       # scratch copy moves the daemon and the docs
       - name: Test the daemon against workers that die on cue, and the declared protocol
+        # the container holds the grant: a real-time or memory-lock arm of the probe test that cannot be taken fails
+        env:
+          PROBE_REQUIRE_REALTIME: "1"
         run: make test
 
       # the package as a reader of the installed contract directory reads it: install-contract into a staging directory,

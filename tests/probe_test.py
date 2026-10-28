@@ -675,6 +675,25 @@ def cap_sys_nice():
     return False
 
 
+def cap_sys_resource():
+    for l in open("/proc/self/status"):
+        if l.startswith("CapEff:"):
+            return bool(int(l.split()[1], 16) >> 24 & 1)
+    return False
+
+
+# PROBE_REQUIRE_REALTIME=1 (CI, whose container holds CAP_SYS_NICE and CAP_SYS_RESOURCE): an arm of the real-time
+# grant or of the memory lock that cannot be taken is a failure, never a skip, so a runner that refuses them cannot go
+# green in silence
+REQUIRE_REALTIME = os.environ.get("PROBE_REQUIRE_REALTIME") == "1"
+
+
+def cannot(why):
+    if REQUIRE_REALTIME:
+        raise AssertionError("PROBE_REQUIRE_REALTIME is set and " + why)
+    raise Skip(why)
+
+
 def without_cap():
     """the prefix that drops CAP_SYS_NICE from what the runner is started with, when this process holds it"""
     return ["setpriv", "--bounding-set", "-sys_nice", "--inh-caps", "-sys_nice"] if cap_sys_nice() else []
@@ -703,11 +722,11 @@ def applied(doc, name):
 def with_the_grant_the_measurement_runs_fifo_at_the_highest_priority():
     hard = resource.getrlimit(resource.RLIMIT_RTPRIO)[1]
     if not cap_sys_nice() and hard != resource.RLIM_INFINITY and hard < FIFO_MAX:
-        raise Skip("no CAP_SYS_NICE and an RLIMIT_RTPRIO hard limit of %d, below %d; the rlimit arm measures the grant "
-                   "there is" % (hard, FIFO_MAX))
+        cannot("no CAP_SYS_NICE and an RLIMIT_RTPRIO hard limit of %d, below %d; the rlimit arm measures the grant "
+               "there is" % (hard, FIFO_MAX))
     why = kernel_grants((), FIFO_MAX)
     if why:
-        raise Skip("the kernel refuses SCHED_FIFO %d here (%s)" % (FIFO_MAX, why))
+        cannot("the kernel refuses SCHED_FIFO %d here (%s)" % (FIFO_MAX, why))
     doc, seen = rt_run()
     rt = doc["run"]["realtime"]
     check(rt["class"] == "fifo" and rt["priority"] == FIFO_MAX and rt["requested"] == FIFO_MAX
@@ -720,13 +739,14 @@ def with_the_grant_the_measurement_runs_fifo_at_the_highest_priority():
 @test
 def under_an_rtprio_rlimit_the_measurement_runs_fifo_at_the_rlimit_and_keeps_it_as_its_bound():
     hard = resource.getrlimit(resource.RLIMIT_RTPRIO)[1]
-    n = min(10, FIFO_MAX - 1) if hard == resource.RLIM_INFINITY else min(10, hard, FIFO_MAX - 1)
+    # a process holding CAP_SYS_RESOURCE (root in a container) raises the hard limit itself
+    n = min(10, FIFO_MAX - 1) if hard == resource.RLIM_INFINITY or cap_sys_resource() else min(10, hard, FIFO_MAX - 1)
     if n < 1:
-        raise Skip("the RLIMIT_RTPRIO hard limit is 0, and only a privileged process can raise it")
+        cannot("the RLIMIT_RTPRIO hard limit is 0, and only a process with CAP_SYS_RESOURCE can raise it")
     prefix = [*without_cap(), "prlimit", "--rtprio=%d:%d" % (n, n), "--"]
     why = kernel_grants(prefix, n)
     if why:
-        raise Skip("the kernel refuses SCHED_FIFO %d under the rlimit here (%s)" % (n, why))
+        cannot("the kernel refuses SCHED_FIFO %d under the rlimit here (%s)" % (n, why))
     doc, seen = rt_run(prefix)
     rt = doc["run"]["realtime"]
     check(rt == {"class": "fifo", "priority": n, "requested": FIFO_MAX, "grantedBy": "rlimit",
@@ -827,12 +847,18 @@ def an_lv2_measurement_is_scheduled_as_a_clap_one_is():
 def the_measured_child_locks_its_memory_or_the_record_says_why_not():
     data = 1 << 30
     hard = resource.getrlimit(resource.RLIMIT_MEMLOCK)[1]
+    raise_lock = []
+    if hard != resource.RLIM_INFINITY and hard < data and cap_sys_resource():
+        # a process holding CAP_SYS_RESOURCE (root in a container) raises the hard limit itself, as LimitMEMLOCK= does
+        raise_lock, hard = ["prlimit", "--memlock=unlimited:unlimited", "--"], resource.RLIM_INFINITY
     if hard != resource.RLIM_INFINITY and hard < data:
+        if REQUIRE_REALTIME:
+            raise AssertionError("PROBE_REQUIRE_REALTIME is set and RLIMIT_MEMLOCK %d is below %d" % (hard, data))
         print("skip the locked arm of the_measured_child_locks_its_memory_or_the_record_says_why_not: RLIMIT_MEMLOCK %d is "
               "below %d" % (hard, data))
     else:
         env_file = os.path.join(tempfile.mkdtemp(prefix="plugin-hostd-probe-lock."), "env")
-        doc, seen = rt_run(extra=("--data-bytes", str(data)), env={"PROBE_CHILD_ENV": env_file})
+        doc, seen = rt_run(raise_lock, extra=("--data-bytes", str(data)), env={"PROBE_CHILD_ENV": env_file})
         unbounded = hard == resource.RLIM_INFINITY
         check(doc["run"]["memoryLock"] == {"locked": True, "limitBytes": None if unbounded else hard},
               "memoryLock %s" % doc["run"]["memoryLock"])
