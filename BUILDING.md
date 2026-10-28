@@ -134,6 +134,20 @@ the process may use, at most 8), each in a directory of its own with its own ran
 order of the table; `SABOTAGE_JOBS=1` runs them one after the other. `SABOTAGE_KIND=<kind>` and `SABOTAGE_ONLY=<words>`
 run some of them.
 
+The documentation site
+----------------------
+
+`docs/**/*.md` is published on GitHub Pages by `.github/workflows/pages.yml`, rendered by `tools/site/build.mjs`
+(Node 20 or later, markdown-it at the version `tools/site/package-lock.json` pins). To build it locally:
+
+    (cd tools/site && npm ci && npm test)
+    node tools/site/build.mjs            # writes build/site/; open build/site/index.html
+
+`docs/index.md` is the landing page, and every published page must be reachable from it by links. A figure or capture
+under `docs/` is copied when a page references it, and only then. The design notes under `docs/` are never published.
+A reference to a file that does not exist, an image outside `docs/`, or anything in the design notes fails the build
+with the page and the target named. A link to a repository file outside `docs/` goes to that file on GitHub.
+
 How the daemon keeps and replays state
 ======================================
 
