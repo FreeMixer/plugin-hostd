@@ -1,0 +1,17 @@
+{
+  "name": "plugin-hostd-site",
+  "private": true,
+  "type": "module",
+  "license": "GPL-3.0-or-later",
+  "description": "Renders docs/**/*.md of plugin-hostd into the static site published on GitHub Pages.",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node --test build.test.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "markdown-it": "15.0.3"
+  }
+}
