@@ -18,6 +18,18 @@ How it works
 
 - [The format tables](formats.md): how a CLAP or LV2 scan becomes a descriptor, and the same tables read backwards.
 
+Use case: plugin-hostd as the host for Zynthian
+-----------------------------------------------
+
+Zynthian running its LV2 and CLAP plugins under plugin-hostd. The pages of this use case, with their figures and
+captures, are being written; each becomes a link here when it is published.
+
+- Instruments: voices across the cores (coming).
+- Benchmarks (coming).
+- Trade-offs (coming).
+- The upstream series (coming).
+- The acceptance report (coming).
+
 About this site
 ---------------
 
