@@ -772,6 +772,21 @@ def list_limits_prints_the_bounds_a_run_would_apply_here():
 
 
 @test
+def a_describe_child_keeps_the_memory_lock_and_rt_time_the_runner_was_started_with():
+    work = tempfile.mkdtemp(prefix="plugin-hostd-probe-describe.")
+    seen = os.path.join(work, "limits.json")
+    memlock = min(resource.getrlimit(resource.RLIMIT_MEMLOCK)[1], 2 << 20)
+    # the fake child is no scanner: describe refuses its output, and its limits are what is read
+    subprocess.run(["prlimit", "--memlock=%d:%d" % (memlock, memlock), "--", PROBE, "describe", "--table",
+                    os.path.join(ROOT, "data", "formats", "clap.json"), "--child", CHILD, "--wall-s", "5", "clap:%s#%s" % (CLAP, ID)],
+                   env=dict(os.environ, PROBE_CHILD_LIMITS=seen), capture_output=True, text=True, timeout=30)
+    check(os.path.exists(seen), "the describe child did not run")
+    got = json.load(open(seen))
+    check(got["memlock"] == memlock and got["rttime"] == 2 ** 64 - 1 and got["policy"] == "other",
+          "a describe child is no measurement: RLIMIT_MEMLOCK %d, RLIMIT_RTTIME unlimited, SCHED_OTHER: %s" % (memlock, got))
+
+
+@test
 def a_grant_the_kernel_refuses_is_recorded_as_none_with_the_refusal():
     hard = resource.getrlimit(resource.RLIMIT_RTPRIO)[1]
     if not cap_sys_nice() and hard == 0:

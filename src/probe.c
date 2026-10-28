@@ -835,8 +835,13 @@ static void apply_limits(const options_t *o, const cpu_set_t *pinned, int pin_op
     put_rlimit(RLIMIT_NOFILE, (rlim_t)o->files, (rlim_t)o->files);
     put_rlimit(RLIMIT_FSIZE, (rlim_t)o->file_bytes, (rlim_t)o->file_bytes);
     put_rlimit(RLIMIT_CORE, 0, 0);
-    put_rlimit(RLIMIT_RTTIME, (rlim_t)o->wall_s * 1000000, (rlim_t)o->wall_s * 1000000);
-    put_rlimit(RLIMIT_MEMLOCK, g_lock.bound, g_lock.bound);
+    /* the bounds of the measurement are the measured child's: a describe, a panel or an LV2 pin pass keeps what the runner
+     * was started with */
+    if (measuring)
+    {
+        put_rlimit(RLIMIT_RTTIME, (rlim_t)o->wall_s * 1000000, (rlim_t)o->wall_s * 1000000);
+        put_rlimit(RLIMIT_MEMLOCK, g_lock.bound, g_lock.bound);
+    }
     if (pin_option && sched_setaffinity(0, sizeof(*pinned), pinned) != 0)
         _exit(120);
     if (measuring && g_rt.chosen > 0)
