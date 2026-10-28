@@ -1,0 +1,5 @@
+hostd	start	add_ms	584	ports_ms	836	note_port	effect_1:midi_in	outs	effect_1:out_1,effect_1:out_2
+hostd	param	1285869018	resp 0 1.0000	1285869018 0.0
+hostd	velocity	vel20	-53.9	-62.4	261.4	0.2043	0	4.1	cpu0=100 cpu1=7 cpu2=8 cpu3=12	plugin-hostd@cpu3=1 omx-clap-host@cpu2=1 omx-clap-host@cpu1=3
+hostd	velocity	vel64	-37.3	-45.7	261.4	0.2042	0	3.6	cpu0=18 cpu1=8 cpu2=8 cpu3=3	omx-clap-host@cpu2=3
+hostd	velocity	vel127	-13.5	-21.9	262.9	0.2047	0	3.7	cpu0=19 cpu1=8 cpu2=10 cpu3=4	omx-clap-host@cpu3=3

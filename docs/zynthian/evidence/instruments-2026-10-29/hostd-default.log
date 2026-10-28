@@ -1,0 +1,24 @@
+instrument-proof: started: effect_1, notes into effect_1:midi_in, out ['effect_1:out_1', 'effect_1:out_2']
+instrument-proof: velocity vel20: peak -13.5 rms -21.9 hz 261.4 bright 0.2043 xruns 0 dsp 4.1 | cpu0=100 cpu1=6 cpu2=8 cpu3=12 | omx-clap-host@cpu2=3
+instrument-proof: velocity vel64: peak -13.5 rms -21.9 hz 262.9 bright 0.2044 xruns 0 dsp 3.5 | cpu0=12 cpu1=1 cpu2=11 cpu3=3 | omx-clap-host@cpu1=1
+instrument-proof: velocity vel127: peak -13.5 rms -21.9 hz 261.4 bright 0.2043 xruns 0 dsp 3.4 | cpu0=8 cpu1=3 cpu2=9 cpu3=3 | omx-clap-host@cpu3=1
+instrument-proof: poly idle: peak -401.1 rms -420.5 hz 0.0 bright 0.0300 xruns 0 dsp 2.4 | cpu0=1 cpu1=3 cpu2=1 cpu3=2 | omx-clap-host@cpu2=1
+instrument-proof: poly poly1: peak -11.2 rms -22.4 hz 65.5 bright 0.1081 xruns 0 dsp 3.7 | cpu0=11 cpu1=2 cpu2=12 cpu3=3 | omx-clap-host@cpu2=3
+instrument-proof: poly poly8: peak 0.3 rms -13.2 hz 393.0 bright 0.1173 xruns 0 dsp 7.0 | cpu0=4 cpu1=8 cpu2=7 cpu3=9 | omx-clap-host@cpu3=6
+instrument-proof: poly poly16: peak 3.9 rms -9.8 hz 628.0 bright 0.1283 xruns 0 dsp 11.3 | cpu0=5 cpu1=7 cpu2=8 cpu3=11 | omx-clap-host@cpu3=10
+instrument-proof: poly poly32: peak 2.6 rms -10.3 hz 1387.2 bright 0.2135 xruns 0 dsp 11.3 | cpu0=5 cpu1=8 cpu2=8 cpu3=8 | omx-clap-host@cpu3=10
+instrument-proof: bend centre: peak -13.9 rms -21.9 hz 440.0 bright 0.2643 xruns 0 dsp 3.5 | cpu0=16 cpu1=3 cpu2=10 cpu3=2 | omx-clap-host@cpu2=3
+instrument-proof: bend up: peak -14.0 rms -21.9 hz 494.0 bright 0.2801 xruns 0 dsp 3.5 | cpu0=15 cpu1=3 cpu2=8 cpu3=3 | omx-clap-host@cpu2=3
+instrument-proof: bend down: peak -13.9 rms -21.9 hz 392.0 bright 0.2497 xruns 0 dsp 3.5 | cpu0=14 cpu1=3 cpu2=12 cpu3=3 | omx-clap-host@cpu3=2
+instrument-proof: bend back: peak -13.9 rms -21.9 hz 440.0 bright 0.2643 xruns 0 dsp 3.4 | cpu0=12 cpu1=2 cpu2=9 cpu3=2 | omx-clap-host@cpu3=2
+instrument-proof: sustain released: peak -360.6 rms -374.0 hz 0.0 bright 0.0300 xruns 0 dsp 2.5 | cpu0=4 cpu1=2 cpu2=0 cpu3=4 | omx-clap-host@cpu2=2
+instrument-proof: sustain sustained: peak -13.5 rms -21.9 hz 262.0 bright 0.2043 xruns 0 dsp 3.5 | cpu0=16 cpu1=2 cpu2=8 cpu3=6 | omx-clap-host@cpu3=4
+instrument-proof: sustain pedal_up: peak -359.9 rms -373.3 hz 0.0 bright 103221241742030.9688 xruns 0 dsp 2.6 | cpu0=8 cpu1=6 cpu2=0 cpu3=4 | 
+instrument-proof: anoff held: peak -3.8 rms -13.9 hz 1418.0 bright 0.2559 xruns 0 dsp 7.0 | cpu0=10 cpu1=8 cpu2=8 cpu3=9 | omx-clap-host@cpu3=6
+instrument-proof: anoff after_cc123: peak -340.5 rms -353.8 hz 0.0 bright 105305063405201.3281 xruns 0 dsp 2.5 | cpu0=6 cpu1=2 cpu2=2 cpu3=2 | omx-clap-host@cpu2=2
+instrument-proof: all_notes_off 1 -> resp 0
+instrument-proof: anoff-verb held_verb peak -0.7 rms -11.6 hz 1128.0 bright 0.2025 frames 24000 xruns 0
+instrument-proof: anoff-verb after_verb peak -436.1 rms -449.4 hz 0.0 bright 59323173322586767360.0000 frames 24000 xruns 0
+instrument-proof: mpe member_centre: peak -13.9 rms -21.9 hz 440.0 bright 0.2644 xruns 0 dsp 3.5 | cpu0=13 cpu1=4 cpu2=10 cpu3=4 | omx-clap-host@cpu1=1 omx-clap-host@cpu3=3
+instrument-proof: mpe other_member_bent: peak -13.9 rms -21.9 hz 440.0 bright 0.2643 xruns 0 dsp 3.5 | cpu0=18 cpu1=3 cpu2=9 cpu3=2 | omx-clap-host@cpu3=2
+instrument-proof: mpe member_bent_quarter: peak -14.4 rms -22.0 hz 880.0 bright 0.3742 xruns 0 dsp 3.5 | cpu0=16 cpu1=0 cpu2=12 cpu3=3 | omx-clap-host@cpu1=1 omx-clap-host@cpu3=2

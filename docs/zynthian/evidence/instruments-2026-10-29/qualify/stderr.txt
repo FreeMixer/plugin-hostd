@@ -1,0 +1,5 @@
+plugin-qualify: host profile omx-clap-host (shared-process)
+plugin-qualify: host profile openmixer-console (in-process)
+plugin-qualify: target urn:clap:org.surge-synth-team.surge-xt (/usr/local/lib/clap)
+plugin-qualify: record qualify/org.surge-synth-team.surge-xt@unversioned-097a80795a0d.custom.qualification.json
+plugin-qualify: record qualify/org.surge-synth-team.surge-xt@unversioned-097a80795a0d.default.qualification.json

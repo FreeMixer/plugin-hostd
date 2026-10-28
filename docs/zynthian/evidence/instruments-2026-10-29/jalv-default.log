@@ -1,0 +1,21 @@
+instrument-proof: started: inst_jalv, notes into inst_jalv:in, out ['inst_jalv:audio_out_1', 'inst_jalv:audio_out_2']
+instrument-proof: velocity vel20: peak -13.5 rms -21.9 hz 261.4 bright 0.2042 xruns 0 dsp 3.6 | cpu0=4 cpu1=7 cpu2=9 cpu3=6 | jalv@cpu3=3
+instrument-proof: velocity vel64: peak -13.5 rms -21.9 hz 262.9 bright 0.2049 xruns 0 dsp 3.6 | cpu0=12 cpu1=6 cpu2=4 cpu3=4 | jalv@cpu1=1 jalv@cpu2=1
+instrument-proof: velocity vel127: peak -13.5 rms -21.9 hz 261.4 bright 0.2045 xruns 0 dsp 3.6 | cpu0=11 cpu1=6 cpu2=4 cpu3=6 | jalv@cpu2=3
+instrument-proof: poly idle: peak -397.7 rms -417.1 hz 0.0 bright 0.0300 xruns 0 dsp 2.7 | cpu0=2 cpu1=1 cpu2=2 cpu3=3 | jalv@cpu2=2
+instrument-proof: poly poly1: peak -11.2 rms -22.4 hz 65.5 bright 0.1080 xruns 0 dsp 3.6 | cpu0=6 cpu1=6 cpu2=7 cpu3=9 | jalv@cpu1=3
+instrument-proof: poly poly8: peak 0.2 rms -13.2 hz 384.8 bright 0.1180 xruns 0 dsp 6.7 | cpu0=4 cpu1=7 cpu2=7 cpu3=10 | jalv@cpu3=6
+instrument-proof: poly poly16: peak 2.8 rms -10.2 hz 662.8 bright 0.1344 xruns 0 dsp 10.4 | cpu0=4 cpu1=5 cpu2=9 cpu3=10 | jalv@cpu3=9
+instrument-proof: poly poly32: peak 2.4 rms -10.1 hz 1368.2 bright 0.2107 xruns 0 dsp 10.5 | cpu0=5 cpu1=7 cpu2=9 cpu3=7 | jalv@cpu1=9
+instrument-proof: bend centre: peak -13.9 rms -21.9 hz 440.0 bright 0.2643 xruns 0 dsp 4.0 | cpu0=13 cpu1=12 cpu2=12 cpu3=14 | jalv@cpu0=3
+instrument-proof: bend up: peak -14.0 rms -21.9 hz 494.0 bright 0.2801 xruns 0 dsp 3.6 | cpu0=9 cpu1=10 cpu2=5 cpu3=5 | jalv@cpu1=2
+instrument-proof: bend down: peak -13.9 rms -21.9 hz 392.0 bright 0.2497 xruns 0 dsp 3.6 | cpu0=8 cpu1=8 cpu2=6 cpu3=7 | jalv@cpu1=2
+instrument-proof: bend back: peak -13.9 rms -21.9 hz 441.0 bright 0.2643 xruns 0 dsp 3.7 | cpu0=5 cpu1=9 cpu2=5 cpu3=9 | jalv@cpu1=3
+instrument-proof: sustain released: peak -363.1 rms -376.5 hz 0.0 bright 0.0300 xruns 0 dsp 2.6 | cpu0=2 cpu1=0 cpu2=2 cpu3=0 | jalv@cpu0=2
+instrument-proof: sustain sustained: peak -13.5 rms -21.9 hz 262.0 bright 0.2043 xruns 0 dsp 3.6 | cpu0=6 cpu1=8 cpu2=6 cpu3=9 | jalv@cpu1=2 jalv@cpu0=2
+instrument-proof: sustain pedal_up: peak -360.4 rms -373.8 hz 0.0 bright 2535877017228407.5000 xruns 0 dsp 2.7 | cpu0=4 cpu1=4 cpu2=2 cpu3=6 | jalv@cpu1=2
+instrument-proof: anoff held: peak 0.1 rms -12.0 hz 1174.0 bright 0.2067 xruns 0 dsp 6.6 | cpu0=8 cpu1=11 cpu2=4 cpu3=9 | jalv@cpu0=6
+instrument-proof: anoff after_cc123: peak -340.1 rms -353.4 hz 0.0 bright 464225656819412.2500 xruns 0 dsp 2.7 | cpu0=0 cpu1=0 cpu2=4 cpu3=2 | 
+instrument-proof: mpe member_centre: peak -13.9 rms -21.9 hz 440.0 bright 0.2643 xruns 0 dsp 3.7 | cpu0=6 cpu1=10 cpu2=5 cpu3=9 | jalv@cpu0=3
+instrument-proof: mpe other_member_bent: peak -13.9 rms -21.9 hz 440.0 bright 0.2643 xruns 0 dsp 3.6 | cpu0=8 cpu1=9 cpu2=4 cpu3=11 | jalv@cpu1=3
+instrument-proof: mpe member_bent_quarter: peak -14.4 rms -22.0 hz 880.0 bright 0.3740 xruns 0 dsp 3.7 | cpu0=7 cpu1=10 cpu2=5 cpu3=6 | jalv@cpu0=1 jalv@cpu1=3

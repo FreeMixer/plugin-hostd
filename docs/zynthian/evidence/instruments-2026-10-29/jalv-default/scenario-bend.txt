@@ -1,0 +1,23 @@
+wait 300
+midi 90 45 64
+wait 500
+mark centre
+wait 1000
+end
+midi e0 7f 7f
+wait 200
+mark up
+wait 1000
+end
+midi e0 0 0
+wait 200
+mark down
+wait 1000
+end
+midi e0 0 40
+wait 200
+mark back
+wait 1000
+end
+midi 80 45 0
+wait 1500

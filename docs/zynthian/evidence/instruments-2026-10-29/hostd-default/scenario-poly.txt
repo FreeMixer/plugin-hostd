@@ -1,0 +1,138 @@
+wait 300
+mark idle
+wait 2000
+end
+midi 90 24 64
+wait 1000
+mark poly1
+wait 4000
+end
+midi 80 24 0
+wait 2500
+midi 90 24 64
+midi 90 25 64
+midi 90 26 64
+midi 90 27 64
+midi 90 28 64
+midi 90 29 64
+midi 90 2a 64
+midi 90 2b 64
+wait 1000
+mark poly8
+wait 4000
+end
+midi 80 24 0
+midi 80 25 0
+midi 80 26 0
+midi 80 27 0
+midi 80 28 0
+midi 80 29 0
+midi 80 2a 0
+midi 80 2b 0
+wait 2500
+midi 90 24 64
+midi 90 25 64
+midi 90 26 64
+midi 90 27 64
+midi 90 28 64
+midi 90 29 64
+midi 90 2a 64
+midi 90 2b 64
+midi 90 2c 64
+midi 90 2d 64
+midi 90 2e 64
+midi 90 2f 64
+midi 90 30 64
+midi 90 31 64
+midi 90 32 64
+midi 90 33 64
+wait 1000
+mark poly16
+wait 4000
+end
+midi 80 24 0
+midi 80 25 0
+midi 80 26 0
+midi 80 27 0
+midi 80 28 0
+midi 80 29 0
+midi 80 2a 0
+midi 80 2b 0
+midi 80 2c 0
+midi 80 2d 0
+midi 80 2e 0
+midi 80 2f 0
+midi 80 30 0
+midi 80 31 0
+midi 80 32 0
+midi 80 33 0
+wait 2500
+midi 90 24 64
+midi 90 25 64
+midi 90 26 64
+midi 90 27 64
+midi 90 28 64
+midi 90 29 64
+midi 90 2a 64
+midi 90 2b 64
+midi 90 2c 64
+midi 90 2d 64
+midi 90 2e 64
+midi 90 2f 64
+midi 90 30 64
+midi 90 31 64
+midi 90 32 64
+midi 90 33 64
+midi 90 34 64
+midi 90 35 64
+midi 90 36 64
+midi 90 37 64
+midi 90 38 64
+midi 90 39 64
+midi 90 3a 64
+midi 90 3b 64
+midi 90 3c 64
+midi 90 3d 64
+midi 90 3e 64
+midi 90 3f 64
+midi 90 40 64
+midi 90 41 64
+midi 90 42 64
+midi 90 43 64
+wait 1000
+mark poly32
+wait 4000
+end
+midi 80 24 0
+midi 80 25 0
+midi 80 26 0
+midi 80 27 0
+midi 80 28 0
+midi 80 29 0
+midi 80 2a 0
+midi 80 2b 0
+midi 80 2c 0
+midi 80 2d 0
+midi 80 2e 0
+midi 80 2f 0
+midi 80 30 0
+midi 80 31 0
+midi 80 32 0
+midi 80 33 0
+midi 80 34 0
+midi 80 35 0
+midi 80 36 0
+midi 80 37 0
+midi 80 38 0
+midi 80 39 0
+midi 80 3a 0
+midi 80 3b 0
+midi 80 3c 0
+midi 80 3d 0
+midi 80 3e 0
+midi 80 3f 0
+midi 80 40 0
+midi 80 41 0
+midi 80 42 0
+midi 80 43 0
+wait 2500

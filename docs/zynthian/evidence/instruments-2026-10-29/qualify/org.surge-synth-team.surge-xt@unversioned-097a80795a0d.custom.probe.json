@@ -1,0 +1,58 @@
+{
+  "format": "plugin-hostd.probe-output",
+  "formatVersion": "1.1",
+  "run": {
+    "id": "20261028T232702Z-10501-e1ba4035",
+    "startedAt": "2026-10-28T23:27:02+00:00",
+    "elapsedMs": 54014,
+    "complete": true,
+    "outcome": "probe.ok",
+    "reason": "on-request",
+    "protocol": {"name": "plugin-hostd.probe-protocol", "version": 1},
+    "tools": {"runner": "plugin-hostd-probe 0.13.1", "child": "clap-qualify", "interposer": "rt_interpose.so"},
+    "via": "runner"
+  },
+  "plugin": {"format": "clap", "id": "org.surge-synth-team.surge-xt"},
+  "binary": {"path": "/usr/local/lib/clap/Surge XT.clap", "sha256": "097a80795a0d0f89be441a5244cc61d345d382858b1874f808e82feb4d7b7500", "files": [{"path": "Surge XT.clap", "sha256": "097a80795a0d0f89be441a5244cc61d345d382858b1874f808e82feb4d7b7500"}], "unpinnable": "the file name holds a separator of pin_set or whitespace"},
+  "machine": {
+    "class": {"arch": "aarch64", "family": "arm", "coreBand": "3-4", "clockBand": "1.5-2.5GHz", "preemptRt": false, "cstatesLimited": false},
+    "profile": {"governor": "powersave", "turbo": false, "smt": false, "preempt": "PREEMPT",
+      "cpuidle": [],
+      "meetsProtocol": false, "unmet": ["probe.profile.governor", "probe.profile.not-pinned"]},
+    "pinnedCpus": "0-3"
+  },
+  "offer": {"id": "custom", "clapExtensions": ["clap.log", "clap.thread-check", "clap.latency", "clap.params", "clap.audio-ports", "clap.state", "clap.note-ports", "clap.note-name", "clap.voice-info", "clap.event-registry", "clap.timer-support", "clap.posix-fd-support", "clap.thread-pool", "clap.tail", "clap.surround/4", "clap.ambisonic/3", "clap.audio-ports-config", "clap.preset-load/2", "clap.track-info/1", "clap.remote-controls/2"], "realtime": "none"},
+  "limits": {"set": "default",
+    "applied": [
+      {"limit": "wall-clock", "value": 120, "unit": "s", "by": "supervisor"},
+      {"limit": "cpu-time", "value": 540, "unit": "s", "by": "rlimit"},
+      {"limit": "memory", "value": 4294967296, "unit": "bytes", "by": "rlimit"},
+      {"limit": "files", "value": 256, "unit": "count", "by": "rlimit"},
+      {"limit": "file-size", "value": 67108864, "unit": "bytes", "by": "rlimit"},
+      {"limit": "core-dump", "value": 0, "unit": "bytes", "by": "rlimit"},
+      {"limit": "rt-priority", "value": 0, "by": "rlimit"},
+      {"limit": "no-new-privs", "by": "prctl"}
+    ],
+    "unavailable": [
+      {"limit": "tasks", "code": "probe.limit.not-implemented"}
+    ]
+  },
+  "steps": [
+    {"step": "hash", "outcome": "probe.ok", "elapsedMs": 0},
+    {"step": "lifecycle", "outcome": "probe.ok", "elapsedMs": 54014, "exitStatus": 0},
+    {"step": "instantiate", "outcome": "probe.ok", "elapsedMs": 0, "detail": "read from the child's line"},
+    {"step": "latency", "rate": 44100, "quantum": 512, "outcome": "probe.ok", "elapsedMs": 0, "detail": "read from the child's line"},
+    {"step": "latency", "rate": 48000, "quantum": 512, "outcome": "probe.ok", "elapsedMs": 0, "detail": "read from the child's line"},
+    {"step": "latency", "rate": 96000, "quantum": 512, "outcome": "probe.ok", "elapsedMs": 0, "detail": "read from the child's line"},
+    {"step": "latency", "rate": 192000, "quantum": 512, "outcome": "probe.ok", "elapsedMs": 0, "detail": "read from the child's line"},
+    {"step": "rt-safety", "outcome": "probe.ok", "elapsedMs": 0, "detail": "counts are totals over every rate, read from the child's line"},
+    {"step": "note-sweep", "outcome": "probe.ok", "elapsedMs": 0, "detail": "counts are totals over every rate, read from the child's line"}
+  ],
+  "grid": [
+    {"rate": 44100, "quantum": 512, "outcome": "probe.ok", "latency": {"declaredFrames": 0, "measuredFrames": 18, "method": "note-onset", "heard": true}, "cost": {"unit": "ns-per-sample", "median": 2123.37, "percentile": {"p": 95, "value": 32180.3}, "min": 296.188, "max": 394796, "blocks": 512, "warmupBlocks": 64, "voices": {"held": 128, "basis": "declared", "capacity": 128}}, "rtSafety": {"interposer": true, "swept": true, "sweepApplicable": true, "blocks": 2048, "allocations": 410966, "locks": 115032, "syscalls": 0, "threadViolations": 0, "processErrors": 0, "events": ["pthread_mutex_lock", "malloc", "calloc", "malloc", "malloc", "malloc", "free", "malloc", "free", "malloc", "free", "malloc", "malloc", "malloc", "free", "free"]}, "noteSweep": {"applicable": true, "dialect": "clap", "allocations": 18884, "locks": 98304, "syscalls": 0}},
+    {"rate": 48000, "quantum": 512, "outcome": "probe.ok", "latency": {"declaredFrames": 0, "measuredFrames": 0, "method": "note-onset", "heard": true}, "cost": {"unit": "ns-per-sample", "median": 2091.92, "percentile": {"p": 95, "value": 36755.4}, "min": 296.441, "max": 394726, "blocks": 512, "warmupBlocks": 64, "voices": {"held": 128, "basis": "declared", "capacity": 128}}},
+    {"rate": 96000, "quantum": 512, "outcome": "probe.ok", "latency": {"declaredFrames": 0, "measuredFrames": 0, "method": "note-onset", "heard": true}, "cost": {"unit": "ns-per-sample", "median": 2114.46, "percentile": {"p": 95, "value": 33785.8}, "min": 298.178, "max": 404286, "blocks": 512, "warmupBlocks": 64, "voices": {"held": 128, "basis": "declared", "capacity": 128}}},
+    {"rate": 192000, "quantum": 512, "outcome": "probe.ok", "latency": {"declaredFrames": 0, "measuredFrames": 0, "method": "note-onset", "heard": true}, "cost": {"unit": "ns-per-sample", "median": 2139.5, "percentile": {"p": 95, "value": 27586.3}, "min": 296.838, "max": 395055, "blocks": 512, "warmupBlocks": 64, "voices": {"held": 128, "basis": "declared", "capacity": 128}}}
+  ],
+  "logs": [{"name": "stderr", "path": "/tmp/plugin-qualify-probe-iPqn7p/child.stderr.log", "sha256": "ff38133683323ac251d0b120e7dbd7ca13eb166c76d716176ad85aae47769538", "bytes": 5172}]
+}

@@ -1,0 +1,5 @@
+hostd	start	add_ms	581	ports_ms	828	note_port	effect_1:midi_in	outs	effect_1:out_1,effect_1:out_2
+hostd	preset_load	/root/omx-stress-instruments/OldestTrickMW.fxp	resp 0
+hostd	cc	mw0	-5.5	-9.8	196.0	0.0294	0	4.3	cpu0=7 cpu1=12 cpu2=6 cpu3=32	omx-clap-host@cpu0=3
+hostd	cc	mw127	-4.1	-15.3	142.7	0.2995	0	4.3	cpu0=9 cpu1=8 cpu2=5 cpu3=7	omx-clap-host@cpu3=3
+hostd	cc	mw0_again	-5.4	-9.7	132.7	0.0250	0	4.3	cpu0=9 cpu1=7 cpu2=6 cpu3=7	omx-clap-host@cpu1=3

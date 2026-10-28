@@ -1,0 +1,22 @@
+wait 300
+midi 90 3c 14
+wait 300
+mark vel20
+wait 700
+end
+midi 80 3c 0
+wait 1200
+midi 90 3c 40
+wait 300
+mark vel64
+wait 700
+end
+midi 80 3c 0
+wait 1200
+midi 90 3c 7f
+wait 300
+mark vel127
+wait 700
+end
+midi 80 3c 0
+wait 1200
