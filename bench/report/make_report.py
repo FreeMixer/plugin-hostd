@@ -31,7 +31,47 @@ HOST_FAMILY = ["idle", "clap1", "lv2-1", "chain3", "clap16"]
 
 # ---------------------------------------------------------------- readers
 
-def load_bench(paths):
+REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+SCHEMA = os.path.join(REPO, "bench", "schema", "omx-bench.v1.schema.json")
+
+
+def _need(obj, keys, where, errs):
+    """Every key of keys must be in obj; each missing one is an error naming the key and the file."""
+    if not isinstance(obj, dict):
+        errs.append("%s: expected an object" % where)
+        return False
+    ok = True
+    for k in keys:
+        if k not in obj:
+            errs.append("%s: missing key '%s'" % (where, k))
+            ok = False
+    return ok
+
+
+def validate_bench(d, path, errs):
+    """The required keys of the omx-bench/1 schema, read from the schema file, in the document and in each row."""
+    with open(SCHEMA) as fh:
+        sch = json.load(fh)
+    n = len(errs)
+    _need(d, sch["required"], path, errs)
+    if "machine" in d:
+        _need(d["machine"], sch["properties"]["machine"]["required"], path + ": machine", errs)
+    if "software" in d:
+        _need(d["software"], sch["properties"]["software"]["required"], path + ": software", errs)
+    row_keys = sch["properties"]["scenarios"]["items"]["required"]
+    for i, r in enumerate(d.get("scenarios", [])):
+        where = "%s: scenarios[%d]" % (path, i)
+        if _need(r, ["id", "host"], where, errs):
+            where += " (%s %s)" % (r["id"], r["host"])
+            _need(r, row_keys, where, errs)
+            if r.get("status") == "ok":
+                for k in ("dsp_load_avg", "dsp_load_max", "rss_mb"):
+                    if r.get(k) is None:
+                        errs.append("%s: status ok but '%s' is null or missing" % (where, k))
+    return len(errs) == n
+
+
+def load_bench(paths, errs):
     docs = []
     files = []
     for p in paths:
@@ -40,21 +80,27 @@ def load_bench(paths):
                 files += [os.path.join(root, n) for n in names if n.endswith(".json")]
         elif os.path.isfile(p):
             files.append(p)
+        else:
+            errs.append("%s: no such file or directory" % p)
     for f in sorted(set(files)):
         try:
             with open(f) as fh:
                 d = json.load(fh)
-        except (OSError, ValueError):
+        except (OSError, ValueError) as e:
+            errs.append("%s: not readable JSON: %s" % (f, e))
             continue
-        if isinstance(d, dict) and d.get("schema") == "omx-bench/1" and isinstance(d.get("scenarios"), list):
-            d["_file"] = f
-            docs.append(d)
+        if isinstance(d, dict) and d.get("schema") == "omx-bench/1":
+            if isinstance(d.get("scenarios"), list) and validate_bench(d, f, errs):
+                d["_file"] = f
+                docs.append(d)
+            elif not isinstance(d.get("scenarios"), list):
+                errs.append("%s: missing key 'scenarios' (a list)" % f)
     return docs
 
 
 def latest_of_class(docs, cls):
-    sel = [d for d in docs if d.get("machine", {}).get("class") == cls]
-    return max(sel, key=lambda d: d.get("id", "")) if sel else None
+    sel = [d for d in docs if d["machine"]["class"] == cls]
+    return max(sel, key=lambda d: d["id"]) if sel else None
 
 
 def _read(path):
@@ -113,20 +159,28 @@ def parse_qpilot(dirpath):
     return {"seconds": int(sec.group(1)) if sec else None, "counts": counts, "sample_reasons": reasons}
 
 
-def parse_qdocs(dirpath):
+def parse_qdocs(dirpath, errs):
     """Verdict counts and deciding reasons from plugin-qualify interchange documents."""
     counts, reasons, n = {}, {}, 0
     for f in sorted(glob.glob(os.path.join(dirpath, "**", "*.json"), recursive=True)):
         try:
             with open(f) as fh:
                 d = json.load(fh)
-        except (OSError, ValueError):
+        except (OSError, ValueError) as e:
+            errs.append("%s: not readable JSON: %s" % (f, e))
             continue
-        for v in d.get("verdicts", []) if isinstance(d, dict) else []:
+        if not isinstance(d, dict) or "verdicts" not in d:
+            errs.append("%s: missing key 'verdicts'" % f)
+            continue
+        for i, v in enumerate(d["verdicts"]):
+            where = "%s: verdicts[%d]" % (f, i)
+            if not _need(v, ["rating"], where, errs):
+                continue
+            if v["rating"] != "suitable" and not _need(v, ["deciding"], where + " (%s)" % v["rating"], errs):
+                continue
             n += 1
-            r = v.get("rating", "unknown")
-            counts[r] = counts.get(r, 0) + 1
-            if v.get("deciding") and r != "suitable":
+            counts[v["rating"]] = counts.get(v["rating"], 0) + 1
+            if v["rating"] != "suitable":
                 reasons[v["deciding"]] = reasons.get(v["deciding"], 0) + 1
     return {"counts": counts, "reasons": reasons, "verdicts": n} if n else None
 
@@ -168,6 +222,7 @@ class Doc:
     def __init__(self):
         self.blocks = []
         self.missing = []
+        self.errors = []
         self.section = ""
 
     def h1(self, t): self.blocks.append(("h1", t))
@@ -182,6 +237,11 @@ class Doc:
     def na(self, what):
         self.missing.append("%s: %s" % (self.section, what))
         self.blocks.append(("na", "%s: %s." % (what, NOT_YET)))
+
+
+def opt(s, key):
+    """An optional schema key of a row: its value, or n/a when the run did not record it."""
+    return str(s[key]) if s.get(key) is not None else "n/a"
 
 
 def num(v, d=1):
@@ -214,7 +274,7 @@ def host_cell(s):
     if s is None:
         return "-"
     if s["status"] != "ok":
-        return "%s (%s)" % (s["status"], s.get("note", ""))
+        return "%s (%s)" % (s["status"], s["note"])
     return None
 
 
@@ -230,7 +290,7 @@ def sec_measure(doc, facts, rpi, earlier, results_dir, ci_docs):
     else:
         meta = rpi
         m = rpi["machine"]
-        sw = ", ".join("%s %s" % (k, v) for k, v in rpi.get("software", {}).items() if v)
+        sw = ", ".join("%s %s" % (k, v) for k, v in rpi["software"].items() if v)
         doc.p("Run %s on %s (%s, %d cores, %d MB RAM, %s, kernel %s), governor %s. Software: %s." % (
             rpi["id"], m["model"], m["cpu"], m["cores"], m["ram_mb"], m["os"], m["kernel"], m["governor"], sw))
     scen = rpi["scenarios"] if rpi else []
@@ -251,7 +311,7 @@ def sec_measure(doc, facts, rpi, earlier, results_dir, ci_docs):
         head = ["scenario", "rate", "frames"] + [n for _h, n in HOSTS]
         for title, fn in (("CPU: DSP load, average (maximum), percent", lambda s: "%s (%s)" % (num(s["dsp_load_avg"], 2), num(s["dsp_load_max"], 2))),
                           ("RAM: resident memory of the host processes, MB (PSS in brackets when measured)",
-                           lambda s: "%s%s" % (num(s.get("rss_mb_total", s["rss_mb"])), (" (%s)" % num(s["pss_mb_total"])) if s.get("pss_mb_total") is not None else "")),
+                           lambda s: "%s%s" % (num(s.get("rss_mb_total")), (" (%s)" % num(s["pss_mb_total"])) if s.get("pss_mb_total") is not None else "")),
                           ("Processes", lambda s: str(s["processes"]) if s.get("processes") is not None else "n/a")):
             rows = []
             for sid, rate, frames, t in keys:
@@ -274,7 +334,7 @@ def sec_measure(doc, facts, rpi, earlier, results_dir, ci_docs):
         if any(s["id"] == "kill1" for s in scen):
             doc.h3("Recovery after kill -9 of the process holding one plugin")
             doc.table(["host", "rate", "frames", "recover ms", "status", "note"],
-                      [[dict(HOSTS)[s["host"]], str(s["rate"]), str(s["frames"]), num(s["recover_ms"], 0), s["status"], s.get("note", "")]
+                      [[dict(HOSTS)[s["host"]], str(s["rate"]), str(s["frames"]), num(s["recover_ms"], 0), s["status"], s["note"]]
                        for s in scen if s["id"] == "kill1"])
         else:
             doc.na("recovery time after a killed worker")
@@ -303,9 +363,9 @@ def sec_measure(doc, facts, rpi, earlier, results_dir, ci_docs):
         for key in sorted({(s["id"], s["rate"], s["frames"]) for s in cvp}, key=lambda k: (int(re.sub(r"\D", "", k[0]) or 0), k[1], k[2])):
             for s in sorted([x for x in cvp if (x["id"], x["rate"], x["frames"]) == key], key=lambda x: (x["host"], x["mode"])):
                 if s["status"] != "ok":
-                    rows.append([s["title"], str(s["rate"]), s["host"] + " " + s["mode"], s["status"] + ": " + s.get("note", ""), "", "", "", "", ""])
+                    rows.append([s["title"], str(s["rate"]), s["host"] + " " + s["mode"], s["status"] + ": " + s["note"], "", "", "", "", ""])
                     continue
-                rows.append([s["title"], str(s["rate"]), s["host"] + " " + s["mode"], str(s.get("processes", "n/a")),
+                rows.append([s["title"], str(s["rate"]), s["host"] + " " + s["mode"], opt(s, "processes"),
                              num(s.get("rss_mb_total")), num(s.get("pss_mb_total")), num(s.get("cpu_pct"), 2),
                              num(s["dsp_load_avg"], 2), num(s["add_ms"], 0)])
         doc.table(["set", "rate", "mode", "processes", "RSS MB", "PSS MB", "CPU % of a core", "DSP load %", "add ms"], rows)
@@ -320,7 +380,7 @@ def sec_measure(doc, facts, rpi, earlier, results_dir, ci_docs):
     doc.h3("Under stress")
     if stress:
         doc.table(["scenario", "host", "mode", "rate", "processes", "PSS MB", "CPU %", "DSP load %", "xruns"],
-                  [[s["title"], s["host"], s.get("mode", ""), str(s["rate"]), str(s.get("processes", "n/a")),
+                  [[s["title"], s["host"], s.get("mode", ""), str(s["rate"]), opt(s, "processes"),
                     num(s.get("pss_mb_total")), num(s.get("cpu_pct"), 2), num(s["dsp_load_avg"], 2), str(s.get("xruns", "n/a"))] for s in stress])
     else:
         doc.na("grouped against individual processes under stress")
@@ -365,15 +425,15 @@ def sec_qual(doc, facts, rpi, qpilot, qdocs, coverage):
         counts, reasons, src = qpilot["counts"], None, "qualification run on the Pi 5, host profile openmixer-console (zy-qpilot.out)"
     if qpilot:
         seconds = qpilot["seconds"]
-    elif rpi and rpi.get("qualification", {}).get("seconds") is not None:
+    elif rpi and "qualification" in rpi:
         seconds = rpi["qualification"]["seconds"]
     if not counts:
         doc.na("verdict counts")
     else:
         total = sum(counts.values())
-        q = rpi.get("qualification") if rpi else None
+        q = rpi["qualification"] if rpi and "qualification" in rpi else None
         extra = ""
-        if q and seconds is not None:
+        if q:
             extra = ", %s s, rates %s, quanta %s%s" % (num(seconds, 0), q["rates"], q["quanta"],
                                                       (", %d files" % q["files"]) if "files" in q else "")
         elif seconds is not None:
@@ -411,26 +471,52 @@ def sec_ask(doc, facts, prs, fetched_at):
         doc.na("pull request states")
         return
     role = {(p["repo"], p["number"]): p["role"] for p in facts["prs"]}
+    for p in prs:
+        if (p["repo"], p["number"]) not in role:
+            doc.errors.append("pull request file: %s#%s is not listed in facts.json" % (p["repo"], p["number"]))
+            return
     doc.table(["repository", "PR", "what", "state", "base"],
-              [[p["repo"], "#%d" % p["number"], role.get((p["repo"], p["number"]), p["title"]), p["state"].lower(), p["baseRefName"]] for p in prs])
+              [[p["repo"], "#%d" % p["number"], role[(p["repo"], p["number"])], p["state"].lower(), p["baseRefName"]] for p in prs])
     doc.p("States as fetched at %s." % fetched_at)
 
 
+def load_json(path, errs):
+    try:
+        with open(path) as fh:
+            return json.load(fh)
+    except (OSError, ValueError) as e:
+        errs.append("%s: not readable JSON: %s" % (path, e))
+        return None
+
+
 def build(args):
-    with open(args.facts) as fh:
-        facts = json.load(fh)
-    docs = load_bench(args.bench)
+    errs = []
+    facts = load_json(args.facts, errs)
+    if facts is not None and _need(facts, ["prs", "statements"], args.facts, errs):
+        for sec in ("change", "user", "revert", "try"):
+            if _need(facts["statements"], [sec], args.facts + ": statements", errs):
+                for i, st in enumerate(facts["statements"][sec]):
+                    _need(st, ["text", "source"], "%s: statements.%s[%d]" % (args.facts, sec, i), errs)
+        for i, p in enumerate(facts["prs"]):
+            _need(p, ["repo", "number", "role"], "%s: prs[%d]" % (args.facts, i), errs)
+    docs = load_bench(args.bench, errs)
     rpi = latest_of_class(docs, "rpi5")
-    others = [d for d in docs if d is not rpi and d.get("machine", {}).get("class") != "rpi5"]
+    others = [d for d in docs if d is not rpi and d["machine"]["class"] != "rpi5"]
     earlier = parse_earlier(args.earlier) if args.earlier else None
     qpilot = parse_qpilot(args.earlier) if args.earlier else None
-    qdocs = parse_qdocs(args.qualification) if args.qualification and os.path.isdir(args.qualification) else None
+    qdocs = parse_qdocs(args.qualification, errs) if args.qualification and os.path.isdir(args.qualification) else None
     coverage = parse_coverage(args.coverage) if args.coverage else None
     prs = fetched_at = None
     if args.prs and os.path.isfile(args.prs):
-        with open(args.prs) as fh:
-            pr_doc = json.load(fh)
-        prs, fetched_at = pr_doc["prs"], pr_doc["fetched_at"]
+        pr_doc = load_json(args.prs, errs)
+        if pr_doc is not None and _need(pr_doc, ["prs", "fetched_at"], args.prs, errs):
+            prs, fetched_at = pr_doc["prs"], pr_doc["fetched_at"]
+            for i, p in enumerate(prs):
+                _need(p, ["repo", "number", "title", "state", "baseRefName"], "%s: prs[%d]" % (args.prs, i), errs)
+    if errs:
+        doc = Doc()
+        doc.errors = errs
+        return doc
     doc = Doc()
     doc.h1("plugin-hostd, the PH engine, qualified menus and OpenMixer by default in Zynthian")
     sec_change(doc, facts, prs)
@@ -533,6 +619,10 @@ def main(argv=None):
         print("wrote", a.prs)
         return 0
     doc = build(a)
+    if doc.errors:
+        for e in doc.errors:
+            print("invalid input:", e, file=sys.stderr)
+        return 1
     os.makedirs(a.out, exist_ok=True)
     with open(os.path.join(a.out, "report.md"), "w") as fh:
         fh.write(to_md(doc))

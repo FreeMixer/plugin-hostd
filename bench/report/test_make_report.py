@@ -1,3 +1,5 @@
+import contextlib
+import io
 import json
 import os
 import tempfile
@@ -18,7 +20,7 @@ def scen(sid, host, rate=48000, frames=256, **kw):
 def bench(cls, scens, id="rpi5-20261027-1"):
     return {"schema": "omx-bench/1", "id": id, "machine": {"class": cls, "model": "x", "cpu": "c", "cores": 4, "ram_mb": 4096, "os": "o", "kernel": "k",
                                                   "governor": "performance"},
-            "software": {"plugin-hostd": "0.12.0"}, "scenarios": scens}
+            "software": {"plugin-hostd": "0.12.0", "omx-clap-host": "0.22.1", "mod-host": None, "jalv": "1.6.8", "jack": "1.9.22"}, "scenarios": scens}
 
 
 class Case(unittest.TestCase):
@@ -27,6 +29,7 @@ class Case(unittest.TestCase):
         self.d = self.t.name
         self.empty = os.path.join(self.d, "empty")
         os.makedirs(self.empty)
+        os.makedirs(os.path.join(self.d, "b"))
 
     def tearDown(self):
         self.t.cleanup()
@@ -88,6 +91,44 @@ class Case(unittest.TestCase):
                 "--out", os.path.join(self.d, "o")])
         self.assertIn("States as fetched at 2026-10-28T10:00:00Z.", self.report())
 
+    def test_missing_key_is_an_error_naming_key_and_file(self):
+        row = scen("idle", "H1")
+        del row["rss_mb"]
+        f = self.write("b/rpi.json", bench("rpi5", [row]))
+        for flags in ((), ("--strict",)):
+            with contextlib.redirect_stderr(io.StringIO()) as err:
+                rc = self.run_main(*flags)
+            self.assertEqual(rc, 1)
+            self.assertIn("%s: scenarios[0] (idle H1): missing key 'rss_mb'" % f, err.getvalue())
+        self.assertFalse(os.path.exists(os.path.join(self.d, "o", "report.md")))
+
+    def test_each_required_key_of_the_row_is_checked(self):
+        for key in ("dsp_load_avg", "title", "status", "note", "rate", "frames"):
+            row = scen("idle", "H1")
+            del row[key]
+            self.write("b/rpi.json", bench("rpi5", [row]))
+            with contextlib.redirect_stderr(io.StringIO()) as err:
+                self.assertEqual(self.run_main(), 1)
+            self.assertIn("missing key '%s'" % key, err.getvalue())
+
+    def test_missing_machine_key_and_unreadable_json(self):
+        d = bench("rpi5", [scen("idle", "H1")])
+        del d["machine"]["cpu"]
+        self.write("b/rpi.json", d)
+        self.write("b/bad.json", "{not json")
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            self.assertEqual(self.run_main(), 1)
+        self.assertIn("machine: missing key 'cpu'", err.getvalue())
+        self.assertIn("bad.json: not readable JSON", err.getvalue())
+
+    def test_qualification_verdict_without_rating_or_reason(self):
+        self.write("q/a.json", {"verdicts": [{"deciding": "x"}, {"rating": "unsuitable"}]})
+        errs = []
+        m.parse_qdocs(os.path.join(self.d, "q"), errs)
+        self.assertEqual(len(errs), 2)
+        self.assertIn("missing key 'rating'", errs[0])
+        self.assertIn("missing key 'deciding'", errs[1])
+
     def test_non_strict_exits_zero(self):
         self.assertEqual(self.run_main(), 0)
 
@@ -133,7 +174,7 @@ class Case(unittest.TestCase):
     def test_qdocs_reasons(self):
         self.write("q/a.json", {"verdicts": [{"rating": "suitable"}, {"rating": "unsuitable", "deciding": "r1"},
                                               {"rating": "unsuitable", "deciding": "r1"}]})
-        r = m.parse_qdocs(os.path.join(self.d, "q"))
+        r = m.parse_qdocs(os.path.join(self.d, "q"), [])
         self.assertEqual(r["reasons"], {"r1": 2})
         self.assertEqual(r["counts"], {"suitable": 1, "unsuitable": 2})
 
