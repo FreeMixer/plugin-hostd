@@ -66,11 +66,14 @@
 #include <sys/random.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
+#include <sys/syscall.h>
 #include <sys/types.h>
 #include <sys/utsname.h>
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
+
+#include <linux/capability.h>
 
 #include <omxcontract/omx_contract_limits.h>
 #include <omxcontract/omx_vocabulary.h>
@@ -822,6 +825,27 @@ static void put_rlimit(int resource, rlim_t soft, rlim_t hard)
         _exit(120);
 }
 
+/* In the child, once its priority is taken: CAP_SYS_NICE goes from every set, and every ambient capability goes, so the
+ * plugin cannot raise itself past the RLIMIT_RTPRIO bound. Out of the bounding set too where the runner may drop it,
+ * since a process running as root regains its permitted set from it at the exec. Exits 120 when it cannot. */
+static void drop_cap_sys_nice(void)
+{
+    struct __user_cap_header_struct h = { _LINUX_CAPABILITY_VERSION_3, 0 };
+    struct __user_cap_data_struct d[_LINUX_CAPABILITY_U32S_3];
+    unsigned bit = 1u << CAP_SYS_NICE;
+
+    if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_CLEAR_ALL, 0, 0, 0) != 0 && errno != EINVAL)
+        _exit(120);
+    prctl(PR_CAPBSET_DROP, CAP_SYS_NICE, 0, 0, 0);
+    if (syscall(SYS_capget, &h, d) != 0)
+        _exit(120);
+    d[0].inheritable &= ~bit;
+    d[0].permitted &= ~bit;
+    d[0].effective &= ~bit;
+    if (syscall(SYS_capset, &h, d) != 0)
+        _exit(120);
+}
+
 /* in the child, before the exec: the limits of the set; exits 120 when one cannot be applied. A measured child also takes
  * its real-time priority, last, and writes sched_setscheduler's errno (0 when it took it) on rt_fd */
 static void apply_limits(const options_t *o, const cpu_set_t *pinned, int pin_option, int measuring, int rt_fd)
@@ -864,6 +888,7 @@ static void apply_limits(const options_t *o, const cpu_set_t *pinned, int pin_op
     }
     else
         put_rlimit(RLIMIT_RTPRIO, 0, 0);
+    drop_cap_sys_nice();
 }
 
 /* the limits of the default set, as the document lists them */
