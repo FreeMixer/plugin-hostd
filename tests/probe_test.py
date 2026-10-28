@@ -759,6 +759,19 @@ def the_rt_time_bound_is_the_wall_budget():
 
 
 @test
+def list_limits_prints_the_bounds_a_run_would_apply_here():
+    p = subprocess.run([*without_cap(), "prlimit", "--rtprio=0:0", "--", PROBE, "run", "--list-limits", "--wall-s", "7",
+                        "--lock-preload", LOCK, "--data-bytes", str(1 << 30)], capture_output=True, text=True)
+    check(p.returncode == 0, "exit %d %s" % (p.returncode, p.stderr))
+    rows = {l.split("\t")[0]: l.split("\t")[1:] for l in p.stdout.splitlines()}
+    check(rows.get("rt-priority") == ["rlimit", "0"], "rt-priority %s" % rows.get("rt-priority"))
+    check(rows.get("rt-time") == ["rlimit", "7000000 us"], "rt-time %s" % rows.get("rt-time"))
+    check(rows.get("memory-lock", [None])[0] == "rlimit", "memory-lock %s" % rows.get("memory-lock"))
+    check(rows.get("realtime", [None])[0] == "none" and "RLIMIT_RTPRIO" in rows["realtime"][-1], "realtime %s" % rows.get("realtime"))
+    check("tasks" in rows and rows["tasks"][0] == "unavailable", "tasks %s" % rows.get("tasks"))
+
+
+@test
 def a_grant_the_kernel_refuses_is_recorded_as_none_with_the_refusal():
     hard = resource.getrlimit(resource.RLIMIT_RTPRIO)[1]
     if not cap_sys_nice() and hard == 0:

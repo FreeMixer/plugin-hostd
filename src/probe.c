@@ -897,6 +897,33 @@ static int list_limits(const options_t *o, int pin_option, const char *cpus)
     return 0;
 }
 
+/* --list-limits: the limits a run would apply on this machine, as the document lists them, one per line */
+static int print_limits(const options_t *o, const char *cpus)
+{
+    int i;
+
+    realtime_choose();
+    memlock_choose(o);
+    if (list_limits(o, cpus != NULL, cpus) != 0)
+        return 2;
+    for (i = 0; i < g_napplied; i++)
+    {
+        const applied_t *ap = &g_applied[i];
+
+        printf("%s\t%s", ap->name, ap->by);
+        if (ap->has_value)
+            printf("\t%lld%s%s", ap->value, ap->unit ? " " : "", ap->unit ? ap->unit : "");
+        else if (ap->str[0])
+            printf("\t%s", ap->str);
+        printf("\n");
+    }
+    for (i = 0; i < g_nunavailable; i++)
+        printf("%s\tunavailable\t%s\n", g_unavailable[i].name, g_unavailable[i].code);
+    printf("realtime\t%s\t%d of %d%s%s\n", g_rt.granted_by, g_rt.chosen, g_rt.requested, g_rt.reason[0] ? "\t" : "", g_rt.reason);
+    printf("lock-preload\t%s%s%s\n", g_lock.asked ? "asked" : "not asked", g_lock.reason[0] ? "\t" : "", g_lock.reason);
+    return fflush(stdout) == 0 ? 0 : 2;
+}
+
 /* ---------------------------------------------------------------- the run */
 
 typedef struct
@@ -1923,7 +1950,7 @@ int main(int argc, char **argv)
     jnode_t *pin_line = NULL, *measure_line = NULL;
     const jnode_t *lv2_library = NULL;
     long lv2_rate = 0;
-    int child_set = 0;
+    int child_set = 0, list_only = 0;
     int complete = 1, fd;
 
     if (argc >= 2 && !strcmp(argv[1], "describe"))
@@ -1948,7 +1975,8 @@ int main(int argc, char **argv)
                         "  --wall-s N  --cpu-s N  --data-bytes N  --files N  --file-bytes N  --grace-ms N\n"
                         "  --cpus LIST          pin the child to these cpus (\"0-3,8\")\n"
                         "  --require LIMIT      refuse to run unless the limit is applied (repeatable)\n"
-                        "  --lock-preload FILE  the library that locks the measured child's memory (default " PROBE_LOCK_PRELOAD ")\n", floor_rates());
+                        "  --lock-preload FILE  the library that locks the measured child's memory (default " PROBE_LOCK_PRELOAD ")\n"
+                        "  --list-limits        print the limits a run would apply here, one per line, and exit\n", floor_rates());
         return 2;
     }
     for (a = 2; a < argc; a++)
@@ -1958,6 +1986,11 @@ int main(int argc, char **argv)
 
         if (k[0] != '-')
             break;
+        if (!strcmp(k, "--list-limits"))
+        {
+            list_only = 1;
+            continue;
+        }
         if (v == NULL)
         {
             fprintf(stderr, RUNNER_NAME ": %s needs a value\n", k);
@@ -2005,6 +2038,8 @@ int main(int argc, char **argv)
             return 2;
         }
     }
+    if (list_only && o.quantum && o.wall_s > 0 && o.cpu_s > 0)
+        return print_limits(&o, o.cpus);
     if (a >= argc || o.quantum == 0 || o.wall_s <= 0 || o.cpu_s <= 0)
     {
         fprintf(stderr, RUNNER_NAME ": a plugin file and positive limits are needed\n");
