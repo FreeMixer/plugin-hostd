@@ -3,7 +3,7 @@
 
     stress-figures.py <run dir> <figure dir>
 
-Writes cpu.svg (busiest core and mean, percent), memory.svg (PSS and RSS of the hosting processes, MB),
+Writes cpu.svg (busiest core and mean, percent), host-cpu.svg (the hosting processes, percent of one core), memory.svg (PSS and RSS of the hosting processes, MB),
 creation.svg (seconds to build one chain) and xruns.svg, one line per host mode against the number of chains, and
 prints the Markdown table of every level. Plain SVG: no plotting library is needed.
 """
@@ -20,6 +20,12 @@ def host_mem(rec, key):
     """the hosting processes only: the daemon and its workers, or the jalv processes"""
     m = rec.get("memory", {})
     return round(sum(m.get(g, {}).get(key, 0.0) for g in ("plugin-hostd", "workers", "jalv")), 1)
+
+
+def host_cpu(rec):
+    """CPU of the hosting processes over the hold, percent of one core (the scheduler's ns counters)"""
+    g = rec.get("cpu_groups_pct_of_core", {})
+    return round(sum(g.get(k, 0.0) for k in ("plugin-hostd", "workers", "jalv")), 1)
 
 
 def svg(path, title, ylabel, series, xs):
@@ -79,6 +85,8 @@ def main():
     svg(os.path.join(figs, "cpu.svg"), "CPU over the hold: busiest core (solid) and mean of 4 (dashed)", "percent",
         [(f"{m} busiest", COLOURS[m], "", pts(m, lambda r: r["cpu_busiest_core"])) for m in MODES] +
         [(f"{m} mean", COLOURS[m], "5,4", pts(m, lambda r: r["cpu_mean"])) for m in MODES], xs)
+    svg(os.path.join(figs, "host-cpu.svg"), "CPU of the hosting processes (daemon and workers, or jalv)",
+        "percent of one core", [(m, COLOURS[m], "", pts(m, host_cpu)) for m in MODES], xs)
     svg(os.path.join(figs, "memory.svg"), "Memory of the hosting processes: PSS (solid) and RSS (dashed)", "MB",
         [(f"{m} PSS", COLOURS[m], "", pts(m, lambda r: host_mem(r, "pss_mb"))) for m in MODES] +
         [(f"{m} RSS", COLOURS[m], "5,4", pts(m, lambda r: host_mem(r, "rss_mb"))) for m in MODES], xs)
@@ -87,16 +95,16 @@ def main():
     svg(os.path.join(figs, "xruns.svg"), "Xruns during the hold (the run's own JACK client)", "xruns",
         [(m, COLOURS[m], "", pts(m, lambda r: r["xruns_meter"])) for m in MODES], xs)
 
-    print("| level | host mode | plugins | busiest core % | mean % | JACK DSP % mean / max | host PSS MB | host RSS MB "
+    print("| level | host mode | plugins | busiest core % | mean % | host CPU % of a core | JACK DSP % mean / max | host PSS MB | host RSS MB "
           "| RSS total MB | xruns (meter / Zynthian) | JACK clients | workers | build s (per chain) | limit |")
-    print("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
+    print("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
     for r in s["levels"]:
         m = r["mode"]
         lvl = "idle" if m == "baseline" else str(r["chains_asked"])
         build = "-" if r.get("creation_s_total") is None else f'{r["creation_s_total"]} ({r["creation_s_per_chain"]})'
         workers = "-" if m in ("baseline", "jalv") else str(r["workers_mine"])
         print(f'| {lvl} | {m} | {r["plugins_running"]} | {r["cpu_busiest_core"]} | {r["cpu_mean"]} '
-              f'| {r["jack_dsp_mean"]} / {r["jack_dsp_max"]} | {host_mem(r, "pss_mb")} | {host_mem(r, "rss_mb")} '
+              f'| {host_cpu(r)} | {r["jack_dsp_mean"]} / {r["jack_dsp_max"]} | {host_mem(r, "pss_mb")} | {host_mem(r, "rss_mb")} '
               f'| {r["rss_total_mb"]} | {r["xruns_meter"]} / {r["xruns_zynthian"]} | {r["jack_clients"]} | {workers} '
               f'| {build} | {r.get("limit") or "-"} |')
 

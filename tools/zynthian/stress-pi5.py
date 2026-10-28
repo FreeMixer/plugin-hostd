@@ -12,8 +12,10 @@ Host modes, each at every level from scratch:
   jalv     one jalv process per plugin, as Zynthian's stock jalv engine runs an LV2 plugin
 
 The members of a chain are linked in series from system:capture to system:playback. A level is held --hold seconds;
-over the hold it samples /proc/stat per core and the JACK DSP load each second, counts xruns with a JACK client of
-its own and from Zynthian's own counter in its journal, and at the end reads RSS and PSS per process group, the
+over the hold it reads, each second, the time the scheduler ran tasks on each core (/proc/schedstat, in ns; the
+tick-sampled /proc/stat figures are kept beside them as tick_*, since they alias against JACK's cycle), the core
+clocks and the JACK DSP load, counts xruns with a JACK client of
+its own and from Zynthian's own counter in its journal, and at the end reads the CPU time of each process group and of the busiest processes, RSS and PSS per process group, the
 worker list, the JACK client count and one capture of the screen. A mode stops climbing at the first level whose
 busiest core averages over --cpu-limit percent, whose xruns exceed the baseline's by --burst, whose free memory falls
 under --mem-floor MB, or after which the UI no longer answers. Everything this run starts it stops again.
@@ -85,6 +87,39 @@ def cpu_times():
     return out
 
 
+def cpu_ns():
+    """cpu -> nanoseconds the scheduler ran tasks on it (rq_cpu_time, the 7th field of /proc/schedstat), and the
+    monotonic clock in ns. Unlike /proc/stat it is not sampled at the tick: with CONFIG_HZ=250 the 4 ms tick beats
+    against JACK's 5.33 ms cycle (48000/256), and the tick-sampled figures swing between near zero and a full core"""
+    out = {}
+    with open("/proc/schedstat") as f:
+        for line in f:
+            if re.match(r"^cpu\d", line):
+                p = line.split()
+                out[p[0]] = int(p[7])
+    return out, time.monotonic_ns()
+
+
+def busy_ns(a, b):
+    (ra, ta), (rb, tb) = a, b
+    return {k: 100.0 * (rb[k] - ra[k]) / (tb - ta) for k in sorted(ra)}
+
+
+def task_ns(pid):
+    """nanoseconds every thread of a process has run (the first field of each task's schedstat); 0 when it is gone"""
+    tot = 0
+    try:
+        for t in os.listdir(f"/proc/{pid}/task"):
+            try:
+                with open(f"/proc/{pid}/task/{t}/schedstat") as f:
+                    tot += int(f.read().split()[0])
+            except (OSError, ValueError, IndexError):
+                continue
+    except OSError:
+        pass
+    return tot
+
+
 def busy(a, b):
     res = {}
     for k in sorted(a):
@@ -94,8 +129,8 @@ def busy(a, b):
     return res
 
 
-def proc_ticks():
-    """pid -> (utime + stime in clock ticks, name, cmdline head) of every process"""
+def proc_ns():
+    """pid -> (ns run by all its threads, name, cmdline head) of every process"""
     out = {}
     for d in os.listdir("/proc"):
         if not d.isdigit():
@@ -104,22 +139,20 @@ def proc_ticks():
             with open(f"/proc/{d}/stat") as f:
                 raw = f.read()
             name = raw[raw.index("(") + 1:raw.rindex(")")]
-            rest = raw.rsplit(")", 1)[1].split()
             with open(f"/proc/{d}/cmdline", "rb") as f:
                 cmd = f.read().replace(b"\0", b" ").decode(errors="replace").strip()[:120]
-            out[int(d)] = (int(rest[11]) + int(rest[12]), name, cmd)
+            out[int(d)] = (task_ns(d), name, cmd)
         except (OSError, ValueError, IndexError):
             continue
     return out
 
 
 def top_consumers(a, b, seconds, n=8):
-    """the processes that used the most CPU between two proc_ticks readings, in percent of one core"""
-    hz = os.sysconf("SC_CLK_TCK")
+    """the processes that used the most CPU between two proc_ns readings, in percent of one core"""
     used = []
     for pid, (t, name, cmd) in b.items():
-        t0 = a.get(pid, (0, None, None))[0] if a.get(pid, (0, name))[1] == name else 0
-        used.append((100.0 * (t - t0) / hz / seconds, pid, name, cmd))
+        t0 = a[pid][0] if pid in a and a[pid][1] == name else 0
+        used.append((100.0 * (t - t0) / 1e9 / seconds, pid, name, cmd))
     used.sort(reverse=True)
     return [{"pid": pid, "name": name, "cmd": cmd, "cpu_pct_of_core": round(pct, 1)} for pct, pid, name, cmd in used[:n]]
 
@@ -462,7 +495,10 @@ class Run:
         with open(os.path.join(self.out, "holding"), "w") as f:
             f.write(tag + "\n")  # stress-pi5.sh takes the MOD-UI capture of the level while this names it
         x0, z0 = self.xruns, zynthian_xruns()
-        ticks0, mono0 = proc_ticks(), time.monotonic()
+        ticks0, mono0 = proc_ns(), time.monotonic()
+        grp = groups(self.daemon.pid if self.daemon else None, [p.pid for p in self.jalv])
+        g0 = {g: sum(task_ns(p) for p in pids) for g, pids in grp.items()}
+        ns_first = ns_prev = cpu_ns()
         prev = cpu_times()
         t_end = time.monotonic() + self.a.hold
         while time.monotonic() < t_end:
@@ -470,25 +506,37 @@ class Run:
             cur = cpu_times()
             b = busy(prev, cur)
             prev = cur
+            ns_cur = cpu_ns()
+            bn = busy_ns(ns_prev, ns_cur)
+            ns_prev = ns_cur
             row = {"t": round(self.a.hold - (t_end - time.monotonic()), 1), "jack_dsp": round(self.meter.cpu_load(), 2),
                    "mem_avail_mb": round(mem_available_mb(), 1), "xruns": self.xruns - x0}
-            row.update({k: round(v, 1) for k, v in b.items()})
+            row.update({k: round(v, 1) for k, v in bn.items()})
+            row.update({"tick_" + k: round(v, 1) for k, v in b.items()})
             row.update(cpu_mhz())
             rows.append(row)
-        top = top_consumers(ticks0, proc_ticks(), time.monotonic() - mono0)
+        secs = time.monotonic() - mono0
+        top = top_consumers(ticks0, proc_ns(), secs)
+        whole = busy_ns(ns_first, cpu_ns())
+        cpu_groups = {g: round(100.0 * (sum(task_ns(p) for p in pids) - g0[g]) / 1e9 / secs, 1)
+                      for g, pids in grp.items()}
         os.unlink(os.path.join(self.out, "holding"))
         with open(os.path.join(self.out, "levels", f"{tag}.csv"), "w", newline="") as f:
             w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
             w.writeheader()
             w.writerows(rows)
         cores = [k for k in rows[0] if k.startswith("cpu")]
-        means = {k: sum(r[k] for r in rows) / len(rows) for k in cores}
+        means = whole
+        tick_means = {k: sum(r["tick_" + k] for r in rows) / len(rows) for k in cores}
         return {"top_consumers": top, "mhz_mean": round(sum(r.get("mhz0", 0) for r in rows) / len(rows)),
                 "xruns_meter": self.xruns - x0, "xruns_zynthian": zynthian_xruns() - z0,
                 "cpu_core_mean": {k: round(v, 1) for k, v in means.items()},
                 "cpu_busiest_core": round(max(means.values()), 1),
                 "cpu_mean": round(sum(means.values()) / len(means), 1),
                 "cpu_busiest_second": round(max(max(r[k] for k in cores) for r in rows), 1),
+                "cpu_groups_pct_of_core": cpu_groups,
+                "tick_cpu_busiest_core": round(max(tick_means.values()), 1),
+                "tick_cpu_mean": round(sum(tick_means.values()) / len(tick_means), 1),
                 "jack_dsp_mean": round(sum(r["jack_dsp"] for r in rows) / len(rows), 2),
                 "jack_dsp_max": round(max(r["jack_dsp"] for r in rows), 2),
                 "mem_avail_min_mb": min(r["mem_avail_mb"] for r in rows)}
