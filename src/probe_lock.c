@@ -51,7 +51,8 @@ __attribute__((constructor)) static void probe_lock(void)
         report.locked = 1;
     else
         report.error = errno;
-    if (write((int)fd, &report, sizeof(report)) < 0)
-        report.error = errno;
+    /* a report that cannot be written is an absent one, which the runner records as such */
+    if (write((int)fd, &report, sizeof(report)) != (ssize_t)sizeof(report))
+        (void)0;
     close((int)fd);
 }
