@@ -4,7 +4,7 @@ What the jalv and mod-ui engines give a chain, and what Path B gives
 The two engines plugind replaces, read at zynthian-ui `f46b0189b616` (`jalv.py` is `zyngine/zynthian_engine_jalv.py`,
 `modui.py` is `zyngine/zynthian_engine_modui.py`, `engine.py` is `zyngine/zynthian_engine.py`, `manager.py` is
 `zyngine/zynthian_chain_manager.py`, `chain.py` is `zyngine/zynthian_chain.py`), against Path B as merged in #125
-(`zynthian_engine_plugind.py` of `zynthian_engine_plugind.patch`; `spike-report.md:97-104` lists what it lacks) and
+(`zynthian_engine_plugind.py` of the spike's engine patch, [README.md](README.md); `spike-report.md:97-104` lists what it lacks) and
 as this branch extends it (the strip, `zynthian_plugind_strip.py`). jalv is one engine and one process per LV2 plugin,
 one processor per slot; mod-ui is ONE `Special` processor (`modui.py:67`) whose pedalboard, edited in mod-ui's own web
 page, is the whole chain inside it.

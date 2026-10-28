@@ -4,7 +4,7 @@ The Zynthian chain as a strip profile
 The strip model, as OpenMixer's strip declaration states it: a strip is a sorted chain of elements operating on
 sound, its source is `live`, `synth` or `sum`, control-domain input belongs to the source and sits outside the chain,
 and a profile states what one kind of strip carries. This page writes one Zynthian chain in those terms. Every fact is read from zynthian-ui `f46b0189b616`
-(the commit `zynthian_engine_plugind.patch` applies to); `chain.py` is `zyngine/zynthian_chain.py`, `manager.py` is
+(the commit the spike's engine patch applies to, [README.md](README.md)); `chain.py` is `zyngine/zynthian_chain.py`, `manager.py` is
 `zyngine/zynthian_chain_manager.py`, `processor.py` is `zyngine/zynthian_processor.py`, `autoconnect.py` is
 `zynautoconnect/zynthian_autoconnect.py`.
 
@@ -64,7 +64,7 @@ One Zynthian chain, one chain line
 ---------------------------------
 
 The 2026-10-21 ruling on plugin-hostd#101: one Zynthian chain is one plugin-hostd `chain` line. The engine
-(`zyngine/zynthian_plugind_chain.py`, in `zynthian_engine_plugind.patch`) says a chain's audio slots to the daemon
+(`zyngine/zynthian_plugind_chain.py`, in the spike's engine patch) says a chain's audio slots to the daemon
 through the chain verb only. No `connect` or `disconnect` between plugind instances is sent.
 
 | What | How |
@@ -132,7 +132,7 @@ Open points
 Tests
 -----
 
-`tools/zynthian/chain.sh <zynthian-ui clone> <out>` applies the patch at the pinned commit and runs
+`tools/zynthian/chain.sh <zynthian-ui clone> <out>` applies the spike's engine patch at the pinned commit and runs
 `tools/zynthian/test-chain.py`: the real `zynthian_chain`, `zynthian_processor` and `zynthian_plugind_chain` against
 plugin-hostd and `tests/fake-host` (no JACK, no plugin), autoconnect's lock a real one that counts a wait past two
 seconds. Nine scenarios read the chain back with `chain_get` and the workers with `worker_list`; one kills the daemon
