@@ -19,3 +19,8 @@ override_dh_auto_test:
 ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
 	$(MAKE) test-daemon check-generated check-rendered
 endif
+
+# the protocol clients are sourced and imported, never run: no execute bit
+override_dh_fixperms:
+	dh_fixperms
+	chmod 0644 debian/plugin-hostd-tests/usr/libexec/plugin-hostd/tests/lib/protocol.sh debian/plugin-hostd-tests/usr/libexec/plugin-hostd/tests/lib/plugin_hostd_client.py

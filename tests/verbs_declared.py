@@ -17,7 +17,9 @@
 import json, os, re, socket, subprocess, sys, tempfile, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 import harness
+import plugin_hostd_client
 import scan_fixture
 from harness import Daemon, Fail, check, wait_for
 
@@ -218,6 +220,11 @@ LINES = {
     "chain": ("7 1 2", "7", ("8 99", "8 1 1")),
     "chain_get": ("7", "x", ("9",)),
     "chain_clear": ("7", "x", ("7",)),
+    "history_get": ("{uri}", "", ()),
+    "history_clear": ("clap:/nowhere.clap#x", "", ()),
+    "plan": ("7 1 2", "7", ("8 99", "8 1 1")),
+    "plan_get": ("7", "x", ("9",)),
+    "plan_clear": ("7", "x", ("7",)),
     "pin_clear": ("all", "", ()),
 }
 ORDER = list(LINES)
@@ -345,6 +352,7 @@ class Worker:
         while True:
             try:
                 self.sock = socket.create_connection(("127.0.0.1", self.port), timeout=10)
+                self.client = plugin_hostd_client.Client(self.sock)
                 self.fb = socket.create_connection(("127.0.0.1", fb), timeout=10)
                 break
             except OSError:
@@ -353,14 +361,10 @@ class Worker:
                 time.sleep(0.02)
 
     def send(self, msg):
-        self.sock.sendall(msg.encode() + b"\0")
-        buf = b""
-        while not buf.endswith(b"\0"):
-            c = self.sock.recv(65536)
-            if not c:
-                raise Fail("the fake worker closed on " + msg)
-            buf += c
-        return buf[:-1].decode()
+        try:
+            return self.client.send(msg)
+        except ConnectionError:
+            raise Fail("the fake worker closed on " + msg)
 
     def close(self):
         self.proc.kill()
@@ -425,6 +429,19 @@ def main():
             if verb + rest != shared[verb]["format"]:
                 fail("protocol.h's %s_FMT is %r, omx-clap-core declares %r" % (macro, verb + rest, shared[verb]["format"]))
     print("ok   protocol.h names %d formats of the shared verbs, as omx-clap-core declares them" % named)
+    # the line a worker writes on its feedback port that the daemon reads is omx-clap-core's HOST_EVENTS word
+    events = {}
+    for doc in docs:
+        item = doc.get("HOST_EVENTS")
+        if isinstance(item, dict) and item.get("kind") == "words":
+            events = {k: w["word"] for k, w in item["words"].items()}
+    xruns = re.search(r'^#define\s+PHD_EVENT_XRUNS\s+"(\w+)"', header, re.M)
+    if "xruns" not in events:
+        fail("omx-clap-core declares no HOST_EVENTS.xruns: the daemon reads that line (%s)" % own_docs[0]["requires"].get("omx-clap-core"))
+    elif not xruns or xruns.group(1) != events["xruns"]:
+        fail("protocol.h's PHD_EVENT_XRUNS is %r, omx-clap-core's HOST_EVENTS.xruns is %r" % (xruns and xruns.group(1), events["xruns"]))
+    else:
+        print("ok   protocol.h reads the worker's %s line, as omx-clap-core's HOST_EVENTS declares it" % events["xruns"])
     print("plugin-hostd declares %d verbs, %d of them owed by plugin-hostd" %
           (len(own), len([v for v in own if owes(own[v], HOSTD)])))
 

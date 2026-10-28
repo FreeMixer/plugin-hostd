@@ -124,6 +124,19 @@ int conf_check(const conf_t *conf)
         return -1;
     }
     ok = 0;
+#define X(id, name, meaning) ok |= !strcmp(conf->grouping, name);
+    PHD_GROUPING_MODES(X)
+#undef X
+    if (!ok)
+    {
+        fprintf(stderr, "grouping '%s' is not one of:", conf->grouping);
+#define X(id, name, meaning) fprintf(stderr, " %s", name);
+        PHD_GROUPING_MODES(X)
+#undef X
+        fprintf(stderr, "\n");
+        return -1;
+    }
+    ok = 0;
 #define X(id, name, meaning) ok |= !strcmp(conf->lv2_worker, name);
     PHD_LV2_WORKERS(X)
 #undef X
@@ -136,10 +149,25 @@ int conf_check(const conf_t *conf)
         fprintf(stderr, "\n");
         return -1;
     }
+    if (strpbrk(conf->host_class, " \t"))
+    {
+        fprintf(stderr, "host_class '%s' holds white space\n", conf->host_class);
+        return -1;
+    }
+    if (conf->history_window_s < 0 || conf->history_save_s < 0 || conf->history_regroup_s < 0)
+    {
+        fprintf(stderr, "history_window_s, history_save_s and history_regroup_s are not negative\n");
+        return -1;
+    }
     return 0;
 }
 
 int conf_pins_first_use(const conf_t *conf)
 {
     return !strcmp(conf->pin_mode, PHD_PIN_MODE_FIRST_USE);
+}
+
+int conf_grouping_on(const conf_t *conf)
+{
+    return !strcmp(conf->grouping, PHD_GROUPING_ON);
 }

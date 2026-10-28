@@ -95,6 +95,19 @@ typedef struct WORKER_T {
     int npend;
     int64_t pend_until_ms;
     struct CHAIN_T *chain;      /* the chain this worker runs, its members in w->inst in the chain's order */
+    /* the running history's window of this worker (src/history.c): what it has used since hist_start_ms */
+    pid_t hist_pid;             /* the process the window belongs to, 0 for none */
+    int64_t hist_start_ms;
+    double hist_cpu0;           /* its CPU seconds when the window began */
+    int hist_ninst;             /* its members then: a window in which they changed is not counted */
+    int64_t hist_half_ms;       /* the mid-window sample, 0 before it: what a window that ends in a death is counted from */
+    double hist_half_cpu;
+    long long hist_half_pss_kb;
+    /* its xruns (PHD_EVENT_XRUNS): the count the last window ended at, the baseline of the next; the first count a
+     * process writes is only that baseline */
+    pid_t xr_pid;               /* the process xr_base is of */
+    int xr_known;
+    unsigned long long xr_base;
 } worker_t;
 
 /* the instances a chain verb declared, in order; the ones not quarantined run in its worker */
@@ -104,6 +117,9 @@ typedef struct CHAIN_T {
     int n;
     worker_t *w;                /* NULL while no worker holds it */
     int rejoin;                 /* its members are to be gathered in one worker again, by the tick */
+    int planned;                /* a segment of a plan, not a chain the controller declared: id is the plan's number, seg the
+                                 * segment's place in the plan, and no g_chain row holds it */
+    int seg;
 } chain_t;
 
 void sup_init(const conf_t *conf);
@@ -146,6 +162,17 @@ char *sup_chain(int id, const int *ids, int n);
 char *sup_chain_clear(int id);
 /* chain_get: the chain's worker, its members as declared and the ones its worker runs, each in order */
 char *sup_chain_get(int id);
+/* plan: the instances ids, in signal order, planned into segments (src/planner.c); applied as chains of place
+ * chain:<id>.<k> and workers of their own while grouping is on, answered and kept while it is off. plan_get reads the
+ * last plan back, plan_clear gives each member a worker of its own */
+char *sup_plan(int id, const int *ids, int n);
+char *sup_plan_get(int id);
+char *sup_plan_clear(int id);
+
+/* history_get: the summary of the binary the uri's pin holds, on this host class (src/history.c); history_clear: the
+ * lines of one uri or all of them. Both answer as the verbs do */
+char *sup_history_get(const char *uri);
+char *sup_history_clear(const char *uri);
 
 /* the idle tick: reap the dead, respawn the due, checkpoint the quiet */
 void sup_tick(void);
