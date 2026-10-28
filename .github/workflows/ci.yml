@@ -393,12 +393,12 @@ jobs:
       - uses: FreeMixer/.github/.github/actions/build-deb@v1
 
       # the data packages plugin-hostd-contract depends on are the channel's, not Debian's: the clean container
-      # installs them from here, like the protocol library
+      # installs them from here, like the protocol library; omx-contract too, whose schema reads the tables (#165)
       - name: Fetch the contract data packages of the channel
         run: |
           set -euo pipefail
           mkdir -p dep-debs
-          (cd dep-debs && apt-get download omx-clap-core-contract omx-contract-data)
+          (cd dep-debs && apt-get download omx-clap-core-contract omx-contract-data omx-contract)
 
       # what the smoke test runs the installed package against, built here for the architecture
       - name: Build the smoke test fixtures
@@ -417,6 +417,7 @@ jobs:
             dep-debs/libmod-host-protocol0_*.deb
             dep-debs/omx-clap-core-contract_*.deb
             dep-debs/omx-contract-data_*.deb
+            dep-debs/omx-contract_*.deb
             smoke
           if-no-files-found: error
           retention-days: 1
@@ -446,7 +447,7 @@ jobs:
         run: |
           set -euo pipefail
           apt-get update -qq
-          apt-get install -y --no-install-recommends ./debs/plugin-hostd_*.deb ./debs/plugin-hostd-contract_*.deb ./debs/plugin-hostd-dev_*.deb ./debs/plugin-hostd-tests_*.deb ./dep-debs/libmod-host-protocol0_*.deb ./dep-debs/omx-clap-core-contract_*.deb ./dep-debs/omx-contract-data_*.deb python3
+          apt-get install -y --no-install-recommends ./debs/plugin-hostd_*.deb ./debs/plugin-hostd-contract_*.deb ./debs/plugin-hostd-dev_*.deb ./debs/plugin-hostd-tests_*.deb ./dep-debs/libmod-host-protocol0_*.deb ./dep-debs/omx-clap-core-contract_*.deb ./dep-debs/omx-contract-data_*.deb ./dep-debs/omx-contract_*.deb python3
           dpkg -L plugin-hostd-dev | tee dev.txt
           grep -qx /usr/include/plugin-hostd/protocol.h dev.txt
           grep -qx /usr/include/plugin-hostd/plugin_hostd_host_verbs.h dev.txt
