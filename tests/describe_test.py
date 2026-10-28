@@ -194,6 +194,26 @@ def main():
         r = describe("lv2:urn:example:missing", extra=["--child", child])
         check(r.returncode == 3 and "made no dump" in r.stderr and not r.stdout,
               "a child that fails: exit 3, no descriptor (%d: %s)" % (r.returncode, r.stderr.strip()))
+
+        # travel.scale precedence (#142): a port stating both lv2:integer ("stepped") and pprops:logarithmic
+        # ("log") reports "log" whichever order the two triples come in -- the scanner's node order (sord,
+        # directory-dependent) must not decide it
+        port = ("port:20\tlv2:symbol\tkey_hp\n"
+                "port:20\tlv2:name\tKey HP\n"
+                "port:20\trdf:type\tlv2:ControlPort\n"
+                "port:20\trdf:type\tlv2:InputPort\n"
+                "port:20\tlv2:minimum\t0\n"
+                "port:20\tlv2:maximum\t4\n"
+                "port:20\tlv2:default\t0\n")
+        for order, lines in (("integer, then logarithmic", ("port:20\tlv2:portProperty\tlv2:integer\n",
+                                                              "port:20\tlv2:portProperty\tpprops:logarithmic\n")),
+                             ("logarithmic, then integer", ("port:20\tlv2:portProperty\tpprops:logarithmic\n",
+                                                             "port:20\tlv2:portProperty\tlv2:integer\n"))):
+            r = describe(CASES["lv2-compressor"], scratch(tmp, "dump.tsv", lv2 + port + "".join(lines)))
+            check(r.returncode == 0, "two scale words, %s: describe exits 0 (%s)" % (order, r.stderr.strip()))
+            got = json.loads(r.stdout or "null") if r.returncode == 0 else None
+            scale = next((c["travel"]["scale"] for c in (got or {}).get("controls", []) if c["id"] == "key_hp"), None)
+            check(scale == "log", "two scale words, %s: travel.scale is log (got %r)" % (order, scale))
     if failed:
         print("describe: %d failed" % failed)
         sys.exit(1)

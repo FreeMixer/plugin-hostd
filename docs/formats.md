@@ -173,3 +173,10 @@ What the tables leave to `describe`:
   becomes `_`; `instrument` is written when the features hold it, `polyphonic` when it states more than one voice; `latency`
   is always written, `reports` false when no row sets it.
 - a word of a table that `describe` does not write is refused with the table: a new word is code here first.
+
+#### travel.scale precedence
+
+A port can state two scale words for one control: `pprops:logarithmic` (`log`) alongside a scale `lv2:integer` or
+an enumeration derives (`stepped`). `describe` resolves this by a fixed precedence, not scan order: `log` always
+wins over `stepped`, whichever triple the scanner's node order (sord, directory-dependent) visits last. A port
+that states `log` reports `travel.scale: "log"` regardless of where the two words fall in the file.

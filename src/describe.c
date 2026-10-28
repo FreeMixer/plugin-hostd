@@ -267,6 +267,20 @@ static const char *get(const entry_t *e, const char *word)
     return NULL;
 }
 
+/* controls[].travel.scale, where a port can state two scale words (docs/formats.md#travel-scale-precedence):
+ * an explicit pprops:logarithmic ("log") wins over a scale an enumeration or lv2:integer derives ("stepped"),
+ * whatever order the triples came in; absent that, the last value, as get() does generically */
+static const char *get_scale(const entry_t *e)
+{
+    int w = word_index("controls[].travel.scale");
+    size_t i;
+
+    for (i = e->n; i-- > 0;)
+        if (e->a[i].word == w && !strcmp(e->a[i].value, "\"log\""))
+            return e->a[i].value;
+    return get(e, "controls[].travel.scale");
+}
+
 static void carry(scan_t *s, const char *scope, const char *field, const char *value)
 {
     char key[256];
@@ -617,7 +631,7 @@ static int put_control(sb_t *b, const entry_t *e, const char *format, const char
         sb_printf(b, ", \"default\": %s", def && strtod(def, NULL) != 0 ? "true" : "false");
     else if (!strcmp(kind, "\"travel\""))
     {
-        const char *unit = get(e, "controls[].travel.unit"), *scale = get(e, "controls[].travel.scale");
+        const char *unit = get(e, "controls[].travel.unit"), *scale = get_scale(e);
 
         if (min == NULL || max == NULL)
             return refuse("%s is a travel that states no %s", e->scope, min ? "maximum" : "minimum");
