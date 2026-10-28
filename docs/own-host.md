@@ -84,6 +84,30 @@ What to read next: `man plugin-hostd`; the verbs and error codes in the README; 
 the plugin's own pages of controls; the machine-readable protocol at `/usr/share/plugin-hostd/protocol.json`; a C
 consumer can include `plugin-hostd/protocol.h` (`pkg-config --cflags plugin-hostd`, package `plugin-hostd-dev`).
 
+Measuring plugins at real-time priority
+---------------------------------------
+
+`plugin-hostd-probe` measures a plugin on a SCHED_FIFO thread at the highest priority it is granted, with its memory
+locked, as JACK or PipeWire runs it; without a grant the figures are taken at ordinary priority, and the record says so
+(`run.realtime.class: none` and the reason). On Zynthian and on the console, plugin-qualify's sync service
+(`plugin-qualify-sync.service`) runs the probe; it passes the grant with a drop-in,
+`/etc/systemd/system/plugin-qualify-sync.service.d/realtime.conf`:
+
+```ini
+[Service]
+# the highest SCHED_FIFO priority, which the probe asks for, and a lock as large as the probe's memory limit
+LimitRTPRIO=99
+LimitMEMLOCK=infinity
+# the unit forbids real time to everything it starts; the probe bounds it instead (RLIMIT_RTPRIO, RLIMIT_RTTIME)
+RestrictRealtime=no
+```
+
+then `sudo systemctl daemon-reload`. Where the distribution lets a service hold capabilities,
+`AmbientCapabilities=CAP_SYS_NICE` grants the same priority without the rlimit. `plugin-qualify --all`, run by hand,
+gets the grant of the user's login session: the `rtprio` and `memlock` of `/etc/security/limits.d/`, as for JACK (for
+example the `audio` group's). `plugin-hostd-probe run --list-limits` prints what a run would get: the `realtime` line
+names the grant and the priority, or why there is none.
+
 What a Zynthian integration still needs from us
 -----------------------------------------------
 

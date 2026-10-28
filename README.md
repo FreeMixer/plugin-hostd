@@ -518,8 +518,17 @@ and the soak stay plugin-qualify's until the probe protocol says which plugins g
 
 The runner kills the whole process tree of the child at its wall clock, and again when the child is done, so a process a
 plugin started in a session of its own does not outlive the run. It applies these limits on every Linux: the wall clock,
-the CPU time, the data size, the open files, the file size, no core dump, no real-time priority, no new privileges, the
-child dying with the runner, and the cpus the child may use (`--cpus`). A limit the set asks for and this version does not
+the CPU time, the data size, the open files, the file size, no core dump, the real-time priority it was granted and the
+wall budget as its real-time CPU time, the memory it may lock, no new privileges, the child dying with the runner, and the
+cpus the child may use (`--cpus`). `--list-limits` prints them as a run on this machine would apply them.
+
+The measured child runs as the host runs the plugin: SCHED_FIFO at the highest priority the runner may give it (all of it
+with `CAP_SYS_NICE`, else the `RLIMIT_RTPRIO` hard limit the runner was started with, else none), with its memory locked
+by the runner's lock preload (`/usr/libexec/plugin-hostd/probe-lock.so`, beside the interposer) when its `RLIMIT_MEMLOCK`
+covers the memory limit. The runner itself and an LV2 plugin's pin pass stay SCHED_OTHER. `run.realtime` says what the
+kernel reported for the child after the exec (class, priority, the priority requested, who granted it, and why none),
+`offer.realtime` is that class, and `run.memoryLock` says whether the lock held. A service that runs the probe passes the
+grant with `LimitRTPRIO=` and `LimitMEMLOCK=` ([docs/own-host.md](docs/own-host.md#measuring-plugins-at-real-time-priority)). A limit the set asks for and this version does not
 apply (the number of tasks, namespaces, Landlock, seccomp) is listed in the document under `limits.unavailable` with its
 code, and `--require tasks` makes the run refuse instead.
 
