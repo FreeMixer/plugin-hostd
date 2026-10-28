@@ -282,7 +282,7 @@ clean:
 
 # the daemon against workers that are not plugin hosts at all (tests/fake-host speaks the same protocol and can be
 # made to die on cue): placement, forwarding, ledger, replay, attribution, the storm bound; no jack, no plugin
-test: test-protocol-lib test-sabotage-pool test-pin test-history test-proc test-own-host-probe-teardown test-planner test-transforms test-format-coverage test-describe test-relay test-alloc test-format test-daemon test-verbs-declared check-rendered check-generated check-schema test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-mod-host-json test-socket check-verb-table check-preset-schema test-install-schemas check-contract-floor
+test: test-protocol-lib test-sabotage-pool test-pin test-history test-proc test-own-host-probe-teardown test-planner test-transforms test-format-coverage test-describe test-relay test-alloc test-format test-daemon test-verbs-declared check-rendered check-generated check-schema test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-mod-host-json test-socket check-verb-table check-preset-schema test-install-schemas check-contract-floor check-readme-facts
 	MOD_HOST_DIR=$(MOD_HOST_DIR) python3 tests/verbs_contract.py
 
 # the protocol clients plugin-hostd-tests ships (tests/lib/), against a peer that frames by NUL, and their sabotage
@@ -480,6 +480,10 @@ check-generated: $(GEN)
 # the README sells the packages: no build command on it, and BUILDING.md carries the build
 check-readme:
 	python3 tests/readme_build.py
+
+# the prose beside the generated protocol tables: still the daemon's and its workers' verified behavior today
+check-readme-facts:
+	python3 tests/readme_facts.py
 
 # the own-host page: its commands are few, and the reader that CI runs them with stops on any wrong reply
 check-own-host-page:
