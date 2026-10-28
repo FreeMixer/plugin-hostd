@@ -71,6 +71,10 @@ Building from source: see [BUILDING.md](BUILDING.md). More about FreeMixer at <h
 Protocol
 --------
 
+The wire protocol for a reader of another host, mod-host's verbs on plugin-hostd and the verbs mod-host does not
+have, is [docs/protocol.md](docs/protocol.md), written from the declarations below by `tools/protocol-doc.py`; CI fails
+when it differs from them.
+
 The verbs the daemon adds are declared once in omx-contract's contract directory, with their formats, their replies,
 their refusal codes and what each host owes them: `/usr/share/omx-contract/contract.d/3/plugin-hostd/verbs.json`,
 package `plugin-hostd-contract`, beside the format tables. A refusal number omx-clap-host answers too carries

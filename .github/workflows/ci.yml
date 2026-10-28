@@ -65,6 +65,17 @@ jobs:
       - name: make private-refs
         run: make private-refs
 
+  # docs/protocol.md is written from the protocol data by tools/protocol-doc.py; red when it is not what the data gives
+  protocol-doc:
+    name: docs/protocol.md is the protocol data's
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: make check-protocol-doc
+        run: make check-protocol-doc
+
   test:
     name: build and test
     runs-on: ubuntu-latest
