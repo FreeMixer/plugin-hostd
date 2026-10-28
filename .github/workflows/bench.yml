@@ -54,6 +54,9 @@ jobs:
       - name: Unit tests of the harness
         run: python3 -I bench/tests/test_bench.py
 
+      - name: Unit tests of the report writer
+        run: python3 -I -m unittest discover -v -s bench/report
+
       - name: Every guard of the harness goes red when broken
         run: bench/tests/sabotage.sh --teardown
 
