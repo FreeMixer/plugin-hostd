@@ -4,7 +4,7 @@
 """The Zynthian benchmark matrix: every rate and quantum, under jalv, mod-host, plugin-hostd single and grouped.
 
     tools/zynthian/matrix.py --out DIR [--rates 44100,48000,96000,192000] [--frames 128,256,512,1024]
-        [--window 60] [--only chains|singles|all] [--wait-idle] [--wait-update] [--dry-run]
+        [--window 60] [--only chains|singles|all] [--wait-idle] [--wait-update] [--after-stress] [--dry-run]
 
 Runs bench/lib/bench.py (bench/README.md) once per cell, a cell being one scenario at one rate and one quantum on a
 private JACK server of its own (the device's JACK and its chains are never touched), and appends one CSV row per
@@ -26,7 +26,8 @@ under jalv and mod-host; the ten third-party plugins in series) over every rate 
 
 --wait-update polls every 5 minutes before each cell until the device's mod-host unit starts plugin-hostd (the fork's
 update script applied); the mod-host rows still run the stock binary, which the bench starts itself on a private port.
---wait-idle polls every 5 minutes before each cell while a process named stress-pi5 runs or a file under
+--after-stress waits until another lane's stress run has left a /root/omx-stress-* directory besides its -pre
+snapshot, so the matrix starts only after that run. --wait-idle polls every 5 minutes before each cell while a process named stress-pi5 runs or a file under
 /root/omx-stress-* was written in the last 10 minutes, so the run never overlaps another lane's measurement.
 
 What a cell does not measure: the per-block cost of the plugin at that rate and quantum (the probe measures 512-frame
@@ -133,6 +134,12 @@ def busy():
     return None
 
 
+def stress_pending():
+    """the other lane's stress measurement has not run yet: no /root/omx-stress-* directory but its -pre snapshot"""
+    runs = [d for d in glob.glob("/root/omx-stress-*") if os.path.isdir(d) and not d.endswith("-pre")]
+    return None if runs else "no stress run under /root/omx-stress-* yet (only its -pre snapshot)"
+
+
 def update_pending():
     """the device's mod-host unit does not start plugin-hostd yet: the fork's update script has not been applied"""
     p = subprocess.run(["systemctl", "cat", "mod-host"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
@@ -191,6 +198,8 @@ def main(argv=None):
     ap.add_argument("--wait-idle", action="store_true", help="wait while another lane measures on the device")
     ap.add_argument("--wait-update", action="store_true",
                     help="wait until the mod-host unit starts plugin-hostd (the fork's update script applied)")
+    ap.add_argument("--after-stress", action="store_true",
+                    help="wait until another lane's stress run has a /root/omx-stress-* directory of its own (not -pre)")
     ap.add_argument("--quiet-polls", type=int, default=4,
                     help="polls in a row, 5 minutes apart, the device must be quiet before the first cell (4)")
     ap.add_argument("--dry-run", action="store_true", help="list the cells left to run and exit")
@@ -219,8 +228,8 @@ def main(argv=None):
         quiet_needed = True
         for s, rate, fr in todo:
             # before the first cell the device must have been quiet for --quiet-polls polls in a row; between cells one
-            while a.wait_idle or a.wait_update:
-                why = (a.wait_update and update_pending()) or (a.wait_idle and busy())
+            while a.wait_idle or a.wait_update or a.after_stress:
+                why = (a.wait_update and update_pending()) or (a.after_stress and stress_pending()) or (a.wait_idle and busy())
                 quiet = 0 if why else quiet + 1
                 if not why and quiet >= (a.quiet_polls if quiet_needed else 1):
                     break

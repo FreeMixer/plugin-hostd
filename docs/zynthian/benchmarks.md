@@ -22,9 +22,10 @@ Contents:
 3. [Qualification of every plugin on the Pi](#qualification-of-every-plugin-on-the-pi)
 4. [The chain round trip](#the-chain-round-trip)
 5. [mod-ui's verbs: mod-host against plugin-hostd](#mod-uis-verbs-mod-host-against-plugin-hostd)
-6. [The matrix: every rate and quantum, single and grouped](#the-matrix-every-rate-and-quantum-single-and-grouped)
-7. [What is not measured yet](#what-is-not-measured-yet)
-8. [Reproducing](#reproducing)
+6. [Voices across the cores](#voices-across-the-cores)
+7. [The matrix: every rate and quantum, single and grouped](#the-matrix-every-rate-and-quantum-single-and-grouped)
+8. [What is not measured yet](#what-is-not-measured-yet)
+9. [Reproducing](#reproducing)
 
 Grouped versus alone: plugin-hostd, jalv, mod-host
 --------------------------------------------------
@@ -331,6 +332,15 @@ verbs.tsv says verb by verb what differs and the smallest fix. For LV2 the diffe
 presets, state and MIDI mapping do not carry over, because mod-ui reads LV2 TTL. The fork's PH engine does not go
 through mod-ui: it speaks the protocol to plugin-hostd itself.
 
+Voices across the cores
+-----------------------
+
+Per-block cost and the use of the helper threads with the CLAP thread pool off and on, at 48000 Hz and 128, 256 and 512
+frames on the Pi 5, with Surge XT as CLAP if it is built there, else the fixture plugin: the work of
+FreeMixer/omx-clap-core#395 (branch `feat/395-thread-pool`), whose evidence is to land in FreeMixer/omx-clap-core
+under `docs/evidence/thread-pool-pi5-2026-10-29/`. **Not measured yet**: on 2026-10-28 at 22:26Z neither the branch
+nor that directory exists in FreeMixer/omx-clap-core.
+
 The matrix: every rate and quantum, single and grouped
 ------------------------------------------------------
 
@@ -348,13 +358,16 @@ put on the graph (`jack_clients`, new in the bench), xruns over the hold, the de
 plugins until they run. That is 800 cells (32 chain cells, then 768 single-plugin cells); `tools/zynthian/matrix.py`
 writes one CSV row per host and mode and resumes where it stopped:
 
-    tools/zynthian/matrix.py --out out --window 60 --wait-update --wait-idle
+    tools/zynthian/matrix.py --out out --window 60 --wait-update --after-stress --wait-idle
 
 **Not measured per cell: the per-block cost of the plugin at that rate and quantum.** The probe that measures it times
 512-frame blocks only (plugin-qualify#193); the matrix records the host's CPU and JACK's DSP load instead, and the
 probe's per-block cost stays in the [qualification section](#cost-and-the-grid-gap).
 
-State: started on the device at 2026-10-28T22:18:14Z with `--wait-update --wait-idle`; it waits while another lane measures there. No cell is measured yet in this commit: every matrix figure below says "not measured yet". The CSV lands under `evidence/pi5-matrix-2026-10-28/` as the cells finish.
+State: on the device since 2026-10-28T22:26Z with `--wait-update --after-stress --wait-idle`: it starts its first cell
+only after another lane's stress run there has finished and the device has been quiet for 20 minutes. No cell is
+measured in this commit, so every matrix figure below says "not measured yet". The CSV lands under
+`evidence/pi5-matrix-2026-10-28/` as the cells finish.
 
 Figures, one panel per rate, the measure per quantum, one line per host mode, for the chain of our plugins and the chain
 of the third-party ones; a figure with no measured cell says "not measured yet" and names the command:
