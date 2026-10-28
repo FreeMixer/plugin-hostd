@@ -47,8 +47,30 @@ class Case(unittest.TestCase):
 
     def run_main(self, *extra, results=None):
         return m.main(["--bench", os.path.join(self.d, "b"), "--results", results or self.empty, "--earlier", self.empty,
-                       "--qualification", self.empty, "--coverage", os.path.join(self.d, "none"),
-                       "--prs", os.path.join(self.d, "none"), "--facts", FACTS, "--out", os.path.join(self.d, "o")] + list(extra))
+                       "--qualification", self.empty, "--facts", FACTS, "--out", os.path.join(self.d, "o")] + list(extra))
+
+    def test_no_default_location_under_home(self):
+        src = open(m.__file__).read()
+        for bad in ("expanduser", "HOME", "zynthian-results", "~/"):
+            self.assertNotIn(bad, src)
+        with contextlib.redirect_stderr(io.StringIO()) as err, self.assertRaises(SystemExit):
+            m.main([])
+        self.assertIn("--bench and --out are required", err.getvalue())
+
+    def test_help_documents_every_input(self):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out), self.assertRaises(SystemExit):
+            m.main(["--help"])
+        for flag in ("--bench", "--results", "--earlier", "--qualification", "--coverage", "--prs", "--facts", "--out", "--strict"):
+            self.assertIn(flag, out.getvalue())
+        self.assertIn("No input has a default location", out.getvalue())
+
+    def test_an_input_that_is_given_and_missing_is_an_error(self):
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            rc = self.run_main("--coverage", os.path.join(self.d, "none"))
+        self.assertEqual(rc, 1)
+        self.assertIn("--coverage", err.getvalue())
+        self.assertFalse(os.path.exists(os.path.join(self.d, "o")))
 
     def test_strict_fails_with_no_data_and_says_not_measured(self):
         with contextlib.redirect_stderr(io.StringIO()):
@@ -89,7 +111,7 @@ class Case(unittest.TestCase):
         self.write("p.json", {"fetched_at": "2026-10-28T10:00:00Z", "prs": [
             {"repo": "FreeMixer/zynthian-ui", "number": 1, "title": "t", "state": "MERGED", "baseRefName": "main"}]})
         m.main(["--bench", self.empty, "--results", self.empty, "--earlier", self.empty, "--qualification", self.empty,
-                "--coverage", os.path.join(self.d, "none"), "--prs", os.path.join(self.d, "p.json"), "--facts", FACTS,
+                "--prs", os.path.join(self.d, "p.json"), "--facts", FACTS,
                 "--out", os.path.join(self.d, "o")])
         self.assertIn("States as fetched at 2026-10-28T10:00:00Z.", self.report())
 

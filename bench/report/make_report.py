@@ -6,7 +6,7 @@ facts listed in facts.json with their source. A section whose data does not exis
 prints "not measured yet". With --strict the exit code is 1 when any section is
 missing, so nothing unmeasured is published.
 
-Sources:
+Inputs (all arguments, none has a default location; see --help):
   --bench PATH       omx-bench/1 documents (files or directories); the newest of class rpi5 is used
   --results DIR      the device notes (grouped-vs-processes.md is read, never written)
   --earlier DIR      hand-run outputs (zy-96test*.out, zy-qpilot.out) from the Pi 5
@@ -384,7 +384,7 @@ def sec_measure(doc, facts, rpi, earlier, results_dir, ci_docs):
                     num(s.get("pss_mb_total")), num(s.get("cpu_pct"), 2), num(s["dsp_load_avg"], 2), str(s.get("xruns", "n/a"))] for s in stress])
     else:
         doc.na("grouped against individual processes under stress")
-    gp = _read(os.path.join(results_dir, "grouped-vs-processes.md"))
+    gp = _read(os.path.join(results_dir, "grouped-vs-processes.md")) if results_dir else None
     if gp:
         doc.p("Device notes, read as written from grouped-vs-processes.md:")
         doc.quote(gp.strip())
@@ -600,24 +600,38 @@ def to_html(doc):
 
 def main(argv=None):
     here = os.path.dirname(os.path.abspath(__file__))
-    home = os.path.expanduser("~/Devel/audio/zynthian-results")
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--bench", nargs="*", default=[os.path.join(home, "data")])
-    ap.add_argument("--results", default=home)
-    ap.add_argument("--earlier", default=os.path.join(home, "data", "earlier"))
-    ap.add_argument("--qualification", default=os.path.join(home, "data", "qualification"))
-    ap.add_argument("--coverage", default=os.path.join(home, "data", "lv2-coverage-summary.txt"))
-    ap.add_argument("--prs", default=os.path.join(home, "data", "prs.json"))
-    ap.add_argument("--facts", default=os.path.join(here, "facts.json"))
-    ap.add_argument("--out", default=home)
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter,
+                                 epilog="No input has a default location: every path is an argument, or (--facts) a file of this "
+                                        "directory. An input that is not given is a section reported as not measured yet; one "
+                                        "that is given and does not exist is an error.")
+    ap.add_argument("--bench", nargs="+", metavar="PATH", help="omx-bench/1 documents, files or directories (required)")
+    ap.add_argument("--results", metavar="DIR", help="directory holding grouped-vs-processes.md, quoted as written")
+    ap.add_argument("--earlier", metavar="DIR", help="directory of the Pi 5 hand-run outputs")
+    ap.add_argument("--qualification", metavar="DIR", help="directory of plugin-qualify interchange documents")
+    ap.add_argument("--coverage", metavar="FILE", help="LV2 coverage summary.txt")
+    ap.add_argument("--prs", metavar="FILE", help="pull request states: read by the report, written by --fetch-prs")
+    ap.add_argument("--facts", default=os.path.join(here, "facts.json"), metavar="FILE",
+                    help="the statements and their public sources (default: facts.json beside this script)")
+    ap.add_argument("--out", metavar="DIR", help="directory report.md and report.html are written to (required)")
     ap.add_argument("--strict", action="store_true", help="validate first: when any section lacks data, print the reasons on stderr, write nothing and exit 1")
     ap.add_argument("--fetch-prs", action="store_true", help="refresh --prs with gh and exit")
     a = ap.parse_args(argv)
     if a.fetch_prs:
+        if not a.prs:
+            ap.error("--fetch-prs needs --prs FILE to write")
         with open(a.facts) as fh:
             fetch_prs(json.load(fh), a.prs)
         print("wrote", a.prs)
         return 0
+    if not a.bench or not a.out:
+        ap.error("--bench and --out are required")
+    bad = ["--%s %s: no such %s" % (n, p, "directory" if d else "file") for n, p, d in
+           (("results", a.results, True), ("earlier", a.earlier, True), ("qualification", a.qualification, True),
+            ("coverage", a.coverage, False), ("prs", a.prs, False)) if p and not (os.path.isdir(p) if d else os.path.isfile(p))]
+    if bad:
+        for e in bad:
+            print("invalid input:", e, file=sys.stderr)
+        return 1
     doc = build(a)
     if doc.errors:
         for e in doc.errors:
