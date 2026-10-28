@@ -78,6 +78,22 @@ BROKEN = [
      put(["grid", 0, "latency"], "method", "note-guess"), "instrument-notes"),
     ("whether the note was heard written as a word", "/grid/2/latency/heard", "type",
      put(["grid", 2, "latency"], "heard", "no"), "instrument-notes"),
+    # real time (#225): the class is the kernel's word, and the offer says the class the plugin was measured in
+    ("fifo claimed while the kernel reported the child SCHED_OTHER", "/run/realtime/observed/policy", "const",
+     put(["run", "realtime", "observed"], "policy", "other")),
+    ("fifo claimed with no word from the kernel", "/run/realtime", "required", drop(["run", "realtime"], "observed")),
+    ("fifo claimed at priority 0", "/run/realtime/priority", "minimum", put(["run", "realtime"], "priority", 0)),
+    ("fifo claimed with no grant", "/run/realtime/grantedBy", "not", put(["run", "realtime"], "grantedBy", "none")),
+    ("a grant that is none of the format's", "/run/realtime/grantedBy", "enum", put(["run", "realtime"], "grantedBy", "sudo")),
+    ("a measurement in fifo offered as none", "/offer/realtime", "const", put(["offer"], "realtime", "none")),
+    ("a measurement without real time that does not say why", "/run/realtime", "required",
+     drop(["run", "realtime"], "reason"), "instrument-notes"),
+    ("a measurement without real time that claims a priority", "/run/realtime/priority", "const",
+     put(["run", "realtime"], "priority", 50), "instrument-notes"),
+    ("a measurement without real time offered as fifo", "/offer/realtime", "const", put(["offer"], "realtime", "fifo"),
+     "instrument-notes"),
+    ("a memory not locked that does not say why", "/run/memoryLock", "required", drop(["run", "memoryLock"], "reason"),
+     "instrument-notes"),
 ]
 
 

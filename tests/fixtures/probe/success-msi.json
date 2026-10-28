@@ -18,7 +18,21 @@
       "clapCore": "0.9.0",
       "interposer": "rt-interpose 1"
     },
-    "via": "runner"
+    "via": "runner",
+    "realtime": {
+      "class": "fifo",
+      "priority": 99,
+      "requested": 99,
+      "grantedBy": "cap",
+      "observed": {
+        "policy": "fifo",
+        "priority": 99
+      }
+    },
+    "memoryLock": {
+      "locked": true,
+      "limitBytes": 4294967296
+    }
   },
   "plugin": {
     "format": "clap",
@@ -113,7 +127,7 @@
       "clap.track-info/1",
       "clap.remote-controls/2"
     ],
-    "realtime": "none"
+    "realtime": "fifo"
   },
   "limits": {
     "set": "default",
@@ -163,6 +177,18 @@
       {
         "limit": "rt-priority",
         "value": 0,
+        "by": "rlimit"
+      },
+      {
+        "limit": "rt-time",
+        "value": 600000000,
+        "unit": "us",
+        "by": "rlimit"
+      },
+      {
+        "limit": "memory-lock",
+        "value": 4294967296,
+        "unit": "bytes",
         "by": "rlimit"
       },
       {

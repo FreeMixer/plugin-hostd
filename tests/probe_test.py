@@ -249,7 +249,7 @@ def an_instrument_point_carries_the_notes_it_held_and_an_untimed_rate_has_no_cos
                              env={"PROBE_CHILD_INSTRUMENT": "1", "PROBE_CHILD_UNMEASURED_RATE": str(untimed)})
     check(code == 0, "exit status %d" % code)
     valid(doc)
-    check(doc["formatVersion"] == "1.1", "formatVersion %s" % doc["formatVersion"])
+    check(doc["formatVersion"] == "1.2", "formatVersion %s" % doc["formatVersion"])
     check([g["rate"] for g in doc["grid"]] == rates, "a point per rate %s: %s" % (rates, [g["rate"] for g in doc["grid"]]))
     for g in doc["grid"]:
         if g["rate"] == untimed:
