@@ -68,6 +68,10 @@ BuildArch: noarch
 # verbs.json refuses with omx-clap-core's reply.host.* codes for the numbers both hosts answer: a reader of this
 # package reads that one too; a floor only
 Requires: omx-clap-core-contract >= 0.23.0
+# the tables live in omx-contract's contract directory and are read against its schema: 3.2.0 is the first whose
+# source field takes an index (omx_clap_panel_display.meter_ids[0]), so an older one never sits beside a table it
+# refuses; a floor only
+Requires: omx-contract >= 3.2.0
 
 %description contract
 plugin-hostd's package of omx-contract's contract directory: the format tables
