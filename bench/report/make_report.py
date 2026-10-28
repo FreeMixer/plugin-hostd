@@ -100,7 +100,13 @@ def load_bench(paths, errs):
 
 def latest_of_class(docs, cls):
     sel = [d for d in docs if d["machine"]["class"] == cls]
-    return max(sel, key=lambda d: d["id"]) if sel else None
+    return max(sel, key=_id_order) if sel else None
+
+
+def _id_order(d):
+    """rpi5-20261027-10 is newer than rpi5-20261027-9: order by the date, then the number as a number."""
+    m = re.fullmatch(r"[a-z0-9]+-([0-9]{8})-([0-9]+)", d["id"])
+    return (m.group(1), int(m.group(2))) if m else ("", 0)
 
 
 def _read(path):
@@ -346,44 +352,50 @@ def sec_measure(doc, facts, rpi, earlier, results_dir, ci_docs):
                   [[s["id"], s["host"], str(s["rate"]), str(s["frames"]), str(s["xruns"])] for s in xr])
     else:
         doc.na("xruns per host")
-    la = [s for s in scen if s.get("latency_ms") is not None]
+    la = [s for s in scen if s.get("latency_frames") is not None]
     if la:
-        doc.table(["scenario", "host", "rate", "frames", "latency ms"],
-                  [[s["id"], s["host"], str(s["rate"]), str(s["frames"]), num(s["latency_ms"], 2)] for s in la])
+        doc.table(["scenario", "host", "rate", "frames", "declared latency to system:playback_1, frames", "ms (frames / rate)"],
+                  [[s["id"], s["host"], str(s["rate"]), str(s["frames"]), str(s["latency_frames"]),
+                    num(1000.0 * s["latency_frames"] / s["rate"], 2)] for s in la])
     else:
-        doc.na("round-trip latency per host")
+        doc.na("declared latency to system:playback_1 per host")
 
-    # 3b grouped vs processes
+    # 3b grouped vs processes, without and with the stress load
+    fam = [s for s in scen if s.get("mode") and s["id"][:3] in ("cvp", "grp")]
+    head = ["set", "stress", "rate", "frames", "mode", "processes", "RSS MB", "PSS MB", "CPU % of a core", "DSP load %", "add ms"]
+
+    def fam_rows(rows_in):
+        out = []
+        for s in sorted(rows_in, key=lambda x: (x["id"][:3], int(re.sub(r"\D", "", x["id"]) or 0), x["rate"], x["frames"], x["host"], x["mode"])):
+            lead = [s["title"], s.get("stress", "not recorded"), str(s["rate"]), str(s["frames"]), s["host"] + " " + s["mode"]]
+            if s["status"] != "ok":
+                out.append(lead + [s["status"] + ": " + s["note"], "", "", "", "", ""])
+            else:
+                out.append(lead + [opt(s, "processes"), num(s.get("rss_mb_total")), num(s.get("pss_mb_total")),
+                                   num(s.get("cpu_pct"), 2), num(s["dsp_load_avg"], 2), num(s["add_ms"], 0)])
+        return out
+
     doc.h3("One worker for a chain against one process per plugin")
-    cvp = [s for s in scen if s.get("mode") and s["id"].startswith("cvp")]
-    if not cvp:
+    calm = [s for s in fam if s.get("stress") in (None, "none")]
+    if not calm:
         doc.na("grouped against individual processes (3, 8 and 16 plugins)")
     else:
-        rows = []
-        for key in sorted({(s["id"], s["rate"], s["frames"]) for s in cvp}, key=lambda k: (int(re.sub(r"\D", "", k[0]) or 0), k[1], k[2])):
-            for s in sorted([x for x in cvp if (x["id"], x["rate"], x["frames"]) == key], key=lambda x: (x["host"], x["mode"])):
-                if s["status"] != "ok":
-                    rows.append([s["title"], str(s["rate"]), s["host"] + " " + s["mode"], s["status"] + ": " + s["note"], "", "", "", "", ""])
-                    continue
-                rows.append([s["title"], str(s["rate"]), s["host"] + " " + s["mode"], opt(s, "processes"),
-                             num(s.get("rss_mb_total")), num(s.get("pss_mb_total")), num(s.get("cpu_pct"), 2),
-                             num(s["dsp_load_avg"], 2), num(s["add_ms"], 0)])
-        doc.table(["set", "rate", "mode", "processes", "RSS MB", "PSS MB", "CPU % of a core", "DSP load %", "add ms"], rows)
-        for key in sorted({(s["id"], s["rate"], s["frames"]) for s in cvp}):
-            ind = next((s for s in cvp if (s["id"], s["rate"], s["frames"]) == key and s["host"] == "H2" and s["mode"] == "individual" and s["status"] == "ok"), None)
-            ch = next((s for s in cvp if (s["id"], s["rate"], s["frames"]) == key and s["host"] == "H2" and s["mode"] == "chain" and s["status"] == "ok"), None)
-            if ind and ch and ind.get("processes") and ch.get("processes") and ind.get("pss_mb_total") and ch.get("pss_mb_total"):
-                doc.p("%s at %d Hz: the chain runs in %d process%s against %d, and uses %.2f times the proportional memory of the individual mode."
-                      % (ind["title"], key[1], ch["processes"], "" if ch["processes"] == 1 else "es", ind["processes"],
-                         ch["pss_mb_total"] / ind["pss_mb_total"]))
-    stress = [s for s in scen if s["id"].startswith("stress")]
+        doc.table(head, fam_rows(calm))
     doc.h3("Under stress")
-    if stress:
-        doc.table(["scenario", "host", "mode", "rate", "processes", "PSS MB", "CPU %", "DSP load %", "xruns"],
-                  [[s["title"], s["host"], s.get("mode", ""), str(s["rate"]), opt(s, "processes"),
-                    num(s.get("pss_mb_total")), num(s.get("cpu_pct"), 2), num(s["dsp_load_avg"], 2), str(s.get("xruns", "n/a"))] for s in stress])
-    else:
+    loaded = [s for s in fam if s.get("stress") not in (None, "none")]
+    if not loaded:
         doc.na("grouped against individual processes under stress")
+    else:
+        doc.table(head, fam_rows(loaded))
+    for group in (calm, loaded):
+        for key in sorted({(s["id"], s["rate"], s["frames"], s.get("stress", "not recorded")) for s in group}):
+            pick2 = lambda mode: next((s for s in group if (s["id"], s["rate"], s["frames"], s.get("stress", "not recorded")) == key and s["host"] == "H2"
+                                       and s["mode"] == mode and s["status"] == "ok"), None)
+            ind, ch = pick2("individual"), pick2("chain")
+            if ind and ch and ind.get("processes") and ch.get("processes") and ind.get("pss_mb_total") and ch.get("pss_mb_total"):
+                doc.p("%s at %d Hz, %d frames, stress %s: the chain runs in %d process%s against %d, and uses %.2f times the proportional memory of the individual mode."
+                      % (ind["title"], key[1], key[2], key[3], ch["processes"], "" if ch["processes"] == 1 else "es", ind["processes"],
+                         ch["pss_mb_total"] / ind["pss_mb_total"]))
     gp = _read(os.path.join(results_dir, "grouped-vs-processes.md")) if results_dir else None
     if gp:
         doc.p("Device notes, read as written from grouped-vs-processes.md:")
@@ -391,17 +403,16 @@ def sec_measure(doc, facts, rpi, earlier, results_dir, ci_docs):
 
     # 3c Pianoteq
     doc.h3("Pianoteq 9 at 48 and 96 kHz")
-    rows, src = [], None
+    rows = []
     for rate in (48000, 96000):
-        s = next((x for x in scen if x["id"] == "pianoteq" and x["rate"] == rate and x["status"] == "ok"), None)
-        if s:
+        mine = sorted([x for x in scen if x["id"] == "pianoteq" and x["rate"] == rate and x["status"] == "ok"], key=lambda x: (x["frames"], x["host"]))
+        for s in mine:
             rows.append([str(rate), str(s["frames"]), dict(HOSTS)[s["host"]], num(s["dsp_load_avg"]), num(s["dsp_load_max"]), str(s["samples"]), rpi["id"]])
-        elif earlier and earlier["runs"].get(rate, {}).get("pianoteq"):
+        if not mine and earlier and earlier["runs"].get(rate, {}).get("pianoteq"):
             e = earlier["runs"][rate]
             q = e["pianoteq"]
             rows.append([str(rate), str(e["frames"]), "plugin-hostd (hand run)", num(q["avg"]), num(q["max"]), str(q["n"]), q["src"]])
-    if len(rows) == 2:
-        doc.p("Five-note chords from jack_midiseq into the plugin's MIDI input, DSP load averaged over the samples.")
+    if {r[0] for r in rows} == {"48000", "96000"}:
         doc.table(["rate", "frames", "host", "DSP load avg %", "max %", "samples", "source"], rows)
     else:
         doc.na("Pianoteq 9 at both rates")

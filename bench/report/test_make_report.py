@@ -169,6 +169,30 @@ class Case(unittest.TestCase):
             self.run_main("--strict")
         self.assertFalse(os.path.exists(os.path.join(self.d, "o")))
 
+    def test_shipped_example_document_fills_the_tables(self):
+        """a document written by the bench itself (bench/examples), read as class rpi5"""
+        doc = json.load(open(os.path.join(os.path.dirname(FACTS), "..", "examples", "ci-20261026-1.json")))
+        doc["id"], doc["machine"]["class"] = "rpi5-20261026-1", "rpi5"
+        calm = next(r for r in doc["scenarios"] if r["id"] == "cvp3" and r["host"] == "H2" and r["mode"] == "individual" and r["status"] == "ok")
+        calm = dict(calm, stress="none", latency_frames=256)
+        loaded = dict(calm, stress="busy4+mem64", xruns=2, dsp_load_avg=9.99)
+        chain = dict(next(r for r in doc["scenarios"] if r["id"] == "cvp3" and r["host"] == "H2" and r["mode"] == "chain"), stress="busy4+mem64")
+        doc["scenarios"] += [calm, loaded, chain]
+        self.write("b/rpi.json", doc)
+        self.assertEqual(self.run_main(), 0)
+        md = self.report()
+        self.assertIn("| 256 | 5.33 |", md)  # 256 frames at 48000 Hz, from the row
+        self.assertIn("busy4+mem64", md)
+        self.assertIn("9.99", md)
+        self.assertIn("stress busy4+mem64: the chain runs in", md)
+        self.assertIn("Micro-Star International Co., Ltd. MS-7E41 (Intel(R) Core(TM) Ultra 9 285K, 24 cores", md)
+
+    def test_newest_run_orders_the_number_as_a_number(self):
+        self.write("b/a.json", bench("rpi5", [scen("idle", "H1", dsp_load_avg=1.11)], "rpi5-20261027-9"))
+        self.write("b/b.json", bench("rpi5", [scen("idle", "H1", dsp_load_avg=2.22)], "rpi5-20261027-10"))
+        self.run_main()
+        self.assertIn("Run rpi5-20261027-10", self.report())
+
     def test_non_strict_exits_zero(self):
         self.assertEqual(self.run_main(), 0)
 
@@ -188,7 +212,7 @@ class Case(unittest.TestCase):
         md = self.report()
         self.assertIn("1.11 (2.00)", md)
         self.assertIn("unsupported (no mod-host)", md)
-        self.assertIn("uses 0.50 times the proportional memory", md)
+        self.assertIn("stress not recorded: the chain runs in 1 process against 3, and uses 0.50 times the proportional memory", md)
         self.assertIn("<svg", self.report("report.html"))
 
     def test_failed_pianoteq_add_is_not_a_measurement(self):
