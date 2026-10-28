@@ -16,6 +16,10 @@
 set -u
 if [ -z "${CHAIN_E2E_INSIDE:-}" ]; then
     export CHAIN_E2E_INSIDE=1
+    # the namespace below has no network: the spike engine's patch is read before it
+    . "$(cd "$(dirname "$0")" && pwd)/spike-engine.sh"
+    spike_dir=$(mktemp -d /tmp/zyn-spike-engine.XXXXXX)
+    spike_engine_fetch "$spike_dir" || exit 2
     if unshare --user --map-root-user --net --pid --fork --mount-proc true 2>/dev/null; then
         exec unshare --user --map-root-user --net --pid --fork --mount-proc "$0" "$@"
     fi
