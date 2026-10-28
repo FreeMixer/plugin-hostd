@@ -1,0 +1,90 @@
+Plugin:       urn:openmixer:delay
+JACK Name:    effect_2
+Sample rate:  48000 Hz
+Block length: 256 frames
+MIDI buffers: 32768 bytes
+Comm buffers: 524288 bytes
+Update rate:  30.0 Hz
+Scale factor: 1.0
+
+#CTR> 5#enabled=1.000000
+#CTR> 1#fxDelayFeedback=0.300000
+#CTR> 0#fxDelayTime=300.000000
+#CTR> 3#mix=0.300000
+#CTR> 4#pingpong=0.000000
+#CTR> 2#tone=0.300000
+Plugin:       urn:openmixer:delay
+JACK Name:    effect_2
+Sample rate:  48000 Hz
+Block length: 256 frames
+MIDI buffers: 32768 bytes
+Comm buffers: 524288 bytes
+Update rate:  30.0 Hz
+Scale factor: 1.0
+
+#CTR> 5#enabled=1.000000
+#CTR> 1#fxDelayFeedback=0.300000
+#CTR> 0#fxDelayTime=300.000000
+#CTR> 3#mix=0.300000
+#CTR> 4#pingpong=0.000000
+#CTR> 2#tone=0.300000
+Plugin:       urn:openmixer:delay
+JACK Name:    effect_2
+Sample rate:  48000 Hz
+Block length: 256 frames
+MIDI buffers: 32768 bytes
+Comm buffers: 524288 bytes
+Update rate:  30.0 Hz
+Scale factor: 1.0
+
+#CTR> 5#enabled=1.000000
+#CTR> 1#fxDelayFeedback=0.300000
+#CTR> 0#fxDelayTime=300.000000
+#CTR> 3#mix=0.300000
+#CTR> 4#pingpong=0.000000
+#CTR> 2#tone=0.300000
+Plugin:       urn:openmixer:delay
+JACK Name:    effect_2
+Sample rate:  48000 Hz
+Block length: 256 frames
+MIDI buffers: 32768 bytes
+Comm buffers: 524288 bytes
+Update rate:  30.0 Hz
+Scale factor: 1.0
+
+#CTR> 5#enabled=1.000000
+#CTR> 1#fxDelayFeedback=0.300000
+#CTR> 0#fxDelayTime=300.000000
+#CTR> 3#mix=0.300000
+#CTR> 4#pingpong=0.000000
+#CTR> 2#tone=0.300000
+Plugin:       urn:openmixer:delay
+JACK Name:    effect_2
+Sample rate:  48000 Hz
+Block length: 256 frames
+MIDI buffers: 32768 bytes
+Comm buffers: 524288 bytes
+Update rate:  30.0 Hz
+Scale factor: 1.0
+
+#CTR> 5#enabled=1.000000
+#CTR> 1#fxDelayFeedback=0.300000
+#CTR> 0#fxDelayTime=300.000000
+#CTR> 3#mix=0.300000
+#CTR> 4#pingpong=0.000000
+#CTR> 2#tone=0.300000
+Plugin:       urn:openmixer:delay
+JACK Name:    effect_2
+Sample rate:  48000 Hz
+Block length: 256 frames
+MIDI buffers: 32768 bytes
+Comm buffers: 524288 bytes
+Update rate:  30.0 Hz
+Scale factor: 1.0
+
+#CTR> 5#enabled=1.000000
+#CTR> 1#fxDelayFeedback=0.300000
+#CTR> 0#fxDelayTime=300.000000
+#CTR> 3#mix=0.300000
+#CTR> 4#pingpong=0.000000
+#CTR> 2#tone=0.300000

@@ -1,0 +1,413 @@
+plugin-qualify-sync: CLAP /usr/lib/clap; LV2 /usr/lib/lv2:/usr/lib/aarch64-linux-gnu/lv2:/usr/local/lib/lv2:/usr/local/lib/aarch64-linux-gnu/lv2:/zynthian/zynthian-plugins/lv2:/zynthian/zynthian-sw/pianoteq/arm-64bit:/zynthian/zynthian-my-data/plugins/lv2; host omx-clap-host; 60 s a plugin
+plugin-qualify-sync: clap:/usr/lib/clap/3BandEQ.clap#studio.kx.distrho.MVerb: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/3BandSplitter.clap#studio.kx.distrho.MVerb: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/AmplitudeImposer.clap#niallmoody.ndcplugs.ampimposer: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/CycleShifter.clap#niallmoody.ndcplugs.cycleshifter: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/DragonflyEarlyReflections.clap#michaelwillis.dragonfly.early: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/DragonflyHallReverb.clap#michaelwillis.dragonfly.hall: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/DragonflyPlateReverb.clap#michaelwillis.dragonfly.plate: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/DragonflyRoomReverb.clap#michaelwillis.dragonfly.room: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/Kars.clap#studio.kx.distrho.Kars: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/MVerb.clap#studio.kx.distrho.MVerb: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/MaBitcrush.clap#studio.kx.distrho.MaBitcrush: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/MaFreeverb.clap#studio.kx.distrho.MaFreeverb: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/MaGigaverb.clap#studio.kx.distrho.MaGigaverb: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/MaPitchshift.clap#studio.kx.distrho.MaPitchshift: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/Nekobi.clap#studio.kx.distrho.Nekobi: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/PingPongPan.clap#studio.kx.distrho.MVerb: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/ProM.clap/ProM.clap#studio.kx.distrho.ProM: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/SoulForce.clap#niallmoody.ndcplugs.soulforce: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/ZaMaximX2.clap#com.zamaudio.ZaMaximX2: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/ZaMultiComp.clap#com.zamaudio.ZaMultiComp: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/ZaMultiCompX2.clap#com.zamaudio.ZaMultiCompX2: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/ZamAutoSat.clap#com.zamaudio.ZamAutoSat: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/ZamComp.clap#com.zamaudio.ZamComp: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/ZamCompX2.clap#com.zamaudio.ZamCompX2: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/ZamDelay.clap#com.zamaudio.ZamDelay: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/ZamDynamicEQ.clap#com.zamaudio.ZamDynamicEQ: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/ZamEQ2.clap#com.zamaudio.ZamEQ2: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/ZamGEQ31.clap#com.zamaudio.ZamGEQ31: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/ZamGate.clap#com.zamaudio.ZamGate: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/ZamGateX2.clap#com.zamaudio.ZamGateX2: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/ZamGrains.clap#com.zamaudio.ZamGrains: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/ZamHeadX2.clap#com.zamaudio.ZamHeadX2: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/ZamNoise.clap#com.zamaudio.ZamNoise: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/ZamPhono.clap#com.zamaudio.ZamPhono: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/ZamTube.clap#com.zamaudio.ZamTube: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/ZamVerb.clap#com.zamaudio.ZamVerb: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/glBars.clap#studio.kx.distrho.glBars: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: descriptors of a .clap not all written (spawnSync python3 ETIMEDOUT): 
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.ab_tester_x2_mono: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.ab_tester_x2_stereo: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.ab_tester_x4_mono: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.ab_tester_x4_stereo: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.ab_tester_x8_mono: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.ab_tester_x8_stereo: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.art_delay_mono: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.art_delay_stereo: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.autogain_mono: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.autogain_stereo: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.beat_breather_mono: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.beat_breather_stereo: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.chorus_mono: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.chorus_stereo: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.clipper_mono: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.clipper_stereo: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.comp_delay_mono: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.comp_delay_stereo: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.comp_delay_x2_stereo: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.compressor_lr: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.compressor_mono: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.compressor_ms: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.compressor_stereo: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.crossover_lr: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.crossover_mono: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.crossover_ms: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.crossover_stereo: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.dyna_processor_lr: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.dyna_processor_mono: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.dyna_processor_ms: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.dyna_processor_stereo: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.expander_lr: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.expander_mono: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.expander_ms: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.expander_stereo: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.filter_mono: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.filter_stereo: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.flanger_mono: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.flanger_stereo: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.gate_lr: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.gate_mono: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.gate_ms: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.gate_stereo: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.gott_compressor_lr: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.gott_compressor_mono: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.gott_compressor_ms: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.gott_compressor_stereo: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.graph_equalizer_x16_lr: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.graph_equalizer_x16_mono: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.graph_equalizer_x16_ms: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.graph_equalizer_x16_stereo: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.graph_equalizer_x32_lr: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.graph_equalizer_x32_mono: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.graph_equalizer_x32_ms: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.graph_equalizer_x32_stereo: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.impulse_responses_mono: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.impulse_responses_stereo: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.impulse_reverb_mono: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.impulse_reverb_stereo: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.latency_meter: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.limiter_mono: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.limiter_stereo: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.loud_comp_mono: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.loud_comp_stereo: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.matcher_mono: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.matcher_stereo: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.mb_clipper_mono: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.mb_clipper_stereo: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.mb_compressor_lr: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.mb_compressor_mono: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.mb_compressor_ms: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.mb_compressor_stereo: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.mb_dyna_processor_lr: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.mb_dyna_processor_mono: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.mb_dyna_processor_ms: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.mb_dyna_processor_stereo: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.mb_expander_lr: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.mb_expander_mono: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.mb_expander_ms: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.mb_expander_stereo: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.mb_gate_lr: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.mb_gate_mono: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.mb_gate_ms: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.mb_gate_stereo: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.mb_limiter_mono: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.mb_limiter_stereo: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.mb_ringmod_sc_mono: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.mb_ringmod_sc_stereo: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.mixer_x16_mono: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.mixer_x16_stereo: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.mixer_x4_mono: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.mixer_x4_stereo: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.mixer_x8_mono: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.mixer_x8_stereo: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.multisampler_x12: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.multisampler_x12_do: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.multisampler_x24: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.multisampler_x24_do: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.multisampler_x48: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.multisampler_x48_do: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.noise_generator_x1: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.noise_generator_x2: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.noise_generator_x4: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.oscillator_mono: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.oscilloscope_x1: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.oscilloscope_x2: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.oscilloscope_x4: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.para_equalizer_x16_lr: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.para_equalizer_x16_mono: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.para_equalizer_x16_ms: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.para_equalizer_x16_stereo: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.para_equalizer_x32_lr: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.para_equalizer_x32_mono: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.para_equalizer_x32_ms: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.para_equalizer_x32_stereo: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.para_equalizer_x8_lr: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.para_equalizer_x8_mono: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.para_equalizer_x8_ms: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.para_equalizer_x8_stereo: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.phase_detector: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.phaser_mono: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.phaser_stereo: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.profiler_mono: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.profiler_stereo: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.referencer_mono: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.referencer_stereo: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.return_mono: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.return_stereo: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.ringmod_sc_mono: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.ringmod_sc_stereo: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.room_builder_mono: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.room_builder_stereo: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.sampler_mono: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.sampler_stereo: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.sc_autogain_mono: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.sc_autogain_stereo: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.sc_compressor_lr: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.sc_compressor_mono: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.sc_compressor_ms: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.sc_compressor_stereo: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.sc_dyna_processor_lr: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.sc_dyna_processor_mono: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.sc_dyna_processor_ms: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.sc_dyna_processor_stereo: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.sc_expander_lr: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.sc_expander_mono: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.sc_expander_ms: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.sc_expander_stereo: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.sc_gate_lr: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.sc_gate_mono: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.sc_gate_ms: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.sc_gate_stereo: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.sc_gott_compressor_lr: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.sc_gott_compressor_mono: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.sc_gott_compressor_ms: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.sc_gott_compressor_stereo: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.sc_limiter_mono: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.sc_limiter_stereo: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.sc_matcher_mono: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.sc_matcher_stereo: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.sc_mb_compressor_lr: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.sc_mb_compressor_mono: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.sc_mb_compressor_ms: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.sc_mb_compressor_stereo: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.sc_mb_dyna_processor_lr: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.sc_mb_dyna_processor_mono: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.sc_mb_dyna_processor_ms: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.sc_mb_dyna_processor_stereo: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.sc_mb_expander_lr: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.sc_mb_expander_mono: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.sc_mb_expander_ms: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.sc_mb_expander_stereo: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.sc_mb_gate_lr: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.sc_mb_gate_mono: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.sc_mb_gate_ms: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.sc_mb_gate_stereo: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.sc_mb_limiter_mono: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.sc_mb_limiter_stereo: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.send_mono: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.send_stereo: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.slap_delay_mono: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.slap_delay_stereo: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.spectrum_analyzer_x1: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.spectrum_analyzer_x12: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.spectrum_analyzer_x16: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.spectrum_analyzer_x2: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.spectrum_analyzer_x4: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.spectrum_analyzer_x8: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.surge_filter_mono: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.surge_filter_stereo: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.trigger_midi_mono: refused (hosting.rt-safety.violations-under-notes)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.trigger_midi_stereo: refused (hosting.rt-safety.violations-under-notes)
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.trigger_mono: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.trigger_stereo: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/omx-chorus.clap#org.openmixer.chorus: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/omx-comp.clap#org.openmixer.comp: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/omx-deesser.clap#org.openmixer.deesser: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/omx-delay.clap#org.openmixer.delay: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/omx-drive.clap#org.openmixer.drive: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/omx-eq16.clap#org.openmixer.eq16: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/omx-eq32.clap#org.openmixer.eq32: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/omx-eq8.clap#org.openmixer.eq8: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/omx-flanger.clap#org.openmixer.flanger: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/omx-geq.clap#org.openmixer.geq: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/omx-keyed-gate.clap#org.openmixer.keyed-gate: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/omx-limiter.clap#org.openmixer.limiter: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/omx-phaser.clap#org.openmixer.phaser: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/omx-pitch.clap#org.openmixer.pitch: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/omx-reverb.clap#org.openmixer.reverb: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/omx-rotary.clap#org.openmixer.rotary: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/omx-strip.clap#org.openmixer.strip: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/omx-transient.clap#org.openmixer.transient: qualified
+plugin-qualify-sync: clap:/usr/lib/clap/omx-tremolo.clap#org.openmixer.tremolo: qualified
+plugin-qualify-sync: http://distrho.sf.net/plugins/3BandEQ: qualified
+plugin-qualify-sync: http://distrho.sf.net/plugins/3BandSplitter: qualified
+plugin-qualify-sync: https://github.com/jpcima/ADLplug: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: http://www.niallmoody.com/ndcplugs/ampimposer.htm: qualified
+plugin-qualify-sync: https://www.jahnichen.de/plugins/lv2/BChoppr: qualified
+plugin-qualify-sync: https://www.jahnichen.de/plugins/lv2/BSEQuencer: qualified
+plugin-qualify-sync: https://www.jahnichen.de/plugins/lv2/BShapr: qualified
+plugin-qualify-sync: https://www.jahnichen.de/plugins/lv2/BShapr-cv: qualified
+plugin-qualify-sync: https://www.jahnichen.de/plugins/lv2/BSlizr: qualified
+plugin-qualify-sync: http://teragonaudio.com/BeatCounter.html: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: http://teragonaudio.com/ChaosChimp.html: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: http://www.niallmoody.com/ndcplugs/cycleshifter.htm: qualified
+plugin-qualify-sync: urn:dragonfly:early: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: https://github.com/michaelwillis/dragonfly-reverb: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: urn:dragonfly:plate: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: urn:dragonfly:room: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: http://au.tomatl.org/essp: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: http://teragonaudio.com/ExtraNotes.html: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: https://github.com/ninodewit/SHIRO-Plugins/plugins/harmless: qualified
+plugin-qualify-sync: http://tytel.org/helm: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: http://teragonaudio.com/HiLoFilter.html: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: https://github.com/klangfreund/SpectrumAnalyser: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: https://github.com/jpcima/HybridReverb2: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: https://bsutherland.github.io/JuceOPLVSTi/: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: http://distrho.sf.net/plugins/Kars: qualified
+plugin-qualify-sync: http://www.klangfreund.com/lufsmeter: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: http://www.klangfreund.com/lufsmetermultichannel: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: https://github.com/ninodewit/SHIRO-Plugins/plugins/larynx: qualified
+plugin-qualify-sync: https://code.google.com/p/lkjb-plugins/luftikus: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: http://distrho.sf.net/plugins/MVerb: qualified
+plugin-qualify-sync: http://distrho.sf.net/plugins/MaBitcrush: qualified
+plugin-qualify-sync: http://distrho.sf.net/plugins/MaFreeverb: qualified
+plugin-qualify-sync: http://distrho.sf.net/plugins/MaGigaverb: qualified
+plugin-qualify-sync: http://distrho.sf.net/plugins/MaPitchshift: qualified
+plugin-qualify-sync: https://github.com/ninodewit/SHIRO-Plugins/plugins/modulay: qualified
+plugin-qualify-sync: http://distrho.sf.net/plugins/Nekobi: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: http://teragonaudio.com/NotNotchFilter.html: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: https://github.com/jpcima/OPNplug: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: https://obxd.wordpress.com: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: http://distrho.sf.net/plugins/PingPongPan: qualified
+plugin-qualify-sync: http://code.google.com/p/lkjb-dc12/: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: http://distrho.sf.net/plugins/ProM: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: https://github.com/lkjbdsp/lkjb-plugins#ReFine: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: https://github.com/semanticaudio/SAFE/tree/master/SAFECompressor: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: https://github.com/semanticaudio/SAFE/tree/master/SAFEDistortion: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: https://github.com/semanticaudio/SAFE/tree/master/SAFEEqualiser: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: https://github.com/semanticaudio/SAFE/tree/master/SAFEReverb: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: https://github.com/ninodewit/SHIRO-Plugins/plugins/shiroverb: qualified
+plugin-qualify-sync: http://www.niallmoody.com/ndcplugs/soulforce.htm: qualified
+plugin-qualify-sync: https://github.com/laixinyuan/StereoSourceSepartion: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: urn:juce:TalDub3: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: urn:juce:TalFilter2: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: urn:juce:TalFilter: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: http://kunz.corrupt.ch/products/tal-noisemaker: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: urn:juce:TalReverb2: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: urn:juce:TalReverb3: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: urn:juce:TalReverb: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: http://kunz.corrupt.ch/products/tal-vocoder: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: https://github.com/creativeintent/temper: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: http://arcticanaudio.com/plugins/thefunction: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: http://arcticanaudio.com/plugins/thepilgrim: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: https://www.vast-dynamics.com/plugins/VASTvaporizer2: crashed (probe.crashed)
+plugin-qualify-sync: http://tumbetoene.tuxfamily.org: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: https://www.zrythm.org/plugins/ZLFO: qualified
+plugin-qualify-sync: urn:zamaudio:ZaMaximX2: qualified
+plugin-qualify-sync: urn:zamaudio:ZaMultiComp: qualified
+plugin-qualify-sync: urn:zamaudio:ZaMultiCompX2: qualified
+plugin-qualify-sync: urn:zamaudio:ZamAutoSat: qualified
+plugin-qualify-sync: urn:zamaudio:ZamComp: qualified
+plugin-qualify-sync: urn:zamaudio:ZamCompX2: qualified
+plugin-qualify-sync: urn:zamaudio:ZamDelay: qualified
+plugin-qualify-sync: urn:zamaudio:ZamDynamicEQ: qualified
+plugin-qualify-sync: urn:zamaudio:ZamEQ2: qualified
+plugin-qualify-sync: urn:zamaudio:ZamGEQ31: qualified
+plugin-qualify-sync: urn:zamaudio:ZamGate: qualified
+plugin-qualify-sync: urn:zamaudio:ZamGateX2: qualified
+plugin-qualify-sync: urn:zamaudio:ZamGrains: qualified
+plugin-qualify-sync: urn:zamaudio:ZamHeadX2: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: urn:zamaudio:ZamNoise: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: urn:zamaudio:ZamPhono: qualified
+plugin-qualify-sync: urn:zamaudio:ZamTube: qualified
+plugin-qualify-sync: urn:zamaudio:ZamVerb: refused (hosting.rt-safety.violations-in-run)
+plugin-qualify-sync: http://hippie.lt/lv2/gate: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/absolute: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/ad_2: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/ad_4: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/ad_6: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/advenv: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/amplitude: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/amp: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/analogmemory: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/bitgrinder: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/controltocv: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/cvs: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/cvtocontrol: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/delay: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/dynamicwaves_4: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/dynamicwaves_6: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/dynamicwaves_8: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/dynamicwaves2_4: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/dynamicwaves2_6: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/dynamicwaves2_8: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/env: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/fftvocoder: crashed (probe.crashed)
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/haas: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/hysteresis: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/hztovc: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/inv: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/lfo2_tempo: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/lfo2_freq: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/lfo: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/mixer_2ch: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/mixer_4ch: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/mixer_8ch: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/mooglpf: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/multiphase_lfo: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/noise2: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/percussiveenv: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/ringmodulator: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/samplehold: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/seq_8: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/seq_12: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/seq_16: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/seq_24: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/seq_32: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/slew: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/stereomixer_2ch: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/stereomixer_4ch: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/stereomixer_8ch: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/transport: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/vcaexp: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/vcalin: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/vcdelay: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/vcdoubledecay: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/vcenv: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/vcenvii: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/vcf: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/vco2: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/vco3: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/vcorgan_4: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/vcorgan_6: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/vcorgan_8: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/vcorgan2_4: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/vcorgan2_6: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/vcorgan2_8: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/vcpanning: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/vcswitch: qualified
+plugin-qualify-sync: http://github.com/blablack/ams-lv2/vctohz: qualified
+plugin-qualify-sync: http://www.openavproductions.com/artyfx#bitta: qualified
+plugin-qualify-sync: http://www.openavproductions.com/artyfx#della: qualified
+plugin-qualify-sync: http://www.openavproductions.com/artyfx#ducka: qualified
+plugin-qualify-sync: http://www.openavproductions.com/artyfx#filta: qualified
+plugin-qualify-sync: http://www.openavproductions.com/artyfx#kuiza: qualified
+plugin-qualify-sync: http://www.openavproductions.com/artyfx#masha: qualified
+plugin-qualify-sync: http://www.openavproductions.com/artyfx#panda: qualified
+plugin-qualify-sync: http://www.openavproductions.com/artyfx#roomy: qualified
+plugin-qualify-sync: http://www.openavproductions.com/artyfx#satma: qualified
+plugin-qualify-sync: http://www.openavproductions.com/artyfx#vihda: qualified
+plugin-qualify-sync: http://www.openavproductions.com/artyfx#whaaa: qualified
+plugin-qualify-sync: http://github.com/blablack/beatslash-lv2/beatrepeater_mono: crashed (probe.crashed)
+plugin-qualify-sync: http://github.com/blablack/beatslash-lv2/beatrepeater_stereo: crashed (probe.crashed)

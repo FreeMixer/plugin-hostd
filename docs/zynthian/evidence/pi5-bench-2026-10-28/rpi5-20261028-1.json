@@ -1,0 +1,1471 @@
+{
+  "schema": "omx-bench/1",
+  "id": "rpi5-20261028-1",
+  "machine": {
+    "class": "rpi5",
+    "model": "Raspberry Pi 5 Model B Rev 1.0",
+    "cpu": "Cortex-A76",
+    "cores": 4,
+    "ram_mb": 4049,
+    "os": "Debian 13",
+    "kernel": "6.18.50+rpt-rpi-2712",
+    "governor": "powersave"
+  },
+  "software": {
+    "plugin-hostd": "0.13.1",
+    "omx-clap-host": "0.23.2",
+    "mod-host": "0.10.6-595-g6c1cdd8 (not packaged)",
+    "jalv": "1.6.9 (not packaged)",
+    "jack": "1.9.22~dfsg-4",
+    "omx-plugins-clap": "0.15.1",
+    "omx-plugins-lv2": "0.15.1",
+    "calf-plugins": "5:0.90.3-1kxstudio3"
+  },
+  "scenarios": [
+    {
+      "id": "idle",
+      "title": "the host running, no plugin",
+      "host": "H1",
+      "rate": 48000,
+      "frames": 256,
+      "plugins": [],
+      "dsp_load_avg": 0.41,
+      "dsp_load_max": 0.72,
+      "samples": 10,
+      "rss_mb": 107.6,
+      "add_ms": null,
+      "recover_ms": null,
+      "status": "ok",
+      "note": "",
+      "stress": "none",
+      "xruns": 0,
+      "processes": 1,
+      "rss_mb_total": 107.6,
+      "pss_mb_total": 27.3,
+      "cpu_pct": 0.27,
+      "ctx_switches": 597,
+      "ctx_involuntary": 33,
+      "latency_frames": 0,
+      "repeats": 3,
+      "spread": {
+        "dsp_load_avg": [
+          0.24,
+          0.64
+        ],
+        "dsp_load_max": [
+          0.24,
+          0.81
+        ],
+        "rss_mb": [
+          107.6,
+          107.7
+        ],
+        "processes": [
+          1,
+          1
+        ],
+        "rss_mb_total": [
+          107.6,
+          107.7
+        ],
+        "pss_mb_total": [
+          27.3,
+          27.3
+        ],
+        "cpu_pct": [
+          0.27,
+          0.35
+        ],
+        "ctx_switches": [
+          570,
+          623
+        ],
+        "ctx_involuntary": [
+          5,
+          59
+        ],
+        "xruns": [
+          0,
+          1
+        ],
+        "latency_frames": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "id": "idle",
+      "title": "the host running, no plugin",
+      "host": "H2",
+      "rate": 48000,
+      "frames": 256,
+      "plugins": [],
+      "dsp_load_avg": 0.69,
+      "dsp_load_max": 0.97,
+      "samples": 10,
+      "rss_mb": 1.1,
+      "add_ms": null,
+      "recover_ms": null,
+      "status": "ok",
+      "note": "",
+      "stress": "none",
+      "xruns": 0,
+      "processes": 1,
+      "rss_mb_total": 1.1,
+      "pss_mb_total": 0.6,
+      "cpu_pct": 0.0,
+      "ctx_switches": 459,
+      "ctx_involuntary": 8,
+      "latency_frames": 0,
+      "repeats": 3,
+      "spread": {
+        "dsp_load_avg": [
+          0.54,
+          0.74
+        ],
+        "dsp_load_max": [
+          0.96,
+          1.2
+        ],
+        "rss_mb": [
+          1.1,
+          1.1
+        ],
+        "processes": [
+          1,
+          1
+        ],
+        "rss_mb_total": [
+          1.1,
+          1.1
+        ],
+        "pss_mb_total": [
+          0.6,
+          0.7
+        ],
+        "cpu_pct": [
+          0.0,
+          0.09
+        ],
+        "ctx_switches": [
+          456,
+          463
+        ],
+        "ctx_involuntary": [
+          6,
+          13
+        ],
+        "xruns": [
+          0,
+          0
+        ],
+        "latency_frames": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "id": "idle",
+      "title": "the host running, no plugin",
+      "host": "H3",
+      "rate": 48000,
+      "frames": 256,
+      "plugins": [],
+      "dsp_load_avg": 0.3,
+      "dsp_load_max": 0.31,
+      "samples": 10,
+      "rss_mb": 156.0,
+      "add_ms": null,
+      "recover_ms": null,
+      "status": "ok",
+      "note": "",
+      "stress": "none",
+      "xruns": 0,
+      "processes": 1,
+      "rss_mb_total": 156.0,
+      "pss_mb_total": 75.5,
+      "cpu_pct": 0.35,
+      "ctx_switches": 4293,
+      "ctx_involuntary": 0,
+      "latency_frames": 0,
+      "repeats": 3,
+      "spread": {
+        "dsp_load_avg": [
+          0.29,
+          0.36
+        ],
+        "dsp_load_max": [
+          0.31,
+          0.6
+        ],
+        "rss_mb": [
+          155.8,
+          156.0
+        ],
+        "processes": [
+          1,
+          1
+        ],
+        "rss_mb_total": [
+          155.8,
+          156.0
+        ],
+        "pss_mb_total": [
+          75.5,
+          75.5
+        ],
+        "cpu_pct": [
+          0.27,
+          0.35
+        ],
+        "ctx_switches": [
+          4291,
+          4295
+        ],
+        "ctx_involuntary": [
+          0,
+          0
+        ],
+        "xruns": [
+          0,
+          0
+        ],
+        "latency_frames": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "id": "idle",
+      "title": "the host running, no plugin",
+      "host": "H4",
+      "rate": 48000,
+      "frames": 256,
+      "plugins": [],
+      "dsp_load_avg": null,
+      "dsp_load_max": null,
+      "samples": 0,
+      "rss_mb": null,
+      "add_ms": null,
+      "recover_ms": null,
+      "status": "unsupported",
+      "note": "jalv runs one plugin per process; it has no host without a plugin",
+      "stress": "none"
+    },
+    {
+      "id": "lv2-1",
+      "title": "one LV2 plugin, sine in",
+      "host": "H1",
+      "rate": 48000,
+      "frames": 256,
+      "plugins": [
+        "Calf Compressor (LV2)"
+      ],
+      "dsp_load_avg": 1.7,
+      "dsp_load_max": 1.85,
+      "samples": 10,
+      "rss_mb": 116.2,
+      "add_ms": 220.9,
+      "recover_ms": null,
+      "status": "ok",
+      "note": "",
+      "stress": "none",
+      "mode": "shared-process",
+      "xruns": 0,
+      "processes": 1,
+      "rss_mb_total": 116.2,
+      "pss_mb_total": 35.5,
+      "cpu_pct": 1.77,
+      "ctx_switches": 2771,
+      "ctx_involuntary": 74,
+      "latency_frames": 0,
+      "repeats": 3,
+      "spread": {
+        "dsp_load_avg": [
+          1.07,
+          1.85
+        ],
+        "dsp_load_max": [
+          1.16,
+          2.26
+        ],
+        "rss_mb": [
+          115.7,
+          116.7
+        ],
+        "add_ms": [
+          220.7,
+          240.6
+        ],
+        "processes": [
+          1,
+          1
+        ],
+        "rss_mb_total": [
+          115.7,
+          116.7
+        ],
+        "pss_mb_total": [
+          35.5,
+          35.5
+        ],
+        "cpu_pct": [
+          1.24,
+          1.77
+        ],
+        "ctx_switches": [
+          2721,
+          2777
+        ],
+        "ctx_involuntary": [
+          18,
+          77
+        ],
+        "xruns": [
+          0,
+          0
+        ],
+        "latency_frames": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "id": "lv2-1",
+      "title": "one LV2 plugin, sine in",
+      "host": "H2",
+      "rate": 48000,
+      "frames": 256,
+      "plugins": [
+        "Calf Compressor (LV2)"
+      ],
+      "dsp_load_avg": 1.6,
+      "dsp_load_max": 2.21,
+      "samples": 10,
+      "rss_mb": 118.4,
+      "add_ms": 307.5,
+      "recover_ms": null,
+      "status": "ok",
+      "note": "",
+      "stress": "none",
+      "mode": "individual",
+      "xruns": 0,
+      "processes": 2,
+      "rss_mb_total": 118.4,
+      "pss_mb_total": 36.3,
+      "cpu_pct": 1.68,
+      "ctx_switches": 3215,
+      "ctx_involuntary": 59,
+      "latency_frames": 0,
+      "repeats": 3,
+      "spread": {
+        "dsp_load_avg": [
+          1.56,
+          1.65
+        ],
+        "dsp_load_max": [
+          2.15,
+          2.26
+        ],
+        "rss_mb": [
+          118.3,
+          118.8
+        ],
+        "add_ms": [
+          286.2,
+          335.1
+        ],
+        "processes": [
+          2,
+          2
+        ],
+        "rss_mb_total": [
+          118.3,
+          118.8
+        ],
+        "pss_mb_total": [
+          36.3,
+          36.3
+        ],
+        "cpu_pct": [
+          1.59,
+          1.68
+        ],
+        "ctx_switches": [
+          3197,
+          3226
+        ],
+        "ctx_involuntary": [
+          47,
+          74
+        ],
+        "xruns": [
+          0,
+          0
+        ],
+        "latency_frames": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "id": "lv2-1",
+      "title": "one LV2 plugin, sine in",
+      "host": "H3",
+      "rate": 48000,
+      "frames": 256,
+      "plugins": [
+        "Calf Compressor (LV2)"
+      ],
+      "dsp_load_avg": 1.06,
+      "dsp_load_max": 2.18,
+      "samples": 10,
+      "rss_mb": 158.6,
+      "add_ms": 27.8,
+      "recover_ms": null,
+      "status": "ok",
+      "note": "",
+      "stress": "none",
+      "mode": "shared-process",
+      "xruns": 0,
+      "processes": 1,
+      "rss_mb_total": 158.6,
+      "pss_mb_total": 78.0,
+      "cpu_pct": 0.88,
+      "ctx_switches": 6440,
+      "ctx_involuntary": 1,
+      "latency_frames": 0,
+      "repeats": 3,
+      "spread": {
+        "dsp_load_avg": [
+          0.78,
+          1.75
+        ],
+        "dsp_load_max": [
+          1.17,
+          2.21
+        ],
+        "rss_mb": [
+          158.5,
+          159.2
+        ],
+        "add_ms": [
+          23.1,
+          28.4
+        ],
+        "processes": [
+          1,
+          1
+        ],
+        "rss_mb_total": [
+          158.5,
+          159.2
+        ],
+        "pss_mb_total": [
+          78.0,
+          78.1
+        ],
+        "cpu_pct": [
+          0.71,
+          1.59
+        ],
+        "ctx_switches": [
+          6440,
+          6447
+        ],
+        "ctx_involuntary": [
+          1,
+          5
+        ],
+        "xruns": [
+          0,
+          0
+        ],
+        "latency_frames": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "id": "lv2-1",
+      "title": "one LV2 plugin, sine in",
+      "host": "H4",
+      "rate": 48000,
+      "frames": 256,
+      "plugins": [
+        "Calf Compressor (LV2)"
+      ],
+      "dsp_load_avg": 0.84,
+      "dsp_load_max": 1.25,
+      "samples": 10,
+      "rss_mb": 149.8,
+      "add_ms": 1013.6,
+      "recover_ms": null,
+      "status": "ok",
+      "note": "",
+      "stress": "none",
+      "mode": "individual",
+      "xruns": 0,
+      "processes": 1,
+      "rss_mb_total": 149.8,
+      "pss_mb_total": 68.5,
+      "cpu_pct": 0.62,
+      "ctx_switches": 2517,
+      "ctx_involuntary": 4,
+      "latency_frames": 0,
+      "repeats": 3,
+      "spread": {
+        "dsp_load_avg": [
+          0.73,
+          0.87
+        ],
+        "dsp_load_max": [
+          0.78,
+          1.43
+        ],
+        "rss_mb": [
+          148.8,
+          149.8
+        ],
+        "add_ms": [
+          1008.0,
+          1049.3
+        ],
+        "processes": [
+          1,
+          1
+        ],
+        "rss_mb_total": [
+          148.8,
+          149.8
+        ],
+        "pss_mb_total": [
+          68.5,
+          68.5
+        ],
+        "cpu_pct": [
+          0.53,
+          0.71
+        ],
+        "ctx_switches": [
+          2517,
+          2518
+        ],
+        "ctx_involuntary": [
+          1,
+          6
+        ],
+        "xruns": [
+          0,
+          0
+        ],
+        "latency_frames": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "id": "chain3",
+      "title": "three plugins in a chain, sine in",
+      "host": "H1",
+      "rate": 48000,
+      "frames": 256,
+      "plugins": [
+        "omx-comp (CLAP)",
+        "Calf Compressor (LV2)",
+        "omx-delay (CLAP)"
+      ],
+      "dsp_load_avg": 1.37,
+      "dsp_load_max": 2.0,
+      "samples": 10,
+      "rss_mb": 120.3,
+      "add_ms": 178.8,
+      "recover_ms": null,
+      "status": "ok",
+      "note": "",
+      "stress": "none",
+      "mode": "shared-process",
+      "xruns": 0,
+      "processes": 1,
+      "rss_mb_total": 120.3,
+      "pss_mb_total": 39.3,
+      "cpu_pct": 1.41,
+      "ctx_switches": 7003,
+      "ctx_involuntary": 18,
+      "latency_frames": 0,
+      "repeats": 3,
+      "spread": {
+        "dsp_load_avg": [
+          1.32,
+          1.65
+        ],
+        "dsp_load_max": [
+          1.35,
+          2.01
+        ],
+        "rss_mb": [
+          120.0,
+          120.4
+        ],
+        "add_ms": [
+          178.7,
+          214.1
+        ],
+        "processes": [
+          1,
+          1
+        ],
+        "rss_mb_total": [
+          120.0,
+          120.4
+        ],
+        "pss_mb_total": [
+          39.2,
+          39.3
+        ],
+        "cpu_pct": [
+          1.41,
+          1.68
+        ],
+        "ctx_switches": [
+          6996,
+          7005
+        ],
+        "ctx_involuntary": [
+          14,
+          23
+        ],
+        "xruns": [
+          0,
+          0
+        ],
+        "latency_frames": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "id": "chain3",
+      "title": "three plugins in a chain, sine in",
+      "host": "H2",
+      "rate": 48000,
+      "frames": 256,
+      "plugins": [
+        "omx-comp (CLAP)",
+        "Calf Compressor (LV2)",
+        "omx-delay (CLAP)"
+      ],
+      "dsp_load_avg": 1.78,
+      "dsp_load_max": 2.08,
+      "samples": 10,
+      "rss_mb": 122.0,
+      "add_ms": 664.3,
+      "recover_ms": null,
+      "status": "ok",
+      "note": "one worker, 3 JACK clients",
+      "stress": "none",
+      "mode": "chain",
+      "xruns": 0,
+      "processes": 2,
+      "rss_mb_total": 122.0,
+      "pss_mb_total": 40.2,
+      "cpu_pct": 1.94,
+      "ctx_switches": 7473,
+      "ctx_involuntary": 35,
+      "latency_frames": 0,
+      "repeats": 3,
+      "spread": {
+        "dsp_load_avg": [
+          1.6,
+          1.96
+        ],
+        "dsp_load_max": [
+          2.06,
+          2.35
+        ],
+        "rss_mb": [
+          121.8,
+          123.0
+        ],
+        "add_ms": [
+          655.2,
+          713.7
+        ],
+        "processes": [
+          2,
+          2
+        ],
+        "rss_mb_total": [
+          121.8,
+          123.0
+        ],
+        "pss_mb_total": [
+          40.2,
+          40.3
+        ],
+        "cpu_pct": [
+          1.86,
+          2.12
+        ],
+        "ctx_switches": [
+          7465,
+          7488
+        ],
+        "ctx_involuntary": [
+          32,
+          56
+        ],
+        "xruns": [
+          0,
+          0
+        ],
+        "latency_frames": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "id": "chain3",
+      "title": "three plugins in a chain, sine in",
+      "host": "H3",
+      "rate": 48000,
+      "frames": 256,
+      "plugins": [
+        "omx-comp (LV2)",
+        "Calf Compressor (LV2)",
+        "omx-delay (LV2)"
+      ],
+      "dsp_load_avg": 1.69,
+      "dsp_load_max": 1.94,
+      "samples": 10,
+      "rss_mb": 163.1,
+      "add_ms": 92.7,
+      "recover_ms": null,
+      "status": "ok",
+      "note": "LV2 builds of omx-comp, omx-delay",
+      "stress": "none",
+      "mode": "shared-process",
+      "xruns": 0,
+      "processes": 1,
+      "rss_mb_total": 163.1,
+      "pss_mb_total": 82.5,
+      "cpu_pct": 1.59,
+      "ctx_switches": 10722,
+      "ctx_involuntary": 2,
+      "latency_frames": 0,
+      "repeats": 3,
+      "spread": {
+        "dsp_load_avg": [
+          1.31,
+          1.73
+        ],
+        "dsp_load_max": [
+          1.72,
+          2.0
+        ],
+        "rss_mb": [
+          163.1,
+          163.6
+        ],
+        "add_ms": [
+          81.7,
+          103.5
+        ],
+        "processes": [
+          1,
+          1
+        ],
+        "rss_mb_total": [
+          163.1,
+          163.6
+        ],
+        "pss_mb_total": [
+          82.4,
+          82.5
+        ],
+        "cpu_pct": [
+          1.33,
+          1.77
+        ],
+        "ctx_switches": [
+          10714,
+          10723
+        ],
+        "ctx_involuntary": [
+          0,
+          6
+        ],
+        "xruns": [
+          0,
+          0
+        ],
+        "latency_frames": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "id": "chain3",
+      "title": "three plugins in a chain, sine in",
+      "host": "H4",
+      "rate": 48000,
+      "frames": 256,
+      "plugins": [
+        "omx-comp (LV2)",
+        "Calf Compressor (LV2)",
+        "omx-delay (LV2)"
+      ],
+      "dsp_load_avg": 1.72,
+      "dsp_load_max": 2.16,
+      "samples": 10,
+      "rss_mb": 447.3,
+      "add_ms": 3013.6,
+      "recover_ms": null,
+      "status": "ok",
+      "note": "LV2 builds of omx-comp, omx-delay",
+      "stress": "none",
+      "mode": "individual",
+      "xruns": 0,
+      "processes": 3,
+      "rss_mb_total": 447.3,
+      "pss_mb_total": 178.9,
+      "cpu_pct": 1.59,
+      "ctx_switches": 7548,
+      "ctx_involuntary": 2,
+      "latency_frames": 0,
+      "repeats": 3,
+      "spread": {
+        "dsp_load_avg": [
+          1.46,
+          2.01
+        ],
+        "dsp_load_max": [
+          2.03,
+          2.39
+        ],
+        "rss_mb": [
+          446.3,
+          447.3
+        ],
+        "add_ms": [
+          3013.1,
+          3258.8
+        ],
+        "processes": [
+          3,
+          3
+        ],
+        "rss_mb_total": [
+          446.3,
+          447.3
+        ],
+        "pss_mb_total": [
+          178.9,
+          178.9
+        ],
+        "cpu_pct": [
+          1.41,
+          1.86
+        ],
+        "ctx_switches": [
+          7546,
+          7555
+        ],
+        "ctx_involuntary": [
+          1,
+          9
+        ],
+        "xruns": [
+          0,
+          0
+        ],
+        "latency_frames": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "id": "kill1",
+      "title": "one plugin, its process killed",
+      "host": "H1",
+      "rate": 48000,
+      "frames": 256,
+      "plugins": [
+        "omx-comp (CLAP)"
+      ],
+      "dsp_load_avg": 0.77,
+      "dsp_load_max": 0.93,
+      "samples": 10,
+      "rss_mb": 108.7,
+      "add_ms": 18.6,
+      "recover_ms": null,
+      "status": "failed",
+      "note": "repeat 1 of 3: host process lost",
+      "stress": "none",
+      "mode": "shared-process",
+      "xruns": 0,
+      "processes": 1,
+      "rss_mb_total": 108.7,
+      "pss_mb_total": 27.8,
+      "cpu_pct": 0.71,
+      "ctx_switches": 2722,
+      "ctx_involuntary": 21,
+      "latency_frames": 0
+    },
+    {
+      "id": "kill1",
+      "title": "one plugin, its process killed",
+      "host": "H2",
+      "rate": 48000,
+      "frames": 256,
+      "plugins": [
+        "omx-comp (CLAP)"
+      ],
+      "dsp_load_avg": 0.84,
+      "dsp_load_max": 1.16,
+      "samples": 10,
+      "rss_mb": 110.3,
+      "add_ms": 57.1,
+      "recover_ms": 346.7,
+      "status": "ok",
+      "note": "",
+      "stress": "none",
+      "mode": "individual",
+      "xruns": 0,
+      "processes": 2,
+      "rss_mb_total": 110.3,
+      "pss_mb_total": 28.6,
+      "cpu_pct": 0.71,
+      "ctx_switches": 3189,
+      "ctx_involuntary": 37,
+      "latency_frames": 0,
+      "repeats": 3,
+      "spread": {
+        "dsp_load_avg": [
+          0.58,
+          0.95
+        ],
+        "dsp_load_max": [
+          0.73,
+          1.32
+        ],
+        "rss_mb": [
+          109.8,
+          110.8
+        ],
+        "add_ms": [
+          46.1,
+          58.3
+        ],
+        "recover_ms": [
+          346.6,
+          389.9
+        ],
+        "processes": [
+          2,
+          2
+        ],
+        "rss_mb_total": [
+          109.8,
+          110.8
+        ],
+        "pss_mb_total": [
+          28.5,
+          28.6
+        ],
+        "cpu_pct": [
+          0.53,
+          0.88
+        ],
+        "ctx_switches": [
+          3184,
+          4653
+        ],
+        "ctx_involuntary": [
+          31,
+          1499
+        ],
+        "xruns": [
+          0,
+          0
+        ],
+        "latency_frames": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "id": "kill1",
+      "title": "one plugin, its process killed",
+      "host": "H3",
+      "rate": 48000,
+      "frames": 256,
+      "plugins": [
+        "omx-comp (LV2)"
+      ],
+      "dsp_load_avg": 0.59,
+      "dsp_load_max": 0.76,
+      "samples": 10,
+      "rss_mb": 157.1,
+      "add_ms": 17.7,
+      "recover_ms": null,
+      "status": "failed",
+      "note": "repeat 1 of 3: LV2 builds of omx-comp; host process lost",
+      "stress": "none",
+      "mode": "shared-process",
+      "xruns": 0,
+      "processes": 1,
+      "rss_mb_total": 157.1,
+      "pss_mb_total": 76.4,
+      "cpu_pct": 0.62,
+      "ctx_switches": 6453,
+      "ctx_involuntary": 20,
+      "latency_frames": 0
+    },
+    {
+      "id": "kill1",
+      "title": "one plugin, its process killed",
+      "host": "H4",
+      "rate": 48000,
+      "frames": 256,
+      "plugins": [
+        "omx-comp (LV2)"
+      ],
+      "dsp_load_avg": 0.56,
+      "dsp_load_max": 0.7,
+      "samples": 10,
+      "rss_mb": 147.8,
+      "add_ms": 935.4,
+      "recover_ms": null,
+      "status": "failed",
+      "note": "repeat 1 of 3: LV2 builds of omx-comp; host process lost",
+      "stress": "none",
+      "mode": "individual",
+      "xruns": 0,
+      "processes": 1,
+      "rss_mb_total": 147.8,
+      "pss_mb_total": 66.9,
+      "cpu_pct": 0.44,
+      "ctx_switches": 2514,
+      "ctx_involuntary": 2,
+      "latency_frames": 0
+    },
+    {
+      "id": "cvp3",
+      "title": "chains vs processes, 3 plugins",
+      "host": "H2",
+      "rate": 48000,
+      "frames": 256,
+      "plugins": [
+        "omx-comp (CLAP)",
+        "Calf Compressor (LV2)",
+        "omx-delay (CLAP)"
+      ],
+      "dsp_load_avg": 1.3,
+      "dsp_load_max": 1.31,
+      "samples": 10,
+      "rss_mb": 338.2,
+      "add_ms": 291.9,
+      "recover_ms": null,
+      "status": "ok",
+      "note": "",
+      "stress": "none",
+      "mode": "individual",
+      "xruns": 0,
+      "processes": 4,
+      "rss_mb_total": 338.2,
+      "pss_mb_total": 68.2,
+      "cpu_pct": 1.77,
+      "ctx_switches": 8640,
+      "ctx_involuntary": 75,
+      "latency_frames": 0,
+      "repeats": 3,
+      "spread": {
+        "dsp_load_avg": [
+          1.29,
+          1.34
+        ],
+        "dsp_load_max": [
+          1.31,
+          1.66
+        ],
+        "rss_mb": [
+          336.9,
+          338.3
+        ],
+        "add_ms": [
+          291.5,
+          302.1
+        ],
+        "processes": [
+          4,
+          4
+        ],
+        "rss_mb_total": [
+          336.9,
+          338.3
+        ],
+        "pss_mb_total": [
+          68.2,
+          68.2
+        ],
+        "cpu_pct": [
+          1.77,
+          1.94
+        ],
+        "ctx_switches": [
+          8635,
+          8648
+        ],
+        "ctx_involuntary": [
+          71,
+          84
+        ],
+        "xruns": [
+          0,
+          0
+        ],
+        "latency_frames": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "id": "cvp3",
+      "title": "chains vs processes, 3 plugins",
+      "host": "H2",
+      "rate": 48000,
+      "frames": 256,
+      "plugins": [
+        "omx-comp (CLAP)",
+        "Calf Compressor (LV2)",
+        "omx-delay (CLAP)"
+      ],
+      "dsp_load_avg": 1.31,
+      "dsp_load_max": 1.5,
+      "samples": 10,
+      "rss_mb": 122.1,
+      "add_ms": 595.5,
+      "recover_ms": null,
+      "status": "ok",
+      "note": "one worker, 3 JACK clients",
+      "stress": "none",
+      "mode": "chain",
+      "xruns": 0,
+      "processes": 2,
+      "rss_mb_total": 122.1,
+      "pss_mb_total": 40.3,
+      "cpu_pct": 1.5,
+      "ctx_switches": 7472,
+      "ctx_involuntary": 36,
+      "latency_frames": 0,
+      "repeats": 3,
+      "spread": {
+        "dsp_load_avg": [
+          1.31,
+          1.34
+        ],
+        "dsp_load_max": [
+          1.44,
+          1.7
+        ],
+        "rss_mb": [
+          122.1,
+          122.3
+        ],
+        "add_ms": [
+          595.3,
+          617.2
+        ],
+        "processes": [
+          2,
+          2
+        ],
+        "rss_mb_total": [
+          122.1,
+          122.3
+        ],
+        "pss_mb_total": [
+          40.3,
+          40.5
+        ],
+        "cpu_pct": [
+          1.41,
+          1.5
+        ],
+        "ctx_switches": [
+          7470,
+          7474
+        ],
+        "ctx_involuntary": [
+          34,
+          38
+        ],
+        "xruns": [
+          0,
+          0
+        ],
+        "latency_frames": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "id": "cvp3",
+      "title": "chains vs processes, 3 plugins",
+      "host": "H1",
+      "rate": 48000,
+      "frames": 256,
+      "plugins": [
+        "omx-comp (CLAP)",
+        "Calf Compressor (LV2)",
+        "omx-delay (CLAP)"
+      ],
+      "dsp_load_avg": 1.38,
+      "dsp_load_max": 1.79,
+      "samples": 10,
+      "rss_mb": 120.0,
+      "add_ms": 184.2,
+      "recover_ms": null,
+      "status": "ok",
+      "note": "",
+      "stress": "none",
+      "mode": "shared-process",
+      "xruns": 0,
+      "processes": 1,
+      "rss_mb_total": 120.0,
+      "pss_mb_total": 39.3,
+      "cpu_pct": 1.41,
+      "ctx_switches": 7011,
+      "ctx_involuntary": 24,
+      "latency_frames": 0,
+      "repeats": 3,
+      "spread": {
+        "dsp_load_avg": [
+          1.31,
+          1.41
+        ],
+        "dsp_load_max": [
+          1.32,
+          1.81
+        ],
+        "rss_mb": [
+          119.3,
+          120.0
+        ],
+        "add_ms": [
+          179.1,
+          222.7
+        ],
+        "processes": [
+          1,
+          1
+        ],
+        "rss_mb_total": [
+          119.3,
+          120.0
+        ],
+        "pss_mb_total": [
+          39.3,
+          39.3
+        ],
+        "cpu_pct": [
+          1.41,
+          1.5
+        ],
+        "ctx_switches": [
+          6999,
+          7039
+        ],
+        "ctx_involuntary": [
+          15,
+          26
+        ],
+        "xruns": [
+          0,
+          0
+        ],
+        "latency_frames": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "id": "cvp3",
+      "title": "chains vs processes, 3 plugins",
+      "host": "H3",
+      "rate": 48000,
+      "frames": 256,
+      "plugins": [
+        "omx-comp (LV2)",
+        "Calf Compressor (LV2)",
+        "omx-delay (LV2)"
+      ],
+      "dsp_load_avg": 1.26,
+      "dsp_load_max": 1.54,
+      "samples": 10,
+      "rss_mb": 163.6,
+      "add_ms": 86.9,
+      "recover_ms": null,
+      "status": "ok",
+      "note": "LV2 builds of omx-comp, omx-delay",
+      "stress": "none",
+      "mode": "shared-process",
+      "xruns": 0,
+      "processes": 1,
+      "rss_mb_total": 163.6,
+      "pss_mb_total": 82.6,
+      "cpu_pct": 1.24,
+      "ctx_switches": 10715,
+      "ctx_involuntary": 1,
+      "latency_frames": 0,
+      "repeats": 3,
+      "spread": {
+        "dsp_load_avg": [
+          1.21,
+          1.26
+        ],
+        "dsp_load_max": [
+          1.29,
+          1.61
+        ],
+        "rss_mb": [
+          163.1,
+          163.6
+        ],
+        "add_ms": [
+          81.7,
+          87.0
+        ],
+        "processes": [
+          1,
+          1
+        ],
+        "rss_mb_total": [
+          163.1,
+          163.6
+        ],
+        "pss_mb_total": [
+          82.6,
+          82.6
+        ],
+        "cpu_pct": [
+          1.24,
+          1.24
+        ],
+        "ctx_switches": [
+          10714,
+          10716
+        ],
+        "ctx_involuntary": [
+          0,
+          1
+        ],
+        "xruns": [
+          0,
+          0
+        ],
+        "latency_frames": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "id": "cvp3",
+      "title": "chains vs processes, 3 plugins",
+      "host": "H4",
+      "rate": 48000,
+      "frames": 256,
+      "plugins": [
+        "omx-comp (LV2)",
+        "Calf Compressor (LV2)",
+        "omx-delay (LV2)"
+      ],
+      "dsp_load_avg": 1.35,
+      "dsp_load_max": 1.44,
+      "samples": 10,
+      "rss_mb": 447.3,
+      "add_ms": 2917.6,
+      "recover_ms": null,
+      "status": "ok",
+      "note": "LV2 builds of omx-comp, omx-delay",
+      "stress": "none",
+      "mode": "individual",
+      "xruns": 0,
+      "processes": 3,
+      "rss_mb_total": 447.3,
+      "pss_mb_total": 178.9,
+      "cpu_pct": 1.41,
+      "ctx_switches": 7567,
+      "ctx_involuntary": 20,
+      "latency_frames": 0,
+      "repeats": 3,
+      "spread": {
+        "dsp_load_avg": [
+          1.35,
+          1.44
+        ],
+        "dsp_load_max": [
+          1.43,
+          2.0
+        ],
+        "rss_mb": [
+          446.8,
+          447.3
+        ],
+        "add_ms": [
+          2859.1,
+          2976.4
+        ],
+        "processes": [
+          3,
+          3
+        ],
+        "rss_mb_total": [
+          446.8,
+          447.3
+        ],
+        "pss_mb_total": [
+          178.9,
+          178.9
+        ],
+        "cpu_pct": [
+          1.24,
+          1.41
+        ],
+        "ctx_switches": [
+          7557,
+          7568
+        ],
+        "ctx_involuntary": [
+          13,
+          24
+        ],
+        "xruns": [
+          0,
+          0
+        ],
+        "latency_frames": [
+          0,
+          0
+        ]
+      }
+    }
+  ]
+}
