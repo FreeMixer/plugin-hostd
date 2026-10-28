@@ -51,7 +51,9 @@ class Case(unittest.TestCase):
                        "--prs", os.path.join(self.d, "none"), "--facts", FACTS, "--out", os.path.join(self.d, "o")] + list(extra))
 
     def test_strict_fails_with_no_data_and_says_not_measured(self):
-        self.assertEqual(self.run_main("--strict"), 1)
+        with contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(self.run_main("--strict"), 1)
+        self.assertEqual(self.run_main(), 0)
         self.assertIn("not measured yet", self.report())
 
     def test_prose_is_sourced_and_claims_nothing_unmeasured(self):
@@ -128,6 +130,22 @@ class Case(unittest.TestCase):
         self.assertEqual(len(errs), 2)
         self.assertIn("missing key 'rating'", errs[0])
         self.assertIn("missing key 'deciding'", errs[1])
+
+    def test_strict_failure_writes_nothing_and_keeps_the_earlier_report(self):
+        out = os.path.join(self.d, "o")
+        os.makedirs(out)
+        for n in ("report.md", "report.html"):
+            self.write("o/" + n, "earlier complete report")
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            self.assertEqual(self.run_main("--strict"), 1)
+        for n in ("report.md", "report.html"):
+            self.assertEqual(open(os.path.join(out, n)).read(), "earlier complete report")
+        self.assertIn("strict: missing: 3. Measurements", err.getvalue())
+
+    def test_strict_failure_creates_no_output_directory(self):
+        with contextlib.redirect_stderr(io.StringIO()):
+            self.run_main("--strict")
+        self.assertFalse(os.path.exists(os.path.join(self.d, "o")))
 
     def test_non_strict_exits_zero(self):
         self.assertEqual(self.run_main(), 0)

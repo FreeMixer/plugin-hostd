@@ -610,7 +610,7 @@ def main(argv=None):
     ap.add_argument("--prs", default=os.path.join(home, "data", "prs.json"))
     ap.add_argument("--facts", default=os.path.join(here, "facts.json"))
     ap.add_argument("--out", default=home)
-    ap.add_argument("--strict", action="store_true", help="exit 1 when any section lacks data")
+    ap.add_argument("--strict", action="store_true", help="validate first: when any section lacks data, print the reasons on stderr, write nothing and exit 1")
     ap.add_argument("--fetch-prs", action="store_true", help="refresh --prs with gh and exit")
     a = ap.parse_args(argv)
     if a.fetch_prs:
@@ -623,6 +623,11 @@ def main(argv=None):
         for e in doc.errors:
             print("invalid input:", e, file=sys.stderr)
         return 1
+    if a.strict and doc.missing:
+        for x in doc.missing:
+            print("strict: missing:", x, file=sys.stderr)
+        print("strict: %d missing, nothing written" % len(doc.missing), file=sys.stderr)
+        return 1
     os.makedirs(a.out, exist_ok=True)
     with open(os.path.join(a.out, "report.md"), "w") as fh:
         fh.write(to_md(doc))
@@ -631,7 +636,7 @@ def main(argv=None):
     for m in doc.missing:
         print("missing:", m, file=sys.stderr)
     print("wrote %s/report.md and report.html; %d missing" % (a.out, len(doc.missing)))
-    return 1 if (a.strict and doc.missing) else 0
+    return 0
 
 
 if __name__ == "__main__":
