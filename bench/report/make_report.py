@@ -22,6 +22,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 
 NOT_YET = "not measured yet"
 HOSTS = [("H1", "omx-clap-host alone"), ("H2", "plugin-hostd"), ("H3", "mod-host"), ("H4", "jalv")]
@@ -158,7 +159,7 @@ def fetch_prs(facts, out_path, run=subprocess.run):
         d["repo"] = p["repo"]
         rows.append(d)
     with open(out_path, "w") as fh:
-        json.dump(rows, fh, indent=1)
+        json.dump({"fetched_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "prs": rows}, fh, indent=1)
 
 
 # ---------------------------------------------------------------- model
@@ -192,45 +193,21 @@ def num(v, d=1):
 
 # ---------------------------------------------------------------- sections
 
+def stated(doc, facts, key):
+    """A section of statements: each is a line of facts.json with the public pull request it restates."""
+    doc.ul(["%s (%s)" % (s["text"], s["source"]) for s in facts["statements"][key]])
+
+
 def sec_change(doc, facts, prs):
-    doc.h2("1. What we change and why")
-    doc.p("Zynthian runs every LV2 plugin in its own jalv process and MOD-UI chains in a JACK internal "
-          "client called mod-host. We propose four changes, each a pull request in the FreeMixer forks "
-          "of zynthian-ui and zynthian-sys.")
-    doc.ul([
-        "plugin-hostd becomes the host behind LV2 and CLAP plugins. It runs plugins as workers, and puts the members "
-        "of one Zynthian chain into one worker instead of one process each.",
-        "A new engine, PH, in zynthian-ui talks to one plugin-hostd daemon (port %s) and offers every LV2 and CLAP "
-        "plugin the daemon can host, with controller pages generated from the plugin descriptions."
-        % facts["ph_port"]["value"],
-        "The plugin menus use plugin-qualify records: a latency and real-time-safety tag on each entry, live "
-        "plugins first, plugins that failed qualification hidden with the reason one setting away.",
-        "OpenMixer is part of the default install and of the update path: the apt repository, the packages, "
-        "plugin-hostd as the mod-host of MOD-UI and the qualification sync. jack_load and jalv stay available "
-        "by one setting each.",
-    ])
-    doc.p("The reason is the cost of one process per plugin (memory, context switches, a JACK client each), plugins "
-          "that crash or stall the host they share, and no way to tell a user before loading a plugin whether it "
-          "suits live playing. Sections 3 and 4 hold the measurements; section 5 holds the way back.")
-    doc.p(facts["upstream_state"]["value"])
+    doc.h2("1. What we change")
+    doc.p("Sections 1, 2, 5 and 6 restate what the pull requests below say; each line names its pull request. "
+          "They are not measurements. Sections 3 and 4 hold the measurements, every number read from the files named in the tool's help.")
+    stated(doc, facts, "change")
 
 
 def sec_user(doc, facts):
     doc.h2("2. What the user gets")
-    doc.ul([
-        "More plugins that work: coverage of the installed LV2 set is in section 4, and CLAP plugins are "
-        "offered next to LV2 ones.",
-        "Bad plugins are hidden, with the reason: plugins pinned refused, or that crashed or hung during "
-        "qualification, leave the menu. ZYNTHIAN_PLUGIN_SHOW_HIDDEN=1 lists them last, greyed, with the reason.",
-        "Each entry carries a tag such as 'live, 1.2 ms, RT'. live means real-time safe with a measured latency "
-        "of at most %s ms at the worst measured rate; studio is the rest; unverified means no record yet. "
-        "The tag leaves out any figure the record does not hold." % facts["live_ms"]["value"],
-        "Chains in fewer processes: the members of one chain share one worker. Section 3 counts the processes "
-        "and the memory.",
-        "Controller pages come from the plugin descriptions, eight controls to a page, and MOD GUIs are generated "
-        "for plugins that ship none.",
-        "A crashed worker takes only its own plugins down; the daemon respawns it (recover time in section 3 when measured).",
-    ])
+    stated(doc, facts, "user")
 
 
 def host_cell(s):
@@ -243,8 +220,7 @@ def host_cell(s):
 
 def sec_measure(doc, facts, rpi, earlier, results_dir, ci_docs):
     doc.h2("3. Measurements")
-    doc.p("Machine: %s. DSP load is the JACK DSP load read with jack_cpu_load; memory is resident (RSS) and "
-          "proportional (PSS) from /proc. Values are never taken from a meter on the device." % facts["device"]["value"])
+    doc.p("DSP load is the JACK DSP load read with jack_cpu_load; memory is resident (RSS) and proportional (PSS) from /proc.")
     if rpi is None:
         doc.p("No omx-bench/1 run of class rpi5 exists yet.")
         if ci_docs:
@@ -255,7 +231,8 @@ def sec_measure(doc, facts, rpi, earlier, results_dir, ci_docs):
         meta = rpi
         m = rpi["machine"]
         sw = ", ".join("%s %s" % (k, v) for k, v in rpi.get("software", {}).items() if v)
-        doc.p("Run %s on %s, governor %s. Software: %s." % (rpi["id"], m.get("model", "?"), m.get("governor", "?"), sw))
+        doc.p("Run %s on %s (%s, %d cores, %d MB RAM, %s, kernel %s), governor %s. Software: %s." % (
+            rpi["id"], m["model"], m["cpu"], m["cores"], m["ram_mb"], m["os"], m["kernel"], m["governor"], sw))
     scen = rpi["scenarios"] if rpi else []
 
     def pick(sid, host, rate, frames):
@@ -373,8 +350,7 @@ def sec_measure(doc, facts, rpi, earlier, results_dir, ci_docs):
         r = [[str(rate), str(e["frames"]), num(e["chain3"]["avg"]), num(e["chain3"]["max"]), str(e["chain3"]["n"]), e["chain3"]["src"]]
              for rate, e in sorted(earlier["runs"].items()) if e.get("chain3")]
         if r:
-            doc.p("Hand run of the three-plugin chain (a CLAP compressor, the Calf compressor, a CLAP delay) under plugin-hostd, "
-                  "governor %s:" % (earlier.get("governor") or "unrecorded"))
+            doc.p("Hand run of the three-plugin chain under plugin-hostd, governor %s:" % (earlier.get("governor") or "unrecorded"))
             doc.table(["rate", "frames", "DSP load avg %", "max %", "samples", "source"], r)
 
 
@@ -395,12 +371,15 @@ def sec_qual(doc, facts, rpi, qpilot, qdocs, coverage):
         doc.na("verdict counts")
     else:
         total = sum(counts.values())
-        doc.p("Source: %s. %d plugins judged%s." % (src, total,
-              ", %s s with %s over %d CLAP files" % (num(seconds, 0), facts["qualify_command"]["value"], facts["clap_files"]["value"]) if seconds else ""))
+        q = rpi.get("qualification") if rpi else None
+        extra = ""
+        if q and seconds is not None:
+            extra = ", %s s, rates %s, quanta %s%s" % (num(seconds, 0), q["rates"], q["quanta"],
+                                                      (", %d files" % q["files"]) if "files" in q else "")
+        elif seconds is not None:
+            extra = ", %s s" % num(seconds, 0)
+        doc.p("Source: %s. %d plugins judged%s." % (src, total, extra))
         doc.table(["verdict", "plugins", "share"], [[k, str(v), "%.1f%%" % (100.0 * v / total)] for k, v in sorted(counts.items(), key=lambda kv: -kv[1])])
-        hidden = counts.get("unsuitable", 0)
-        doc.p("%d of %d plugins are unsuitable (a measured failure) and are not qualified. The menus hide the plugins pinned "
-              "refused or that crashed or hung; the others are offered with their tag." % (hidden, total))
     doc.h3("Refused, with reasons")
     if reasons:
         doc.table(["deciding reason", "plugins"], [[k, str(v)] for k, v in sorted(reasons.items(), key=lambda kv: -kv[1])])
@@ -412,57 +391,29 @@ def sec_qual(doc, facts, rpi, qpilot, qdocs, coverage):
     doc.h3("LV2 hosting coverage of the installed set")
     if coverage:
         doc.table(["host", "hosted", "of"], [[k, str(v[0]), str(v[1])] for k, v in coverage.items()])
-        doc.p("Measured on the desk (x86_64 Fedora 44), not on the Pi 5.")
     else:
         doc.na("LV2 coverage")
 
 
 def sec_risk(doc, facts):
     doc.h2("5. Risk and how to revert")
-    doc.ul([
-        "mod-host backend: one variable, ZYNTHIAN_MODHOST_BACKEND, picks what answers MOD-UI on port %s: jack_load "
-        "(Zynthian's own mod-host, as today) or plugin-hostd. The unit keeps its name, mod-host.service, so MOD-UI "
-        "and the MOD-UI engine are untouched. sbin/set_modhost_backend.sh jack_load|plugin-hostd flips it, restarts "
-        "mod-ui and prints each step." % facts["modhost_port"]["value"],
-        "Engine: ZYNTHIAN_PLUGIN_ENGINE=jalv brings the jalv menus back. The jalv entries stay in the engine list, so a "
-        "snapshot that holds a JV processor loads as saved.",
-        "Snapshots: nothing converts at load time. tools/convert_snapshots_to_ph.py is run once by hand, writes "
-        "foo.ph.zss beside foo.zss and never overwrites.",
-        "Defaults: each install step runs once and is recorded in /zynthian/config/openmixer-defaults, so a setting "
-        "changed by hand stays. The install restarts no audio service and says what takes effect at the next start.",
-        "Unchanged: MOD-UI chains keep the MD engine, MIDI tools stay with jalv, Zynthian's own services and presets "
-        "are not touched, and without plugin-hostd installed the menus keep jalv.",
-    ])
+    stated(doc, facts, "revert")
 
 
 def sec_try(doc, facts):
     doc.h2("6. How to try it")
-    doc.ul([
-        "Add the repository and the packages: curl -fsSLO https://www.openmixer.org/deb/openmixer-release.deb, then "
-        "sudo apt install ./openmixer-release.deb and sudo apt install plugin-hostd omx-clap-host omx-clap-scan omx-panel.",
-        "Check out the zynthian-ui branch of the PH engine in /zynthian/zynthian-ui and restart zynthian. Enable one "
-        "LV2 effect in webconf so its (PH) entry shows up, then add a chain with an LV2 and a CLAP (PH) effect.",
-        "Existing Zynthian: check out the zynthian-sys branch in /zynthian/zynthian-sys and run "
-        "scripts/update_zynthian_sys.sh; read the 'OpenMixer defaults' report; a second run reports nothing to change. "
-        "Apply with sbin/set_modhost_backend.sh plugin-hostd or reboot.",
-        "New image: run setup_zynthian.sh, then scripts/omx_prequalify_image.sh on an arm64 machine before taking the "
-        "image, so the image ships qualified. The first boot otherwise runs the qualification sync two minutes after "
-        "boot at the lowest priority.",
-        "To go back: section 5.",
-    ])
+    stated(doc, facts, "try")
 
 
-def sec_ask(doc, facts, prs):
-    doc.h2("7. What we ask of the Zynthian project")
-    doc.p("Review and take the pull requests below, in this order. The sys pull requests come first because the "
-          "engine reads what they install; the second ui pull request is stacked on the first.")
+def sec_ask(doc, facts, prs, fetched_at):
+    doc.h2("7. The pull requests")
     if not prs:
         doc.na("pull request states")
         return
     role = {(p["repo"], p["number"]): p["role"] for p in facts["prs"]}
     doc.table(["repository", "PR", "what", "state", "base"],
               [[p["repo"], "#%d" % p["number"], role.get((p["repo"], p["number"]), p["title"]), p["state"].lower(), p["baseRefName"]] for p in prs])
-    doc.p(facts["upstream_state"]["value"])
+    doc.p("States as fetched at %s." % fetched_at)
 
 
 def build(args):
@@ -475,10 +426,11 @@ def build(args):
     qpilot = parse_qpilot(args.earlier) if args.earlier else None
     qdocs = parse_qdocs(args.qualification) if args.qualification and os.path.isdir(args.qualification) else None
     coverage = parse_coverage(args.coverage) if args.coverage else None
-    prs = None
+    prs = fetched_at = None
     if args.prs and os.path.isfile(args.prs):
         with open(args.prs) as fh:
-            prs = json.load(fh)
+            pr_doc = json.load(fh)
+        prs, fetched_at = pr_doc["prs"], pr_doc["fetched_at"]
     doc = Doc()
     doc.h1("plugin-hostd, the PH engine, qualified menus and OpenMixer by default in Zynthian")
     sec_change(doc, facts, prs)
@@ -487,7 +439,7 @@ def build(args):
     sec_qual(doc, facts, rpi, qpilot, qdocs, coverage)
     sec_risk(doc, facts)
     sec_try(doc, facts)
-    sec_ask(doc, facts, prs)
+    sec_ask(doc, facts, prs, fetched_at)
     return doc
 
 

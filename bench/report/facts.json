@@ -4,21 +4,142 @@
     "value": "Raspberry Pi 5, 4 cores, 4 GB, Zynthian vangelis-2610.1-2, Debian 13 trixie arm64, kernel 6.18",
     "source": "memory reference_zynthian_rpi5_2026-10-26.md"
   },
-  "live_ms": {"value": 5, "source": "FreeMixer/zynthian-ui PR 2, ZYNTHIAN_PLUGIN_LIVE_MS"},
-  "ph_port": {"value": 5570, "source": "FreeMixer/zynthian-ui PR 1"},
-  "modhost_port": {"value": 5555, "source": "FreeMixer/zynthian-sys PR 2"},
-  "clap_files": {"value": 57, "source": "bench-harness brief, Pi 5 /usr/lib/clap"},
-  "qualify_command": {"value": "plugin-qualify --all --isolate --rates 48000 --quanta 256", "source": "bench-harness brief"},
+  "live_ms": {
+    "value": 5,
+    "source": "FreeMixer/zynthian-ui PR 2, ZYNTHIAN_PLUGIN_LIVE_MS"
+  },
+  "ph_port": {
+    "value": 5570,
+    "source": "FreeMixer/zynthian-ui PR 1"
+  },
+  "modhost_port": {
+    "value": 5555,
+    "source": "FreeMixer/zynthian-sys PR 2"
+  },
+  "clap_files": {
+    "value": 57,
+    "source": "bench-harness brief, Pi 5 /usr/lib/clap"
+  },
+  "qualify_command": {
+    "value": "plugin-qualify --all --isolate --rates 48000 --quanta 256",
+    "source": "bench-harness brief"
+  },
   "upstream_state": {
     "value": "All changes are pull requests inside the FreeMixer forks. None is open on the zynthian organisation yet.",
     "source": "briefs 2026-10-26-zynthian-ui-engine and zynthian-sys-openmixer: open nothing on the upstream organisation"
   },
   "prs": [
-    {"repo": "FreeMixer/zynthian-sys", "number": 1, "role": "OpenMixer apt repository and install recipe"},
-    {"repo": "FreeMixer/zynthian-sys", "number": 2, "role": "plugin-hostd as the mod-host of MOD-UI, one switch"},
-    {"repo": "FreeMixer/zynthian-sys", "number": 3, "role": "MOD GUIs generated from the plugin descriptions"},
-    {"repo": "FreeMixer/zynthian-sys", "number": 4, "role": "OpenMixer in the default install and the update path"},
-    {"repo": "FreeMixer/zynthian-ui", "number": 1, "role": "PH engine for LV2 and CLAP plugins"},
-    {"repo": "FreeMixer/zynthian-ui", "number": 2, "role": "PH as default engine, snapshot converter, menus from qualification"}
-  ]
+    {
+      "repo": "FreeMixer/zynthian-sys",
+      "number": 1,
+      "role": "OpenMixer apt repository and install recipe"
+    },
+    {
+      "repo": "FreeMixer/zynthian-sys",
+      "number": 2,
+      "role": "plugin-hostd as the mod-host of MOD-UI, one switch"
+    },
+    {
+      "repo": "FreeMixer/zynthian-sys",
+      "number": 3,
+      "role": "MOD GUIs generated from the plugin descriptions"
+    },
+    {
+      "repo": "FreeMixer/zynthian-sys",
+      "number": 4,
+      "role": "OpenMixer in the default install and the update path"
+    },
+    {
+      "repo": "FreeMixer/zynthian-ui",
+      "number": 1,
+      "role": "PH engine for LV2 and CLAP plugins"
+    },
+    {
+      "repo": "FreeMixer/zynthian-ui",
+      "number": 2,
+      "role": "PH as default engine, snapshot converter, menus from qualification"
+    }
+  ],
+  "statements": {
+    "change": [
+      {
+        "text": "An apt repository for OpenMixer and a recipe that installs plugin-hostd, omx-clap-host, omx-plugins and omx-panel",
+        "source": "FreeMixer/zynthian-sys#1"
+      },
+      {
+        "text": "ZYNTHIAN_MODHOST_BACKEND picks what answers MOD-UI on port 5555: jack_load, or plugin-hostd",
+        "source": "FreeMixer/zynthian-sys#2"
+      },
+      {
+        "text": "A plugin that ships no MOD GUI gets one made by omx-panel modgui from its descriptor",
+        "source": "FreeMixer/zynthian-sys#3"
+      },
+      {
+        "text": "OpenMixer is installed by default on new images and by update_zynthian_sys.sh and update_system_image.sh",
+        "source": "FreeMixer/zynthian-sys#4"
+      },
+      {
+        "text": "A new engine, PH, runs LV2 and CLAP plugins in one plugin-hostd daemon per Zynthian, on port 5570, and declares the members of a Zynthian chain to the daemon as a chain",
+        "source": "FreeMixer/zynthian-ui#1"
+      },
+      {
+        "text": "plugin-hostd is the default engine, and the plugin menus are built from plugin-qualify records",
+        "source": "FreeMixer/zynthian-ui#2"
+      }
+    ],
+    "user": [
+      {
+        "text": "The plugin controller pages come from omx-panel's layout of the plugin descriptor, eight controls to a page",
+        "source": "FreeMixer/zynthian-ui#1"
+      },
+      {
+        "text": "Each plugin entry carries a tag such as 'live, 1.2 ms, RT'; live means real-time safe with a measured latency of at most ZYNTHIAN_PLUGIN_LIVE_MS (5) at the worst measured rate",
+        "source": "FreeMixer/zynthian-ui#2"
+      },
+      {
+        "text": "Plugins that are pinned refused, or that crashed or hung during qualification, are hidden; ZYNTHIAN_PLUGIN_SHOW_HIDDEN=1 lists them last, greyed, with the reason",
+        "source": "FreeMixer/zynthian-ui#2"
+      }
+    ],
+    "revert": [
+      {
+        "text": "sbin/set_modhost_backend.sh jack_load|plugin-hostd switches the mod-host backend and restarts mod-ui",
+        "source": "FreeMixer/zynthian-sys#2"
+      },
+      {
+        "text": "ZYNTHIAN_PLUGIN_ENGINE=jalv switches the plugin menus back to jalv; the jalv entries stay in the engine list, so a snapshot that holds a JV processor loads as saved",
+        "source": "FreeMixer/zynthian-ui#2"
+      },
+      {
+        "text": "tools/convert_snapshots_to_ph.py is run once by hand and writes foo.ph.zss beside foo.zss, never overwriting",
+        "source": "FreeMixer/zynthian-ui#2"
+      },
+      {
+        "text": "Each default step runs once and is recorded in /zynthian/config/openmixer-defaults; the recipe starts and restarts nothing",
+        "source": "FreeMixer/zynthian-sys#4"
+      },
+      {
+        "text": "MOD-UI chains keep the MD engine and MIDI tools stay with jalv",
+        "source": "FreeMixer/zynthian-ui#2"
+      }
+    ],
+    "try": [
+      {
+        "text": "curl -fsSLO https://www.openmixer.org/deb/openmixer-release.deb, then sudo apt install ./openmixer-release.deb and sudo apt install plugin-hostd omx-clap-host omx-clap-scan omx-panel",
+        "source": "FreeMixer/zynthian-ui#1"
+      },
+      {
+        "text": "Check out the zynthian-ui branch in /zynthian/zynthian-ui and restart zynthian; enable one LV2 effect in webconf so its (PH) entry shows up",
+        "source": "FreeMixer/zynthian-ui#1"
+      },
+      {
+        "text": "On an existing Zynthian run scripts/update_zynthian_sys.sh from the zynthian-sys branch and read the 'OpenMixer defaults' report; apply with sbin/set_modhost_backend.sh plugin-hostd or reboot",
+        "source": "FreeMixer/zynthian-sys#4"
+      },
+      {
+        "text": "For a new image run setup_zynthian.sh, then scripts/omx_prequalify_image.sh natively on arm64 before taking the image; the package's timer runs the qualification sync two minutes after every boot",
+        "source": "FreeMixer/zynthian-sys#4"
+      }
+    ]
+  }
 }

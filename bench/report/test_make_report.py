@@ -16,7 +16,8 @@ def scen(sid, host, rate=48000, frames=256, **kw):
 
 
 def bench(cls, scens, id="rpi5-20261027-1"):
-    return {"schema": "omx-bench/1", "id": id, "machine": {"class": cls, "model": "x", "governor": "performance"},
+    return {"schema": "omx-bench/1", "id": id, "machine": {"class": cls, "model": "x", "cpu": "c", "cores": 4, "ram_mb": 4096, "os": "o", "kernel": "k",
+                                                  "governor": "performance"},
             "software": {"plugin-hostd": "0.12.0"}, "scenarios": scens}
 
 
@@ -49,6 +50,30 @@ class Case(unittest.TestCase):
     def test_strict_fails_with_no_data_and_says_not_measured(self):
         self.assertEqual(self.run_main("--strict"), 1)
         self.assertIn("not measured yet", self.report())
+
+    def test_prose_is_sourced_and_claims_nothing_unmeasured(self):
+        self.run_main()
+        md = self.report()
+        for gone in ("respawn", "takes only its own plugins", "Fedora", "57 CLAP", "None is open on the zynthian"):
+            self.assertNotIn(gone, md)
+        facts = json.load(open(FACTS))
+        for key, items in facts["statements"].items():
+            for s in items:
+                self.assertRegex(s["source"], r"^FreeMixer/zynthian-(ui|sys)#[0-9]+$", key)
+                self.assertIn("%s (%s)" % (s["text"], s["source"]), md)
+
+    def test_machine_line_is_read_from_the_document(self):
+        self.write("b/rpi.json", bench("rpi5", [scen("idle", "H1")]))
+        self.run_main()
+        self.assertIn("Run rpi5-20261027-1 on x (c, 4 cores, 4096 MB RAM, o, kernel k)", self.report())
+
+    def test_pr_states_carry_their_fetch_time(self):
+        self.write("p.json", {"fetched_at": "2026-10-28T10:00:00Z", "prs": [
+            {"repo": "FreeMixer/zynthian-ui", "number": 1, "title": "t", "state": "MERGED", "baseRefName": "main"}]})
+        m.main(["--bench", self.empty, "--results", self.empty, "--earlier", self.empty, "--qualification", self.empty,
+                "--coverage", os.path.join(self.d, "none"), "--prs", os.path.join(self.d, "p.json"), "--facts", FACTS,
+                "--out", os.path.join(self.d, "o")])
+        self.assertIn("States as fetched at 2026-10-28T10:00:00Z.", self.report())
 
     def test_non_strict_exits_zero(self):
         self.assertEqual(self.run_main(), 0)
@@ -120,7 +145,7 @@ class Case(unittest.TestCase):
         out = os.path.join(self.d, "prs.json")
         m.fetch_prs(facts, out, run=lambda *a, **k: R(0, json.dumps({"number": 1, "title": "t", "state": "OPEN", "baseRefName": "b"})))
         with open(out) as fh:
-            self.assertEqual(json.load(fh)[0]["repo"], "o/r")
+            self.assertEqual(json.load(fh)["prs"][0]["repo"], "o/r")
         with self.assertRaises(SystemExit):
             m.fetch_prs(facts, out, run=lambda *a, **k: R(1, ""))
 
