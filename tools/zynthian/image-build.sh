@@ -82,6 +82,8 @@ sudo systemd-nspawn -q -D "$mnt" --resolv-conf=replace-host --setenv=SYS_REPO="$
 		echo "$d $(git -C "$d" rev-parse HEAD) $url"
 	done
 	export ZYNTHIAN_SYS_DIR=/zynthian/zynthian-sys
+	# as update_system_image.sh: the update scripts call the sbin tools by name
+	export PATH=$PATH:$ZYNTHIAN_SYS_DIR/scripts:$ZYNTHIAN_SYS_DIR/sbin
 	source $ZYNTHIAN_SYS_DIR/scripts/zynthian_envars_extended.sh
 	cd $ZYNTHIAN_SYS_DIR/scripts
 	./update_zynthian_sys.sh; echo "update_zynthian_sys.sh exit $?"
@@ -96,6 +98,11 @@ sudo systemd-nspawn -q -D "$mnt" --resolv-conf=replace-host --setenv=SYS_REPO="$
 	{ echo; echo "OpenMixer: zynthian-sys $sys, zynthian-ui $ui (FreeMixer forks, $BRANCH)"; echo "Updated: $(date --rfc-3339=date)"; } >>/zynthian/build_info.txt
 	dpkg-query -W -f="\${Package} \${Version}\n" openmixer-release plugin-hostd omx-clap-host omx-plugins omx-panel plugin-qualify || exit 1
 ' 2>&1 | tee -a "$log"
+# A step the update scripts could not find is skipped by them without failing: it fails the build here
+if grep -a 'command not found' "$log"; then
+	say "the update called a command it could not find"
+	exit 1
+fi
 
 sudo diff "$work/config.txt.before" "$mnt/boot/firmware/config.txt" >"$work/config.txt.diff" || true
 sudo umount "$mnt/boot/firmware" "$mnt"
