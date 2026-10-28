@@ -995,7 +995,8 @@ def a_worker_line_too_long_to_relay_is_dropped_whole():
             check(d.wait_event("remote_pages_changed ", since=mark) == "remote_pages_changed 3",
                   "the line after the %d-byte one, unchanged" % size)
             with d.lock:
-                pieces = ["%d bytes" % len(e) for e in d.events[mark:] if e.startswith("x")]
+                # an empty line is a piece too: the end of a 2 MiB line whose start filled the relay buffer
+                pieces = ["%d bytes" % len(e) for e in d.events[mark:] if e.startswith("x") or not e]
             check(not pieces, "no piece of a %d-byte line reaches the controller: %s" % (size, pieces))
         # the longest line relayed arrives whole
         mark = d.mark()
