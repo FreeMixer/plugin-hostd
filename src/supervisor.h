@@ -95,6 +95,8 @@ typedef struct WORKER_T {
     int npend;
     int64_t pend_until_ms;
     struct CHAIN_T *chain;      /* the chain this worker runs, its members in w->inst in the chain's order */
+    int core;                   /* the audio core the placement pinned it to (docs/placement.md), kept across respawns;
+                                 * -1 for none */
     /* the running history's window of this worker (src/history.c): what it has used since hist_start_ms */
     pid_t hist_pid;             /* the process the window belongs to, 0 for none */
     int64_t hist_start_ms;
@@ -123,6 +125,9 @@ typedef struct CHAIN_T {
 } chain_t;
 
 void sup_init(const conf_t *conf);
+/* placement spread: the audio cores, and every thread of the daemon on the reserved ones; 0, or -1 with the reason on
+ * stderr for an audio_cores outside the daemon's cpus */
+int sup_placement_init(void);
 /* this daemon's own directory under state_root: its checkpoints and the logs of its workers and scans */
 const char *sup_root(void);
 void sup_finish(void);

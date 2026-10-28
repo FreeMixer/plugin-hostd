@@ -149,7 +149,7 @@
       "workerList": {
         "verb": "worker_list",
         "format": "worker_list",
-        "reply": "resp <n> <worker>:<pid>:<format>:<state>:<place>:<i>,<i>,...",
+        "reply": "resp <n> <worker>:<pid>:<format>:<state>:<core>:<place>:<i>,<i>,...",
         "codes": [
           {
             "ref": "HOST_REPLY_CODES.memoryAllocation"
@@ -161,7 +161,7 @@
         "implementedBy": {
           "plugin-hostd": "required"
         },
-        "doc": "The workers, one record each."
+        "doc": "The workers, one record each: <core> is the audio core the setting placement pinned the worker to, - for none."
       },
       "instanceInfo": {
         "verb": "instance_info",
@@ -589,7 +589,7 @@
       "plan": {
         "verb": "plan",
         "format": "plan %i %i ...",
-        "reply": "resp 0 <instance>,...;<instance>,...;...",
+        "reply": "resp 0 <instance>,...;<instance>,...;... <core>,...;<core>,...;...",
         "codes": [
           {
             "ref": "PLUGIN_HOSTD_REPLY_CODES.chainUnknownInstance"
@@ -613,12 +613,12 @@
         "implementedBy": {
           "plugin-hostd": "required"
         },
-        "doc": "The instances, in signal order, are planned into the fewest workers their pins and costs allow: <chain> <instance> [<instance> ...]. Each run of consecutive members that may share a worker becomes a chain of place chain:<chain>.<k>, the others stay alone in a worker of their own; the reply names the segments in order, the members of a segment joined by commas and the segments by semicolons. With the setting grouping off the plan is answered and kept, and nothing moves."
+        "doc": "The instances, in signal order, are planned into the fewest workers their pins and costs allow: <chain> <instance> [<instance> ...]. Each run of consecutive members that may share a worker becomes a chain of place chain:<chain>.<k>, the others stay alone in a worker of their own; the reply names the segments in order, the members of a segment joined by commas and the segments by semicolons, then the same with each member replaced by the audio core of the worker that runs it now, - for one the setting placement did not pin. With the setting grouping off the plan is answered and kept, and nothing moves."
       },
       "planGet": {
         "verb": "plan_get",
         "format": "plan_get %i",
-        "reply": "resp 0 <instance>,...;<instance>,...;... <instance>:<reason>,...",
+        "reply": "resp 0 <instance>,...;<instance>,...;... <instance>:<reason>,... <core>,...;<core>,...;...",
         "codes": [
           {
             "ref": "PLUGIN_HOSTD_REPLY_CODES.noSuchPlan"
@@ -633,7 +633,7 @@
         "implementedBy": {
           "plugin-hostd": "required"
         },
-        "doc": "Read the last plan of a chain back: its segments as plan answered them, then the reason of each member that has one (a word of PLUGIN_HOSTD_GROUPING_REASONS, plan-refused followed by the refusal's number), instance:reason joined by commas, - for none."
+        "doc": "Read the last plan of a chain back: its segments as plan answered them, then the reason of each member that has one (a word of PLUGIN_HOSTD_GROUPING_REASONS, plan-refused followed by the refusal's number), instance:reason joined by commas, - for none, then the cores of the members as plan answers them."
       },
       "planClear": {
         "verb": "plan_clear",
