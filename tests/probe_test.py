@@ -214,6 +214,21 @@ def every_point_carries_the_cost_timed_at_its_own_rate():
 
 
 @test
+def a_cost_percentile_other_than_95_is_refused_naming_the_value_and_95_is_read_as_before():
+    code, doc, _, _, err = run(env={"PROBE_CHILD_PERCENTILE": "99"})
+    check(doc is not None, "no document: exit %d %s" % (code, err))
+    valid(doc)
+    check(all("cost" not in g for g in doc["grid"]), "no point carries a cost read from a 99th percentile: %s" % doc["grid"])
+    steps = [s for s in doc["steps"] if s["step"] == "cost"]
+    check(len(steps) == 1 and steps[0]["outcome"] == "probe.child-protocol" and "99" in steps[0].get("detail", ""),
+          "one cost step, coded child-protocol, naming 99: %s" % doc["steps"])
+    check(doc["run"]["outcome"] == "probe.child-protocol", "the run says so: %s" % doc["run"])
+    code, doc, _, _, err = run(env={"PROBE_CHILD_PERCENTILE": "95"})
+    check(all(g["cost"]["percentile"]["p"] == 95 for g in doc["grid"]) and doc["run"]["outcome"] == "probe.ok",
+          "the 95th is read: %s" % doc["grid"])
+
+
+@test
 def a_latency_taken_from_a_note_says_so_and_whether_the_note_was_heard():
     rates = floor_rates()
     silent = rates[-1]

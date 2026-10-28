@@ -152,8 +152,8 @@ static void put_rates(const char *rates, long quantum, unsigned notes)
     else
         printf(",\"noteSweep\":{\"applicable\":%s%s%s}", instrument ? "true" : "false", instrument ? ",\"dialect\":\"clap\",\"interposer\":" : "",
                instrument ? (interposed ? "true" : "false") : "");
-    printf(",\"cost\":{\"stimulus\":\"%s\",\"blockFrames\":%ld,\"warmupBlocks\":64,\"percentile\":95,\"perRate\":{",
-           instrument ? "notes-held" : "noise", quantum);
+    printf(",\"cost\":{\"stimulus\":\"%s\",\"blockFrames\":%ld,\"warmupBlocks\":64,\"percentile\":%s,\"perRate\":{",
+           instrument ? "notes-held" : "noise", quantum, getenv("PROBE_CHILD_PERCENTILE") ? getenv("PROBE_CHILD_PERCENTILE") : "95");
     for (p = rates; (r = strtol(p, &end, 10)) > 0; p = *end ? end + 1 : end)
     {
         double ns = (double)r / 1000;
