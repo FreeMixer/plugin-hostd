@@ -39,7 +39,7 @@
  * no pins */
 int pins_init(const char *store, const char *file, const char *dir);
 
-/* pin_set: SUCCESS, or ERR_INVALID_OPERATION for a word outside the grammar, or PHD_ERR_PIN_REFUSED when the package pin
+/* pin_set: SUCCESS, or ERR_INVALID_OPERATION for a word outside the grammar, or OMX_REPLY_PLUGIN_HOSTD_PIN_REFUSED_RESP when the package pin
  * of the uri carries verdict=refused; it replaces an earlier pin of the uri. `verdict` is NULL, or one of
  * PHD_PIN_VERDICTS */
 int pins_set(const char *uri, const char *files, const char *layout, const char *verdict);
@@ -58,12 +58,12 @@ int pins_in_process(const char *uri);
 const char *pins_verdict(const char *uri);
 
 /* first use: the files the format loads for the uri, hashed, recorded with an unknown layout and written to the store.
- * SUCCESS, or PHD_ERR_PIN_BINARY_MISMATCH when they cannot be collected (nothing is recorded) */
+ * SUCCESS, or OMX_REPLY_PLUGIN_HOSTD_PIN_BINARY_MISMATCH_RESP when they cannot be collected (nothing is recorded) */
 int pins_learn(const format_t *format, const char *uri, const char *search);
 
 /* pin_accept: the same collection for a uri that has a pin, which it replaces; the layout is unknown again and the
- * verdict gone; over a package pin it is the host's that then holds. PHD_ERR_PIN_ABSENT when there is no pin to replace,
- * PHD_ERR_PIN_REFUSED when the package pin carries verdict=refused */
+ * verdict gone; over a package pin it is the host's that then holds. OMX_REPLY_HOST_PIN_ABSENT_RESP when there is no pin to replace,
+ * OMX_REPLY_PLUGIN_HOSTD_PIN_REFUSED_RESP when the package pin carries verdict=refused */
 int pins_accept(const format_t *format, const char *uri, const char *search);
 
 /* the layout a worker found after init, for a pin that has none; false for a layout that is not omx-layout/1 */
@@ -73,11 +73,11 @@ int pins_set_layout(const char *uri, const char *layout);
  * loads for it (format->pin_collect, searched in `search`) all held by the pin, then every file the pin names hashed
  * over one open descriptor. SUCCESS, with *layout the
  * layout pin "<scheme>:<sha256>" (the table's, valid until the next pin verb) or NULL while the pin's layout is
- * unknown, or PHD_ERR_PIN_ABSENT or PHD_ERR_PIN_BINARY_MISMATCH, or PHD_ERR_PIN_REFUSED for the pinned files under a
+ * unknown, or OMX_REPLY_HOST_PIN_ABSENT_RESP or OMX_REPLY_PLUGIN_HOSTD_PIN_BINARY_MISMATCH_RESP, or OMX_REPLY_PLUGIN_HOSTD_PIN_REFUSED_RESP for the pinned files under a
  * verdict of refused. */
 int pins_check(const format_t *format, const char *uri, const char *search, const char **layout);
 
-/* a refusal of a pin, with the reason on stderr: PHD_ERR_PIN_BINARY_MISMATCH */
+/* a refusal of a pin, with the reason on stderr: OMX_REPLY_PLUGIN_HOSTD_PIN_BINARY_MISMATCH_RESP */
 int pin_refuse(const char *uri, const char *path, const char *why);
 
 void pins_finish(void);

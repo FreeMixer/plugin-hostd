@@ -23,13 +23,13 @@ int main(void)
     int errors = 0, verbs = 0, events = 0, ints = 0, strings = 0, instance_verbs = 0;
     char reply[32];
 
-#define X(id, meaning) errors++; check(PHD_ERR_##id < 0, #id " is a refusal");
+#define X(id, resp, meaning) errors++; check(resp < 0, #id " is a refusal");
     PHD_ERRORS(X)
 #undef X
     /* each code is the supervisor's own, in its hundred, and no two rows share one: a reply names one refusal */
     {
         static const int codes[] = {
-#define X(id, meaning) PHD_ERR_##id,
+#define X(id, resp, meaning) resp,
             PHD_ERRORS(X)
 #undef X
         };
@@ -103,7 +103,7 @@ int main(void)
         longest[PHD_STRING_MAX + 1] = '\0';
         check(!phd_string_valid(longest), "a name one byte longer is refused");
     }
-    snprintf(reply, sizeof(reply), "resp %d", PHD_ERR_GAVE_UP);
+    snprintf(reply, sizeof(reply), "resp %d", OMX_REPLY_PLUGIN_HOSTD_GAVE_UP_RESP);
     check(!strncmp(reply, "resp -5", 7), "a reply is resp <code>");
     if (failures)
         return 1;

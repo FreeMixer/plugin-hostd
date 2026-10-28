@@ -363,7 +363,7 @@ static void a_refused_plan_gives_every_member_the_refusal(void)
     char text[128];
 
     CHECK(plan(&s, m, 3, &p) == 0, "planned");
-    planner_format_reasons(m, &p, PHD_ERR_PLACEMENT_INVALID, text, sizeof(text));
+    planner_format_reasons(m, &p, OMX_REPLY_PLUGIN_HOSTD_PLACEMENT_INVALID_RESP, text, sizeof(text));
     CHECK(!strcmp(text, "7:plan-refused:-501,8:plan-refused:-501,9:plan-refused:-501"), "the reasons are %s", text);
     CHECK(!strncmp(text + 2, planner_reason_word(PLANNER_REASON_PLAN_REFUSED), strlen(planner_reason_word(PLANNER_REASON_PLAN_REFUSED))),
           "and the word is the declared one");

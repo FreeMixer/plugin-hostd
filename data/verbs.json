@@ -12,132 +12,132 @@
       "placementInvalid": {
         "code": "reply.plugin-hostd.placement-invalid",
         "resp": -501,
-        "doc": "PHD_ERR_PLACEMENT_INVALID: not a placement, or not valid here"
+        "doc": "not a placement, or not valid here"
       },
       "noBackend": {
         "code": "reply.plugin-hostd.no-backend",
         "resp": -502,
-        "doc": "PHD_ERR_NO_BACKEND: no worker program for the scheme"
+        "doc": "no worker program for the scheme"
       },
       "workerSpawn": {
         "code": "reply.plugin-hostd.worker-spawn",
         "resp": -503,
-        "doc": "PHD_ERR_WORKER_SPAWN: the worker is not up"
+        "doc": "the worker is not up"
       },
       "replay": {
         "code": "reply.plugin-hostd.replay",
         "resp": -504,
-        "doc": "PHD_ERR_REPLAY: the name of a refused replay on stderr, never a reply"
+        "doc": "the name of a refused replay on stderr, never a reply"
       },
       "gaveUp": {
         "code": "reply.plugin-hostd.gave-up",
         "resp": -505,
-        "doc": "PHD_ERR_GAVE_UP: the storm bound is spent for that placement"
+        "doc": "the storm bound is spent for that placement"
       },
       "noSuchWorker": {
         "code": "reply.plugin-hostd.no-such-worker",
         "resp": -506,
-        "doc": "PHD_ERR_NO_SUCH_WORKER: no such worker"
+        "doc": "no such worker"
       },
       "verbDropped": {
         "code": "reply.plugin-hostd.verb-dropped",
         "resp": -507,
-        "doc": "PHD_ERR_VERB_DROPPED: the worker died on this very command and the daemon dropped it"
+        "doc": "the worker died on this very command and the daemon dropped it"
       },
       "pinBinaryMismatch": {
         "code": "reply.plugin-hostd.pin-binary-mismatch",
         "resp": -509,
-        "doc": "PHD_ERR_PIN_BINARY_MISMATCH: a pinned file is missing or its SHA-256 differs"
+        "doc": "a pinned file is missing or its SHA-256 differs"
       },
       "lv2AdapterRefused": {
         "code": "reply.plugin-hostd.lv2-adapter-refused",
         "resp": -512,
-        "doc": "PHD_ERR_LV2_ADAPTER_REFUSED: the lv2-clap worker's LV2 adapter cannot run this plugin"
+        "doc": "the lv2-clap worker's LV2 adapter cannot run this plugin"
       },
       "noPresetList": {
         "code": "reply.plugin-hostd.no-preset-list",
         "resp": -515,
-        "doc": "PHD_ERR_NO_PRESET_LIST: the instance's worker cannot list the plugin's presets"
+        "doc": "the instance's worker cannot list the plugin's presets"
       },
       "pinRefused": {
         "code": "reply.plugin-hostd.pin-refused",
         "resp": -516,
-        "doc": "PHD_ERR_PIN_REFUSED: the plugin's pin carries verdict=refused"
+        "doc": "the plugin's pin carries verdict=refused"
       },
       "chainUnknownInstance": {
         "code": "reply.plugin-hostd.chain-unknown-instance",
         "resp": -518,
-        "doc": "PHD_ERR_CHAIN_UNKNOWN_INSTANCE: a member is an instance no add made"
+        "doc": "a member is an instance no add made"
       },
       "chainDuplicate": {
         "code": "reply.plugin-hostd.chain-duplicate",
         "resp": -519,
-        "doc": "PHD_ERR_CHAIN_DUPLICATE: an instance is named twice in one chain"
+        "doc": "an instance is named twice in one chain"
       },
       "chainInstanceBusy": {
         "code": "reply.plugin-hostd.chain-instance-busy",
         "resp": -520,
-        "doc": "PHD_ERR_CHAIN_INSTANCE_BUSY: a member is already in another chain"
+        "doc": "a member is already in another chain"
       },
       "chainMixedFormat": {
         "code": "reply.plugin-hostd.chain-mixed-format",
         "resp": -521,
-        "doc": "PHD_ERR_CHAIN_MIXED_FORMAT: no one worker program runs every member"
+        "doc": "no one worker program runs every member"
       },
       "noSuchChain": {
         "code": "reply.plugin-hostd.no-such-chain",
         "resp": -522,
-        "doc": "PHD_ERR_NO_SUCH_CHAIN: a chain no chain line declared"
+        "doc": "a chain no chain line declared"
       },
       "presetNotOffered": {
         "code": "reply.plugin-hostd.preset-not-offered",
         "resp": -523,
-        "doc": "PHD_ERR_PRESET_NOT_OFFERED: a stable name the plugin does not offer"
+        "doc": "a stable name the plugin does not offer"
       },
       "presetInvalid": {
         "code": "reply.plugin-hostd.preset-invalid",
         "resp": -524,
-        "doc": "PHD_ERR_PRESET_INVALID: a preset file or path that is not the preset format"
+        "doc": "a preset file or path that is not the preset format"
       },
       "presetNeedsState": {
         "code": "reply.plugin-hostd.preset-needs-state",
         "resp": -525,
-        "doc": "PHD_ERR_PRESET_NEEDS_STATE: a preset file that carries state for a worker that cannot take state"
+        "doc": "a preset file that carries state for a worker that cannot take state"
       },
       "presetPluginChanged": {
         "code": "reply.plugin-hostd.preset-plugin-changed",
         "resp": -526,
-        "doc": "PHD_ERR_PRESET_PLUGIN_CHANGED: the preset file's plugin id, version or fingerprint is not the instance's"
+        "doc": "the preset file's plugin id, version or fingerprint is not the instance's"
       },
       "loadRefused": {
         "code": "reply.plugin-hostd.load-refused",
         "resp": -527,
-        "doc": "PHD_ERR_LOAD_REFUSED: the plugin refused the preset or the state its file carries"
+        "doc": "the plugin refused the preset or the state its file carries"
       },
       "dirNotWritable": {
         "code": "reply.plugin-hostd.dir-not-writable",
         "resp": -528,
-        "doc": "PHD_ERR_DIR_NOT_WRITABLE: descriptor_dir or qualification_dir cannot be made or written"
+        "doc": "descriptor_dir or qualification_dir cannot be made or written"
       },
       "descriptorAbsent": {
         "code": "reply.plugin-hostd.descriptor-absent",
         "resp": -529,
-        "doc": "PHD_ERR_DESCRIPTOR_ABSENT: no descriptor (panel) for the plugin's binary as it is now"
+        "doc": "no descriptor (panel) for the plugin's binary as it is now"
       },
       "descriptorPending": {
         "code": "reply.plugin-hostd.descriptor-pending",
         "resp": -530,
-        "doc": "PHD_ERR_DESCRIPTOR_PENDING: the scan its add started has not written the descriptor (panel) yet"
+        "doc": "the scan its add started has not written the descriptor (panel) yet"
       },
       "descriptorScanFailed": {
         "code": "reply.plugin-hostd.descriptor-scan-failed",
         "resp": -531,
-        "doc": "PHD_ERR_DESCRIPTOR_SCAN_FAILED: the plugin's last scan wrote no descriptor (panel)"
+        "doc": "the plugin's last scan wrote no descriptor (panel)"
       },
       "noSuchPlan": {
         "code": "reply.plugin-hostd.no-such-plan",
         "resp": -532,
-        "doc": "PHD_ERR_NO_SUCH_PLAN: a chain no plan verb planned"
+        "doc": "a chain no plan verb planned"
       }
     }
   },

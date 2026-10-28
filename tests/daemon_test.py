@@ -1583,7 +1583,7 @@ def a_binary_swapped_while_its_worker_was_down_is_not_replayed():
         d.wait_event("instance_replay_refused 0 %d" % harness.CODE["PIN_BINARY_MISMATCH"], since=mark)
         log = d.log()
         check("resp %d, its pin resp %d" % (harness.CODE["REPLAY"], harness.CODE["PIN_BINARY_MISMATCH"]) in log,
-              "the refusal is written with PHD_ERR_REPLAY, the step and the pin's code: %s" % log[-400:])
+              "the refusal is written with OMX_REPLY_PLUGIN_HOSTD_REPLAY_RESP, the step and the pin's code: %s" % log[-400:])
         write(p.clap, good)
         mark = d.mark()
         os.kill(new, signal.SIGKILL)
@@ -1617,7 +1617,7 @@ def a_layout_pinned_again_while_its_worker_was_down_is_refused_by_the_replayed_a
               "the worker refused the replayed add and got none of its verbs: %s" % p.received())
         check(not [e for e in d.events[mark:] if e.startswith("instance_restored 0 ")], "instance 0 is not restored")
         check("resp %d, its add resp %d" % (harness.CODE["REPLAY"], harness.CODE["PIN_LAYOUT_MISMATCH"]) in d.log(),
-              "the refusal is written with PHD_ERR_REPLAY, the step and the worker's code: %s" % d.log()[-400:])
+              "the refusal is written with OMX_REPLY_PLUGIN_HOSTD_REPLAY_RESP, the step and the worker's code: %s" % d.log()[-400:])
     finally:
         d.close()
         p.close()

@@ -103,13 +103,17 @@ EDITS = [
     ("the suspect window default", r"(#define PHD_DEFAULT_SUSPECT_WINDOW_MS )500\b", r"\g<1>731", r"\b500\b"),
     ("the storm bound default", r"(#define PHD_DEFAULT_STORM_DEATHS +)5\b", r"\g<1>3", None),
     ("the pool size default", r"(#define PHD_DEFAULT_POOL_MAX +)8\b", r"\g<1>2", None),
-    ("an error code", r"(#define PHD_ERR_GAVE_UP +)\(-505\)", r"\g<1>(-595)", r"\b505\b"),
     ("the pool name limit", r"(#define PHD_POOL_NAME_MAX )32\b", r"\g<1>5", None),
     ("the readiness line", r'(#define PHD_READY_LINE )"plugin-hostd ready!"', r'\g<1>"plugin-hostd is up!"', r"plugin.hostd ready!"),
 ]
 # a verb of the daemon is declared in data/verbs.json and rendered: (what, pattern, replacement, old) on that file
 DATA_EDITS = [
     ("a verb", r'"instance_info( %i)?"', lambda m: '"instance_where%s"' % (m.group(1) or ""), r"\binstance_info\b"),
+]
+# a reply code's number is declared in data/verbs.json and rendered as OMX_REPLY_<CODE>_RESP, which the daemon, the README
+# and the man page follow: (what, pattern, replacement, old) on that file, one match
+CODE_EDITS = [
+    ("an error code", r'("resp": )-505\b', r"\g<1>-595", r"\b505\b"),
 ]
 # the verb the daemon has after the edit, and the one it has before, which the perturbed daemon must not have
 VERB_AFTER, VERB_BEFORE = "instance_where", "instance_info"
@@ -183,7 +187,7 @@ def main():
         verbs = open(declaration).read()
 
         # positive control: the greps find the old values where they are declared and documented
-        for what, pattern, _, old in EDITS + DATA_EDITS:
+        for what, pattern, _, old in EDITS + DATA_EDITS + CODE_EDITS:
             if old:
                 found = grep(old, os.path.join(tree, "include"), os.path.join(tree, "README.md"), os.path.join(tree, "doc"))
                 assert found, "control: the grep for the old value of %s finds nothing where it is declared" % what
@@ -199,6 +203,9 @@ def main():
         for what, pattern, repl, _ in DATA_EDITS:
             verbs, n = re.subn(pattern, repl, verbs)
             assert n == 2, "the edit of %s matched %d times, not its word and its format" % (what, n)
+        for what, pattern, repl, _ in CODE_EDITS:
+            verbs, n = re.subn(pattern, repl, verbs)
+            assert n == 1, "the edit of %s matched %d times" % (what, n)
         open(declaration, "w").write(verbs)
         # the render names a verb's macro after its word, so a renamed verb renames its C name, which every reader of it
         # follows; a reader of the old name does not compile
@@ -221,7 +228,7 @@ def main():
             r = make(tree, target)
             assert r.returncode == 0, "make %s in the scratch copy: %s%s" % (target, r.stdout, r.stderr)
 
-        for what, _, _, old in EDITS + DATA_EDITS:
+        for what, _, _, old in EDITS + DATA_EDITS + CODE_EDITS:
             if old:
                 left = grep(old, os.path.join(tree, "src"), os.path.join(tree, "README.md"), os.path.join(tree, "doc"))
                 assert not left, "a copy of the old value of %s remains:\n%s" % (what, "\n".join(left))

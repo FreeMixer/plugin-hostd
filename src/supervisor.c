@@ -596,7 +596,7 @@ static int worker_start(worker_t *w, const char *uri)
     int rc, attempt;
 
     if (!proc_have_binary(bin_of(w->fmt)))
-        return PHD_ERR_NO_BACKEND;
+        return OMX_REPLY_PLUGIN_HOSTD_NO_BACKEND_RESP;
     snprintf(logfile, sizeof(logfile), "%s/w%d.log", g_root, w->k);
     world = narrow_world(w, uri);
     w->state = W_STARTING;
@@ -608,7 +608,7 @@ static int worker_start(worker_t *w, const char *uri)
         {
             free(world);
             w->pid = 0;
-            return PHD_ERR_WORKER_SPAWN;
+            return OMX_REPLY_PLUGIN_HOSTD_WORKER_SPAWN_RESP;
         }
         w->fd = proc_connect(&g_conf, w->pid, w->port, w->fb_port, logfile, &w->fb_fd);
         /* a worker that was gone before it listened lost the race for its ports: ask for fresh ones, a bounded few times */
@@ -621,7 +621,7 @@ static int worker_start(worker_t *w, const char *uri)
     {
         proc_stop(w->pid);
         w->pid = 0;
-        return PHD_ERR_WORKER_SPAWN;
+        return OMX_REPLY_PLUGIN_HOSTD_WORKER_SPAWN_RESP;
     }
     if (host_settings_replay(w) != 0)
     {
@@ -629,7 +629,7 @@ static int worker_start(worker_t *w, const char *uri)
         close(w->fb_fd);
         proc_stop(w->pid);
         w->pid = 0;
-        return PHD_ERR_WORKER_SPAWN;
+        return OMX_REPLY_PLUGIN_HOSTD_WORKER_SPAWN_RESP;
     }
     proc_env_report(w->pid, &g_env[w->fmt]);
     /* what the worker reports goes to the controller from now on, the lines of its replay among them; with no memory
@@ -641,7 +641,7 @@ static int worker_start(worker_t *w, const char *uri)
         w->fd = -1;
         proc_stop(w->pid);
         w->pid = 0;
-        return PHD_ERR_WORKER_SPAWN;
+        return OMX_REPLY_PLUGIN_HOSTD_WORKER_SPAWN_RESP;
     }
     w->state = W_UP;
     return SUCCESS;
@@ -1054,7 +1054,7 @@ static const char *pin_expect_line(int id, const char *layout)
 {
     static char line[PHD_SHA256_HEX_LEN + 128];
 
-    snprintf(line, sizeof(line), PHD_VERB_PIN_EXPECT " %d %s", id, layout);
+    snprintf(line, sizeof(line), OMX_VERB_PIN_EXPECT " %d %s", id, layout);
     return line;
 }
 
@@ -1116,17 +1116,17 @@ static void pend_retry(worker_t *w, int64_t now)
 /* the event of a refusal that says the plugin is not the one that was pinned */
 static void pin_changed_event(const char *uri, int code)
 {
-    if (code == PHD_ERR_PIN_BINARY_MISMATCH)
+    if (code == OMX_REPLY_PLUGIN_HOSTD_PIN_BINARY_MISMATCH_RESP)
         event(PHD_EVENT_PIN_CHANGED_FMT, uri, PHD_PIN_CHANGED_FILES);
-    else if (code == PHD_ERR_PIN_LAYOUT_MISMATCH)
+    else if (code == OMX_REPLY_HOST_PIN_LAYOUT_MISMATCH_RESP)
         event(PHD_EVENT_PIN_CHANGED_FMT, uri, PHD_PIN_CHANGED_LAYOUT);
 }
 
 /* a replayed add refused, by its pin or by the worker: announced with the refusal's own code, written with
- * PHD_ERR_REPLAY and the step that refused it, and the worker does not hold the instance until it is replayed again */
+ * OMX_REPLY_PLUGIN_HOSTD_REPLAY_RESP and the step that refused it, and the worker does not hold the instance until it is replayed again */
 static void replay_refused(worker_t *w, instance_t *i, const char *step, int code)
 {
-    fprintf(stderr, "plugin-hostd: w%d did not replay instance %d: resp %d, its %s resp %d\n", w->k, i->id, PHD_ERR_REPLAY,
+    fprintf(stderr, "plugin-hostd: w%d did not replay instance %d: resp %d, its %s resp %d\n", w->k, i->id, OMX_REPLY_PLUGIN_HOSTD_REPLAY_RESP,
             step, code);
     event(PHD_EVENT_REPLAY_REFUSED_FMT, i->id, code);
     pin_changed_event(i->uri, code);
@@ -1156,7 +1156,7 @@ static int replay_pin(worker_t *w, instance_t *i)
             return rc;
         if (code < 0)
         {
-            replay_refused(w, i, PHD_VERB_PIN_EXPECT, code);
+            replay_refused(w, i, OMX_VERB_PIN_EXPECT, code);
             return PIN_REFUSED;
         }
     }
@@ -1471,12 +1471,12 @@ static worker_t *pool_worker(int fmt, const char *name, int *full, int *unavaila
             continue;
         if (w->state == W_GIVEN_UP)
         {
-            *unavailable = PHD_ERR_GAVE_UP;
+            *unavailable = OMX_REPLY_PLUGIN_HOSTD_GAVE_UP_RESP;
             continue;
         }
         if (w->state != W_UP)
         {
-            *unavailable = PHD_ERR_WORKER_SPAWN;
+            *unavailable = OMX_REPLY_PLUGIN_HOSTD_WORKER_SPAWN_RESP;
             continue;
         }
         if (w->ninst < max)
@@ -1524,14 +1524,14 @@ static void learn_layout(worker_t *w, int id, const char *uri)
 static char *add(const char *uri, int id, const char *placement, const char *client, int row);
 
 /* the adapter of a worker refused the add of `uri`, for the reason `why`: say so on the feedback port; under auto the plugin
- * goes to the lv2 row from now on and this add is made again there, otherwise the add answers PHD_ERR_LV2_ADAPTER_REFUSED */
+ * goes to the lv2 row from now on and this add is made again there, otherwise the add answers OMX_REPLY_PLUGIN_HOSTD_LV2_ADAPTER_REFUSED_RESP */
 static char *adapter_refused(const char *uri, const char *why, int id, const char *placement, const char *client)
 {
     int automatic = lv2_worker_is_auto(&g_conf, uri);
 
     event(PHD_EVENT_LV2_ADAPTER_REFUSED_FMT, uri, why, automatic ? PHD_LV2_WORKER_AUTO : PHD_LV2_WORKER_CLAP_HOST);
     if (!automatic)
-        return sup_resp(PHD_ERR_LV2_ADAPTER_REFUSED);
+        return sup_resp(OMX_REPLY_PLUGIN_HOSTD_LV2_ADAPTER_REFUSED_RESP);
     lv2_adapter_refused(uri);
     return sup_add(uri, id, placement, client);
 }
@@ -1566,7 +1566,7 @@ static char *add(const char *uri, int id, const char *placement, const char *cli
     if (g_inst[id])
         return sup_resp(ERR_INSTANCE_ALREADY_EXISTS);
     if (placement && strcmp(placement, PHD_PLACE_DEFAULT) && !valid_place(placement))
-        return sup_resp(PHD_ERR_PLACEMENT_INVALID);
+        return sup_resp(OMX_REPLY_PLUGIN_HOSTD_PLACEMENT_INVALID_RESP);
     if (!placement || !strcmp(placement, PHD_PLACE_DEFAULT))
         snprintf(place, sizeof(place), "%s", g_policy[fmt]);
     else
@@ -1579,16 +1579,16 @@ static char *add(const char *uri, int id, const char *placement, const char *cli
     if (m->quarantined)
         snprintf(place, sizeof(place), PHD_PLACE_OWN);
     if (!proc_have_binary(bin_of(fmt)))
-        return sup_resp(PHD_ERR_NO_BACKEND);
+        return sup_resp(OMX_REPLY_PLUGIN_HOSTD_NO_BACKEND_RESP);
     if (recent(m->deaths, &m->ndeaths, now) >= g_conf.storm_deaths)
-        return sup_resp(PHD_ERR_GAVE_UP);
+        return sup_resp(OMX_REPLY_PLUGIN_HOSTD_GAVE_UP_RESP);
     if (g_conf.require_pins)
     {
         int first_use = conf_pins_first_use(&g_conf);
 
         rc = pins_check(format, fwd, search_of(fmt), &layout);
         /* a plugin that has no pin gets one, from the files as they are now; it is not asked about again */
-        if (rc == PHD_ERR_PIN_ABSENT && first_use && !pins_known(fwd))
+        if (rc == OMX_REPLY_HOST_PIN_ABSENT_RESP && first_use && !pins_known(fwd))
         {
             rc = pins_learn(format, fwd, search_of(fmt));
             if (rc == SUCCESS)
@@ -1601,14 +1601,14 @@ static char *add(const char *uri, int id, const char *placement, const char *cli
         if (format->pinned_own_only)
         {
             if (placement && !strncmp(placement, PHD_PLACE_POOL_PREFIX, strlen(PHD_PLACE_POOL_PREFIX)))
-                return sup_resp(PHD_ERR_PLACEMENT_INVALID);
+                return sup_resp(OMX_REPLY_PLUGIN_HOSTD_PLACEMENT_INVALID_RESP);
             snprintf(place, sizeof(place), PHD_PLACE_OWN);
         }
         /* first-use: only a plugin qualified for a shared worker is placed in one */
         else if (first_use && !pins_in_process(fwd))
         {
             if (placement && !strncmp(placement, PHD_PLACE_POOL_PREFIX, strlen(PHD_PLACE_POOL_PREFIX)))
-                return sup_resp(PHD_ERR_PLACEMENT_INVALID);
+                return sup_resp(OMX_REPLY_PLUGIN_HOSTD_PLACEMENT_INVALID_RESP);
             snprintf(place, sizeof(place), PHD_PLACE_OWN);
         }
     }
@@ -1659,7 +1659,7 @@ static char *add(const char *uri, int id, const char *placement, const char *cli
         {
             /* the worker went with pin_expect on the wire: the add is never forwarded */
             event(PHD_EVENT_VERB_DROPPED_FMT, id, pin_expect_line(id, layout));
-            code = PHD_ERR_VERB_DROPPED;
+            code = OMX_REPLY_PLUGIN_HOSTD_VERB_DROPPED_RESP;
         }
     }
     snprintf(line, sizeof(line), "%.*s %s%s %d%s%s", verb_len(EFFECT_ADD), EFFECT_ADD,
@@ -1670,7 +1670,7 @@ static char *add(const char *uri, int id, const char *placement, const char *cli
     {
         /* the worker went with `add` or its pin_expect on the wire: the instance is the suspect, and the event names
          * the plugin it died adding (the pin_expect's own was sent above) */
-        if (code != PHD_ERR_VERB_DROPPED)
+        if (code != OMX_REPLY_PLUGIN_HOSTD_VERB_DROPPED_RESP)
             event(PHD_EVENT_VERB_DROPPED_FMT, id, line);
         m->crashes++;
         note_death(m->deaths, &m->ndeaths, now);
@@ -1788,7 +1788,7 @@ static void chain_tell(worker_t *w)
 
 static char *refuse_worker(worker_t *w)
 {
-    return sup_resp(w->state == W_GIVEN_UP ? PHD_ERR_GAVE_UP : PHD_ERR_WORKER_SPAWN);
+    return sup_resp(w->state == W_GIVEN_UP ? OMX_REPLY_PLUGIN_HOSTD_GAVE_UP_RESP : OMX_REPLY_PLUGIN_HOSTD_WORKER_SPAWN_RESP);
 }
 
 static int64_t g_sus_seq;
@@ -1845,7 +1845,7 @@ static void ledger_verb(instance_t *i, const char *line)
 static char *verb_dropped(instance_t *i, const char *line)
 {
     event(PHD_EVENT_VERB_DROPPED_FMT, i->id, line);
-    return sup_resp(PHD_ERR_VERB_DROPPED);
+    return sup_resp(OMX_REPLY_PLUGIN_HOSTD_VERB_DROPPED_RESP);
 }
 
 char *sup_call(int id, const char *line)
@@ -1864,7 +1864,7 @@ char *sup_call(int id, const char *line)
     if (rc == RPC_WAS_DEAD)
     {
         on_death(w, -1);
-        return sup_resp(PHD_ERR_WORKER_SPAWN);
+        return sup_resp(OMX_REPLY_PLUGIN_HOSTD_WORKER_SPAWN_RESP);
     }
     if (rc == RPC_DIED)
     {
@@ -1951,7 +1951,7 @@ char *sup_connect(const char *verb, const char *line, const char *port_a, const 
     if (rc != RPC_OK)
     {
         on_death(w, -1);
-        return sup_resp(PHD_ERR_WORKER_SPAWN);
+        return sup_resp(OMX_REPLY_PLUGIN_HOSTD_WORKER_SPAWN_RESP);
     }
     if (resp_code(reply) >= 0)
     {
@@ -2035,7 +2035,7 @@ char *sup_instance_verb(const char *line, int ledger)
         reply = sup_resp(ERR_INVALID_OPERATION);
     else if (!(i = (id >= 0 && id < MAX_INSTANCE) ? g_inst[id] : NULL))
         reply = sup_resp(ERR_INSTANCE_NON_EXISTS);
-    else if (!strcmp(word[0], PHD_VERB_TRACK_INFO) && !phd_track_info_valid(word, count))
+    else if (!strcmp(word[0], OMX_VERB_TRACK_INFO) && !phd_track_info_valid(word, count))
         reply = sup_resp(ERR_INVALID_OPERATION);
     else if (phd_is_note_verb(word[0]) && !phd_note_valid(word, count))
         reply = sup_resp(ERR_INVALID_OPERATION);
@@ -2049,20 +2049,20 @@ char *sup_instance_verb(const char *line, int ledger)
         }
     }
     /* a format whose worker has none of these: the daemon answers, and nothing goes to the worker */
-    else if (!strcmp(word[0], PHD_VERB_TRACK_INFO))
+    else if (!strcmp(word[0], OMX_VERB_TRACK_INFO))
     {
         free(i->track_info);
         i->track_info = strdup(line);
         reply = sup_resp(SUCCESS);
     }
-    else if (!strcmp(word[0], PHD_VERB_REMOTE_PAGES))
+    else if (!strcmp(word[0], OMX_VERB_REMOTE_PAGES))
         reply = sup_resp(count == 2 ? 0 : ERR_INVALID_OPERATION);
-    else if (!strcmp(word[0], PHD_VERB_PARAM_INFO))
+    else if (!strcmp(word[0], OMX_VERB_PARAM_INFO))
         reply = count == 3 ? format_at(i->fmt)->param_info(id, word[2]) : sup_resp(ERR_INVALID_OPERATION);
     else if (phd_is_note_verb(word[0]))
-        reply = sup_resp(PHD_ERR_NOTES_BY_JACK);
+        reply = sup_resp(OMX_REPLY_HOST_NOTES_BY_JACK_RESP);
     else if (!strcmp(word[0], OMX_VERB_PRESET_LIST) || !strcmp(word[0], OMX_VERB_PRESET_GET))
-        reply = sup_resp(PHD_ERR_NO_PRESET_LIST);
+        reply = sup_resp(OMX_REPLY_PLUGIN_HOSTD_NO_PRESET_LIST_RESP);
     else
         reply = sup_resp(ERR_INVALID_OPERATION);
     free(word);
@@ -2192,7 +2192,7 @@ char *sup_reset(const char *which)
         for (id = 0; id < MAX_INSTANCE; id++)
             if (g_meta[id])
                 g_meta[id]->ndeaths = 0;
-    return sup_resp(all || found ? SUCCESS : PHD_ERR_NO_SUCH_WORKER);
+    return sup_resp(all || found ? SUCCESS : OMX_REPLY_PLUGIN_HOSTD_NO_SUCH_WORKER_RESP);
 }
 
 char *sup_quarantine_clear(const char *which)
@@ -2252,7 +2252,7 @@ char *sup_policy_set(const char *format, const char *place)
     int f;
 
     if (!valid_place(place))
-        return sup_resp(PHD_ERR_PLACEMENT_INVALID);
+        return sup_resp(OMX_REPLY_PLUGIN_HOSTD_PLACEMENT_INVALID_RESP);
     if (!strcmp(format, PHD_FORMAT_ANY))
     {
         for (f = 0; f < formats_count(); f++)
@@ -2282,7 +2282,7 @@ char *sup_pool_config(const char *name, int max)
     int n;
 
     if (!phd_pool_name_valid(name))
-        return sup_resp(PHD_ERR_PLACEMENT_INVALID);
+        return sup_resp(OMX_REPLY_PLUGIN_HOSTD_PLACEMENT_INVALID_RESP);
     if (max < 1)
         return sup_resp(ERR_INVALID_OPERATION);
     for (n = 0; n < g_npools; n++)
@@ -2528,19 +2528,19 @@ char *sup_chain(int id, const int *ids, int n)
         instance_t *i = (ids[k] >= 0 && ids[k] < MAX_INSTANCE) ? g_inst[ids[k]] : NULL;
 
         if (!i)
-            return sup_resp(PHD_ERR_CHAIN_UNKNOWN_INSTANCE);
+            return sup_resp(OMX_REPLY_PLUGIN_HOSTD_CHAIN_UNKNOWN_INSTANCE_RESP);
         for (m = 0; m < k; m++)
             if (ids[m] == ids[k])
-                return sup_resp(PHD_ERR_CHAIN_DUPLICATE);
+                return sup_resp(OMX_REPLY_PLUGIN_HOSTD_CHAIN_DUPLICATE_RESP);
         if (i->chain && i->chain != c)
-            return sup_resp(PHD_ERR_CHAIN_INSTANCE_BUSY);
+            return sup_resp(OMX_REPLY_PLUGIN_HOSTD_CHAIN_INSTANCE_BUSY_RESP);
         if (!chain_rows_together(i->fmt, g_inst[ids[0]]->fmt))
-            return sup_resp(PHD_ERR_CHAIN_MIXED_FORMAT);
+            return sup_resp(OMX_REPLY_PLUGIN_HOSTD_CHAIN_MIXED_FORMAT_RESP);
         if (must_run_own(i))
-            return sup_resp(PHD_ERR_PLACEMENT_INVALID);
+            return sup_resp(OMX_REPLY_PLUGIN_HOSTD_PLACEMENT_INVALID_RESP);
     }
     if (!chain_world_found(ids, n))
-        return sup_resp(PHD_ERR_PLACEMENT_INVALID);
+        return sup_resp(OMX_REPLY_PLUGIN_HOSTD_PLACEMENT_INVALID_RESP);
     if (!c)
     {
         c = calloc(1, sizeof(chain_t));
@@ -2580,7 +2580,7 @@ char *sup_chain_clear(int id)
     int k;
 
     if (!c)
-        return sup_resp(PHD_ERR_NO_SUCH_CHAIN);
+        return sup_resp(OMX_REPLY_PLUGIN_HOSTD_NO_SUCH_CHAIN_RESP);
     for (k = 0; k < c->n; k++)
     {
         instance_t *i = g_inst[c->ids[k]];
@@ -2604,7 +2604,7 @@ char *sup_chain_get(int id)
     int k, any = 0;
 
     if (!c)
-        return sup_resp(PHD_ERR_NO_SUCH_CHAIN);
+        return sup_resp(OMX_REPLY_PLUGIN_HOSTD_NO_SUCH_CHAIN_RESP);
     buf = malloc(cap);
     if (c->w)
         put(&buf, &used, &cap, "resp 0 w%d ", c->w->k);
@@ -2696,11 +2696,11 @@ static int segment_refusal(const int *ids, int n)
     for (k = 0; k < n; k++)
     {
         if (!chain_rows_together(g_inst[ids[k]]->fmt, g_inst[ids[0]]->fmt))
-            return PHD_ERR_CHAIN_MIXED_FORMAT;
+            return OMX_REPLY_PLUGIN_HOSTD_CHAIN_MIXED_FORMAT_RESP;
         if (must_run_own(g_inst[ids[k]]))
-            return PHD_ERR_PLACEMENT_INVALID;
+            return OMX_REPLY_PLUGIN_HOSTD_PLACEMENT_INVALID_RESP;
     }
-    return chain_world_found(ids, n) ? 0 : PHD_ERR_PLACEMENT_INVALID;
+    return chain_world_found(ids, n) ? 0 : OMX_REPLY_PLUGIN_HOSTD_PLACEMENT_INVALID_RESP;
 }
 
 static void plan_free(plan_t *p)
@@ -2905,13 +2905,13 @@ char *sup_plan(int id, const int *ids, int n)
         instance_t *i = (ids[k] >= 0 && ids[k] < MAX_INSTANCE) ? g_inst[ids[k]] : NULL;
 
         if (!i)
-            return sup_resp(PHD_ERR_CHAIN_UNKNOWN_INSTANCE);
+            return sup_resp(OMX_REPLY_PLUGIN_HOSTD_CHAIN_UNKNOWN_INSTANCE_RESP);
         for (j = 0; j < k; j++)
             if (ids[j] == ids[k])
-                return sup_resp(PHD_ERR_CHAIN_DUPLICATE);
+                return sup_resp(OMX_REPLY_PLUGIN_HOSTD_CHAIN_DUPLICATE_RESP);
         /* the member of a chain, or of the plan of another chain, is not this plan's to place */
         if (i->chain && !(i->chain->planned && i->chain->id == id))
-            return sup_resp(PHD_ERR_CHAIN_INSTANCE_BUSY);
+            return sup_resp(OMX_REPLY_PLUGIN_HOSTD_CHAIN_INSTANCE_BUSY_RESP);
     }
     p = plan_run(id, ids, n, &refused);
     if (refused)
@@ -2976,7 +2976,7 @@ char *sup_plan_get(int id)
     char *buf;
 
     if (!p)
-        return sup_resp(PHD_ERR_NO_SUCH_PLAN);
+        return sup_resp(OMX_REPLY_PLUGIN_HOSTD_NO_SUCH_PLAN_RESP);
     buf = malloc(cap);
     put(&buf, &used, &cap, "resp 0 %s %s", p->segments, p->reasons);
     return buf;
@@ -2988,7 +2988,7 @@ char *sup_plan_clear(int id)
     int j;
 
     if (!p)
-        return sup_resp(PHD_ERR_NO_SUCH_PLAN);
+        return sup_resp(OMX_REPLY_PLUGIN_HOSTD_NO_SUCH_PLAN_RESP);
     while (p->nseg)
     {
         chain_t *c = p->seg[p->nseg - 1];
