@@ -5,7 +5,7 @@
 # ONLY=<test name> runs one test (tests/sabotage.py turns each guard off and runs the test that must go red).
 # PLUGIN_QUALIFY_BUILD=<a plugin-qualify checkout's native/build> also runs its real prober and lv2_measure over its own
 # instrument fixtures; without it those tests say they skipped.
-import json, os, signal, subprocess, sys, tempfile, time
+import json, os, resource, signal, subprocess, sys, tempfile, time
 
 try:
     import jsonschema
@@ -33,9 +33,13 @@ def check(cond, what):
         raise AssertionError(what)
 
 
-def run(fault=None, wall=5, extra=(), timeout=30, env=None, rates="48000", child=CHILD):
+class Skip(Exception):
+    """a test that cannot be taken here: it prints why and counts as neither ok nor failed"""
+
+
+def run(fault=None, wall=5, extra=(), timeout=30, env=None, rates="48000", child=CHILD, prefix=()):
     """the runner over the stress plugin; returns (exit status, document or None, seconds, the files it used); rates None
-    leaves the runner's default rates"""
+    leaves the runner's default rates; prefix is a command the runner is started under (prlimit, setpriv)"""
     work = tempfile.mkdtemp(prefix="plugin-hostd-probe-test.")
     out = os.path.join(work, "probe.json")
     pidfile = os.path.join(work, "forkpid")
@@ -44,7 +48,7 @@ def run(fault=None, wall=5, extra=(), timeout=30, env=None, rates="48000", child
         e["STRESS_FAULT"] = fault
     else:
         e.pop("STRESS_FAULT", None)
-    cmd = [PROBE, "run", "--child", child, *(("--rates", rates) if rates else ()), "--quantum", "256", "--wall-s", str(wall),
+    cmd = [*prefix, PROBE, "run", "--child", child, *(("--rates", rates) if rates else ()), "--quantum", "256", "--wall-s", str(wall),
            "--grace-ms", "200", "--log", os.path.join(work, "child.log"), "--out", out, *extra, CLAP, ID]
     start = time.monotonic()
     try:
@@ -176,9 +180,10 @@ def the_limits_reach_the_child():
                                     "--cpus", str(cpus[0])), env={"PROBE_CHILD_LIMITS": report})
     valid(doc)
     seen = json.load(open(report))
-    want = {"fsize": 4096, "nofile": 64, "cpu": 100, "data": 1 << 32, "core": 0, "rtprio": 0, "no_new_privs": 1,
+    rtprio = next(l["value"] for l in doc["limits"]["applied"] if l["limit"] == "rt-priority")
+    want = {"fsize": 4096, "nofile": 64, "cpu": 100, "data": 1 << 32, "core": 0, "rtprio": rtprio, "no_new_privs": 1,
             "pdeathsig": signal.SIGKILL, "own_group": True, "cpus": 1}
-    check(seen == want, "the child's own limits are %s, wanted %s" % (seen, want))
+    check({k: seen.get(k) for k in want} == want, "the child's own limits are %s, wanted %s" % (seen, want))
     check(doc["machine"]["pinnedCpus"] == str(cpus[0]), "pinnedCpus %s" % doc["machine"]["pinnedCpus"])
 
 
@@ -655,12 +660,163 @@ def the_real_lv2_measure_counts_what_run_does_while_notes_play():
     check(seen["urn:plugin-qualify:fixture:lv2-synth-alloc"].get("allocations", 0) > 0, "the allocating synth: %s" % seen)
     check(seen["urn:plugin-qualify:fixture:lv2-synth"].get("allocations") == 0, "its clean twin: %s" % seen)
 
+
+# ---------------------------------------------------------------- real time and the memory lock (#225)
+
+# the lock preload of this checkout: a sabotage arm breaks the runner, never the preload
+LOCK = os.path.abspath(os.environ.get("PROBE_LOCK", os.path.join(ROOT, "plugin-hostd-probe-lock.so")))
+FIFO_MAX = os.sched_get_priority_max(os.SCHED_FIFO)
+
+
+def cap_sys_nice():
+    for l in open("/proc/self/status"):
+        if l.startswith("CapEff:"):
+            return bool(int(l.split()[1], 16) >> 23 & 1)
+    return False
+
+
+def without_cap():
+    """the prefix that drops CAP_SYS_NICE from what the runner is started with, when this process holds it"""
+    return ["setpriv", "--bounding-set", "-sys_nice", "--inh-caps", "-sys_nice"] if cap_sys_nice() else []
+
+
+def kernel_grants(prefix, priority):
+    """None when the kernel gives a process started with `prefix` SCHED_FIFO at `priority`, else why not"""
+    p = subprocess.run([*prefix, "chrt", "-f", str(priority), "true"], capture_output=True, text=True)
+    return None if p.returncode == 0 else (p.stderr.strip() or "chrt exited %d" % p.returncode)
+
+
+def rt_run(prefix=(), extra=(), env=None):
+    work = tempfile.mkdtemp(prefix="plugin-hostd-probe-rt.")
+    seen = os.path.join(work, "limits.json")
+    code, doc, _, _, err = run(extra=("--lock-preload", LOCK, *extra), env=dict(env or {}, PROBE_CHILD_LIMITS=seen), prefix=prefix)
+    check(doc is not None, "no document: exit %d %s" % (code, err))
+    valid(doc)
+    return doc, (json.load(open(seen)) if os.path.exists(seen) else None)
+
+
+def applied(doc, name):
+    return next((l for l in doc["limits"]["applied"] if l["limit"] == name), None)
+
+
+@test
+def with_the_grant_the_measurement_runs_fifo_at_the_highest_priority():
+    hard = resource.getrlimit(resource.RLIMIT_RTPRIO)[1]
+    if not cap_sys_nice() and hard != resource.RLIM_INFINITY and hard < FIFO_MAX:
+        raise Skip("no CAP_SYS_NICE and an RLIMIT_RTPRIO hard limit of %d, below %d; the rlimit arm measures the grant "
+                   "there is" % (hard, FIFO_MAX))
+    why = kernel_grants((), FIFO_MAX)
+    if why:
+        raise Skip("the kernel refuses SCHED_FIFO %d here (%s)" % (FIFO_MAX, why))
+    doc, seen = rt_run()
+    rt = doc["run"]["realtime"]
+    check(rt["class"] == "fifo" and rt["priority"] == FIFO_MAX and rt["requested"] == FIFO_MAX
+          and rt["grantedBy"] == ("cap" if cap_sys_nice() else "rlimit"), "run.realtime %s" % rt)
+    check(rt["observed"] == {"policy": "fifo", "priority": FIFO_MAX}, "the kernel's word: %s" % rt.get("observed"))
+    check(seen["policy"] == "fifo" and seen["priority"] == FIFO_MAX, "the child's own scheduler: %s" % seen)
+    check(doc["offer"]["realtime"] == "fifo", "offer.realtime %s" % doc["offer"]["realtime"])
+
+
+@test
+def under_an_rtprio_rlimit_the_measurement_runs_fifo_at_the_rlimit_and_keeps_it_as_its_bound():
+    hard = resource.getrlimit(resource.RLIMIT_RTPRIO)[1]
+    n = min(10, FIFO_MAX - 1) if hard == resource.RLIM_INFINITY else min(10, hard, FIFO_MAX - 1)
+    if n < 1:
+        raise Skip("the RLIMIT_RTPRIO hard limit is 0, and only a privileged process can raise it")
+    prefix = [*without_cap(), "prlimit", "--rtprio=%d:%d" % (n, n), "--"]
+    why = kernel_grants(prefix, n)
+    if why:
+        raise Skip("the kernel refuses SCHED_FIFO %d under the rlimit here (%s)" % (n, why))
+    doc, seen = rt_run(prefix)
+    rt = doc["run"]["realtime"]
+    check(rt == {"class": "fifo", "priority": n, "requested": FIFO_MAX, "grantedBy": "rlimit",
+                 "observed": {"policy": "fifo", "priority": n}}, "run.realtime %s" % rt)
+    check(seen["policy"] == "fifo" and seen["priority"] == n and seen["rtprio"] == n,
+          "the child runs fifo %d bounded by RLIMIT_RTPRIO %d: %s" % (n, n, seen))
+    check(applied(doc, "rt-priority") == {"limit": "rt-priority", "value": n, "by": "rlimit"},
+          "the document lists the bound: %s" % applied(doc, "rt-priority"))
+
+
+@test
+def without_a_grant_the_measurement_stays_at_none_and_says_why():
+    prefix = [*without_cap(), "prlimit", "--rtprio=0:0", "--"]
+    doc, seen = rt_run(prefix)
+    rt = doc["run"]["realtime"]
+    check(rt["class"] == "none" and rt["priority"] == 0 and rt["grantedBy"] == "none" and rt["requested"] == FIFO_MAX,
+          "run.realtime %s" % rt)
+    check("RLIMIT_RTPRIO" in rt.get("reason", "") and "CAP_SYS_NICE" in rt["reason"], "the reason names the grant: %s" % rt)
+    check(rt.get("observed") == {"policy": "other", "priority": 0}, "the kernel's word: %s" % rt.get("observed"))
+    check(seen["policy"] == "other" and seen["rtprio"] == 0, "the child: %s" % seen)
+    check(doc["offer"]["realtime"] == "none", "offer.realtime %s" % doc["offer"]["realtime"])
+
+
+@test
+def the_rt_time_bound_is_the_wall_budget():
+    doc, seen = rt_run()
+    check(seen["rttime"] == 5 * 1000000, "the child's RLIMIT_RTTIME is the 5 s wall budget in us: %s" % seen)
+    check(applied(doc, "rt-time") == {"limit": "rt-time", "value": 5 * 1000000, "unit": "us", "by": "rlimit"},
+          "the document lists it: %s" % applied(doc, "rt-time"))
+
+
+@test
+def a_grant_the_kernel_refuses_is_recorded_as_none_with_the_refusal():
+    hard = resource.getrlimit(resource.RLIMIT_RTPRIO)[1]
+    if not cap_sys_nice() and hard == 0:
+        raise Skip("no grant here (no CAP_SYS_NICE, RLIMIT_RTPRIO hard limit 0), so nothing for the kernel to refuse")
+    refuse = os.path.join(os.path.dirname(CHILD), "sched-refuse.so")
+    doc, seen = rt_run(env={"LD_PRELOAD": refuse})
+    rt = doc["run"]["realtime"]
+    check(rt["class"] == "none" and rt["grantedBy"] == "none" and rt["priority"] == 0, "run.realtime %s" % rt)
+    check("the kernel refused SCHED_FIFO" in rt.get("reason", "") and rt.get("observed") == {"policy": "other", "priority": 0},
+          "the refusal and the kernel's word: %s" % rt)
+    check(seen["policy"] == "other" and seen["rtprio"] == 0, "the child runs SCHED_OTHER with no rt bound: %s" % seen)
+    check(applied(doc, "rt-priority")["value"] == 0, "the document's rt-priority: %s" % applied(doc, "rt-priority"))
+
+
+@test
+def an_lv2_measurement_is_scheduled_as_a_clap_one_is():
+    clap, _ = rt_run()
+    code, doc, _, _, err = run_lv2()
+    check(doc is not None, "no document: exit %d %s" % (code, err))
+    valid(doc)
+    check(doc["run"]["realtime"] == clap["run"]["realtime"], "lv2 %s, clap %s" % (doc["run"]["realtime"], clap["run"]["realtime"]))
+
+
+@test
+def the_measured_child_locks_its_memory_or_the_record_says_why_not():
+    data = 1 << 30
+    hard = resource.getrlimit(resource.RLIMIT_MEMLOCK)[1]
+    if hard != resource.RLIM_INFINITY and hard < data:
+        print("skip the locked arm of the_measured_child_locks_its_memory_or_the_record_says_why_not: RLIMIT_MEMLOCK %d is "
+              "below %d" % (hard, data))
+    else:
+        env_file = os.path.join(tempfile.mkdtemp(prefix="plugin-hostd-probe-lock."), "env")
+        doc, seen = rt_run(extra=("--data-bytes", str(data)), env={"PROBE_CHILD_ENV": env_file})
+        check(doc["run"]["memoryLock"] == {"locked": True, "limitBytes": data}, "memoryLock %s" % doc["run"]["memoryLock"])
+        check(seen["vmlck_kb"] > 0 and seen["memlock"] == data, "the child holds locked pages under its bound: %s" % seen)
+        stub = os.path.join(os.path.dirname(CHILD), "rt_interpose.so")
+        got = child_env(env_file)
+        check(got.get("LD_PRELOAD") == stub + ":" + LOCK and "PLUGIN_HOSTD_PROBE_LOCK_FD" not in got,
+              "the child gets the interposer and the lock preload, which takes its variable: %s" % got.get("LD_PRELOAD"))
+    # a bound below the memory limit: no lock, which the record says
+    doc, seen = rt_run(prefix=["prlimit", "--memlock=%d:%d" % (1 << 20, 1 << 20), "--"], extra=("--data-bytes", str(data)))
+    ml = doc["run"]["memoryLock"]
+    check(ml["locked"] is False and "RLIMIT_MEMLOCK" in ml.get("reason", "") and seen["vmlck_kb"] == 0, "memoryLock %s %s" % (ml, seen))
+    # no preload: no lock, which the record says
+    code, doc, _, _, err = run(extra=("--lock-preload", "/nonexistent/lock.so"))
+    valid(doc)
+    ml = doc["run"]["memoryLock"]
+    check(ml["locked"] is False and "/nonexistent/lock.so" in ml.get("reason", ""), "memoryLock %s" % ml)
+
+
 for t in tests:
     if ONLY and t.__name__ != ONLY:
         continue
     try:
         t()
         print("ok   " + t.__name__)
+    except Skip as e:
+        print("skip %s: %s" % (t.__name__, e))
     except AssertionError as e:
         print("FAIL %s: %s" % (t.__name__, e))
         failed += 1
