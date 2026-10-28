@@ -144,6 +144,21 @@ nine against omx-clap-host, an LV2 member on the adapter row and CLAP members, i
 chain (`pw-dump`), the crashed member's own node, and a tenth that measures the audio. After an add at a position and after a move, the
 chain's output is the order `chain_get` reads back: equal to the same plugins one client each in series, within the
 difference two such references show of each other, and at least 40 dB away from the other order.
+`tools/zynthian/chain-e2e.sh --round-trip` runs `tools/zynthian/test-chain-round-trip.py` the same way with omx-plugins
+members as installed: omx-strip (CLAP, Trim +12 dB), omx-limiter (CLAP, Ceiling -6 dBFS) and omx-delay (LV2 on the
+adapter row, 10 ms, mix 0.5), declared in that order, the LV2 member joining the running CLAP chain last. Each member's
+signature is measured alone first (the taps the noise leaves in its output: lag and gain), and must be what its
+parameters say. The chain's output is then read for the members' values in the declared order: the limiter's lag and
+the delay's tap after it, no louder than the ceiling, equal to the three one client each in series and at least 40 dB
+away from the two other ways the three can sound. Removing the limiter forms the chain again and its output is the
+strip's gain times the delay's taps with no lookahead; a fault plugin crashing between strip and limiter is quarantined
+and the three play as before. Its sabotages (the line reversed, the line without its last member, the chain not formed
+again after a removal) each turn a check of the audio red. CI runs it (`zynthian-chain` in `.github/workflows/ci.yml`)
+with everything from the FreeMixer channel, by what it must do: plugin-hostd with `chain_get`, omx-clap-host 0.21.0 or
+later, and omx-clap-host-tests with `fault-14.clap` and `jack_identity` (omx-clap-core#351). A channel that lacks one
+fails the job by name. Beside them it installs Fedora's `pipewire-jack-audio-connection-kit`, so the libjack the host
+loads is PipeWire's and not JACK2's, and `lilv-libs`, which the host opens itself at its first LV2 add; without either
+the reference host is never ready or refuses the LV2 member, and the job fails by name.
 `evidence/chain/` holds the runs with their commands. A claim about Zynthian
 here is trixie arm64 container only until the Vangelis hardware run is dated, and these runs are less than that:
 Fedora 44 containers on x86_64, the zynthian-ui Python modules imported with zyncoder and autoconnect stubbed. No
