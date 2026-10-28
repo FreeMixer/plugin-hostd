@@ -1150,6 +1150,26 @@ static int has_suffix(const char *s, const char *suffix)
     return n >= m && !strcmp(s + n - m, suffix);
 }
 
+/* The percentile a prober's cost reports: the figures are read from the keys named for the 95th (nsPerSampleP95), so a
+ * document that says another percentile is refused, never read as if it were the 95th. Returns the other percentile, or
+ * 95 when the document says 95 or says none. */
+static double cost_percentile_other(const jnode_t *cost)
+{
+    double percentile;
+
+    if (jnum(cost, "percentile", &percentile) && percentile != 95)
+        return percentile;
+    return 95;
+}
+
+/* the step that says why a run carries no cost: the prober reported a percentile this runner does not read */
+static void add_cost_percentile_refusal(const jnode_t *cost)
+{
+    step_t *s = add_step("cost", OUT_CHILD_PROTOCOL, 0);
+
+    set_detail(s, "the child's cost percentile is %.9g; only 95 is read", cost_percentile_other(cost));
+}
+
 /* The step of a figure lv2_measure took at `rate` (its `latency` map, its cost's `perRate`): ok when the child measured
  * it, else not attempted, with the hosting code and the child's reason and words. A child whose line has no such map
  * (an older lv2_measure) was not asked for the figure and gets no step. */
@@ -1249,8 +1269,11 @@ static int run_lv2(const options_t *o, const char *uri, long rate, const cpu_set
         s->quantum = o->quantum;
         set_detail(s, "%s", with_dropped(jbool(rt, "interposer", 0) ? "read from the child's line" : no_interposer_reason()));
         add_lv2_figure_step("latency", jget(*measure, "latency"), rate, o->quantum, "hosting.latency.unmeasured");
-        add_lv2_figure_step("cost", jget(jget(*measure, "cost"), "perRate"), rate, o->quantum,
-                            "hosting.cost.unmeasured-at-rate-and-quantum");
+        if (cost_percentile_other(jget(*measure, "cost")) != 95)
+            add_cost_percentile_refusal(jget(*measure, "cost"));
+        else
+            add_lv2_figure_step("cost", jget(jget(*measure, "cost"), "perRate"), rate, o->quantum,
+                                "hosting.cost.unmeasured-at-rate-and-quantum");
     }
     else if (*measure && jbool(*measure, "found", 0))
     {
@@ -1383,7 +1406,7 @@ static void put_cost(sb_t *b, const jnode_t *cost, const char *rate)
 
     if (!jnum(at, "nsPerSampleMedian", &median) || !jnum(at, "nsPerSampleP95", &p95) ||
         !jnum(at, "nsPerSampleMin", &min) || !jnum(at, "nsPerSampleMax", &max) || !jnum(at, "blocks", &blocks) ||
-        !jnum(cost, "warmupBlocks", &warmup) || !jnum(cost, "percentile", &percentile))
+        !jnum(cost, "warmupBlocks", &warmup) || !jnum(cost, "percentile", &percentile) || percentile != 95)
         return;
     sb_printf(b, ", \"cost\": {\"unit\": \"ns-per-sample\", \"median\": %.9g, \"percentile\": {\"p\": %.9g, \"value\": %.9g}, "
                  "\"min\": %.9g, \"max\": %.9g, \"blocks\": %.0f, \"warmupBlocks\": %.0f",
@@ -1903,6 +1926,9 @@ int main(int argc, char **argv)
                     set_detail(x, "the notes played uncounted: %s", no_interposer_reason());
             }
         }
+        /* a cost the child timed under a percentile other than the 95th is not read: the run says so */
+        if (line && clap && cost_percentile_other(cost) != 95)
+            add_cost_percentile_refusal(cost);
         for (i = 0; i < g_nsteps; i++)
             if (!outcome_ok(g_steps[i].outcome) && !strcmp(run_outcome, OUT_OK))
             {
