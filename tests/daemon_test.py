@@ -735,9 +735,14 @@ def worker_env_reaches_new_and_running_workers():
         # the daemon says so when a nice is not applied, and only then
         kept = "worker_env: worker %d keeps nice" % pid
         check((kept in d.log()) == (applied(5) != 5), "a nice 5 not applied is logged, one applied is not: %r" % d.log())
-        d.expect("worker_env lv2 - 7", "resp 0")
-        check(stat()[0] == applied(7, applied(5)), "a running worker follows: %s" % (stat(),))
-        check((kept in d.log()) == (applied(5) != 5 or applied(7, applied(5)) != 7), "the nice of a running worker is logged the same way")
+        # a nice above the one the running worker already has: raising is never refused to an unprivileged daemon,
+        # so this is the only request that proves the running worker was reached, whatever nice it started at
+        running_have = stat()[0]
+        running_want = running_have + 2
+        before = len(d.log())
+        d.expect("worker_env lv2 - %d" % running_want, "resp 0")
+        wait_for(lambda: stat()[0] == running_want, "the running worker's nice reaching %d" % running_want)
+        check(kept not in d.log()[before:], "raising a running worker's nice is never kept: %r" % d.log()[before:])
         # lower than the worker has: only a privileged daemon can, and one that cannot says so
         have = stat()[0]
         d.expect("worker_env lv2 - %d" % (have - 1), "resp 0")
