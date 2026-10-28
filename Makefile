@@ -148,6 +148,17 @@ install-contract:
 	@test -n "$(INSTALL_CONTRACT_DIR)" || { echo "install-contract: no install-contract-dir.sh: install omx-contract-devel, or set OMX_CONTRACT_DIR to a checkout" >&2; exit 1; }
 	sh $(INSTALL_CONTRACT_DIR) $(PROG) $(VERSION) $(CONTRACT_SCHEMA_MAJOR) data $(DESTDIR)$(CONTRACTDIR) data
 
+# the contract directory as a reader of it sees it: install-contract into a staging directory, then omx-contract validate
+# of the staged package together with the installed contract directory (omx-contract's own tables, omx-clap-core's),
+# red on any table the installed schema refuses (#165; tests/format_coverage.py walks the schema for the words, never
+# for the row keys). An absent omx-contract command is red, never a skip
+.PHONY: check-contract-dir
+check-contract-dir:
+	@command -v $(OMX_CONTRACT) >/dev/null || { echo "$@: no $(OMX_CONTRACT) command: install omx-contract 3.2.0 or later" >&2; exit 1; }
+	@set -e; tmp=$$(mktemp -d); trap 'rm -rf $$tmp' EXIT; \
+	$(MAKE) --no-print-directory install-contract DESTDIR=$$tmp >/dev/null; \
+	OMX_CONTRACT_PATH=$$tmp$(CONTRACTDIR)$(if $(OMX_CONTRACT_PATH),:$(OMX_CONTRACT_PATH)):$(CONTRACTDIR) $(OMX_CONTRACT) validate --installed
+
 # the daemon's verbs and reply codes (data/verbs.json), rendered by omx-contract as the package installs them, beside
 # the packages of OMX_CONTRACT_PATH and of the installed contract directory: the C names every source and protocol.h
 # read (OMX_VERB_<VERB>, its _FMT, _REPLY and _CODES_INIT). `make render-verbs` writes them, `make check-rendered`
@@ -272,7 +283,7 @@ clean:
 
 # the daemon against workers that are not plugin hosts at all (tests/fake-host speaks the same protocol and can be
 # made to die on cue): placement, forwarding, ledger, replay, attribution, the storm bound; no jack, no plugin
-test: test-protocol-lib test-sabotage-pool test-pin test-history test-proc test-own-host-probe-teardown test-planner test-transforms test-format-coverage test-describe test-relay test-alloc test-format test-daemon test-verbs-declared check-rendered check-generated check-schema test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-mod-host-json test-socket check-verb-table check-preset-schema test-install-schemas
+test: test-protocol-lib test-sabotage-pool test-pin test-history test-proc test-own-host-probe-teardown test-planner test-transforms test-format-coverage test-describe test-relay test-alloc test-format test-daemon test-verbs-declared check-rendered check-generated check-schema test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-mod-host-json test-socket check-verb-table check-preset-schema test-install-schemas check-contract-floor check-readme-facts
 	MOD_HOST_DIR=$(MOD_HOST_DIR) python3 tests/verbs_contract.py
 
 # the protocol clients plugin-hostd-tests ships (tests/lib/), against a peer that frames by NUL, and their sabotage
@@ -476,6 +487,10 @@ check-generated: $(GEN)
 check-readme:
 	python3 tests/readme_build.py
 
+# the prose beside the generated protocol tables: still the daemon's and its workers' verified behavior today
+check-readme-facts:
+	python3 tests/readme_facts.py
+
 # the own-host page: its commands are few, and the reader that CI runs them with stops on any wrong reply
 check-own-host-page:
 	python3 tests/own_host_page.py selftest
@@ -483,6 +498,11 @@ check-own-host-page:
 # no pin: a dependency is declared in the spec and debian/control with a floor (no ceiling), nowhere else
 check-no-pins:
 	python3 tests/no_pins.py
+
+# the package that ships contract.d/3/plugin-hostd requires omx-contract 3.2.0 or later at run time, in the spec and
+# debian/control: the first whose schema takes every row key of the tables (#165)
+check-contract-floor:
+	python3 tests/contract_floor.py
 
 # a workflow step the runner may be unable to run fails where it cannot run it (#107)
 # the org.openmixer.preset file (docs/presets.md) holds to protocol/preset.schema.json, and a broken one does not
