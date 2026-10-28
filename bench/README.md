@@ -103,6 +103,7 @@ Reading the numbers
 | `samples` | how many readings |
 | `xruns` | JACK's xrun callbacks over the window, counted by a client of the run's private server (`libjack` through ctypes, no port and no process callback, so it adds no work to the cycle). If the server's own log names xruns in the window and the probe counted none, the row is `failed`: a deaf probe reads 0 on every row |
 | `latency_frames` | the capture latency JACK reports at `system:playback_1`, the longest of its range: what the clients on the path declared, not a measurement of the audio; a host that declares none contributes none |
+| `jack_clients` | the JACK clients the host put on the graph: every client with ports there after the plugins are wired that was not there before the host started, the source excepted |
 | `stress` | `none`, or `busy<cores>+mem<MiB>`: one busy loop pinned to each core the host may use, and a process that keeps touching 256 MiB, running beside the host for the whole window. The same name on the same machine is the same load. The same scenario with and without stress is two rows |
 | `repeats`, `spread` | a row run `repeats` times holds the median of each measure, a count taking the higher middle run so it is never understated, and `spread`: `{measure: [min, max]}`. A repeat that fails fails the row and its note says which; a row that is `unsupported` is not repeated |
 | `rss_mb`, `rss_mb_total` | resident memory summed over the host's processes at the end of the window |
@@ -116,7 +117,7 @@ Reading the numbers
 
 Under H1, H3 and H4 the killed process is the host itself, so `kill1` ends `failed` with the note `host process lost`.
 
-`xruns`, `latency_frames`, `stress`, `repeats` and `spread`, and the modes `plan` and `pool`, are additions to
+`xruns`, `latency_frames`, `jack_clients`, `stress`, `repeats` and `spread`, and the modes `plan` and `pool`, are additions to
 `omx-bench/1`: a document without them is valid, and a reader that ignores them reads the document as before.
 
 `qualification` is written with `--qualify`: the CLAP plugins on the machine, the seconds `plugin-qualify` took, and how

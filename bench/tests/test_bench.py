@@ -51,7 +51,7 @@ class Schema(unittest.TestCase):
     def test_the_new_fields_are_valid_together(self):
         doc = example()
         s = first_ok(doc)
-        s.update({"mode": "plan", "xruns": 2, "latency_frames": 256, "stress": "busy24+mem256", "repeats": 3,
+        s.update({"mode": "plan", "xruns": 2, "latency_frames": 256, "jack_clients": 3, "stress": "busy24+mem256", "repeats": 3,
                   "spread": {"xruns": [0, 5], "cpu_pct": [0, s["cpu_pct"] + 1]}})
         code, out = validate(doc)
         self.assertEqual(code, 0, out)
@@ -62,6 +62,13 @@ class Schema(unittest.TestCase):
         code, out = validate(doc)
         self.assertEqual(code, 1)
         self.assertRegex(out, r"scenarios/\d+/xruns:minimum")
+
+    def test_a_negative_jack_client_count_is_red(self):
+        doc = example()
+        first_ok(doc)["jack_clients"] = -1
+        code, out = validate(doc)
+        self.assertEqual(code, 1)
+        self.assertRegex(out, r"scenarios/\d+/jack_clients:minimum")
 
     def test_a_stress_no_one_declared_is_red(self):
         doc = example()
