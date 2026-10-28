@@ -1,0 +1,281 @@
+{"t": 2.0417, "conn": 1, "port": "cmd", "dir": "open", "msg": ""}
+{"t": 2.0417, "conn": 2, "port": "fb", "dir": "open", "msg": ""}
+{"t": 2.0418, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "feature_enable processing 0"}
+{"t": 2.0421, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 2.0424, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "transport 0 4.000000 120.000000"}
+{"t": 2.0425, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 2.0429, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "remove 9993"}
+{"t": 2.0431, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 2.0433, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "remove -1"}
+{"t": 2.0435, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 2.0435, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "state_tmpdir /tmp/spike/src/mod-ui/data/pedalboard-tmp-data"}
+{"t": 2.0435, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 2.0435, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "feature_enable aggregated-midi 1"}
+{"t": 2.0436, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 2.0439, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "transport 0 4.000000 120.000000"}
+{"t": 2.044, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 2.0441, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "connect system:capture_1 mod-monitor:in_1"}
+{"t": 2.0442, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp -902"}
+{"t": 2.0442, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "connect system:capture_2 mod-monitor:in_2"}
+{"t": 2.0443, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp -902"}
+{"t": 2.0443, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "state_load /tmp/spike/patha/session-plugin-hostd/pedalboards/default.pedalboard"}
+{"t": 2.0443, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 2.0444, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "feature_enable processing 2"}
+{"t": 2.0444, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 2.0444, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "transport_sync none"}
+{"t": 2.0444, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 3.0176, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "output_data_ready"}
+{"t": 3.0178, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 5.0205, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "feature_enable processing 0"}
+{"t": 5.0208, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 5.027, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "remove -1"}
+{"t": 5.0275, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 5.0282, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "feature_enable processing 1"}
+{"t": 5.0285, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 5.0307, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "add http://moddevices.com/plugins/caps/AmpVTS 0"}
+{"t": 5.1142, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 5.1205, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "add http://moddevices.com/plugins/caps/PlateX2 1"}
+{"t": 5.1703, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 1"}
+{"t": 5.173, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "connect system:capture_1 effect_0:in"}
+{"t": 5.1798, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 5.1807, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "connect effect_0:out effect_1:inl"}
+{"t": 5.1809, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 5.1824, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "connect effect_0:out effect_1:inr"}
+{"t": 5.1832, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 5.1843, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "connect effect_1:outl mod-monitor:in_1"}
+{"t": 5.1868, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 5.1875, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "connect effect_1:outr mod-monitor:in_2"}
+{"t": 5.1876, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 5.1881, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "param_set 0 gain 0.250000"}
+{"t": 5.1882, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 5.4899, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "bypass 0 1"}
+{"t": 5.4908, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 5.7904, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "bypass 0 0"}
+{"t": 5.7912, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 6.0905, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "param_set 1 bandwidth 0.250000"}
+{"t": 6.0918, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 6.391, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "bypass 1 1"}
+{"t": 6.3918, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 6.6905, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "bypass 1 0"}
+{"t": 6.6907, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 6.9923, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "preset_save 0 \"spike-a-preset\" /tmp/spike/patha/session-plugin-hostd/.lv2/p0-spike_a_preset.lv2 spike_a_preset.ttl"}
+{"t": 6.9943, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 6.9951, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "bundle_add \"/tmp/spike/patha/session-plugin-hostd/.lv2/p0-spike_a_preset.lv2\""}
+{"t": 6.9967, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 7.3714, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "state_save /tmp/spike/patha/session-plugin-hostd/pedalboards/spike_a.pedalboard"}
+{"t": 7.3717, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 7.3779, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "feature_enable processing 0"}
+{"t": 7.378, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 7.3804, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "remove -1"}
+{"t": 7.4558, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 7.4561, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "feature_enable processing 1"}
+{"t": 7.4562, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 7.457, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "add http://calf.sourceforge.net/plugins/Monosynth 0"}
+{"t": 7.5435, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 7.5483, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "add http://gareus.org/oss/lv2/fil4#stereo 1"}
+{"t": 7.6024, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 1"}
+{"t": 7.6104, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "add http://calf.sourceforge.net/plugins/Reverb 2"}
+{"t": 7.6557, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 2"}
+{"t": 7.6612, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "connect effect_0:out_l effect_1:inL"}
+{"t": 7.6655, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 7.6665, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "connect effect_0:out_r effect_1:inR"}
+{"t": 7.6666, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 7.6672, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "connect effect_1:outL effect_2:in_l"}
+{"t": 7.6674, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 7.6681, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "connect effect_1:outR effect_2:in_r"}
+{"t": 7.6686, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 7.6692, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "connect effect_2:out_l mod-monitor:in_1"}
+{"t": 7.6695, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 7.6703, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "connect effect_2:out_r mod-monitor:in_2"}
+{"t": 7.6723, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 7.6729, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "param_set 0 o1_pw -0.500000"}
+{"t": 7.6732, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 7.9739, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "bypass 0 1"}
+{"t": 7.9742, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 8.2746, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "bypass 0 0"}
+{"t": 8.2755, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 8.5748, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "preset_load 0 http://calf.sourceforge.net/factory_presets#monosynth_Barkline"}
+{"t": 8.5754, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 8.5758, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "preset_show http://calf.sourceforge.net/factory_presets#monosynth_Barkline"}
+{"t": 8.5799, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "<http://calf.sourceforge.net/factory_presets#monosynth_Barkline>\n\ta pset:Preset ;\n\tlv2:appliesTo <http://calf.sourceforge.net/plugins/Monosynth> ;\n\trdfs:label \"Barkline\" ;\n\tlv2:port [\n\t\tlv2:symbol \"adsr_a\" ;\n\t\tpset:value 47.57749939\n\t] , [\n\t\tlv2:symbol \"adsr_d\" ;\n\t\tpset:value 350.0\n\t] , [\n\t\tlv2:symbol \"adsr_r\" ;\n\t\tpset:value 12.72869968\n\t] , [\n\t\tlv2:symbol \"adsr_s\" ;\n\t\tpset:value 0.5\n\t] , [\n\t\tlv2:symbol \"cutoff\" ;\n\t\tpset:value 32.55810165\n\t] , [\n\t\tlv2:symbol \"env2amp\" ;\n\t\tpset:value 1.0\n\t] , [\n\t\tlv2:symbol \"env2cutoff\" ;\n\t\tpset:value 10800.0\n\t] , [\n\t\tlv2:symbol \"env2res\" ;\n\t\tpset:value 1.0\n\t] , [\n\t\tlv2:symbol \"filter\" ;\n\t\tpset:value 1.0\n\t] , [\n\t\tlv2:symbol \"filter_sep\" ;\n\t\tpset:value -144.0\n\t] , [\n\t\tlv2:symbol \"key_follow\" ;\n\t\tpset:value 1.0\n\t] , [\n\t\tlv2:symbol \"legato\" ;\n\t\tpset:value 0.0\n\t] , [\n\t\tlv2:symbol \"o12_detune\" ;\n\t\tpset:value 3.0\n\t] , [\n\t\tlv2:symbol \"o12_mix\" ;\n\t\tpset:value 0.79000002\n\t] , [\n\t\tlv2:symbol \"o1_wave\" ;\n\t\tpset:value 2.0\n\t] , [\n\t\tlv2:symbol \"o2_wave\" ;\n\t\tpset:value 0.0\n\t] , [\n\t\tlv2:symbol \"o2_xpose\" ;\n\t\tpset:value 0.0\n\t] , [\n\t\tlv2:symbol \"phase_mode\" ;\n\t\tpset:value 4.0\n\t] , [\n\t\tlv2:symbol \"portamento\" ;\n\t\tpset:value 1.0\n\t] , [\n\t\tlv2:symbol \"res\" ;\n\t\tpset:value 1.99541998\n\t] , [\n\t\tlv2:symbol \"vel2amp\" ;\n\t\tpset:value 0.0\n\t] , [\n\t\tlv2:symbol \"vel2filter\" ;\n\t\tpset:value 0.75999999\n\t] .\n"}
+{"t": 8.5812, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "param_set 1 gain -9.000000"}
+{"t": 8.5814, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 8.8821, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "bypass 1 1"}
+{"t": 8.8833, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 9.1826, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "bypass 1 0"}
+{"t": 9.1832, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 9.4833, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "param_set 2 decay_time 4.050000"}
+{"t": 9.4842, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 9.7837, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "bypass 2 1"}
+{"t": 9.7847, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 10.0837, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "bypass 2 0"}
+{"t": 10.0849, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 10.3849, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "preset_load 2 http://calf.sourceforge.net/factory_presets#reverb_Ambience"}
+{"t": 10.3859, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 10.3864, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "preset_show http://calf.sourceforge.net/factory_presets#reverb_Ambience"}
+{"t": 10.3893, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "<http://calf.sourceforge.net/factory_presets#reverb_Ambience>\n\ta pset:Preset ;\n\tlv2:appliesTo <http://calf.sourceforge.net/plugins/Reverb> ;\n\trdfs:label \"Ambience\" ;\n\tlv2:port [\n\t\tlv2:symbol \"amount\" ;\n\t\tpset:value 0.29118299\n\t] , [\n\t\tlv2:symbol \"bass_cut\" ;\n\t\tpset:value 514.07897949\n\t] , [\n\t\tlv2:symbol \"decay_time\" ;\n\t\tpset:value 1.10353994\n\t] , [\n\t\tlv2:symbol \"diffusion\" ;\n\t\tpset:value 0.69\n\t] , [\n\t\tlv2:symbol \"dry\" ;\n\t\tpset:value 1.0\n\t] , [\n\t\tlv2:symbol \"hf_damp\" ;\n\t\tpset:value 2182.58007813\n\t] , [\n\t\tlv2:symbol \"predelay\" ;\n\t\tpset:value 6.5\n\t] , [\n\t\tlv2:symbol \"room_size\" ;\n\t\tpset:value 4.0\n\t] , [\n\t\tlv2:symbol \"treble_cut\" ;\n\t\tpset:value 4064.14990234\n\t] .\n"}
+{"t": 10.392, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "preset_save 0 \"spike-b-preset\" /tmp/spike/patha/session-plugin-hostd/.lv2/p0-spike_b_preset.lv2 spike_b_preset.ttl"}
+{"t": 10.3936, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 10.3942, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "bundle_add \"/tmp/spike/patha/session-plugin-hostd/.lv2/p0-spike_b_preset.lv2\""}
+{"t": 10.396, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 10.4245, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "state_save /tmp/spike/patha/session-plugin-hostd/pedalboards/spike_b.pedalboard"}
+{"t": 10.4264, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 10.4374, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "transport 0 4.000000 100.000000"}
+{"t": 10.4379, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 10.7339, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "transport 1 4.000000 100.000000"}
+{"t": 10.7351, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 10.7424, "conn": 2, "port": "fb", "dir": "s2c", "msg": "transport 1 4.000000 100.000000"}
+{"t": 10.7424, "conn": 2, "port": "fb", "dir": "s2c", "msg": "data_finish"}
+{"t": 10.7424, "conn": 2, "port": "fb", "dir": "s2c", "msg": "transport 1 4.000000 100.000000"}
+{"t": 10.7424, "conn": 2, "port": "fb", "dir": "s2c", "msg": "data_finish"}
+{"t": 10.7424, "conn": 2, "port": "fb", "dir": "s2c", "msg": "transport 1 4.000000 100.000000"}
+{"t": 10.7425, "conn": 2, "port": "fb", "dir": "s2c", "msg": "data_finish"}
+{"t": 11.0354, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "transport 0 4.000000 100.000000"}
+{"t": 11.0376, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 11.3362, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "feature_enable processing 0"}
+{"t": 11.3379, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 11.3429, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "remove -1"}
+{"t": 11.3512, "conn": 2, "port": "fb", "dir": "s2c", "msg": "transport 0 4.000000 100.000000"}
+{"t": 11.3983, "conn": 2, "port": "fb", "dir": "s2c", "msg": "transport 0 4.000000 100.000000"}
+{"t": 11.4304, "conn": 2, "port": "fb", "dir": "s2c", "msg": "transport 0 4.000000 100.000000"}
+{"t": 11.456, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 11.4563, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "feature_enable processing 1"}
+{"t": 11.4565, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 11.4574, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "feature_enable processing 0"}
+{"t": 11.4576, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 11.5292, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "transport 0 4.000000 120.000000"}
+{"t": 11.5293, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 11.5294, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "add http://moddevices.com/plugins/caps/PlateX2 1"}
+{"t": 11.6035, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 1"}
+{"t": 11.6041, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "param_set 1 bandwidth 0.250000"}
+{"t": 11.6043, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 11.6044, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "add http://moddevices.com/plugins/caps/AmpVTS 0"}
+{"t": 11.6462, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 11.6465, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "preset_load 0 file:///tmp/spike/patha/session-plugin-hostd/.lv2/p0-spike_a_preset.lv2/spike_a_preset.ttl"}
+{"t": 11.6467, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp -105"}
+{"t": 11.647, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "connect system:capture_1 effect_0:in"}
+{"t": 11.6589, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 11.6592, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "connect effect_0:out effect_1:inl"}
+{"t": 11.6624, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 11.6626, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "connect effect_0:out effect_1:inr"}
+{"t": 11.6629, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 11.663, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "connect effect_1:outl mod-monitor:in_1"}
+{"t": 11.6635, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 11.664, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "connect effect_1:outr mod-monitor:in_2"}
+{"t": 11.6643, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 11.6649, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "state_load /tmp/spike/patha/session-plugin-hostd/pedalboards/spike_a.pedalboard"}
+{"t": 11.6659, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 11.666, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "feature_enable processing 1"}
+{"t": 11.6663, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 13.5305, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "param_set 0 gain 0.250000"}
+{"t": 13.531, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 13.8308, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "param_set 1 bandwidth 0.500000"}
+{"t": 13.8316, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 14.1312, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "param_set 1 bandwidth 0.250000"}
+{"t": 14.1313, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 14.1323, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "feature_enable processing 0"}
+{"t": 14.1324, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 14.1375, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "remove -1"}
+{"t": 14.2129, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 14.2133, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "feature_enable processing 1"}
+{"t": 14.2134, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 14.2141, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "feature_enable processing 0"}
+{"t": 14.2141, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 14.327, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "transport 0 4.000000 120.000000"}
+{"t": 14.3271, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 14.3271, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "add http://gareus.org/oss/lv2/fil4#stereo 1"}
+{"t": 14.3975, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 1"}
+{"t": 14.3979, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "param_set 1 gain -9.000000"}
+{"t": 14.398, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 14.398, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "add http://calf.sourceforge.net/plugins/Monosynth 0"}
+{"t": 14.4614, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 14.4616, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "preset_load 0 file:///tmp/spike/patha/session-plugin-hostd/.lv2/p0-spike_b_preset.lv2/spike_b_preset.ttl"}
+{"t": 14.4619, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp -105"}
+{"t": 14.462, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "param_set 0 cutoff 32.558102"}
+{"t": 14.4625, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 14.4627, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "param_set 0 env2amp 1.000000"}
+{"t": 14.4628, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 14.463, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "param_set 0 env2cutoff 10800.000000"}
+{"t": 14.4634, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 14.4634, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "param_set 0 adsr_a 47.577499"}
+{"t": 14.4634, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 14.4635, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "param_set 0 adsr_r 12.728700"}
+{"t": 14.4635, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 14.4638, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "param_set 0 filter_sep -144.000000"}
+{"t": 14.4639, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 14.4641, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "param_set 0 key_follow 1.000000"}
+{"t": 14.4643, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 14.4643, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "param_set 0 o12_detune 3.000000"}
+{"t": 14.4643, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 14.4644, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "param_set 0 o12_mix 0.790000"}
+{"t": 14.4644, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 14.4644, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "param_set 0 o1_pw -0.500000"}
+{"t": 14.4645, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 14.4645, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "param_set 0 o1_wave 2.000000"}
+{"t": 14.4645, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 14.4646, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "param_set 0 o2_wave 0.000000"}
+{"t": 14.4646, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 14.4646, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "param_set 0 o2_xpose 0.000000"}
+{"t": 14.4647, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 14.4647, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "param_set 0 phase_mode 4.000000"}
+{"t": 14.4647, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 14.4648, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "param_set 0 res 1.995420"}
+{"t": 14.4648, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 14.4648, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "param_set 0 vel2filter 0.760000"}
+{"t": 14.4649, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 14.4649, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "add http://calf.sourceforge.net/plugins/Reverb 2"}
+{"t": 14.5094, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 2"}
+{"t": 14.5101, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "preset_load 2 http://calf.sourceforge.net/factory_presets#reverb_Ambience"}
+{"t": 14.5116, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 14.5121, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "param_set 2 amount 0.291183"}
+{"t": 14.5126, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 14.5138, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "param_set 2 bass_cut 514.078979"}
+{"t": 14.5143, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 14.5146, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "param_set 2 hf_damp 2182.580078"}
+{"t": 14.515, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 14.5152, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "param_set 2 diffusion 0.690000"}
+{"t": 14.5156, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 14.5158, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "param_set 2 predelay 6.500000"}
+{"t": 14.5163, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 14.5165, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "param_set 2 room_size 4.000000"}
+{"t": 14.5167, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 14.5169, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "param_set 2 treble_cut 4064.149902"}
+{"t": 14.5171, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 14.5173, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "param_set 2 decay_time 1.103540"}
+{"t": 14.5174, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 14.5176, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "connect effect_2:out_l mod-monitor:in_1"}
+{"t": 14.5234, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 14.5236, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "connect effect_2:out_r mod-monitor:in_2"}
+{"t": 14.527, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 14.5274, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "connect effect_1:outL effect_2:in_l"}
+{"t": 14.5278, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 14.5279, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "connect effect_1:outR effect_2:in_r"}
+{"t": 14.5287, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 14.5288, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "connect effect_0:out_l effect_1:inL"}
+{"t": 14.5317, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 14.532, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "connect effect_0:out_r effect_1:inR"}
+{"t": 14.5326, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 14.533, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "state_load /tmp/spike/patha/session-plugin-hostd/pedalboards/spike_b.pedalboard"}
+{"t": 14.5343, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 14.5348, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "feature_enable processing 1"}
+{"t": 14.5357, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 16.3286, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "param_set 0 o1_pw 0.000000"}
+{"t": 16.3296, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 16.6284, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "param_set 1 gain 0.000000"}
+{"t": 16.6289, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 16.9284, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "param_set 2 decay_time 1.500000"}
+{"t": 16.9287, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 17.2294, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "param_set 0 o1_pw -0.500000"}
+{"t": 17.2295, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 17.2296, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "param_set 1 gain -9.000000"}
+{"t": 17.2297, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 17.2298, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "param_set 2 decay_time 1.103540"}
+{"t": 17.2298, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 18.2331, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "feature_enable processing 0"}
+{"t": 18.2338, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 18.239, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "remove -1"}
+{"t": 18.3466, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 18.347, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "feature_enable processing 1"}
+{"t": 18.3471, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}
+{"t": 18.3477, "conn": 1, "port": "cmd", "dir": "c2s", "msg": "output_data_ready"}
+{"t": 18.3477, "conn": 1, "port": "cmd", "dir": "s2c", "msg": "resp 0"}

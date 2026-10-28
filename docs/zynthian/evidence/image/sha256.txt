@@ -1,0 +1,1 @@
+83c4078be5726f148cfc496cbbe2ef39a1933d0e0984e730ff0477126dff19b6  2026-10-15-zynthianos-vangelis-2610-stable.img.xz (https://os.zynthian.org/, fetched 2026-10-20)
