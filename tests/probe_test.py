@@ -833,8 +833,11 @@ def the_measured_child_locks_its_memory_or_the_record_says_why_not():
     else:
         env_file = os.path.join(tempfile.mkdtemp(prefix="plugin-hostd-probe-lock."), "env")
         doc, seen = rt_run(extra=("--data-bytes", str(data)), env={"PROBE_CHILD_ENV": env_file})
-        check(doc["run"]["memoryLock"] == {"locked": True, "limitBytes": data}, "memoryLock %s" % doc["run"]["memoryLock"])
-        check(seen["vmlck_kb"] > 0 and seen["memlock"] == data, "the child holds locked pages under its bound: %s" % seen)
+        unbounded = hard == resource.RLIM_INFINITY
+        check(doc["run"]["memoryLock"] == {"locked": True, "limitBytes": None if unbounded else hard},
+              "memoryLock %s" % doc["run"]["memoryLock"])
+        check(seen["vmlck_kb"] > 0 and seen["memlock"] == (2 ** 64 - 1 if unbounded else hard),
+              "the child holds locked pages under the hard limit: %s" % seen)
         stub = os.path.join(os.path.dirname(CHILD), "rt_interpose.so")
         got = child_env(env_file)
         check(got.get("LD_PRELOAD") == stub + ":" + LOCK and "PLUGIN_HOSTD_PROBE_LOCK_FD" not in got,

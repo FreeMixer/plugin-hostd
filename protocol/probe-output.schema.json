@@ -765,7 +765,7 @@
       ]
     },
     "memoryLock": {
-      "description": "Whether the measured child's memory was locked (mlockall of every current and future page) within limitBytes, its RLIMIT_MEMLOCK; a child that was not locked says why.",
+      "description": "Whether the measured child's memory was locked (mlockall of every current and future page) within limitBytes, its RLIMIT_MEMLOCK (null: unlimited); a child that was not locked says why.",
       "type": "object",
       "required": [
         "locked",
@@ -777,7 +777,10 @@
           "type": "boolean"
         },
         "limitBytes": {
-          "type": "integer",
+          "type": [
+            "integer",
+            "null"
+          ],
           "minimum": 0
         },
         "reason": {

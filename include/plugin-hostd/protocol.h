@@ -189,7 +189,7 @@
     X(CORE_DUMP, "core-dump", "RLIMIT_CORE 0") \
     X(RT_PRIORITY, "rt-priority", "RLIMIT_RTPRIO: the priority the measurement was granted, 0 without a grant") \
     X(RT_TIME, "rt-time", "RLIMIT_RTTIME: the wall budget, past which the kernel kills a real-time thread that never blocks") \
-    X(MEMORY_LOCK, "memory-lock", "RLIMIT_MEMLOCK: what the measured child may lock, at most the memory limit") \
+    X(MEMORY_LOCK, "memory-lock", "RLIMIT_MEMLOCK: what the measured child may lock, the hard limit the runner was started with") \
     X(CPUS, "cpus", "sched_setaffinity") \
     X(NICE, "nice", "the child's nice value") \
     X(NO_NEW_PRIVS, "no-new-privs", "PR_SET_NO_NEW_PRIVS") \

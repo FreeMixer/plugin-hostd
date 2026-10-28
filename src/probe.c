@@ -39,7 +39,7 @@
  *
  * Limits applied here, on every Linux: the wall clock with the tree kill, RLIMIT_CPU, RLIMIT_DATA, RLIMIT_NOFILE,
  * RLIMIT_FSIZE, RLIMIT_CORE 0, RLIMIT_RTPRIO the granted priority (0 without one), RLIMIT_RTTIME the wall budget,
- * RLIMIT_MEMLOCK at most the memory limit, PR_SET_NO_NEW_PRIVS, PR_SET_PDEATHSIG and cpu affinity. A limit the
+ * RLIMIT_MEMLOCK its hard limit, PR_SET_NO_NEW_PRIVS, PR_SET_PDEATHSIG and cpu affinity. A limit the
  * set asks for and this version does not apply (cgroup tasks, namespaces, Landlock, seccomp) is listed in the
  * document, never skipped in silence; --require turns it into a refusal.
  *
@@ -644,7 +644,7 @@ static realtime_t g_rt;
 typedef struct
 {
     int asked;           /* the preload was given to the measured child */
-    rlim_t bound;        /* the RLIMIT_MEMLOCK the measured child gets: the hard limit, at most the memory limit */
+    rlim_t bound;        /* the RLIMIT_MEMLOCK the measured child gets: the hard limit, RLIM_INFINITY when unbounded */
     int unbounded;       /* the hard limit is RLIM_INFINITY */
     int reported;        /* the preload wrote its report */
     probe_lock_report_t report;
@@ -712,7 +712,9 @@ static void memlock_choose(const options_t *o)
     memset(&g_lock, 0, sizeof(g_lock));
     getrlimit(RLIMIT_MEMLOCK, &r);
     g_lock.unbounded = r.rlim_max == RLIM_INFINITY;
-    g_lock.bound = g_lock.unbounded || r.rlim_max > (rlim_t)o->data_bytes ? (rlim_t)o->data_bytes : r.rlim_max;
+    /* the hard limit itself, not the memory limit: a lock covers the mapped files and the thread stacks too, which
+     * RLIMIT_DATA does not count, so a bound of the memory limit could fail an allocation the memory limit lets through */
+    g_lock.bound = r.rlim_max;
     /* a missing preload first: it is the reason on every machine, whatever its bound */
     if (access(g_lock_preload, R_OK) != 0)
         snprintf(g_lock.reason, sizeof(g_lock.reason), "no lock preload at %s", g_lock_preload);
@@ -775,8 +777,11 @@ static void put_memory_lock(sb_t *b)
 {
     int locked = g_lock.asked && g_lock.reported && g_lock.report.locked;
 
-    sb_printf(b, ",\n    \"memoryLock\": {\"locked\": %s, \"limitBytes\": %llu", locked ? "true" : "false",
-              (unsigned long long)g_lock.bound);
+    sb_printf(b, ",\n    \"memoryLock\": {\"locked\": %s, \"limitBytes\": ", locked ? "true" : "false");
+    if (g_lock.unbounded)
+        sb_printf(b, "null");
+    else
+        sb_printf(b, "%llu", (unsigned long long)g_lock.bound);
     if (!locked)
     {
         char why[PATH_MAX + 160];
@@ -906,7 +911,10 @@ static int list_limits(const options_t *o, int pin_option, const char *cpus)
     note_applied("core-dump", "rlimit", "bytes", 0, 1, NULL);
     note_applied("rt-priority", "rlimit", NULL, g_rt.chosen > 0 ? g_rt.bound : 0, 1, NULL);
     note_applied("rt-time", "rlimit", "us", (long long)o->wall_s * 1000000, 1, NULL);
-    note_applied("memory-lock", "rlimit", "bytes", (long long)g_lock.bound, 1, NULL);
+    if (g_lock.unbounded)
+        note_applied("memory-lock", "rlimit", NULL, 0, 0, "unlimited");
+    else
+        note_applied("memory-lock", "rlimit", "bytes", (long long)g_lock.bound, 1, NULL);
     if (pin_option)
         note_applied("cpus", "affinity", NULL, 0, 0, cpus);
     note_applied("no-new-privs", "prctl", NULL, 0, 0, NULL);

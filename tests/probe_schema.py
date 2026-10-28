@@ -101,6 +101,11 @@ def percentile_50(d):
     d["grid"][0]["cost"]["percentile"]["p"] = 50
 
 
+# an unbounded RLIMIT_MEMLOCK is written null, and validates
+unlimited = copy.deepcopy(fixture("success-msi"))
+unlimited["run"]["memoryLock"]["limitBytes"] = None
+check(not errors(unlimited), "a lock under an unlimited RLIMIT_MEMLOCK (limitBytes null) validates: %s" % errors(unlimited)[:3])
+
 for what, path, keyword, mutate, *broken in BROKEN:
     d = copy.deepcopy(fixture(broken[0] if broken else "success-msi"))
     (mutate or percentile_50)(d)

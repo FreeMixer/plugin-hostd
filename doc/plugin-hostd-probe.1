@@ -48,8 +48,8 @@ SCHED_OTHER. The sandbox bounds instead of forbidding: RLIMIT_RTPRIO is the gran
 RLIMIT_RTTIME the wall budget, past which the kernel kills a real\-time thread that never blocks. The memory is locked by
 the lock preload,
 .IR /usr/libexec/plugin\-hostd/probe\-lock.so ,
-preloaded beside the interposer: mlockall of every current and future page, within an RLIMIT_MEMLOCK of at most the
-memory limit, and only when the hard limit covers the memory limit. The document says what the kernel reported for the
+preloaded beside the interposer: mlockall of every current and future page, within the RLIMIT_MEMLOCK hard limit,
+and only when that covers the memory limit. The document says what the kernel reported for the
 child after the exec in
 .B run.realtime
 (class, priority, the priority requested, who granted it, and why none), never what was asked for, and whether the
