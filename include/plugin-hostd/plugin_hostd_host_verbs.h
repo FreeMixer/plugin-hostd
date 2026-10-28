@@ -201,7 +201,14 @@ struct omx_host_verb {
 #define OMX_VERB_PLAN_CLEAR_CODES_COUNT 3u
 #define OMX_VERB_PLAN_CLEAR_CODES_INIT { -532, -901, -902 } /* reply.plugin-hostd.no-such-plan, reply.host.memory-allocation, reply.host.invalid-operation */
 
-#define PLUGIN_HOSTD_HOST_VERB_COUNT 24u
+/* PLUGIN_HOSTD_VERBS.estimate (data/verbs.json): What a chain of these plugins would cost at a rate and a quantum, read from the qualification records with no plugin loaded: <rate> <quantum> <uri> [<uri> ...], the uris as add takes them, in signal order. The reply is the latency in frames (each member's measured latency, else its declared one, added up), the CPU as percent of one core's cycle (each member's median nanoseconds per sample times the rate, added up), the RAM in bytes (the Pss each member's worker had running alone on this host class, added up; - unless every member has one), the workers plan would place the members in, and how many members have no figure at that rate and quantum; then each of those as its position in the line, from 0, and its code (noRecord, noCell or unknownPlugin), joined by commas, - for none. The latency and the CPU add up only the members that have a figure. */
+#define OMX_VERB_ESTIMATE "estimate"
+#define OMX_VERB_ESTIMATE_FMT "estimate %i %i %s ..."
+#define OMX_VERB_ESTIMATE_REPLY "resp 0 <latency_frames> <cpu_percent> <ram_bytes> <workers> <unknown_count> <member>:<code>,..."
+#define OMX_VERB_ESTIMATE_CODES_COUNT 5u
+#define OMX_VERB_ESTIMATE_CODES_INIT { -533, -534, -535, -901, -902 } /* reply.plugin-hostd.no-record, reply.plugin-hostd.no-cell, reply.plugin-hostd.unknown-plugin, reply.host.memory-allocation, reply.host.invalid-operation */
+
+#define PLUGIN_HOSTD_HOST_VERB_COUNT 25u
 
 /* Every verb, in the order of its items, with what each host owes it. */
 static inline const struct omx_host_verb *plugin_hostd_host_verbs(void) {
@@ -230,6 +237,7 @@ static inline const struct omx_host_verb *plugin_hostd_host_verbs(void) {
     { OMX_VERB_PLAN, OMX_VERB_PLAN_FMT, OMX_VERB_PLAN_REPLY, { OMX_HOST_VERB_REQUIRED, OMX_HOST_VERB_UNSUPPORTED, OMX_HOST_VERB_UNSUPPORTED } },
     { OMX_VERB_PLAN_GET, OMX_VERB_PLAN_GET_FMT, OMX_VERB_PLAN_GET_REPLY, { OMX_HOST_VERB_REQUIRED, OMX_HOST_VERB_UNSUPPORTED, OMX_HOST_VERB_UNSUPPORTED } },
     { OMX_VERB_PLAN_CLEAR, OMX_VERB_PLAN_CLEAR_FMT, OMX_VERB_PLAN_CLEAR_REPLY, { OMX_HOST_VERB_REQUIRED, OMX_HOST_VERB_UNSUPPORTED, OMX_HOST_VERB_UNSUPPORTED } },
+    { OMX_VERB_ESTIMATE, OMX_VERB_ESTIMATE_FMT, OMX_VERB_ESTIMATE_REPLY, { OMX_HOST_VERB_REQUIRED, OMX_HOST_VERB_UNSUPPORTED, OMX_HOST_VERB_UNSUPPORTED } },
   };
   return table;
 }
