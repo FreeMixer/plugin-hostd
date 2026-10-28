@@ -48,7 +48,7 @@ const int rec_codes[] = {
     ERR_ASSIGNMENT_ALREADY_EXISTS, ERR_ASSIGNMENT_INVALID_OP, ERR_ASSIGNMENT_LIST_FULL, ERR_ASSIGNMENT_FAILED,
     ERR_ASSIGNMENT_UNUSED, ERR_CONTROL_CHAIN_UNAVAILABLE, ERR_ABLETON_LINK_UNAVAILABLE, ERR_HMI_UNAVAILABLE,
     ERR_EXTERNAL_UI_UNAVAILABLE, ERR_MEMORY_ALLOCATION, ERR_INVALID_OPERATION,
-#define X(id, meaning) PHD_ERR_##id,
+#define X(id, resp, meaning) resp,
     PHD_ERRORS(X)
 #undef X
 };
@@ -261,7 +261,7 @@ static char *answer(struct rec_call *c, const char *shape, int changes)
     if (changes)
         g_rec.state = mix_call(g_rec.state, c);
     /* the reply a verb declares fits one line of the protocol
-     * mutant: include/plugin-hostd/protocol.h:53 `4096` -> `4`
+     * mutant: include/plugin-hostd/protocol.h:56 `4096` -> `4`
      * input: mod-host-bypass */
     if (syntax_instantiate(shape, buf, sizeof(buf)) < 0)
         abort();

@@ -430,7 +430,7 @@ char *lv2_param_info(int id, const char *symbol)
     reply = sup_call(id, line);
     code = sup_reply_code(reply);
     free(reply);
-    return sup_resp(code == ERR_HOST_INVALID_PARAM_SYMBOL ? ERR_HOST_INVALID_PARAM_SYMBOL : PHD_ERR_NO_PARAM_CONTRACT);
+    return sup_resp(code == ERR_HOST_INVALID_PARAM_SYMBOL ? ERR_HOST_INVALID_PARAM_SYMBOL : OMX_REPLY_HOST_NO_PARAM_CONTRACT_RESP);
 }
 
 /* ---------------------------------------------------------------- which worker runs a plugin */

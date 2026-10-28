@@ -128,8 +128,8 @@ static int dir_ready(const char *key, char *dir, size_t size, const char *subdir
         state_default(dir, size, subdir);
     if (make_dirs(dir) != 0 || writable(dir) != 0)
     {
-        fprintf(stderr, "plugin-hostd: %s %s: %s: resp %d\n", key, dir, strerror(errno), PHD_ERR_DIR_NOT_WRITABLE);
-        return PHD_ERR_DIR_NOT_WRITABLE;
+        fprintf(stderr, "plugin-hostd: %s %s: %s: resp %d\n", key, dir, strerror(errno), OMX_REPLY_PLUGIN_HOSTD_DIR_NOT_WRITABLE_RESP);
+        return OMX_REPLY_PLUGIN_HOSTD_DIR_NOT_WRITABLE_RESP;
     }
     return SUCCESS;
 }
@@ -138,10 +138,10 @@ int descriptors_init(conf_t *conf)
 {
     g_conf = conf;
     if (dir_ready("descriptor_dir", conf->descriptor_dir, sizeof(conf->descriptor_dir), PHD_DIR_DESCRIPTORS_SUBDIR))
-        return PHD_ERR_DIR_NOT_WRITABLE;
+        return OMX_REPLY_PLUGIN_HOSTD_DIR_NOT_WRITABLE_RESP;
     if (dir_ready("qualification_dir", conf->qualification_dir, sizeof(conf->qualification_dir),
                   PHD_DIR_QUALIFICATION_SUBDIR))
-        return PHD_ERR_DIR_NOT_WRITABLE;
+        return OMX_REPLY_PLUGIN_HOSTD_DIR_NOT_WRITABLE_RESP;
     return SUCCESS;
 }
 
@@ -266,8 +266,8 @@ static void scan_start(scan_t *s, int panel)
 
     s->panel = panel;
     if (!panel)
-        s->code = PHD_ERR_DESCRIPTOR_PENDING;
-    s->panel_code = PHD_ERR_DESCRIPTOR_PENDING;
+        s->code = OMX_REPLY_PLUGIN_HOSTD_DESCRIPTOR_PENDING_RESP;
+    s->panel_code = OMX_REPLY_PLUGIN_HOSTD_DESCRIPTOR_PENDING_RESP;
     s->tmp[0] = '\0';
     if (panel)
         snprintf(dir, sizeof(dir), "%s/" PHD_PANEL_SUBDIR, g_conf->descriptor_dir);
@@ -276,7 +276,7 @@ static void scan_start(scan_t *s, int panel)
     snprintf(s->log, sizeof(s->log), "%s/scan-%s-%s%s.log", sup_root(), s->format, s->hash, panel ? "-panel" : "");
     if (!proc_have_binary(g_conf->probe))
     {
-        scan_failed(s, PHD_ERR_DESCRIPTOR_SCAN_FAILED, "the probe is not installed");
+        scan_failed(s, OMX_REPLY_PLUGIN_HOSTD_DESCRIPTOR_SCAN_FAILED_RESP, "the probe is not installed");
         return;
     }
     snprintf(s->tmp, sizeof(s->tmp), "%s/.%s.%d.%u.tmp", dir, s->hash, (int)getpid(), g_seq++);
@@ -286,7 +286,7 @@ static void scan_start(scan_t *s, int panel)
 
         snprintf(why, sizeof(why), "descriptor_dir %s: %s", dir, strerror(errno));
         s->tmp[0] = '\0';
-        scan_failed(s, PHD_ERR_DIR_NOT_WRITABLE, why);
+        scan_failed(s, OMX_REPLY_PLUGIN_HOSTD_DIR_NOT_WRITABLE_RESP, why);
         return;
     }
     log = open(s->log, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
@@ -311,7 +311,7 @@ static void scan_start(scan_t *s, int panel)
         close(null);
     if (pid < 0)
     {
-        scan_failed(s, PHD_ERR_DESCRIPTOR_SCAN_FAILED, strerror(errno));
+        scan_failed(s, OMX_REPLY_PLUGIN_HOSTD_DESCRIPTOR_SCAN_FAILED_RESP, strerror(errno));
         return;
     }
     s->pid = pid;
@@ -399,7 +399,7 @@ static int scan_file(scan_t *s, const char *final)
     else if (rename(s->tmp, final) != 0)
     {
         snprintf(why, sizeof(why), "%s", strerror(errno));
-        scan_failed(s, PHD_ERR_DIR_NOT_WRITABLE, why);
+        scan_failed(s, OMX_REPLY_PLUGIN_HOSTD_DIR_NOT_WRITABLE_RESP, why);
         return -1;
     }
     else
@@ -434,12 +434,12 @@ static void scan_ended(scan_t *s, int status)
             snprintf(why, sizeof(why), "killed by signal %d", WTERMSIG(status));
         else
             snprintf(why, sizeof(why), "the probe exited %d", WEXITSTATUS(status));
-        scan_failed(s, PHD_ERR_DESCRIPTOR_SCAN_FAILED, why);
+        scan_failed(s, OMX_REPLY_PLUGIN_HOSTD_DESCRIPTOR_SCAN_FAILED_RESP, why);
         return;
     }
     if ((doc = scan_output(s)) == NULL)
     {
-        scan_failed(s, PHD_ERR_DESCRIPTOR_SCAN_FAILED, s->panel ? "its output is no panel" : "its output is no descriptor");
+        scan_failed(s, OMX_REPLY_PLUGIN_HOSTD_DESCRIPTOR_SCAN_FAILED_RESP, s->panel ? "its output is no panel" : "its output is no descriptor");
         return;
     }
     if (s->panel)
@@ -496,7 +496,7 @@ static char *resp_path(const char *path)
 /* what a scan ended with, for a file that is not there: a scan that wrote one that is gone since wrote none */
 static char *resp_missing(const scan_t *s, int code)
 {
-    return sup_resp(s && code != SUCCESS ? code : PHD_ERR_DESCRIPTOR_ABSENT);
+    return sup_resp(s && code != SUCCESS ? code : OMX_REPLY_PLUGIN_HOSTD_DESCRIPTOR_ABSENT_RESP);
 }
 
 char *descriptors_get(const char *uri)
@@ -506,7 +506,7 @@ char *descriptors_get(const char *uri)
     scan_t *s;
 
     if (!g_conf || identify(uri, target, sizeof(target), &format, &id, hash) != 0)
-        return sup_resp(PHD_ERR_DESCRIPTOR_ABSENT);
+        return sup_resp(OMX_REPLY_PLUGIN_HOSTD_DESCRIPTOR_ABSENT_RESP);
     if (lookup(id, hash, path, sizeof(path)) != 0)
     {
         s = scan_of(format, id, hash);
@@ -523,7 +523,7 @@ char *descriptors_panel_get(const char *uri)
     scan_t *s;
 
     if (!g_conf || identify(uri, target, sizeof(target), &format, &id, hash) != 0)
-        return sup_resp(PHD_ERR_DESCRIPTOR_ABSENT);
+        return sup_resp(OMX_REPLY_PLUGIN_HOSTD_DESCRIPTOR_ABSENT_RESP);
     s = scan_of(format, id, hash);
     if (lookup(id, hash, path, sizeof(path)) != 0)
         return resp_missing(s, s ? s->code : SUCCESS);

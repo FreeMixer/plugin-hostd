@@ -140,8 +140,8 @@ static void json(void)
 #undef X
     printf("\n  ],\n  \"errors\": [");
     sep = "\n";
-#define X(id, meaning) \
-    printf("%s    {\"name\": \"" #id "\", \"macro\": \"PHD_ERR_" #id "\", \"code\": %d, \"meaning\": ", sep, PHD_ERR_##id); \
+#define X(id, resp, meaning) \
+    printf("%s    {\"name\": \"" #id "\", \"macro\": \"" #resp "\", \"code\": %d, \"meaning\": ", sep, resp); \
     jstr(meaning); \
     printf("}"); \
     sep = ",\n";
@@ -433,9 +433,9 @@ static void region_errors(void)
 
     row(" code ", " name ", " meaning ", NULL);
     printf("|---|---|---|\n");
-#define X(id, meaning) \
-    snprintf(code, sizeof(code), " `%d` ", PHD_ERR_##id); \
-    row(code, " `PHD_ERR_" #id "` ", " " meaning " ", NULL);
+#define X(id, resp, meaning) \
+    snprintf(code, sizeof(code), " `%d` ", resp); \
+    row(code, " `" #resp "` ", " " meaning " ", NULL);
     PHD_ERRORS(X)
 #undef X
 }
@@ -543,7 +543,7 @@ static void region_man_dirs(void)
 #undef X
     printf(".PP\nA missing directory is made, mode %04o, with its parents. One that cannot be made or written stops the "
            "daemon before it is ready: stderr names the key and the path with resp ", PHD_DIR_MODE);
-    snprintf(buffer, sizeof(buffer), "%d", PHD_ERR_DIR_NOT_WRITABLE);
+    snprintf(buffer, sizeof(buffer), "%d", OMX_REPLY_PLUGIN_HOSTD_DIR_NOT_WRITABLE_RESP);
     roff_escape(buffer);
     printf(".\n.PP\nThe answered\n.B add\nof a plugin whose files have no descriptor yet runs\n.I probe\n.B describe\n"
            "in a child of its own and files its stdout as\n.IR \"");
@@ -551,7 +551,8 @@ static void region_man_dirs(void)
     printf("\" ,\nwritten once; the add never waits for it.\n.B " OMX_VERB_DESCRIPTOR_GET "\n.I uri\n"
            "answers the file's path, or ");
     snprintf(buffer, sizeof(buffer), "%d (none), %d (the scan runs), %d (the scan wrote nothing)",
-             PHD_ERR_DESCRIPTOR_ABSENT, PHD_ERR_DESCRIPTOR_PENDING, PHD_ERR_DESCRIPTOR_SCAN_FAILED);
+             OMX_REPLY_PLUGIN_HOSTD_DESCRIPTOR_ABSENT_RESP, OMX_REPLY_PLUGIN_HOSTD_DESCRIPTOR_PENDING_RESP,
+             OMX_REPLY_PLUGIN_HOSTD_DESCRIPTOR_SCAN_FAILED_RESP);
     roff_escape(buffer);
     printf(".\nOnce the descriptor is in place the same scan runs\n.I probe\n.B panel\nand files the plugin's panel as\n"
            ".IR \"");

@@ -122,8 +122,9 @@ else:
         header = f.read()
     rows = header[header.index("#define PHD_INSTANCE_VERBS(X)"):]
     rows = rows[:rows.index("\n\n")]
-    with open(os.path.join(ROOT, "include", "plugin-hostd", "plugin_hostd_host_verbs.h")) as f:
-        header += f.read()
+    for rendered in ("plugin_hostd_host_verbs.h", "omx_clap_core_host_verbs.h"):
+        with open(os.path.join(ROOT, "include", "plugin-hostd", rendered)) as f:
+            header += f.read()
     by_macro = dict(re.findall(r'^#define\s+((?:PHD_(?:VERB|EVENT)|OMX_VERB)_\w+)\s+"(\w+)"$', header, re.M))
     instance_info = {by_macro[m] for m in re.findall(r"X\(\w+, ((?:PHD|OMX)_VERB_\w+),", rows)}
     events = {v for m, v in by_macro.items() if m.startswith("PHD_EVENT_")}

@@ -15,7 +15,7 @@
 #include "conf.h"
 
 /* descriptor_dir and qualification_dir resolved (an empty setting is the default of protocol.h), made when missing
- * and tried for a write; SUCCESS, or PHD_ERR_DIR_NOT_WRITABLE with the key, the path and why on stderr. The resolved
+ * and tried for a write; SUCCESS, or OMX_REPLY_PLUGIN_HOSTD_DIR_NOT_WRITABLE_RESP with the key, the path and why on stderr. The resolved
  * paths are written back into conf, which is kept for the scans. */
 int descriptors_init(conf_t *conf);
 

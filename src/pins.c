@@ -565,7 +565,7 @@ int pins_set(const char *uri, const char *files, const char *layout, const char 
         fprintf(stderr, "plugin-hostd: %s: its pins.d pin carries " PHD_PIN_VERDICT_KEY PHD_PIN_VERDICT_REFUSED
                         ", which pin_set does not override\n", pin.uri);
         pin_free(&pin);
-        return PHD_ERR_PIN_REFUSED;
+        return OMX_REPLY_PLUGIN_HOSTD_PIN_REFUSED_RESP;
     }
     pin_put(&pin);
     return SUCCESS;
@@ -646,7 +646,7 @@ void pins_finish(void)
 int pin_refuse(const char *uri, const char *path, const char *why)
 {
     fprintf(stderr, "plugin-hostd: %s: %s %s\n", uri, path, why);
-    return PHD_ERR_PIN_BINARY_MISMATCH;
+    return OMX_REPLY_PLUGIN_HOSTD_PIN_BINARY_MISMATCH_RESP;
 }
 
 /* the file of a pin hashed over one open descriptor */
@@ -701,7 +701,7 @@ static int record(const format_t *format, const char *uri, const char *search)
     {
         fprintf(stderr, "plugin-hostd: %s: %s; not learned\n", uri, g_store_unreadable
                 ? "the pin store could not be read" : "its line in the pin store is corrupt");
-        rc = PHD_ERR_PIN_BINARY_MISMATCH;
+        rc = OMX_REPLY_PLUGIN_HOSTD_PIN_BINARY_MISMATCH_RESP;
     }
     if (rc != SUCCESS)
     {
@@ -745,12 +745,12 @@ int pins_learn(const format_t *format, const char *uri, const char *search)
 int pins_accept(const format_t *format, const char *uri, const char *search)
 {
     if (!find(bare(uri)))
-        return PHD_ERR_PIN_ABSENT;
+        return OMX_REPLY_HOST_PIN_ABSENT_RESP;
     if (pkg_refusal(bare(uri)))
     {
         fprintf(stderr, "plugin-hostd: %s: its pins.d pin carries " PHD_PIN_VERDICT_KEY PHD_PIN_VERDICT_REFUSED
                         ", which pin_accept does not override\n", uri);
-        return PHD_ERR_PIN_REFUSED;
+        return OMX_REPLY_PLUGIN_HOSTD_PIN_REFUSED_RESP;
     }
     return record(format, uri, search);
 }
@@ -781,7 +781,7 @@ int pins_check(const format_t *format, const char *uri, const char *search, cons
     {
         fprintf(stderr, "plugin-hostd: %s: %s\n", uri, p ? "its layout pin is in a scheme this version does not know"
                                                           : "no pin");
-        return PHD_ERR_PIN_ABSENT;
+        return OMX_REPLY_HOST_PIN_ABSENT_RESP;
     }
     /* what the format says the host loads for the plugin, each held by the pin, then every file the pin holds hashed */
     rc = format->pin_collect(uri, search, root, sizeof(root), &files);
@@ -795,7 +795,7 @@ int pins_check(const format_t *format, const char *uri, const char *search, cons
     if (rc == SUCCESS && !strcmp(p->verdict, PHD_PIN_VERDICT_REFUSED))
     {
         fprintf(stderr, "plugin-hostd: %s: its pin carries " PHD_PIN_VERDICT_KEY PHD_PIN_VERDICT_REFUSED "\n", uri);
-        rc = PHD_ERR_PIN_REFUSED;
+        rc = OMX_REPLY_PLUGIN_HOSTD_PIN_REFUSED_RESP;
     }
     if (rc == SUCCESS)
         *layout = strcmp(p->layout, PHD_PIN_LAYOUT_UNKNOWN) ? p->layout : NULL;

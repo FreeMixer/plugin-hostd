@@ -77,9 +77,27 @@ def check_one_name(own_docs, shared_docs):
             fail("%d has %d names: %s" % (resp, len(names), ", ".join(names)))
     with open(os.path.join(ROOT, "include", "plugin-hostd", "protocol.h")) as f:
         header = f.read()
-    errors = {int(n) for n in re.findall(r"^#define\s+PHD_ERR_\w+\s+\((-[0-9]+)\)", header, re.M)}
+    # the numbers PHD_ERRORS answers are the rendered OMX_REPLY_*_RESP macros it names; the header defines none of its own
+    rendered = {}
+    for name in ("omx_clap_core_vocabulary.h", "plugin_hostd_vocabulary.h"):
+        with open(os.path.join(ROOT, "include", "plugin-hostd", name)) as f:
+            rendered.update({m: int(n) for m, n in re.findall(r"^#define\s+(OMX_REPLY_\w+_RESP)\s+\((-[0-9]+)\)", f.read(), re.M)})
+    if re.search(r"^#define\s+PHD_ERR_", header, re.M):
+        fail("protocol.h defines a PHD_ERR_ number of its own")
+    block = header[header.index("#define PHD_ERRORS(X)"):header.index("/* ---------------------------------------------------------------- verbs */")]
+    names = re.findall(r"X\([A-Z0-9_]+, (OMX_REPLY_\w+_RESP), ", block)
+    absent = [n for n in names if n not in rendered]
+    if absent:
+        fail("PHD_ERRORS names %s, which no rendered vocabulary header defines" % absent)
+    # the daemon is compiled against the rendered numbers: one that is not the declared resp of its code is a stale render
+    for pkg, docs in (("plugin-hostd", own_docs), ("omx-clap-core", shared_docs)):
+        for ref, (code, resp) in codes_of(docs).items():
+            macro = "OMX_" + re.sub(r"[^A-Za-z0-9]+", "_", code).upper() + "_RESP"
+            if resp is not None and macro in rendered and rendered[macro] != resp:
+                fail("%s is %d in the rendered header and %d in %s (%s): render again" % (macro, rendered[macro], resp, pkg, ref))
+    errors = {rendered[n] for n in names}
     if len(errors) < 20:
-        fail("found only %d PHD_ERR_ numbers in protocol.h" % len(errors))
+        fail("found only %d numbers in protocol.h's PHD_ERRORS" % len(errors))
     unnamed = sorted(errors - set(named))
     if unnamed:
         fail("protocol.h answers %s, which no code of plugin-hostd or omx-clap-core names" % unnamed)
