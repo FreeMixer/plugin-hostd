@@ -72,7 +72,8 @@ jobs:
     container:
       image: fedora:44
       # the jack test runs the daemon and its workers in a user, net, pid and mount namespace of their own
-      options: --cap-add SYS_ADMIN --security-opt seccomp=unconfined --security-opt apparmor=unconfined --security-opt systempaths=unconfined
+      # CAP_SYS_NICE lets the probe test measure at the highest SCHED_FIFO priority, as the sync service does with its grant
+      options: --cap-add SYS_ADMIN --cap-add SYS_NICE --security-opt seccomp=unconfined --security-opt apparmor=unconfined --security-opt systempaths=unconfined
     steps:
       - name: Install the build tools
         run: |
