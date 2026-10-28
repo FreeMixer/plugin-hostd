@@ -21,6 +21,15 @@ is the proof.
 `plugin-hostd` of the contract directory: `<contractdir>/3/plugin-hostd/formats/{clap,lv2}.json`, with its
 `MANIFEST.json`, beside the daemon's verbs (`verbs.json`). The noarch package plugin-hostd-contract
 (`plugin-hostd-contract` on Debian too) ships them, and a program that reads them at run time requires it.
+It requires omx-contract 3.2.0 or later (`Requires`, Debian `Depends`): the tables live in omx-contract's contract
+directory and are read against its schema, and 3.2.0 is the first whose source field takes an index
+(`omx_clap_panel_display.meter_ids[0]`), so an older omx-contract never sits beside a table it refuses.
+
+`make check-contract-dir` installs the package into a staging directory and runs `omx-contract validate` over it
+together with the installed contract directory (omx-contract's own tables, omx-clap-core's): red on any table the
+installed schema refuses, and red, never a skip, when the `omx-contract` command is absent. The coverage test below
+walks the schema for the words only, never for the row keys; this gate reads every key as a reader of the installed
+directory does.
 
 A table's `rows` are keyed by the source field, and each row has exactly one class:
 

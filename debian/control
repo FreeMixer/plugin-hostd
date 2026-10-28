@@ -56,7 +56,7 @@ Description: C header to drive plugin-hostd from your own controller
 
 Package: plugin-hostd-contract
 Architecture: all
-Depends: omx-clap-core-contract (>= 0.23.0~), ${misc:Depends}
+Depends: omx-clap-core-contract (>= 0.23.0~), omx-contract (>= 3.2.0~), ${misc:Depends}
 Breaks: plugin-hostd-dev (<< ${source:Version})
 Replaces: plugin-hostd-dev (<< ${source:Version})
 Description: plugin-hostd's format tables and verbs, read at run time
