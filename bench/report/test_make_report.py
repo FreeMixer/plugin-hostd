@@ -2,6 +2,7 @@ import contextlib
 import io
 import json
 import os
+import shutil
 import tempfile
 import unittest
 
@@ -193,6 +194,74 @@ class Case(unittest.TestCase):
         self.run_main()
         self.assertIn("Run rpi5-20261027-10", self.report())
 
+    # a complete input set: every row the bench writes for a full run, all four sections of data
+    def complete(self, drop=None, mutate=None):
+        rows = []
+        for sid, host, mode, rate, frames, stressed in m.expected_cells():
+            if drop and drop(sid, host, mode, rate, frames, stressed):
+                continue
+            r = scen(sid, host, rate, frames, xruns=0, latency_frames=64, processes=1, rss_mb_total=10.0, pss_mb_total=5.0, cpu_pct=1.0)
+            if sid == "kill1":
+                r["recover_ms"] = 120.0
+            if mode:
+                r["mode"] = mode
+            r["stress"] = "busy4+mem64" if stressed else "none"
+            if mutate:
+                mutate(r)
+            rows.append(r)
+        self.write("b/rpi.json", bench("rpi5", rows))
+        self.write("q/a.json", {"verdicts": [{"rating": "suitable"}, {"rating": "unsuitable", "deciding": "r1"}]})
+        self.write("c.txt", "jalv 1.8.0 (x):\n  hosted 977 of 979 (a)\nmod-host 0.10.6 f:\n  hosted 975 of 979\nomx-clap-core: 979 of 979 on main\n")
+        self.write("p.json", {"fetched_at": "2026-10-28T10:00:00Z", "prs": [
+            {"repo": "FreeMixer/zynthian-ui", "number": 1, "title": "t", "state": "MERGED", "baseRefName": "main"}]})
+        for sub in ("e",):
+            os.makedirs(os.path.join(self.d, sub), exist_ok=True)
+
+    def run_complete(self, *extra):
+        return m.main(["--bench", os.path.join(self.d, "b"), "--earlier", self.empty, "--qualification", os.path.join(self.d, "q"),
+                       "--coverage", os.path.join(self.d, "c.txt"), "--prs", os.path.join(self.d, "p.json"), "--facts", FACTS,
+                       "--out", os.path.join(self.d, "o")] + list(extra))
+
+    def test_strict_passes_a_complete_run(self):
+        self.complete()
+        self.assertEqual(self.run_complete("--strict"), 0)
+        self.assertNotIn("partial run", self.report())
+
+    def test_partial_runs_fail_strict_and_say_so_in_the_document(self):
+        cases = {
+            "a host": lambda sid, h, mode, r, f, st: h == "H3",
+            "a rate": lambda sid, h, mode, r, f, st: r == 96000,
+            "a frames value": lambda sid, h, mode, r, f, st: f == 128,
+            "a plugin cell": lambda sid, h, mode, r, f, st: (sid, h, r, f, st) == ("chain3", "H2", 48000, 256, False),
+            "the stress rows": lambda sid, h, mode, r, f, st: st,
+        }
+        for name, drop in cases.items():
+            self.complete(drop=drop)
+            shutil.rmtree(os.path.join(self.d, "o"), ignore_errors=True)
+            with contextlib.redirect_stderr(io.StringIO()) as err:
+                self.assertEqual(self.run_complete("--strict"), 1, name)
+            self.assertIn("partial run", err.getvalue(), name)
+            self.assertFalse(os.path.exists(os.path.join(self.d, "o", "report.md")), name)
+            self.assertEqual(self.run_complete(), 0, name)
+            self.assertIn("This report is built from a partial run", self.report(), name)
+
+    def test_ok_rows_without_xruns_latency_or_recovery_are_partial(self):
+        for key in ("xruns", "latency_frames", "recover_ms"):
+            def mutate(r, key=key):
+                if r["id"] == "kill1" or key != "recover_ms":
+                    r.pop(key, None) if key == "xruns" else r.__setitem__(key, None)
+            self.complete(mutate=mutate)
+            with contextlib.redirect_stderr(io.StringIO()) as err:
+                self.assertEqual(self.run_complete("--strict"), 1, key)
+            self.assertIn(key, err.getvalue())
+
+    def test_a_host_that_measured_nothing_is_partial(self):
+        self.complete(mutate=lambda r: r.update(status="unsupported", note="absent", dsp_load_avg=None, dsp_load_max=None, rss_mb=None, samples=0)
+                      if r["host"] == "H3" else None)
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            self.assertEqual(self.run_complete("--strict"), 1)
+        self.assertIn("host H3: no row with status ok", err.getvalue())
+
     def test_non_strict_exits_zero(self):
         self.assertEqual(self.run_main(), 0)
 
@@ -234,6 +303,14 @@ class Case(unittest.TestCase):
         q = m.parse_qpilot(os.path.join(self.d, "e"))
         self.assertEqual((q["seconds"], q["counts"]), (271, {"unsuitable": 125, "suitable": 122}))
         self.assertEqual(q["sample_reasons"], {"hosting.x": 1})
+
+    def test_aborted_qualification_run_is_not_complete(self):
+        self.write("e/zy-qpilot.out", "exit=1 seconds=271\n-- verdict summary\n    5 suitable\n-- sample\nh\n-- stderr\n")
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            rc = m.main(["--bench", os.path.join(self.d, "b"), "--earlier", os.path.join(self.d, "e"), "--facts", FACTS,
+                         "--out", os.path.join(self.d, "o"), "--strict"])
+        self.assertEqual(rc, 1)
+        self.assertIn("exited with status 1", err.getvalue())
 
     def test_qdocs_reasons(self):
         self.write("q/a.json", {"verdicts": [{"rating": "suitable"}, {"rating": "unsuitable", "deciding": "r1"},

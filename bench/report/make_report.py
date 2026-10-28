@@ -150,6 +150,7 @@ def parse_qpilot(dirpath):
     if not text:
         return None
     sec = re.search(r"seconds=(\d+)", text)
+    ex = re.search(r"exit=(-?\d+)", text)
     counts = {}
     summary = text.split("-- verdict summary", 1)[-1].split("-- sample", 1)[0]
     for m in re.finditer(r"(?m)^\s+(\d+) (suitable|unsuitable|conditional|unknown)\s*$", summary):
@@ -162,7 +163,7 @@ def parse_qpilot(dirpath):
             reasons[parts[2]] = reasons.get(parts[2], 0) + 1
     if not counts:
         return None
-    return {"seconds": int(sec.group(1)) if sec else None, "counts": counts, "sample_reasons": reasons}
+    return {"seconds": int(sec.group(1)) if sec else None, "exit": int(ex.group(1)) if ex else None, "counts": counts, "sample_reasons": reasons}
 
 
 def parse_qdocs(dirpath, errs):
@@ -229,6 +230,7 @@ class Doc:
         self.blocks = []
         self.missing = []
         self.errors = []
+        self.partial = []
         self.section = ""
 
     def h1(self, t): self.blocks.append(("h1", t))
@@ -276,6 +278,64 @@ def sec_user(doc, facts):
     stated(doc, facts, "user")
 
 
+SCENARIOS = os.path.join(REPO, "bench", "scenarios.json")
+# the grid of the acceptance run: the defaults of bench/run.sh
+GRID_RATES = (48000, 96000)
+GRID_FRAMES = (128, 256)
+GRID_HOSTS = tuple(h for h, _n in HOSTS)
+
+
+def expected_cells():
+    """Every row the bench writes for a full run of its scenarios.json over the grid, as
+    (scenario id, host, mode, rate, frames, stressed)."""
+    with open(SCENARIOS) as fh:
+        table = json.load(fh)
+    cells = []
+    for sc in table["scenarios"]:
+        for stressed in ((False, True) if sc.get("stress") else (False,)):
+            if sc.get("family"):
+                combos = [(m["host"], m["mode"]) for m in table["modes"][sc["family"]]]
+            else:
+                combos = [(h, None) for h in GRID_HOSTS]
+            for host, mode in combos:
+                for rate in GRID_RATES:
+                    for frames in GRID_FRAMES:
+                        cells.append((sc["id"], host, mode, rate, frames, stressed))
+    return cells
+
+
+def completeness(rpi):
+    """Why a run is partial: absent rows, a host or scenario with no measured row, measured rows without xruns or latency.
+    An empty list is a complete run."""
+    cells = expected_cells()
+    moded = {c[0] for c in cells if c[2]}      # the families: their rows are told apart by mode
+    have = {(s["id"], s["host"], s.get("mode") if s["id"] in moded else None, s["rate"], s["frames"],
+             s.get("stress") not in (None, "none")): s for s in rpi["scenarios"]}
+    why = []
+    absent = {}
+    for c in cells:
+        if c not in have:
+            absent.setdefault((c[0], c[1], c[2], c[5]), []).append("%d/%d" % (c[3], c[4]))
+    for (sid, host, mode, stressed), where in sorted(absent.items(), key=lambda kv: tuple(str(x) for x in kv[0])):
+        why.append("%s %s%s%s: no row at %s" % (sid, host, " " + mode if mode else "", " under stress" if stressed else "", ", ".join(where)))
+    for host in GRID_HOSTS:
+        if not any(s["host"] == host and s["status"] == "ok" for s in rpi["scenarios"]):
+            why.append("host %s: no row with status ok" % host)
+    for sid in sorted({c[0] for c in cells}):
+        if not any(s["id"] == sid and s["status"] == "ok" for s in rpi["scenarios"]):
+            why.append("scenario %s: no row with status ok" % sid)
+    for c in cells:
+        s = have.get(c)
+        if s is not None and s["status"] == "ok":
+            if "xruns" not in s:
+                why.append("%s %s %s %d/%d: ok row without xruns" % (c[0], c[1], c[2] or "", c[3], c[4]))
+            if c[0] == "kill1" and s["recover_ms"] is None:
+                why.append("kill1 %s %d/%d: ok row without recover_ms" % (c[1], c[3], c[4]))
+            if s.get("latency_frames") is None:
+                why.append("%s %s %s %d/%d: ok row without latency_frames" % (c[0], c[1], c[2] or "", c[3], c[4]))
+    return why
+
+
 def host_cell(s):
     if s is None:
         return "-"
@@ -300,6 +360,9 @@ def sec_measure(doc, facts, rpi, earlier, results_dir, ci_docs):
         doc.p("Run %s on %s (%s, %d cores, %d MB RAM, %s, kernel %s), governor %s. Software: %s." % (
             rpi["id"], m["model"], m["cpu"], m["cores"], m["ram_mb"], m["os"], m["kernel"], m["governor"], sw))
     scen = rpi["scenarios"] if rpi else []
+    if rpi is not None:
+        for why in completeness(rpi):
+            doc.partial.append(why)
 
     def pick(sid, host, rate, frames):
         for s in scen:
@@ -450,6 +513,12 @@ def sec_qual(doc, facts, rpi, qpilot, qdocs, coverage):
         elif seconds is not None:
             extra = ", %s s" % num(seconds, 0)
         doc.p("Source: %s. %d plugins judged%s." % (src, total, extra))
+        if not qdocs and qpilot:
+            if qpilot["exit"] is None:
+                doc.missing.append("4. Qualification coverage: zy-qpilot.out records no exit status")
+            elif qpilot["exit"] != 0:
+                doc.p("The qualification run exited with status %d: these counts are of an aborted run." % qpilot["exit"])
+                doc.missing.append("4. Qualification coverage: the qualification run exited with status %d" % qpilot["exit"])
         doc.table(["verdict", "plugins", "share"], [[k, str(v), "%.1f%%" % (100.0 * v / total)] for k, v in sorted(counts.items(), key=lambda kv: -kv[1])])
     doc.h3("Refused, with reasons")
     if reasons:
@@ -534,6 +603,12 @@ def build(args):
     sec_user(doc, facts)
     sec_measure(doc, facts, rpi, earlier, args.results, others)
     sec_qual(doc, facts, rpi, qpilot, qdocs, coverage)
+    if doc.partial:
+        doc.missing += ["3. Measurements: partial run: " + w for w in doc.partial]
+        shown = doc.partial[:20]
+        notice = ["This report is built from a partial run: %d reasons%s." % (len(doc.partial), "" if len(shown) == len(doc.partial) else ", the first %d listed" % len(shown))]
+        doc.blocks.insert(1, ("p", notice[0]))
+        doc.blocks.insert(2, ("ul", shown))
     sec_risk(doc, facts)
     sec_try(doc, facts)
     sec_ask(doc, facts, prs, fetched_at)
