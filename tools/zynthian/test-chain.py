@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The plugind chain of the Zynthian engine against plugin-hostd: one Zynthian chain as one chain line, read back.
 
-    test-chain.py --zui <zynthian-ui checkout with zynthian_engine_plugind.patch applied>
+    test-chain.py --zui <zynthian-ui checkout with the spike engine applied: spike-engine.sh>
 
 Environment: PLUGIN_HOSTD (./plugin-hostd, a daemon with chain_get, plugin-hostd#162), FAKE_HOST (tests/fake-host);
 PLUGIN_HOSTD_OLD, a daemon without chain_get, adds the floor scenario. The real zynthian_chain, zynthian_processor and

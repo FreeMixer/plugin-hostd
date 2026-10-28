@@ -2,7 +2,7 @@
 """Path B of the Zynthian spike (FreeMixer/plugin-hostd#124): zynthian_engine_plugind against Zynthian's own engine
 classes, with plugin-hostd and JACK running.
 
-    test-path-b.py --zui <zynthian-ui checkout with zynthian_engine_plugind.patch applied>
+    test-path-b.py --zui <zynthian-ui checkout with the spike engine applied: spike-engine.sh>
 
 The real zyngine modules are imported (zynthian_engine, zynthian_engine_jalv_base, zynthian_controller, zynthian_lv2);
 what talks to Zynthian's hardware is stubbed: zyncoder (not vendored in zynthian-ui), pyliblo3 and zynautoconnect, and the

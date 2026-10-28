@@ -543,7 +543,8 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tests/own_host_page.py" run --audio
           test "$(dpkg --print-architecture)" = "${{ matrix.arch }}"
 
-  # The Zynthian engine of docs/zynthian/zynthian_engine_plugind.patch, applied to zynthian-ui at chain-e2e.sh's pin,
+  # The spike's Zynthian engine (tools/zynthian/spike-engine.sh reads its patch from the commit it was last changed at;
+  # the engine that ships is FreeMixer/zynthian-ui's, docs/zynthian/README.md), applied to zynthian-ui at its pin,
   # declares a chain of three omx-plugins members (omx-strip and omx-limiter CLAP, omx-delay LV2 on the adapter row)
   # over the chain verb, and the real omx-clap-host runs it in a PipeWire of its own: each member's gain and delay
   # measured on the chain's output in the declared order, chain_get's read-back, a removal that forms the chain again
@@ -593,11 +594,11 @@ jobs:
           done
           ldconfig -p | grep -q 'liblilv-0\.so\.0 ' || { echo "::error::no liblilv-0.so.0 for omx-clap-host's LV2 adds"; exit 1; }
 
-      # the commit chain-e2e.sh applies the patch to, read from the script
-      - name: Fetch zynthian-ui at chain-e2e.sh's commit
+      # the commit spike-engine.sh applies the patch to, read from the script
+      - name: Fetch zynthian-ui at spike-engine.sh's commit
         run: |
           set -euo pipefail
-          sha=$(sed -n 's/^ZUI_SHA=\([0-9a-f]\{40\}\)$/\1/p' tools/zynthian/chain-e2e.sh)
+          sha=$(sed -n 's/^ZUI_SHA=\([0-9a-f]\{40\}\)$/\1/p' tools/zynthian/spike-engine.sh)
           test -n "$sha"
           git init -q /tmp/zynthian-ui
           git -C /tmp/zynthian-ui fetch -q --depth 1 https://github.com/zynthian/zynthian-ui "$sha"

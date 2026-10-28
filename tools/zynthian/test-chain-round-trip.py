@@ -2,7 +2,7 @@
 """A Zynthian chain of omx-plugins members, declared over the chain verb and played by the real omx-clap-host: the
 values each member leaves on the audio, in the declared order, read back, after a removal and after a crash.
 
-    test-chain-round-trip.py --zui <zynthian-ui checkout with zynthian_engine_plugind.patch applied>
+    test-chain-round-trip.py --zui <zynthian-ui checkout with the spike engine applied: spike-engine.sh>
 
 Run by chain-e2e.sh --round-trip, in a PipeWire of its own. The rig is test-chain.py's: the real zynthian_chain,
 zynthian_processor and zynthian_plugind_chain, plugin-hostd (PLUGIN_HOSTD) behind them with omx-clap-host (CLAP_HOST)

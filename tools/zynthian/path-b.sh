@@ -1,6 +1,6 @@
 #!/bin/bash
-# Path B of the Zynthian spike (FreeMixer/plugin-hostd#124): zynthian_engine_plugind.patch applied to zynthian-ui at the
-# pinned commit and tested against Zynthian's engine classes, with JACK (dummy driver) and plugin-hostd running.
+# Path B of the Zynthian spike (FreeMixer/plugin-hostd#124): the spike engine (spike-engine.sh) applied to zynthian-ui
+# at its pinned commit and tested against Zynthian's engine classes, with JACK (dummy driver) and plugin-hostd running.
 #
 #   tools/zynthian/path-b.sh <zynthian-ui clone> <out-dir>
 #
@@ -10,14 +10,14 @@ set -u
 zui_src=${1:?zynthian-ui clone}
 out=$(mkdir -p "${2:?out dir}" && cd "$2" && pwd)
 here=$(cd "$(dirname "$0")" && pwd)
-ZUI_SHA=f46b0189b6163472db39aa607369f397ed23b65a
+. "$here/spike-engine.sh"
 MOD_HOST_BIN=${MOD_HOST_BIN:-mod-host}
 PLUGIN_HOSTD=${PLUGIN_HOSTD:-plugin-hostd}
 PYTHON=${PYTHON:-python3}
 export JACK_DEFAULT_SERVER=${JACK_DEFAULT_SERVER:-spike}
 rm -rf "$out/zynthian-ui"
 git -C "$zui_src" worktree add -f -q "$out/zynthian-ui" "$ZUI_SHA" || exit 1
-git -C "$out/zynthian-ui" apply "$here/../../docs/zynthian/zynthian_engine_plugind.patch" || exit 1
+spike_engine_apply "$out/zynthian-ui" "$out" || exit 2
 mkdir -p "$out/bin"
 gcc -O2 -o "$out/bin/jack-note-meter" "$here/jack-note-meter.c" -ljack -lm || exit 1
 ln -sf "$(command -v "$MOD_HOST_BIN")" "$out/bin/mod-host"

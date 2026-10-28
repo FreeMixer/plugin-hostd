@@ -1,5 +1,5 @@
 #!/bin/bash
-# The plugind chain end to end: zynthian_engine_plugind.patch applied to zynthian-ui at the pinned commit, and
+# The plugind chain end to end: the spike engine (spike-engine.sh) applied to zynthian-ui at its pinned commit, and
 # tools/zynthian/test-chain.py's scenarios (no sabotage: chain.sh holds those) run against plugin-hostd with
 # omx-clap-host as its worker, an LV2 member on the adapter row and CLAP members, in a PipeWire of its own. With
 # --round-trip it runs tools/zynthian/test-chain-round-trip.py instead, its sabotages included: a chain of omx-plugins
@@ -31,7 +31,7 @@ fi
 zui_src=${1:?zynthian-ui clone}
 out=$(mkdir -p "${2:?out dir}" && cd "$2" && pwd)
 here=$(cd "$(dirname "$0")" && pwd)
-ZUI_SHA=f46b0189b6163472db39aa607369f397ed23b65a
+. "$here/spike-engine.sh"
 PYTHON=${PYTHON:-python3}
 export CHAIN_E2E=1 CHAIN_LV2_URI=${CHAIN_LV2_URI:-lv2:http://gareus.org/oss/lv2/fil4#stereo}
 : "${PLUGIN_HOSTD:?}" "${CLAP_HOST:?}" "${FAULT_CLAP_URI:?}" "${CHAIN_FAULT_PARAM:?}"
@@ -53,7 +53,7 @@ for _ in $(seq 50); do [ -S "$runtime/pipewire-0" ] && break; sleep 0.1; done
 
 rm -rf "$out/zynthian-ui"
 git -C "$zui_src" worktree add -f -q "$out/zynthian-ui" "$ZUI_SHA" || exit 1
-git -C "$out/zynthian-ui" apply "$here/../../docs/zynthian/zynthian_engine_plugind.patch" || exit 1
+spike_engine_apply "$out/zynthian-ui" "$out" || exit 2
 echo "plugin-hostd: $("$PLUGIN_HOSTD" --version)"
 echo "omx-clap-host: $CLAP_HOST"
 if [ "$test" = test-chain.py ]; then
