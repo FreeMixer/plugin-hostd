@@ -510,6 +510,27 @@ char *sup_history_clear(const char *uri)
     return answer(c, daemon_shape(OMX_VERB_HISTORY_CLEAR), 1);
 }
 
+char *sup_estimate(int rate, int quantum, const char *const *uris, int n)
+{
+    struct rec_call *c = record(REC_ESTIMATE);
+    size_t size = 1, o = 0;
+    char *list;
+    int k;
+
+    for (k = 0; k < n; k++)
+        size += strlen(uris[k]) + 1;
+    list = xmalloc(size);
+    list[0] = '\0';
+    for (k = 0; k < n; k++)
+        o += (size_t)sprintf(list + o, k ? " %s" : "%s", uris[k]);
+    arg_i(c, rate);
+    arg_i(c, quantum);
+    arg_i(c, n);
+    arg_s(c, list);
+    free(list);
+    return answer(c, daemon_shape(OMX_VERB_ESTIMATE), 0);
+}
+
 char *sup_plan(int id, const int *ids, int n)
 {
     struct rec_call *c = record(REC_PLAN);

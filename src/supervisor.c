@@ -3051,3 +3051,111 @@ char *sup_plan_clear(int id)
     plan_free(p);
     return sup_resp(SUCCESS);
 }
+
+/* ---------------------------------------------------------------- estimate */
+
+/* the row an add of the uri would run on, and in *fwd the uri as its worker is given it; -1 for none */
+static int estimate_row(const char *uri, const char **fwd)
+{
+    int fmt = format_of_uri(uri, fwd);
+
+    if (fmt < 0 || (fmt = format_route(&g_conf, fmt, *fwd)) < 0)
+        return -1;
+    if (format_at(fmt)->adapter && !proc_have_binary(bin_of(fmt)) && lv2_worker_is_auto(&g_conf, *fwd))
+        fmt = format_by_name(PHD_FORMAT_LV2);
+    return fmt;
+}
+
+/* the plugin is installed: its format tells its binary and the binary is there; a format that tells none is believed */
+static int estimate_installed(int fmt, const char *uri)
+{
+    const format_t *f = format_at(fmt);
+    char path[PATH_MAX];
+
+    if (!f->binary)
+        return 1;
+    return f->binary(uri, search_of(fmt), path, sizeof(path)) == 0 && access(path, F_OK) == 0;
+}
+
+/* the Pss in bytes of the worker the plugin ran alone in, on this host class, for the binary its pin holds; -1 for none */
+static double estimate_ram(const char *uri)
+{
+    char digest[PHD_SHA256_HEX_LEN + 1];
+    const history_rec_t *r = pins_digest(uri, digest) == 0 ? history_find(uri, digest) : NULL;
+
+    return r && r->windows_solo > 0 && r->pss_mb_solo > 0 ? r->pss_mb_solo * 1024.0 * 1024.0 : -1.0;
+}
+
+char *sup_estimate(int rate, int quantum, const char *const *uris, int n)
+{
+    planner_member_t m[PLANNER_MEMBERS_MAX];
+    planner_history_t h[PLANNER_MEMBERS_MAX];
+    planner_settings_t s;
+    planner_plan_t pp;
+    double latency = 0, median_ns = 0, ram = 0;
+    int k, planned = 0, unknown = 0, ram_every = 1, workers = 0;
+    size_t used = 0, cap = 128, lused = 0, lcap = 64;
+    char ram_word[32], *list, *reply;
+
+    if (rate <= 0 || quantum <= 0 || n < 1 || n > PLANNER_MEMBERS_MAX)
+        return sup_resp(ERR_INVALID_OPERATION);
+    list = malloc(lcap);
+    list[0] = '\0';
+    for (k = 0; k < n; k++)
+    {
+        const char *fwd = uris[k];
+        int fmt = estimate_row(uris[k], &fwd), code = 0;
+        qualcost_cell_t cell;
+        double bytes;
+
+        if (fmt < 0 || !estimate_installed(fmt, fwd))
+            code = OMX_REPLY_PLUGIN_HOSTD_UNKNOWN_PLUGIN_RESP;
+        else
+            switch (qualcost_cell(g_conf.qualification_dir, record_id(fwd), rate, quantum, &cell))
+            {
+            case QUALCOST_CELL_FOUND:
+                latency += cell.latency_frames;
+                median_ns += cell.median_ns;
+                break;
+            case QUALCOST_CELL_NO_RECORD:
+                code = OMX_REPLY_PLUGIN_HOSTD_NO_RECORD_RESP;
+                break;
+            default:
+                code = OMX_REPLY_PLUGIN_HOSTD_NO_CELL_RESP;
+            }
+        if (code)
+            put(&list, &lused, &lcap, "%s%d:%d", unknown++ ? "," : "", k, code);
+        bytes = fmt < 0 ? -1.0 : estimate_ram(fwd);
+        if (bytes < 0)
+            ram_every = 0;
+        else
+            ram += bytes;
+        /* a plugin that is not installed is placed nowhere: it cannot be added */
+        if (code == OMX_REPLY_PLUGIN_HOSTD_UNKNOWN_PLUGIN_RESP)
+            continue;
+        memset(&m[planned], 0, sizeof(m[planned]));
+        m[planned].id = k;
+        m[planned].klass = plan_class(fmt);
+        m[planned].pin = plan_pin(fwd);
+        m[planned].world_ok = world_found(fmt, &fwd, 1);
+        m[planned].cost = plan_cost(fwd);
+        m[planned].history = plan_history(fwd, 0, &h[planned]);
+        planned++;
+    }
+    if (planned)
+    {
+        plan_settings(&s);
+        planner_plan(&s, m, planned, &pp);
+        workers = pp.nseg;
+    }
+    if (ram_every)
+        snprintf(ram_word, sizeof(ram_word), "%.0f", ram);
+    else
+        snprintf(ram_word, sizeof(ram_word), PHD_WORD_NONE);
+    /* a member's cost per block over the block's duration is its nanoseconds per sample times the rate, over 1e9 */
+    reply = malloc(cap);
+    put(&reply, &used, &cap, "resp 0 %.0f %.2f %s %d %d %s", latency, median_ns * rate / 1e9 * 100.0, ram_word, workers,
+        unknown, unknown ? list : PHD_WORD_NONE);
+    free(list);
+    return reply;
+}
