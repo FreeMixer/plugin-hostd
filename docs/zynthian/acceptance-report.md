@@ -8,6 +8,10 @@ Not --strict: the run of 2026-10-27 has no 128-frame rows and no xrun or latency
 data says "not measured yet". Section 4 counts verdicts, one per host profile, not plugins; the LV2 coverage is of
 the desktop's 979 plugins, not of the Pi's. The command is in benchmarks.md, "Reproducing". -->
 
+> Read with [benchmarks.md](benchmarks.md). Section 4 counts the records' own ratings, written before the ruling of
+> plugin-qualify#196 and plugin-hostd#231: a plugin that fails the RT-safety sweep is isolated (a worker of its own,
+> never grouped), not unsuitable. benchmarks.md gives the same records in the three classes.
+
 # plugin-hostd, the PH engine, qualified menus and OpenMixer by default in Zynthian
 
 This report is built from a partial run: 224 reasons, the first 20 listed.

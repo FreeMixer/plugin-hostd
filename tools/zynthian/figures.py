@@ -101,18 +101,22 @@ def stacked(svg, rows, cats, x0, y0, bar_w, bar_h, gap, label_w):
         svg.text(x + 6, y + bar_h / 2 + 4, "%d" % sum(counts.values()), size=11, fill=INK2)
 
 
+CLASSES = [("suitable", BLUE), ("isolated", ORANGE), ("unsuitable", VIOLET), ("format not hosted", GREY), ("unknown", "#e4e3de")]
+RULE = "isolated = fails the RT-safety sweep, runs in its own worker, never grouped; unsuitable = crashes, hangs, load failures (plugin-qualify#196)."
+
+
 def fig_suitability(s, out, cap):
-    hosts = list(s["verdicts_by_format"])
+    hosts = list(s["classes_by_format"])
     rows = []
     for fmt in ("lv2", "clap"):
         for h in hosts:
-            c = s["verdicts_by_format"][h]
+            c = s["classes_by_format"][h]
             rows.append(("%s, %s" % (fmt.upper(), h), {k.split(":", 1)[1]: v for k, v in c.items() if k.startswith(fmt + ":")}))
-    svg = Svg(860, 80 + len(rows) * 34 + 70, "Verdicts per host profile")
-    svg.text(16, 28, "Verdicts per host profile and plugin format, Raspberry Pi 5", size=15, weight="bold")
-    legend(svg, 230, 54, [("suitable", BLUE), ("unsuitable", ORANGE), ("unknown", GREY)])
-    stacked(svg, rows, [("suitable", BLUE), ("unsuitable", ORANGE), ("unknown", GREY)], 230, 72, 560, 24, 10, 210)
-    svg.caption(cap + ["omx-clap-host is the profile of plugin-hostd's worker; jalv and mod-host host no CLAP plugin (every CLAP verdict unknown)."])
+    svg = Svg(860, 80 + len(rows) * 34 + 84, "Classes per host profile")
+    svg.text(16, 28, "Suitable, isolated, unsuitable per host profile and plugin format, Raspberry Pi 5", size=15, weight="bold")
+    legend(svg, 16, 54, CLASSES)
+    stacked(svg, rows, CLASSES, 230, 72, 560, 24, 10, 210)
+    svg.caption(cap + [RULE, "omx-clap-host is the profile of plugin-hostd's worker; jalv and mod-host do not load CLAP."])
     svg.write(os.path.join(out, "suitability.svg"))
 
 
@@ -175,15 +179,17 @@ def fig_rt(s, out, cap):
         for k, n in s["rt_safety_records"].items():
             if k.startswith(key + ":"):
                 what = k.split(":", 2)[2]
-                what = "crashed, timed out or refused" if what.startswith("probe.") else what
+                what = {"clean": "suitable (clean)", "violations": "isolated (violations)"}.get(
+                    what, "unsuitable (crashed, timed out, refused)" if what.startswith("probe.") else what)
                 c[what] = c.get(what, 0) + n
         rows.append((label, c))
-    cats = [("clean", BLUE), ("violations", ORANGE), ("crashed, timed out or refused", VIOLET), ("not swept", GREY)]
-    svg = Svg(860, 230, "RT-safety outcome per record")
+    cats = [("suitable (clean)", BLUE), ("isolated (violations)", ORANGE), ("unsuitable (crashed, timed out, refused)", VIOLET),
+            ("not swept", GREY)]
+    svg = Svg(860, 246, "RT-safety outcome per record")
     svg.text(16, 28, "RT-safety sweep outcome per qualification record, Raspberry Pi 5", size=15, weight="bold")
-    legend(svg, 200, 54, cats)
+    legend(svg, 16, 54, cats)
     stacked(svg, rows, cats, 200, 74, 590, 28, 12, 180)
-    svg.caption(cap + ["violations = an allocation, lock or syscall seen in the audio thread by the interposer; not swept = a grid point with no sweep."])
+    svg.caption(cap + ["violations = an allocation, lock or syscall the interposer saw in the audio thread; not swept = measured with no sweep.", RULE])
     svg.write(os.path.join(out, "rt-safety.svg"))
 
 

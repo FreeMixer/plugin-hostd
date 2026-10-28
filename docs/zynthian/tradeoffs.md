@@ -34,7 +34,13 @@ Pros:
 Cons:
 
 - A grouped chain shares one process: a plugin that corrupts memory instead of crashing cleanly can take the chain with
-  it. The pin file is the guard: a plugin pinned `isolated` or `refused` is not grouped.
+  it. The pins are the guard: a plugin that fails the RT-safety sweep is isolated, it runs in a worker of its own and is
+  never grouped with RT-safe plugins (plugin-qualify#196, plugin-hostd#231), and an unsuitable one (it crashes, hangs or
+  fails to load) is not offered.
+- Isolation has a cost: each isolated plugin is one more worker, which is the "plugin-hostd, individual" mode of the
+  grouped-versus-alone figure. Per plugin it adds about one process and, from 3 to 16 plugins at 48000 Hz, the
+  individual mode costs 80.0 to 155.6 MB PSS against 50.0 to 66.1 MB grouped, and 1.86 to 14.75 % of a core against
+  1.50 to 10.16. On the Pi 185 of 1329 LV2 plugins and 133 of 247 CLAP plugins are isolated for plugin-hostd's worker.
 - Add time. A chain takes longer to form than the same plugins under mod-host (2507 ms against 434 ms for 16), and the
   same order as jalv. It is paid when a chain is built or changed.
 - mod-host is still the cheapest in CPU at every N (9.54 % for 16) and close in PSS (76.4 MB): plugin-hostd's gain is
@@ -49,8 +55,8 @@ Zynthian has no CLAP host today: jalv and mod-host host LV2 only (every CLAP ver
 `hosting.clap.format-not-hosted` or a crash, benchmarks.md). plugin-hostd hosts CLAP in its worker, omx-clap-host, and LV2
 through the same worker's LV2 adapter.
 
-- Of the 247 CLAP plugins on the Pi, 71 are rated suitable for plugin-hostd's worker, 133 unsuitable (all for RT-safety
-  violations in the run) and 43 unknown (crashed or timed out in the probe). Every one of our 19 omx plugins
+- Of the 247 CLAP plugins on the Pi, 71 are suitable for plugin-hostd's worker, 133 isolated (RT-safety violations in
+  the run) and 43 unsuitable (crashed or timed out in the probe). Every one of our 19 omx plugins
   sweeps clean.
 - The CLAP and LV2 builds of one plugin are not interchangeable in cost: at 192000 Hz and 512 frames the LV2 build of
   omx-chorus costs 592.2 ns per sample at the median against 0.8496 for the CLAP build (tables.md). The reason is not
@@ -64,12 +70,18 @@ Qualification and pins
 Every plugin on the device is measured once by plugin-qualify, and plugin-hostd reads the result as a pin per binary
 (`pin_set <id> <file>=<sha256> ... verdict=<v>`): a plugin whose files change is measured again.
 
+- Three classes (plugin-qualify#196, plugin-hostd#231): suitable; isolated, a plugin that fails the RT-safety sweep,
+  run in a worker of its own and never grouped; unsuitable, a plugin that crashes, hangs, fails to load or breaks the
+  host. For plugin-hostd's worker on the Pi: LV2 1059 suitable, 185 isolated, 79 unsuitable (6 unmeasured); CLAP 71,
+  133, 43.
 - After the 2026-10-28 run and sync, the device's pin file holds 1187 pins `in-process`, 305 `refused` and 81 without a
-  verdict. Refused means RT-safety violations in the run for 170 of the 172 the sync refused, and 2 under notes.
+  verdict. The files predate the ruling: of the 172 plugins the sync refused, 170 failed the sweep in the run and 2
+  under notes, so all 172 are isolated, not unsuitable; the sync's 4 crashed plugins are the unsuitable ones.
 - LV2 suitability is the same under jalv, mod-host and plugin-hostd's worker (1059, 1058, 1059 of 1329): qualification
-  does not shrink what Zynthian offers for LV2; it marks the plugins it found allocating, locking or calling into the
-  kernel in the audio thread (183 LV2 records).
-- A refused plugin stays on jalv, listed in its menu (FreeMixer/zynthian-ui#12): nothing the user has today disappears.
+  does not shrink what Zynthian offers for LV2; it isolates the plugins it found allocating, locking or calling into
+  the kernel in the audio thread (183 LV2 records) and leaves out the ones that crash or hang (79).
+- A plugin plugin-hostd refuses today stays on jalv, listed in its menu (FreeMixer/zynthian-ui#12): nothing the user
+  has today disappears. Under the ruling an isolated plugin runs in plugin-hostd in a worker of its own instead.
 - Cost is not part of any verdict yet: the grid holds 512-frame blocks only, so every cost rating reads unknown
   (plugin-qualify#193). The menus' cost tags are therefore not from Zynthian's quantum.
 - The run is long: 6 hours on the Pi 5 for 1823 records (run.log), with the governor at powersave. It runs once per

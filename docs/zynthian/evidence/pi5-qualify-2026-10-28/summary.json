@@ -72,6 +72,42 @@
    "unknown": 128
   }
  },
+ "classes_by_format": {
+  "jalv": {
+   "clap:format not hosted": 204,
+   "clap:unsuitable": 43,
+   "lv2:isolated": 185,
+   "lv2:suitable": 1059,
+   "lv2:unknown": 6,
+   "lv2:unsuitable": 79
+  },
+  "mod-host": {
+   "clap:format not hosted": 204,
+   "clap:unsuitable": 43,
+   "lv2:isolated": 183,
+   "lv2:suitable": 1058,
+   "lv2:unknown": 6,
+   "lv2:unsuitable": 82
+  },
+  "omx-clap-host": {
+   "clap:isolated": 133,
+   "clap:suitable": 71,
+   "clap:unsuitable": 43,
+   "lv2:isolated": 185,
+   "lv2:suitable": 1059,
+   "lv2:unknown": 6,
+   "lv2:unsuitable": 79
+  },
+  "openmixer-console": {
+   "clap:isolated": 135,
+   "clap:suitable": 69,
+   "clap:unsuitable": 43,
+   "lv2:isolated": 185,
+   "lv2:suitable": 1059,
+   "lv2:unknown": 6,
+   "lv2:unsuitable": 79
+  }
+ },
  "verdicts_by_format": {
   "jalv": {
    "lv2:suitable": 1059,

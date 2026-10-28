@@ -171,31 +171,42 @@ The 6 SIGKILLs came 3.0 to 5.0 s into the lifecycle step (2997 to 4966 ms), far 
 reports them as OOM kills of the sampler. The device's kernel log of that boot was not kept (no persistent journal), so
 the files record the signal and not who sent it.
 
-### Suitability per host
+### Suitable, isolated, unsuitable per host
 
-![Verdicts per host profile](evidence/figures/suitability.svg)
+The classes (plugin-qualify#196, plugin-hostd#231): **a plugin that fails the RT-safety sweep is isolated, not
+unsuitable: it runs in a worker of its own and is never grouped with RT-safe plugins; unsuitable is only a crash, a
+hang, a load failure or behaviour that breaks the host.** The records were written before that ruling and say
+`unsuitable` for both; the classes below are derived from each verdict's deciding code by
+`tools/zynthian/qualify-summary.py`: `hosting.rt-safety.violations-*` is isolated; `probe.crashed`, `probe.timeout`,
+`probe.refused-instantiation` and `mod-host.*` (a SIGABRT or no answer from mod-host) are unsuitable;
+`hosting.clap.format-not-hosted` (jalv and mod-host do not load CLAP) and `hosting.rt-safety.unmeasured` are neither.
 
-The figure shows, for each host profile and plugin format, how many plugins were rated suitable, unsuitable or unknown
-(summary.json, 2026-10-28).
+![Classes per host profile](evidence/figures/suitability.svg)
 
-| host profile | format | suitable | unsuitable | unknown | of |
-|---|---|---|---|---|---|
-| jalv | LV2 | 1059 | 185 | 85 | 1329 |
-| mod-host | LV2 | 1058 | 186 | 85 | 1329 |
-| omx-clap-host (plugin-hostd's worker) | LV2 | 1059 | 185 | 85 | 1329 |
-| openmixer-console | LV2 | 1059 | 185 | 85 | 1329 |
-| jalv, mod-host | CLAP | 0 | 0 | 247 (`hosting.clap.format-not-hosted` for 204; the rest crashed or timed out) | 247 |
-| omx-clap-host (plugin-hostd's worker) | CLAP | 71 | 133 | 43 | 247 |
-| openmixer-console | CLAP | 69 | 135 | 43 | 247 |
+The figure shows, for each host profile and plugin format, how many plugins are suitable, isolated, unsuitable, not
+loadable by that host, or unknown (summary.json `classes_by_format`, 2026-10-28).
 
-Why a plugin is not suitable for plugin-hostd's worker (omx-clap-host profile, summary.json `not_suitable_reasons`):
-318 RT-safety violations in the run, 82 probe crashes, 39 timeouts, 6 RT safety unmeasured, 1 instantiation refused.
-For jalv: 204 CLAP format not hosted, 185 RT-safety violations, 82 crashes, 39 timeouts, 6 unmeasured, 1 refused.
+| host profile | format | suitable | isolated | unsuitable | format not hosted | unknown | of |
+|---|---|---|---|---|---|---|---|
+| jalv | LV2 | 1059 | 185 | 79 | 0 | 6 | 1329 |
+| mod-host | LV2 | 1058 | 183 | 82 | 0 | 6 | 1329 |
+| omx-clap-host (plugin-hostd's worker) | LV2 | 1059 | 185 | 79 | 0 | 6 | 1329 |
+| openmixer-console | LV2 | 1059 | 185 | 79 | 0 | 6 | 1329 |
+| jalv | CLAP | 0 | 0 | 43 | 204 | 0 | 247 |
+| mod-host | CLAP | 0 | 0 | 43 | 204 | 0 | 247 |
+| omx-clap-host (plugin-hostd's worker) | CLAP | 71 | 133 | 43 | 0 | 0 | 247 |
+| openmixer-console | CLAP | 69 | 135 | 43 | 0 | 0 | 247 |
+
+The 43 unsuitable CLAP rows under jalv and mod-host are the probe's own crashes and timeouts of those plugins (the
+probe ran each CLAP plugin once for every profile), not a load by jalv or mod-host. mod-host's LV2 row differs from the
+others by three plugins it broke on: two SIGABRTs and one that left it without an answer.
 
 What reached the device's pin file after `plugin-qualify-sync --system --force` (system `qualified.pins`, sha256
 `3bb157e247b15774a4fc1bc648db73d1683a689c2346c90a70f1c5a895aa11f1`): 1187 pins `verdict=in-process`, 305
 `verdict=refused`, 81 with no verdict. The sync itself (sync.log) rated 235 plugins qualified, 172 refused (170 for
-RT-safety violations in the run, 2 under notes) and 4 crashed. Two defects show in these files: sync.log says
+RT-safety violations in the run, 2 under notes) and 4 crashed: in the three classes, 235 suitable, 172 isolated and 4
+unsuitable. The pin file still writes `refused` for an isolated plugin; plugin-qualify#196 changes the word and
+plugin-hostd#231 gives an isolated plugin a worker of its own. Two defects show in these files: sync.log says
 `descriptors of a .clap not all written (spawnSync python3 ETIMEDOUT)`, and four DISTRHO CLAP files (3BandEQ,
 3BandSplitter, MVerb, PingPongPan) are pinned under the one id `studio.kx.distrho.MVerb` (summary.json
 `system_pins_clap_ids_shared`).
@@ -204,13 +215,17 @@ RT-safety violations in the run, 2 under notes) and 4 crashed. Two defects show 
 
 ![RT-safety outcome per record](evidence/figures/rt-safety.svg)
 
-The figure shows the RT-safety outcome of each qualification record: clean, violations seen, no grid point because the
-probe crashed or timed out, or measured without a sweep (summary.json, 2026-10-28).
+The figure shows the RT-safety outcome of each qualification record in the three classes: suitable (swept clean),
+isolated (violations seen), unsuitable (no grid point: the probe crashed, timed out or was refused), or measured
+without a sweep (summary.json `rt_safety_records`, 2026-10-28).
 
-| format | clean | violations | crashed, timed out, refused | not swept |
+| format | suitable (clean) | isolated (violations) | unsuitable (crashed, timed out, refused) | not swept |
 |---|---|---|---|---|
 | LV2 | 972 | 183 | 79 | 95 |
 | CLAP, plugin-hostd offer | 71 | 131 | 43 | 2 |
+
+This table counts records by their swept grid points, the one above verdicts per host; for CLAP they differ by the two
+records that were measured without a sweep.
 
 A violation is an allocation, a lock or a syscall the interposer (`rt_interpose.so`) saw in the audio thread. Over the
 grid points swept (1559), 447 show one: 323 with allocations, 366 with locks, 296 with syscalls (a point can show

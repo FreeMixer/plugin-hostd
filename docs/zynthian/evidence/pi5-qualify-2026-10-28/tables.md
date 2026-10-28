@@ -1,9 +1,13 @@
-| host profile | suitable | unsuitable | unknown | of |
-|---|---|---|---|---|
-| jalv | 1059 | 185 | 332 | 1576 |
-| mod-host | 1058 | 186 | 332 | 1576 |
-| omx-clap-host | 1130 | 318 | 128 | 1576 |
-| openmixer-console | 1128 | 320 | 128 | 1576 |
+| host profile | format | suitable | isolated | unsuitable | format not hosted | unknown | of |
+|---|---|---|---|---|---|---|---|
+| jalv | lv2 | 1059 | 185 | 79 | 0 | 6 | 1329 |
+| jalv | clap | 0 | 0 | 43 | 204 | 0 | 247 |
+| mod-host | lv2 | 1058 | 183 | 82 | 0 | 6 | 1329 |
+| mod-host | clap | 0 | 0 | 43 | 204 | 0 | 247 |
+| omx-clap-host | lv2 | 1059 | 185 | 79 | 0 | 6 | 1329 |
+| omx-clap-host | clap | 71 | 133 | 43 | 0 | 0 | 247 |
+| openmixer-console | lv2 | 1059 | 185 | 79 | 0 | 6 | 1329 |
+| openmixer-console | clap | 69 | 135 | 43 | 0 | 0 | 247 |
 
 | cost cell (format:rate:quantum) | points | p50 | p90 | p95 | p99 | max |
 |---|---|---|---|---|---|---|

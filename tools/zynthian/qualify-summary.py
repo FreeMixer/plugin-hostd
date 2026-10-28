@@ -25,6 +25,21 @@ import sys
 
 OURS = re.compile(r"^(org\.openmixer\.|urn:openmixer:)")
 
+# The three classes (plugin-qualify#196, plugin-hostd#231): a plugin that fails the RT-safety sweep is isolated, it runs
+# in a worker of its own and is never grouped with RT-safe plugins; unsuitable is only a crash, a hang, a load failure
+# or behaviour that breaks the host. A host that does not load the format, and an unmeasured sweep, are neither.
+def klass(verdict):
+    if verdict["rating"] == "suitable":
+        return "suitable"
+    code = verdict.get("deciding") or (verdict["reasons"][0]["code"] if verdict.get("reasons") else "")
+    if code.startswith("hosting.rt-safety.violations"):
+        return "isolated"
+    if code in ("probe.crashed", "probe.timeout", "probe.refused-instantiation") or code.startswith("mod-host."):
+        return "unsuitable"
+    if code == "hosting.clap.format-not-hosted":
+        return "format not hosted"
+    return "unknown"
+
 
 def sha256(path):
     h = hashlib.sha256()
@@ -68,6 +83,7 @@ def summarise(a):
     s["machine_class"] = sorted({json.dumps(r["probe"].get("machineClass"), sort_keys=True) for r in recs})
 
     # verdicts: one per host profile in each record
+    cls = collections.defaultdict(collections.Counter)
     hv = collections.defaultdict(collections.Counter)
     hf = collections.defaultdict(collections.Counter)
     deciding = collections.defaultdict(collections.Counter)
@@ -76,12 +92,14 @@ def summarise(a):
         fmt = r["plugin"]["format"]
         for v in r["verdicts"]:
             hv[v["host"]][v["rating"]] += 1
+            cls[v["host"]]["%s:%s" % (fmt, klass(v))] += 1
             hf[v["host"]]["%s:%s" % (fmt, v["rating"])] += 1
             hosting[v["host"]][v.get("hosting")] += 1
             if v["rating"] != "suitable":
                 code = v.get("deciding") or (v["reasons"][0]["code"] if v.get("reasons") else "none")
                 deciding[v["host"]][code] += 1
     s["verdicts"] = {h: dict(c) for h, c in sorted(hv.items())}
+    s["classes_by_format"] = {h: dict(sorted(c.items())) for h, c in sorted(cls.items())}
     s["verdicts_by_format"] = {h: dict(c) for h, c in sorted(hf.items())}
     s["hosting"] = {h: {str(k): n for k, n in c.items()} for h, c in sorted(hosting.items())}
     s["not_suitable_reasons"] = {h: dict(c.most_common()) for h, c in sorted(deciding.items())}
@@ -233,11 +251,13 @@ def summarise(a):
 def markdown(s):
     L = []
     hosts = list(s["verdicts"])
-    L.append("| host profile | suitable | unsuitable | unknown | of |")
-    L.append("|---|---|---|---|---|")
+    L.append("| host profile | format | suitable | isolated | unsuitable | format not hosted | unknown | of |")
+    L.append("|---|---|---|---|---|---|---|---|")
     for h in hosts:
-        c = s["verdicts"][h]
-        L.append("| %s | %d | %d | %d | %d |" % (h, c.get("suitable", 0), c.get("unsuitable", 0), c.get("unknown", 0), sum(c.values())))
+        for fmt in ("lv2", "clap"):
+            c = {k.split(":", 1)[1]: n for k, n in s["classes_by_format"][h].items() if k.startswith(fmt + ":")}
+            L.append("| %s | %s | %d | %d | %d | %d | %d | %d |" % (h, fmt, c.get("suitable", 0), c.get("isolated", 0), c.get("unsuitable", 0),
+                                                         c.get("format not hosted", 0), c.get("unknown", 0), sum(c.values())))
     L.append("")
     L.append("| cost cell (format:rate:quantum) | points | p50 | p90 | p95 | p99 | max |")
     L.append("|---|---|---|---|---|---|---|")
