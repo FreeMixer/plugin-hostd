@@ -2489,6 +2489,25 @@ static int must_run_own(const instance_t *i)
            !pins_in_process(i->uri);
 }
 
+/* whether a world holding the m uris of the row can be built for one worker, or none needs building */
+static int world_found(int row, const char **uris, int m)
+{
+    const format_t *f = format_at(row);
+    char dir[PATH_MAX], *world;
+    int found;
+
+    if (!g_conf.require_pins || !f->pinned_own_only)
+        return 1;
+    if (!f->narrow_world)
+        return 0;
+    snprintf(dir, sizeof(dir), "%s/world-check", g_root);
+    world = f->narrow_world(&g_conf, dir, uris, m);
+    rm_tree(dir);
+    found = world != NULL;
+    free(world);
+    return found;
+}
+
 /* while require_pins is on, a chain whose worker's row pins in a world of its own forms only if the row can narrow the
  * worker's world to the union of its members of that row: it is built once in a scratch directory, every one found */
 static int chain_world_found(const int *ids, int n)
@@ -2496,7 +2515,6 @@ static int chain_world_found(const int *ids, int n)
     int row = chain_row_of(ids, n);
     const format_t *f = format_at(row);
     const char **uris;
-    char dir[PATH_MAX], *world;
     int k, m = 0, found;
 
     if (!g_conf.require_pins || !f->pinned_own_only)
@@ -2507,12 +2525,8 @@ static int chain_world_found(const int *ids, int n)
     for (k = 0; k < n; k++)
         if (g_inst[ids[k]]->fmt == row)
             uris[m++] = g_inst[ids[k]]->uri;
-    snprintf(dir, sizeof(dir), "%s/world-check", g_root);
-    world = f->narrow_world(&g_conf, dir, uris, m);
+    found = world_found(row, uris, m);
     free(uris);
-    rm_tree(dir);
-    found = world != NULL;
-    free(world);
     return found;
 }
 
@@ -2631,13 +2645,13 @@ static const char *record_id(const char *uri)
     return hash ? hash + 1 : uri;
 }
 
-/* What the planner is told of the history of an instance: the verdicts and the solo cost of its record on this host
+/* What the planner is told of the history of a plugin: the verdicts and the solo cost of its record on this host
  * class, by the rules of src/history.c, and a crash the daemon has seen itself, a quarantine, which no record of a
  * history that is off or blocked can hold. NULL for neither: a plugin with no history is judged by its pin alone. */
-static const planner_history_t *plan_history(const instance_t *i, planner_history_t *h)
+static const planner_history_t *plan_history(const char *uri, int quarantined, planner_history_t *h)
 {
     char digest[PHD_SHA256_HEX_LEN + 1];
-    const history_rec_t *r = pins_digest(i->uri, digest) == 0 ? history_find(i->uri, digest) : NULL;
+    const history_rec_t *r = pins_digest(uri, digest) == 0 ? history_find(uri, digest) : NULL;
     int any = 0;
 
     memset(h, 0, sizeof(*h));
@@ -2651,7 +2665,7 @@ static const planner_history_t *plan_history(const instance_t *i, planner_histor
             h->cpu_p95_solo = r->cpu_p95_solo / 100.0;
         any = 1;
     }
-    if (meta_of(i->id)->quarantined)
+    if (quarantined)
     {
         h->crashed = 1;
         any = 1;
@@ -2659,33 +2673,52 @@ static const planner_history_t *plan_history(const instance_t *i, planner_histor
     return any ? h : NULL;
 }
 
+/* what a pin's verdict is to the planner */
+static int plan_pin(const char *uri)
+{
+    const char *verdict = pins_verdict(uri);
+
+    if (!verdict)
+        return PLANNER_PIN_NONE;
+    if (!strcmp(verdict, PHD_PIN_VERDICT_IN_PROCESS))
+        return PLANNER_PIN_IN_PROCESS;
+    if (!strcmp(verdict, PHD_PIN_VERDICT_ISOLATED))
+        return PLANNER_PIN_ISOLATED;
+    if (!strcmp(verdict, PHD_PIN_VERDICT_REFUSED))
+        return PLANNER_PIN_REFUSED;
+    return PLANNER_PIN_NO_VERDICT;
+}
+
+/* the cost the planner reads for a plugin: its record's at group_rate and group_quantum, PLANNER_COST_UNKNOWN for none */
+static double plan_cost(const char *uri)
+{
+    double cost = g_conf.group_rate > 0 && g_conf.group_quantum > 0
+                      ? qualcost_read(g_conf.qualification_dir, record_id(uri), g_conf.group_rate, g_conf.group_quantum)
+                      : PLANNER_COST_UNKNOWN;
+
+    return cost < 0 ? PLANNER_COST_UNKNOWN : cost;
+}
+
+/* the class of the planner of a row: the worker program that runs chains in one client, else the row alone */
+static const char *plan_class(int fmt)
+{
+    const format_t *f = format_at(fmt);
+    const char *bin = bin_of(fmt);
+
+    return f->native_chain && bin ? bin : f->name;
+}
+
 /* what the planner is told of an instance: its worker program's class, its pin, whether a world can be built for it,
  * its cost and its history */
 static void plan_member(const instance_t *i, planner_member_t *m, planner_history_t *h)
 {
-    const format_t *f = format_at(i->fmt);
-    const char *bin = bin_of(i->fmt), *verdict = pins_verdict(i->uri);
-
     memset(m, 0, sizeof(*m));
     m->id = i->id;
-    m->klass = f->native_chain && bin ? bin : f->name;
-    if (!verdict)
-        m->pin = PLANNER_PIN_NONE;
-    else if (!strcmp(verdict, PHD_PIN_VERDICT_IN_PROCESS))
-        m->pin = PLANNER_PIN_IN_PROCESS;
-    else if (!strcmp(verdict, PHD_PIN_VERDICT_ISOLATED))
-        m->pin = PLANNER_PIN_ISOLATED;
-    else if (!strcmp(verdict, PHD_PIN_VERDICT_REFUSED))
-        m->pin = PLANNER_PIN_REFUSED;
-    else
-        m->pin = PLANNER_PIN_NO_VERDICT;
+    m->klass = plan_class(i->fmt);
+    m->pin = plan_pin(i->uri);
     m->world_ok = chain_world_found(&m->id, 1);
-    m->cost = g_conf.group_rate > 0 && g_conf.group_quantum > 0
-                  ? qualcost_read(g_conf.qualification_dir, record_id(i->uri), g_conf.group_rate, g_conf.group_quantum)
-                  : PLANNER_COST_UNKNOWN;
-    if (m->cost < 0)
-        m->cost = PLANNER_COST_UNKNOWN;
-    m->history = plan_history(i, h);
+    m->cost = plan_cost(i->uri);
+    m->history = plan_history(i->uri, meta_of(i->id)->quarantined, h);
 }
 
 /* the refusal chain would give the members of a segment of two or more, apart from the ones of the numbers: 0 for none */
@@ -2829,6 +2862,17 @@ static void plan_apply(plan_t *old, plan_t *p, const planner_plan_t *pp, const i
     free(at);
 }
 
+/* the planner's settings, the daemon's */
+static void plan_settings(planner_settings_t *s)
+{
+    s->require_pins = g_conf.require_pins;
+    s->pins_first_use = conf_pins_first_use(&g_conf);
+    s->grouping_on = conf_grouping_on(&g_conf);
+    s->group_max = g_conf.group_max;
+    s->group_cost_max = g_conf.group_cost_max / 100.0;
+    s->history_unavailable = !history_available();
+}
+
 /* the members are planned and the plan is applied, or only kept while grouping is off or a segment cannot be formed; the
  * plan before it is dropped, its segments that did not change are the new plan's. *refused is the code of the refusal, 0
  * for none. The members are checked by the caller. */
@@ -2843,12 +2887,7 @@ static plan_t *plan_run(int id, const int *ids, int n, int *code)
 
     for (k = 0; k < n; k++)
         plan_member(g_inst[ids[k]], &m[k], &h[k]);
-    s.require_pins = g_conf.require_pins;
-    s.pins_first_use = conf_pins_first_use(&g_conf);
-    s.grouping_on = conf_grouping_on(&g_conf);
-    s.group_max = g_conf.group_max;
-    s.group_cost_max = g_conf.group_cost_max / 100.0;
-    s.history_unavailable = !history_available();
+    plan_settings(&s);
     planner_plan(&s, m, n, &pp);
 
     /* every segment is checked before any is made: a plan that cannot be formed moves nothing */
