@@ -10,6 +10,7 @@ PIN_TEST = tests/pin-test
 HISTORY_TEST = tests/history-test
 PROC_TEST = tests/proc-test
 PLANNER_TEST = tests/planner-test
+PLACEMENT_TEST = tests/placement-test
 QUALCOST_TEST = tests/qualcost-test
 RELAY_TEST = tests/relay-test
 GESTURE_ALLOC_TEST = tests/gesture-alloc-test
@@ -278,12 +279,12 @@ fuzz-corpus-check:
 
 # clean rule
 clean:
-	@rm -f src/*.o $(PROG) $(PROBE) tests/probe-child tests/lv2-probe-child tests/rt_interpose.so $(FAKE) $(PIN_TEST) $(HISTORY_TEST) $(PROC_TEST) $(PLANNER_TEST) $(QUALCOST_TEST) $(RELAY_TEST) tests/relay-test-relay.o $(FORMAT_TEST) $(GESTURE_ALLOC_TEST) $(LV2_ALLOC_TEST) tests/lv2-alloc-lv2.o $(VERBS_ALLOC_TEST) $(TRANSFORMS_TEST) $(GEN) tests/stress.clap tests/jack_levels tests/host_scenarios $(LV2_FIXTURE)
+	@rm -f src/*.o $(PROG) $(PROBE) tests/probe-child tests/lv2-probe-child tests/rt_interpose.so $(FAKE) $(PIN_TEST) $(HISTORY_TEST) $(PROC_TEST) $(PLANNER_TEST) $(PLACEMENT_TEST) $(QUALCOST_TEST) $(RELAY_TEST) tests/relay-test-relay.o $(FORMAT_TEST) $(GESTURE_ALLOC_TEST) $(LV2_ALLOC_TEST) tests/lv2-alloc-lv2.o $(VERBS_ALLOC_TEST) $(TRANSFORMS_TEST) $(GEN) tests/stress.clap tests/jack_levels tests/host_scenarios $(LV2_FIXTURE)
 	@rm -rf build
 
 # the daemon against workers that are not plugin hosts at all (tests/fake-host speaks the same protocol and can be
 # made to die on cue): placement, forwarding, ledger, replay, attribution, the storm bound; no jack, no plugin
-test: test-protocol-lib test-sabotage-pool test-pin test-history test-proc test-own-host-probe-teardown test-planner test-transforms test-format-coverage test-describe test-relay test-alloc test-format test-daemon test-verbs-declared check-rendered check-generated check-schema test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-mod-host-json test-socket check-verb-table check-preset-schema test-install-schemas check-contract-floor check-readme-facts
+test: test-protocol-lib test-sabotage-pool test-pin test-history test-proc test-own-host-probe-teardown test-planner test-placement test-transforms test-format-coverage test-describe test-relay test-alloc test-format test-daemon test-verbs-declared check-rendered check-generated check-schema test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-mod-host-json test-socket check-verb-table check-preset-schema test-install-schemas check-contract-floor check-readme-facts
 	MOD_HOST_DIR=$(MOD_HOST_DIR) python3 tests/verbs_contract.py
 
 # the protocol clients plugin-hostd-tests ships (tests/lib/), against a peer that frames by NUL, and their sabotage
@@ -371,6 +372,14 @@ $(QUALCOST_TEST): tests/qualcost_test.c src/qualcost.c src/qualcost.h src/json.c
 
 $(PLANNER_TEST): tests/planner_test.c src/planner.c src/planner.h include/plugin-hostd/protocol.h $(RENDERED)
 	$(CC) -Iinclude -Isrc $(CFLAGS) -Werror -o $@ tests/planner_test.c src/planner.c
+
+# the core placement (src/placement.c, docs/placement.md), on its own: the cpu lists, the audio and reserved cores of a
+# mask, and the least-loaded rule
+test-placement: $(PLACEMENT_TEST)
+	./$(PLACEMENT_TEST)
+
+$(PLACEMENT_TEST): tests/placement_test.c src/placement.c src/placement.h
+	$(CC) -Isrc $(CFLAGS) -Werror -o $@ tests/placement_test.c src/placement.c
 
 # the transforms the format tables name (src/transforms.c, docs/formats.md): every one and its inverse over its vectors,
 # and a lookup that is not one to one refused

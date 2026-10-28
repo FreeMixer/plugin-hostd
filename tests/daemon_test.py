@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # plugin-hostd against workers that are not plugin hosts (tests/fake-host). No jack, no plugin: the daemon's own
 # behaviour, over the wire, the way a controller sees it. tests/jack_e2e.sh runs the real workers.
-import json, os, shutil, signal, subprocess, sys, tempfile, time
+import json, os, re, shutil, signal, subprocess, sys, tempfile, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import harness
@@ -698,6 +698,188 @@ def policy_and_pool_config():
         d.close()
 
 
+# ---------------------------------------------------------------- core placement (docs/placement.md)
+
+def cpu_list(text):
+    """the cpus of a list as the kernel writes it, such as 0-2,5"""
+    out = set()
+    for part in text.split(","):
+        a, _, b = part.partition("-")
+        out.update(range(int(a), int(b or a) + 1))
+    return out
+
+
+def allowed(pid, tid=None):
+    """the cpus a process (or one of its threads) may run on, from /proc"""
+    path = "/proc/%d/task/%d/status" % (pid, tid) if tid else "/proc/%d/status" % pid
+    with open(path) as f:
+        return cpu_list([l for l in f if l.startswith("Cpus_allowed_list")][0].split()[1])
+
+
+def threads(pid):
+    return [int(t) for t in os.listdir("/proc/%d/task" % pid)]
+
+
+def four_cpus():
+    """four cpus this test may use, lowest first: the 4-core mask of a Pi 5 on any machine that has four"""
+    have = sorted(os.sched_getaffinity(0))
+    check(len(have) >= 4, "the placement tests need four cpus to give the daemon a 4-core mask; this runner has %s" % have)
+    return have[:4]
+
+
+def cores_of(d, insts):
+    """the core worker_list reports for the worker of each instance, and the one its process is pinned to"""
+    out = []
+    for i in insts:
+        _, w = d.wait_up(i)
+        out.append((w["core"], allowed(w["pid"])))
+    return out
+
+
+@test
+def four_workers_on_a_four_core_mask_land_on_three_audio_cores_and_the_daemon_on_the_lowest():
+    """placement spread, the default: the lowest cpu of the daemon's mask is the reserved core, the daemon and every
+    thread of it are pinned there, and each new worker goes to the audio core that holds the fewest (no cost is known):
+    cores 1, 2, 3, then 1 again"""
+    cpus = four_cpus()
+    d = daemon(cpus=cpus)
+    try:
+        for n in range(4):
+            d.expect("add fake:%d %d" % (n, n), "resp %d" % n)
+        got = cores_of(d, range(4))
+        want = [cpus[1], cpus[2], cpus[3], cpus[1]]
+        check([c for c, _ in got] == want, "worker_list reports the cores %s, wanted %s" % (got, want))
+        check([m for _, m in got] == [{c} for c in want], "each worker process is pinned to its core alone: %s" % got)
+        check(len({c for c, _ in got}) == 3 and cpus[0] not in {c for c, _ in got}, "three distinct audio cores, none the daemon's")
+        pid = d.proc.pid
+        check(all(allowed(pid, t) == {cpus[0]} for t in threads(pid)), "every thread of the daemon is on cpu %d: %s" %
+              (cpus[0], [(t, allowed(pid, t)) for t in threads(pid)]))
+        # a worker that is respawned keeps its core, though another core is emptier by then
+        d.expect("remove 2", "resp 0")
+        _, w = d.holder(0)
+        os.kill(w["pid"], signal.SIGKILL)
+        wait_for(lambda: d.holder(0)[1]["pid"] != w["pid"] and d.holder(0)[1]["state"] == "up", "worker of 0 respawned")
+        check(cores_of(d, [0]) == [(cpus[1], {cpus[1]})], "the respawned worker is on its core again: %s" % cores_of(d, [0]))
+        # a new worker takes the emptied core
+        d.expect("add fake:4 4", "resp 4")
+        check(cores_of(d, [4]) == [(cpus[3], {cpus[3]})], "the core 2 left: %s" % cores_of(d, [4]))
+    finally:
+        d.close()
+
+
+@test
+def audio_cores_names_the_cores_and_a_core_outside_the_mask_refuses_the_start():
+    cpus = four_cpus()
+    d = daemon(cpus=cpus, conf={"audio_cores": "%d,%d" % (cpus[2], cpus[3])})
+    try:
+        for n in range(3):
+            d.expect("add fake:%d %d" % (n, n), "resp %d" % n)
+        check([c for c, _ in cores_of(d, range(3))] == [cpus[2], cpus[3], cpus[2]], "two audio cores: %s" % d.workers())
+        pid = d.proc.pid
+        check(all(allowed(pid, t) == {cpus[0], cpus[1]} for t in threads(pid)), "the daemon on the other two: %s" %
+              [allowed(pid, t) for t in threads(pid)])
+    finally:
+        d.close()
+    # a cpu outside the daemon's mask, a word that is no cpu list, a range with no end
+    for bad in ("%d" % (cpus[3] + 1), "x", "%d-" % cpus[1]):
+        try:
+            daemon(cpus=cpus, conf={"audio_cores": bad}).close()
+        except Fail as e:
+            check("audio_cores" in str(e), "the refusal names the setting: %s" % e)
+        else:
+            raise Fail("audio_cores %s started a daemon" % bad)
+
+
+@test
+def the_least_loaded_core_is_the_one_whose_workers_cost_the_least_when_every_cost_is_known():
+    """qualification records at group_rate and group_quantum: a worker of 60 % of a core on the first audio core and two
+    of 10 % make the next go beside a 10 % one, not to the first core as the count would; then the other 10 % one"""
+    cpus = four_cpus()
+    p = Plugins()
+    d = p.daemon(conf={"require_pins": 0}, cpus=cpus)
+    try:
+        # ns per sample at 48 kHz: 12500 is 60 % of one core, 2083 is 10 %
+        for n, ns in ((1, 12500), (2, 2083), (3, 2083), (4, 2083), (5, 2083)):
+            record_for(d, "org.openmixer.fault.%d" % n, ns)
+        for n in range(1, 6):
+            d.expect("add %s %d" % (clap_n(p, n), n), "resp %d" % n)
+        got = [c for c, _ in cores_of(d, range(1, 6))]
+        check(got == [cpus[1], cpus[2], cpus[3], cpus[2], cpus[3]], "by cost: %s" % got)
+        # a worker without a record is placed by the costs of the ones already placed, which are all known
+        d.expect("add fake:x 6", "resp 6")
+        check(cores_of(d, [6])[0][0] == cpus[2], "the cheapest core, the lowest of a tie: %s" % d.workers())
+        # with one placed worker of unknown cost the count decides: the first core holds one worker, the others three and two
+        d.expect("add fake:y 7", "resp 7")
+        check(cores_of(d, [7])[0][0] == cpus[1], "an unknown cost falls back to the count: %s" % d.workers())
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def an_isolated_plugin_gets_a_worker_of_its_own_placed_by_the_same_rule_and_a_segment_stays_one_worker():
+    """plugin-hostd#231: 1 and 2 in-process and 3 isolated plan as [1 2] [3]: the segment is one worker on one core, the
+    isolated member a worker of its own on another, and plan and plan_get say where"""
+    cpus = four_cpus()
+    p = Plugins()
+    d = p.daemon(conf={"pin_mode": "first-use", "grouping": "on"}, cpus=cpus)
+    try:
+        for n in (1, 2):
+            d.expect(pin_n(p, n, "in-process"), "resp 0")
+        d.expect(pin_n(p, 3, "isolated"), "resp 0")
+        for n in (1, 2, 3):
+            d.expect("add %s %d" % (clap_n(p, n), n), "resp %d" % n)
+        check([c for c, _ in cores_of(d, (1, 2, 3))] == cpus[1:4], "three own workers on three cores: %s" % d.workers())
+        cores = expect_plan(d, "plan 1 1 2 3", "resp 0 1,2;3")
+        seg = plan_of(d, 1)[0]
+        _, w3 = d.wait_up(3)
+        check(seg["inst"] == [1, 2] and w3["place"] == "own", "one worker for the segment, one for the isolated: %s" % d.workers())
+        # 3 kept its worker on the third audio core; the segment's new worker takes the first, which the two it gathered left
+        check(seg["core"] == cpus[1] and w3["core"] == cpus[3] and allowed(seg["pid"]) == {cpus[1]}, "cores: %s" % d.workers())
+        check(cores == "%d,%d;%d" % (cpus[1], cpus[1], cpus[3]), "plan names the core of each member: %s" % cores)
+        r = d.send("plan_get 1")
+        check(r.split()[-1] == cores and "3:verdict-isolated" in r, "plan_get ends in the same cores: %s" % r)
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def placement_none_pins_nothing_and_the_option_overrides_the_file():
+    cpus = four_cpus()
+    for kw in ({"conf": {"placement": "none"}}, {"conf": {"placement": "spread"}, "args": ["--placement=none"]}):
+        d = daemon(cpus=cpus, **kw)
+        try:
+            d.expect("add fake:a 0", "resp 0")
+            d.expect("add fake:b 1", "resp 1")
+            check(cores_of(d, (0, 1)) == [(None, set(cpus))] * 2, "%s: the workers keep the daemon's mask: %s" % (kw, cores_of(d, (0, 1))))
+            check(allowed(d.proc.pid) == set(cpus), "%s: the daemon is not pinned" % kw)
+        finally:
+            d.close()
+    for kw in ({"conf": {"placement": "wide"}}, {"args": ["--placement=wide"]}):
+        try:
+            daemon(cpus=cpus, **kw).close()
+        except Fail as e:
+            check("placement" in str(e), "the refusal names the setting: %s" % e)
+        else:
+            raise Fail("placement wide started a daemon")
+
+
+@test
+def a_format_given_cpus_by_worker_env_is_not_moved_by_the_policy():
+    cpus = four_cpus()
+    d = daemon(cpus=cpus)
+    try:
+        d.expect("add fake:a 0", "resp 0")
+        check(cores_of(d, [0]) == [(cpus[1], {cpus[1]})], "placed: %s" % d.workers())
+        d.expect("worker_env lv2 %d,%d -" % (cpus[2], cpus[3]), "resp 0")
+        wait_for(lambda: cores_of(d, [0]) == [(None, {cpus[2], cpus[3]})], "the running worker on worker_env's cpus, no core")
+        d.expect("add fake:b 1", "resp 1")
+        check(cores_of(d, [1]) == [(None, {cpus[2], cpus[3]})], "a new worker of the format too: %s" % d.workers())
+    finally:
+        d.close()
+
+
 def can_lower():
     """whether this identity may give a process a nice below the one it has (CAP_SYS_NICE, or RLIMIT_NICE reaching it),
     asked of the kernel: a root without CAP_SYS_NICE, as in a container, cannot"""
@@ -1329,7 +1511,7 @@ class Plugins:
         return "pin_set %s %s %s" % (LV2_URI, ",".join("%s=%s" % (f, sha(os.path.join(self.bundle, f))) for f in files),
                                      fake_layout())
 
-    def daemon(self, conf=None, env=None):
+    def daemon(self, conf=None, env=None, cpus=None):
         # strict unless a test asks for first-use; the store and the pins_dir are the test's own, never the user's or
         # the system's
         c = {"require_pins": 1, "pin_mode": "strict", "lv2_path": self.lv2_dir, "pin_store": self.store,
@@ -1337,7 +1519,7 @@ class Plugins:
         c.update(conf or {})
         e = {"FAKE_LOG": self.log}
         e.update(env or {})
-        return daemon(conf=c, env=e)
+        return daemon(conf=c, env=e, cpus=cpus)
 
     def received(self):
         """(pid, command) of every command a worker received, in order"""
@@ -2910,6 +3092,22 @@ def a_chain_declared_again_keeps_its_running_worker_and_restarts_no_survivor():
 
 # ---------------------------------------------------------------- plan (the grouping planner, src/planner.c)
 
+def without_cores(reply):
+    """a plan or plan_get reply less its last word, the cores, after checking that word has the shape of the segments: the
+    same members in the same runs, each a core or -"""
+    words = reply.split()
+    check(len(words) >= 4 and words[:2] == ["resp", "0"], "a plan reply with its cores: %r" % reply)
+    segs, cores = words[2], words[-1]
+    check(re.sub(r"[0-9]+", "n", segs) == re.sub(r"[0-9]+|-", "n", cores), "the cores %r have the shape of the segments %r" % (cores, segs))
+    return " ".join(words[:-1])
+
+
+def expect_plan(d, line, want):
+    r = d.send(line)
+    check(without_cores(r) == want, "%s -> %r, wanted %r and the cores" % (line, r, want))
+    return r.split()[-1]
+
+
 def plan_of(d, plan):
     """{k: worker} of the segment workers of a plan, place chain:<plan>.<k>, by the segment's k"""
     prefix = "chain:%d." % plan
@@ -2970,7 +3168,7 @@ def a_plan_forms_the_runs_that_may_share_and_leaves_the_member_that_may_not_in_a
         for n in range(1, 6):
             d.expect("param_set %d gain 0.%d000" % (n, n), "resp 0")
         mark = d.mark()
-        d.expect("plan 1 1 2 3 4 5", "resp 0 1,2;3;4,5")
+        expect_plan(d, "plan 1 1 2 3 4 5", "resp 0 1,2;3;4,5")
         e0 = d.wait_event("chain_formed 1.0 ", since=mark)
         e1 = d.wait_event("chain_formed 1.2 ", since=mark)
         segs = plan_of(d, 1)
@@ -2980,12 +3178,12 @@ def a_plan_forms_the_runs_that_may_share_and_leaves_the_member_that_may_not_in_a
         _, w3 = d.wait_up(3)
         check(w3["place"] == "own" and w3["inst"] == [3], "the isolated member is alone: %s" % w3)
         gains(d, (1, 2, 3, 4, 5))
-        d.expect("plan_get 1", "resp 0 1,2;3;4,5 1:cost-assumed,2:cost-assumed,3:verdict-isolated,4:cost-assumed,5:cost-assumed")
+        expect_plan(d, "plan_get 1", "resp 0 1,2;3;4,5 1:cost-assumed,2:cost-assumed,3:verdict-isolated,4:cost-assumed,5:cost-assumed")
         check(d.wait_event("plan_reason 1 ", since=mark) == "plan_reason 1 1:cost-assumed,2:cost-assumed,3:verdict-isolated,"
               "4:cost-assumed,5:cost-assumed", "the plan_reason event carries the reasons")
         # a member that was never given a verdict is alone as well
-        d.expect("plan 2 6", "resp 0 6")
-        d.expect("plan_get 2", "resp 0 6 6:no-verdict")
+        expect_plan(d, "plan 2 6", "resp 0 6")
+        expect_plan(d, "plan_get 2", "resp 0 6 6:no-verdict")
         d.expect("plan 3 5", resp("CHAIN_INSTANCE_BUSY"))
     finally:
         d.close()
@@ -2996,16 +3194,16 @@ def a_plan_forms_the_runs_that_may_share_and_leaves_the_member_that_may_not_in_a
 def a_plan_again_keeps_the_worker_of_a_segment_that_did_not_change_and_forms_the_ones_that_did():
     p, d = plan_run()
     try:
-        d.expect("plan 1 1 2 3 4 5", "resp 0 1,2;3;4,5")
+        expect_plan(d, "plan 1 1 2 3 4 5", "resp 0 1,2;3;4,5")
         d.wait_event("chain_formed 1.2 ")
         segs = plan_of(d, 1)
         first, second = segs[0], segs[2]
-        d.expect("plan 1 1 2 3 4 5", "resp 0 1,2;3;4,5")
+        expect_plan(d, "plan 1 1 2 3 4 5", "resp 0 1,2;3;4,5")
         again = plan_of(d, 1)
         check(again[0]["pid"] == first["pid"] and again[2]["pid"] == second["pid"] and again[0]["name"] == first["name"],
               "the same plan moves nothing: %s" % d.workers())
         # the plan loses its last two members: [1 2] stays where it runs, 4 and 5 are alone
-        d.expect("plan 1 1 2 3", "resp 0 1,2;3")
+        expect_plan(d, "plan 1 1 2 3", "resp 0 1,2;3")
         now = plan_of(d, 1)
         check(sorted(now) == [0] and now[0]["pid"] == first["pid"], "the segment that did not change keeps its worker: %s" % d.workers())
         for n in (4, 5):
@@ -3014,16 +3212,16 @@ def a_plan_again_keeps_the_worker_of_a_segment_that_did_not_change_and_forms_the
         # 3 earns an in-process verdict: all of 1 2 3 are one segment, in a worker that is formed again
         d.expect(pin_n(p, 3, "in-process"), "resp 0")
         mark = d.mark()
-        d.expect("plan 1 1 2 3", "resp 0 1,2,3")
+        expect_plan(d, "plan 1 1 2 3", "resp 0 1,2,3")
         d.wait_event("chain_formed 1.0 ", since=mark)
         now = plan_of(d, 1)
         check(sorted(now) == [0] and now[0]["inst"] == [1, 2, 3], "one segment of three: %s" % d.workers())
         # a segment that moves to another place in the plan keeps its worker and takes the place's name
-        d.expect("plan 1 4 1 2 3", "resp 0 4,1,2,3")
+        expect_plan(d, "plan 1 4 1 2 3", "resp 0 4,1,2,3")
         moved = plan_of(d, 1)
         check(sorted(moved) == [0] and moved[0]["inst"] == [4, 1, 2, 3], "four in one: %s" % d.workers())
         d.expect(pin_n(p, 4, "isolated"), "resp 0")
-        d.expect("plan 1 4 1 2 3", "resp 0 4;1,2,3")
+        expect_plan(d, "plan 1 4 1 2 3", "resp 0 4;1,2,3")
         moved2 = plan_of(d, 1)
         check(sorted(moved2) == [1] and moved2[1]["inst"] == [1, 2, 3],
               "the segment of 1 2 3 is the plan's second now and its worker is named for it: %s" % d.workers())
@@ -3038,11 +3236,11 @@ def a_plan_that_keeps_a_segment_in_another_place_renames_its_worker_and_restarts
     p, d = plan_run()
     try:
         d.expect(pin_n(p, 1, "isolated"), "resp 0")
-        d.expect("plan 1 2 3 4 5", "resp 0 2;3;4,5")
+        expect_plan(d, "plan 1 2 3 4 5", "resp 0 2;3;4,5")
         d.wait_event("chain_formed 1.2 ")
         was = plan_of(d, 1)[2]
         check(was["inst"] == [4, 5], "4 5 is the plan's third segment: %s" % d.workers())
-        d.expect("plan 1 1 2 3 4 5", "resp 0 1;2;3;4,5")
+        expect_plan(d, "plan 1 1 2 3 4 5", "resp 0 1;2;3;4,5")
         now = plan_of(d, 1)
         check(sorted(now) == [3] and now[3]["pid"] == was["pid"] and now[3]["inst"] == [4, 5],
               "the same worker, named for the place it stands in now: %s" % d.workers())
@@ -3058,10 +3256,10 @@ def while_grouping_is_off_a_plan_is_answered_and_kept_and_nothing_moves():
         for i in (1, 2, 3):
             d.expect("add clap:fake#m%d %d" % (i, i), "resp %d" % i)
         before = d.workers()
-        d.expect("plan 1 1 2 3", "resp 0 1,2,3")
+        expect_plan(d, "plan 1 1 2 3", "resp 0 1,2,3")
         check(d.workers() == before and not any(w["place"].startswith("chain:") for w in d.workers().values()),
               "nothing moved: %s" % d.workers())
-        d.expect("plan_get 1", "resp 0 1,2,3 1:grouping-off,2:grouping-off,3:grouping-off")
+        expect_plan(d, "plan_get 1", "resp 0 1,2,3 1:grouping-off,2:grouping-off,3:grouping-off")
         d.expect("plan_clear 1", "resp 0")
         check(d.workers() == before, "and clearing it moves nothing: %s" % d.workers())
         d.expect("plan_get 1", resp("NO_SUCH_PLAN"))
@@ -3102,13 +3300,13 @@ def a_plan_is_refused_for_what_chain_refuses_and_moves_nothing():
         d.expect("chain 9 1 2", "resp 0")
         d.expect("plan 1 2 3", resp("CHAIN_INSTANCE_BUSY"))
         d.expect("chain_clear 9", "resp 0")
-        d.expect("plan 1 2 3", "resp 0 2,3")
+        expect_plan(d, "plan 1 2 3", "resp 0 2,3")
         d.expect("plan 2 3", resp("CHAIN_INSTANCE_BUSY"))
         d.expect("chain 9 3 1", resp("CHAIN_INSTANCE_BUSY"))
         # a plan and a chain of one number are two things
         d.expect("chain 1 1", "resp 0")
         d.expect("chain_get 1", "resp 0 " + [k for k, w in d.workers().items() if w["place"] == "chain:1"][0] + " 1 1")
-        d.expect("plan_get 1", "resp 0 2,3 2:cost-assumed,3:cost-assumed")
+        expect_plan(d, "plan_get 1", "resp 0 2,3 2:cost-assumed,3:cost-assumed")
     finally:
         d.close()
 
@@ -3121,7 +3319,7 @@ def plan_clear_gives_every_member_a_worker_of_its_own_and_forgets_the_plan():
             d.expect("add clap:fake#m%d %d" % (i, i), "resp %d" % i)
             d.expect("param_set %d gain 0.%d000" % (i, i), "resp 0")
         mark = d.mark()
-        d.expect("plan 4 1 2 3", "resp 0 1,2,3")
+        expect_plan(d, "plan 4 1 2 3", "resp 0 1,2,3")
         d.wait_event("chain_formed 4.0 ", since=mark)
         check(plan_of(d, 4)[0]["inst"] == [1, 2, 3], "one worker: %s" % d.workers())
         d.expect("plan_clear 4", "resp 0")
@@ -3144,7 +3342,7 @@ def a_member_that_is_removed_leaves_its_segment_and_the_worker_is_told_the_order
     try:
         for i in (1, 2, 3):
             d.expect("add clap:fake#m%d %d" % (i, i), "resp %d" % i)
-        d.expect("plan 1 1 2 3", "resp 0 1,2,3")
+        expect_plan(d, "plan 1 1 2 3", "resp 0 1,2,3")
         w = plan_of(d, 1)[0]
         d.expect("remove 2", "resp 0")
         check(plan_of(d, 1)[0]["inst"] == [1, 3], "the segment goes on without it: %s" % d.workers())
@@ -3165,12 +3363,12 @@ def a_segment_whose_worker_dies_is_respawned_with_its_members_in_order_and_its_p
     try:
         for i in (10, 11, 12):
             d.expect("add clap:fake#m%d %d" % (i, i), "resp %d" % i)
-        d.expect("plan 7 10 11 12", "resp 0 10,11,12")
+        expect_plan(d, "plan 7 10 11 12", "resp 0 10,11,12")
         d.wait_event("chain_formed 7.0 ")
         os.kill(plan_of(d, 7)[0]["pid"], signal.SIGKILL)
         _, w = d.wait_up(10)
         check(w["place"] == "chain:7.0" and w["inst"] == [10, 11, 12], "the same place, the same order: %s" % d.workers())
-        d.expect("plan_get 7", "resp 0 10,11,12 10:cost-assumed,11:cost-assumed,12:cost-assumed")
+        expect_plan(d, "plan_get 7", "resp 0 10,11,12 10:cost-assumed,11:cost-assumed,12:cost-assumed")
     finally:
         d.close()
 
@@ -3189,15 +3387,15 @@ def the_cost_a_qualification_record_holds_decides_the_segments_and_a_missing_one
         record_for(d, "org.openmixer.fault.3", 5000)
         record_for(d, "org.openmixer.fault.4", 12500)        # 60 %: over the limit alone
         record_for(d, "org.openmixer.fault.5", 5000, rate=96000)   # another rate: not this plan's figure
-        d.expect("plan 1 1 2 3 4 5", "resp 0 1,2;3;4;5")
-        d.expect("plan_get 1", "resp 0 1,2;3;4;5 3:group-cost,4:cost-over,5:no-neighbour")
+        expect_plan(d, "plan 1 1 2 3 4 5", "resp 0 1,2;3;4;5")
+        expect_plan(d, "plan_get 1", "resp 0 1,2;3;4;5 3:group-cost,4:cost-over,5:no-neighbour")
         # a record of the plugin at a lower cost, in another version, is not preferred: the larger figure stands
         record_for(d, "org.openmixer.fault.2", 1000, name="org.openmixer.fault.2@0.9-fedcba987654.default.qualification.json")
-        d.expect("plan 1 1 2 3 4 5", "resp 0 1,2;3;4;5")
+        expect_plan(d, "plan 1 1 2 3 4 5", "resp 0 1,2;3;4;5")
         # the plugin's figure lowered, in the record that held it: 24 + 24 + 0.5 % fits 50
         record_for(d, "org.openmixer.fault.3", 100, name="org.openmixer.fault.3@1.0-0123456789ab.default.qualification.json")
-        d.expect("plan 1 1 2 3", "resp 0 1,2,3")
-        d.expect("plan_get 1", "resp 0 1,2,3 -")
+        expect_plan(d, "plan 1 1 2 3", "resp 0 1,2,3")
+        expect_plan(d, "plan_get 1", "resp 0 1,2,3 -")
     finally:
         d.close()
         p.close()
@@ -3211,8 +3409,8 @@ def the_same_members_are_planned_into_the_same_segments_and_reasons_by_every_dae
         try:
             run = []
             for _ in range(3):
-                d.expect("plan 1 1 2 3 4 5", "resp 0 1,2;3;4,5")
-                run.append(d.send("plan_get 1"))
+                expect_plan(d, "plan 1 1 2 3 4 5", "resp 0 1,2;3;4,5")
+                run.append(without_cores(d.send("plan_get 1")))
             answers.append(run)
         finally:
             d.close()
@@ -3235,7 +3433,7 @@ def plan_after_history(history, conf=None, records=None):
         for plugin_id, ns, kw in records or []:
             record_for(d, plugin_id, ns, **kw)
         segments = d.send("plan 1 1 2 3 4 5")
-        return segments, d.send("plan_get 1")
+        return without_cores(segments), without_cores(d.send("plan_get 1"))
     finally:
         d.close()
         p.close()
@@ -3277,8 +3475,8 @@ def a_crash_is_said_before_xruns_and_the_pin_is_said_before_both():
             d.expect(pin_n(p, n, "in-process"), "resp 0")
         # 2 is crashed and isolated, 3 is crashed and raises xruns
         d.expect(pin_n(p, 2, "isolated"), "resp 0")
-        d.expect("plan 1 1 2 3 4 5", "resp 0 1;2;3;4,5")
-        d.expect("plan_get 1", "resp 0 1;2;3;4,5 1:no-neighbour,2:verdict-isolated,3:history-crashed,4:cost-assumed,5:cost-assumed")
+        expect_plan(d, "plan 1 1 2 3 4 5", "resp 0 1;2;3;4,5")
+        expect_plan(d, "plan_get 1", "resp 0 1;2;3;4,5 1:no-neighbour,2:verdict-isolated,3:history-crashed,4:cost-assumed,5:cost-assumed")
     finally:
         d.close()
         p.close()
@@ -3313,8 +3511,8 @@ def a_history_that_cannot_be_read_or_is_off_plans_as_without_one_and_says_so():
     try:
         for n in range(1, 6):
             d.expect(pin_n(p, n, "in-process"), "resp 0")
-        d.expect("plan 1 1 2 3 4 5", "resp 0 1,2,3,4,5")
-        d.expect("plan_get 1", want)
+        expect_plan(d, "plan 1 1 2 3 4 5", "resp 0 1,2,3,4,5")
+        expect_plan(d, "plan_get 1", want)
     finally:
         d.close()
         p.close()
@@ -3323,12 +3521,12 @@ def a_history_that_cannot_be_read_or_is_off_plans_as_without_one_and_says_so():
     try:
         for n in range(1, 6):
             d.expect(pin_n(p, n, "in-process"), "resp 0")
-        d.expect("plan 1 1 2 3 4 5", "resp 0 1,2,3,4,5")
-        d.expect("plan_get 1", want)
+        expect_plan(d, "plan 1 1 2 3 4 5", "resp 0 1,2,3,4,5")
+        expect_plan(d, "plan_get 1", want)
         # a member that has a harder reason says that one
         d.expect(pin_n(p, 3, "isolated"), "resp 0")
-        d.expect("plan 1 1 2 3 4 5", "resp 0 1,2;3;4,5")
-        d.expect("plan_get 1", "resp 0 1,2;3;4,5 1:history-unavailable,2:history-unavailable,3:verdict-isolated,"
+        expect_plan(d, "plan 1 1 2 3 4 5", "resp 0 1,2;3;4,5")
+        expect_plan(d, "plan_get 1", "resp 0 1,2;3;4,5 1:history-unavailable,2:history-unavailable,3:verdict-isolated,"
                  "4:history-unavailable,5:history-unavailable")
     finally:
         d.close()
@@ -3354,14 +3552,14 @@ def places(d):
 def a_member_that_is_quarantined_leaves_its_plan_alone_and_the_segments_that_did_not_change_keep_their_workers():
     d = plan_of_five({"group_max": 2})
     try:
-        d.expect("plan 1 1 2 3 4 5", "resp 0 1,2;3,4;5")
+        expect_plan(d, "plan 1 1 2 3 4 5", "resp 0 1,2;3,4;5")
         d.wait_event("chain_formed 1.1 ")
         first = plan_of(d, 1)[0]["pid"]
         mark = d.mark()
         d.expect("param_set 4 crash 1", "resp 0")
         d.wait_event("instance_quarantined 4 ", since=mark)
         wait_for(lambda: d.send("plan_get 1").startswith("resp 0 1,2;3;4;5 "), "the plan again: %s" % d.send("plan_get 1"))
-        d.expect("plan_get 1", "resp 0 1,2;3;4;5 1:cost-assumed,2:cost-assumed,3:group-full,4:history-crashed,5:no-neighbour")
+        expect_plan(d, "plan_get 1", "resp 0 1,2;3;4;5 1:cost-assumed,2:cost-assumed,3:group-full,4:history-crashed,5:no-neighbour")
         d.wait_event("plan_reason 1 1:cost-assumed,2:cost-assumed,3:group-full,4:history-crashed,5:no-neighbour", since=mark)
         for i in (1, 2, 3, 4, 5):
             d.wait_up(i)
@@ -3404,7 +3602,7 @@ def a_group_split_by_a_death_with_no_culprit_is_gathered_again_after_history_reg
     try:
         for i in (1, 2, 3):
             d.expect("add clap:fake#m%d %d" % (i, i), "resp %d" % i)
-        d.expect("plan 1 1 2 3", "resp 0 1,2,3")
+        expect_plan(d, "plan 1 1 2 3", "resp 0 1,2,3")
         d.wait_event("chain_formed 1.0 ")
         mark = d.mark()
         t0 = kill_chain(d, 1, 0)
@@ -3415,7 +3613,7 @@ def a_group_split_by_a_death_with_no_culprit_is_gathered_again_after_history_reg
         late = time.monotonic() - t0
         check(2.0 < late < 8.0, "about 3 s of steady running after the death: %.1f s" % late)
         check(places(d) == {"chain:1.0": [1, 2, 3]}, "the group runs as one again: %s" % d.workers())
-        d.expect("plan_get 1", "resp 0 1,2,3 1:cost-assumed,2:cost-assumed,3:cost-assumed")
+        expect_plan(d, "plan_get 1", "resp 0 1,2,3 1:cost-assumed,2:cost-assumed,3:cost-assumed")
     finally:
         d.close()
 
@@ -3426,7 +3624,7 @@ def another_death_of_a_member_puts_the_regroup_off_by_another_history_regroup_s(
     try:
         for i in (1, 2, 3):
             d.expect("add clap:fake#m%d %d" % (i, i), "resp %d" % i)
-        d.expect("plan 1 1 2 3", "resp 0 1,2;3")
+        expect_plan(d, "plan 1 1 2 3", "resp 0 1,2;3")
         d.wait_event("chain_formed 1.0 ")
         mark = d.mark()
         os.kill(plan_of(d, 1)[0]["pid"], signal.SIGKILL)
@@ -3454,13 +3652,13 @@ def history_regroup_s_zero_leaves_a_split_group_apart_until_the_controller_plans
     try:
         for i in (1, 2, 3):
             d.expect("add clap:fake#m%d %d" % (i, i), "resp %d" % i)
-        d.expect("plan 1 1 2 3", "resp 0 1,2,3")
+        expect_plan(d, "plan 1 1 2 3", "resp 0 1,2,3")
         d.wait_event("chain_formed 1.0 ")
         kill_chain(d, 1, 0)
         time.sleep(4.5)
         check(not plan_of(d, 1) and [w["place"] for w in d.workers().values()] == ["own", "own", "own"], "apart after longer than the timer of the other tests: %s" % d.workers())
         mark = d.mark()
-        d.expect("plan 1 1 2 3", "resp 0 1,2,3")
+        expect_plan(d, "plan 1 1 2 3", "resp 0 1,2,3")
         d.wait_event("chain_formed 1.0 ", since=mark)
         check(places(d) == {"chain:1.0": [1, 2, 3]}, "and a plan call gathers it, though the segment did not change: %s" % d.workers())
     finally:

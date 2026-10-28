@@ -95,8 +95,8 @@ sleep() { :; }
 
 REPLIES = ("add_clap", "set_clap", "get_clap", "scan", "quit", "add_lv2", "set_lv2", "get_lv2", "worker_list")
 RIGHT = ("resp 0", "resp 0", "resp 0 8.0000", "    param 1 Ratio [1 .. 20] default 4 automatable",
-         "resp 0", "resp 0", "resp 0", "resp 0 8.0000", "resp 1 w1:42:lv2-clap:up:own:0")
-WRONG = {"scan": "    param 1 Wrong", "worker_list": "resp 1 w1:42:mod-host:up:own:0"}
+         "resp 0", "resp 0", "resp 0", "resp 0 8.0000", "resp 1 w1:42:lv2-clap:up:1:own:0")
+WRONG = {"scan": "    param 1 Wrong", "worker_list": "resp 1 w1:42:mod-host:up:1:own:0"}
 
 
 def stubbed(sc, lines, replies):
