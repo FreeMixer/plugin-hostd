@@ -17,6 +17,7 @@ LV2_ALLOC_TEST = tests/lv2-alloc-test
 VERBS_ALLOC_TEST = tests/verbs-alloc-test
 TRANSFORMS_TEST = tests/transforms-test
 PROBE = plugin-hostd-probe
+PROBE_LOCK = plugin-hostd-probe-lock.so
 
 PKG_CONFIG ?= pkg-config
 
@@ -72,7 +73,7 @@ RENDERED = include/plugin-hostd/plugin_hostd_host_verbs.h include/plugin-hostd/p
            include/plugin-hostd/omx_clap_core_host_verbs.h include/plugin-hostd/omx_clap_core_vocabulary.h
 
 # default build
-all: $(PROG) $(PROBE)
+all: $(PROG) $(PROBE) $(PROBE_LOCK)
 
 $(PROG): $(OBJ) $(PROTOCOL_LIB)
 	$(CC) $(OBJ) $(PROTOCOL_LIBS) $(LDFLAGS) -pthread -lm -o $@
@@ -83,6 +84,11 @@ PROBE_SRC = src/probe.c src/json.c src/describe.c src/transforms.c src/machine.c
 $(PROBE): $(PROBE_SRC) src/json.h src/describe.h src/transforms.h src/machine.h include/plugin-hostd/protocol.h $(RENDERED) include/plugin-hostd/pin.h
 	$(CC) -Iinclude -Isrc $(CONTRACT_CFLAGS) $(CFLAGS) -D_GNU_SOURCE -DPROBE_VERSION='"$(VERSION)"' \
 	  -DPROBE_CONTRACTDIR='"$(CONTRACTDIR)"' -DPROBE_CONTRACT_MAJOR='"$(CONTRACT_SCHEMA_MAJOR)"' -o $@ $(PROBE_SRC) -lm
+
+# the probe's lock preload (src/probe_lock.c): preloaded into the measured child only, it locks the child's memory before
+# its main; installed where the runner looks for it by default, $(LIBEXECDIR)/plugin-hostd/probe-lock.so
+$(PROBE_LOCK): src/probe_lock.c src/probe_lock.h
+	$(CC) $(CFLAGS) -shared -o $@ src/probe_lock.c $(LDFLAGS)
 
 ifneq ($(PROTOCOL_LIB),)
 $(PROTOCOL_LIB):
@@ -111,10 +117,12 @@ DATADIR = $(PREFIX)/share
 INCLUDEDIR = $(PREFIX)/include
 LIBEXECDIR = $(PREFIX)/libexec
 
-install: $(PROG) install_man install_protocol install_tests
+install: $(PROG) $(PROBE) $(PROBE_LOCK) install_man install_protocol install_tests
 	install -d $(DESTDIR)$(BINDIR)
 	install -m 755 $(PROG) $(DESTDIR)$(BINDIR)
 	install -m 755 $(PROBE) $(DESTDIR)$(BINDIR)
+	install -d $(DESTDIR)$(LIBEXECDIR)/plugin-hostd
+	install -m 644 $(PROBE_LOCK) $(DESTDIR)$(LIBEXECDIR)/plugin-hostd/probe-lock.so
 
 # the declared protocol: the JSON for readers that are not C, which the package carries; the header, its pkg-config
 # file and the schema of the JSON, which the development package carries; and the pins_dir other packages drop their
@@ -278,7 +286,7 @@ fuzz-corpus-check:
 
 # clean rule
 clean:
-	@rm -f src/*.o $(PROG) $(PROBE) tests/probe-child tests/lv2-probe-child tests/rt_interpose.so $(FAKE) $(PIN_TEST) $(HISTORY_TEST) $(PROC_TEST) $(PLANNER_TEST) $(QUALCOST_TEST) $(RELAY_TEST) tests/relay-test-relay.o $(FORMAT_TEST) $(GESTURE_ALLOC_TEST) $(LV2_ALLOC_TEST) tests/lv2-alloc-lv2.o $(VERBS_ALLOC_TEST) $(TRANSFORMS_TEST) $(GEN) tests/stress.clap tests/jack_levels tests/host_scenarios $(LV2_FIXTURE)
+	@rm -f src/*.o $(PROG) $(PROBE) $(PROBE_LOCK) tests/probe-child tests/lv2-probe-child tests/rt_interpose.so $(FAKE) $(PIN_TEST) $(HISTORY_TEST) $(PROC_TEST) $(PLANNER_TEST) $(QUALCOST_TEST) $(RELAY_TEST) tests/relay-test-relay.o $(FORMAT_TEST) $(GESTURE_ALLOC_TEST) $(LV2_ALLOC_TEST) tests/lv2-alloc-lv2.o $(VERBS_ALLOC_TEST) $(TRANSFORMS_TEST) $(GEN) tests/stress.clap tests/jack_levels tests/host_scenarios $(LV2_FIXTURE)
 	@rm -rf build
 
 # the daemon against workers that are not plugin hosts at all (tests/fake-host speaks the same protocol and can be
