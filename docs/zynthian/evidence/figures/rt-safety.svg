@@ -1,0 +1,33 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='860' height='230' viewBox='0 0 860 230' role='img' font-family='DejaVu Sans, Helvetica, Arial, sans-serif'>
+<title>RT-safety outcome per record</title>
+<rect x='0' y='0' width='860' height='230' fill='#fcfcfb'/>
+<text x='16.0' y='28.0' font-size='15' fill='#0b0b0b' text-anchor='start' font-weight='bold'>RT-safety sweep outcome per qualification record, Raspberry Pi 5</text>
+<rect x='200.0' y='44.0' width='12.0' height='12.0' rx='2' fill='#2a78d6'></rect>
+<text x='218.0' y='54.0' font-size='12' fill='#0b0b0b' text-anchor='start' font-weight='normal'>clean</text>
+<rect x='276.0' y='44.0' width='12.0' height='12.0' rx='2' fill='#eb6834'></rect>
+<text x='294.0' y='54.0' font-size='12' fill='#0b0b0b' text-anchor='start' font-weight='normal'>violations</text>
+<rect x='388.0' y='44.0' width='12.0' height='12.0' rx='2' fill='#6250d6'></rect>
+<text x='406.0' y='54.0' font-size='12' fill='#0b0b0b' text-anchor='start' font-weight='normal'>crashed, timed out or refused</text>
+<rect x='636.8' y='44.0' width='12.0' height='12.0' rx='2' fill='#bdbcb4'></rect>
+<text x='654.8' y='54.0' font-size='12' fill='#0b0b0b' text-anchor='start' font-weight='normal'>not swept</text>
+<text x='190.0' y='92.0' font-size='12' fill='#0b0b0b' text-anchor='end' font-weight='normal'>LV2</text>
+<rect x='200.0' y='74.0' width='429.5' height='28.0' rx='0' fill='#2a78d6'><title>LV2, clean: 972</title></rect>
+<text x='414.8' y='92.0' font-size='11' fill='#ffffff' text-anchor='middle' font-weight='normal'>972</text>
+<rect x='631.5' y='74.0' width='79.2' height='28.0' rx='0' fill='#eb6834'><title>LV2, violations: 183</title></rect>
+<text x='671.1' y='92.0' font-size='11' fill='#ffffff' text-anchor='middle' font-weight='normal'>183</text>
+<rect x='712.8' y='74.0' width='33.1' height='28.0' rx='0' fill='#6250d6'><title>LV2, crashed, timed out or refused: 79</title></rect>
+<text x='729.3' y='92.0' font-size='11' fill='#ffffff' text-anchor='middle' font-weight='normal'>79</text>
+<rect x='747.8' y='74.0' width='40.2' height='28.0' rx='0' fill='#bdbcb4'><title>LV2, not swept: 95</title></rect>
+<text x='767.9' y='92.0' font-size='11' fill='#0b0b0b' text-anchor='middle' font-weight='normal'>95</text>
+<text x='796.0' y='92.0' font-size='11' fill='#52514e' text-anchor='start' font-weight='normal'>1329</text>
+<text x='190.0' y='132.0' font-size='12' fill='#0b0b0b' text-anchor='end' font-weight='normal'>CLAP, plugin-hostd offer</text>
+<rect x='200.0' y='114.0' width='29.5' height='28.0' rx='0' fill='#2a78d6'><title>CLAP, plugin-hostd offer, clean: 71</title></rect>
+<text x='214.8' y='132.0' font-size='11' fill='#ffffff' text-anchor='middle' font-weight='normal'>71</text>
+<rect x='231.5' y='114.0' width='56.2' height='28.0' rx='0' fill='#eb6834'><title>CLAP, plugin-hostd offer, violations: 131</title></rect>
+<text x='259.6' y='132.0' font-size='11' fill='#ffffff' text-anchor='middle' font-weight='normal'>131</text>
+<rect x='289.7' y='114.0' width='17.1' height='28.0' rx='0' fill='#6250d6'><title>CLAP, plugin-hostd offer, crashed, timed out or refused: 43</title></rect>
+<rect x='308.8' y='114.0' width='0.0' height='28.0' rx='0' fill='#bdbcb4'><title>CLAP, plugin-hostd offer, not swept: 2</title></rect>
+<text x='315.7' y='132.0' font-size='11' fill='#52514e' text-anchor='start' font-weight='normal'>247</text>
+<text x='16.0' y='204.0' font-size='11' fill='#52514e' text-anchor='start' font-weight='normal'>Data: docs/zynthian/evidence/pi5-qualify-2026-10-28/summary.json, from qualify.json (sha256 b9c335c4dc0d8c41...), measured 2026-10-28.</text>
+<text x='16.0' y='218.0' font-size='11' fill='#52514e' text-anchor='start' font-weight='normal'>violations = an allocation, lock or syscall seen in the audio thread by the interposer; not swept = a grid point with no sweep.</text>
+</svg>

@@ -1,0 +1,67 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='860' height='422' viewBox='0 0 860 422' role='img' font-family='DejaVu Sans, Helvetica, Arial, sans-serif'>
+<title>Verdicts per host profile</title>
+<rect x='0' y='0' width='860' height='422' fill='#fcfcfb'/>
+<text x='16.0' y='28.0' font-size='15' fill='#0b0b0b' text-anchor='start' font-weight='bold'>Verdicts per host profile and plugin format, Raspberry Pi 5</text>
+<rect x='230.0' y='44.0' width='12.0' height='12.0' rx='2' fill='#2a78d6'></rect>
+<text x='248.0' y='54.0' font-size='12' fill='#0b0b0b' text-anchor='start' font-weight='normal'>suitable</text>
+<rect x='327.6' y='44.0' width='12.0' height='12.0' rx='2' fill='#eb6834'></rect>
+<text x='345.6' y='54.0' font-size='12' fill='#0b0b0b' text-anchor='start' font-weight='normal'>unsuitable</text>
+<rect x='439.6' y='44.0' width='12.0' height='12.0' rx='2' fill='#bdbcb4'></rect>
+<text x='457.6' y='54.0' font-size='12' fill='#0b0b0b' text-anchor='start' font-weight='normal'>unknown</text>
+<text x='220.0' y='88.0' font-size='12' fill='#0b0b0b' text-anchor='end' font-weight='normal'>LV2, jalv</text>
+<rect x='230.0' y='72.0' width='444.2' height='24.0' rx='0' fill='#2a78d6'><title>LV2, jalv, suitable: 1059</title></rect>
+<text x='452.1' y='88.0' font-size='11' fill='#ffffff' text-anchor='middle' font-weight='normal'>1059</text>
+<rect x='676.2' y='72.0' width='76.0' height='24.0' rx='0' fill='#eb6834'><title>LV2, jalv, unsuitable: 185</title></rect>
+<text x='714.2' y='88.0' font-size='11' fill='#ffffff' text-anchor='middle' font-weight='normal'>185</text>
+<rect x='754.2' y='72.0' width='33.8' height='24.0' rx='0' fill='#bdbcb4'><title>LV2, jalv, unknown: 85</title></rect>
+<text x='771.1' y='88.0' font-size='11' fill='#0b0b0b' text-anchor='middle' font-weight='normal'>85</text>
+<text x='796.0' y='88.0' font-size='11' fill='#52514e' text-anchor='start' font-weight='normal'>1329</text>
+<text x='220.0' y='122.0' font-size='12' fill='#0b0b0b' text-anchor='end' font-weight='normal'>LV2, mod-host</text>
+<rect x='230.0' y='106.0' width='443.8' height='24.0' rx='0' fill='#2a78d6'><title>LV2, mod-host, suitable: 1058</title></rect>
+<text x='451.9' y='122.0' font-size='11' fill='#ffffff' text-anchor='middle' font-weight='normal'>1058</text>
+<rect x='675.8' y='106.0' width='76.4' height='24.0' rx='0' fill='#eb6834'><title>LV2, mod-host, unsuitable: 186</title></rect>
+<text x='714.0' y='122.0' font-size='11' fill='#ffffff' text-anchor='middle' font-weight='normal'>186</text>
+<rect x='754.2' y='106.0' width='33.8' height='24.0' rx='0' fill='#bdbcb4'><title>LV2, mod-host, unknown: 85</title></rect>
+<text x='771.1' y='122.0' font-size='11' fill='#0b0b0b' text-anchor='middle' font-weight='normal'>85</text>
+<text x='796.0' y='122.0' font-size='11' fill='#52514e' text-anchor='start' font-weight='normal'>1329</text>
+<text x='220.0' y='156.0' font-size='12' fill='#0b0b0b' text-anchor='end' font-weight='normal'>LV2, omx-clap-host</text>
+<rect x='230.0' y='140.0' width='444.2' height='24.0' rx='0' fill='#2a78d6'><title>LV2, omx-clap-host, suitable: 1059</title></rect>
+<text x='452.1' y='156.0' font-size='11' fill='#ffffff' text-anchor='middle' font-weight='normal'>1059</text>
+<rect x='676.2' y='140.0' width='76.0' height='24.0' rx='0' fill='#eb6834'><title>LV2, omx-clap-host, unsuitable: 185</title></rect>
+<text x='714.2' y='156.0' font-size='11' fill='#ffffff' text-anchor='middle' font-weight='normal'>185</text>
+<rect x='754.2' y='140.0' width='33.8' height='24.0' rx='0' fill='#bdbcb4'><title>LV2, omx-clap-host, unknown: 85</title></rect>
+<text x='771.1' y='156.0' font-size='11' fill='#0b0b0b' text-anchor='middle' font-weight='normal'>85</text>
+<text x='796.0' y='156.0' font-size='11' fill='#52514e' text-anchor='start' font-weight='normal'>1329</text>
+<text x='220.0' y='190.0' font-size='12' fill='#0b0b0b' text-anchor='end' font-weight='normal'>LV2, openmixer-console</text>
+<rect x='230.0' y='174.0' width='444.2' height='24.0' rx='0' fill='#2a78d6'><title>LV2, openmixer-console, suitable: 1059</title></rect>
+<text x='452.1' y='190.0' font-size='11' fill='#ffffff' text-anchor='middle' font-weight='normal'>1059</text>
+<rect x='676.2' y='174.0' width='76.0' height='24.0' rx='0' fill='#eb6834'><title>LV2, openmixer-console, unsuitable: 185</title></rect>
+<text x='714.2' y='190.0' font-size='11' fill='#ffffff' text-anchor='middle' font-weight='normal'>185</text>
+<rect x='754.2' y='174.0' width='33.8' height='24.0' rx='0' fill='#bdbcb4'><title>LV2, openmixer-console, unknown: 85</title></rect>
+<text x='771.1' y='190.0' font-size='11' fill='#0b0b0b' text-anchor='middle' font-weight='normal'>85</text>
+<text x='796.0' y='190.0' font-size='11' fill='#52514e' text-anchor='start' font-weight='normal'>1329</text>
+<text x='220.0' y='224.0' font-size='12' fill='#0b0b0b' text-anchor='end' font-weight='normal'>CLAP, jalv</text>
+<rect x='230.0' y='208.0' width='102.1' height='24.0' rx='0' fill='#bdbcb4'><title>CLAP, jalv, unknown: 247</title></rect>
+<text x='281.0' y='224.0' font-size='11' fill='#0b0b0b' text-anchor='middle' font-weight='normal'>247</text>
+<text x='340.1' y='224.0' font-size='11' fill='#52514e' text-anchor='start' font-weight='normal'>247</text>
+<text x='220.0' y='258.0' font-size='12' fill='#0b0b0b' text-anchor='end' font-weight='normal'>CLAP, mod-host</text>
+<rect x='230.0' y='242.0' width='102.1' height='24.0' rx='0' fill='#bdbcb4'><title>CLAP, mod-host, unknown: 247</title></rect>
+<text x='281.0' y='258.0' font-size='11' fill='#0b0b0b' text-anchor='middle' font-weight='normal'>247</text>
+<text x='340.1' y='258.0' font-size='11' fill='#52514e' text-anchor='start' font-weight='normal'>247</text>
+<text x='220.0' y='292.0' font-size='12' fill='#0b0b0b' text-anchor='end' font-weight='normal'>CLAP, omx-clap-host</text>
+<rect x='230.0' y='276.0' width='27.9' height='24.0' rx='0' fill='#2a78d6'><title>CLAP, omx-clap-host, suitable: 71</title></rect>
+<text x='244.0' y='292.0' font-size='11' fill='#ffffff' text-anchor='middle' font-weight='normal'>71</text>
+<rect x='259.9' y='276.0' width='54.0' height='24.0' rx='0' fill='#eb6834'><title>CLAP, omx-clap-host, unsuitable: 133</title></rect>
+<text x='286.9' y='292.0' font-size='11' fill='#ffffff' text-anchor='middle' font-weight='normal'>133</text>
+<rect x='316.0' y='276.0' width='16.1' height='24.0' rx='0' fill='#bdbcb4'><title>CLAP, omx-clap-host, unknown: 43</title></rect>
+<text x='340.1' y='292.0' font-size='11' fill='#52514e' text-anchor='start' font-weight='normal'>247</text>
+<text x='220.0' y='326.0' font-size='12' fill='#0b0b0b' text-anchor='end' font-weight='normal'>CLAP, openmixer-console</text>
+<rect x='230.0' y='310.0' width='27.1' height='24.0' rx='0' fill='#2a78d6'><title>CLAP, openmixer-console, suitable: 69</title></rect>
+<text x='243.5' y='326.0' font-size='11' fill='#ffffff' text-anchor='middle' font-weight='normal'>69</text>
+<rect x='259.1' y='310.0' width='54.9' height='24.0' rx='0' fill='#eb6834'><title>CLAP, openmixer-console, unsuitable: 135</title></rect>
+<text x='286.5' y='326.0' font-size='11' fill='#ffffff' text-anchor='middle' font-weight='normal'>135</text>
+<rect x='316.0' y='310.0' width='16.1' height='24.0' rx='0' fill='#bdbcb4'><title>CLAP, openmixer-console, unknown: 43</title></rect>
+<text x='340.1' y='326.0' font-size='11' fill='#52514e' text-anchor='start' font-weight='normal'>247</text>
+<text x='16.0' y='396.0' font-size='11' fill='#52514e' text-anchor='start' font-weight='normal'>Data: docs/zynthian/evidence/pi5-qualify-2026-10-28/summary.json, from qualify.json (sha256 b9c335c4dc0d8c41...), measured 2026-10-28.</text>
+<text x='16.0' y='410.0' font-size='11' fill='#52514e' text-anchor='start' font-weight='normal'>omx-clap-host is the profile of plugin-hostd&#x27;s worker; jalv and mod-host host no CLAP plugin (every CLAP verdict unknown).</text>
+</svg>
