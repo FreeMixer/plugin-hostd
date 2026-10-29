@@ -171,6 +171,52 @@ jobs:
             exit 1
           fi
 
+  # the capability route of the grant: the container above holds CAP_SYS_RESOURCE and no CAP_SYS_NICE, so every real-time arm
+  # there runs through the rlimit. Here it is the other way round, as AmbientCapabilities=CAP_SYS_NICE leaves a service:
+  # the highest-priority arm must get SCHED_FIFO 99 with grantedBy cap, and the describe child beside it keeps the limits
+  # the runner was started with (#252)
+  probe-cap:
+    name: the probe's real-time arm under CAP_SYS_NICE
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    container:
+      image: fedora:44
+      options: --cap-add SYS_NICE
+    steps:
+      - name: Install the build tools
+        run: |
+          dnf install -y --setopt=install_weak_deps=False git dnf5-plugins gcc make python3 pkgconf-pkg-config clap-devel lv2-devel \
+            iproute util-linux procps-ng diffutils python3-jsonschema
+
+      - uses: actions/checkout@v4
+
+      - name: Add the OpenMixer channel
+        uses: FreeMixer/.github/.github/actions/add-openmixer@v1
+
+      - name: Install the build dependencies from the channel
+        run: dnf builddep -y --setopt=retries=10 packaging/plugin-hostd.spec
+
+      - uses: FreeMixer/.github/.github/actions/mod-host-protocol@v1
+
+      - name: Build
+        run: make
+
+      # an arm that cannot be taken fails here (PROBE_REQUIRE_REALTIME), and an arm that did not run fails on its own line
+      - name: Test the probe's real-time arm on the capability route
+        env:
+          PROBE_REQUIRE_REALTIME: "1"
+        run: |
+          set -euo pipefail
+          grep -q '^CapEff:' /proc/self/status
+          capeff=$(sed -n 's/^CapEff:[[:space:]]*//p' /proc/self/status)
+          test $(( (0x$capeff >> 23) & 1 )) -eq 1 || { echo "this container holds no CAP_SYS_NICE"; exit 1; }
+          test $(( (0x$capeff >> 24) & 1 )) -eq 0 || { echo "this container holds CAP_SYS_RESOURCE: the rlimit route would be measured"; exit 1; }
+          for t in with_the_grant_the_measurement_runs_fifo_at_the_highest_priority \
+                   a_describe_child_keeps_the_memory_lock_and_rt_time_the_runner_was_started_with; do
+            ONLY=$t make test-probe 2>&1 | tee "probe-$t.log"
+            grep -qx "ok   $t" "probe-$t.log" || { echo "the probe arm $t did not run"; exit 1; }
+          done
+
   jack2:
     name: build and test over JACK2's jackd (x86_64)
     runs-on: ubuntu-latest

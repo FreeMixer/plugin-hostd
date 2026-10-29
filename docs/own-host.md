@@ -103,7 +103,9 @@ RestrictRealtime=no
 ```
 
 then `sudo systemctl daemon-reload`. Where the distribution lets a service hold capabilities,
-`AmbientCapabilities=CAP_SYS_NICE` grants the same priority without the rlimit. `plugin-qualify --all`, run by hand,
+`AmbientCapabilities=CAP_SYS_NICE` grants the same priority without the rlimit; a CI job whose container holds CAP_SYS_NICE
+and no CAP_SYS_RESOURCE runs the probe's real-time arm on that route, so the record's `grantedBy: cap` is measured on every
+push. `plugin-qualify --all`, run by hand,
 gets the grant of the user's login session: the `rtprio` and `memlock` of `/etc/security/limits.d/`, as for JACK (for
 example the `audio` group's). `plugin-hostd-probe run --list-limits` prints what a run would get: the `realtime` line
 names the grant and the priority, or why there is none.
