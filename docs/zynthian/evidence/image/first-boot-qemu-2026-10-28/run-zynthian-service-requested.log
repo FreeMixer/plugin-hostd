@@ -1,0 +1,5 @@
+01:42:16 artefact sha256 before: 48fca2510d93b06df5dbffe9b8f209a37869f44bba7155c632788cfbcd324d26
+01:42:16 boot (zynthian-ui, kernel <work>), timeout 360s
+01:48:16 podman exit 124
+01:48:16 qemu ended after 360 s; serial log 718001 bytes
+01:48:18 artefact sha256 after: 48fca2510d93b06df5dbffe9b8f209a37869f44bba7155c632788cfbcd324d26
