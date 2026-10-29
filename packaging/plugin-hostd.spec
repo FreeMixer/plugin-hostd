@@ -144,6 +144,7 @@ make test-daemon check-generated check-rendered
 %files devel
 %license COPYING
 %{_includedir}/plugin-hostd/protocol.h
+%{_includedir}/plugin-hostd/search_paths.h
 %{_includedir}/plugin-hostd/plugin_hostd_host_verbs.h
 %{_includedir}/plugin-hostd/omx_clap_core_host_verbs.h
 %{_includedir}/plugin-hostd/omx_clap_core_vocabulary.h

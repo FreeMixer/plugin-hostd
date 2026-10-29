@@ -42,6 +42,8 @@ typedef struct CONF_T {
  * A missing file is an error only when the path was asked for. */
 void conf_defaults(conf_t *conf);
 int conf_load(conf_t *conf, const char *path, int required);
+/* once, after the file: lv2_extra is searched after lv2_path, so lv2_path becomes both */
+int conf_merge_extra(conf_t *conf);
 
 /* whether the settings are consistent: pin_mode is one of PHD_PIN_MODES, placement one of PHD_CORE_PLACEMENTS; 0, or -1 with the reason on stderr */
 int conf_check(const conf_t *conf);

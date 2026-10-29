@@ -1030,10 +1030,11 @@ static inline int phd_is_note_verb(const char *verb)
 
 /* ---------------------------------------------------------------- settings */
 
+#include <plugin-hostd/search_paths.h>
+
 #define PHD_DEFAULT_MOD_HOST          "mod-host"
 #define PHD_DEFAULT_CLAP_HOST         "omx-clap-host"
 #define PHD_DEFAULT_LV2_WORKER        PHD_LV2_WORKER_AUTO
-#define PHD_DEFAULT_LV2_PATH          "/usr/lib64/lv2:/usr/lib/lv2:/usr/local/lib/lv2"
 #define PHD_DEFAULT_STATE_ROOT        "/tmp"
 #define PHD_DEFAULT_READY_TIMEOUT_MS  5000
 #define PHD_DEFAULT_RPC_TIMEOUT_MS    5000
@@ -1113,6 +1114,10 @@ static inline int phd_is_note_verb(const char *verb)
       "first, mod-host for what it refuses, each such plugin in a worker of its own unless its add names a placement); " \
       OMX_VERB_LV2_WORKER_SET " overrides it for one plugin") \
     X(lv2_path, pathlist, PHD_DEFAULT_LV2_PATH, "LV2_PATH", "where bundles are searched") \
+    X(lv2_extra, pathlist, "", "", "the site's own bundle folders, searched after lv2_path: the one declaration of them, " \
+      "which plugin-qualify and omx-panel read too") \
+    X(clap_path, pathlist, PHD_DEFAULT_CLAP_PATH, "", "where .clap files are searched by whoever searches (plugin-qualify, " \
+      "omx-panel); an add names its file, so the daemon loads none by search; $CLAP_PATH is searched before it") \
     X(state_root, path, PHD_DEFAULT_STATE_ROOT, "XDG_RUNTIME_DIR", "the daemon's checkpoints and worker logs") \
     X(pin_mode, word, PHD_DEFAULT_PIN_MODE, "", "strict or first-use, while require_pins is 1: first-use records the pin " \
       "of a plugin on its first add, strict admits only a plugin a controller, a pin_file or pins_dir pinned") \
