@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.14.0
+Version: 0.15.0
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -160,6 +160,20 @@ make test-daemon check-generated check-rendered
 %{_datadir}/omx-contract/contract.d/3/plugin-hostd/
 
 %changelog
+* Thu Oct 29 2026 Pau Aliagas <linuxnow@gmail.com> - 0.15.0-1
+- A pin line takes pool=cores|off; a CLAP or lv2-clap worker for a plugin
+  whose pin says pool=cores starts with --thread-pool=on, in a worker of its
+  own. worker_list records gain the pool after the core (#236, #280).
+- The pin files are read again when they change, and on pin_reload or
+  pin_changed, without a restart (#255, #268).
+- plugin-hostd --pin-files <uri> prints the files a pin of a plugin holds,
+  from the same collector an add checks (#278).
+- The plugin search lists are written once and complete for a Zynthian Pi
+  (#212, #281).
+- Test and CI fixes: the solo-crash count (#271, #279), the Zynthian chain
+  round trip plays again when its taps show no peak (#246, #264), and the
+  probe's cap grant path runs under CAP_SYS_NICE (#265).
+
 * Thu Oct 29 2026 Pau Aliagas <linuxnow@gmail.com> - 0.14.0-1
 - estimate <rate> <quantum> <uri> ... answers what a chain of these plugins
   would cost at that rate and quantum, from the qualification records (#224).
