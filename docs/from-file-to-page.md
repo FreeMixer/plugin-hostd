@@ -44,14 +44,15 @@ with the probe output it judged beside it, under `/var/lib/omx/qualification`.
 
 The probe runs the plugin at every cell of the grid (rates 44.1, 48, 96 and 192 kHz times block sizes 128, 256, 512 and
 1024) and writes the record: the checksums of the binary's files, cost per block, declared and measured latency, RT
-safety under the interposer, or a reason code for each cell that did not run. For an instrument the probe plays notes
-as well as sweeping parameters, so the record carries what a held voice costs, not only an idle plugin.
+safety under the interposer, or a reason code for each cell that did not run. For an instrument the probe holds a set of
+notes while it measures, so the cost it records is the cost with those voices sounding; the record's `noteSweep` says
+what was held.
 
 The verdict for each host follows: suitable, isolated (it runs in a worker of its own and is never grouped), or
 unsuitable. Kars's record rates it suitable for omx-clap-host, with RT safety clean under a parameter sweep and under
 notes, hosted isolated. An instrument that allocates or locks on the audio thread gets the same isolated verdict, and
 what that means for hosting is the next stage. The Pi numbers are in [Benchmarks](zynthian/benchmarks.md#qualification-of-every-plugin-on-the-pi).
-Surge XT's figures belong to the instruments page of the Zynthian section, which is not published yet.
+Surge XT's figures are on [the instruments page](zynthian/instruments.md).
 
 3. Pins
 -------
