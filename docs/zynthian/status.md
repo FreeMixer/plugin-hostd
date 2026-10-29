@@ -42,6 +42,11 @@ Still incomplete
 - **The benchmark matrix is partial: 21 cells.** Cause: it pauses while the re-qualification holds the Pi. What
   closes it: the matrix resumes when the re-qualification ends
   ([benchmarks, the matrix](benchmarks.md#the-matrix-every-rate-and-quantum-single-and-grouped)).
+- **Presets cannot be browsed yet.** Cause: omx-clap-host does not answer `preset_list` and `preset_get`
+  ([omx-clap-core#383](https://github.com/FreeMixer/omx-clap-core/issues/383)), so the menu of a plugin-hostd chain
+  shows no presets, and an LV2 plugin on mod-host gets no list either. What closes it:
+  [plugin-hostd#269](https://github.com/FreeMixer/plugin-hostd/issues/269), factory and user presets listed, loaded and
+  saved on the Pi ([captures](captures.md)).
 - **The upstream patch series is at step 1.** Cause: step 1 is open upstream
   ([zynthian/zynthian-sys#228](https://github.com/zynthian/zynthian-sys/pull/228)); steps 2 to 7 are cut on the forks
   but not offered yet, several with a check on the device still owed. What closes it: those device checks, then each
