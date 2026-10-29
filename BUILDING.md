@@ -134,6 +134,25 @@ the process may use, at most 8), each in a directory of its own with its own ran
 order of the table; `SABOTAGE_JOBS=1` runs them one after the other. `SABOTAGE_KIND=<kind>` and `SABOTAGE_ONLY=<words>`
 run some of them.
 
+The documentation site
+----------------------
+
+`docs/` is published on GitHub Pages as the plugin-hostd technical manual, by `.github/workflows/pages.yml`, rendered
+by `tools/site/build.mjs` (Node 20 or later; markdown-it and yaml at the versions `tools/site/package-lock.json` pins).
+To build it locally:
+
+    (cd tools/site && npm ci && npm test)
+    node tools/site/build.mjs            # writes build/site/; open build/site/index.html
+
+`docs/site.yml` is the shape: the sections in navigation order, their entries, and the captures of the landing page
+(`docs/index.md`). A new page is one file under `docs/` and one entry there; an entry for a page that is not written
+yet carries `pending: true` and is shown as coming, without a link, and the build says when the flag can go. Every
+published page must be an entry or be linked from one. A figure or capture under `docs/` is copied when a page
+references it, and only then; the Evidence section lists every file under an `evidence/` directory with the pages
+that cite it. The design notes under `docs/` are never published. A reference to a file that does not exist, an image
+outside `docs/`, or anything in the design notes fails the build with the page and the target named. A link to a
+repository file outside `docs/` goes to that file on GitHub.
+
 How the daemon keeps and replays state
 ======================================
 

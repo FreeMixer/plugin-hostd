@@ -1,0 +1,24 @@
+bench: idle     H1 -               48000/256  ok          dsp 0.41% rss 107.6 MB add None ms xruns 0 
+bench: idle     H2 -               48000/256  ok          dsp 0.69% rss 1.1 MB add None ms xruns 0 
+bench: idle     H3 -               48000/256  ok          dsp 0.3% rss 156.0 MB add None ms xruns 0 
+bench: idle     H4 -               48000/256  unsupported dsp None% rss None MB add None ms xruns None jalv runs one plugin per process; it has no host without a plugin
+bench: lv2-1    H1 shared-process  48000/256  ok          dsp 1.7% rss 116.2 MB add 220.9 ms xruns 0 
+bench: lv2-1    H2 individual      48000/256  ok          dsp 1.6% rss 118.4 MB add 307.5 ms xruns 0 
+bench: lv2-1    H3 shared-process  48000/256  ok          dsp 1.06% rss 158.6 MB add 27.8 ms xruns 0 
+bench: lv2-1    H4 individual      48000/256  ok          dsp 0.84% rss 149.8 MB add 1013.6 ms xruns 0 
+bench: chain3   H1 shared-process  48000/256  ok          dsp 1.37% rss 120.3 MB add 178.8 ms xruns 0 
+bench: chain3   H2 chain           48000/256  ok          dsp 1.78% rss 122.0 MB add 664.3 ms xruns 0 one worker, 3 JACK clients
+bench: chain3   H3 shared-process  48000/256  ok          dsp 1.69% rss 163.1 MB add 92.7 ms xruns 0 LV2 builds of omx-comp, omx-delay
+bench: chain3   H4 individual      48000/256  ok          dsp 1.72% rss 447.3 MB add 3013.6 ms xruns 0 LV2 builds of omx-comp, omx-delay
+bench: kill1    H1 shared-process  48000/256  failed      dsp 0.77% rss 108.7 MB add 18.6 ms xruns 0 repeat 1 of 3: host process lost
+bench: kill1    H2 individual      48000/256  ok          dsp 0.84% rss 110.3 MB add 57.1 ms xruns 0 
+bench: kill1    H3 shared-process  48000/256  failed      dsp 0.59% rss 157.1 MB add 17.7 ms xruns 0 repeat 1 of 3: LV2 builds of omx-comp; host process lost
+bench: kill1    H4 individual      48000/256  failed      dsp 0.56% rss 147.8 MB add 935.4 ms xruns 0 repeat 1 of 3: LV2 builds of omx-comp; host process lost
+bench: cvp3     H2 individual      48000/256  ok          dsp 1.3% rss 338.2 MB add 291.9 ms xruns 0 
+bench: cvp3     H2 chain           48000/256  ok          dsp 1.31% rss 122.1 MB add 595.5 ms xruns 0 one worker, 3 JACK clients
+bench: cvp3     H1 shared-process  48000/256  ok          dsp 1.38% rss 120.0 MB add 184.2 ms xruns 0 
+bench: cvp3     H3 shared-process  48000/256  ok          dsp 1.26% rss 163.6 MB add 86.9 ms xruns 0 LV2 builds of omx-comp, omx-delay
+bench: cvp3     H4 individual      48000/256  ok          dsp 1.35% rss 447.3 MB add 2917.6 ms xruns 0 LV2 builds of omx-comp, omx-delay
+bench: teardown: no host, no JACK server, no other process of this run is left
+out/rpi5-20261028-1.json
+rc=0

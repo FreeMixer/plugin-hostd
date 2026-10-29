@@ -43,10 +43,12 @@ typedef struct CONF_T {
 void conf_defaults(conf_t *conf);
 int conf_load(conf_t *conf, const char *path, int required);
 
-/* whether the settings are consistent: pin_mode is one of PHD_PIN_MODES; 0, or -1 with the reason on stderr */
+/* whether the settings are consistent: pin_mode is one of PHD_PIN_MODES, placement one of PHD_CORE_PLACEMENTS; 0, or -1 with the reason on stderr */
 int conf_check(const conf_t *conf);
 /* whether pin_mode is first-use */
 int conf_pins_first_use(const conf_t *conf);
+/* whether placement is spread */
+int conf_spread(const conf_t *conf);
 /* whether grouping is on */
 int conf_grouping_on(const conf_t *conf);
 

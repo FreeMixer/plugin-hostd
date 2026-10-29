@@ -65,6 +65,17 @@ jobs:
       - name: make private-refs
         run: make private-refs
 
+  # docs/protocol.md is written from the protocol data by tools/protocol-doc.py; red when it is not what the data gives
+  protocol-doc:
+    name: docs/protocol.md is the protocol data's
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: make check-protocol-doc
+        run: make check-protocol-doc
+
   test:
     name: build and test
     runs-on: ubuntu-latest
@@ -548,6 +559,87 @@ jobs:
           cd /tmp/own-host
           python3 "$GITHUB_WORKSPACE/tests/own_host_page.py" run --audio
           test "$(dpkg --print-architecture)" = "${{ matrix.arch }}"
+
+  # The spike's Zynthian engine (tools/zynthian/spike-engine.sh reads its patch from the commit it was last changed at;
+  # the engine that ships is FreeMixer/zynthian-ui's, docs/zynthian/README.md), applied to zynthian-ui at its pin,
+  # declares a chain of three omx-plugins members (omx-strip and omx-limiter CLAP, omx-delay LV2 on the adapter row)
+  # over the chain verb, and the real omx-clap-host runs it in a PipeWire of its own: each member's gain and delay
+  # measured on the chain's output in the declared order, chain_get's read-back, a removal that forms the chain again
+  # and a crashed member that leaves the other three playing (tools/zynthian/test-chain-round-trip.py), then each
+  # sabotage red on its own check. Everything comes from the FreeMixer channel, by what it must be able to do, never
+  # built from source (tests/no_pins.py): the daemon plugin-hostd with chain_get (#162), omx-clap-host 0.21.0 or later
+  # (the chain host, omx-clap-core#104) and omx-clap-host-tests with fault-14.clap and jack_identity (omx-clap-core#351).
+  # A channel that lacks one fails the job by name. It is an x86_64 Fedora container: no Zynthian image, no ARM board,
+  # no Zynthian UI.
+  zynthian-chain:
+    name: a Zynthian chain of omx-plugins members, run by omx-clap-host, its audio measured member by member
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    container:
+      image: fedora:44
+      # the chain runs the daemon and its workers in a user, net, pid and mount namespace of their own
+      options: --cap-add SYS_ADMIN --security-opt seccomp=unconfined --security-opt apparmor=unconfined --security-opt systempaths=unconfined
+    steps:
+      # pipewire-jack-audio-connection-kit before the channel's packages: the libjack.so.0 omx-clap-host, plugin-hostd and
+      # jack_identity load is then PipeWire's, never JACK2's, which looks for a jackd that does not run here. lilv-libs:
+      # omx-clap-host opens liblilv-0.so.0 itself at its first LV2 add (dlopen, no rpm requirement), without it every LV2
+      # add answers hosting.no-realisation
+      - name: Install the tools
+        run: |
+          dnf install -y --setopt=install_weak_deps=False git dnf5-plugins python3 pipewire pipewire-utils \
+            pipewire-jack-audio-connection-kit lilv-libs iproute util-linux procps-ng
+
+      - uses: actions/checkout@v4
+
+      - name: Install the daemon, the worker, its fixtures and the members from the FreeMixer channel
+        run: |
+          set -euo pipefail
+          dnf config-manager addrepo --setopt=retries=10 --from-repofile=https://freemixer.github.io/rpm/freemixer.repo
+          dnf install -y --setopt=install_weak_deps=False --setopt=retries=10 plugin-hostd 'omx-clap-host >= 0.21.0' \
+            omx-clap-host-tests omx-plugins-clap omx-plugins-lv2
+          rpm -q plugin-hostd omx-clap-host omx-clap-host-tests omx-plugins-clap omx-plugins-lv2
+          grep -q '"chain_get"' /usr/share/plugin-hostd/protocol.json || {
+            echo "::error::the channel's plugin-hostd has no chain_get (#162)"; exit 1; }
+          for f in /usr/libexec/omx-clap-host/tests/fault-14.clap /usr/libexec/omx-clap-host/tests/jack_identity \
+                   /usr/lib/clap/omx-strip.clap /usr/lib/clap/omx-limiter.clap /usr/lib64/lv2/omx-delay.lv2/manifest.ttl; do
+            test -e "$f" || { echo "::error::the channel's packages lack $f"; exit 1; }
+          done
+          for b in /usr/bin/omx-clap-host /usr/bin/plugin-hostd /usr/libexec/omx-clap-host/tests/jack_identity; do
+            lib=$(ldd "$b" | sed -n 's/^\s*libjack\.so\.0 => \(\S*\) .*/\1/p')
+            test -z "$lib" || rpm -qf "$lib" | grep -q '^pipewire-jack' || {
+              echo "::error::$b loads $lib of $(rpm -qf "$lib"), not PipeWire's libjack"; exit 1; }
+          done
+          ldconfig -p | grep -q 'liblilv-0\.so\.0 ' || { echo "::error::no liblilv-0.so.0 for omx-clap-host's LV2 adds"; exit 1; }
+
+      # the commit spike-engine.sh applies the patch to, read from the script
+      - name: Fetch zynthian-ui at spike-engine.sh's commit
+        run: |
+          set -euo pipefail
+          sha=$(sed -n 's/^ZUI_SHA=\([0-9a-f]\{40\}\)$/\1/p' tools/zynthian/spike-engine.sh)
+          test -n "$sha"
+          git init -q /tmp/zynthian-ui
+          git -C /tmp/zynthian-ui fetch -q --depth 1 https://github.com/zynthian/zynthian-ui "$sha"
+          git -C /tmp/zynthian-ui checkout -q FETCH_HEAD
+          git config --global --add safe.directory '*'
+          # the round trip runs in a namespace with no network: the spike's patch is read here, before it
+          . tools/zynthian/spike-engine.sh
+          curl -fsSL --retry 5 -o /tmp/zynthian_engine_plugind.patch "$SPIKE_PATCH_URL"
+
+      - name: The chain round trip, then break every guard on purpose
+        run: |
+          set -euo pipefail
+          export PLUGIN_HOSTD=/usr/bin/plugin-hostd CLAP_HOST=/usr/bin/omx-clap-host
+          export JACK_IDENTITY=/usr/libexec/omx-clap-host/tests/jack_identity
+          export FAULT_CLAP_URI='clap:/usr/libexec/omx-clap-host/tests/fault-14.clap#org.openmixer.fault.14'
+          export CHAIN_FAULT_PARAM='param_set %d 0 0.95'
+          export SPIKE_ENGINE_PATCH=/tmp/zynthian_engine_plugind.patch
+          if unshare --user --map-root-user --net --pid --fork --mount-proc true; then
+            tools/zynthian/chain-e2e.sh --round-trip /tmp/zynthian-ui /tmp/round-trip 2>&1 | tee round-trip.log
+            grep -qx 'ROUND TRIP PASS: 0 failed' round-trip.log || { echo "the round trip did not pass"; exit 1; }
+          else
+            echo "::error::the round trip did not run: this runner refuses a private user and pid namespace with its own /proc"
+            exit 1
+          fi
 
   # The release workflow as a tag would run it, publishing nothing: both architectures build through the
   # shared workflow and an unsigned tree is assembled. The caller grants what the called workflow may ask

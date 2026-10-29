@@ -1,0 +1,128 @@
+
+## unit files (a container under qemu-user cannot start services: boot-state.txt)
+zynthian.service: /etc/systemd/system/zynthian.service; wanted by: none
+zynthian-config-on-boot.service: /etc/systemd/system/zynthian-config-on-boot.service; wanted by: /etc/systemd/system/multi-user.target.wants/zynthian-config-on-boot.service
+first_boot.service: /etc/systemd/system/first_boot.service; wanted by: /etc/systemd/system/multi-user.target.wants/first_boot.service
+jack2.service: /etc/systemd/system/jack2.service; wanted by: /etc/systemd/system/multi-user.target.wants/jack2.service
+mod-host.service: /etc/systemd/system/mod-host.service; wanted by: none
+plugin-hostd.service: not installed; wanted by: none
+omx-modgui-sync.service: /usr/lib/systemd/system/omx-modgui-sync.service; wanted by: none
+omx-modgui-sync.path: not installed; wanted by: none
+plugin-qualify-sync.service: /usr/lib/systemd/system/plugin-qualify-sync.service; wanted by: none
+plugin-qualify-sync.path: /usr/lib/systemd/system/plugin-qualify-sync.path; wanted by: /etc/systemd/system/paths.target.wants/plugin-qualify-sync.path
+plugin-qualify-sync.timer: /usr/lib/systemd/system/plugin-qualify-sync.timer; wanted by: /etc/systemd/system/timers.target.wants/plugin-qualify-sync.timer
+omx-track-latest.service: not installed; wanted by: none
+omx-track-latest.timer: not installed; wanted by: none
+/etc/systemd/system/getty@tty1.service.d:
+noclear.conf
+
+/etc/systemd/system/networking.service.d:
+reduce-timeout.conf
+
+/etc/systemd/system/omx-modgui-sync.service.d:
+zynthian.conf
+
+/etc/systemd/system/plugin-qualify-sync.path.d:
+zynthian.conf
+
+/etc/systemd/system/plugin-qualify-sync.service.d:
+zynthian.conf
+
+## dpkg -l | grep -E 'omx-|plugin-'
+ii  distrho-plugin-ports-lv2              5:20210315                           arm64        DISTHRO Plugin Ports (LV2)
+ii  gem-plugin-assimp                     1:0.94-8+b5                          arm64        Graphics Environment for Multimedia - Assimp support
+ii  gem-plugin-gmerlin                    1:0.94-8+b5                          arm64        Graphics Environment for Multimedia - GMERLIN support
+ii  gem-plugin-lqt                        1:0.94-8+b5                          arm64        Graphics Environment for Multimedia - LQT support
+ii  gem-plugin-magick                     1:0.94-8+b5                          arm64        Graphics Environment for Multimedia - ImageMagick support
+ii  gem-plugin-v4l2                       1:0.94-8+b5                          arm64        Graphics Environment for Multimedia - V4L2 output support
+ii  libdecor-0-plugin-1-cairo:arm64       0.2.2-2                              arm64        libdecor decoration plugin using Cairo
+ii  libheif-plugin-dav1d:arm64            1.23.4-1~deb13u1                     arm64        HEIF and AVIF file format decoder and encoder - dav1d plugin
+ii  libheif-plugin-libde265:arm64         1.23.4-1~deb13u1                     arm64        HEIF and AVIF file format decoder and encoder - libde265 plugin
+ii  libomx-clap-core1:arm64               0.23.2                               arm64        engine that runs CLAP plugins for omx-clap-host
+ii  omx-clap-core-contract                0.23.2                               all          omx-clap-core's definitions in omx-contract's contract directory
+ii  omx-clap-host                         0.23.2                               arm64        use CLAP and LV2 plugins on a JACK rig, driven like mod-host
+ii  omx-contract-data                     3.4.0                                all          FreeMixer declarations read at run time: contract directory, schema
+ii  omx-panel                             0.6.0                                all          panels for LV2 and CLAP plugins, generated from what each plugin declares
+ii  omx-plugins                           0.15.1                               arm64        OpenMixer delay, drive, EQ, strip, gate and effects (CLAP, LV2)
+ii  omx-plugins-clap                      0.15.1                               arm64        OpenMixer delay, drive, EQ, strip, gate and effects as CLAP plugins
+ii  omx-plugins-contract                  0.15.1                               all          OpenMixer plugins' descriptors in omx-contract's contract directory
+ii  omx-plugins-lv2                       0.15.1                               arm64        OpenMixer delay, drive, EQ, strip, gate and effects as LV2 plugins
+ii  plugin-hostd                          0.13.1                               arm64        run LV2 and CLAP plugins so that one crash cannot stop the show
+ii  plugin-hostd-contract                 0.13.1                               all          plugin-hostd's format tables and verbs, read at run time
+ii  plugin-qualify                        0.16.1                               arm64        find out whether an audio plugin is safe to run live
+ii  vlc-plugin-base:arm64                 1:3.0.24-dmo0+deb13u1                arm64        multimedia player and streamer (base plugins)
+ii  vlc-plugin-jack:arm64                 1:3.0.24-dmo0+deb13u1                arm64        Jack audio plugins for VLC
+ii  vlc-plugin-notify:arm64               1:3.0.24-dmo0+deb13u1                arm64        LibNotify plugin for VLC
+ii  vlc-plugin-qt:arm64                   1:3.0.24-dmo0+deb13u1                arm64        multimedia player and streamer (Qt plugin)
+ii  vlc-plugin-samba:arm64                1:3.0.24-dmo0+deb13u1                arm64        Samba plugin for VLC
+ii  vlc-plugin-skins2:arm64               1:3.0.24-dmo0+deb13u1                arm64        multimedia player and streamer (Skins2 plugin)
+ii  vlc-plugin-video-output:arm64         1:3.0.24-dmo0+deb13u1                arm64        multimedia player and streamer (video output plugins)
+ii  vlc-plugin-video-splitter:arm64       1:3.0.24-dmo0+deb13u1                arm64        multimedia player and streamer (video splitter plugins)
+ii  vlc-plugin-visualization:arm64        1:3.0.24-dmo0+deb13u1                arm64        multimedia player and streamer (visualization plugins)
+
+## git zynthian-ui HEAD
+4f0e87fbb8acc8fbfa58a37605bfcb38cacdc6f5
+
+## git zynthian-sys HEAD
+aa36238dcb36fc004eaa4e027184adc8e67e8e8b
+
+## plugin-hostd --version
+/usr/bin/plugin-hostd version: 0.13.1
+exit 0
+
+## omx-panel (no --version: usage exit code, package version)
+exit 2
+omx-panel	0.6.0
+
+## zyngine import
+Loaded libzynaudioplayer using libsndfile-1.2.2
+Cannot connect to server socket err = No such file or directory
+Cannot connect to server request channel
+jack server is not running or cannot be started
+JackShmReadWritePtr::~JackShmReadWritePtr - Init not done for -1, skipping unlock
+JackShmReadWritePtr::~JackShmReadWritePtr - Init not done for -1, skipping unlock
+libaudioplayer error: failed to start jack client: 17
+ERROR:root:libzynaudioplayer failed to initialise jack client
+
+import ok zynthian_engine_plugin_hostd
+zynaudioplayer ended
+exit 0
+
+## lv2ls | wc -l
+1336
+
+## clap count
+58
+
+## plugin-qualify-sync --help (it has no --dry-run)
+exit 0
+
+## plugin-qualify-sync over empty search paths, state in /tmp (the narrowest run)
+plugin-qualify-sync: CLAP /nonexistent; LV2 /nonexistent; host omx-clap-host; 60 s a plugin
+qualified 0, skipped 0, refused 0, crashed 0, hung 0, unmeasured 0, 0.0 s
+plugin-qualify-sync: pins in /tmp/q.pins
+exit 0
+
+## engine switches
+/usr/bin/grep: /zynthian/config/ctrldev: Is a directory
+/usr/bin/grep: /zynthian/config/jalv: Is a directory
+/usr/bin/grep: /zynthian/config/midi-profiles: Is a directory
+/zynthian/config/plugin-hostd.conf:# (ZYNTHIAN_MODHOST_BACKEND=plugin-hostd) and the UI's PH engine both read it.
+/usr/bin/grep: /zynthian/config/setbfree: Is a directory
+/usr/bin/grep: /zynthian/config/touchscreen: Is a directory
+/usr/bin/grep: /zynthian/config/wiring-profiles: Is a directory
+/zynthian/config/zynthian_envars.sh:export ZYNTHIAN_MODHOST_BACKEND="plugin-hostd"
+/zynthian/config/zynthian_envars.sh:export ZYNTHIAN_PLUGIN_ENGINE="plugin-hostd"
+
+## os
+PRETTY_NAME="Debian GNU/Linux 13 (trixie)"
+NAME="Debian GNU/Linux"
+VERSION_ID="13"
+ZynthianOS Vangelis-2610.1
+
+Timestamp: 2026-10-15
+
+Built from RaspberryPiOS Trixie (aarch64)
+
+OpenMixer: zynthian-sys aa36238dcb36, zynthian-ui 4f0e87fbb8ac (FreeMixer forks, vangelis)
+Updated: 2026-10-28

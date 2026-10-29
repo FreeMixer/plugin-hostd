@@ -51,7 +51,7 @@ class Schema(unittest.TestCase):
     def test_the_new_fields_are_valid_together(self):
         doc = example()
         s = first_ok(doc)
-        s.update({"mode": "plan", "xruns": 2, "latency_frames": 256, "stress": "busy24+mem256", "repeats": 3,
+        s.update({"mode": "plan", "xruns": 2, "latency_frames": 256, "jack_clients": 3, "stress": "busy24+mem256", "repeats": 3,
                   "spread": {"xruns": [0, 5], "cpu_pct": [0, s["cpu_pct"] + 1]}})
         code, out = validate(doc)
         self.assertEqual(code, 0, out)
@@ -62,6 +62,13 @@ class Schema(unittest.TestCase):
         code, out = validate(doc)
         self.assertEqual(code, 1)
         self.assertRegex(out, r"scenarios/\d+/xruns:minimum")
+
+    def test_a_negative_jack_client_count_is_red(self):
+        doc = example()
+        first_ok(doc)["jack_clients"] = -1
+        code, out = validate(doc)
+        self.assertEqual(code, 1)
+        self.assertRegex(out, r"scenarios/\d+/jack_clients:minimum")
 
     def test_a_stress_no_one_declared_is_red(self):
         doc = example()
@@ -446,14 +453,15 @@ class FakeDaemon:
             for k, seg in enumerate(segs):
                 for i in seg:
                     self.inst[i] = "chain:1.%d" % k if len(seg) > 1 else "own"
-            return "resp 0 " + ";".join(",".join(map(str, g)) for g in segs)
+            return "resp 0 " + ";".join(",".join(map(str, g)) for g in segs) + " " + ";".join(
+                ",".join("1" for _ in g) for g in segs)
         if w[0] == "worker_list":
             workers = {}
             for i, place in sorted(self.inst.items()):
                 key = place if place.startswith(("chain:", "pool:")) and not (
                     self.pool_apart and place.startswith("pool:")) else "own%d" % i
                 workers.setdefault(key, (place, []))[1].append(i)
-            recs = ["%d:%d:clap:up:%s:%s" % (n, 1000 + n, place, ",".join(map(str, ids)))
+            recs = ["%d:%d:clap:up:%d:%s:%s" % (n, 1000 + n, 1 + n % 3, place, ",".join(map(str, ids)))
                     for n, (place, ids) in enumerate(workers.values())]
             return "resp 0 " + " ".join(recs)
         return "resp -902"

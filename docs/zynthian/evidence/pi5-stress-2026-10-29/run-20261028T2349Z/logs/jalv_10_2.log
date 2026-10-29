@@ -1,0 +1,56 @@
+Plugin:       urn:openmixer:eq8
+JACK Name:    jalv_10_2
+Sample rate:  48000 Hz
+Block length: 256 frames
+MIDI buffers: 32768 bytes
+Comm buffers: 524288 bytes
+Update rate:  30.0 Hz
+Scale factor: 1.0
+
+#CTR> 7#b1_freq=31.500000
+#CTR> 8#b1_gain=0.000000
+#CTR> 10#b1_on=0.000000
+#CTR> 9#b1_q=1.000000
+#CTR> 6#b1_type=1.000000
+#CTR> 12#b2_freq=80.000000
+#CTR> 13#b2_gain=0.000000
+#CTR> 15#b2_on=0.000000
+#CTR> 14#b2_q=1.000000
+#CTR> 11#b2_type=0.000000
+#CTR> 17#b3_freq=160.000000
+#CTR> 18#b3_gain=0.000000
+#CTR> 20#b3_on=0.000000
+#CTR> 19#b3_q=1.000000
+#CTR> 16#b3_type=0.000000
+#CTR> 22#b4_freq=400.000000
+#CTR> 23#b4_gain=0.000000
+#CTR> 25#b4_on=0.000000
+#CTR> 24#b4_q=1.000000
+#CTR> 21#b4_type=0.000000
+#CTR> 27#b5_freq=1000.000000
+#CTR> 28#b5_gain=0.000000
+#CTR> 30#b5_on=0.000000
+#CTR> 29#b5_q=1.000000
+#CTR> 26#b5_type=0.000000
+#CTR> 32#b6_freq=2500.000000
+#CTR> 33#b6_gain=0.000000
+#CTR> 35#b6_on=0.000000
+#CTR> 34#b6_q=1.000000
+#CTR> 31#b6_type=0.000000
+#CTR> 37#b7_freq=5000.000000
+#CTR> 38#b7_gain=0.000000
+#CTR> 40#b7_on=0.000000
+#CTR> 39#b7_q=1.000000
+#CTR> 36#b7_type=0.000000
+#CTR> 42#b8_freq=12500.000000
+#CTR> 43#b8_gain=0.000000
+#CTR> 45#b8_on=0.000000
+#CTR> 44#b8_q=1.000000
+#CTR> 41#b8_type=2.000000
+#CTR> 46#enabled=1.000000
+#CTR> 1#hpf_freq=80.000000
+#CTR> 0#hpf_on=0.000000
+#CTR> 2#hpf_slope=12.000000
+#CTR> 4#lpf_freq=18000.000000
+#CTR> 3#lpf_on=0.000000
+#CTR> 5#lpf_slope=12.000000

@@ -1,0 +1,263 @@
+    0.2 [    0.000000] Booting Linux on physical CPU 0x0000000000 [0x410fd083]
+    0.2 [    0.000000] Linux version 6.18.50+rpt-rpi-v8 (serge@raspberrypi.com) (aarch64-linux-gnu-gcc-14 (Debian 14.2.0-19) 14.2.0, GNU ld (GNU Binutils for Debian) 2.44) #1 SMP PREEMPT Debian 1:6.18.50-1+rpt1 (2026-09-11)
+    0.2 [    0.000000] KASLR enabled
+    0.2 [    0.000000] random: crng init done
+    0.2 [    0.000000] Machine model: linux,dummy-virt
+    0.2 [    0.000000] earlycon: pl11 at MMIO 0x0000000009000000 (options '')
+    0.2 [    0.000000] printk: legacy bootconsole [pl11] enabled
+    0.3 [    0.000000] Kernel command line: root=PARTUUID=e249d476-02 rootfstype=ext4 rootwait fsck.repair=yes console=ttyAMA0,115200 earlycon=pl011,0x9000000 printk.time=1 loglevel=6 systemd.show_status=1 systemd.journald.forward_to_console=1 systemd.journald.max_level_console=info
+    0.8 [    0.039185] cacheinfo: Unable to detect cache hierarchy for CPU 0
+    0.9 [    0.121760] Enabled cp15_barrier support
+    0.9 [    0.122611] Enabled setend support
+    1.0 [    0.163858] audit: type=2000 audit(0.152:1): state=initialized audit_enabled=0 res=1
+    1.0 [    0.212732] SCSI subsystem initialized
+    1.5 [    0.667294] VFS: Disk quotas dquot_6.6.0
+    1.5 [    0.712825] Initialise system trusted keyrings
+    1.5 [    0.716779] NFS: Registering the id_resolver key type
+    1.5 [    0.716977] Key type id_resolver registered
+    1.5 [    0.717010] Key type id_legacy registered
+    1.5 [    0.721246] Key type asymmetric registered
+    1.5 [    0.721385] Asymmetric key parser 'x509' registered
+    1.9 [    1.073907] Key type dns_resolver registered
+    1.9 [    1.101114] Loading compiled-in X.509 certificates
+    1.9 [    1.111928] Key type .fscrypt registered
+    1.9 [    1.111958] Key type fscrypt-provisioning registered
+    2.0 Loading, please wait...
+    2.2 Starting systemd-udevd version 257.13-1~deb13u1
+    3.6 Begin: Disarming watchdog... ... Warning: Watchdog device not found
+    3.6 done.
+    3.6 Begin: Loading essential drivers ... done.
+    3.6 Begin: Running /scripts/init-premount ... Booting Linux on physical CPU 0x0000000000 [0x410fd083]
+    3.6 Linux version 6.18.50+rpt-rpi-v8 (serge@raspberrypi.com) (aarch64-linux-gnu-gcc-14 (Debian 14.2.0-19) 14.2.0, GNU ld (GNU Binutils for Debian) 2.44) #1 SMP PREEMPT Debian 1:6.18.50-1+rpt1 (2026-09-11)
+    3.6 KASLR enabled
+    3.6 random: crng init done
+    3.6 Machine model: linux,dummy-virt
+    3.6 earlycon: pl11 at MMIO 0x0000000009000000 (options '')
+    3.6 printk: legacy bootconsole [pl11] enabled
+    3.6 efi: UEFI not found.
+    3.6 OF: reserved mem: Reserved memory: No reserved-memory node in the DT
+    3.6 NUMA: Faking a node at [mem 0x0000000040000000-0x000000013fffffff]
+    3.6 NODE_DATA(0) allocated [mem 0x13f7f6200-0x13f7f8f7f]
+    3.6 Zone ranges:
+    3.6   DMA      [mem 0x0000000040000000-0x00000000ffffffff]
+    3.6   DMA32    empty
+    3.6   Normal   [mem 0x0000000100000000-0x000000013fffffff]
+    3.6 Movable zone start for each node
+    3.6 Early memory node ranges
+    3.6   node   0: [mem 0x0000000040000000-0x000000013fffffff]
+    3.6 done.
+    3.6 Begin: Mounting root file system ... Initmem setup node 0 [mem 0x0000000040000000-0x000000013fffffff]
+    3.6 cma: Reserved 5 MiB at 0x00000000ff800000
+    3.6 psci: probing for conduit method from DT.
+    3.6 psci: PSCIv1.1 detected in firmware.
+    3.6 psci: Using standard PSCI v0.2 function IDs
+    3.6 psci: Trusted OS migration not required
+    3.6 psci: SMC Calling Convention v1.0
+    3.6 percpu: Embedded 33 pages/cpu s95896 r8192 d31080 u135168
+    3.6 Detected PIPT I-cache on CPU0
+    3.6 CPU features: detected: Spectre-v2
+    3.6 CPU features: detected: Spectre-v3a
+    3.6 CPU features: detected: Spectre-v4
+    3.6 CPU features: detected: Spectre-BHB
+    3.6 CPU features: kernel page table isolation forced ON by KASLR
+    3.6 CPU features: detected: Kernel page table isolation (KPTI)
+    3.6 CPU features: detected: ARM erratum 1742098
+    3.6 CPU features: detected: ARM errata 1165522, 1319367, or 1530923
+    3.6 alternatives: applying boot alternatives
+    3.6 Kernel command line: root=PARTUUID=e249d476-02 rootfstype=ext4 rootwait fsck.repair=yes console=ttyAMA0,115200 earlycon=pl011,0x9000000 printk.time=1 loglevel=6 systemd.show_status=1 systemd.journald.forward_to_console=1 systemd.journald.max_level_console=info
+    3.6 printk: log buffer data + meta data: 131072 + 458752 = 589824 bytes
+    3.6 Dentry cache hash table entries: 524288 (order: 10, 4194304 bytes, linear)
+    3.6 Inode-cache hash table entries: 262144 (order: 9, 2097152 bytes, linear)
+    3.6 software IO TLB: area num 4.
+    3.6 software IO TLB: mapped [mem 0x00000000fb800000-0x00000000ff800000] (64MB)
+    3.6 Begin: Running /scripts/local-top ... done.
+    3.6 Fallback order for Node 0: 0 
+    3.6 Begin: Running /scripts/local-premount ... Built 1 zonelists, mobility grouping on.  Total pages: 1048576
+    3.6 Policy zone: Normal
+    3.6 mem auto-init: stack:all(zero), heap alloc:off, heap free:off
+    3.6 SLUB: HWalign=64, Order=0-3, MinObjects=0, CPUs=4, Nodes=1
+    3.6 ftrace: allocating 46803 entries in 184 pages
+    3.6 ftrace: allocated 184 pages with 4 groups
+    3.6 rcu: Preemptible hierarchical RCU implementation.
+    3.6 rcu: 	RCU event tracing is enabled.
+    3.6 	Trampoline variant of Tasks RCU enabled.
+    3.6 	Rude variant of Tasks RCU enabled.
+    3.6 	Tracing variant of Tasks RCU enabled.
+    3.6 rcu: RCU calculated value of scheduler-enlistment delay is 25 jiffies.
+    3.6 RCU Tasks: Setting shift to 2 and lim to 1 rcu_task_cb_adjust=1 rcu_task_cpu_ids=4.
+    3.6 RCU Tasks Rude: Setting shift to 2 and lim to 1 rcu_task_cb_adjust=1 rcu_task_cpu_ids=4.
+    3.6 RCU Tasks Trace: Setting shift to 2 and lim to 1 rcu_task_cb_adjust=1 rcu_task_cpu_ids=4.
+    3.6 NR_IRQS: 64, nr_irqs: 64, preallocated irqs: 0
+    3.6 Root IRQ handler: gic_handle_irq
+    3.6 GICv2m: range[mem 0x08020000-0x08020fff], SPI[80:143]
+    3.6 rcu: srcu_init: Setting srcu_struct sizes based on contention.
+    3.6 clocksource: jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 7645041785100000 ns
+    3.6 arch_timer: cp15 timer running at 62.50MHz (virt).
+    3.6 clocksource: arch_sys_counter: mask: 0x1ffffffffffffff max_cycles: 0x1cd42e208c, max_idle_ns: 881590405314 ns
+    3.6 sched_clock: 57 bits at 63MHz, resolution 16ns, wraps every 4398046511096ns
+    3.6 Console: colour dummy device 80x25
+    3.6 Calibrating delay loop (skipped), value calculated using timer frequency.. 125.00 BogoMIPS (lpj=250000)
+    3.6 pid_max: default: 32768 minimum: 301
+    3.6 LSM: initializing lsm=capability
+    3.6 Mount-cache hash table entries: 8192 (order: 4, 65536 bytes, linear)
+    3.6 Mountpoint-cache hash table entries: 8192 (order: 4, 65536 bytes, linear)
+    3.6 cacheinfo: Unable to detect cache hierarchy for CPU 0
+    3.6 rcu: Hierarchical SRCU implementation.
+    3.6 rcu: 	Max phase no-delay instances is 1000.
+    3.6 Timer migration: 1 hierarchy levels; 8 children per group; 1 crossnode level
+    3.6 EFI services will not be available.
+    3.6 smp: Bringing up secondary CPUs ...
+    3.6 Detected PIPT I-cache on CPU1
+    3.6 CPU1: Booted secondary processor 0x0000000001 [0x410fd083]
+    3.6 Detected PIPT I-cache on CPU2
+    3.6 CPU2: Booted secondary processor 0x0000000002 [0x410fd083]
+    3.6 Detected PIPT I-cache on CPU3
+    3.6 CPU3: Booted secondary processor 0x0000000003 [0x410fd083]
+    3.6 smp: Brought up 1 node, 4 CPUs
+    3.6 SMP: Total of 4 processors activated.
+    3.6 CPU: All CPU(s) started at EL1
+    3.6 CPU features: detected: 32-bit EL0 Support
+    3.6 CPU features: detected: 32-bit EL1 Support
+    3.6 CPU features: detected: CRC32 instructions
+    3.6 CPU features: detected: PMUv3
+    3.6 alternatives: applying system-wide alternatives
+    3.6 Memory: 3984544K/4194304K available (15104K kernel code, 2446K rwdata, 5096K rodata, 2048K init, 505K bss, 195952K reserved, 8192K cma-reserved)
+    3.6 devtmpfs: initialized
+    3.6 Enabled cp15_barrier support
+    3.6 Enabled setend support
+    3.6 posixtimers hash table entries: 2048 (order: 3, 32768 bytes, linear)
+    3.6 futex hash table entries: 1024 (65536 bytes on 1 NUMA nodes, total 64 KiB, linear).
+    3.6 2G module region forced by RANDOMIZE_MODULE_REGION_FULL
+    3.6 0 pages in range for non-PLT usage
+    3.6 517936 pages in range for PLT usage
+    3.6 pinctrl core: initialized pinctrl subsystem
+    3.6 DMI not present or invalid.
+    3.6 NET: Registered PF_NETLINK/PF_ROUTE protocol family
+    3.6 DMA: preallocated 512 KiB GFP_KERNEL pool for atomic allocations
+    3.6 DMA: preallocated 512 KiB GFP_KERNEL|GFP_DMA pool for atomic allocations
+    3.6 DMA: preallocated 512 KiB GFP_KERNEL|GFP_DMA32 pool for atomic allocations
+    3.6 audit: initializing netlink subsys (disabled)
+    3.6 audit: type=2000 audit(0.152:1): state=initialized audit_enabled=0 res=1
+    3.6 thermal_sys: Registered thermal governor 'step_wise'
+    3.6 cpuidle: using governor menu
+    3.6 hw-breakpoint: found 6 breakpoint and 4 watchpoint registers.
+    3.6 ASID allocator initialised with 32768 entries
+    3.6 Serial: AMBA PL011 UART driver
+    3.6 9000000.pl011: ttyAMA0 at MMIO 0x9000000 (irq = 13, base_baud = 0) is a PL011 rev1
+    3.6 printk: console [ttyAMA0] enabled
+    3.6 printk: legacy bootconsole [pl11] disabled
+    3.6 iommu: Default domain type: Translated
+    3.6 iommu: DMA domain TLB invalidation policy: strict mode
+    3.6 SCSI subsystem initialized
+    3.6 usbcore: registered new interface driver usbfs
+    3.6 usbcore: registered new interface driver hub
+    3.6 usbcore: registered new device driver usb
+    3.6 pps_core: LinuxPPS API ver. 1 registered
+    3.6 pps_core: Software ver. 5.3.6 - Copyright 2005-2007 Rodolfo Giometti <giometti@linux.it>
+    3.6 PTP clock support registered
+    3.6 vgaarb: loaded
+    3.6 clocksource: Switched to clocksource arch_sys_counter
+    3.6 VFS: Disk quotas dquot_6.6.0
+    3.6 VFS: Dquot-cache hash table entries: 512 (order 0, 4096 bytes)
+    3.6 NET: Registered PF_INET protocol family
+    3.6 IP idents hash table entries: 65536 (order: 7, 524288 bytes, linear)
+    3.6 tcp_listen_portaddr_hash hash table entries: 2048 (order: 3, 32768 bytes, linear)
+    3.6 Table-perturb hash table entries: 65536 (order: 6, 262144 bytes, linear)
+    3.6 TCP established hash table entries: 32768 (order: 6, 262144 bytes, linear)
+    3.6 TCP bind hash table entries: 32768 (order: 8, 1048576 bytes, linear)
+    3.6 TCP: Hash tables configured (established 32768 bind 32768)
+    3.6 MPTCP token hash table entries: 4096 (order: 5, 98304 bytes, linear)
+    3.6 UDP hash table entries: 2048 (order: 5, 131072 bytes, linear)
+    3.6 UDP-Lite hash table entries: 2048 (order: 5, 131072 bytes, linear)
+    3.6 NET: Registered PF_UNIX/PF_LOCAL protocol family
+    3.6 RPC: Registered named UNIX socket transport module.
+    3.6 RPC: Registered udp transport module.
+    3.6 RPC: Registered tcp transport module.
+    3.7 RPC: Registered tcp-with-tls transport module.
+    3.7 RPC: Registered tcp NFSv4.1 backchannel transport module.
+    3.7 PCI: CLS 0 bytes, default 64
+    3.7 Trying to unpack rootfs image as initramfs...
+    3.7 kvm [1]: HYP mode not available
+    3.7 Initialise system trusted keyrings
+    3.7 workingset: timestamp_bits=42 max_order=20 bucket_order=0
+    3.7 NFS: Registering the id_resolver key type
+    3.7 Key type id_resolver registered
+    3.7 Key type id_legacy registered
+    3.7 nfs4filelayout_init: NFSv4 File Layout Driver Registering...
+    3.7 nfs4flexfilelayout_init: NFSv4 Flexfile Layout Driver Registering...
+    3.7 Key type asymmetric registered
+    3.7 Asymmetric key parser 'x509' registered
+    3.7 Block layer SCSI generic (bsg) driver version 0.4 loaded (major 246)
+    3.7 io scheduler mq-deadline registered
+    3.7 io scheduler kyber registered
+    3.7 io scheduler bfq registered
+    3.7 ledtrig-cpu: registered to indicate activity on CPUs
+    3.7 Freeing initrd memory: 22688K
+    3.7 vc-mem: phys_addr:0x00000000 mem_base=0x00000000 mem_size:0x00000000(0 MiB)
+    3.7 brd: module loaded
+    3.7 loop: module loaded
+    3.7 Loading iSCSI transport class v2.0-870.
+    3.7 usbcore: registered new interface driver lan78xx
+    3.7 usbcore: registered new interface driver smsc95xx
+    3.7 dwc_otg: version 3.00a 10-AUG-2012 (platform bus)
+    3.7 usbcore: registered new interface driver uas
+    3.7 usbcore: registered new interface driver usb-storage
+    3.7 mousedev: PS/2 mouse device common for all mice
+    3.7 sdhci: Secure Digital Host Controller Interface driver
+    3.7 sdhci: Copyright(c) Pierre Ossman
+    3.7 sdhci-pltfm: SDHCI platform and OF driver helper
+    3.7 hid: raw HID events driver (C) Jiri Kosina
+    3.7 usbcore: registered new interface driver usbhid
+    3.7 usbhid: USB HID core driver
+    3.7 hw perfevents: enabled with armv8_pmuv3 PMU driver, 7 (0,8000003f) counters available
+    3.7 NET: Registered PF_PACKET protocol family
+    3.7 Key type dns_resolver registered
+    3.7 registered taskstats version 1
+    3.7 Loading compiled-in X.509 certificates
+    3.7 Demotion targets for Node 0: null
+    3.7 Key type .fscrypt registered
+    3.7 Key type fscrypt-provisioning registered
+    3.7 of_cfs_init
+    3.7 of_cfs_init: OK
+    3.7 clk: Disabling unused clocks
+    3.7 PM: genpd: Disabling unused power domains
+    3.7 Freeing unused kernel memory: 2048K
+    3.7 Run /init as init process
+    3.7 done.
+    5.0 Begin: Waiting for root file system ... Begin: Running /scripts/local-block ... done.
+    6.3 Begin: Running /scripts/local-block ... done.
+    7.6 Begin: Running /scripts/local-block ... done.
+    8.9 Begin: Running /scripts/local-block ... done.
+   10.1 Begin: Running /scripts/local-block ... done.
+   11.4 Begin: Running /scripts/local-block ... done.
+   12.7 Begin: Running /scripts/local-block ... done.
+   13.6 [   12.780484] platform gpio-keys: deferred probe pending: gpio-keys: failed to get gpio
+   13.6 platform gpio-keys: deferred probe pending: gpio-keys: failed to get gpio
+   14.0 Begin: Running /scripts/local-block ... done.
+   15.3 Begin: Running /scripts/local-block ... done.
+   16.6 Begin: Running /scripts/local-block ... done.
+   17.9 Begin: Running /scripts/local-block ... done.
+   19.1 Begin: Running /scripts/local-block ... done.
+   20.4 Begin: Running /scripts/local-block ... done.
+   21.7 Begin: Running /scripts/local-block ... done.
+   23.0 Begin: Running /scripts/local-block ... done.
+   24.3 Begin: Running /scripts/local-block ... done.
+   25.6 Begin: Running /scripts/local-block ... done.
+   26.9 Begin: Running /scripts/local-block ... done.
+   28.1 Begin: Running /scripts/local-block ... done.
+   29.5 Begin: Running /scripts/local-block ... done.
+   30.7 Begin: Running /scripts/local-block ... done.
+   32.0 Begin: Running /scripts/local-block ... done.
+   33.3 Begin: Running /scripts/local-block ... done.
+   34.6 Begin: Running /scripts/local-block ... done.
+   34.8 done.
+   35.1 Gave up waiting for root file system device.  Common problems:
+   35.1  - Boot args (cat /proc/cmdline)
+   35.1    - Check rootdelay= (did the system wait long enough?)
+   35.1  - Missing modules (cat /proc/modules; ls /dev)
+   35.1 ALERT!  PARTUUID=e249d476-02 does not exist.  Dropping to a shell!
+   35.1 BusyBox v1.37.0 (Debian 1:1.37.0-6+b9) built-in shell (ash)
+   35.1 Enter 'help' for a list of built-in commands.
+  600.0 (initramfs) qemu-system-aarch64: terminating on signal 15
+  600.0 kill container: No such process
+  600.0 time="2026-10-29T00:59:13+01:00" level=error msg="forwarding signal 18 to container c415ba3c39ecbc76d279760d16d9b98216ff7f51ba58d11dc34686d3bd6c5869: sending signal to container c415ba3c39ecbc76d279760d16d9b98216ff7f51ba58d11dc34686d3bd6c5869: `/usr/bin/crun kill c415ba3c39ecbc76d279760d16d9b98216ff7f51ba58d11dc34686d3bd6c5869 18` failed: exit status 1"

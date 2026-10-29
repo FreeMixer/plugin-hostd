@@ -124,6 +124,11 @@ planner lane:
 segment's worker is `chain:<chain>.<k>`; the lane that declares the verbs also amends the placement grammar for it. The
 existing `chain` verb stays as the controller's own statement and is not planned over.
 
+**Where a segment runs.** A segment is one worker, and the setting `placement` (docs/placement.md, plugin-hostd#226)
+pins each new worker to the least-loaded audio core, the load being the planned costs of the workers already there (or
+their number when a cost is unknown), with the daemon kept on the reserved core. The plan does not choose the core;
+`plan` and `plan_get` report it, one core per member in the shape of the segments.
+
 `grouping` is a setting: `off` (today: a plan is one segment per `chain` the controller sends, nothing more), `on`.
 `plan` under `off` answers the plan without applying it, with the reason `grouping-off`. The shipped default stays `off`
 until the benchmark has published a win (acceptance).

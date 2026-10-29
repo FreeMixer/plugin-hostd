@@ -29,3 +29,4 @@ fuzz/findings/
 tests/planner-test
 tests/qualcost-test
 tests/sched-refuse.so
+tools/site/node_modules/

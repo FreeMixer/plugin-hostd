@@ -1,0 +1,20 @@
+ok   series_order_add_at_position
+ok   removal_heals_and_replay_keeps_no_stale_link
+ok   move_relinks_through_the_parallel_step
+ERROR:root:plugind strip of chain 1: MIX_ELEMENT_ABSENT (audio slot 1): PLUGIND_MIX declares no mixer plugin
+ok   parallel_slot_without_a_mixer_is_refused_before_it_forms
+ERROR:root:plugind strip of chain 1: PARALLEL_SLOT_FOREIGN (audio slot 0): effect_0, jalv_x
+ok   parallel_slot_with_a_foreign_member_is_refused
+ok   too_many_branches_is_refused
+ok   bypass_and_branch_gain_are_values_on_the_daemon
+ok   sabotage red: a stale link is forgotten, not disconnected -> removal_heals_and_replay_keeps_no_stale_link (Fail: a joined to c, nothing to b: [('effect_0:out_1', 'effect_1:in_1'), ('effect_0:out_1', 'effect_2:in_1'), ('effect_0:out_2', 'effect_1:in_2'), ('effect_0:out_2', 'effect_2:in_2'), ('effect_1:out_1', 'effect_2:in_1'), ('effect_1:out_2', 'effect_2:in_2')])
+ok   sabotage red: the same, seen on a move -> move_relinks_through_the_parallel_step (Fail: fan-out a>{b,c}, b and c into the mix's branches: [('effect_0:out_1', 'effect_1:in_1'), ('effect_0:out_1', 'effect_2:in_1'), ('effect_0:out_2', 'effect_1:in_2'), ('effect_0:out_2', 'effect_2:in_2'), ('effect_1:out_1', 'effect_2:in_1'), ('effect_1:out_1', 'effect_3:in_1_1'), ('effect_1:out_2', 'effect_2:in_2'), ('effect_1:out_2', 'effect_3:in_1_2'), ('effect_2:out_1', 'effect_3:in_2_1'), ('effect_2:out_2', 'effect_3:in_2_2')])
+ok   sabotage red: a parallel slot's members stay the next input's sources -> move_relinks_through_the_parallel_step (Fail: the output fed by the mix only, never by b and c: {'effect_0': [], 'system:playback': ['effect_1', 'effect_2']})
+ERROR:root:plugind strip of chain 1: MIX_ELEMENT_ABSENT (audio slot 1): PLUGIND_MIX declares no mixer plugin
+ok   sabotage red: the nudge guard accepts every slot -> parallel_slot_without_a_mixer_is_refused_before_it_forms (Fail: the nudge that would form a parallel slot answers False)
+ok   sabotage red: adjacent instances linked backwards -> series_order_add_at_position (Fail: series graph [('effect_1:out_1', 'effect_0:in_1'), ('effect_1:out_2', 'effect_0:in_2'), ('effect_2:out_1', 'effect_1:in_1'), ('effect_2:out_2', 'effect_1:in_2')])
+ok   sabotage red: the host bypass sent as a parameter -> bypass_and_branch_gain_are_values_on_the_daemon (Fail: jalv line 'param_set 1 :bypass 1.000000')
+ok   sabotage red: branch gains default to 1/N -> move_relinks_through_the_parallel_step (Fail: branch gains at 1.0, Zynthian's unity sum: ['resp 0 0.500000', 'resp 0 0.500000'])
+ok   sabotage red: a foreign member counted as plugin-hostd's -> parallel_slot_with_a_foreign_member_is_refused (Fail: nothing linked to a processor plugin-hostd does not run: [('effect_0:out_1', 'jalv_x:in_1'), ('effect_0:out_2', 'jalv_x:in_2')])
+ok   sabotage red: the mixer's branch count not enforced -> too_many_branches_is_refused (Fail: no refusal)
+STRIP PASS: 0 failed

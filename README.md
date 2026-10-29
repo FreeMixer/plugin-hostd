@@ -58,7 +58,7 @@ In another terminal, add an LV2 plugin, set its gain and ask where it runs
     send "add http://plugin.org.uk/swh-plugins/amp 0"      # resp 0
     send "param_set 0 gain 6"                              # resp 0
     send "param_get 0 gain"                                # resp 0 6.0000
-    send "worker_list"                                     # resp 1 w1:<pid>:lv2:up:own:0
+    send "worker_list"                                     # resp 1 w1:<pid>:lv2:up:1:own:0
 
 The plugin now runs as JACK client `effect_0` in its own process. Link it in your graph as
 you would a mod-host plugin. `man plugin-hostd` has the options; the full protocol is below.
@@ -66,10 +66,18 @@ you would a mod-host plugin. `man plugin-hostd` has the options; the full protoc
 Using it from your own host (Zynthian, a Raspberry Pi, any Debian): [docs/own-host.md](docs/own-host.md), nine commands from
 nothing to a plugin running.
 
+Under Zynthian on a Raspberry Pi 5: the measurements are [docs/zynthian/benchmarks.md](docs/zynthian/benchmarks.md), the
+pros and cons for a reviewer [docs/zynthian/tradeoffs.md](docs/zynthian/tradeoffs.md), and the acceptance report
+[docs/zynthian/acceptance-report.md](docs/zynthian/acceptance-report.md).
+
 Building from source: see [BUILDING.md](BUILDING.md). More about FreeMixer at <https://www.openmixer.org>.
 
 Protocol
 --------
+
+The wire protocol for a reader of another host, mod-host's verbs on plugin-hostd and the verbs mod-host does not
+have, is [docs/protocol.md](docs/protocol.md), written from the declarations below by `tools/protocol-doc.py`; CI fails
+when it differs from them.
 
 The verbs the daemon adds are declared once in omx-contract's contract directory, with their formats, their replies,
 their refusal codes and what each host owes them: `/usr/share/omx-contract/contract.d/3/plugin-hostd/verbs.json`,
@@ -111,6 +119,8 @@ The settings live in a file, `-c`, `$PLUGIN_HOSTD_CONF` or
 | `state_root` | `$XDG_RUNTIME_DIR`, else `/tmp` | the daemon's checkpoints and worker logs |
 | `pin_mode` | `first-use` | strict or first-use, while require_pins is 1: first-use records the pin of a plugin on its first add, strict admits only a plugin a controller, a pin_file or pins_dir pinned |
 | `grouping` | `off` | off or on: whether plan applies its plan (a run of consecutive members that may share a worker is declared as a chain), or only answers it; the default stays off until the benchmark has published a win |
+| `placement` | `spread` | spread or none (docs/placement.md): spread pins each new worker to the audio core with the least load, the sum of the qualification costs of the workers already on it, or their number while one of them has a member of unknown cost, the lowest core of a tie, and keeps the daemon, its threads and the scans it forks on the reserved cores; a worker keeps its core across respawns, and one whose format worker_env gave a cpu list is not placed; none pins nothing; --placement overrides it |
+| `audio_cores` | `` | the cpus the placement spreads the workers over, a cpu list inside the daemon's own affinity ("1-3"); empty is that affinity less its lowest cpu; the reserved cores are the rest of it |
 | `pin_store` | `` | the file first-use pins are kept in; empty is $XDG_STATE_HOME/plugin-hostd/pins, else $HOME/.local/state/plugin-hostd/pins |
 | `pin_file` | `` | a file of pin lines loaded at start, as plugin-qualify --all --pins writes it; empty is none |
 | `pins_dir` | `/usr/share/plugin-hostd/pins.d` | the read-only pins of packages: every file in it whose name ends in .pins, read at start in name order, under the store, the pin_file and pin_set, except that a pin of verdict=refused there always holds; empty is none |
@@ -199,7 +209,7 @@ Verbs the daemon adds
 | verb | arguments | reply | meaning |
 |---|---|---|---|
 | `add` | `<uri> <instance> [own \| pool:<name> \| default] [client_name]` | `resp <instance>` | mod-host's add with a placement; a token after the instance that is not a placement is the jack client name |
-| `worker_list` | none | `resp <n> <worker>:<pid>:<format>:<state>:<place>:<i>,<i>,...` | the workers, one record each |
+| `worker_list` | none | `resp <n> <worker>:<pid>:<format>:<state>:<core>:<place>:<i>,<i>,...` | the workers, one record each |
 | `instance_info` | `<instance>` | `resp 0 <worker> <pid> <state> <crashes> <quarantined>` | where an instance lives and what it has cost |
 | `supervisor_reset` | `[<worker> \| all]` | `resp 0` | re-arm the storm bound and the backoff of a given-up placement |
 | `quarantine_clear` | `<instance> \| all` | `resp 0` | let a quarantined instance go back where its placement says |
@@ -215,19 +225,21 @@ Verbs the daemon adds
 | `chain` | `<chain> <instance> [<instance> ...]` | `resp 0` | the instances, in this order, are one chain, run in one worker of place chain:<chain>: each member's state is saved, it is removed from the worker it was in and replayed in the chain's. A chain already declared takes the new order, and a member left out of it goes back to a worker of its own; while its worker is up that worker is kept: a new member joins it (its add, the order, its state, its ledger, its connections) and no other member is restarted, unless the new member's format narrows the worker's world, which forms the chain again. Members of clap and lv2-clap form one chain. A worker that runs chains in one client (clap, lv2-clap) is sent this line, with the members it holds, after the adds of its replay; one that does not (mod-host) never is, and a refusal of it is written to stderr and is no failure. Every instance verb still names one member by its own number. A member that crashes the worker is quarantined to a worker of its own and the chain goes on without it; quarantine_clear puts it back. -518 for an instance no add made, -519 for one named twice, -520 for one in another chain, -521 for members no one worker program runs together, -501 for a plugin that may not share a worker while require_pins is on (a CLAP plugin whose first-use pin is not in-process; an LV2 member whose bundle is not found, since a chain's worker sees a world narrowed to the union of its members' bundles), -902 for a chain or an instance that is not a number, or fewer than chain_members_min (1) instances |
 | `chain_clear` | `<chain>` | `resp 0` | forget the chain: each member goes to a worker of its own; -522 for a chain no chain declared |
 | `chain_get` | `<chain>` | `resp 0 <worker> <instance>,... <instance>,...` | read a chain back: its worker (- when it has none), its members in the declared order, and the members its worker runs now in their order (- for none); a quarantined member is declared and not running; -522 for a chain no chain declared, -902 for a chain that is not a number |
-| `plan` | `<chain> <instance> [<instance> ...]` | `resp 0 <instance>,...;<instance>,...;...` | the instances, in signal order, are planned (the grouping-planner design note): the daemon decides, from the pin and the cost of each, which runs of consecutive members share a worker. A run of two or more is declared as a chain of place chain:<chain>.<k>, k counting segments from 0; a member that shares with no neighbour is placed own. The reply names the segments in order, the members of one joined by commas and the segments by semicolons. A chain planned again keeps the running worker of every segment that did not change, and the daemon plans it again by itself when a member is quarantined and, history_regroup_s after a death that split its group, to gather it. The plan numbers are its own, apart from chain's. While the setting grouping is off the plan is answered and kept for plan_get and nothing moves. A segment that cannot be formed refuses the whole plan with its own code, moves nothing and is told by plan_get as plan-refused:<code>. -518 for an instance no add made, -519 for one named twice, -520 for one in a chain or in the plan of another chain, -501 for a segment no world can be built for, -902 for a chain or an instance that is not a number, or fewer than chain_members_min (1) instances |
-| `plan_get` | `<chain>` | `resp 0 <instance>,...;<instance>,...;... <instance>:<reason>,...` | read the last plan of a chain back: its segments as plan answered them, then the members that have a reason, instance:reason joined by commas (- for none); the reasons are the words of PLUGIN_HOSTD_GROUPING_REASONS (data/grouping.json); -532 for a chain no plan planned, -902 for a chain that is not a number |
+| `plan` | `<chain> <instance> [<instance> ...]` | `resp 0 <instance>,...;<instance>,...;... <core>,...;<core>,...;...` | the instances, in signal order, are planned (the grouping-planner design note): the daemon decides, from the pin and the cost of each, which runs of consecutive members share a worker. A run of two or more is declared as a chain of place chain:<chain>.<k>, k counting segments from 0; a member that shares with no neighbour is placed own. The reply names the segments in order, the members of one joined by commas and the segments by semicolons, then the cores: the segments again with each member replaced by the audio core of the worker that runs it now, - for one the setting placement did not pin (docs/placement.md). A chain planned again keeps the running worker of every segment that did not change, and the daemon plans it again by itself when a member is quarantined and, history_regroup_s after a death that split its group, to gather it. The plan numbers are its own, apart from chain's. While the setting grouping is off the plan is answered and kept for plan_get and nothing moves. A segment that cannot be formed refuses the whole plan with its own code, moves nothing and is told by plan_get as plan-refused:<code>. -518 for an instance no add made, -519 for one named twice, -520 for one in a chain or in the plan of another chain, -501 for a segment no world can be built for, -902 for a chain or an instance that is not a number, or fewer than chain_members_min (1) instances |
+| `plan_get` | `<chain>` | `resp 0 <instance>,...;<instance>,...;... <instance>:<reason>,... <core>,...;<core>,...;...` | read the last plan of a chain back: its segments as plan answered them, then the members that have a reason, instance:reason joined by commas (- for none); the reasons are the words of PLUGIN_HOSTD_GROUPING_REASONS (data/grouping.json), then the cores of the members as plan answers them; -532 for a chain no plan planned, -902 for a chain that is not a number |
 | `plan_clear` | `<chain>` | `resp 0` | forget the plan: each member goes to a worker of its own; -532 for a chain no plan planned |
 | `descriptor_get` | `<uri>` | `resp 0 "<path>"` | the scanned descriptor of the plugin, answered from descriptor_dir: the file named for its binary as it is now (<id>@<version>-<hash>.json), written by the scan the plugin's add ran. -529 when there is none, -530 while its scan runs, -531 when its last scan wrote nothing, -528 when the directory could not be written |
 | `panel_get` | `<uri>` | `resp 0 "<path>"` | the panel the plugin publishes (org.openmixer.panel-description/1), answered from descriptor_dir: the file panels/<id>@<version>-<hash>.json, named as its descriptor, which the same scan writes once the descriptor is in place, {"plugin": {"format", "id"}, "panel": <the panel object omx-clap-scan --json prints for the plugin, null when it serves none>}; an LV2 plugin's panel is null. The codes are descriptor_get's: -529 when there is none, -530 while its scan runs, -531 when its last scan wrote nothing, -528 when the directory could not be written |
 | `history_get` | `<uri>` | `resp 0 <history>` | what the daemon kept of the plugin on this host class, for the binary its pin holds now (the running history: the windows it ran alone and in a group, its crashes, restarts and quarantines): one word of comma-joined digest=<sha256>, class=<host class>, crashed=<0\|1>, raises_xruns=<0\|1> and then every key=value of the record (data/history.json); - when the plugin has no pin or no record, unavailable while the history file is blocked or history_window_s is 0, -902 for a line that is not one word |
 | `history_clear` | `<uri> \| all` | `resp 0` | delete the history of one plugin (every binary and host class of it), or all of it, from memory and from the file at once; -902 while the history is blocked or off, or for a line that is not one word |
+| `estimate` | `<rate> <quantum> <uri> [<uri> ...]` | `resp 0 <latency_frames> <cpu_percent> <ram_bytes> <workers> <unknown_count> <member>:<code>,...` | what a chain of these plugins, in signal order and named as add names them, would cost at that rate and quantum, read from the qualification records of qualification_dir; no plugin is loaded and nothing moves. latency_frames adds up each member's measured latency of the grid point, else its declared one; cpu_percent adds up each member's median nanoseconds per sample times the rate, percent of one core's cycle (a member's cost per block over the block's duration); ram_bytes adds up the Pss of the worker each member ran alone in, the history's pss_mb_solo of the binary its pin holds on this host class, - unless every member has one, since no qualification record carries a RAM figure; workers is how many workers plan would place the members in (an isolated one alone); unknown_count is how many members have no figure at that rate and quantum, and the latency and the CPU add up only the others. The last word names each of them as its position in the line, from 0, and its code, -533 for no record, -534 for no point of the grid at that rate and quantum, -535 for a uri that names no plugin installed here, joined by commas, - for none. Several records of one plugin (several versions) give the largest figure. -902 for a rate or a quantum that is not a whole number above 0, or no uri |
 
 A `<state>` is `up` (accepting commands), `starting` (spawned, not yet accepting), `backoff` (dead, waiting to be respawned), `given-up` (the storm bound is spent for its placement).
 <!-- END GENERATED protocol:verbs -->
 
-A record's place holds a colon (`pool:p`), so a `worker_list` record is read from both ends: four fields on the
-left, the instance list on the right, the place in between.
+A record's place holds a colon (`pool:p`), so a `worker_list` record is read from both ends: five fields on the
+left, the instance list on the right, the place in between. The fifth is the audio core the setting `placement` pinned
+the worker to, `-` for none ([docs/placement.md](docs/placement.md)).
 
 `panel_get` gives a host that draws a plugin's panel itself (Zynthian's engine, a console) the panel the plugin
 publishes, as the scan of its add read it: sections, controls with their widget and visibility rule, roles, displays
@@ -367,6 +379,7 @@ mechanism, and they stay optional. The preset verbs and the preset file are [doc
 | `panel_get` | daemon | required | required | required | required |
 | `history_get` | daemon | required | required | required | required |
 | `history_clear` | daemon | required | required | required | required |
+| `estimate` | daemon | required | required | required | required |
 
 The profiles: `lv2-worker`, an LV2 plugin's worker: mod-host, or omx-clap-host's LV2 adapter; `clap-worker`, a CLAP plugin's worker, omx-clap-host; `console`, the openmixer console as a controller of the daemon; `zynthian`, Zynthian's mod-ui and its plugind engine as a controller of the daemon. `required` is answered as its grammar says; `optional` is answered, or refused with -902, and never misread; `absent` is refused on purpose, and no client of the profile may need it.
 <!-- END GENERATED protocol:host-verbs -->
@@ -408,6 +421,9 @@ Error codes the daemon adds to mod-host's:
 | `-530` | `OMX_REPLY_PLUGIN_HOSTD_DESCRIPTOR_PENDING_RESP` | descriptor_get (panel_get) of a plugin whose scan, started by its add, has not written its descriptor (panel) yet: ask again |
 | `-531` | `OMX_REPLY_PLUGIN_HOSTD_DESCRIPTOR_SCAN_FAILED_RESP` | descriptor_get (panel_get) of a plugin whose last scan wrote no descriptor (panel): the scanner refused the plugin, made no dump or no panel, or is not installed; the add it ran for stands, and stderr and the scan's log say why. The next add scans again |
 | `-532` | `OMX_REPLY_PLUGIN_HOSTD_NO_SUCH_PLAN_RESP` | plan_get or plan_clear of a chain no plan planned |
+| `-533` | `OMX_REPLY_PLUGIN_HOSTD_NO_RECORD_RESP` | a member of estimate that no qualification record in qualification_dir names: never a reply, the code of the member in the reply's list |
+| `-534` | `OMX_REPLY_PLUGIN_HOSTD_NO_CELL_RESP` | a member of estimate whose qualification records hold no point of the grid at that rate and quantum with a cost and a latency: never a reply, the code of the member in the reply's list |
+| `-535` | `OMX_REPLY_PLUGIN_HOSTD_UNKNOWN_PLUGIN_RESP` | a member of estimate whose uri names no plugin installed here (its format cannot tell the plugin's binary, or the binary is not there): never a reply, the code of the member in the reply's list |
 <!-- END GENERATED protocol:errors -->
 
 A worker's own refusal is returned as it said it. An `add` that killed its worker answers mod-host's `-102`.
@@ -440,7 +456,7 @@ Events on the feedback port, one NUL-terminated line each:
 | `instance_replay_refused` | `<instance> <code>` | a replayed add was refused, by its pin or by the worker, <code> the refusal's own: no worker holds the instance until the next replay |
 | `instance_quarantined` | `<instance> <worker>` | the culprit of a pool or a chain death, placed own until cleared; a chain goes on without it |
 | `chain_formed` | `<chain> <worker> <instance>,...` | a chain's worker is up with these members, in this order, after its declaration, a respawn or a member's quarantine; - for none. <chain> is the number chain declared, or <plan>.<k> for segment k of a plan |
-| `plan_reason` | `<chain> <instance>:<reason>,...` | a plan of the chain changed: what plan_get answers now after the segments, - for none |
+| `plan_reason` | `<chain> <instance>:<reason>,...` | a plan of the chain changed: the reasons plan_get answers now, after the segments, - for none |
 | `supervisor_gave_up` | `<worker> <deaths> <window_ms>` | the storm bound is spent; respawning ends |
 | `pin_changed` | `<uri> files \| layout` | an add or a replay of a plugin was refused because its files, or the layout the worker found, differ from its pin; the pin is as it was until pin_accept or pin_set |
 | `lv2_adapter_refused` | `<uri> <reason> auto \| omx-clap-host` | the LV2 adapter of the lv2-clap worker refused a plugin: <reason> is the hosting.* code after -102 on the worker's reply to that add (- when it named none); the last word is the lv2_worker in force, auto for a plugin the lv2 row runs from now on, omx-clap-host for an add answered (-512) |
@@ -657,6 +673,23 @@ A plan is made again by the daemon, never in the middle of a cycle of a worker, 
 its quarantine is cleared, and `history_regroup_s` seconds after a death that named no culprit and split a group, if no
 member of the plan has died since: the segments that did not change keep their workers, a group that was split is
 gathered, and the member the history marks goes alone. The new reasons come as a `plan_reason` event and in `plan_get`.
+
+`estimate <rate> <quantum> <uri> [<uri> ...]` answers what a chain of those plugins would cost before any of them is
+added: a chain editor asks it before an insert. It loads nothing and moves nothing. The figures come from the
+qualification records of `qualification_dir`, the grid point at that rate and quantum: the latency is the measured
+frames, else the declared ones, added up; the CPU is the cost median in nanoseconds per sample times the rate, added up,
+as percent of one core's cycle. No per-worker overhead is added: none is measured. The RAM is the history's
+`pss_mb_solo` of each member, in bytes, and `-` unless every member has one, since no qualification record carries a
+RAM figure. The workers are the segments `plan` would make of the members, so an isolated plugin counts a worker of
+its own. A member with no figure at that rate and quantum is counted and named by its position in the line, from 0,
+with `-533` (no record names it), `-534` (no point of the grid at that rate and quantum with a cost and a latency) or
+`-535` (the uri names no plugin installed here, which `plan` would place nowhere); the latency and the CPU add up only
+the others, so a client says "not measured" for those members and never reads their figure as 0:
+
+```
+estimate 48000 128 clap:/usr/lib64/clap/a.clap#org.example.a clap:/usr/lib64/clap/a.clap#org.example.b
+resp 0 64 9.60 - 1 1 1:-534
+```
 
 What a worker must do
 ---------------------

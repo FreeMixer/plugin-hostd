@@ -138,6 +138,21 @@
         "code": "reply.plugin-hostd.no-such-plan",
         "resp": -532,
         "doc": "a chain no plan verb planned"
+      },
+      "noRecord": {
+        "code": "reply.plugin-hostd.no-record",
+        "resp": -533,
+        "doc": "no qualification record names the plugin"
+      },
+      "noCell": {
+        "code": "reply.plugin-hostd.no-cell",
+        "resp": -534,
+        "doc": "the plugin's qualification records hold no cost and latency at that rate and quantum"
+      },
+      "unknownPlugin": {
+        "code": "reply.plugin-hostd.unknown-plugin",
+        "resp": -535,
+        "doc": "the uri names no plugin installed here"
       }
     }
   },
@@ -149,7 +164,7 @@
       "workerList": {
         "verb": "worker_list",
         "format": "worker_list",
-        "reply": "resp <n> <worker>:<pid>:<format>:<state>:<place>:<i>,<i>,...",
+        "reply": "resp <n> <worker>:<pid>:<format>:<state>:<core>:<place>:<i>,<i>,...",
         "codes": [
           {
             "ref": "HOST_REPLY_CODES.memoryAllocation"
@@ -161,7 +176,7 @@
         "implementedBy": {
           "plugin-hostd": "required"
         },
-        "doc": "The workers, one record each."
+        "doc": "The workers, one record each: <core> is the audio core the setting placement pinned the worker to, - for none."
       },
       "instanceInfo": {
         "verb": "instance_info",
@@ -589,7 +604,7 @@
       "plan": {
         "verb": "plan",
         "format": "plan %i %i ...",
-        "reply": "resp 0 <instance>,...;<instance>,...;...",
+        "reply": "resp 0 <instance>,...;<instance>,...;... <core>,...;<core>,...;...",
         "codes": [
           {
             "ref": "PLUGIN_HOSTD_REPLY_CODES.chainUnknownInstance"
@@ -613,12 +628,12 @@
         "implementedBy": {
           "plugin-hostd": "required"
         },
-        "doc": "The instances, in signal order, are planned into the fewest workers their pins and costs allow: <chain> <instance> [<instance> ...]. Each run of consecutive members that may share a worker becomes a chain of place chain:<chain>.<k>, the others stay alone in a worker of their own; the reply names the segments in order, the members of a segment joined by commas and the segments by semicolons. With the setting grouping off the plan is answered and kept, and nothing moves."
+        "doc": "The instances, in signal order, are planned into the fewest workers their pins and costs allow: <chain> <instance> [<instance> ...]. Each run of consecutive members that may share a worker becomes a chain of place chain:<chain>.<k>, the others stay alone in a worker of their own; the reply names the segments in order, the members of a segment joined by commas and the segments by semicolons, then the same with each member replaced by the audio core of the worker that runs it now, - for one the setting placement did not pin. With the setting grouping off the plan is answered and kept, and nothing moves."
       },
       "planGet": {
         "verb": "plan_get",
         "format": "plan_get %i",
-        "reply": "resp 0 <instance>,...;<instance>,...;... <instance>:<reason>,...",
+        "reply": "resp 0 <instance>,...;<instance>,...;... <instance>:<reason>,... <core>,...;<core>,...;...",
         "codes": [
           {
             "ref": "PLUGIN_HOSTD_REPLY_CODES.noSuchPlan"
@@ -633,7 +648,7 @@
         "implementedBy": {
           "plugin-hostd": "required"
         },
-        "doc": "Read the last plan of a chain back: its segments as plan answered them, then the reason of each member that has one (a word of PLUGIN_HOSTD_GROUPING_REASONS, plan-refused followed by the refusal's number), instance:reason joined by commas, - for none."
+        "doc": "Read the last plan of a chain back: its segments as plan answered them, then the reason of each member that has one (a word of PLUGIN_HOSTD_GROUPING_REASONS, plan-refused followed by the refusal's number), instance:reason joined by commas, - for none, then the cores of the members as plan answers them."
       },
       "planClear": {
         "verb": "plan_clear",
@@ -654,6 +669,32 @@
           "plugin-hostd": "required"
         },
         "doc": "Forget the plan: each member goes to a worker of its own, as chain_clear does."
+      },
+      "estimate": {
+        "verb": "estimate",
+        "format": "estimate %i %i %s ...",
+        "reply": "resp 0 <latency_frames> <cpu_percent> <ram_bytes> <workers> <unknown_count> <member>:<code>,...",
+        "codes": [
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.noRecord"
+          },
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.noCell"
+          },
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.unknownPlugin"
+          },
+          {
+            "ref": "HOST_REPLY_CODES.memoryAllocation"
+          },
+          {
+            "ref": "HOST_REPLY_CODES.invalidOperation"
+          }
+        ],
+        "implementedBy": {
+          "plugin-hostd": "required"
+        },
+        "doc": "What a chain of these plugins would cost at a rate and a quantum, read from the qualification records with no plugin loaded: <rate> <quantum> <uri> [<uri> ...], the uris as add takes them, in signal order. The reply is the latency in frames (each member's measured latency, else its declared one, added up), the CPU as percent of one core's cycle (each member's median nanoseconds per sample times the rate, added up), the RAM in bytes (the Pss each member's worker had running alone on this host class, added up; - unless every member has one), the workers plan would place the members in, and how many members have no figure at that rate and quantum; then each of those as its position in the line, from 0, and its code (noRecord, noCell or unknownPlugin), joined by commas, - for none. The latency and the CPU add up only the members that have a figure."
       }
     }
   }

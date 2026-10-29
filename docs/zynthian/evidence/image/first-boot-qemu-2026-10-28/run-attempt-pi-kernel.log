@@ -1,0 +1,5 @@
+00:49:13 artefact sha256 before: 48fca2510d93b06df5dbffe9b8f209a37869f44bba7155c632788cfbcd324d26
+00:49:13 boot (first, kernel pi), timeout 600s
+00:59:14 podman exit 124
+00:59:14 qemu ended after 601 s; serial log 18680 bytes
+00:59:15 artefact sha256 after: 48fca2510d93b06df5dbffe9b8f209a37869f44bba7155c632788cfbcd324d26

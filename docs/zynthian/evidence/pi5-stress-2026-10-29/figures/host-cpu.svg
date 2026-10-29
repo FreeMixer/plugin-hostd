@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" font-family="sans-serif" font-size="12">
+<rect width="640" height="360" fill="white"/>
+<text x="320.0" y="20" text-anchor="middle" font-size="14">CPU of the hosting processes (daemon and workers, or jalv)</text>
+<line x1="70" y1="310" x2="500" y2="310" stroke="black"/>
+<line x1="70" y1="40" x2="70" y2="310" stroke="black"/>
+<text x="285.0" y="348" text-anchor="middle">chains of 4 plugins</text>
+<text x="16" y="175.0" text-anchor="middle" transform="rotate(-90 16 175.0)">percent of one core</text>
+<text x="70.0" y="326" text-anchor="middle">1</text>
+<text x="177.5" y="326" text-anchor="middle">2</text>
+<text x="285.0" y="326" text-anchor="middle">4</text>
+<text x="392.5" y="326" text-anchor="middle">8</text>
+<text x="500.0" y="326" text-anchor="middle">16</text>
+<line x1="66" y1="310.0" x2="500" y2="310.0" stroke="#ddd"/>
+<text x="64" y="314.0" text-anchor="end">0</text>
+<line x1="66" y1="256.0" x2="500" y2="256.0" stroke="#ddd"/>
+<text x="64" y="260.0" text-anchor="end">22</text>
+<line x1="66" y1="202.0" x2="500" y2="202.0" stroke="#ddd"/>
+<text x="64" y="206.0" text-anchor="end">44</text>
+<line x1="66" y1="148.0" x2="500" y2="148.0" stroke="#ddd"/>
+<text x="64" y="152.0" text-anchor="end">67</text>
+<line x1="66" y1="94.0" x2="500" y2="94.0" stroke="#ddd"/>
+<text x="64" y="98.0" text-anchor="end">89</text>
+<line x1="66" y1="40.0" x2="500" y2="40.0" stroke="#ddd"/>
+<text x="64" y="44.0" text-anchor="end">111</text>
+<polyline points="70.0,298.1 177.5,288.8 285.0,266.7 392.5,219.2 500.0,138.1" fill="none" stroke="#1f77b4" stroke-width="2"/>
+<circle cx="70.0" cy="298.1" r="3" fill="#1f77b4"/>
+<circle cx="177.5" cy="288.8" r="3" fill="#1f77b4"/>
+<circle cx="285.0" cy="266.7" r="3" fill="#1f77b4"/>
+<circle cx="392.5" cy="219.2" r="3" fill="#1f77b4"/>
+<circle cx="500.0" cy="138.1" r="3" fill="#1f77b4"/>
+<line x1="510" y1="50" x2="530" y2="50" stroke="#1f77b4" stroke-width="2"/>
+<text x="534" y="54">grouped</text>
+<polyline points="70.0,294.4 177.5,281.5 285.0,250.3 392.5,183.4 500.0,64.5" fill="none" stroke="#d62728" stroke-width="2"/>
+<circle cx="70.0" cy="294.4" r="3" fill="#d62728"/>
+<circle cx="177.5" cy="281.5" r="3" fill="#d62728"/>
+<circle cx="285.0" cy="250.3" r="3" fill="#d62728"/>
+<circle cx="392.5" cy="183.4" r="3" fill="#d62728"/>
+<circle cx="500.0" cy="64.5" r="3" fill="#d62728"/>
+<line x1="510" y1="68" x2="530" y2="68" stroke="#d62728" stroke-width="2"/>
+<text x="534" y="72">alone</text>
+<polyline points="70.0,297.3 177.5,287.6 285.0,263.0 392.5,207.2 500.0,109.6" fill="none" stroke="#2ca02c" stroke-width="2"/>
+<circle cx="70.0" cy="297.3" r="3" fill="#2ca02c"/>
+<circle cx="177.5" cy="287.6" r="3" fill="#2ca02c"/>
+<circle cx="285.0" cy="263.0" r="3" fill="#2ca02c"/>
+<circle cx="392.5" cy="207.2" r="3" fill="#2ca02c"/>
+<circle cx="500.0" cy="109.6" r="3" fill="#2ca02c"/>
+<line x1="510" y1="86" x2="530" y2="86" stroke="#2ca02c" stroke-width="2"/>
+<text x="534" y="90">jalv</text>
+</svg>

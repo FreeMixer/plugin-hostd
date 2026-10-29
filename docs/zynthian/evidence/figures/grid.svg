@@ -1,0 +1,123 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='860' height='330' viewBox='0 0 860 330' role='img' font-family='DejaVu Sans, Helvetica, Arial, sans-serif'>
+<title>Grid measured against grid asked</title>
+<rect x='0' y='0' width='860' height='330' fill='#fcfcfb'/>
+<text x='16.0' y='28.0' font-size='15' fill='#0b0b0b' text-anchor='start' font-weight='bold'>Grid points measured per rate and quantum, against the grid the run asked for</text>
+<text x='268.0' y='58.0' font-size='13' fill='#0b0b0b' text-anchor='middle' font-weight='bold'>LV2 records</text>
+<text x='157.0' y='74.0' font-size='11' fill='#52514e' text-anchor='middle' font-weight='normal'>128</text>
+<text x='231.0' y='74.0' font-size='11' fill='#52514e' text-anchor='middle' font-weight='normal'>256</text>
+<text x='305.0' y='74.0' font-size='11' fill='#52514e' text-anchor='middle' font-weight='normal'>512</text>
+<text x='379.0' y='74.0' font-size='11' fill='#52514e' text-anchor='middle' font-weight='normal'>1024</text>
+<text x='112.0' y='99.0' font-size='11' fill='#52514e' text-anchor='end' font-weight='normal'>44.1 kHz</text>
+<rect x='121.0' y='81.0' width='72.0' height='28.0' rx='0' fill='#fcfcfb'><title>lv2 44100 Hz / 128: 0 points</title></rect>
+<rect x='121.0' y='81.0' width='72' height='28' fill='none' stroke='#e4e3de'/>
+<text x='157.0' y='99.0' font-size='11' fill='#0b0b0b' text-anchor='middle' font-weight='normal'>0</text>
+<rect x='195.0' y='81.0' width='72.0' height='28.0' rx='0' fill='#fcfcfb'><title>lv2 44100 Hz / 256: 0 points</title></rect>
+<rect x='195.0' y='81.0' width='72' height='28' fill='none' stroke='#e4e3de'/>
+<text x='231.0' y='99.0' font-size='11' fill='#0b0b0b' text-anchor='middle' font-weight='normal'>0</text>
+<rect x='269.0' y='81.0' width='72.0' height='28.0' rx='0' fill='#fcfcfb'><title>lv2 44100 Hz / 512: 0 points</title></rect>
+<rect x='269.0' y='81.0' width='72' height='28' fill='none' stroke='#e4e3de'/>
+<text x='305.0' y='99.0' font-size='11' fill='#0b0b0b' text-anchor='middle' font-weight='normal'>0</text>
+<rect x='343.0' y='81.0' width='72.0' height='28.0' rx='0' fill='#fcfcfb'><title>lv2 44100 Hz / 1024: 0 points</title></rect>
+<rect x='343.0' y='81.0' width='72' height='28' fill='none' stroke='#e4e3de'/>
+<text x='379.0' y='99.0' font-size='11' fill='#0b0b0b' text-anchor='middle' font-weight='normal'>0</text>
+<text x='112.0' y='129.0' font-size='11' fill='#52514e' text-anchor='end' font-weight='normal'>48 kHz</text>
+<rect x='121.0' y='111.0' width='72.0' height='28.0' rx='0' fill='#fcfcfb'><title>lv2 48000 Hz / 128: 0 points</title></rect>
+<rect x='121.0' y='111.0' width='72' height='28' fill='none' stroke='#e4e3de'/>
+<text x='157.0' y='129.0' font-size='11' fill='#0b0b0b' text-anchor='middle' font-weight='normal'>0</text>
+<rect x='195.0' y='111.0' width='72.0' height='28.0' rx='0' fill='#fcfcfb'><title>lv2 48000 Hz / 256: 0 points</title></rect>
+<rect x='195.0' y='111.0' width='72' height='28' fill='none' stroke='#e4e3de'/>
+<text x='231.0' y='129.0' font-size='11' fill='#0b0b0b' text-anchor='middle' font-weight='normal'>0</text>
+<rect x='269.0' y='111.0' width='72.0' height='28.0' rx='0' fill='#fcfcfb'><title>lv2 48000 Hz / 512: 0 points</title></rect>
+<rect x='269.0' y='111.0' width='72' height='28' fill='none' stroke='#e4e3de'/>
+<text x='305.0' y='129.0' font-size='11' fill='#0b0b0b' text-anchor='middle' font-weight='normal'>0</text>
+<rect x='343.0' y='111.0' width='72.0' height='28.0' rx='0' fill='#fcfcfb'><title>lv2 48000 Hz / 1024: 0 points</title></rect>
+<rect x='343.0' y='111.0' width='72' height='28' fill='none' stroke='#e4e3de'/>
+<text x='379.0' y='129.0' font-size='11' fill='#0b0b0b' text-anchor='middle' font-weight='normal'>0</text>
+<text x='112.0' y='159.0' font-size='11' fill='#52514e' text-anchor='end' font-weight='normal'>96 kHz</text>
+<rect x='121.0' y='141.0' width='72.0' height='28.0' rx='0' fill='#fcfcfb'><title>lv2 96000 Hz / 128: 0 points</title></rect>
+<rect x='121.0' y='141.0' width='72' height='28' fill='none' stroke='#e4e3de'/>
+<text x='157.0' y='159.0' font-size='11' fill='#0b0b0b' text-anchor='middle' font-weight='normal'>0</text>
+<rect x='195.0' y='141.0' width='72.0' height='28.0' rx='0' fill='#fcfcfb'><title>lv2 96000 Hz / 256: 0 points</title></rect>
+<rect x='195.0' y='141.0' width='72' height='28' fill='none' stroke='#e4e3de'/>
+<text x='231.0' y='159.0' font-size='11' fill='#0b0b0b' text-anchor='middle' font-weight='normal'>0</text>
+<rect x='269.0' y='141.0' width='72.0' height='28.0' rx='0' fill='#fcfcfb'><title>lv2 96000 Hz / 512: 0 points</title></rect>
+<rect x='269.0' y='141.0' width='72' height='28' fill='none' stroke='#e4e3de'/>
+<text x='305.0' y='159.0' font-size='11' fill='#0b0b0b' text-anchor='middle' font-weight='normal'>0</text>
+<rect x='343.0' y='141.0' width='72.0' height='28.0' rx='0' fill='#fcfcfb'><title>lv2 96000 Hz / 1024: 0 points</title></rect>
+<rect x='343.0' y='141.0' width='72' height='28' fill='none' stroke='#e4e3de'/>
+<text x='379.0' y='159.0' font-size='11' fill='#0b0b0b' text-anchor='middle' font-weight='normal'>0</text>
+<text x='112.0' y='189.0' font-size='11' fill='#52514e' text-anchor='end' font-weight='normal'>192 kHz</text>
+<rect x='121.0' y='171.0' width='72.0' height='28.0' rx='0' fill='#fcfcfb'><title>lv2 192000 Hz / 128: 0 points</title></rect>
+<rect x='121.0' y='171.0' width='72' height='28' fill='none' stroke='#e4e3de'/>
+<text x='157.0' y='189.0' font-size='11' fill='#0b0b0b' text-anchor='middle' font-weight='normal'>0</text>
+<rect x='195.0' y='171.0' width='72.0' height='28.0' rx='0' fill='#fcfcfb'><title>lv2 192000 Hz / 256: 0 points</title></rect>
+<rect x='195.0' y='171.0' width='72' height='28' fill='none' stroke='#e4e3de'/>
+<text x='231.0' y='189.0' font-size='11' fill='#0b0b0b' text-anchor='middle' font-weight='normal'>0</text>
+<rect x='269.0' y='171.0' width='72.0' height='28.0' rx='0' fill='#1f5fae'><title>lv2 192000 Hz / 512: 1250 points</title></rect>
+<rect x='269.0' y='171.0' width='72' height='28' fill='none' stroke='#e4e3de'/>
+<text x='305.0' y='189.0' font-size='11' fill='#ffffff' text-anchor='middle' font-weight='normal'>1250</text>
+<rect x='343.0' y='171.0' width='72.0' height='28.0' rx='0' fill='#fcfcfb'><title>lv2 192000 Hz / 1024: 0 points</title></rect>
+<rect x='343.0' y='171.0' width='72' height='28' fill='none' stroke='#e4e3de'/>
+<text x='379.0' y='189.0' font-size='11' fill='#0b0b0b' text-anchor='middle' font-weight='normal'>0</text>
+<text x='268.0' y='218.0' font-size='10' fill='#52514e' text-anchor='middle' font-weight='normal'>quantum (frames) across, rate down</text>
+<text x='648.0' y='58.0' font-size='13' fill='#0b0b0b' text-anchor='middle' font-weight='bold'>CLAP records</text>
+<text x='537.0' y='74.0' font-size='11' fill='#52514e' text-anchor='middle' font-weight='normal'>128</text>
+<text x='611.0' y='74.0' font-size='11' fill='#52514e' text-anchor='middle' font-weight='normal'>256</text>
+<text x='685.0' y='74.0' font-size='11' fill='#52514e' text-anchor='middle' font-weight='normal'>512</text>
+<text x='759.0' y='74.0' font-size='11' fill='#52514e' text-anchor='middle' font-weight='normal'>1024</text>
+<text x='492.0' y='99.0' font-size='11' fill='#52514e' text-anchor='end' font-weight='normal'>44.1 kHz</text>
+<rect x='501.0' y='81.0' width='72.0' height='28.0' rx='0' fill='#fcfcfb'><title>clap 44100 Hz / 128: 0 points</title></rect>
+<rect x='501.0' y='81.0' width='72' height='28' fill='none' stroke='#e4e3de'/>
+<text x='537.0' y='99.0' font-size='11' fill='#0b0b0b' text-anchor='middle' font-weight='normal'>0</text>
+<rect x='575.0' y='81.0' width='72.0' height='28.0' rx='0' fill='#fcfcfb'><title>clap 44100 Hz / 256: 0 points</title></rect>
+<rect x='575.0' y='81.0' width='72' height='28' fill='none' stroke='#e4e3de'/>
+<text x='611.0' y='99.0' font-size='11' fill='#0b0b0b' text-anchor='middle' font-weight='normal'>0</text>
+<rect x='649.0' y='81.0' width='72.0' height='28.0' rx='0' fill='#b9d4f4'><title>clap 44100 Hz / 512: 408 points</title></rect>
+<rect x='649.0' y='81.0' width='72' height='28' fill='none' stroke='#e4e3de'/>
+<text x='685.0' y='99.0' font-size='11' fill='#0b0b0b' text-anchor='middle' font-weight='normal'>408</text>
+<rect x='723.0' y='81.0' width='72.0' height='28.0' rx='0' fill='#fcfcfb'><title>clap 44100 Hz / 1024: 0 points</title></rect>
+<rect x='723.0' y='81.0' width='72' height='28' fill='none' stroke='#e4e3de'/>
+<text x='759.0' y='99.0' font-size='11' fill='#0b0b0b' text-anchor='middle' font-weight='normal'>0</text>
+<text x='492.0' y='129.0' font-size='11' fill='#52514e' text-anchor='end' font-weight='normal'>48 kHz</text>
+<rect x='501.0' y='111.0' width='72.0' height='28.0' rx='0' fill='#fcfcfb'><title>clap 48000 Hz / 128: 0 points</title></rect>
+<rect x='501.0' y='111.0' width='72' height='28' fill='none' stroke='#e4e3de'/>
+<text x='537.0' y='129.0' font-size='11' fill='#0b0b0b' text-anchor='middle' font-weight='normal'>0</text>
+<rect x='575.0' y='111.0' width='72.0' height='28.0' rx='0' fill='#fcfcfb'><title>clap 48000 Hz / 256: 0 points</title></rect>
+<rect x='575.0' y='111.0' width='72' height='28' fill='none' stroke='#e4e3de'/>
+<text x='611.0' y='129.0' font-size='11' fill='#0b0b0b' text-anchor='middle' font-weight='normal'>0</text>
+<rect x='649.0' y='111.0' width='72.0' height='28.0' rx='0' fill='#b9d4f4'><title>clap 48000 Hz / 512: 408 points</title></rect>
+<rect x='649.0' y='111.0' width='72' height='28' fill='none' stroke='#e4e3de'/>
+<text x='685.0' y='129.0' font-size='11' fill='#0b0b0b' text-anchor='middle' font-weight='normal'>408</text>
+<rect x='723.0' y='111.0' width='72.0' height='28.0' rx='0' fill='#fcfcfb'><title>clap 48000 Hz / 1024: 0 points</title></rect>
+<rect x='723.0' y='111.0' width='72' height='28' fill='none' stroke='#e4e3de'/>
+<text x='759.0' y='129.0' font-size='11' fill='#0b0b0b' text-anchor='middle' font-weight='normal'>0</text>
+<text x='492.0' y='159.0' font-size='11' fill='#52514e' text-anchor='end' font-weight='normal'>96 kHz</text>
+<rect x='501.0' y='141.0' width='72.0' height='28.0' rx='0' fill='#fcfcfb'><title>clap 96000 Hz / 128: 0 points</title></rect>
+<rect x='501.0' y='141.0' width='72' height='28' fill='none' stroke='#e4e3de'/>
+<text x='537.0' y='159.0' font-size='11' fill='#0b0b0b' text-anchor='middle' font-weight='normal'>0</text>
+<rect x='575.0' y='141.0' width='72.0' height='28.0' rx='0' fill='#fcfcfb'><title>clap 96000 Hz / 256: 0 points</title></rect>
+<rect x='575.0' y='141.0' width='72' height='28' fill='none' stroke='#e4e3de'/>
+<text x='611.0' y='159.0' font-size='11' fill='#0b0b0b' text-anchor='middle' font-weight='normal'>0</text>
+<rect x='649.0' y='141.0' width='72.0' height='28.0' rx='0' fill='#b9d4f4'><title>clap 96000 Hz / 512: 408 points</title></rect>
+<rect x='649.0' y='141.0' width='72' height='28' fill='none' stroke='#e4e3de'/>
+<text x='685.0' y='159.0' font-size='11' fill='#0b0b0b' text-anchor='middle' font-weight='normal'>408</text>
+<rect x='723.0' y='141.0' width='72.0' height='28.0' rx='0' fill='#fcfcfb'><title>clap 96000 Hz / 1024: 0 points</title></rect>
+<rect x='723.0' y='141.0' width='72' height='28' fill='none' stroke='#e4e3de'/>
+<text x='759.0' y='159.0' font-size='11' fill='#0b0b0b' text-anchor='middle' font-weight='normal'>0</text>
+<text x='492.0' y='189.0' font-size='11' fill='#52514e' text-anchor='end' font-weight='normal'>192 kHz</text>
+<rect x='501.0' y='171.0' width='72.0' height='28.0' rx='0' fill='#fcfcfb'><title>clap 192000 Hz / 128: 0 points</title></rect>
+<rect x='501.0' y='171.0' width='72' height='28' fill='none' stroke='#e4e3de'/>
+<text x='537.0' y='189.0' font-size='11' fill='#0b0b0b' text-anchor='middle' font-weight='normal'>0</text>
+<rect x='575.0' y='171.0' width='72.0' height='28.0' rx='0' fill='#fcfcfb'><title>clap 192000 Hz / 256: 0 points</title></rect>
+<rect x='575.0' y='171.0' width='72' height='28' fill='none' stroke='#e4e3de'/>
+<text x='611.0' y='189.0' font-size='11' fill='#0b0b0b' text-anchor='middle' font-weight='normal'>0</text>
+<rect x='649.0' y='171.0' width='72.0' height='28.0' rx='0' fill='#b9d4f4'><title>clap 192000 Hz / 512: 408 points</title></rect>
+<rect x='649.0' y='171.0' width='72' height='28' fill='none' stroke='#e4e3de'/>
+<text x='685.0' y='189.0' font-size='11' fill='#0b0b0b' text-anchor='middle' font-weight='normal'>408</text>
+<rect x='723.0' y='171.0' width='72.0' height='28.0' rx='0' fill='#fcfcfb'><title>clap 192000 Hz / 1024: 0 points</title></rect>
+<rect x='723.0' y='171.0' width='72' height='28' fill='none' stroke='#e4e3de'/>
+<text x='759.0' y='189.0' font-size='11' fill='#0b0b0b' text-anchor='middle' font-weight='normal'>0</text>
+<text x='648.0' y='218.0' font-size='10' fill='#52514e' text-anchor='middle' font-weight='normal'>quantum (frames) across, rate down</text>
+<text x='16.0' y='304.0' font-size='11' fill='#52514e' text-anchor='start' font-weight='normal'>Data: docs/zynthian/evidence/pi5-qualify-2026-10-28/summary.json, from qualify.json (sha256 b9c335c4dc0d8c41...), measured 2026-10-28.</text>
+<text x='16.0' y='318.0' font-size='11' fill='#52514e' text-anchor='start' font-weight='normal'>0 = asked for and not measured. The host profiles ask: jalv 48000/256, mod-host and omx-clap-host 48000/128, openmixer-console 96000/1024.</text>
+</svg>

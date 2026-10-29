@@ -1,0 +1,14 @@
+Plugin:       http://gareus.org/oss/lv2/dpl#stereo
+JACK Name:    jalv_11_1
+Sample rate:  48000 Hz
+Block length: 256 frames
+MIDI buffers: 32768 bytes
+Comm buffers: 16384 bytes
+Update rate:  30.0 Hz
+Scale factor: 1.0
+
+#CTR> 0#enable=1.000000
+#CTR> 1#gain=0.000000
+#CTR> 3#release=0.010000
+#CTR> 2#threshold=-1.000000
+#CTR> 4#truepeak=0.000000

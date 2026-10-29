@@ -1,0 +1,10 @@
+calf-plugins 5:0.90.3-1kxstudio3
+jackd2 1.9.22~dfsg-4
+lsp-plugins-lv2 
+omx-clap-host 0.23.2
+omx-contract-data 3.4.0
+omx-panel 0.6.0
+omx-plugins 0.15.1
+omx-plugins-lv2 0.15.1
+plugin-hostd 0.13.1
+plugin-qualify 0.16.1

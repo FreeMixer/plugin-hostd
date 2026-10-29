@@ -1,0 +1,127 @@
+{
+ "mode": "jalv",
+ "chains_asked": 1,
+ "chains_built": 1,
+ "plugins_running": 4,
+ "jack_clients_of_chains": 4,
+ "creation_s_total": 1.58,
+ "creation_s_per_chain": 1.576,
+ "workers_mine": 0,
+ "workers": [],
+ "links": 10,
+ "refused": [],
+ "jack_clients": 14,
+ "memory": {
+  "zynthian": {
+   "processes": 1,
+   "rss_mb": 345.6,
+   "pss_mb": 237.1
+  },
+  "jackd": {
+   "processes": 1,
+   "rss_mb": 128.6,
+   "pss_mb": 31.7
+  },
+  "plugin-hostd": {
+   "processes": 0,
+   "rss_mb": 0.0,
+   "pss_mb": 0.0
+  },
+  "workers": {
+   "processes": 0,
+   "rss_mb": 0.0,
+   "pss_mb": 0.0
+  },
+  "jalv": {
+   "processes": 4,
+   "rss_mb": 595.1,
+   "pss_mb": 205.6
+  }
+ },
+ "rss_total_mb": 1069.3,
+ "pss_total_mb": 474.4,
+ "ui": {
+  "zynthian_pid": 73837,
+  "state": "S",
+  "capture": true
+ },
+ "capture": "l01-jalv-zynthian.png",
+ "modui_active": "inactive",
+ "top_consumers": [
+  {
+   "pid": 73837,
+   "name": "python3",
+   "cmd": "python3 ./zynthian_main.py",
+   "cpu_pct_of_core": 5.1
+  },
+  {
+   "pid": 83265,
+   "name": "jalv",
+   "cmd": "jalv -i -n jalv_00_2 urn:openmixer:drive",
+   "cpu_pct_of_core": 2.3
+  },
+  {
+   "pid": 83266,
+   "name": "jalv",
+   "cmd": "jalv -i -n jalv_00_3 urn:openmixer:chorus",
+   "cpu_pct_of_core": 1.9
+  },
+  {
+   "pid": 772,
+   "name": "jackd",
+   "cmd": "/usr/bin/jackd -P 70 -s -S -d alsa -d hw:Dummy -r 48000 -p 256 -n 2 -X raw",
+   "cpu_pct_of_core": 1.5
+  },
+  {
+   "pid": 83264,
+   "name": "jalv",
+   "cmd": "jalv -i -n jalv_00_1 urn:openmixer:comp",
+   "cpu_pct_of_core": 0.6
+  },
+  {
+   "pid": 83263,
+   "name": "jalv",
+   "cmd": "jalv -i -n jalv_00_0 urn:openmixer:eq8",
+   "cpu_pct_of_core": 0.4
+  },
+  {
+   "pid": 1124,
+   "name": "a2jmidid",
+   "cmd": "/usr/bin/a2jmidid",
+   "cpu_pct_of_core": 0.2
+  },
+  {
+   "pid": 1004,
+   "name": "ttymidi",
+   "cmd": "/usr/local/bin/ttymidi -s /dev/ttyAMA0 -b 38400",
+   "cpu_pct_of_core": 0.2
+  }
+ ],
+ "mhz_mean": 1500,
+ "xruns_meter": 0,
+ "xruns_zynthian": 0,
+ "cpu_core_mean": {
+  "cpu0": 3.0,
+  "cpu1": 3.2,
+  "cpu2": 3.9,
+  "cpu3": 3.3
+ },
+ "cpu_busiest_core": 3.9,
+ "cpu_mean": 3.3,
+ "cpu_busiest_second": 9.4,
+ "cpu_groups_pct_of_core": {
+  "zynthian": 5.1,
+  "jackd": 1.5,
+  "plugin-hostd": 0.0,
+  "workers": 0.0,
+  "jalv": 5.2
+ },
+ "tick_cpu_busiest_core": 1.5,
+ "tick_cpu_mean": 1.1,
+ "jack_dsp_mean": 5.73,
+ "jack_dsp_max": 5.83,
+ "mem_avail_min_mb": 2989.2,
+ "limit": null,
+ "teardown_clean": true,
+ "jalv_killed_after_sigterm": 0
+}

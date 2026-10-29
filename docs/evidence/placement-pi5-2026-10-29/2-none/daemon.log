@@ -1,0 +1,3 @@
+plugin-hostd ready!
+plugin-hostd: lv2:https://obxd.wordpress.com: the scan wrote no descriptor (the probe is not installed), its log /tmp/placement-run.je7006eg/plugin-hostd/95807/scan-lv2-a4f028b14854.log: resp -531
+plugin-hostd: lv2:https://surge-synthesizer.github.io/lv2/MoniqueMonosynth: the scan wrote no descriptor (the probe is not installed), its log /tmp/placement-run.je7006eg/plugin-hostd/95807/scan-lv2-5f7ed980f603.log: resp -531

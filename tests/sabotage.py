@@ -19,8 +19,35 @@ FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "
 # "vocabulary" breaks the probe schema, its template or a copy of omx-contract's omx-vocabulary.schema.json and runs
 # tests/vocabulary_derived.py; "verbtable" breaks the header and runs tests/verb_table.py; "presetschema" breaks
 # protocol/preset.schema.json and runs tests/preset_format.py; "pool" breaks tests/sabotage_pool.py or the port range of
-# tests/harness.py and runs tests/sabotage_pool_test.py
+# tests/harness.py and runs tests/sabotage_pool_test.py; "placement" breaks src/placement.c and runs tests/placement_test.c
 SABOTAGE = [
+    # core placement (docs/placement.md)
+    ('a new worker is not pinned to its core', 'src/supervisor.c',
+     '        snprintf(env.cpus, sizeof(env.cpus), "%d", w->core);\n', '',
+     'four_workers_on_a_four_core_mask_land_on_three_audio_cores_and_the_daemon_on_the_lowest'),
+    ('the daemon is not kept on the reserved core', 'src/supervisor.c', '        pin_self(&reserved);\n', '',
+     'four_workers_on_a_four_core_mask_land_on_three_audio_cores_and_the_daemon_on_the_lowest'),
+    ('a respawned worker is placed again', 'src/supervisor.c',
+     '        if (w->core < 0)\n            w->core = place_core(w);', '        w->core = place_core(w);',
+     'four_workers_on_a_four_core_mask_land_on_three_audio_cores_and_the_daemon_on_the_lowest'),
+    ('the members of a placed worker are not weighed', 'src/supervisor.c', '        load[k].cost += worker_cost(v, &known);\n',
+     '        worker_cost(v, &known);\n',
+     'the_least_loaded_core_is_the_one_whose_workers_cost_the_least_when_every_cost_is_known'),
+    ('the plan reports no core', 'src/supervisor.c', '            if (i && i->w && i->w->core >= 0)', '            if (0)',
+     'an_isolated_plugin_gets_a_worker_of_its_own_placed_by_the_same_rule_and_a_segment_stays_one_worker'),
+    ('worker_env cpus leave the workers placed', 'src/supervisor.c',
+     '                if (g_workers[n]->fmt == f)\n                    g_workers[n]->core = -1;', '                ;',
+     'a_format_given_cpus_by_worker_env_is_not_moved_by_the_policy'),
+    ('the cost never decides', 'src/placement.c', 'int k, best = 0, by_cost = 1;', 'int k, best = 0, by_cost = 0;',
+     'with_every_cost_known_the_cheapest_core_is_picked_whatever_it_holds', "placement"),
+    ('a placed worker of unknown cost leaves the cost to decide', 'src/placement.c',
+     '        if (loads[k].unknown)\n            by_cost = 0;', '        if (0)\n            by_cost = 0;',
+     'one_placed_worker_of_unknown_cost_makes_the_count_decide', "placement"),
+    ('audio_cores may name a cpu outside the mask', 'src/placement.c',
+     '        if (!CPU_EQUAL(&inside, audio))\n            return -1;\n', '',
+     'audio_cores_names_the_audio_cores_inside_the_mask_and_the_rest_is_reserved', "placement"),
+    ('the lowest cpu is not kept for the daemon', 'src/placement.c', '                CPU_CLR(c, audio);\n', '',
+     'the_default_audio_cores_are_the_mask_less_its_lowest_cpu_which_is_reserved', "placement"),
     ('the first count a worker writes is counted as xruns', 'src/supervisor.c',
      'if (w->xr_known && count > w->xr_base)\n        rose = count - w->xr_base;',
      'if (count > (w->xr_known ? w->xr_base : 0))\n        rose = count - (w->xr_known ? w->xr_base : 0);',
@@ -1224,8 +1251,8 @@ SABOTAGE = [
      '            if (out->reason[j] != PLANNER_REASON_NONE && !s->history_unavailable)\n                continue;\n',
      'history_unavailable_is_said_of_every_member_with_nothing_harder_to_say', "planner"),
     ('a quarantine is no crash to the planner', 'src/supervisor.c',
-     '    if (meta_of(i->id)->quarantined)\n    {\n        h->crashed = 1;',
-     '    if (0 && meta_of(i->id)->quarantined)\n    {\n        h->crashed = 1;',
+     '    if (quarantined)\n    {\n        h->crashed = 1;',
+     '    if (0 && quarantined)\n    {\n        h->crashed = 1;',
      'a_member_that_is_quarantined_leaves_its_plan_alone_and_the_segments_that_did_not_change_keep_their_workers'),
     ('the crash the history holds is not read', 'src/supervisor.c',
      '        h->crashed = history_crashed(r, utc_now());',
@@ -1244,8 +1271,8 @@ SABOTAGE = [
      '        if (1)\n',
      'the_solo_cost_the_history_holds_is_the_cost_when_it_is_larger_than_the_qualified_one'),
     ('a history that is blocked or off is not said to be', 'src/supervisor.c',
-     '    s.history_unavailable = !history_available();',
-     '    s.history_unavailable = 0;',
+     '    s->history_unavailable = !history_available();',
+     '    s->history_unavailable = 0;',
      'a_history_that_cannot_be_read_or_is_off_plans_as_without_one_and_says_so'),
     ('a quarantine does not make the plan again', 'src/supervisor.c',
      '        plans_replan_for(i->id);\n        hist_quarantine(i->uri);\n',
@@ -1289,15 +1316,15 @@ SABOTAGE = [
      'history_regroup_s_zero_leaves_a_split_group_apart_until_the_controller_plans_it_again'),
     ('the rate is not read', 'src/qualcost.c',
      'r != rate ||',
-     '0 ||',
+     '(r != rate && 0) ||',
      'a_rate_or_quantum_the_record_lacks_is_unknown', "qualcost"),
     ('the quantum is not read', 'src/qualcost.c',
      'q != quantum)',
      '(q != quantum && 0))',
      'a_rate_or_quantum_the_record_lacks_is_unknown', "qualcost"),
     ('the first record of a plugin stands', 'src/qualcost.c',
-     'if (v > best)',
-     'if (best < 0)',
+     'if (v > c->best)',
+     'if (c->best < 0)',
      'the_larger_record_stands_whichever_the_directory_lists_first', "qualcost"),
     ('the id inside the record is not read', 'src/qualcost.c',
      'if (!got || strcmp(got, id) || !grid',
@@ -1307,6 +1334,30 @@ SABOTAGE = [
      'return ns * rate / 1e9;',
      'return ns / 1e9;',
      'the_figure_is_the_p95_at_the_rate_and_quantum_as_a_fraction_of_a_core', "qualcost"),
+    ('the estimate keeps the last latency, not the sum', 'src/supervisor.c',
+     '                latency += cell.latency_frames;',
+     '                latency = cell.latency_frames;',
+     'an_estimate_adds_up_the_latency_and_the_cpu_of_the_members_and_counts_the_workers_and_the_unknown'),
+    ('the estimate keeps the last cost, not the sum', 'src/supervisor.c',
+     '                median_ns += cell.median_ns;',
+     '                median_ns = cell.median_ns;',
+     'an_estimate_adds_up_the_latency_and_the_cpu_of_the_members_and_counts_the_workers_and_the_unknown'),
+    ('the estimate counts a worker for every member', 'src/supervisor.c',
+     '        workers = pp.nseg;',
+     '        workers = planned;',
+     'an_estimate_adds_up_the_latency_and_the_cpu_of_the_members_and_counts_the_workers_and_the_unknown'),
+    ('the estimate names no member without a figure', 'src/supervisor.c',
+     '        if (code)\n            put(&list, &lused, &lcap,',
+     '        if (0)\n            put(&list, &lused, &lcap,',
+     'an_estimate_adds_up_the_latency_and_the_cpu_of_the_members_and_counts_the_workers_and_the_unknown'),
+    ('a member without a RAM figure counts as none', 'src/supervisor.c',
+     '        if (bytes < 0)\n            ram_every = 0;\n',
+     '        if (bytes < 0)\n            bytes = 0;\n',
+     'an_estimate_adds_up_the_ram_of_the_members_only_when_every_one_has_a_figure'),
+    ('the declared latency is read before the measured one', 'src/qualcost.c',
+     '(!jnum(latency, "measuredFrames", &frames) && !jnum(latency, "declaredFrames", &frames))',
+     '(!jnum(latency, "declaredFrames", &frames) && !jnum(latency, "measuredFrames", &frames))',
+     'the_cell_is_the_median_and_the_measured_latency', "qualcost"),
     ('a plan again forms every segment again', 'src/supervisor.c',
      'if (!kept[j] && was[j]->n == pp->seg_len[k]',
      'if (0 && !kept[j] && was[j]->n == pp->seg_len[k]',
@@ -1340,19 +1391,19 @@ SABOTAGE = [
      '    snprintf(place, sizeof(place), PHD_PLACE_CHAIN_PREFIX "%d", c->id);',
      'a_plan_forms_the_runs_that_may_share_and_leaves_the_member_that_may_not_in_a_worker_of_its_own'),
     ('a cost is never read from a record', 'src/supervisor.c',
-     '? qualcost_read(g_conf.qualification_dir, record_id(i->uri), g_conf.group_rate, g_conf.group_quantum)',
+     '? qualcost_read(g_conf.qualification_dir, record_id(uri), g_conf.group_rate, g_conf.group_quantum)',
      '? PLANNER_COST_UNKNOWN',
      'the_cost_a_qualification_record_holds_decides_the_segments_and_a_missing_one_is_assumed'),
     ('group_cost_max is read as a fraction already', 'src/supervisor.c',
-     's.group_cost_max = g_conf.group_cost_max / 100.0;',
-     's.group_cost_max = g_conf.group_cost_max / 10.0;',
+     's->group_cost_max = g_conf.group_cost_max / 100.0;',
+     's->group_cost_max = g_conf.group_cost_max / 10.0;',
      'the_cost_a_qualification_record_holds_decides_the_segments_and_a_missing_one_is_assumed'),
     ('a CLAP plugin is found by its path in the records', 'src/supervisor.c',
      'return hash ? hash + 1 : uri;',
      'return uri;',
      'the_cost_a_qualification_record_holds_decides_the_segments_and_a_missing_one_is_assumed'),
     ('a verdict of isolated is read as none', 'src/supervisor.c',
-     '    else if (!strcmp(verdict, PHD_PIN_VERDICT_ISOLATED))\n        m->pin = PLANNER_PIN_ISOLATED;\n',
+     '    if (!strcmp(verdict, PHD_PIN_VERDICT_ISOLATED))\n        return PLANNER_PIN_ISOLATED;\n',
      '',
      'a_plan_forms_the_runs_that_may_share_and_leaves_the_member_that_may_not_in_a_worker_of_its_own'),
     ("any word is a grouping mode", "src/conf.c", "ok |= !strcmp(conf->grouping, name);", "ok |= 1;",
@@ -1494,6 +1545,8 @@ def run_test(tree, name, jack=False):
         return run_unit_test(tree, "tests/planner-test", "planner_test.c", name)
     if jack == "qualcost":
         return run_unit_test(tree, "tests/qualcost-test", "qualcost_test.c", name)
+    if jack == "placement":
+        return run_unit_test(tree, "tests/placement-test", "placement_test.c", name)
     if jack == "verbs":
         return run_verbs_test(tree, name)
     if jack == "consumer":
@@ -1638,7 +1691,7 @@ def arm(entry, tree):
             shutil.copy(os.path.join(ROOT, f), tree)
         os.makedirs(os.path.join(tree, "packaging"))
         shutil.copy(os.path.join(ROOT, "packaging", "plugin-hostd.spec"), os.path.join(tree, "packaging"))
-    elif jack in ("planner", "qualcost"):
+    elif jack in ("planner", "qualcost", "placement"):
         shutil.copytree(os.path.join(ROOT, "src"), os.path.join(tree, "src"))
         shutil.copytree(os.path.join(ROOT, "include"), os.path.join(tree, "include"))
         shutil.copy(os.path.join(ROOT, "Makefile"), tree)
@@ -1682,7 +1735,7 @@ def arm(entry, tree):
     if jack == "probe":
         build_probe(tree)
     elif jack not in ("readme", "nopins", "ciguards", "format", "relay", "history", "proc", "contract", "consumer", "probeschema", "presetschema", "vocabulary", "alloc",
-                      "verbtable", "planner", "qualcost", "pool"):
+                      "verbtable", "planner", "qualcost", "placement", "pool"):
         for f in os.listdir(os.path.join(tree, "src")):
             if f.endswith(".o"):
                 os.unlink(os.path.join(tree, "src", f))

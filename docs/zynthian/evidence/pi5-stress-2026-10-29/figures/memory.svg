@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" font-family="sans-serif" font-size="12">
+<rect width="640" height="360" fill="white"/>
+<text x="320.0" y="20" text-anchor="middle" font-size="14">Memory of the hosting processes: PSS (solid) and RSS (dashed)</text>
+<line x1="70" y1="310" x2="500" y2="310" stroke="black"/>
+<line x1="70" y1="40" x2="70" y2="310" stroke="black"/>
+<text x="285.0" y="348" text-anchor="middle">chains of 4 plugins</text>
+<text x="16" y="175.0" text-anchor="middle" transform="rotate(-90 16 175.0)">MB</text>
+<text x="70.0" y="326" text-anchor="middle">1</text>
+<text x="177.5" y="326" text-anchor="middle">2</text>
+<text x="285.0" y="326" text-anchor="middle">4</text>
+<text x="392.5" y="326" text-anchor="middle">8</text>
+<text x="500.0" y="326" text-anchor="middle">16</text>
+<line x1="66" y1="310.0" x2="500" y2="310.0" stroke="#ddd"/>
+<text x="64" y="314.0" text-anchor="end">0</text>
+<line x1="66" y1="256.0" x2="500" y2="256.0" stroke="#ddd"/>
+<text x="64" y="260.0" text-anchor="end">2113</text>
+<line x1="66" y1="202.0" x2="500" y2="202.0" stroke="#ddd"/>
+<text x="64" y="206.0" text-anchor="end">4226</text>
+<line x1="66" y1="148.0" x2="500" y2="148.0" stroke="#ddd"/>
+<text x="64" y="152.0" text-anchor="end">6340</text>
+<line x1="66" y1="94.0" x2="500" y2="94.0" stroke="#ddd"/>
+<text x="64" y="98.0" text-anchor="end">8453</text>
+<line x1="66" y1="40.0" x2="500" y2="40.0" stroke="#ddd"/>
+<text x="64" y="44.0" text-anchor="end">10566</text>
+<polyline points="70.0,309.4 177.5,308.9 285.0,308.0 392.5,306.3 500.0,304.3" fill="none" stroke="#1f77b4" stroke-width="2"/>
+<circle cx="70.0" cy="309.4" r="3" fill="#1f77b4"/>
+<circle cx="177.5" cy="308.9" r="3" fill="#1f77b4"/>
+<circle cx="285.0" cy="308.0" r="3" fill="#1f77b4"/>
+<circle cx="392.5" cy="306.3" r="3" fill="#1f77b4"/>
+<circle cx="500.0" cy="304.3" r="3" fill="#1f77b4"/>
+<line x1="510" y1="50" x2="530" y2="50" stroke="#1f77b4" stroke-width="2"/>
+<text x="534" y="54">grouped PSS</text>
+<polyline points="70.0,308.7 177.5,307.5 285.0,305.9 392.5,303.7 500.0,300.8" fill="none" stroke="#d62728" stroke-width="2"/>
+<circle cx="70.0" cy="308.7" r="3" fill="#d62728"/>
+<circle cx="177.5" cy="307.5" r="3" fill="#d62728"/>
+<circle cx="285.0" cy="305.9" r="3" fill="#d62728"/>
+<circle cx="392.5" cy="303.7" r="3" fill="#d62728"/>
+<circle cx="500.0" cy="300.8" r="3" fill="#d62728"/>
+<line x1="510" y1="68" x2="530" y2="68" stroke="#d62728" stroke-width="2"/>
+<text x="534" y="72">alone PSS</text>
+<polyline points="70.0,304.7 177.5,300.1 285.0,291.1 392.5,273.6 500.0,239.8" fill="none" stroke="#2ca02c" stroke-width="2"/>
+<circle cx="70.0" cy="304.7" r="3" fill="#2ca02c"/>
+<circle cx="177.5" cy="300.1" r="3" fill="#2ca02c"/>
+<circle cx="285.0" cy="291.1" r="3" fill="#2ca02c"/>
+<circle cx="392.5" cy="273.6" r="3" fill="#2ca02c"/>
+<circle cx="500.0" cy="239.8" r="3" fill="#2ca02c"/>
+<line x1="510" y1="86" x2="530" y2="86" stroke="#2ca02c" stroke-width="2"/>
+<text x="534" y="90">jalv PSS</text>
+<polyline points="70.0,307.0 177.5,304.0 285.0,297.9 392.5,285.4 500.0,261.2" fill="none" stroke="#1f77b4" stroke-width="2" stroke-dasharray="5,4"/>
+<circle cx="70.0" cy="307.0" r="3" fill="#1f77b4"/>
+<circle cx="177.5" cy="304.0" r="3" fill="#1f77b4"/>
+<circle cx="285.0" cy="297.9" r="3" fill="#1f77b4"/>
+<circle cx="392.5" cy="285.4" r="3" fill="#1f77b4"/>
+<circle cx="500.0" cy="261.2" r="3" fill="#1f77b4"/>
+<line x1="510" y1="104" x2="530" y2="104" stroke="#1f77b4" stroke-width="2" stroke-dasharray="5,4"/>
+<text x="534" y="108">grouped RSS</text>
+<polyline points="70.0,298.6 177.5,286.7 285.0,263.1 392.5,218.8 500.0,133.4" fill="none" stroke="#d62728" stroke-width="2" stroke-dasharray="5,4"/>
+<circle cx="70.0" cy="298.6" r="3" fill="#d62728"/>
+<circle cx="177.5" cy="286.7" r="3" fill="#d62728"/>
+<circle cx="285.0" cy="263.1" r="3" fill="#d62728"/>
+<circle cx="392.5" cy="218.8" r="3" fill="#d62728"/>
+<circle cx="500.0" cy="133.4" r="3" fill="#d62728"/>
+<line x1="510" y1="122" x2="530" y2="122" stroke="#d62728" stroke-width="2" stroke-dasharray="5,4"/>
+<text x="534" y="126">alone RSS</text>
+<polyline points="70.0,294.8 177.5,279.4 285.0,248.5 392.5,186.6 500.0,64.5" fill="none" stroke="#2ca02c" stroke-width="2" stroke-dasharray="5,4"/>
+<circle cx="70.0" cy="294.8" r="3" fill="#2ca02c"/>
+<circle cx="177.5" cy="279.4" r="3" fill="#2ca02c"/>
+<circle cx="285.0" cy="248.5" r="3" fill="#2ca02c"/>
+<circle cx="392.5" cy="186.6" r="3" fill="#2ca02c"/>
+<circle cx="500.0" cy="64.5" r="3" fill="#2ca02c"/>
+<line x1="510" y1="140" x2="530" y2="140" stroke="#2ca02c" stroke-width="2" stroke-dasharray="5,4"/>
+<text x="534" y="144">jalv RSS</text>
+</svg>
