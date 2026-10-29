@@ -55,6 +55,9 @@ sections:
       - page: zynthian/stress.md
         title: The stress run
         pending: true
+      - page: zynthian/captures.md
+        title: Captures of the menus and the MOD GUIs
+        pending: true
       - page: zynthian/README.md
         title: How to use it in Zynthian
         pending: true

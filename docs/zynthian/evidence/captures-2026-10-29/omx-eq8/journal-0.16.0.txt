@@ -1,0 +1,4 @@
+# omx-eq8 on omx-plugins 0.16.0, zynthian-ui dc702a8b, plugin-hostd 0.13.1, 2026-10-29 (journal lines, device time GMT)
+Oct 29 08:45:59 zynthian startx[114626]: zyngine.zynthian_engine_plugin_hostd.plugin_hostd_error: 'add clap:/usr/lib/clap/omx-eq8.clap#org.openmixer.eq8 1000' => PHD_ERR_PIN_BINARY_MISMATCH (-509)
+Oct 29 08:46:13 zynthian startx[114626]: zyngine.zynthian_engine_plugin_hostd.plugin_hostd_error: 'add clap:/usr/lib/clap/omx-eq8.clap#org.openmixer.eq8 1000' => PHD_ERR_PIN_BINARY_MISMATCH (-509)
+Oct 29 08:49:25 zynthian mod-ui.sh[147330]: ERROR:root:[host] unrecognized command: pin_changed
