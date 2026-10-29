@@ -35,19 +35,17 @@ In place
 Still incomplete
 ----------------
 
-- **The Pi does not run the new set yet.** It still runs plugin-hostd 0.14.0, plugin-qualify 0.17.2 and
-  omx-clap-host 0.24.0. What closes it: the install of plugin-hostd 0.15.0, plugin-qualify 0.17.3 and omx-clap-host
-  0.24.2, starting tonight.
 - **The LV2 records are not redone yet.** The CLAP part of the re-qualification finished today. Cause: the LV2 part
   was stopped at 13:20, because the mod-host probe could not see the device's plugin folders. What closes it: the LV2
-  re-qualification on the new set, starting tonight after the install.
+  re-qualification, running since 23:57 CET on the new set, which the Pi now runs: plugin-hostd 0.15.0,
+  plugin-qualify 0.17.3, omx-clap-host 0.24.2 and omx-panel 0.7.1.
 - **The captures are from before the new set.** What closes it: every capture retaken when the LV2 re-qualification
   ends, presets and the Factory and User banks included ([captures](captures.md)).
-- **Instruments with their voices across the cores are not measured yet.** Cause: the thread pool switch is in
-  plugin-hostd 0.15.0, not yet on the Pi, and Surge XT ships its CLAP as `Surge XT.clap`, a name with a space the
-  daemon cannot add yet ([plugin-hostd#240](https://github.com/FreeMixer/plugin-hostd/issues/240),
-  [#276](https://github.com/FreeMixer/plugin-hostd/pull/276)). What closes it: both on the Pi, then Surge XT measured
-  ([instruments](instruments.md)).
+- **Instruments with their voices across the cores are not measured yet.** Cause: the thread pool switch is on
+  the Pi with plugin-hostd 0.15.0, but Surge XT ships its CLAP as `Surge XT.clap`, a name with a space the daemon
+  cannot add yet ([plugin-hostd#240](https://github.com/FreeMixer/plugin-hostd/issues/240),
+  [#276](https://github.com/FreeMixer/plugin-hostd/pull/276)). What closes it: #276 on the Pi, then Surge XT measured
+  after the re-qualification ([instruments](instruments.md)).
 - **The snapshot round trip is not proven on the device.** What closes it: a Zynthian snapshot holding plugin-hostd
   chains saved and loaded back on the Pi, the plugins and their settings as they were.
 - **The MOD GUIs on the device still show no text.** Cause: the Pi runs omx-plugins 0.16.0, whose screenshots were
