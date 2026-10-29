@@ -119,6 +119,29 @@ test('every page carries the navigation of docs/site.yml and a footer with its s
   });
 });
 
+test('a section that names a page opens its index with that page, its links written for the section', () => {
+  withBuild(
+    (root) => {
+      put(root, 'docs/site.yml', SITE.replace("    title: Start here\n", "    title: Start here\n    page: other.md\n    blurb: The blurb.\n"));
+      put(root, 'docs/other.md', 'Other\n=====\n\nRead [benchmarks](case/benchmarks.md#top), see ![CPU](case/evidence/figures/cpu.png) and the [README](../README.md).\n');
+    },
+    (build, out) => {
+      build();
+      const html = readFileSync(join(out, 'section/start.html'), 'utf8');
+      assert.match(html, /<h1>Start here<\/h1>\n<p>Read <a href="\.\.\/case\/benchmarks\.html#top">benchmarks<\/a>/);
+      assert.match(html, /<img src="\.\.\/case\/evidence\/figures\/cpu\.png" alt="CPU">/);
+      assert.match(html, new RegExp(`href="https://github.com/FreeMixer/plugin-hostd/blob/${REV}/README.md"`));
+      assert.doesNotMatch(html, /<h1[^>]*>Other<\/h1>/, "the page's own title is left out");
+      assert.ok(html.indexOf('benchmarks</a>') < html.indexOf('<p>The blurb.</p>'), 'the opening comes before the blurb');
+      assert.match(readFileSync(join(out, 'other.html'), 'utf8'), /<h1[^>]*>Other<\/h1>[\s\S]*href="case\/benchmarks\.html#top"/);
+    },
+  );
+});
+
+test('a section page that does not exist is refused, by name', () => {
+  refused((root) => put(root, 'docs/site.yml', SITE.replace("    title: Start here\n", "    title: Start here\n    page: gone.md\n")), /section 1: page docs\/gone\.md does not exist/);
+});
+
 test('the landing page: captures, a section link, and a pending page as text marked coming', () => {
   withBuild(undefined, (build, out) => {
     build();

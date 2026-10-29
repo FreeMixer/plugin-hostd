@@ -13,7 +13,9 @@
 // THE SHAPE comes from docs/site.yml: the sections in navigation order, the entries of each (a page of docs/, or a
 // page elsewhere), and the row of captures on the landing page, docs/index.md. Each section gets an index page, every
 // page the navigation, and a footer with its source path and the date of its last commit. The Evidence section is
-// generated: every file under a docs/**/evidence/ directory, by topic and date, with the pages that cite it.
+// generated: every file under a docs/**/evidence/ directory, by topic and date, with the pages that cite it. A section
+// that names a `page` opens its index with that page's body, under the section's title and above its blurb and
+// entries, so one file is both the page and the section's opening.
 //
 // PENDING. An entry marked `pending: true` names a page that is not in docs/ yet: it is shown as "coming: <title>"
 // with no link, and a link to it from a page is shown as its text, marked coming. When the file arrives the site
@@ -165,7 +167,14 @@ export function readSite(docsDir) {
       if (present && e.pending === true) notices.push(`docs/${e.page} is in docs/ now: drop its pending flag in docs/site.yml`);
       return { kind: 'page', title: e.title, blurb: e.blurb, page: e.page, live: present };
     });
-    return { id: s.id, title: s.title, blurb: s.blurb ?? '', generated: s.generated, entries };
+    if (s.page !== undefined) {
+      if (typeof s.page !== 'string' || s.page.startsWith('/') || s.page.split('/').includes('..') || !s.page.endsWith('.md')) {
+        throw new SiteError(`${where}: page ${s.page} is not a page under docs/`);
+      }
+      if (unpublished(s.page)) throw new SiteError(`${where}: page docs/${s.page} is in an unpublished directory`);
+      if (!existsSync(join(docsDir, s.page))) throw new SiteError(`${where}: page docs/${s.page} does not exist`);
+    }
+    return { id: s.id, title: s.title, blurb: s.blurb ?? '', page: s.page, generated: s.generated, entries };
   });
   const captures = (site.landing?.captures ?? []).map((c, i) => {
     const at = `docs/site.yml: capture ${i + 1}`;
@@ -267,6 +276,7 @@ pre code { background: none; }
 table { border-collapse: collapse; display: block; overflow-x: auto; }
 th, td { border: 1px solid var(--edge); padding: .3rem .6rem; text-align: left; vertical-align: top; }
 img { max-width: 100%; height: auto; }
+main p > img[src$=".png"] { max-width: min(100%, 24rem); }
 .captures { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin: 1.5rem 0; }
 .captures figure { margin: 0; border: 1px solid var(--edge); border-radius: 4px; padding: .5rem; }
 .captures .slot { aspect-ratio: 4 / 3; display: flex; align-items: center; justify-content: center; background: var(--side); color: var(--dim); font-size: .85rem; }
@@ -346,6 +356,8 @@ export function buildSite({ root, out, rev }) {
   const linksOf = new Map();
   const citedBy = new Map();
   const rendered = [];
+  // A section that names a page opens its index with that page's body, under the section's own title.
+  const openings = new Map();
 
   for (const page of pages) {
     const source = readFileSync(join(docsDir, page), 'utf8');
@@ -383,6 +395,9 @@ export function buildSite({ root, out, rev }) {
     let body = md.renderer.render(tokens, md.options, env);
     if (page === site.landing) body = body.replace('<p>{{captures}}</p>', capturesHtml(site, copies));
     rendered.push({ page, title, body });
+    for (const s of site.sections.filter((x) => x.page === page)) {
+      openings.set(s.id, md.renderer.render(rebased(tokens, htmlOf(page), sectionPath(s.id), h1), md.options, env));
+    }
   }
 
   // Every page is an entry of site.yml or reached by links from one (the landing page counts as one).
@@ -417,7 +432,8 @@ export function buildSite({ root, out, rev }) {
   for (const s of site.sections) {
     const from = sectionPath(s.id);
     const body = s.generated === 'evidence' ? evidenceHtml({ root, docsDir, from, copies, citedBy, rev }) : sectionHtml(s, from);
-    write(from, frame({ site, from, title: s.title, body: `<h1>${escapeHtml(s.title)}</h1>\n<p>${escapeHtml(s.blurb)}</p>\n${body}`, rev }));
+    const opening = openings.get(s.id) ?? '';
+    write(from, frame({ site, from, title: s.title, body: `<h1>${escapeHtml(s.title)}</h1>\n${opening}<p>${escapeHtml(s.blurb)}</p>\n${body}`, rev }));
   }
   for (const r of copies) {
     mkdirSync(dirname(join(out, r)), { recursive: true });
@@ -432,6 +448,27 @@ export function buildSite({ root, out, rev }) {
   if (absent.length > 0) throw new SiteError(`not written: ${absent.join(', ')}`);
   for (const dir of UNPUBLISHED) if (existsSync(join(out, dir))) throw new SiteError(`the site carries ${dir}/, which is not published`);
   return { pages, copied: [...copies].sort(), notices: site.notices };
+}
+
+/**
+ * A page's tokens as another file of the site would show them: every relative href and src, written for the page at
+ * `from`, written again for `to`; the page's h1 (the token at `h1`, with its text and close) is left out.
+ */
+function rebased(tokens, from, to, h1) {
+  const again = (href) => {
+    if (href === '' || href.startsWith('#') || /^[a-z][a-z0-9+.-]*:/i.test(href) || href.startsWith('//')) return href;
+    const cut = href.search(/[?#]/);
+    const path = cut < 0 ? href : href.slice(0, cut);
+    return rel(to, posix.normalize(posix.join(posix.dirname(from), path))) + (cut < 0 ? '' : href.slice(cut));
+  };
+  const copy = (list) =>
+    list.map((tok) => {
+      const t = Object.assign(Object.create(Object.getPrototypeOf(tok)), tok);
+      if (tok.attrs) t.attrs = tok.attrs.map(([k, v]) => [k, k === 'href' || k === 'src' ? again(v) : v]);
+      if (tok.children) t.children = copy(tok.children);
+      return t;
+    });
+  return copy(h1 >= 0 ? [...tokens.slice(0, h1), ...tokens.slice(h1 + 3)] : tokens);
 }
 
 function capturesHtml(site, copies) {
