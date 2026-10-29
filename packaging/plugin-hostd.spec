@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.13.1
+Version: 0.14.0
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -155,6 +155,19 @@ make test-daemon check-generated check-rendered
 %{_datadir}/omx-contract/contract.d/3/plugin-hostd/
 
 %changelog
+* Thu Oct 29 2026 Pau Aliagas <linuxnow@gmail.com> - 0.14.0-1
+- estimate <rate> <quantum> <uri> ... answers what a chain of these plugins
+  would cost at that rate and quantum, from the qualification records (#224).
+- The setting placement pins each chain's worker to the audio core with the
+  least load and the daemon to the reserved cores; worker_list and plan
+  records gain the core, before the place in a worker_list record (#226).
+- The Zynthian chain tools and docs, the wire protocol document generated and
+  checked, the pages site, and the benchmarks, trade-offs, image, stress and
+  instruments docs are in main (#228, #230, #229).
+- The history and plan verbs answer -901 when there is no memory (#174); the
+  planner reads the history (#208); plugin-hostd-contract requires
+  omx-contract 3.2.0 (#165).
+
 * Tue Oct 27 2026 Pau Aliagas <linuxnow@gmail.com> - 0.13.1-1
 - The daemon reads the xruns line a worker writes (omx-clap-core 0.23.0,
   now the floor) and adds a window to xrun_windows_solo or
