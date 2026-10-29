@@ -817,7 +817,7 @@ def the_measured_child_holds_no_cap_sys_nice_past_its_exec():
     prefix = []
     if not cap_sys_nice():
         if subprocess.run(["unshare", "-r", "true"], capture_output=True).returncode != 0:
-            raise Skip("no CAP_SYS_NICE and no unprivileged user namespace to get one in")
+            cannot("no CAP_SYS_NICE and no unprivileged user namespace to get one in")
         prefix = ["unshare", "-r"]
     doc, seen = rt_run(prefix)
     check(seen["cap_sys_nice"] == "", "the child still holds CAP_SYS_NICE in %s" % seen["cap_sys_nice"])
