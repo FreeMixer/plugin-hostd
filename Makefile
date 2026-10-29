@@ -9,6 +9,7 @@ FORMAT_TEST = tests/format-test
 PIN_TEST = tests/pin-test
 HISTORY_TEST = tests/history-test
 PROC_TEST = tests/proc-test
+CONF_TEST = tests/conf-test
 PLANNER_TEST = tests/planner-test
 PLACEMENT_TEST = tests/placement-test
 QUALCOST_TEST = tests/qualcost-test
@@ -98,7 +99,7 @@ $(PROTOCOL_LIB):
 endif
 
 # the declared protocol is compiled into every object
-$(OBJ): include/plugin-hostd/protocol.h $(RENDERED) include/plugin-hostd/pin.h
+$(OBJ): include/plugin-hostd/protocol.h include/plugin-hostd/search_paths.h $(RENDERED) include/plugin-hostd/pin.h
 
 # the host class of the history is the probe's machine class: the contract's band words
 src/machine.o: INCS += $(CONTRACT_CFLAGS)
@@ -140,6 +141,7 @@ install_protocol:
 	install -d $(DESTDIR)$(INCLUDEDIR)/plugin-hostd
 	install -m 644 include/plugin-hostd/protocol.h $(DESTDIR)$(INCLUDEDIR)/plugin-hostd/protocol.h
 	install -m 644 $(RENDERED) $(DESTDIR)$(INCLUDEDIR)/plugin-hostd/
+	install -m 644 include/plugin-hostd/search_paths.h $(DESTDIR)$(INCLUDEDIR)/plugin-hostd/search_paths.h
 	install -m 644 include/plugin-hostd/pin.h $(DESTDIR)$(INCLUDEDIR)/plugin-hostd/pin.h
 	install -d $(DESTDIR)$(DATADIR)/pkgconfig
 	sed -e 's,@PREFIX@,$(PREFIX),g' -e 's,@VERSION@,$(VERSION),g' protocol/plugin-hostd.pc.in > $(DESTDIR)$(DATADIR)/pkgconfig/plugin-hostd.pc
@@ -288,12 +290,12 @@ fuzz-corpus-check:
 
 # clean rule
 clean:
-	@rm -f src/*.o $(PROG) $(PROBE) $(PROBE_LOCK) tests/probe-child tests/lv2-probe-child tests/rt_interpose.so tests/sched-refuse.so $(FAKE) $(PIN_TEST) $(HISTORY_TEST) $(PROC_TEST) $(PLANNER_TEST) $(QUALCOST_TEST) $(RELAY_TEST) tests/relay-test-relay.o $(FORMAT_TEST) $(GESTURE_ALLOC_TEST) $(LV2_ALLOC_TEST) tests/lv2-alloc-lv2.o $(VERBS_ALLOC_TEST) $(TRANSFORMS_TEST) $(GEN) tests/stress.clap tests/jack_levels tests/host_scenarios $(LV2_FIXTURE) $(PLACEMENT_TEST)
+	@rm -f src/*.o $(PROG) $(PROBE) $(PROBE_LOCK) tests/probe-child tests/lv2-probe-child tests/rt_interpose.so tests/sched-refuse.so $(FAKE) $(PIN_TEST) $(HISTORY_TEST) $(PROC_TEST) $(CONF_TEST) $(PLANNER_TEST) $(QUALCOST_TEST) $(RELAY_TEST) tests/relay-test-relay.o $(FORMAT_TEST) $(GESTURE_ALLOC_TEST) $(LV2_ALLOC_TEST) tests/lv2-alloc-lv2.o $(VERBS_ALLOC_TEST) $(TRANSFORMS_TEST) $(GEN) tests/stress.clap tests/jack_levels tests/host_scenarios $(LV2_FIXTURE) $(PLACEMENT_TEST)
 	@rm -rf build
 
 # the daemon against workers that are not plugin hosts at all (tests/fake-host speaks the same protocol and can be
 # made to die on cue): placement, forwarding, ledger, replay, attribution, the storm bound; no jack, no plugin
-test: test-protocol-lib test-sabotage-pool test-pin test-history test-proc test-own-host-probe-teardown test-planner test-placement test-transforms test-format-coverage test-describe test-relay test-alloc test-format test-daemon test-verbs-declared check-rendered check-generated check-protocol-doc check-schema test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-mod-host-json test-socket check-verb-table check-preset-schema test-install-schemas check-contract-floor check-readme-facts test-pin-files
+test: test-protocol-lib test-sabotage-pool test-pin test-history test-proc test-conf test-own-host-probe-teardown test-planner test-placement test-transforms test-format-coverage test-describe test-relay test-alloc test-format test-daemon test-verbs-declared check-rendered check-generated check-protocol-doc check-schema test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-mod-host-json test-socket check-verb-table check-preset-schema test-install-schemas check-contract-floor check-readme-facts test-pin-files
 	MOD_HOST_DIR=$(MOD_HOST_DIR) python3 tests/verbs_contract.py
 
 # the protocol clients plugin-hostd-tests ships (tests/lib/), against a peer that frames by NUL, and their sabotage
@@ -369,6 +371,14 @@ test-proc: $(PROC_TEST)
 
 $(PROC_TEST): tests/proc_test.c src/proc.c src/proc.h src/conf.h include/plugin-hostd/protocol.h $(RENDERED)
 	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -o $@ tests/proc_test.c src/proc.c -pthread -lm
+
+# the search settings (src/conf.c, include/plugin-hostd/search_paths.h): the default lists, $LV2_PATH, lv2_extra, $CLAP_PATH
+test-conf: $(CONF_TEST)
+	./$(CONF_TEST)
+	python3 tests/search_paths_once.py
+
+$(CONF_TEST): tests/conf_test.c src/conf.c src/conf.h include/plugin-hostd/protocol.h include/plugin-hostd/search_paths.h $(RENDERED)
+	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -o $@ tests/conf_test.c src/conf.c
 
 # the grouping planner (src/planner.c, the grouping-planner design note), on its own: each reason it gives, the order its
 # rules decide in, the text of a plan, and that the same members give the same bytes
@@ -480,7 +490,7 @@ tests/jack_levels: tests/jack_levels.c
 GEN = tools/protocol-gen
 GENERATED = README.md doc/plugin-hostd.1 protocol/plugin-hostd.json protocol/mod-host.json protocol/probe-output.schema.json
 
-$(GEN): tools/protocol-gen.c include/plugin-hostd/protocol.h $(RENDERED)
+$(GEN): tools/protocol-gen.c include/plugin-hostd/protocol.h include/plugin-hostd/search_paths.h $(RENDERED)
 	$(CC) -Wall -Wextra -Werror -std=gnu99 -Iinclude $(CONTRACT_CFLAGS) -o $@ tools/protocol-gen.c
 
 gen: $(GEN)

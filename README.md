@@ -115,7 +115,9 @@ The settings live in a file, `-c`, `$PLUGIN_HOSTD_CONF` or
 | `mod_host` | `mod-host` | worker for lv2 (a name on PATH or a path) |
 | `clap_host` | `omx-clap-host` | worker for clap |
 | `lv2_worker` | `auto` | who runs an LV2 plugin: mod-host (the mod_host program), omx-clap-host (the clap_host program, through its LV2 adapter, a plugin it cannot run refused with a code) or auto (the adapter first, mod-host for what it refuses, each such plugin in a worker of its own unless its add names a placement); lv2_worker_set overrides it for one plugin |
-| `lv2_path` | `$LV2_PATH`, else `/usr/lib64/lv2:/usr/lib/lv2:/usr/local/lib/lv2` | where bundles are searched |
+| `lv2_path` | `$LV2_PATH`, else `/usr/lib/lv2:/usr/lib/x86_64-linux-gnu/lv2:/usr/lib/aarch64-linux-gnu/lv2:/usr/lib/arm-linux-gnueabihf/lv2:/usr/local/lib/lv2:/usr/local/lib/x86_64-linux-gnu/lv2:/usr/local/lib/aarch64-linux-gnu/lv2:/usr/local/lib/arm-linux-gnueabihf/lv2:/usr/lib64/lv2:/usr/local/lib64/lv2` | where bundles are searched |
+| `lv2_extra` | `` | the site's own bundle folders, searched after lv2_path: the one declaration of them, which plugin-qualify and omx-panel read too |
+| `clap_path` | `~/.clap:/usr/lib/clap` | where .clap files are searched by whoever searches (plugin-qualify, omx-panel); an add names its file, so the daemon loads none by search; $CLAP_PATH is searched before it |
 | `state_root` | `$XDG_RUNTIME_DIR`, else `/tmp` | the daemon's checkpoints and worker logs |
 | `pin_mode` | `first-use` | strict or first-use, while require_pins is 1: first-use records the pin of a plugin on its first add, strict admits only a plugin a controller, a pin_file or pins_dir pinned |
 | `grouping` | `off` | off or on: whether plan applies its plan (a run of consecutive members that may share a worker is declared as a chain), or only answers it; the default stays off until the benchmark has published a win |
@@ -148,6 +150,14 @@ The settings live in a file, `-c`, `$PLUGIN_HOSTD_CONF` or
 | `group_quantum` | 128 frames | the quantum the cost of a member is read at |
 | `require_pins` | 1  | 1: add admits only a plugin that has a pin (see pin_mode), its files hashed before any worker sees it, and a plugin of a format whose pin holds only in a world of its own gets a worker of its own, its world the plugin's files (a default that resolves to a pool is placed own); 0: no pin is checked |
 <!-- END GENERATED protocol:config -->
+
+Where plugins are searched is written once, in `include/plugin-hostd/search_paths.h`. The LV2 default is Zynthian's own
+`LV2_PATH` order (`/usr/lib/lv2`, `/usr/lib/<multiarch>/lv2`, `/usr/local/lib/lv2`, `/usr/local/lib/<multiarch>/lv2`)
+and then the lib64 folders; the CLAP rule is CLAP's own, `$CLAP_PATH`, then `~/.clap`, then `/usr/lib/clap`. A site adds
+its own folders in `lv2_extra` (a Zynthian image: `/zynthian/zynthian-plugins/lv2` and the like), searched after
+`lv2_path`; plugin-qualify and omx-panel read `lv2_path`, `lv2_extra` and `clap_path` from this file, or run
+`tools/search-paths.py lv2|clap [--existing] [--env]`, and keep no list of their own. The benchmark and the scripts of
+`tools/zynthian/` use the same script.
 
 <!-- BEGIN GENERATED protocol:constants -->
 | name | value | meaning |
