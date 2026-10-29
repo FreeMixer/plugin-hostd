@@ -1,0 +1,13 @@
+Plugin:       http://distrho.sf.net/plugins/MaFreeverb
+JACK Name:    jalv_07_2
+Sample rate:  48000 Hz
+Block length: 256 frames
+MIDI buffers: 32768 bytes
+Comm buffers: 524288 bytes
+Update rate:  30.0 Hz
+Scale factor: 1.0
+
+#CTR> 1#damp=0.500000
+#CTR> 2#fb1=0.900000
+#CTR> 0#fb2=0.500000
+#CTR> 3#spread=0.000000

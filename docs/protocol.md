@@ -239,7 +239,6 @@ Each is declared in `protocol/plugin-hostd.json`; the formats, codes and hosts c
 | `pin_accept` | `<uri>` | word | `resp 0` | -508 PIN_ABSENT; -509 PIN_BINARY_MISMATCH; -516 PIN_REFUSED; -901 reply.host.memory-allocation; -902 reply.host.invalid-operation | 0.12.0 | plugin-hostd required | pin_mode first-use only: take the plugin's files as they are now as its pin, after a pin_changed event; the layout is learned again by the next add and the verdict is dropped; -508 when the plugin has no pin, -509 when its files cannot be collected, -516 when its pins_dir pin carries verdict=refused, -902 under pin_mode strict |
 | `pin_layout` | `<instance>` | int | `resp 0 <scheme>:<sha256>` | - | 0.12.0 | omx-clap-host optional, mod-host unsupported | sent by the daemon to a worker of a format that checks layouts, after it accepted the add of a plugin whose layout pin is still unknown: the layout the worker found after init, which the daemon records in the pin |
 | `pin_expect` | `<instance> <scheme>:<sha256>` | int word | `resp 0` | -1 reply.host.instance-invalid; -902 reply.host.invalid-operation; -508 PIN_ABSENT | - | plugin-hostd unsupported, omx-clap-host required, mod-host unsupported | sent by the daemon to a worker of a format that checks layouts, just before the instance's add: the layout pin that add checks after init and before activate; any other reply than resp 0 refuses the add with that code, and the add is never forwarded |
-| `estimate` | `<rate> <quantum> <uri> [<uri> ...]` | int int word ... | `resp 0 <latency_frames> <cpu_percent> <ram_bytes> <workers> <unknown_count> <member>:<code>,...` | -533 NO_RECORD; -534 NO_CELL; -535 UNKNOWN_PLUGIN; -901 reply.host.memory-allocation; -902 reply.host.invalid-operation | 0.12.0 | plugin-hostd required | what a chain of these plugins, in signal order and named as add names them, would cost at that rate and quantum, read from the qualification records of qualification_dir; no plugin is loaded and nothing moves. latency_frames adds up each member's measured latency of the grid point, else its declared one; cpu_percent adds up each member's median nanoseconds per sample times the rate, percent of one core's cycle (a member's cost per block over the block's duration); ram_bytes adds up the Pss of the worker each member ran alone in, the history's pss_mb_solo of the binary its pin holds on this host class, - unless every member has one, since no qualification record carries a RAM figure; workers is how many workers plan would place the members in (an isolated one alone); unknown_count is how many members have no figure at that rate and quantum, and the latency and the CPU add up only the others. The last word names each of them as its position in the line, from 0, and its code, -533 for no record, -534 for no point of the grid at that rate and quantum, -535 for a uri that names no plugin installed here, joined by commas, - for none. Several records of one plugin (several versions) give the largest figure. -902 for a rate or a quantum that is not a whole number above 0, or no uri |
 
 `pin_set`:
 
@@ -276,13 +275,6 @@ Each is declared in `protocol/plugin-hostd.json`; the formats, codes and hosts c
 < resp 0
 ```
 
-`estimate`:
-
-```
-> estimate <rate> <quantum> clap:/usr/lib/clap/omx-comp.clap#org.openmixer.comp
-< resp 0 <latency_frames> <cpu_percent> <ram_bytes> <workers> <unknown_count> <member>:<code>,...
-```
-
 ### Chains and plans
 
 | verb | arguments | types | reply | codes | since (the group's) | hosts | meaning |
@@ -293,6 +285,7 @@ Each is declared in `protocol/plugin-hostd.json`; the formats, codes and hosts c
 | `plan` | `<chain> <instance> [<instance> ...]` | int int ... | `resp 0 <instance>,...;<instance>,...;... <core>,...;<core>,...;...` | -518 CHAIN_UNKNOWN_INSTANCE; -519 CHAIN_DUPLICATE; -520 CHAIN_INSTANCE_BUSY; -501 PLACEMENT_INVALID; -901 reply.host.memory-allocation; -902 reply.host.invalid-operation | 0.12.0 | plugin-hostd required | the instances, in signal order, are planned (the grouping-planner design note): the daemon decides, from the pin and the cost of each, which runs of consecutive members share a worker. A run of two or more is declared as a chain of place chain:<chain>.<k>, k counting segments from 0; a member that shares with no neighbour is placed own. The reply names the segments in order, the members of one joined by commas and the segments by semicolons, then the cores: the segments again with each member replaced by the audio core of the worker that runs it now, - for one the setting placement did not pin (docs/placement.md). A chain planned again keeps the running worker of every segment that did not change, and the daemon plans it again by itself when a member is quarantined and, history_regroup_s after a death that split its group, to gather it. The plan numbers are its own, apart from chain's. While the setting grouping is off the plan is answered and kept for plan_get and nothing moves. A segment that cannot be formed refuses the whole plan with its own code, moves nothing and is told by plan_get as plan-refused:<code>. -518 for an instance no add made, -519 for one named twice, -520 for one in a chain or in the plan of another chain, -501 for a segment no world can be built for, -902 for a chain or an instance that is not a number, or fewer than chain_members_min (1) instances |
 | `plan_get` | `<chain>` | int | `resp 0 <instance>,...;<instance>,...;... <instance>:<reason>,... <core>,...;<core>,...;...` | -532 NO_SUCH_PLAN; -901 reply.host.memory-allocation; -902 reply.host.invalid-operation | 0.12.0 | plugin-hostd required | read the last plan of a chain back: its segments as plan answered them, then the members that have a reason, instance:reason joined by commas (- for none); the reasons are the words of PLUGIN_HOSTD_GROUPING_REASONS (data/grouping.json), then the cores of the members as plan answers them; -532 for a chain no plan planned, -902 for a chain that is not a number |
 | `plan_clear` | `<chain>` | int | `resp 0` | -532 NO_SUCH_PLAN; -901 reply.host.memory-allocation; -902 reply.host.invalid-operation | 0.12.0 | plugin-hostd required | forget the plan: each member goes to a worker of its own; -532 for a chain no plan planned |
+| `estimate` | `<rate> <quantum> <uri> [<uri> ...]` | int int word ... | `resp 0 <latency_frames> <cpu_percent> <ram_bytes> <workers> <unknown_count> <member>:<code>,...` | -533 NO_RECORD; -534 NO_CELL; -535 UNKNOWN_PLUGIN; -901 reply.host.memory-allocation; -902 reply.host.invalid-operation | 0.12.0 | plugin-hostd required | what a chain of these plugins, in signal order and named as add names them, would cost at that rate and quantum, read from the qualification records of qualification_dir; no plugin is loaded and nothing moves. latency_frames adds up each member's measured latency of the grid point, else its declared one; cpu_percent adds up each member's median nanoseconds per sample times the rate, percent of one core's cycle (a member's cost per block over the block's duration); ram_bytes adds up the Pss of the worker each member ran alone in, the history's pss_mb_solo of the binary its pin holds on this host class, - unless every member has one, since no qualification record carries a RAM figure; workers is how many workers plan would place the members in (an isolated one alone); unknown_count is how many members have no figure at that rate and quantum, and the latency and the CPU add up only the others. The last word names each of them as its position in the line, from 0, and its code, -533 for no record, -534 for no point of the grid at that rate and quantum, -535 for a uri that names no plugin installed here, joined by commas, - for none. Several records of one plugin (several versions) give the largest figure. -902 for a rate or a quantum that is not a whole number above 0, or no uri |
 
 `chain`:
 
@@ -334,6 +327,13 @@ Each is declared in `protocol/plugin-hostd.json`; the formats, codes and hosts c
 ```
 > plan_clear 1
 < resp 0
+```
+
+`estimate`:
+
+```
+> estimate <rate> <quantum> clap:/usr/lib/clap/omx-comp.clap#org.openmixer.comp
+< resp 0 <latency_frames> <cpu_percent> <ram_bytes> <workers> <unknown_count> <member>:<code>,...
 ```
 
 ### Descriptors, panels and the running history

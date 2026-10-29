@@ -271,8 +271,8 @@ def verdict(verb):
 
 OURS_GROUPS = [
     ("Placement and supervision", r"^(worker_|instance_info$|supervisor_|quarantine_|policy_set$|pool_|lv2_worker_set$)"),
-    ("Pins and qualification", r"^(pin_|estimate$)"),
-    ("Chains and plans", r"^(chain|plan)(_|$)"),
+    ("Pins and qualification", r"^pin_"),
+    ("Chains and plans", r"^((chain|plan)(_|$)|estimate$)"),
     ("Descriptors, panels and the running history", r"^(descriptor_|panel_|history_)"),
     ("Presets and notes, by instance", r"^(preset_|note_|all_notes_off$)"),
 ]

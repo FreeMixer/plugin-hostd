@@ -1,0 +1,23 @@
+Plugin:       urn:openmixer:reverb
+JACK Name:    jalv_08_1
+Sample rate:  48000 Hz
+Block length: 256 frames
+MIDI buffers: 32768 bytes
+Comm buffers: 524288 bytes
+Update rate:  30.0 Hz
+Scale factor: 1.0
+
+#CTR> 12#algorithm=0.000000
+#CTR> 3#damping=0.500000
+#CTR> 13#enabled=1.000000
+#CTR> 11#gateThreshold=-40.000000
+#CTR> 7#highcut=20000.000000
+#CTR> 9#hold=120.000000
+#CTR> 6#lowcut=0.000000
+#CTR> 1#mix=0.300000
+#CTR> 0#plateModDepth=100.000000
+#CTR> 5#predelay=0.000000
+#CTR> 10#release=20.000000
+#CTR> 8#reverse=300.000000
+#CTR> 2#size=0.700000
+#CTR> 4#width=1.000000

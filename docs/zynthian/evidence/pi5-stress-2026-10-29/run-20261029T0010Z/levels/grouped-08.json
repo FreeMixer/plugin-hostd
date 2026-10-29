@@ -1,0 +1,236 @@
+{
+ "mode": "grouped",
+ "chains_asked": 8,
+ "chains_built": 8,
+ "plugins_running": 31,
+ "jack_clients_of_chains": 19,
+ "creation_s_total": 10.17,
+ "creation_s_per_chain": 1.271,
+ "workers_mine": 8,
+ "workers": [
+  {
+   "worker": "w68",
+   "pid": "86642",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "chain:1",
+   "instances": [
+    7000,
+    7001,
+    7002,
+    7003
+   ]
+  },
+  {
+   "worker": "w73",
+   "pid": "86673",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "chain:2",
+   "instances": [
+    7004,
+    7005,
+    7006,
+    7007
+   ]
+  },
+  {
+   "worker": "w78",
+   "pid": "86704",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "chain:3",
+   "instances": [
+    7008,
+    7009,
+    7010,
+    7011
+   ]
+  },
+  {
+   "worker": "w83",
+   "pid": "86737",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "chain:4",
+   "instances": [
+    7012,
+    7013,
+    7014,
+    7015
+   ]
+  },
+  {
+   "worker": "w88",
+   "pid": "86768",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "chain:5",
+   "instances": [
+    7016,
+    7017,
+    7018,
+    7019
+   ]
+  },
+  {
+   "worker": "w93",
+   "pid": "86799",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "chain:6",
+   "instances": [
+    7020,
+    7021,
+    7022,
+    7023
+   ]
+  },
+  {
+   "worker": "w98",
+   "pid": "86830",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "chain:7",
+   "instances": [
+    7024,
+    7025,
+    7026,
+    7027
+   ]
+  },
+  {
+   "worker": "w102",
+   "pid": "86858",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "chain:8",
+   "instances": [
+    7028,
+    7029,
+    7030
+   ]
+  }
+ ],
+ "links": 50,
+ "refused": [
+  {
+   "uri": "http://gareus.org/oss/lv2/dpl#stereo",
+   "why": "resp -509"
+  }
+ ],
+ "jack_clients": 29,
+ "memory": {
+  "zynthian": {
+   "processes": 1,
+   "rss_mb": 330.6,
+   "pss_mb": 222.9
+  },
+  "jackd": {
+   "processes": 1,
+   "rss_mb": 128.5,
+   "pss_mb": 28.8
+  },
+  "plugin-hostd": {
+   "processes": 1,
+   "rss_mb": 3.4,
+   "pss_mb": 2.0
+  },
+  "workers": {
+   "processes": 8,
+   "rss_mb": 957.7,
+   "pss_mb": 141.9
+  },
+  "jalv": {
+   "processes": 0,
+   "rss_mb": 0.0,
+   "pss_mb": 0.0
+  }
+ },
+ "rss_total_mb": 1420.2,
+ "pss_total_mb": 395.6,
+ "ui": {
+  "zynthian_pid": 73837,
+  "state": "S",
+  "capture": true
+ },
+ "capture": "l08-grouped-zynthian.png",
+ "modui_active": "inactive",
+ "top_consumers": [
+  {
+   "pid": 73837,
+   "name": "python3",
+   "cmd": "python3 ./zynthian_main.py",
+   "cpu_pct_of_core": 7.4
+  },
+  {
+   "pid": 86768,
+   "name": "omx-clap-host",
+   "cmd": "omx-clap-host -n -p 34173 -f 54157",
+   "cpu_pct_of_core": 5.5
+  },
+  {
+   "pid": 86799,
+   "name": "omx-clap-host",
+   "cmd": "omx-clap-host -n -p 43689 -f 60233",
+   "cpu_pct_of_core": 5.1
+  },
+  {
+   "pid": 86642,
+   "name": "omx-clap-host",
+   "cmd": "omx-clap-host -n -p 45097 -f 50185",
+   "cpu_pct_of_core": 5.1
+  },
+  {
+   "pid": 86704,
+   "name": "omx-clap-host",
+   "cmd": "omx-clap-host -n -p 56391 -f 35437",
+   "cpu_pct_of_core": 5.0
+  },
+  {
+   "pid": 86737,
+   "name": "omx-clap-host",
+   "cmd": "omx-clap-host -n -p 44879 -f 42503",
+   "cpu_pct_of_core": 4.5
+  },
+  {
+   "pid": 86830,
+   "name": "omx-clap-host",
+   "cmd": "omx-clap-host -n -p 56117 -f 42405",
+   "cpu_pct_of_core": 4.3
+  },
+  {
+   "pid": 86673,
+   "name": "omx-clap-host",
+   "cmd": "omx-clap-host -n -p 45759 -f 46221",
+   "cpu_pct_of_core": 4.1
+  }
+ ],
+ "mhz_mean": 1500,
+ "xruns_meter": 0,
+ "xruns_zynthian": 0,
+ "cpu_core_mean": {
+  "cpu0": 12.1,
+  "cpu1": 11.9,
+  "cpu2": 12.7,
+  "cpu3": 12.2
+ },
+ "cpu_busiest_core": 12.7,
+ "cpu_mean": 12.3,
+ "cpu_busiest_second": 20.1,
+ "cpu_groups_pct_of_core": {
+  "zynthian": 7.4,
+  "jackd": 2.6,
+  "plugin-hostd": 0.2,
+  "workers": 37.1,
+  "jalv": 0.0
+ },
+ "tick_cpu_busiest_core": 6.1,
+ "tick_cpu_mean": 4.4,
+ "jack_dsp_mean": 11.34,
+ "jack_dsp_max": 11.74,
+ "mem_avail_min_mb": 2982.5,
+ "limit": null,
+ "teardown_clean": true,
+ "jalv_killed_after_sigterm": 0
+}
