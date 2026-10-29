@@ -39,6 +39,12 @@
  * no pins */
 int pins_init(const char *store, const char *file, const char *dir);
 
+/* pin_reload: the pins read again from the places pins_init read, put in at once; a controller's pin_set pins are kept.
+ * SUCCESS, or -1 with the earlier pins left as they are (a pin_file with a line outside the grammar, or gone) */
+int pins_reload(void);
+/* whether the pin_file or a pins_dir file is not the one the pins were last read from: inode, size or mtime */
+int pins_changed(void);
+
 /* pin_set: SUCCESS, or ERR_INVALID_OPERATION for a word outside the grammar, or OMX_REPLY_PLUGIN_HOSTD_PIN_REFUSED_RESP when the package pin
  * of the uri carries verdict=refused; it replaces an earlier pin of the uri. `verdict` is NULL, or one of
  * PHD_PIN_VERDICTS */

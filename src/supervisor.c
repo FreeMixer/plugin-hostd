@@ -1462,6 +1462,7 @@ void sup_tick(void)
     worker_t *list[1024];
     int count = g_nworkers < 1024 ? g_nworkers : 1024;
 
+    sup_pins_poll();
     memcpy(list, g_workers, count * sizeof(worker_t *));
     for (n = 0; n < count; n++)
     {
@@ -1695,6 +1696,8 @@ static char *add(const char *uri, int id, const char *placement, const char *cli
         return sup_resp(ERR_INSTANCE_INVALID);
     if (g_inst[id])
         return sup_resp(ERR_INSTANCE_ALREADY_EXISTS);
+    /* a plugin upgraded since the pins were read is hosted by the pins as the file says now, not by a restart */
+    sup_pins_poll();
     if (placement && strcmp(placement, PHD_PLACE_DEFAULT) && !valid_place(placement))
         return sup_resp(OMX_REPLY_PLUGIN_HOSTD_PLACEMENT_INVALID_RESP);
     if (!placement || !strcmp(placement, PHD_PLACE_DEFAULT))
@@ -2255,7 +2258,7 @@ char *sup_worker_list(void)
         if (!w->ninst)
             put(&buf, &used, &cap, PHD_WORD_NONE);
         for (m = 0; m < w->ninst; m++)
-            put(&buf, &used, &cap, "%s%d", m ? "," : "", w->inst[m]->id);
+            put(&buf, &used, &cap, "%s%d%s", m ? "," : "", w->inst[m]->id, w->inst[m]->pin_refused ? PHD_WORKER_PIN_REFUSED : "");
     }
     free(sorted);
     return buf;
@@ -2379,6 +2382,47 @@ char *sup_pin_accept(const char *uri)
     if (rc == SUCCESS)
         lv2_refusals_forget(NULL);
     return sup_resp(rc);
+}
+
+/* the running instances against the pins just read: one the new pins refuse is not stopped, its worker holds it as it
+ * did; it is logged here and marked in worker_list until a pin that holds it is read */
+static void pins_recheck(void)
+{
+    int n, m;
+
+    for (n = 0; n < g_nworkers; n++)
+        for (m = 0; m < g_workers[n]->ninst; m++)
+        {
+            instance_t *i = g_workers[n]->inst[m];
+            const char *layout = NULL;
+            int code = pins_check(format_at(i->fmt), i->uri, search_of(i->fmt), &layout);
+
+            if (code != SUCCESS && !i->pin_refused)
+                fprintf(stderr, "plugin-hostd: instance %d (%s): the reloaded pins refuse it (resp %d); it keeps running\n",
+                        i->id, i->uri, code);
+            i->pin_refused = code != SUCCESS;
+        }
+}
+
+char *sup_pin_reload(void)
+{
+    int rc;
+
+    if (!g_conf.require_pins)
+        return sup_resp(ERR_INVALID_OPERATION);
+    rc = pins_reload();
+    if (rc != SUCCESS)
+        return sup_resp(ERR_INVALID_OPERATION);
+    /* the files of a plugin changed: the adapter may now take one it refused */
+    lv2_refusals_forget(NULL);
+    pins_recheck();
+    return sup_resp(SUCCESS);
+}
+
+void sup_pins_poll(void)
+{
+    if (g_conf.require_pins && pins_changed())
+        free(sup_pin_reload());
 }
 
 char *sup_policy_set(const char *format, const char *place)

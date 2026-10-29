@@ -1915,6 +1915,61 @@ def a_pins_d_pin_admits_its_plugin_and_of_two_files_the_last_by_name_wins():
         p.close()
 
 
+def rewrite_pins(path, lines):
+    """the pin file as a package's sync leaves it: a new file renamed over the old one"""
+    write(path + ".new", "".join(l + "\n" for l in lines).encode())
+    os.rename(path + ".new", path)
+
+
+@test
+def a_pin_file_rewritten_under_a_running_daemon_is_read_again_and_no_restart_is_needed():
+    """issue 255: the daemon reads its pin file again when the file changes and on pin_reload or pin_changed, puts the
+    new pins in at once, and answers the next add by them; an instance that runs keeps running when its pin turns
+    refused, and worker_list marks it; a pin file that does not parse leaves the pins as they were"""
+    p = Plugins()
+    pins = os.path.join(p.dir, "pins.txt")
+    mismatch = resp("PIN_BINARY_MISMATCH")
+    refused = resp("PIN_REFUSED")
+    rewrite_pins(pins, [pin_line(p)])
+    d = p.daemon(conf={"pin_mode": "strict", "pin_file": pins})
+    try:
+        d.expect("add %s 0" % p.clap_uri, "resp 0")
+        _, w = d.holder(0)
+        # the plugin was upgraded and re-qualified: the file now pins other bytes, and the next add reads them
+        rewrite_pins(pins, [pin_line(p, good=False)])
+        d.expect("add %s 1" % p.clap_uri, mismatch)
+        _, now = d.holder(0)
+        check(now["pid"] == w["pid"] and now["state"] == "up", "the running instance keeps its worker: %s" % now)
+        check(now["pin_refused"] == [0], "worker_list marks the instance the new pins refuse: %s" % now)
+        check("the reloaded pins refuse it" in d.log(), "and the daemon logs it: %s" % d.log())
+        # requalified the other way: the add is hosted again, with no restart, and the mark is gone
+        rewrite_pins(pins, [pin_line(p)])
+        d.expect("add %s 1" % p.clap_uri, "resp 1")
+        check(d.holder(0)[1]["pin_refused"] == [], "the mark goes with the refusal: %s" % d.holder(0)[1])
+        # a verdict that turns refused is the same
+        rewrite_pins(pins, [pin_line(p, "refused")])
+        d.expect("add %s 2" % p.clap_uri, refused)
+        check(d.holder(0)[1]["pin_refused"] == [0], "a refused verdict is marked too: %s" % d.workers())
+        # the explicit verbs: a file that is not a pin file changes nothing, and the verb says so
+        rewrite_pins(pins, ["not a pin"])
+        d.expect("pin_reload", "resp -902")
+        d.expect("pin_changed", "resp -902")
+        d.expect("add %s 2" % p.clap_uri, refused)
+        rewrite_pins(pins, [pin_line(p)])
+        d.expect("pin_reload", "resp 0")
+        d.expect("pin_changed %s files" % p.clap_uri, "resp 0")
+        d.expect("pin_reload x", "resp -902")
+        d.expect("add %s 2" % p.clap_uri, "resp 2")
+        # a pin_set of the controller is not in the file and outlives a reload
+        d.expect("pin_clear all", "resp 0")
+        d.expect(p.clap_pin() + " verdict=refused", "resp 0")
+        d.expect("pin_reload", "resp 0")
+        d.expect("add %s 3" % p.clap_uri, refused)
+    finally:
+        d.close()
+        p.close()
+
+
 @test
 def a_pins_d_refusal_wins_over_any_other_pins_d_pin_and_over_the_host():
     """issue 42, decisions of 2026-10-18: a pins.d pin of verdict=refused wins over another pins.d pin of its uri in

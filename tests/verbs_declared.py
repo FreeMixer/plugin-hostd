@@ -226,6 +226,8 @@ LINES = {
     "plan_get": ("7", "x", ("9",)),
     "plan_clear": ("7", "x", ("7",)),
     "estimate": ("48000 128 {uri} {uri}", "48000", ("0 128 {uri}", "48000 x {uri}")),
+    "pin_reload": ("", "x", ()),
+    "pin_changed": ("", "a b c d", ()),
     "pin_clear": ("all", "", ()),
 }
 ORDER = list(LINES)

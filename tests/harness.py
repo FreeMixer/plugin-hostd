@@ -204,8 +204,10 @@ class Daemon:
             # the place holds colons: five fields on the left, the instances on the right
             head, insts = rec.rsplit(":", 1)
             k, pid, fmt, state, core, place = head.split(":", 5)
+            ids = [] if insts == "-" else insts.split(",")
+            # an id followed by ! is an instance the pins read again refuse; it keeps running
             out[k] = {"pid": int(pid), "fmt": fmt, "state": state, "core": None if core == "-" else int(core), "place": place,
-                      "inst": [] if insts == "-" else [int(x) for x in insts.split(",")]}
+                      "inst": [int(x.rstrip("!")) for x in ids], "pin_refused": [int(x[:-1]) for x in ids if x.endswith("!")]}
         return out
 
     def holder(self, inst):
