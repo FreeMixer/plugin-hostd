@@ -122,3 +122,49 @@ How it is checked
   `ZYNTHIAN_PLUGIN_ENGINE="plugin-hostd"`, and `/zynthian/config/openmixer-defaults` lists the steps done.
 - The first boot on a Raspberry Pi 5 is the operator's: the UI comes up, MOD-UI runs on plugin-hostd, a chain with an
   LV2 and a CLAP plugin sounds, and the qualification sync has run once (`/var/lib/omx/qualified.pins` filled).
+
+Boot test in a container
+------------------------
+
+[tools/zynthian/image-boot-test.sh](../../tools/zynthian/image-boot-test.sh) mounts the image's root file system
+read-only, puts an overlayfs with a scratch upper layer over it (the boot partition read-only), and runs it through
+the static qemu-aarch64 on the build host, binfmt registered for the run only. The artefact is checked by sha256
+before and after (unchanged: `48fca251...`). Two runs, both in
+[evidence/image/boot-test-2026-10-28/](evidence/image/boot-test-2026-10-28/):
+
+- `systemd-nspawn --boot`, 150 s (`boot-state.txt`, read from outside the container). With `SYSTEMD_SECCOMP=0` the
+  arm64 systemd runs as init and reaches `degraded`: the manager runs, but **every process a unit starts exits 1 at
+  once**, including a unit whose command is `/bin/true` that the script adds to tell the emulation from the services.
+  The same binaries run fine when started from outside the container. A container under qemu-user therefore cannot
+  say anything about whether a service starts, and the failed-unit list (36 units, `journald` among them) is the
+  emulation, not the image. The image's own `fstab` lines (root and boot by PARTUUID, three tmpfs mounts) failed there
+  and put the boot in emergency mode; the upper layer's `fstab` holds only `proc`, so that the boot gets as far as
+  `degraded`. The console of a pipe-attached container stays empty and the journal is never written, so there is no
+  console or journal capture of this boot.
+- The probes, in the same root without `--boot` (`probe.txt`): what a root file system can answer without starting
+  anything.
+
+| Check | Result | Proven in container |
+|---|---|---|
+| Image boots to a login | not reached: init runs, no unit starts (see above). The full-system run below boots it | no |
+| `systemctl list-units --failed` | 36 units, every one the emulation (child processes exit 1); `/bin/true` as a unit fails the same | no |
+| zynthian.service | installed, **not enabled** (no `*.wants` link); state `inactive`. The failure reason, `no screens found` from X, is in the full-system run | no (see First boot) |
+| jack2.service | installed, wanted by `multi-user.target`; container state `failed` (exit 1, the emulation). The real reason, no ALSA card, is in the full-system run | no |
+| mod-host.service (the fork's backend unit) | installed in `/etc/systemd/system`, `[Install] WantedBy=multi-user.target` but not enabled (no `*.wants` link); `Requires=jack2.service`; `ExecStart=mod-host-backend.sh start`, which starts plugin-hostd through `plugin-hostd-start.sh`. There is no `plugin-hostd.service` | file only |
+| omx-modgui-sync | `omx-modgui-sync.service` installed (`/usr/lib/systemd/system`) with the Zynthian drop-in; there is no `.path` unit; `plugin-qualify-sync.service` starts it after each sync | file only |
+| plugin-qualify-sync | `.service`, `.timer` and `.path` installed and enabled (`timers.target.wants`, `paths.target.wants`), with Zynthian's drop-ins | file only |
+| omx-track-latest.timer | not installed | yes (absence) |
+| `dpkg -l \| grep -E 'omx-\|plugin-'` | omx-clap-host 0.23.2, omx-clap-core-contract 0.23.2, libomx-clap-core1 0.23.2, omx-contract-data 3.4.0, omx-panel 0.6.0, omx-plugins (+ -clap, -lv2, -contract) 0.15.1, plugin-hostd (+ -contract) 0.13.1, plugin-qualify 0.16.1 | yes |
+| zynthian-ui HEAD | `4f0e87fbb8acc8fbfa58a37605bfcb38cacdc6f5` (expected 4f0e87fb) | yes |
+| zynthian-sys HEAD | `aa36238dcb36fc004eaa4e027184adc8e67e8e8b` (expected aa36238d) | yes |
+| `plugin-hostd --version` | `version: 0.13.1`, exit 0 | yes |
+| `from zyngine import zynthian_engine_plugin_hostd` | `import ok`, exit 0, with the venv and Zynthian's environment sourced as `zynthian_envars_extended.sh` does; JACK absent, so `libzynaudioplayer` logs that it could not start a client | yes |
+| `lv2ls \| wc -l` | 1336 (with Zynthian's `LV2_PATH`; 10 without it) | yes |
+| `find /usr/lib/clap -name '*.clap' \| wc -l` | 58 | yes |
+| `plugin-qualify-sync --system --dry-run` | no such option: `unknown argument --dry-run`, exit 2. `--help` exits 0; a run over empty search paths with its state in `/tmp` qualifies 0 plugins and exits 0 | yes |
+| `omx-panel --version` | no such option (usage, exit 2); the package is 0.6.0 | yes |
+| Engine switches | `/zynthian/config/zynthian_envars.sh`: `ZYNTHIAN_MODHOST_BACKEND="plugin-hostd"`, `ZYNTHIAN_PLUGIN_ENGINE="plugin-hostd"` | yes |
+| `/zynthian/build_info.txt` | ZynthianOS Vangelis-2610.1; OpenMixer: zynthian-sys aa36238dcb36, zynthian-ui 4f0e87fbb8ac (FreeMixer forks, vangelis); updated 2026-10-28 | yes |
+
+What a container cannot prove: that any unit starts, so nothing about `zynthian.service`, `jack2`, the timers
+firing, or time to boot. Those are in "First boot" below.

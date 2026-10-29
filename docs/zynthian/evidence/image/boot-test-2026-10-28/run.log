@@ -1,0 +1,8 @@
+00:40:30 artefact sha256 before: 48fca2510d93b06df5dbffe9b8f209a37869f44bba7155c632788cfbcd324d26
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/nvme0n1p4  1.9T  1.4T  521G  73% /var
+00:40:30 registering qemu-aarch64 (<work>/usr/bin/qemu-aarch64-static) for the run
+00:40:30 boot part: 60s
+00:42:33 probe part
+00:42:56 artefact sha256 after: 48fca2510d93b06df5dbffe9b8f209a37869f44bba7155c632788cfbcd324d26
+00:42:56 binfmt qemu-aarch64 left registered: no

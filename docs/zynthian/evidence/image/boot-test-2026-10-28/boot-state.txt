@@ -1,0 +1,68 @@
+## systemctl is-system-running
+degraded
+## systemctl list-units --failed
+UNIT                                     LOAD   ACTIVE SUB    DESCRIPTION
+dev-hugepages.mount                      loaded failed failed Huge Pages File System
+run-lock.mount                           loaded failed failed Legacy Locks Directory /run/lock
+run-rpc_pipefs.mount                     loaded failed failed RPC Pipe File System
+sys-fs-fuse-connections.mount            loaded failed failed FUSE Control File System
+avahi-daemon.service                     loaded failed failed Avahi mDNS/DNS-SD Stack
+console-setup.service                    loaded failed failed Set console font and keymap
+cpufrequtils.service                     loaded failed failed LSB: set CPUFreq kernel parameters
+dbus.service                             loaded failed failed D-Bus System Message Bus
+devmon@root.service                      loaded failed failed devmon Service
+dpkg-db-backup.service                   loaded failed failed Daily dpkg database backup service
+exim4-base.service                       loaded failed failed exim4-base housekeeping
+fake-hwclock-load.service                loaded failed failed Restore the current clock
+first_boot.service                       loaded failed failed First Boot Script
+ifupdown-pre.service                     loaded failed failed Helper to synchronize boot up for ifupdown
+jack2.service                            loaded failed failed JACK2 Audio Server
+keyboard-setup.service                   loaded failed failed Set the console keyboard layout
+loadcpufreq.service                      loaded failed failed LSB: Load kernel modules needed to enable cpufreq scaling
+networking.service                       loaded failed failed Raise network interfaces
+rc-local.service                         loaded failed failed /etc/rc.local Compatibility
+rp1-test.service                         loaded failed failed Check for RP1 displays for Xorg
+rpi-eeprom-update.service                loaded failed failed Check for Raspberry Pi EEPROM updates
+ssh.service                              loaded failed failed OpenBSD Secure Shell server
+sshswitch.service                        loaded failed failed Turn on SSH if /boot/ssh or /boot/firmware/ssh is present
+systemd-journal-flush.service            loaded failed failed Flush Journal to Persistent Storage
+systemd-journald.service                 loaded failed failed Journal Service
+systemd-logind.service                   loaded failed failed User Login Management
+systemd-tmpfiles-setup-dev-early.service loaded failed failed Create Static Device Nodes in /dev gracefully
+systemd-tmpfiles-setup-dev.service       loaded failed failed Create Static Device Nodes in /dev
+systemd-tmpfiles-setup.service           loaded failed failed Create System Files and Directories
+systemd-udev-load-credentials.service    loaded failed failed Load udev Rules from Credentials
+systemd-user-sessions.service            loaded failed failed Permit User Sessions
+usb-gadget.service                       loaded failed failed USB gadget service
+wpa_supplicant.service                   loaded failed failed WPA supplicant
+zynthian-config-on-boot.service          loaded failed failed Config-On-Boot Service
+systemd-journald-dev-log.socket          loaded failed failed Journal Socket (/dev/log)
+systemd-journald.socket                  loaded failed failed Journal Sockets
+
+Legend: LOAD   → Reflects whether the unit definition was properly loaded.
+        ACTIVE → The high-level unit activation state, i.e. generalization of SUB.
+        SUB    → The low-level unit activation state, values depend on unit type.
+
+36 loaded units listed.
+## systemctl list-jobs
+No jobs running.
+## ps
+    PID     ELAPSED COMMAND
+      1       00:20 <work>/usr/bin/qemu-aarch64-static /usr/lib/systemd/systemd systemd.show_status=1
+    312       00:00 /usr/bin/ps -eo pid,etime,args
+## the units asked for
+zynthian.service: success 0 loaded inactive dead 
+jack2.service: exit-code 1 loaded failed failed 
+mod-host.service: success 0 loaded inactive dead 
+plugin-hostd.service: success 0 not-found inactive dead 
+omx-modgui-sync.service: success 0 loaded inactive dead 
+plugin-qualify-sync.path: success loaded active waiting 
+plugin-qualify-sync.timer: success loaded active waiting 
+omx-track-latest.timer: success not-found inactive dead 
+first_boot.service: exit-code 1 loaded failed failed 
+## a trivial unit, to tell the emulation from the services
+Job for omx-true.service failed because the control process exited with error code.
+See "systemctl status omx-true.service" and "journalctl -xeu omx-true.service" for details.
+start exit 1
+Result=exit-code
+ExecMainStatus=1
