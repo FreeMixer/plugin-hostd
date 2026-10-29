@@ -4,7 +4,8 @@ Zynthian and plugin-hostd
 What this directory holds: the spike that put plugin-hostd under Zynthian ([spike-report.md](spike-report.md)), the
 plan built on it ([offer.md](offer.md)), mod-ui's verbs on mod-host and on plugin-hostd ([verbs.tsv](verbs.tsv)), one
 Zynthian chain written as a strip profile ([chain-profile.md](chain-profile.md)), what the jalv and mod-ui engines
-give a chain ([engine-gaps.md](engine-gaps.md)), and the raw logs of every run ([evidence/](evidence/)). The tools
+give a chain ([engine-gaps.md](engine-gaps.md)), the order the work is offered upstream in, step by step
+([upstream-series.md](upstream-series.md)), and the raw logs of every run ([evidence/](evidence/)). The tools
 and tests are under [tools/zynthian/](../../tools/zynthian/).
 
 Benchmarks, trade-offs and the acceptance report
