@@ -1,0 +1,14 @@
+Plugin:       https://surge-synthesizer.github.io/lv2/surge-xt
+JACK Name:    inst_jalv
+Sample rate:  48000 Hz
+Block length: 256 frames
+MIDI buffers: 32768 bytes
+Comm buffers: 1023872 bytes
+Update rate:  30.0 Hz
+Scale factor: 1.0
+
+error: Preset control `enabled': doesn't exist!
+error: Preset control `freeWheeling': doesn't exist!
+CLI thread created successfully
+> 
+#CTR> 769#surge_xt_surgext_bypass=0.000000

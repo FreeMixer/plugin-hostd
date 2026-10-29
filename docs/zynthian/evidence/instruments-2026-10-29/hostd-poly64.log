@@ -1,0 +1,9 @@
+instrument-proof: started: effect_1, notes into effect_1:midi_in, out ['effect_1:out_1', 'effect_1:out_2']
+instrument-proof: param_set 1 240235375 1.0 -> resp 0 (before: resp 0 0.2285, after: resp 0 0.9950)
+instrument-proof: poly idle: peak -inf rms -inf hz 0.0 bright 0.0000 xruns 0 dsp 2.9 | cpu0=6 cpu1=100 cpu2=4 cpu3=2 | omx-clap-host@cpu1=2
+instrument-proof: poly poly1: peak -11.2 rms -22.4 hz 65.5 bright 0.1080 xruns 0 dsp 3.5 | cpu0=15 cpu1=5 cpu2=10 cpu3=5 | omx-clap-host@cpu1=2
+instrument-proof: poly poly8: peak 0.5 rms -13.2 hz 392.8 bright 0.1176 xruns 0 dsp 7.0 | cpu0=6 cpu1=7 cpu2=8 cpu3=8 | omx-clap-host@cpu3=6
+instrument-proof: poly poly16: peak 3.4 rms -10.3 hz 668.2 bright 0.1355 xruns 0 dsp 11.3 | cpu0=4 cpu1=7 cpu2=9 cpu3=9 | omx-clap-host@cpu1=10
+instrument-proof: poly poly32: peak 6.0 rms -7.2 hz 1230.0 bright 0.1776 xruns 0 dsp 20.2 | cpu0=6 cpu1=6 cpu2=10 cpu3=8 | omx-clap-host@cpu1=19
+instrument-proof: poly poly48: peak 7.8 rms -5.0 hz 1756.8 bright 0.2323 xruns 0 dsp 29.7 | cpu0=11 cpu1=12 cpu2=18 cpu3=12 | omx-clap-host@cpu0=29
+instrument-proof: poly poly64: peak 9.0 rms -4.1 hz 2566.5 bright 0.3363 xruns 0 dsp 39.7 | cpu0=13 cpu1=13 cpu2=17 cpu3=12 | omx-clap-host@cpu3=39

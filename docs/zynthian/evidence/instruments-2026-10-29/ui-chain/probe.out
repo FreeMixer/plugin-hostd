@@ -1,0 +1,6 @@
+ready
+mark ui_chain_note
+window ui_chain_note peak -13.5 rms -21.9 hz 261.4 bright 0.2042 frames 33600 xruns 0
+mark ui_chain_after
+window ui_chain_after peak -363.8 rms -375.0 hz 0.0 bright 4717336926273179.0000 frames 14400 xruns 0
+done

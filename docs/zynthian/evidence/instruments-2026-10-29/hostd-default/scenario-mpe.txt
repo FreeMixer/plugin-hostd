@@ -1,0 +1,26 @@
+wait 300
+midi b0 65 0
+midi b0 64 6
+midi b0 6 f
+midi b0 65 7f
+midi b0 64 7f
+wait 200
+midi 91 45 64
+wait 500
+mark member_centre
+wait 1000
+end
+midi e2 7f 7f
+wait 200
+mark other_member_bent
+wait 1000
+end
+midi e2 0 40
+midi e1 0 50
+wait 200
+mark member_bent_quarter
+wait 1000
+end
+midi e1 0 40
+midi 81 45 0
+wait 1500

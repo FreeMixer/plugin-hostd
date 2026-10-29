@@ -1,0 +1,12 @@
+> add clap:/root/omx-stress-instruments/clap-nospace/SurgeXT.clap#org.surge-synth-team.surge-xt 1
+< resp 1
+> add clap:/root/omx-stress-instruments/clap-nospace/SurgeXT.clap#org.surge-synth-team.surge-xt 2
+< resp 2
+> add clap:/root/omx-stress-instruments/clap-nospace/SurgeXT.clap#org.surge-synth-team.surge-xt 3
+< resp 3
+> add clap:/root/omx-stress-instruments/clap-nospace/SurgeXT.clap#org.surge-synth-team.surge-xt 4
+< resp 4
+> worker_list
+< resp 4 w1:67933:clap:up:own:1 w2:67939:clap:up:own:2 w3:67947:clap:up:own:3 w4:67954:clap:up:own:4
+> note_input 1
+< resp 0 midi_in

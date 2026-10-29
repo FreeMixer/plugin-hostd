@@ -1,0 +1,3 @@
+plugin                                  verdict      reason                               host
+urn:clap:org.surge-synth-team.surge-xt  unsuitable   hosting.rt-safety.violations-in-run  omx-clap-host
+urn:clap:org.surge-synth-team.surge-xt  unsuitable   hosting.rt-safety.violations-in-run  openmixer-console

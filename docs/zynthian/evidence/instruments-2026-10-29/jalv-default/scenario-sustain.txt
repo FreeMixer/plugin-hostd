@@ -1,0 +1,22 @@
+wait 300
+midi 90 3c 64
+wait 500
+midi 80 3c 0
+wait 1500
+mark released
+wait 500
+end
+midi b0 40 7f
+wait 100
+midi 90 3c 64
+wait 500
+midi 80 3c 0
+wait 1500
+mark sustained
+wait 500
+end
+midi b0 40 0
+wait 1500
+mark pedal_up
+wait 500
+end

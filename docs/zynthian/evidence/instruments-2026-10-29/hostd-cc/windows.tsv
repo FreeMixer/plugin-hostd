@@ -1,0 +1,5 @@
+hostd	start	add_ms	584	ports_ms	834	note_port	effect_1:midi_in	outs	effect_1:out_1,effect_1:out_2
+hostd	preset_load	/usr/local/share/surge-xt/patches_factory/Leads/Oldest%20Trick%20In%20The%20Book%20MW.fxp	resp 0
+hostd	cc	mw0	-12.6	-22.0	130.7	0.1461	0	3.6	cpu0=39 cpu1=6 cpu2=10 cpu3=7	omx-clap-host@cpu3=3
+hostd	cc	mw127	-12.6	-22.0	131.3	0.1463	0	3.5	cpu0=14 cpu1=5 cpu2=6 cpu3=6	omx-clap-host@cpu2=3
+hostd	cc	mw0_again	-12.6	-22.0	130.7	0.1462	0	3.8	cpu0=16 cpu1=9 cpu2=11 cpu3=9	omx-clap-host@cpu2=2

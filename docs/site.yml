@@ -39,7 +39,6 @@ sections:
     entries:
       - page: zynthian/instruments.md
         title: "Instruments: voices across the cores"
-        pending: true
       - page: zynthian/benchmarks.md
         title: Benchmarks
         pending: true

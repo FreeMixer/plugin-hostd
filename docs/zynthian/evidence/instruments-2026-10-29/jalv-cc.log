@@ -1,0 +1,4 @@
+instrument-proof: started: inst_jalv, notes into inst_jalv:in, out ['inst_jalv:audio_out_1', 'inst_jalv:audio_out_2']
+instrument-proof: cc mw0: peak -5.2 rms -9.9 hz 196.0 bright 0.0331 xruns 0 dsp 4.4 | cpu0=7 cpu1=7 cpu2=3 cpu3=11 | jalv@cpu1=4
+instrument-proof: cc mw127: peak -4.2 rms -15.3 hz 190.7 bright 0.3002 xruns 0 dsp 4.5 | cpu0=6 cpu1=6 cpu2=5 cpu3=11 | jalv@cpu0=3
+instrument-proof: cc mw0_again: peak -5.7 rms -9.6 hz 130.7 bright 0.0248 xruns 0 dsp 4.5 | cpu0=8 cpu1=7 cpu2=5 cpu3=9 | jalv@cpu1=4

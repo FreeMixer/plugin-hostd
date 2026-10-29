@@ -1,0 +1,9 @@
+hostd	start	add_ms	580	ports_ms	828	note_port	effect_1:midi_in	outs	effect_1:out_1,effect_1:out_2
+hostd	param	240235375	resp 0 0.2285	240235375 1.0
+hostd	poly	idle	-inf	-inf	0.0	0.0000	0	2.9	cpu0=6 cpu1=100 cpu2=4 cpu3=2	omx-clap-host@cpu1=2
+hostd	poly	poly1	-11.2	-22.4	65.5	0.1080	0	3.5	cpu0=15 cpu1=5 cpu2=10 cpu3=5	omx-clap-host@cpu1=2
+hostd	poly	poly8	0.5	-13.2	392.8	0.1176	0	7.0	cpu0=6 cpu1=7 cpu2=8 cpu3=8	omx-clap-host@cpu3=6
+hostd	poly	poly16	3.4	-10.3	668.2	0.1355	0	11.3	cpu0=4 cpu1=7 cpu2=9 cpu3=9	omx-clap-host@cpu1=10
+hostd	poly	poly32	6.0	-7.2	1230.0	0.1776	0	20.2	cpu0=6 cpu1=6 cpu2=10 cpu3=8	omx-clap-host@cpu1=19
+hostd	poly	poly48	7.8	-5.0	1756.8	0.2323	0	29.7	cpu0=11 cpu1=12 cpu2=18 cpu3=12	omx-clap-host@cpu0=29
+hostd	poly	poly64	9.0	-4.1	2566.5	0.3363	0	39.7	cpu0=13 cpu1=13 cpu2=17 cpu3=12	omx-clap-host@cpu3=39

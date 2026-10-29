@@ -1,0 +1,5 @@
+jalv	start	add_ms	0	ports_ms	1853	note_port	inst_jalv:in	outs	inst_jalv:audio_out_1,inst_jalv:audio_out_2
+jalv	preset	https://surge-synthesizer.github.io/lv2/surge-xt:preset188
+jalv	cc	mw0	-5.2	-9.9	196.0	0.0331	0	4.4	cpu0=7 cpu1=7 cpu2=3 cpu3=11	jalv@cpu1=4
+jalv	cc	mw127	-4.2	-15.3	190.7	0.3002	0	4.5	cpu0=6 cpu1=6 cpu2=5 cpu3=11	jalv@cpu0=3
+jalv	cc	mw0_again	-5.7	-9.6	130.7	0.0248	0	4.5	cpu0=8 cpu1=7 cpu2=5 cpu3=9	jalv@cpu1=4

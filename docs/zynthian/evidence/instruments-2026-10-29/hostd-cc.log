@@ -1,0 +1,5 @@
+instrument-proof: started: effect_1, notes into effect_1:midi_in, out ['effect_1:out_1', 'effect_1:out_2']
+instrument-proof: preset_load -> resp 0
+instrument-proof: cc mw0: peak -12.6 rms -22.0 hz 130.7 bright 0.1461 xruns 0 dsp 3.6 | cpu0=39 cpu1=6 cpu2=10 cpu3=7 | omx-clap-host@cpu3=3
+instrument-proof: cc mw127: peak -12.6 rms -22.0 hz 131.3 bright 0.1463 xruns 0 dsp 3.5 | cpu0=14 cpu1=5 cpu2=6 cpu3=6 | omx-clap-host@cpu2=3
+instrument-proof: cc mw0_again: peak -12.6 rms -22.0 hz 130.7 bright 0.1462 xruns 0 dsp 3.8 | cpu0=16 cpu1=9 cpu2=11 cpu3=9 | omx-clap-host@cpu2=2

@@ -1,0 +1,6 @@
+> add clap:/root/omx-stress-instruments/clap-nospace/SurgeXT.clap#org.surge-synth-team.surge-xt 1
+< resp 1
+> note_input 1
+< resp 0 midi_in
+> all_notes_off 1
+< resp 0

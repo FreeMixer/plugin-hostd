@@ -1,0 +1,19 @@
+wait 300
+midi b0 1 0
+midi 90 30 64
+wait 800
+mark mw0
+wait 1500
+end
+midi b0 1 7f
+wait 300
+mark mw127
+wait 1500
+end
+midi b0 1 0
+wait 300
+mark mw0_again
+wait 1500
+end
+midi 80 30 0
+wait 1500

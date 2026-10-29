@@ -1,0 +1,40 @@
+# omx-clap-scan --fields 'clap:<dir>/SurgeXT.clap#org.surge-synth-team.surge-xt' on the Pi 5, 2026-10-28 (omx-clap-core 0.23.2)
+# the plugin's own extensions (clap_plugin.get_extension answered), its note input and voice info
+plugin	clap_plugin_descriptor.id	org.surge-synth-team.surge-xt
+plugin	clap_plugin_descriptor.version	1.4.0
+plugin	clap_plugin_descriptor.features	CLAP_PLUGIN_FEATURE_INSTRUMENT
+plugin	clap_plugin_descriptor.features	CLAP_PLUGIN_FEATURE_SYNTHESIZER
+plugin	clap_plugin_descriptor.features	CLAP_PLUGIN_FEATURE_STEREO
+plugin	clap_plugin.get_extension	CLAP_EXT_AUDIO_PORTS
+plugin	clap_plugin.get_extension	CLAP_EXT_GUI
+plugin	clap_plugin.get_extension	CLAP_EXT_LATENCY
+plugin	clap_plugin.get_extension	CLAP_EXT_NOTE_NAME
+plugin	clap_plugin.get_extension	CLAP_EXT_NOTE_PORTS
+plugin	clap_plugin.get_extension	CLAP_EXT_PARAMS
+plugin	clap_plugin.get_extension	CLAP_EXT_POSIX_FD_SUPPORT
+plugin	clap_plugin.get_extension	CLAP_EXT_PRESET_LOAD
+plugin	clap_plugin.get_extension	CLAP_EXT_PRESET_LOAD_COMPAT
+plugin	clap_plugin.get_extension	CLAP_EXT_REMOTE_CONTROLS
+plugin	clap_plugin.get_extension	CLAP_EXT_REMOTE_CONTROLS_COMPAT
+plugin	clap_plugin.get_extension	CLAP_EXT_RENDER
+plugin	clap_plugin.get_extension	CLAP_EXT_STATE
+plugin	clap_plugin.get_extension	CLAP_EXT_TAIL
+plugin	clap_plugin.get_extension	CLAP_EXT_TIMER_SUPPORT
+plugin	clap_plugin.get_extension	CLAP_EXT_TRACK_INFO
+plugin	clap_plugin.get_extension	CLAP_EXT_TRACK_INFO_COMPAT
+plugin	clap_plugin.get_extension	CLAP_EXT_VOICE_INFO
+note_in:0	clap_note_port_info.name	JUCE Note Input
+note_in:0	clap_note_port_info.supported_dialects	CLAP_NOTE_DIALECT_CLAP
+note_in:0	clap_note_port_info.supported_dialects	CLAP_NOTE_DIALECT_MIDI
+note_in:0	clap_note_port_info.supported_dialects	CLAP_NOTE_DIALECT_MIDI_MPE
+note_in:0	clap_note_port_info.preferred_dialect	CLAP_NOTE_DIALECT_CLAP
+plugin	clap_voice_info.voice_count	128
+plugin	clap_voice_info.voice_capacity	128
+plugin	clap_voice_info.flags	CLAP_VOICE_INFO_SUPPORTS_OVERLAPPING_NOTES
+# parameters: 775; Polyphony Limit id 240235375 (/Global & FX), A Velocity > VCA Gain id 1285869018 (/A Common)
+# remote pages (remote_pages 1 -> resp 5):
+# 0 2054 "Global" "Macros" 825615485 825615486 825615487 825615488 825615489 825615490 825615491 825615492
+# 1 2055 "Scene A" "Scene A Mixer" 371918427 371918428 371918429 - 3102230465 1788975242 1788975274 2939539352
+# 2 2056 "Scene A" "Scene A Filters" 4092842705 8095466 1540685744 2506111403 1243907205 - 2642740645 2312042915
+# 3 2057 "Scene B" "Scene B Mixer" 175404922 175404923 175404924 - 2808827458 1283416617 1283416649 1142587993
+# 4 2058 "Scene B" "Scene B Filters" 3582308528 3458590891 1030151567 1661639532 1047393700 - 845789286 2115529410

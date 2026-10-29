@@ -1,0 +1,10 @@
+start 2026-10-28T23:26:58Z
+qualify rc=1 s=112
+hostd-default rc=0
+hostd-velsense rc=0
+hostd-poly64 rc=0
+hostd-cc rc=0
+hostd-x4 rc=0
+jalv-default rc=0
+jalv-cc rc=0
+end 2026-10-28T23:33:03Z

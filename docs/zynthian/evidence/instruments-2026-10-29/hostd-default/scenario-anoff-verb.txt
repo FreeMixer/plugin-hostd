@@ -1,0 +1,18 @@
+wait 300
+midi 90 30 64
+midi 90 34 64
+midi 90 37 64
+midi 90 3c 64
+midi 90 40 64
+midi 90 43 64
+midi 90 48 64
+midi 90 4c 64
+wait 500
+mark held_verb
+wait 500
+end
+wait 300
+wait 1700
+mark after_verb
+wait 500
+end

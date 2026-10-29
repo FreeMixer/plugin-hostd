@@ -1,0 +1,41 @@
+wait 300
+mark idle
+wait 2000
+end
+midi 90 24 64
+midi 90 25 64
+midi 90 26 64
+midi 90 27 64
+midi 90 28 64
+midi 90 29 64
+midi 90 2a 64
+midi 90 2b 64
+midi 90 2c 64
+midi 90 2d 64
+midi 90 2e 64
+midi 90 2f 64
+midi 90 30 64
+midi 90 31 64
+midi 90 32 64
+midi 90 33 64
+wait 1000
+mark poly16
+wait 4000
+end
+midi 80 24 0
+midi 80 25 0
+midi 80 26 0
+midi 80 27 0
+midi 80 28 0
+midi 80 29 0
+midi 80 2a 0
+midi 80 2b 0
+midi 80 2c 0
+midi 80 2d 0
+midi 80 2e 0
+midi 80 2f 0
+midi 80 30 0
+midi 80 31 0
+midi 80 32 0
+midi 80 33 0
+wait 2500

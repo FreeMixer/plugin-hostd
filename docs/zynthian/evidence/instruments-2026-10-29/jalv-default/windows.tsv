@@ -1,0 +1,21 @@
+jalv	start	add_ms	0	ports_ms	1983	note_port	inst_jalv:in	outs	inst_jalv:audio_out_1,inst_jalv:audio_out_2
+jalv	velocity	vel20	-13.5	-21.9	261.4	0.2042	0	3.6	cpu0=4 cpu1=7 cpu2=9 cpu3=6	jalv@cpu3=3
+jalv	velocity	vel64	-13.5	-21.9	262.9	0.2049	0	3.6	cpu0=12 cpu1=6 cpu2=4 cpu3=4	jalv@cpu1=1 jalv@cpu2=1
+jalv	velocity	vel127	-13.5	-21.9	261.4	0.2045	0	3.6	cpu0=11 cpu1=6 cpu2=4 cpu3=6	jalv@cpu2=3
+jalv	poly	idle	-397.7	-417.1	0.0	0.0300	0	2.7	cpu0=2 cpu1=1 cpu2=2 cpu3=3	jalv@cpu2=2
+jalv	poly	poly1	-11.2	-22.4	65.5	0.1080	0	3.6	cpu0=6 cpu1=6 cpu2=7 cpu3=9	jalv@cpu1=3
+jalv	poly	poly8	0.2	-13.2	384.8	0.1180	0	6.7	cpu0=4 cpu1=7 cpu2=7 cpu3=10	jalv@cpu3=6
+jalv	poly	poly16	2.8	-10.2	662.8	0.1344	0	10.4	cpu0=4 cpu1=5 cpu2=9 cpu3=10	jalv@cpu3=9
+jalv	poly	poly32	2.4	-10.1	1368.2	0.2107	0	10.5	cpu0=5 cpu1=7 cpu2=9 cpu3=7	jalv@cpu1=9
+jalv	bend	centre	-13.9	-21.9	440.0	0.2643	0	4.0	cpu0=13 cpu1=12 cpu2=12 cpu3=14	jalv@cpu0=3
+jalv	bend	up	-14.0	-21.9	494.0	0.2801	0	3.6	cpu0=9 cpu1=10 cpu2=5 cpu3=5	jalv@cpu1=2
+jalv	bend	down	-13.9	-21.9	392.0	0.2497	0	3.6	cpu0=8 cpu1=8 cpu2=6 cpu3=7	jalv@cpu1=2
+jalv	bend	back	-13.9	-21.9	441.0	0.2643	0	3.7	cpu0=5 cpu1=9 cpu2=5 cpu3=9	jalv@cpu1=3
+jalv	sustain	released	-363.1	-376.5	0.0	0.0300	0	2.6	cpu0=2 cpu1=0 cpu2=2 cpu3=0	jalv@cpu0=2
+jalv	sustain	sustained	-13.5	-21.9	262.0	0.2043	0	3.6	cpu0=6 cpu1=8 cpu2=6 cpu3=9	jalv@cpu1=2 jalv@cpu0=2
+jalv	sustain	pedal_up	-360.4	-373.8	0.0	2535877017228407.5000	0	2.7	cpu0=4 cpu1=4 cpu2=2 cpu3=6	jalv@cpu1=2
+jalv	anoff	held	0.1	-12.0	1174.0	0.2067	0	6.6	cpu0=8 cpu1=11 cpu2=4 cpu3=9	jalv@cpu0=6
+jalv	anoff	after_cc123	-340.1	-353.4	0.0	464225656819412.2500	0	2.7	cpu0=0 cpu1=0 cpu2=4 cpu3=2	
+jalv	mpe	member_centre	-13.9	-21.9	440.0	0.2643	0	3.7	cpu0=6 cpu1=10 cpu2=5 cpu3=9	jalv@cpu0=3
+jalv	mpe	other_member_bent	-13.9	-21.9	440.0	0.2643	0	3.6	cpu0=8 cpu1=9 cpu2=4 cpu3=11	jalv@cpu1=3
+jalv	mpe	member_bent_quarter	-14.4	-22.0	880.0	0.3740	0	3.7	cpu0=7 cpu1=10 cpu2=5 cpu3=6	jalv@cpu0=1 jalv@cpu1=3
