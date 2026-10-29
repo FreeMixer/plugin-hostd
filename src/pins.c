@@ -413,27 +413,6 @@ typedef enum { LAYER_STORE, LAYER_FILE, LAYER_PKG } layer_t;
 
 /* the optional words after the layout, each once and in either order: verdict=<word>, pool=<word>; their values, NULL for
  * a word that is not there. SUCCESS, or ERR_INVALID_OPERATION for any other word or a repeated one */
-int pins_words(char **word, int n, const char **verdict, const char **pool)
-{
-    *verdict = *pool = NULL;
-    for (int k = 0; k < n; k++)
-    {
-        const char **into;
-        size_t key;
-
-        if (!strncmp(word[k], PHD_PIN_VERDICT_KEY, strlen(PHD_PIN_VERDICT_KEY)))
-            into = verdict, key = strlen(PHD_PIN_VERDICT_KEY);
-        else if (!strncmp(word[k], PHD_PIN_POOL_KEY, strlen(PHD_PIN_POOL_KEY)))
-            into = pool, key = strlen(PHD_PIN_POOL_KEY);
-        else
-            return ERR_INVALID_OPERATION;
-        if (*into)
-            return ERR_INVALID_OPERATION;
-        *into = word[k] + key;
-    }
-    return SUCCESS;
-}
-
 /* one line: the words of pin_set, the verb in front or not; a blank or comment line is SUCCESS and records nothing */
 static int line_read(char *line, layer_t layer, const char *path, int lineno)
 {

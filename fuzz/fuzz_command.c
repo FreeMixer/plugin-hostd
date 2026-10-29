@@ -327,7 +327,7 @@ static const char *const g_call_words[REC_FN_COUNT] = {
     [REC_PLAN_GET] = "#1",
     [REC_PLAN_CLEAR] = "#1",
     [REC_AFTER_REPLY] = "#1 0",
-    [REC_PINS_SET] = "1 2 3 *",
+    [REC_PINS_SET] = "1 2 3 * *",
     [REC_PINS_CLEAR] = "1",
     [REC_DESCRIPTORS_ADD] = "1",
     [REC_DESCRIPTORS_GET] = "1",
@@ -382,15 +382,21 @@ __attribute__((noinline)) static void check_words_chain(const struct rec_call *c
  * else "-" */
 __attribute__((noinline)) static void check_words_pin_set(const struct rec_call *call, const char *const *w, int read)
 {
-    size_t key = strlen(PHD_PIN_VERDICT_KEY);
-    const char *verdict = "-";
+    size_t vkey = strlen(PHD_PIN_VERDICT_KEY), pkey = strlen(PHD_PIN_POOL_KEY);
+    const char *verdict = "-", *pool = "-";
+    int k;
 
-    if (read > 4)
-        verdict = strncmp(w[4], PHD_PIN_VERDICT_KEY, key) ? w[4] : w[4] + key;
-    /* the verdict, the word the controller wrote after its key
-     * mutant: src/verbs.c:84 `tok[4] + key` -> `tok[4]`
+    for (k = 4; k < read; k++)
+    {
+        if (!strncmp(w[k], PHD_PIN_VERDICT_KEY, vkey))
+            verdict = w[k] + vkey;
+        else if (!strncmp(w[k], PHD_PIN_POOL_KEY, pkey))
+            pool = w[k] + pkey;
+    }
+    /* the verdict and the pool, each the word the controller wrote after its key
+     * mutant: src/pin_words.c:49 `word[k] + key` -> `word[k]`
      * input: plugin-hostd-pin_set-full */
-    if (call->nargs != 4 || strcmp(call->args[3], verdict))
+    if (call->nargs != 5 || strcmp(call->args[3], verdict) || strcmp(call->args[4], pool))
         abort();
 }
 
