@@ -1,0 +1,23 @@
+resp 3 w1:96281:lv2-clap:up:1:own:0 w2:96287:lv2-clap:up:2:own:1 w3:96297:lv2-clap:up:3:own:2
+pid 96281 allowed 1 daemon 0
+pid 96287 allowed 2 daemon 0
+pid 96297 allowed 3 daemon 0
+    PID     TID PSR %CPU COMMAND
+  96281   96281   1  0.3 omx-clap-host
+  96281   96282   1  0.0 omx-clap-host
+  96281   96283   1  0.0 omx-clap-host
+  96281   96284   1  0.0 omx-clap-host
+  96281   96285   1  0.0 omx-clap-host
+  96281   96286   1  4.7 omx-clap-host
+  96287   96287   2  0.5 omx-clap-host
+  96287   96288   2  0.0 omx-clap-host
+  96287   96289   2  0.0 omx-clap-host
+  96287   96290   2  0.0 omx-clap-host
+  96287   96291   2  0.4 omx-clap-host
+  96287   96296   2 17.2 omx-clap-host
+  96297   96297   3  0.3 omx-clap-host
+  96297   96298   3  0.0 omx-clap-host
+  96297   96299   3  0.0 omx-clap-host
+  96297   96300   3  0.0 omx-clap-host
+  96297   96301   3  0.0 omx-clap-host
+  96297   96302   3  4.7 omx-clap-host

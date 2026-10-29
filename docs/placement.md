@@ -60,6 +60,7 @@ What reports the core
 Measured
 --------
 
-Not measured yet. The run that measures it, on a Pi 5, is two and then three instruments in separate chains, 60 s per
-mode, `placement none` against `placement spread`, with per-core CPU from `mpstat -P ALL 1 60` and the xruns the
-workers count over the window; its raw numbers go under `docs/evidence/`.
+On a Pi 5 on 2026-10-29 (docs/evidence/placement-pi5-2026-10-29/): two and three LV2 instruments (Obxd, Monique) in
+workers of their own, 60 s each. Under `spread` the workers sat on cores 1-3 and the daemon on 0, and core 0 fell from
+7-9 % busy to under 2 %; the sum over the cores was 2-3 points lower. Neither mode had an xrun at that load, so no xrun
+gain is shown yet: the instruments use a fraction of one core. A run that fills the audio cores is still owed.
