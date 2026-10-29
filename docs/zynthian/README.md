@@ -4,9 +4,22 @@ Zynthian and plugin-hostd
 What this directory holds: the spike that put plugin-hostd under Zynthian ([spike-report.md](spike-report.md)), the
 plan built on it ([offer.md](offer.md)), mod-ui's verbs on mod-host and on plugin-hostd ([verbs.tsv](verbs.tsv)), one
 Zynthian chain written as a strip profile ([chain-profile.md](chain-profile.md)), what the jalv and mod-ui engines
-give a chain ([engine-gaps.md](engine-gaps.md)), the Pi 5 stress run of grouped, alone and jalv hosting
+give a chain ([engine-gaps.md](engine-gaps.md)), the order the work is offered upstream in, step by step
+([upstream-series.md](upstream-series.md)), the Pi 5 stress run of grouped, alone and jalv hosting
 ([stress.md](stress.md)), and the raw logs of every run ([evidence/](evidence/)). The tools
 and tests are under [tools/zynthian/](../../tools/zynthian/).
+
+Benchmarks, trade-offs and the acceptance report
+------------------------------------------------
+
+For a review of the zynthian-ui and zynthian-sys changes:
+
+- [benchmarks.md](benchmarks.md): every measurement on the Pi 5 and in the containers, a table and a figure per topic,
+  each row with the file it comes from; what is not measured yet, with the command that would measure it.
+- [tradeoffs.md](tradeoffs.md): the pros and cons of one worker per chain, CLAP hosting, qualification and pins, the
+  mod-host protocol, the packaging, and what is not done, each tied to a measurement or a public fact.
+- [acceptance-report.md](acceptance-report.md): the report `bench/report/make_report.py` writes from the measurement
+  files, with every section it has no data for marked "not measured yet".
 
 The engine lives in the FreeMixer/zynthian-ui fork
 --------------------------------------------------

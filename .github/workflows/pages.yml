@@ -1,0 +1,69 @@
+name: pages
+
+# The documentation site: docs/**/*.md rendered by tools/site/build.mjs (markdown-it at the version
+# tools/site/package-lock.json pins), with every figure and capture a page references, published on GitHub Pages.
+# Design material under docs/ is excluded by the build's own rule (UNPUBLISHED in build.mjs) and never reaches the site.
+#
+# A pull request builds the site and runs the renderer's tests, and uploads nothing. A push to main builds and deploys.
+# Pages must be enabled on the repository with the workflow as its source, once, by an administrator.
+
+on:
+  pull_request:
+    paths: ['docs/**', 'tools/site/**', '.github/workflows/pages.yml']
+  push:
+    branches: [main]
+    paths: ['docs/**', 'tools/site/**', '.github/workflows/pages.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.event.pull_request.number || 'publish' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    name: build the site
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: tools/site/package-lock.json
+
+      - name: Install the renderer
+        working-directory: tools/site
+        run: npm ci --no-audit --no-fund
+
+      - name: The renderer's tests
+        working-directory: tools/site
+        run: npm test
+
+      - name: Build
+        run: node tools/site/build.mjs --out build/site
+
+      - if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/site
+
+  deploy:
+    name: deploy to GitHub Pages
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

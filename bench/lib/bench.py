@@ -227,8 +227,8 @@ def samples(pids):
 # ---------------------------------------------------------------- repeats
 
 MEASURED = ("dsp_load_avg", "dsp_load_max", "rss_mb", "add_ms", "recover_ms", "processes", "rss_mb_total",
-            "pss_mb_total", "cpu_pct", "ctx_switches", "ctx_involuntary", "xruns", "latency_frames")
-COUNTS = ("processes", "ctx_switches", "ctx_involuntary", "xruns", "latency_frames", "samples")
+            "pss_mb_total", "cpu_pct", "ctx_switches", "ctx_involuntary", "xruns", "latency_frames", "jack_clients")
+COUNTS = ("processes", "ctx_switches", "ctx_involuntary", "xruns", "latency_frames", "samples", "jack_clients")
 
 
 def aggregate(runs, wanted=None):
@@ -1012,6 +1012,7 @@ class Runner:
                 notes.append("pins: in-process, isolated for %s" % ", ".join(
                     dict.fromkeys(self.cat.name(keys[i]) for i in sorted(alone))))
             host = Host(hkey, self.procs, self.env, wd, self.port, conf)
+            graph_before = set(ports(self.env))
             log_end = log_size(self.logdir, hkey)
             try:
                 host.start()
@@ -1106,6 +1107,9 @@ class Runner:
             r["ctx_switches"] = vol + invol
             r["ctx_involuntary"] = invol
             r["latency_frames"] = self.probe.latency_frames("system:playback_1")
+            # the JACK clients the host put on the graph: every client there now that was not there before it started,
+            # the source excepted
+            r["jack_clients"] = len(set(ports(self.env)) - graph_before - {want})
             r["status"] = "ok"
 
             if s.get("kill"):
