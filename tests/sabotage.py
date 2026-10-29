@@ -1535,7 +1535,12 @@ def run_conf_test(tree):
     p = subprocess.run([os.path.join(tree, "tests", "conf-test")], capture_output=True, text=True, timeout=60)
     q = subprocess.run([sys.executable, os.path.join(ROOT, "tests", "search_paths_once.py"), tree], capture_output=True,
                        text=True, timeout=60)
-    return p.returncode or q.returncode, p.stdout + q.stdout
+    out = p.stdout + q.stdout
+    code = p.returncode or q.returncode
+    # red only by a check that says FAIL: a crash or a missing file is not the guard doing its work
+    if code and "FAIL" not in out:
+        return 0, out + q.stderr + "no check failed, the test itself broke\n"
+    return code, out
 
 
 def run_alloc_test(tree):
