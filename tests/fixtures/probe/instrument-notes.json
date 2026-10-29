@@ -16,7 +16,23 @@
       "runner": "plugin-hostd-probe 0.5.0",
       "child": "clap-qualify"
     },
-    "via": "runner"
+    "via": "runner",
+    "realtime": {
+      "class": "none",
+      "priority": 0,
+      "requested": 99,
+      "grantedBy": "none",
+      "reason": "no CAP_SYS_NICE and an RLIMIT_RTPRIO hard limit of 0; this version does not ask rtkit",
+      "observed": {
+        "policy": "other",
+        "priority": 0
+      }
+    },
+    "memoryLock": {
+      "locked": false,
+      "limitBytes": 8388608,
+      "reason": "RLIMIT_MEMLOCK is 8388608 bytes, below the memory limit of 4294967296: a lock would fail the plugin's own allocations first"
+    }
   },
   "plugin": {
     "format": "clap",

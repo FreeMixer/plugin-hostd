@@ -40,6 +40,30 @@ The measured child gets the interposer and nothing else: an LD_PRELOAD the runne
 measurement, named in run.tools.droppedPreload and in the rt\-safety step, and put back in the runner's environment after
 the child.
 .PP
+The measured child runs as the host runs the plugin: SCHED_FIFO at the highest priority the runner may give it, and
+with its memory locked. The runner chooses the priority before any child: all of SCHED_FIFO with CAP_SYS_NICE, else
+the RLIMIT_RTPRIO hard limit it was started with, else none (rtkit is not asked). The measured child takes it last
+before its exec, so every thread the prober starts inherits it; the runner and the pin pass of an LV2 plugin stay
+SCHED_OTHER. The sandbox bounds instead of forbidding: RLIMIT_RTPRIO is the granted priority (0 without one) and
+RLIMIT_RTTIME the wall budget, past which the kernel kills a real\-time thread that never blocks. The memory is locked by
+the lock preload,
+.IR <libexecdir>/plugin\-hostd/probe\-lock.so ,
+preloaded beside the interposer: mlockall of every current and future page, within the RLIMIT_MEMLOCK hard limit,
+and only when that covers the memory limit. The document says what the kernel reported for the
+child after the exec in
+.B run.realtime
+(class, priority, the priority requested, who granted it, and why none), never what was asked for, and whether the
+lock held in
+.BR run.memoryLock .
+A measurement without real time is still a valid one, and says why. A service that runs the probe grants it with
+.B LimitRTPRIO=
+and
+.B LimitMEMLOCK=
+(or
+.BR AmbientCapabilities=CAP_SYS_NICE ),
+and without
+.BR RestrictRealtime= .
+.PP
 The document follows
 .IR plugin\-hostd/probe\-output.schema.json .
 Nothing a plugin prints can enter it.
@@ -130,6 +154,13 @@ Pin the child to these cpus, for example "0\-3,8".
 .BI \-\-require " limit"
 Refuse to run unless the limit is applied. May be repeated. A limit that is asked for and not applied by this
 version is listed in the document, never skipped in silence.
+.TP
+.BI \-\-lock\-preload " file"
+The library that locks the measured child's memory. Default <libexecdir>/plugin\-hostd/probe\-lock.so, as the build was given PREFIX (/usr/libexec in the packages); the usage names it.
+.TP
+.B \-\-list\-limits
+Print the limits a run would apply on this machine, one per line (name, mechanism, value), the ones not applied, the
+real\-time grant and whether the memory would be locked, and exit; no plugin is named and no child is started.
 .SH EXIT STATUS
 .TP
 .B 0

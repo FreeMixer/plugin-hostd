@@ -5,7 +5,7 @@
 # ONLY=<test name> runs one test (tests/sabotage.py turns each guard off and runs the test that must go red).
 # PLUGIN_QUALIFY_BUILD=<a plugin-qualify checkout's native/build> also runs its real prober and lv2_measure over its own
 # instrument fixtures; without it those tests say they skipped.
-import json, os, signal, subprocess, sys, tempfile, time
+import json, os, resource, signal, subprocess, sys, tempfile, time
 
 try:
     import jsonschema
@@ -33,9 +33,13 @@ def check(cond, what):
         raise AssertionError(what)
 
 
-def run(fault=None, wall=5, extra=(), timeout=30, env=None, rates="48000", child=CHILD):
+class Skip(Exception):
+    """a test that cannot be taken here: it prints why and counts as neither ok nor failed"""
+
+
+def run(fault=None, wall=5, extra=(), timeout=30, env=None, rates="48000", child=CHILD, prefix=()):
     """the runner over the stress plugin; returns (exit status, document or None, seconds, the files it used); rates None
-    leaves the runner's default rates"""
+    leaves the runner's default rates; prefix is a command the runner is started under (prlimit, setpriv)"""
     work = tempfile.mkdtemp(prefix="plugin-hostd-probe-test.")
     out = os.path.join(work, "probe.json")
     pidfile = os.path.join(work, "forkpid")
@@ -44,7 +48,7 @@ def run(fault=None, wall=5, extra=(), timeout=30, env=None, rates="48000", child
         e["STRESS_FAULT"] = fault
     else:
         e.pop("STRESS_FAULT", None)
-    cmd = [PROBE, "run", "--child", child, *(("--rates", rates) if rates else ()), "--quantum", "256", "--wall-s", str(wall),
+    cmd = [*prefix, PROBE, "run", "--child", child, *(("--rates", rates) if rates else ()), "--quantum", "256", "--wall-s", str(wall),
            "--grace-ms", "200", "--log", os.path.join(work, "child.log"), "--out", out, *extra, CLAP, ID]
     start = time.monotonic()
     try:
@@ -176,9 +180,10 @@ def the_limits_reach_the_child():
                                     "--cpus", str(cpus[0])), env={"PROBE_CHILD_LIMITS": report})
     valid(doc)
     seen = json.load(open(report))
-    want = {"fsize": 4096, "nofile": 64, "cpu": 100, "data": 1 << 32, "core": 0, "rtprio": 0, "no_new_privs": 1,
+    rtprio = next(l["value"] for l in doc["limits"]["applied"] if l["limit"] == "rt-priority")
+    want = {"fsize": 4096, "nofile": 64, "cpu": 100, "data": 1 << 32, "core": 0, "rtprio": rtprio, "no_new_privs": 1,
             "pdeathsig": signal.SIGKILL, "own_group": True, "cpus": 1}
-    check(seen == want, "the child's own limits are %s, wanted %s" % (seen, want))
+    check({k: seen.get(k) for k in want} == want, "the child's own limits are %s, wanted %s" % (seen, want))
     check(doc["machine"]["pinnedCpus"] == str(cpus[0]), "pinnedCpus %s" % doc["machine"]["pinnedCpus"])
 
 
@@ -249,7 +254,7 @@ def an_instrument_point_carries_the_notes_it_held_and_an_untimed_rate_has_no_cos
                              env={"PROBE_CHILD_INSTRUMENT": "1", "PROBE_CHILD_UNMEASURED_RATE": str(untimed)})
     check(code == 0, "exit status %d" % code)
     valid(doc)
-    check(doc["formatVersion"] == "1.1", "formatVersion %s" % doc["formatVersion"])
+    check(doc["formatVersion"] == "1.2", "formatVersion %s" % doc["formatVersion"])
     check([g["rate"] for g in doc["grid"]] == rates, "a point per rate %s: %s" % (rates, [g["rate"] for g in doc["grid"]]))
     for g in doc["grid"]:
         if g["rate"] == untimed:
@@ -655,12 +660,265 @@ def the_real_lv2_measure_counts_what_run_does_while_notes_play():
     check(seen["urn:plugin-qualify:fixture:lv2-synth-alloc"].get("allocations", 0) > 0, "the allocating synth: %s" % seen)
     check(seen["urn:plugin-qualify:fixture:lv2-synth"].get("allocations") == 0, "its clean twin: %s" % seen)
 
+
+# ---------------------------------------------------------------- real time and the memory lock (#225)
+
+# the lock preload of this checkout: a sabotage arm breaks the runner, never the preload
+LOCK = os.path.abspath(os.environ.get("PROBE_LOCK", os.path.join(ROOT, "plugin-hostd-probe-lock.so")))
+FIFO_MAX = os.sched_get_priority_max(os.SCHED_FIFO)
+
+
+def cap_sys_nice():
+    for l in open("/proc/self/status"):
+        if l.startswith("CapEff:"):
+            return bool(int(l.split()[1], 16) >> 23 & 1)
+    return False
+
+
+def cap_sys_resource():
+    for l in open("/proc/self/status"):
+        if l.startswith("CapEff:"):
+            return bool(int(l.split()[1], 16) >> 24 & 1)
+    return False
+
+
+# PROBE_REQUIRE_REALTIME=1 (CI, whose container holds CAP_SYS_NICE and CAP_SYS_RESOURCE): an arm of the real-time
+# grant or of the memory lock that cannot be taken is a failure, never a skip, so a runner that refuses them cannot go
+# green in silence
+REQUIRE_REALTIME = os.environ.get("PROBE_REQUIRE_REALTIME") == "1"
+
+
+def cannot(why):
+    if REQUIRE_REALTIME:
+        raise AssertionError("PROBE_REQUIRE_REALTIME is set and " + why)
+    raise Skip(why)
+
+
+def without_cap():
+    """the prefix that drops CAP_SYS_NICE from what the runner is started with, when this process holds it"""
+    return ["setpriv", "--bounding-set", "-sys_nice", "--inh-caps", "-sys_nice"] if cap_sys_nice() else []
+
+
+def kernel_grants(prefix, priority):
+    """None when the kernel gives a process started with `prefix` SCHED_FIFO at `priority`, else why not"""
+    p = subprocess.run([*prefix, "chrt", "-f", str(priority), "true"], capture_output=True, text=True)
+    return None if p.returncode == 0 else (p.stderr.strip() or "chrt exited %d" % p.returncode)
+
+
+def rt_run(prefix=(), extra=(), env=None):
+    work = tempfile.mkdtemp(prefix="plugin-hostd-probe-rt.")
+    seen = os.path.join(work, "limits.json")
+    code, doc, _, _, err = run(extra=("--lock-preload", LOCK, *extra), env=dict(env or {}, PROBE_CHILD_LIMITS=seen), prefix=prefix)
+    check(doc is not None, "no document: exit %d %s" % (code, err))
+    valid(doc)
+    return doc, (json.load(open(seen)) if os.path.exists(seen) else None)
+
+
+def applied(doc, name):
+    return next((l for l in doc["limits"]["applied"] if l["limit"] == name), None)
+
+
+@test
+def with_the_grant_the_measurement_runs_fifo_at_the_highest_priority():
+    hard = resource.getrlimit(resource.RLIMIT_RTPRIO)[1]
+    prefix = []
+    if not cap_sys_nice() and hard != resource.RLIM_INFINITY and hard < FIFO_MAX:
+        if not cap_sys_resource():
+            cannot("no CAP_SYS_NICE and an RLIMIT_RTPRIO hard limit of %d, below %d; the rlimit arm measures the grant "
+                   "there is" % (hard, FIFO_MAX))
+        # a process holding CAP_SYS_RESOURCE (root in a container) grants the highest priority as LimitRTPRIO= does
+        prefix = ["prlimit", "--rtprio=%d:%d" % (FIFO_MAX, FIFO_MAX), "--"]
+    why = kernel_grants(prefix, FIFO_MAX)
+    if why:
+        cannot("the kernel refuses SCHED_FIFO %d here (%s)" % (FIFO_MAX, why))
+    doc, seen = rt_run(prefix)
+    rt = doc["run"]["realtime"]
+    check(rt["class"] == "fifo" and rt["priority"] == FIFO_MAX and rt["requested"] == FIFO_MAX
+          and rt["grantedBy"] == ("cap" if cap_sys_nice() else "rlimit"), "run.realtime %s" % rt)
+    check(rt["observed"] == {"policy": "fifo", "priority": FIFO_MAX}, "the kernel's word: %s" % rt.get("observed"))
+    check(seen["policy"] == "fifo" and seen["priority"] == FIFO_MAX, "the child's own scheduler: %s" % seen)
+    check(doc["offer"]["realtime"] == "fifo", "offer.realtime %s" % doc["offer"]["realtime"])
+
+
+@test
+def under_an_rtprio_rlimit_the_measurement_runs_fifo_at_the_rlimit_and_keeps_it_as_its_bound():
+    hard = resource.getrlimit(resource.RLIMIT_RTPRIO)[1]
+    # a process holding CAP_SYS_RESOURCE (root in a container) raises the hard limit itself
+    n = min(10, FIFO_MAX - 1) if hard == resource.RLIM_INFINITY or cap_sys_resource() else min(10, hard, FIFO_MAX - 1)
+    if n < 1:
+        cannot("the RLIMIT_RTPRIO hard limit is 0, and only a process with CAP_SYS_RESOURCE can raise it")
+    prefix = [*without_cap(), "prlimit", "--rtprio=%d:%d" % (n, n), "--"]
+    why = kernel_grants(prefix, n)
+    if why:
+        cannot("the kernel refuses SCHED_FIFO %d under the rlimit here (%s)" % (n, why))
+    doc, seen = rt_run(prefix)
+    rt = doc["run"]["realtime"]
+    check(rt == {"class": "fifo", "priority": n, "requested": FIFO_MAX, "grantedBy": "rlimit",
+                 "observed": {"policy": "fifo", "priority": n}}, "run.realtime %s" % rt)
+    check(seen["policy"] == "fifo" and seen["priority"] == n and seen["rtprio"] == n,
+          "the child runs fifo %d bounded by RLIMIT_RTPRIO %d: %s" % (n, n, seen))
+    check(applied(doc, "rt-priority") == {"limit": "rt-priority", "value": n, "by": "rlimit"},
+          "the document lists the bound: %s" % applied(doc, "rt-priority"))
+
+
+@test
+def without_a_grant_the_measurement_stays_at_none_and_says_why():
+    prefix = [*without_cap(), "prlimit", "--rtprio=0:0", "--"]
+    doc, seen = rt_run(prefix)
+    rt = doc["run"]["realtime"]
+    check(rt["class"] == "none" and rt["priority"] == 0 and rt["grantedBy"] == "none" and rt["requested"] == FIFO_MAX,
+          "run.realtime %s" % rt)
+    check("RLIMIT_RTPRIO" in rt.get("reason", "") and "CAP_SYS_NICE" in rt["reason"], "the reason names the grant: %s" % rt)
+    check(rt.get("observed") == {"policy": "other", "priority": 0}, "the kernel's word: %s" % rt.get("observed"))
+    check(seen["policy"] == "other" and seen["rtprio"] == 0, "the child: %s" % seen)
+    check(doc["offer"]["realtime"] == "none", "offer.realtime %s" % doc["offer"]["realtime"])
+
+
+@test
+def the_rt_time_bound_is_the_wall_budget():
+    doc, seen = rt_run()
+    check(seen["rttime"] == 5 * 1000000, "the child's RLIMIT_RTTIME is the 5 s wall budget in us: %s" % seen)
+    check(applied(doc, "rt-time") == {"limit": "rt-time", "value": 5 * 1000000, "unit": "us", "by": "rlimit"},
+          "the document lists it: %s" % applied(doc, "rt-time"))
+
+
+@test
+def list_limits_prints_the_bounds_a_run_would_apply_here():
+    p = subprocess.run([*without_cap(), "prlimit", "--rtprio=0:0", "--", PROBE, "run", "--list-limits", "--wall-s", "7",
+                        "--lock-preload", LOCK, "--data-bytes", str(1 << 30)], capture_output=True, text=True)
+    check(p.returncode == 0, "exit %d %s" % (p.returncode, p.stderr))
+    rows = {l.split("\t")[0]: l.split("\t")[1:] for l in p.stdout.splitlines()}
+    check(rows.get("rt-priority") == ["rlimit", "0"], "rt-priority %s" % rows.get("rt-priority"))
+    check(rows.get("rt-time") == ["rlimit", "7000000 us"], "rt-time %s" % rows.get("rt-time"))
+    check(rows.get("memory-lock", [None])[0] == "rlimit", "memory-lock %s" % rows.get("memory-lock"))
+    check(rows.get("realtime", [None])[0] == "none" and "RLIMIT_RTPRIO" in rows["realtime"][-1], "realtime %s" % rows.get("realtime"))
+    check("tasks" in rows and rows["tasks"][0] == "unavailable", "tasks %s" % rows.get("tasks"))
+
+
+@test
+def a_describe_child_keeps_the_memory_lock_and_rt_time_the_runner_was_started_with():
+    work = tempfile.mkdtemp(prefix="plugin-hostd-probe-describe.")
+    seen = os.path.join(work, "limits.json")
+    memlock = min(resource.getrlimit(resource.RLIMIT_MEMLOCK)[1], 2 << 20)
+    # the fake child is no scanner: describe refuses its output, and its limits are what is read
+    subprocess.run(["prlimit", "--memlock=%d:%d" % (memlock, memlock), "--", PROBE, "describe", "--table",
+                    os.path.join(ROOT, "data", "formats", "clap.json"), "--child", CHILD, "--wall-s", "5", "clap:%s#%s" % (CLAP, ID)],
+                   env=dict(os.environ, PROBE_CHILD_LIMITS=seen), capture_output=True, text=True, timeout=30)
+    check(os.path.exists(seen), "the describe child did not run")
+    got = json.load(open(seen))
+    check(got["memlock"] == memlock and got["rttime"] == 2 ** 64 - 1 and got["policy"] == "other",
+          "a describe child is no measurement: RLIMIT_MEMLOCK %d, RLIMIT_RTTIME unlimited, SCHED_OTHER: %s" % (memlock, got))
+
+
+@test
+def the_measured_child_holds_no_cap_sys_nice_past_its_exec():
+    # with the capability, as the AmbientCapabilities= route grants it; without, a user namespace gives the runner all of
+    # them there (the kernel then refuses the priority, which does not matter here)
+    prefix = []
+    if not cap_sys_nice():
+        if subprocess.run(["unshare", "-r", "true"], capture_output=True).returncode != 0:
+            cannot("no CAP_SYS_NICE and no unprivileged user namespace to get one in")
+        prefix = ["unshare", "-r"]
+    doc, seen = rt_run(prefix)
+    check(seen["cap_sys_nice"] == "", "the child still holds CAP_SYS_NICE in %s" % seen["cap_sys_nice"])
+
+
+@test
+def in_a_user_namespace_the_rlimit_is_the_grant_not_the_namespaces_cap_sys_nice():
+    # unshare -r shows every capability in CapEff, but the kernel checks CAP_SYS_NICE against the initial namespace: the
+    # runner must take the RLIMIT_RTPRIO grant it holds, not ask for the capability's priority and be refused
+    hard = resource.getrlimit(resource.RLIMIT_RTPRIO)[1]
+    n = FIFO_MAX if hard == resource.RLIM_INFINITY else min(hard, FIFO_MAX)
+    prefix = []
+    if n < 1 or n == FIFO_MAX:
+        if not cap_sys_resource():
+            cannot("an RLIMIT_RTPRIO hard limit of %d: the arm needs one between 1 and %d, and only CAP_SYS_RESOURCE sets "
+                   "it" % (hard, FIFO_MAX - 1))
+        n = 10
+        prefix = ["prlimit", "--rtprio=%d:%d" % (n, n), "--"]
+    if subprocess.run([*prefix, "unshare", "-r", "true"], capture_output=True).returncode != 0:
+        cannot("no unprivileged user namespace here")
+    why = kernel_grants([*prefix, "unshare", "-r"], n)
+    if why:
+        cannot("the kernel refuses SCHED_FIFO %d in a user namespace here (%s)" % (n, why))
+    doc, seen = rt_run([*prefix, "unshare", "-r"])
+    rt = doc["run"]["realtime"]
+    check(rt["class"] == "fifo" and rt["priority"] == n and rt["grantedBy"] == "rlimit", "run.realtime %s" % rt)
+    check(seen["policy"] == "fifo" and seen["priority"] == n, "the child: %s" % seen)
+
+
+@test
+def a_grant_the_kernel_refuses_is_recorded_as_none_with_the_refusal():
+    hard = resource.getrlimit(resource.RLIMIT_RTPRIO)[1]
+    prefix = []
+    if not cap_sys_nice() and hard == 0:
+        if not cap_sys_resource():
+            cannot("no grant here (no CAP_SYS_NICE, RLIMIT_RTPRIO hard limit 0), so nothing for the kernel to refuse")
+        # a process holding CAP_SYS_RESOURCE (root in a container) grants itself an rlimit for the kernel to refuse
+        prefix = ["prlimit", "--rtprio=10:10", "--"]
+    refuse = os.path.join(os.path.dirname(CHILD), "sched-refuse.so")
+    doc, seen = rt_run(prefix, env={"LD_PRELOAD": refuse})
+    rt = doc["run"]["realtime"]
+    check(rt["class"] == "none" and rt["grantedBy"] == "none" and rt["priority"] == 0, "run.realtime %s" % rt)
+    check("the kernel refused SCHED_FIFO" in rt.get("reason", "") and rt.get("observed") == {"policy": "other", "priority": 0},
+          "the refusal and the kernel's word: %s" % rt)
+    check(seen["policy"] == "other" and seen["rtprio"] == 0, "the child runs SCHED_OTHER with no rt bound: %s" % seen)
+    check(applied(doc, "rt-priority")["value"] == 0, "the document's rt-priority: %s" % applied(doc, "rt-priority"))
+
+
+@test
+def an_lv2_measurement_is_scheduled_as_a_clap_one_is():
+    clap, _ = rt_run()
+    code, doc, _, _, err = run_lv2()
+    check(doc is not None, "no document: exit %d %s" % (code, err))
+    valid(doc)
+    check(doc["run"]["realtime"] == clap["run"]["realtime"], "lv2 %s, clap %s" % (doc["run"]["realtime"], clap["run"]["realtime"]))
+
+
+@test
+def the_measured_child_locks_its_memory_or_the_record_says_why_not():
+    data = 1 << 30
+    hard = resource.getrlimit(resource.RLIMIT_MEMLOCK)[1]
+    raise_lock = []
+    if hard != resource.RLIM_INFINITY and hard < data and cap_sys_resource():
+        # a process holding CAP_SYS_RESOURCE (root in a container) raises the hard limit itself, as LimitMEMLOCK= does
+        raise_lock, hard = ["prlimit", "--memlock=unlimited:unlimited", "--"], resource.RLIM_INFINITY
+    if hard != resource.RLIM_INFINITY and hard < data:
+        if REQUIRE_REALTIME:
+            raise AssertionError("PROBE_REQUIRE_REALTIME is set and RLIMIT_MEMLOCK %d is below %d" % (hard, data))
+        print("skip the locked arm of the_measured_child_locks_its_memory_or_the_record_says_why_not: RLIMIT_MEMLOCK %d is "
+              "below %d" % (hard, data))
+    else:
+        env_file = os.path.join(tempfile.mkdtemp(prefix="plugin-hostd-probe-lock."), "env")
+        doc, seen = rt_run(raise_lock, extra=("--data-bytes", str(data)), env={"PROBE_CHILD_ENV": env_file})
+        unbounded = hard == resource.RLIM_INFINITY
+        check(doc["run"]["memoryLock"] == {"locked": True, "limitBytes": None if unbounded else hard},
+              "memoryLock %s" % doc["run"]["memoryLock"])
+        check(seen["vmlck_kb"] > 0 and seen["memlock"] == (2 ** 64 - 1 if unbounded else hard),
+              "the child holds locked pages under the hard limit: %s" % seen)
+        stub = os.path.join(os.path.dirname(CHILD), "rt_interpose.so")
+        got = child_env(env_file)
+        check(got.get("LD_PRELOAD") == stub + ":" + LOCK and "PLUGIN_HOSTD_PROBE_LOCK_FD" not in got,
+              "the child gets the interposer and the lock preload, which takes its variable: %s" % got.get("LD_PRELOAD"))
+    # a bound below the memory limit: no lock, which the record says
+    doc, seen = rt_run(prefix=["prlimit", "--memlock=%d:%d" % (1 << 20, 1 << 20), "--"], extra=("--data-bytes", str(data)))
+    ml = doc["run"]["memoryLock"]
+    check(ml["locked"] is False and "RLIMIT_MEMLOCK" in ml.get("reason", "") and seen["vmlck_kb"] == 0, "memoryLock %s %s" % (ml, seen))
+    # no preload: no lock, which the record says
+    code, doc, _, _, err = run(extra=("--lock-preload", "/nonexistent/lock.so"))
+    valid(doc)
+    ml = doc["run"]["memoryLock"]
+    check(ml["locked"] is False and "/nonexistent/lock.so" in ml.get("reason", ""), "memoryLock %s" % ml)
+
+
 for t in tests:
     if ONLY and t.__name__ != ONLY:
         continue
     try:
         t()
         print("ok   " + t.__name__)
+    except Skip as e:
+        print("skip %s: %s" % (t.__name__, e))
     except AssertionError as e:
         print("FAIL %s: %s" % (t.__name__, e))
         failed += 1

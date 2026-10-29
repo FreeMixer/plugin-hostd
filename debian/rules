@@ -6,8 +6,9 @@ export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 	dh $@
 
 override_dh_auto_build:
-	dh_auto_build
-	dh_auto_build -- tests/fake-host
+	# PREFIX at the build too: the probe compiles in where its lock preload is installed
+	dh_auto_build -- PREFIX=/usr
+	dh_auto_build -- PREFIX=/usr tests/fake-host
 
 override_dh_auto_install:
 	dh_auto_install -- PREFIX=/usr
