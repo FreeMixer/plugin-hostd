@@ -26,7 +26,7 @@ In place
   Pi runs: the plugin-hostd engine, plugin menus built from the records, the chain estimate footer, the X-Touch Plugin
   mode, controller screens named by their content, and a Factory and a User preset bank for every plugin, CLAP or LV2.
 - **A release gate**: a library's release is tested in the projects that use it, from its own packages, before it is
-  tagged ([openmixer-ops#303](https://github.com/FreeMixer/openmixer-ops/issues/303)).
+  tagged.
 - **The pipeline page**: [from a plugin file to a page on the screen](../from-file-to-page.md), the five stages.
 - **The captures** of the menus, the controller pages and the MOD GUIs on the Pi 5 ([captures](captures.md)).
 - **The omx-eq8 pages**: every controller page of omx eq8, retaken on omx-plugins 0.16.0
@@ -54,8 +54,7 @@ Still incomplete
   made before omx-panel 0.7.1. What closes it: omx-plugins 0.17.0, regenerated against omx-panel 0.7.1, after its
   Debian build is fixed ([omx-plugins#276](https://github.com/FreeMixer/omx-plugins/issues/276)).
 - **openmixer does not build against plugin-hostd 0.14.0 or later.** Cause: two reply codes it reads moved into the
-  contract's generated list ([openmixer#2296](https://github.com/FreeMixer/openmixer/issues/2296)). What closes it:
-  the fix, being landed at the desk.
+  contract's generated list. What closes it: the fix in openmixer, being landed at the desk.
 - **The benchmark matrix is partial: 287 cells so far** (682 rows, 639 ok and 43 failed). What closes it: it is
   running again and fills the rest
   ([benchmarks, the matrix](benchmarks.md#the-matrix-every-rate-and-quantum-single-and-grouped)).
