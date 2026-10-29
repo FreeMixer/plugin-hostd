@@ -475,7 +475,7 @@ static inline int phd_pool_name_valid(const char *name)
       "and its id in " OMX_VERB_WORKER_LIST " is followed by " PHD_WORKER_PIN_REFUSED ". The pin_set pins of the controller " \
       "are kept. -902 under pin_mode off or when the pin_file is gone or has a line outside the grammar, and the earlier " \
       "pins hold") \
-    X(PIN_CHANGED, OMX_VERB_PIN_CHANGED, "[<uri> [files | layout]]", OMX_VERB_PIN_CHANGED_REPLY, \
+    X(PIN_CHANGED, OMX_VERB_PIN_CHANGED, "[<uri>] [files | layout]", OMX_VERB_PIN_CHANGED_REPLY, \
       "the notice the package sync sends to every daemon it knows after it rewrote the pin file: the same as " \
       OMX_VERB_PIN_RELOAD ", with or without the " PHD_EVENT_PIN_CHANGED " event's words after it; more words than those are -902") \
     X(LV2_WORKER_SET, OMX_VERB_LV2_WORKER_SET, "<uri> <" PHD_LV2_WORKER_MOD_HOST " | " PHD_LV2_WORKER_CLAP_HOST " | " \

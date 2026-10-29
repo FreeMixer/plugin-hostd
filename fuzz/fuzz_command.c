@@ -207,7 +207,7 @@ __attribute__((noinline)) static void check_reply_answer(const struct words *w)
          * input: add-default
          * mutant: src/verbs.c:90 `return rc;` -> `return SUCCESS;`
          * input: plugin-hostd-pin_set-refused
-         * mutant: src/verbs.c:272 `return reply_text;` -> `return sup_resp(SUCCESS);`
+         * mutant: src/verbs.c:277 `return reply_text;` -> `return sup_resp(SUCCESS);`
          * input: mod-host-set_bpm-refused */
         if (strcmp(g_rec.reply, g_rec.answer))
             abort();
@@ -229,7 +229,7 @@ __attribute__((noinline)) static void check_reply(const struct words *w)
     int code;
 
     /* one reply, and nothing sent empty
-     * mutant: src/verbs.c:302 `reply(msg->sender_id, handle(line, tok, ntok));` -> `free(handle(line, tok, ntok));`
+     * mutant: src/verbs.c:307 `reply(msg->sender_id, handle(line, tok, ntok));` -> `free(handle(line, tok, ntok));`
      * input: add-default */
     if (g_rec.nreplies != 1 || g_rec.reply_size == 0)
         abort();
@@ -252,7 +252,7 @@ __attribute__((noinline)) static void check_reply(const struct words *w)
     }
     shape = w->n ? rec_shape_of(w->w[0], strlen(w->w[0])) : REC_MOD_HOST_SHAPE;
     /* anything else has the shape its verb declares, or mod-host's
-     * mutant: src/verbs.c:261 `sup_resp(SUCCESS)` -> `sup_resp(1)`
+     * mutant: src/verbs.c:266 `sup_resp(SUCCESS)` -> `sup_resp(1)`
      * input: mod-host-quit */
     if (!syntax_reply_matches(shape, g_rec.reply) && !syntax_reply_matches(REC_MOD_HOST_SHAPE, g_rec.reply))
         abort();
@@ -316,6 +316,7 @@ static const char *const g_call_words[REC_FN_COUNT] = {
     [REC_QUARANTINE_CLEAR] = "1",
     [REC_POLICY_SET] = "1 2",
     [REC_PIN_ACCEPT] = "1",
+    [REC_PIN_RELOAD] = "",
     [REC_POOL_CONFIG] = "1 #2",
     [REC_LV2_WORKER_SET] = "1 2",
     [REC_WORKER_ENV] = "1 2 3",
@@ -491,17 +492,17 @@ __attribute__((noinline)) static void check_round_trip(const struct words *w, ui
     free(line);
 
     /* the same calls with the same arguments
-     * mutant: src/verbs.c:296 `strtok_r(copy, " \t", &save)` -> `strtok_r(copy, " ", &save)`
+     * mutant: src/verbs.c:301 `strtok_r(copy, " \t", &save)` -> `strtok_r(copy, " ", &save)`
      * input: mod-host-add-tabs */
     if (!rec_calls_equal(first, nfirst, g_rec.calls, g_rec.ncalls))
         abort();
     /* the same reply
-     * mutant: src/verbs.c:258 `ntok != 1` -> `ntok != 1 || line[0] != ' '`
+     * mutant: src/verbs.c:263 `ntok != 1` -> `ntok != 1 || line[0] != ' '`
      * input: quit-leading-space */
     if (g_rec.reply == NULL || strcmp(g_rec.reply, reply_first))
         abort();
     /* the same state, the same host settings, and quitting the same
-     * mutant: src/verbs.c:260 `g_quitting = 1;` -> `g_quitting = line[0] == ' ';`
+     * mutant: src/verbs.c:265 `g_quitting = 1;` -> `g_quitting = line[0] == ' ';`
      * input: quit-leading-space */
     if (g_quitting != quit_first || g_rec.state != state_first || g_rec.host_settings != host_first)
         abort();
