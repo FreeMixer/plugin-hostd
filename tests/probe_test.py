@@ -721,13 +721,17 @@ def applied(doc, name):
 @test
 def with_the_grant_the_measurement_runs_fifo_at_the_highest_priority():
     hard = resource.getrlimit(resource.RLIMIT_RTPRIO)[1]
+    prefix = []
     if not cap_sys_nice() and hard != resource.RLIM_INFINITY and hard < FIFO_MAX:
-        cannot("no CAP_SYS_NICE and an RLIMIT_RTPRIO hard limit of %d, below %d; the rlimit arm measures the grant "
-               "there is" % (hard, FIFO_MAX))
-    why = kernel_grants((), FIFO_MAX)
+        if not cap_sys_resource():
+            cannot("no CAP_SYS_NICE and an RLIMIT_RTPRIO hard limit of %d, below %d; the rlimit arm measures the grant "
+                   "there is" % (hard, FIFO_MAX))
+        # a process holding CAP_SYS_RESOURCE (root in a container) grants the highest priority as LimitRTPRIO= does
+        prefix = ["prlimit", "--rtprio=%d:%d" % (FIFO_MAX, FIFO_MAX), "--"]
+    why = kernel_grants(prefix, FIFO_MAX)
     if why:
         cannot("the kernel refuses SCHED_FIFO %d here (%s)" % (FIFO_MAX, why))
-    doc, seen = rt_run()
+    doc, seen = rt_run(prefix)
     rt = doc["run"]["realtime"]
     check(rt["class"] == "fifo" and rt["priority"] == FIFO_MAX and rt["requested"] == FIFO_MAX
           and rt["grantedBy"] == ("cap" if cap_sys_nice() else "rlimit"), "run.realtime %s" % rt)
