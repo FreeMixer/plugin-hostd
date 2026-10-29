@@ -1,0 +1,119 @@
+{
+ "mode": "baseline",
+ "chains_asked": 0,
+ "chains_built": 0,
+ "plugins_running": 0,
+ "workers_mine": 0,
+ "jack_clients": 10,
+ "memory": {
+  "zynthian": {
+   "processes": 1,
+   "rss_mb": 330.1,
+   "pss_mb": 233.4
+  },
+  "jackd": {
+   "processes": 1,
+   "rss_mb": 127.7,
+   "pss_mb": 38.5
+  },
+  "plugin-hostd": {
+   "processes": 0,
+   "rss_mb": 0.0,
+   "pss_mb": 0.0
+  },
+  "workers": {
+   "processes": 0,
+   "rss_mb": 0.0,
+   "pss_mb": 0.0
+  },
+  "jalv": {
+   "processes": 0,
+   "rss_mb": 0.0,
+   "pss_mb": 0.0
+  }
+ },
+ "creation_s_total": null,
+ "rss_total_mb": 457.8,
+ "pss_total_mb": 271.9,
+ "ui": {
+  "zynthian_pid": 73837,
+  "state": "S",
+  "capture": true
+ },
+ "capture": "l00-baseline-zynthian.png",
+ "limit": null,
+ "top_consumers": [
+  {
+   "pid": 73837,
+   "name": "python3",
+   "cmd": "python3 ./zynthian_main.py",
+   "cpu_pct_of_core": 4.3
+  },
+  {
+   "pid": 772,
+   "name": "jackd",
+   "cmd": "/usr/bin/jackd -P 70 -s -S -d alsa -d hw:Dummy -r 48000 -p 256 -n 2 -X raw",
+   "cpu_pct_of_core": 1.3
+  },
+  {
+   "pid": 36806,
+   "name": "kworker/2:1-thermal_events",
+   "cmd": "",
+   "cpu_pct_of_core": 0.7
+  },
+  {
+   "pid": 53857,
+   "name": "kworker/1:0-mm_percpu_wq",
+   "cmd": "",
+   "cpu_pct_of_core": 0.6
+  },
+  {
+   "pid": 1124,
+   "name": "a2jmidid",
+   "cmd": "/usr/bin/a2jmidid",
+   "cpu_pct_of_core": 0.2
+  },
+  {
+   "pid": 1004,
+   "name": "ttymidi",
+   "cmd": "/usr/local/bin/ttymidi -s /dev/ttyAMA0 -b 38400",
+   "cpu_pct_of_core": 0.2
+  },
+  {
+   "pid": 911,
+   "name": "python3",
+   "cmd": "python3 ./zynthian_webconf.py",
+   "cpu_pct_of_core": 0.2
+  },
+  {
+   "pid": 85646,
+   "name": "python3",
+   "cmd": "/zynthian/venv/bin/python3 -I stress-pi5.py --out /root/omx-stress-20261029T0010Z --port 5590 --hold 60 --levels 1,2,4,8",
+   "cpu_pct_of_core": 0.1
+  }
+ ],
+ "mhz_mean": 1500,
+ "xruns_meter": 0,
+ "xruns_zynthian": 0,
+ "cpu_core_mean": {
+  "cpu0": 1.8,
+  "cpu1": 1.7,
+  "cpu2": 2.0,
+  "cpu3": 1.6
+ },
+ "cpu_busiest_core": 2.0,
+ "cpu_mean": 1.8,
+ "cpu_busiest_second": 7.9,
+ "cpu_groups_pct_of_core": {
+  "zynthian": 4.3,
+  "jackd": 1.3,
+  "plugin-hostd": 0.0,
+  "workers": 0.0,
+  "jalv": 0.0
+ },
+ "tick_cpu_busiest_core": 1.0,
+ "tick_cpu_mean": 0.9,
+ "jack_dsp_mean": 1.33,
+ "jack_dsp_max": 1.72,
+ "mem_avail_min_mb": 3060.6
+}

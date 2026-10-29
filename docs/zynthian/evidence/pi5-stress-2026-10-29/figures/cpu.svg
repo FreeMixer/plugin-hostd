@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" font-family="sans-serif" font-size="12">
+<rect width="640" height="360" fill="white"/>
+<text x="320.0" y="20" text-anchor="middle" font-size="14">CPU over the hold: busiest core (solid) and mean of 4 (dashed)</text>
+<line x1="70" y1="310" x2="500" y2="310" stroke="black"/>
+<line x1="70" y1="40" x2="70" y2="310" stroke="black"/>
+<text x="285.0" y="348" text-anchor="middle">chains of 4 plugins</text>
+<text x="16" y="175.0" text-anchor="middle" transform="rotate(-90 16 175.0)">percent</text>
+<text x="70.0" y="326" text-anchor="middle">1</text>
+<text x="177.5" y="326" text-anchor="middle">2</text>
+<text x="285.0" y="326" text-anchor="middle">4</text>
+<text x="392.5" y="326" text-anchor="middle">8</text>
+<text x="500.0" y="326" text-anchor="middle">16</text>
+<line x1="66" y1="310.0" x2="500" y2="310.0" stroke="#ddd"/>
+<text x="64" y="314.0" text-anchor="end">0</text>
+<line x1="66" y1="256.0" x2="500" y2="256.0" stroke="#ddd"/>
+<text x="64" y="260.0" text-anchor="end">7</text>
+<line x1="66" y1="202.0" x2="500" y2="202.0" stroke="#ddd"/>
+<text x="64" y="206.0" text-anchor="end">13</text>
+<line x1="66" y1="148.0" x2="500" y2="148.0" stroke="#ddd"/>
+<text x="64" y="152.0" text-anchor="end">20</text>
+<line x1="66" y1="94.0" x2="500" y2="94.0" stroke="#ddd"/>
+<text x="64" y="98.0" text-anchor="end">26</text>
+<line x1="66" y1="40.0" x2="500" y2="40.0" stroke="#ddd"/>
+<text x="64" y="44.0" text-anchor="end">33</text>
+<polyline points="70.0,279.4 177.5,272.0 285.0,249.7 392.5,205.0 500.0,129.8" fill="none" stroke="#1f77b4" stroke-width="2"/>
+<circle cx="70.0" cy="279.4" r="3" fill="#1f77b4"/>
+<circle cx="177.5" cy="272.0" r="3" fill="#1f77b4"/>
+<circle cx="285.0" cy="249.7" r="3" fill="#1f77b4"/>
+<circle cx="392.5" cy="205.0" r="3" fill="#1f77b4"/>
+<circle cx="500.0" cy="129.8" r="3" fill="#1f77b4"/>
+<line x1="510" y1="50" x2="530" y2="50" stroke="#1f77b4" stroke-width="2"/>
+<text x="534" y="54">grouped busiest</text>
+<polyline points="70.0,276.9 177.5,266.2 285.0,232.3 392.5,171.2 500.0,64.5" fill="none" stroke="#d62728" stroke-width="2"/>
+<circle cx="70.0" cy="276.9" r="3" fill="#d62728"/>
+<circle cx="177.5" cy="266.2" r="3" fill="#d62728"/>
+<circle cx="285.0" cy="232.3" r="3" fill="#d62728"/>
+<circle cx="392.5" cy="171.2" r="3" fill="#d62728"/>
+<circle cx="500.0" cy="64.5" r="3" fill="#d62728"/>
+<line x1="510" y1="68" x2="530" y2="68" stroke="#d62728" stroke-width="2"/>
+<text x="534" y="72">alone busiest</text>
+<polyline points="70.0,277.8 177.5,271.2 285.0,246.4 392.5,189.3 500.0,105.0" fill="none" stroke="#2ca02c" stroke-width="2"/>
+<circle cx="70.0" cy="277.8" r="3" fill="#2ca02c"/>
+<circle cx="177.5" cy="271.2" r="3" fill="#2ca02c"/>
+<circle cx="285.0" cy="246.4" r="3" fill="#2ca02c"/>
+<circle cx="392.5" cy="189.3" r="3" fill="#2ca02c"/>
+<circle cx="500.0" cy="105.0" r="3" fill="#2ca02c"/>
+<line x1="510" y1="86" x2="530" y2="86" stroke="#2ca02c" stroke-width="2"/>
+<text x="534" y="90">jalv busiest</text>
+<polyline points="70.0,282.7 177.5,273.6 285.0,253.8 392.5,208.3 500.0,136.4" fill="none" stroke="#1f77b4" stroke-width="2" stroke-dasharray="5,4"/>
+<circle cx="70.0" cy="282.7" r="3" fill="#1f77b4"/>
+<circle cx="177.5" cy="273.6" r="3" fill="#1f77b4"/>
+<circle cx="285.0" cy="253.8" r="3" fill="#1f77b4"/>
+<circle cx="392.5" cy="208.3" r="3" fill="#1f77b4"/>
+<circle cx="500.0" cy="136.4" r="3" fill="#1f77b4"/>
+<line x1="510" y1="104" x2="530" y2="104" stroke="#1f77b4" stroke-width="2" stroke-dasharray="5,4"/>
+<text x="534" y="108">grouped mean</text>
+<polyline points="70.0,279.4 177.5,267.0 285.0,237.3 392.5,176.1 500.0,69.5" fill="none" stroke="#d62728" stroke-width="2" stroke-dasharray="5,4"/>
+<circle cx="70.0" cy="279.4" r="3" fill="#d62728"/>
+<circle cx="177.5" cy="267.0" r="3" fill="#d62728"/>
+<circle cx="285.0" cy="237.3" r="3" fill="#d62728"/>
+<circle cx="392.5" cy="176.1" r="3" fill="#d62728"/>
+<circle cx="500.0" cy="69.5" r="3" fill="#d62728"/>
+<line x1="510" y1="122" x2="530" y2="122" stroke="#d62728" stroke-width="2" stroke-dasharray="5,4"/>
+<text x="534" y="126">alone mean</text>
+<polyline points="70.0,282.7 177.5,272.8 285.0,249.7 392.5,196.8 500.0,110.8" fill="none" stroke="#2ca02c" stroke-width="2" stroke-dasharray="5,4"/>
+<circle cx="70.0" cy="282.7" r="3" fill="#2ca02c"/>
+<circle cx="177.5" cy="272.8" r="3" fill="#2ca02c"/>
+<circle cx="285.0" cy="249.7" r="3" fill="#2ca02c"/>
+<circle cx="392.5" cy="196.8" r="3" fill="#2ca02c"/>
+<circle cx="500.0" cy="110.8" r="3" fill="#2ca02c"/>
+<line x1="510" y1="140" x2="530" y2="140" stroke="#2ca02c" stroke-width="2" stroke-dasharray="5,4"/>
+<text x="534" y="144">jalv mean</text>
+</svg>

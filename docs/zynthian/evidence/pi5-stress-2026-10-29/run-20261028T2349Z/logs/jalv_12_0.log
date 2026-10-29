@@ -1,0 +1,13 @@
+Plugin:       urn:openmixer:limiter
+JACK Name:    jalv_12_0
+Sample rate:  48000 Hz
+Block length: 256 frames
+MIDI buffers: 32768 bytes
+Comm buffers: 524288 bytes
+Update rate:  30.0 Hz
+Scale factor: 1.0
+
+#CTR> 0#ceilingDb=-1.000000
+#CTR> 3#enabled=1.000000
+#CTR> 1#lookaheadMs=1.500000
+#CTR> 2#releaseMs=50.000000

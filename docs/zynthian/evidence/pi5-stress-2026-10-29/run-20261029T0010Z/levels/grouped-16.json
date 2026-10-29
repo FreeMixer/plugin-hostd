@@ -1,0 +1,349 @@
+{
+ "mode": "grouped",
+ "chains_asked": 16,
+ "chains_built": 16,
+ "plugins_running": 60,
+ "jack_clients_of_chains": 36,
+ "creation_s_total": 20.06,
+ "creation_s_per_chain": 1.254,
+ "workers_mine": 16,
+ "workers": [
+  {
+   "worker": "w138",
+   "pid": "87264",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "chain:1",
+   "instances": [
+    7000,
+    7001,
+    7002,
+    7003
+   ]
+  },
+  {
+   "worker": "w143",
+   "pid": "87295",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "chain:2",
+   "instances": [
+    7004,
+    7005,
+    7006,
+    7007
+   ]
+  },
+  {
+   "worker": "w148",
+   "pid": "87326",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "chain:3",
+   "instances": [
+    7008,
+    7009,
+    7010,
+    7011
+   ]
+  },
+  {
+   "worker": "w153",
+   "pid": "87363",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "chain:4",
+   "instances": [
+    7012,
+    7013,
+    7014,
+    7015
+   ]
+  },
+  {
+   "worker": "w158",
+   "pid": "87394",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "chain:5",
+   "instances": [
+    7016,
+    7017,
+    7018,
+    7019
+   ]
+  },
+  {
+   "worker": "w163",
+   "pid": "87425",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "chain:6",
+   "instances": [
+    7020,
+    7021,
+    7022,
+    7023
+   ]
+  },
+  {
+   "worker": "w168",
+   "pid": "87456",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "chain:7",
+   "instances": [
+    7024,
+    7025,
+    7026,
+    7027
+   ]
+  },
+  {
+   "worker": "w172",
+   "pid": "87484",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "chain:8",
+   "instances": [
+    7028,
+    7029,
+    7030
+   ]
+  },
+  {
+   "worker": "w177",
+   "pid": "87513",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "chain:9",
+   "instances": [
+    7032,
+    7033,
+    7034,
+    7035
+   ]
+  },
+  {
+   "worker": "w181",
+   "pid": "87539",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "chain:10",
+   "instances": [
+    7036,
+    7037,
+    7039
+   ]
+  },
+  {
+   "worker": "w186",
+   "pid": "87568",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "chain:11",
+   "instances": [
+    7040,
+    7041,
+    7042,
+    7043
+   ]
+  },
+  {
+   "worker": "w190",
+   "pid": "87594",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "chain:12",
+   "instances": [
+    7044,
+    7046,
+    7047
+   ]
+  },
+  {
+   "worker": "w195",
+   "pid": "87623",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "chain:13",
+   "instances": [
+    7048,
+    7049,
+    7050,
+    7051
+   ]
+  },
+  {
+   "worker": "w199",
+   "pid": "87651",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "chain:14",
+   "instances": [
+    7053,
+    7054,
+    7055
+   ]
+  },
+  {
+   "worker": "w204",
+   "pid": "87749",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "chain:15",
+   "instances": [
+    7056,
+    7057,
+    7058,
+    7059
+   ]
+  },
+  {
+   "worker": "w209",
+   "pid": "87784",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "chain:16",
+   "instances": [
+    7060,
+    7061,
+    7062,
+    7063
+   ]
+  }
+ ],
+ "links": 96,
+ "refused": [
+  {
+   "uri": "http://gareus.org/oss/lv2/dpl#stereo",
+   "why": "resp -509"
+  },
+  {
+   "uri": "http://gareus.org/oss/lv2/dpl#stereo",
+   "why": "resp -509"
+  },
+  {
+   "uri": "http://gareus.org/oss/lv2/dpl#stereo",
+   "why": "resp -509"
+  },
+  {
+   "uri": "http://gareus.org/oss/lv2/dpl#stereo",
+   "why": "resp -509"
+  }
+ ],
+ "jack_clients": 46,
+ "memory": {
+  "zynthian": {
+   "processes": 1,
+   "rss_mb": 331.0,
+   "pss_mb": 220.1
+  },
+  "jackd": {
+   "processes": 1,
+   "rss_mb": 129.3,
+   "pss_mb": 26.2
+  },
+  "plugin-hostd": {
+   "processes": 1,
+   "rss_mb": 3.6,
+   "pss_mb": 2.2
+  },
+  "workers": {
+   "processes": 16,
+   "rss_mb": 1907.2,
+   "pss_mb": 222.0
+  },
+  "jalv": {
+   "processes": 0,
+   "rss_mb": 0.0,
+   "pss_mb": 0.0
+  }
+ },
+ "rss_total_mb": 2371.1,
+ "pss_total_mb": 470.5,
+ "ui": {
+  "zynthian_pid": 73837,
+  "state": "S",
+  "capture": true
+ },
+ "capture": "l16-grouped-zynthian.png",
+ "modui_active": "inactive",
+ "top_consumers": [
+  {
+   "pid": 73837,
+   "name": "python3",
+   "cmd": "python3 ./zynthian_main.py",
+   "cpu_pct_of_core": 7.6
+  },
+  {
+   "pid": 87394,
+   "name": "omx-clap-host",
+   "cmd": "omx-clap-host -n -p 57275 -f 35643",
+   "cpu_pct_of_core": 5.9
+  },
+  {
+   "pid": 87425,
+   "name": "omx-clap-host",
+   "cmd": "omx-clap-host -n -p 52373 -f 57505",
+   "cpu_pct_of_core": 5.7
+  },
+  {
+   "pid": 87264,
+   "name": "omx-clap-host",
+   "cmd": "omx-clap-host -n -p 41971 -f 47035",
+   "cpu_pct_of_core": 5.3
+  },
+  {
+   "pid": 87749,
+   "name": "omx-clap-host",
+   "cmd": "omx-clap-host -n -p 39191 -f 44077",
+   "cpu_pct_of_core": 5.3
+  },
+  {
+   "pid": 87326,
+   "name": "omx-clap-host",
+   "cmd": "omx-clap-host -n -p 40327 -f 44533",
+   "cpu_pct_of_core": 5.3
+  },
+  {
+   "pid": 87363,
+   "name": "omx-clap-host",
+   "cmd": "omx-clap-host -n -p 42855 -f 39127",
+   "cpu_pct_of_core": 5.0
+  },
+  {
+   "pid": 87295,
+   "name": "omx-clap-host",
+   "cmd": "omx-clap-host -n -p 43321 -f 39845",
+   "cpu_pct_of_core": 4.6
+  }
+ ],
+ "mhz_mean": 1500,
+ "xruns_meter": 0,
+ "xruns_zynthian": 0,
+ "cpu_core_mean": {
+  "cpu0": 21.8,
+  "cpu1": 20.3,
+  "cpu2": 21.5,
+  "cpu3": 20.6
+ },
+ "cpu_busiest_core": 21.8,
+ "cpu_mean": 21.0,
+ "cpu_busiest_second": 28.1,
+ "cpu_groups_pct_of_core": {
+  "zynthian": 7.6,
+  "jackd": 3.8,
+  "plugin-hostd": 0.3,
+  "workers": 70.3,
+  "jalv": 0.0
+ },
+ "tick_cpu_busiest_core": 25.7,
+ "tick_cpu_mean": 25.2,
+ "jack_dsp_mean": 19.54,
+ "jack_dsp_max": 20.5,
+ "mem_avail_min_mb": 2911.8,
+ "limit": null,
+ "teardown_clean": true,
+ "jalv_killed_after_sigterm": 0
+}

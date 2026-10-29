@@ -1,0 +1,24 @@
+Plugin:       http://calf.sourceforge.net/plugins/Saturator
+JACK Name:    jalv_03_1
+Sample rate:  48000 Hz
+Block length: 256 frames
+MIDI buffers: 32768 bytes
+Comm buffers: 524288 bytes
+Update rate:  30.0 Hz
+Scale factor: 1.0
+
+#CTR> 13#blend=10.000000
+#CTR> 0#bypass=0.000000
+#CTR> 12#drive=5.000000
+#CTR> 17#hp_post_freq=10.000000
+#CTR> 15#hp_pre_freq=10.000000
+#CTR> 1#level_in=1.000000
+#CTR> 2#level_out=1.000000
+#CTR> 16#lp_post_freq=20000.000000
+#CTR> 14#lp_pre_freq=20000.000000
+#CTR> 11#mix=1.000000
+#CTR> 18#p_freq=2000.000000
+#CTR> 19#p_level=1.000000
+#CTR> 20#p_q=1.000000
+#CTR> 22#post=0.000000
+#CTR> 21#pre=0.000000
