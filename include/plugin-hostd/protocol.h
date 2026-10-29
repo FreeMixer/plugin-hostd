@@ -138,7 +138,7 @@
 
 #define PHD_PROBE_FORMAT "plugin-hostd.probe-output"
 #define PHD_PROBE_FORMAT_MAJOR 1
-#define PHD_PROBE_FORMAT_MINOR 1
+#define PHD_PROBE_FORMAT_MINOR 2
 #define PHD_PROBE_PROTOCOL_NAME "plugin-hostd.probe-protocol"
 #define PHD_PROBE_PROTOCOL_VERSION 1
 /* version 1 of the probe protocol runs an LV2 plugin as plugin-qualify's LV2 hosting pass does today
@@ -187,8 +187,9 @@
     X(FILES, "files", "RLIMIT_NOFILE") \
     X(FILE_SIZE, "file-size", "RLIMIT_FSIZE") \
     X(CORE_DUMP, "core-dump", "RLIMIT_CORE 0") \
-    X(RT_PRIORITY, "rt-priority", "RLIMIT_RTPRIO 0") \
-    X(RT_TIME, "rt-time", "RLIMIT_RTTIME") \
+    X(RT_PRIORITY, "rt-priority", "RLIMIT_RTPRIO: the priority the measurement was granted, 0 without a grant") \
+    X(RT_TIME, "rt-time", "RLIMIT_RTTIME: the wall budget, past which the kernel kills a real-time thread that never blocks") \
+    X(MEMORY_LOCK, "memory-lock", "RLIMIT_MEMLOCK: what the measured child may lock, the hard limit the runner was started with") \
     X(CPUS, "cpus", "sched_setaffinity") \
     X(NICE, "nice", "the child's nice value") \
     X(NO_NEW_PRIVS, "no-new-privs", "PR_SET_NO_NEW_PRIVS") \
@@ -224,6 +225,23 @@
     X(TURBO_UNKNOWN, "probe.profile.turbo-unknown", "whether turbo is on could not be read") \
     X(SMT_ON, "probe.profile.smt-on", "SMT siblings are on") \
     X(NOT_PINNED, "probe.profile.not-pinned", "the child was not pinned to cpus")
+
+/* who granted the measurement its real-time scheduling, the document's run.realtime.grantedBy: X(id, name, meaning).
+ * The class itself (none, fifo) is omx-contract's RESOURCE_THREAD_SCHEDULING. */
+#define PHD_PROBE_RT_GRANTS(X) \
+    X(CAP, "cap", "the runner holds CAP_SYS_NICE: the highest SCHED_FIFO priority") \
+    X(RLIMIT, "rlimit", "the RLIMIT_RTPRIO hard limit the runner was started with: the highest priority it allows") \
+    X(NONE, "none", "no grant, or the kernel refused it: the measurement ran SCHED_OTHER, and the reason says why")
+
+/* the scheduling policy the kernel reports for the measured child after its exec, run.realtime.observed.policy:
+ * X(id, name, meaning), id the SCHED_<id> of sched_getscheduler */
+#define PHD_PROBE_SCHED_POLICIES(X) \
+    X(OTHER, "other", "SCHED_OTHER") \
+    X(BATCH, "batch", "SCHED_BATCH") \
+    X(IDLE, "idle", "SCHED_IDLE") \
+    X(FIFO, "fifo", "SCHED_FIFO") \
+    X(RR, "rr", "SCHED_RR") \
+    X(DEADLINE, "deadline", "SCHED_DEADLINE")
 
 /* the steps of the protocol, in the order they are run: X(id, name, meaning) */
 #define PHD_PROBE_STEPS(X) \

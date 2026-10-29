@@ -83,7 +83,10 @@ jobs:
     container:
       image: fedora:44
       # the jack test runs the daemon and its workers in a user, net, pid and mount namespace of their own
-      options: --cap-add SYS_ADMIN --security-opt seccomp=unconfined --security-opt apparmor=unconfined --security-opt systempaths=unconfined
+      # CAP_SYS_RESOURCE lets the probe test raise RLIMIT_RTPRIO and RLIMIT_MEMLOCK as LimitRTPRIO= and LimitMEMLOCK= do,
+      # so it measures at the highest SCHED_FIFO priority with its memory locked. Not CAP_SYS_NICE: the worker_env test
+      # needs a daemon that cannot lower a nice
+      options: --cap-add SYS_ADMIN --cap-add SYS_RESOURCE --security-opt seccomp=unconfined --security-opt apparmor=unconfined --security-opt systempaths=unconfined
     steps:
       - name: Install the build tools
         run: |
@@ -111,6 +114,9 @@ jobs:
       # satisfies its schema, a C consumer compiles against the installed header, and changing the declaration in a
       # scratch copy moves the daemon and the docs
       - name: Test the daemon against workers that die on cue, and the declared protocol
+        # the container holds the grant: a real-time or memory-lock arm of the probe test that cannot be taken fails
+        env:
+          PROBE_REQUIRE_REALTIME: "1"
         run: make test
 
       # the package as a reader of the installed contract directory reads it: install-contract into a staging directory,
@@ -261,7 +267,7 @@ jobs:
             rpm -qlp "$rpm"
             rpm -qp --qf '[%{FILEMODES:perms} %{FILENAMES}\n]' "$rpm" | grep -v -e '^d' -e '/\.build-id/' | cut -d' ' -f2 | sort > files.txt
             printf '%s\n' /usr/bin/plugin-hostd /usr/bin/plugin-hostd-probe /usr/share/man/man1/plugin-hostd.1.gz \
-              /usr/share/man/man1/plugin-hostd-probe.1.gz \
+              /usr/share/man/man1/plugin-hostd-probe.1.gz /usr/libexec/plugin-hostd/probe-lock.so \
               /usr/share/doc/plugin-hostd/README.md /usr/share/licenses/plugin-hostd/COPYING \
               /usr/share/plugin-hostd/protocol.json /usr/share/plugin-hostd/mod-host.json | sort > expected.txt
             diff -u expected.txt files.txt

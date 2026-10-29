@@ -74,6 +74,38 @@ static void report_limits(const char *file)
     fprintf(f, ",\"core\":%llu", (unsigned long long)r.rlim_cur);
     getrlimit(RLIMIT_RTPRIO, &r);
     fprintf(f, ",\"rtprio\":%llu", (unsigned long long)r.rlim_cur);
+    getrlimit(RLIMIT_RTTIME, &r);
+    fprintf(f, ",\"rttime\":%llu", (unsigned long long)r.rlim_cur);
+    getrlimit(RLIMIT_MEMLOCK, &r);
+    fprintf(f, ",\"memlock\":%llu", (unsigned long long)r.rlim_cur);
+    {
+        /* the scheduler this process runs in, as the kernel says, and the pages it holds locked */
+        struct sched_param sp = { 0 };
+        int policy = sched_getscheduler(0) & ~0x40000000;
+        long vmlck = -1;
+        char line[256];
+        FILE *st = fopen("/proc/self/status", "r");
+        char nice_sets[64] = "";
+
+        sched_getparam(0, &sp);
+        while (st && fgets(line, sizeof(line), st))
+            if (!strncmp(line, "VmLck:", 6))
+                vmlck = atol(line + 6);
+            else if (!strncmp(line, "Cap", 3) && strlen(line) > 7 && line[6] == ':' &&
+                     strtoull(line + 7, NULL, 16) >> 23 & 1) /* CAP_SYS_NICE */
+            {
+                /* the sets that hold it: Inh, Prm, Eff, Bnd, Amb */
+                size_t used = strlen(nice_sets);
+
+                snprintf(nice_sets + used, sizeof(nice_sets) - used, "%s%.3s", used ? "," : "", line + 3);
+            }
+        if (st)
+            fclose(st);
+        fprintf(f, ",\"cap_sys_nice\":\"%s\"", nice_sets);
+        fprintf(f, ",\"policy\":\"%s\",\"priority\":%d,\"vmlck_kb\":%ld",
+                policy == SCHED_FIFO ? "fifo" : policy == SCHED_RR ? "rr" : policy == SCHED_OTHER ? "other" : "else",
+                sp.sched_priority, vmlck);
+    }
     prctl(PR_GET_PDEATHSIG, &sig);
     fprintf(f, ",\"no_new_privs\":%d,\"pdeathsig\":%d,\"own_group\":%s", prctl(PR_GET_NO_NEW_PRIVS, 0, 0, 0, 0), sig,
             getpgrp() == getpid() ? "true" : "false");

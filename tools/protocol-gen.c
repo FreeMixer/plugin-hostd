@@ -683,6 +683,16 @@ static const char *const PROBE_STEPS[] = {
     PHD_PROBE_STEPS(X)
 #undef X
 };
+static const char *const PROBE_RT_GRANTS[] = {
+#define X(id, code, meaning) code,
+    PHD_PROBE_RT_GRANTS(X)
+#undef X
+};
+static const char *const PROBE_SCHED_POLICIES[] = {
+#define X(id, code, meaning) code,
+    PHD_PROBE_SCHED_POLICIES(X)
+#undef X
+};
 
 /* the words of the omx-contract items the probe output shares with the other readers of a measurement: the contract
  * declares them once, and the schema takes them from it, in its order */
@@ -717,6 +727,8 @@ static int probe_schema(const char *path)
         PROBE_LIST("PHD_PROBE_PROFILE_CODES", PROBE_PROFILE_CODES),
         PROBE_LIST("PHD_PROBE_STEPS", PROBE_STEPS),
         PROBE_LIST("PHD_PROBE_REASONS", PROBE_REASONS),
+        PROBE_LIST("PHD_PROBE_RT_GRANTS", PROBE_RT_GRANTS),
+        PROBE_LIST("PHD_PROBE_SCHED_POLICIES", PROBE_SCHED_POLICIES),
         VOCAB_LIST(MEASUREMENT_LATENCY_METHODS),
         VOCAB_LIST(MEASUREMENT_VOICE_BASES),
         VOCAB_LIST(MACHINE_CORE_BANDS),

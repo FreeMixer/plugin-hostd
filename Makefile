@@ -18,6 +18,7 @@ LV2_ALLOC_TEST = tests/lv2-alloc-test
 VERBS_ALLOC_TEST = tests/verbs-alloc-test
 TRANSFORMS_TEST = tests/transforms-test
 PROBE = plugin-hostd-probe
+PROBE_LOCK = plugin-hostd-probe-lock.so
 
 PKG_CONFIG ?= pkg-config
 
@@ -73,7 +74,7 @@ RENDERED = include/plugin-hostd/plugin_hostd_host_verbs.h include/plugin-hostd/p
            include/plugin-hostd/omx_clap_core_host_verbs.h include/plugin-hostd/omx_clap_core_vocabulary.h
 
 # default build
-all: $(PROG) $(PROBE)
+all: $(PROG) $(PROBE) $(PROBE_LOCK)
 
 $(PROG): $(OBJ) $(PROTOCOL_LIB)
 	$(CC) $(OBJ) $(PROTOCOL_LIBS) $(LDFLAGS) -pthread -lm -o $@
@@ -81,9 +82,15 @@ $(PROG): $(OBJ) $(PROTOCOL_LIB)
 # the probe runner: it loads no plugin and links nothing of the daemon or of mod-host
 # describe reads the installed table of a format by default (docs/formats.md)
 PROBE_SRC = src/probe.c src/json.c src/describe.c src/transforms.c src/machine.c
-$(PROBE): $(PROBE_SRC) src/json.h src/describe.h src/transforms.h src/machine.h include/plugin-hostd/protocol.h $(RENDERED) include/plugin-hostd/pin.h
+$(PROBE): $(PROBE_SRC) src/json.h src/describe.h src/transforms.h src/machine.h src/probe_lock.h include/plugin-hostd/protocol.h $(RENDERED) include/plugin-hostd/pin.h
 	$(CC) -Iinclude -Isrc $(CONTRACT_CFLAGS) $(CFLAGS) -D_GNU_SOURCE -DPROBE_VERSION='"$(VERSION)"' \
-	  -DPROBE_CONTRACTDIR='"$(CONTRACTDIR)"' -DPROBE_CONTRACT_MAJOR='"$(CONTRACT_SCHEMA_MAJOR)"' -o $@ $(PROBE_SRC) -lm
+	  -DPROBE_CONTRACTDIR='"$(CONTRACTDIR)"' -DPROBE_CONTRACT_MAJOR='"$(CONTRACT_SCHEMA_MAJOR)"' \
+	  -DPROBE_LOCK_PRELOAD='"$(LIBEXECDIR)/plugin-hostd/probe-lock.so"' -o $@ $(PROBE_SRC) -lm
+
+# the probe's lock preload (src/probe_lock.c): preloaded into the measured child only, it locks the child's memory before
+# its main; installed where the runner looks for it by default, $(LIBEXECDIR)/plugin-hostd/probe-lock.so
+$(PROBE_LOCK): src/probe_lock.c src/probe_lock.h
+	$(CC) $(CFLAGS) -shared -o $@ src/probe_lock.c $(LDFLAGS)
 
 ifneq ($(PROTOCOL_LIB),)
 $(PROTOCOL_LIB):
@@ -112,10 +119,12 @@ DATADIR = $(PREFIX)/share
 INCLUDEDIR = $(PREFIX)/include
 LIBEXECDIR = $(PREFIX)/libexec
 
-install: $(PROG) install_man install_protocol install_tests
+install: $(PROG) $(PROBE) $(PROBE_LOCK) install_man install_protocol install_tests
 	install -d $(DESTDIR)$(BINDIR)
 	install -m 755 $(PROG) $(DESTDIR)$(BINDIR)
 	install -m 755 $(PROBE) $(DESTDIR)$(BINDIR)
+	install -d $(DESTDIR)$(LIBEXECDIR)/plugin-hostd
+	install -m 644 $(PROBE_LOCK) $(DESTDIR)$(LIBEXECDIR)/plugin-hostd/probe-lock.so
 
 # the declared protocol: the JSON for readers that are not C, which the package carries; the header, its pkg-config
 # file and the schema of the JSON, which the development package carries; and the pins_dir other packages drop their
@@ -279,7 +288,7 @@ fuzz-corpus-check:
 
 # clean rule
 clean:
-	@rm -f src/*.o $(PROG) $(PROBE) tests/probe-child tests/lv2-probe-child tests/rt_interpose.so $(FAKE) $(PIN_TEST) $(HISTORY_TEST) $(PROC_TEST) $(PLANNER_TEST) $(PLACEMENT_TEST) $(QUALCOST_TEST) $(RELAY_TEST) tests/relay-test-relay.o $(FORMAT_TEST) $(GESTURE_ALLOC_TEST) $(LV2_ALLOC_TEST) tests/lv2-alloc-lv2.o $(VERBS_ALLOC_TEST) $(TRANSFORMS_TEST) $(GEN) tests/stress.clap tests/jack_levels tests/host_scenarios $(LV2_FIXTURE)
+	@rm -f src/*.o $(PROG) $(PROBE) $(PROBE_LOCK) tests/probe-child tests/lv2-probe-child tests/rt_interpose.so tests/sched-refuse.so $(FAKE) $(PIN_TEST) $(HISTORY_TEST) $(PROC_TEST) $(PLANNER_TEST) $(QUALCOST_TEST) $(RELAY_TEST) tests/relay-test-relay.o $(FORMAT_TEST) $(GESTURE_ALLOC_TEST) $(LV2_ALLOC_TEST) tests/lv2-alloc-lv2.o $(VERBS_ALLOC_TEST) $(TRANSFORMS_TEST) $(GEN) tests/stress.clap tests/jack_levels tests/host_scenarios $(LV2_FIXTURE) $(PLACEMENT_TEST)
 	@rm -rf build
 
 # the daemon against workers that are not plugin hosts at all (tests/fake-host speaks the same protocol and can be
@@ -561,7 +570,7 @@ test-vocabulary:
 
 # the probe runner over the stress plugin: crash, hang and a process left behind each give the named outcome in a document
 # that validates
-test-probe: $(PROBE) tests/probe-child tests/stress.clap tests/lv2-probe-child tests/rt_interpose.so $(LV2_FIXTURE)
+test-probe: $(PROBE) $(PROBE_LOCK) tests/probe-child tests/stress.clap tests/lv2-probe-child tests/rt_interpose.so tests/sched-refuse.so $(LV2_FIXTURE)
 	python3 tests/probe_test.py
 
 # lv2_measure's arguments and lines, with no lilv and no interposer: the LV2 tests of the runner load the fixture with it
@@ -569,6 +578,10 @@ tests/lv2-probe-child: tests/lv2_probe_child.c include/plugin-hostd/pin.h
 	$(CC) -Iinclude $(shell $(PKG_CONFIG) --cflags lv2) $(CFLAGS) -Wall -Wextra -Werror -o $@ $< -ldl
 
 tests/rt_interpose.so: tests/rt_interpose_stub.c
+	$(CC) $(CFLAGS) -Werror -shared -o $@ $<
+
+# a sched_setscheduler that refuses, preloaded into the runner: the record says the kernel refused, never the grant
+tests/sched-refuse.so: tests/sched_refuse.c
 	$(CC) $(CFLAGS) -Werror -shared -o $@ $<
 
 tests/probe-child: tests/probe_child.c

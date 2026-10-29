@@ -104,8 +104,9 @@ sed -i 's,LDFLAGS += -s,LDFLAGS +=,g' Makefile
 
 %set_build_flags
 
-%make_build
-%make_build tests/fake-host
+# PREFIX at the build too: the probe compiles in where its lock preload is installed
+%make_build PREFIX=%{_prefix}
+%make_build PREFIX=%{_prefix} tests/fake-host
 
 %install
 
@@ -124,6 +125,9 @@ make test-daemon check-generated check-rendered
 %doc README.md
 %{_bindir}/plugin-hostd
 %{_bindir}/plugin-hostd-probe
+# the probe's lock preload, which the runner preloads into the measured child
+%dir %{_libexecdir}/plugin-hostd
+%{_libexecdir}/plugin-hostd/probe-lock.so
 %{_mandir}/man1/plugin-hostd.1*
 %{_mandir}/man1/plugin-hostd-probe.1*
 %{_datadir}/plugin-hostd/protocol.json

@@ -32,8 +32,14 @@
  * The child writes its facts on stdout (clap-qualify's one JSON line) and may write step records, one JSON object per
  * line, on file descriptor 3; its stderr goes to the log. Nothing a plugin prints can enter the document.
  *
+ * The measured child runs as the host runs the plugin: SCHED_FIFO at the highest priority the runner may give it (all
+ * of it with CAP_SYS_NICE, else its RLIMIT_RTPRIO hard limit), with its memory locked by the lock preload
+ * (src/probe_lock.c); the runner itself, its supervisor and its reading of the pipes stay SCHED_OTHER. The document
+ * says what the kernel reported after the exec (run.realtime) and whether the lock held (run.memoryLock).
+ *
  * Limits applied here, on every Linux: the wall clock with the tree kill, RLIMIT_CPU, RLIMIT_DATA, RLIMIT_NOFILE,
- * RLIMIT_FSIZE, RLIMIT_CORE 0, RLIMIT_RTPRIO 0, PR_SET_NO_NEW_PRIVS, PR_SET_PDEATHSIG and cpu affinity. A limit the
+ * RLIMIT_FSIZE, RLIMIT_CORE 0, RLIMIT_RTPRIO the granted priority (0 without one), RLIMIT_RTTIME the wall budget,
+ * RLIMIT_MEMLOCK its hard limit, PR_SET_NO_NEW_PRIVS, PR_SET_PDEATHSIG and cpu affinity. A limit the
  * set asks for and this version does not apply (cgroup tasks, namespaces, Landlock, seccomp) is listed in the
  * document, never skipped in silence; --require turns it into a refusal.
  *
@@ -60,11 +66,14 @@
 #include <sys/random.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
+#include <sys/syscall.h>
 #include <sys/types.h>
 #include <sys/utsname.h>
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
+
+#include <linux/capability.h>
 
 #include <omxcontract/omx_contract_limits.h>
 #include <omxcontract/omx_vocabulary.h>
@@ -82,6 +91,21 @@
 #include "describe.h"
 #include "json.h"
 #include "machine.h"
+#include "probe_lock.h"
+
+#ifndef SCHED_DEADLINE
+#define SCHED_DEADLINE 6
+#endif
+#ifndef SCHED_RESET_ON_FORK
+#define SCHED_RESET_ON_FORK 0x40000000
+#endif
+#ifndef CAP_SYS_NICE
+#define CAP_SYS_NICE 23
+#endif
+#ifndef PROBE_LOCK_PRELOAD
+/* the Makefile gives it from LIBEXECDIR, as installed */
+#define PROBE_LOCK_PRELOAD "/usr/libexec/plugin-hostd/probe-lock.so"
+#endif
 
 /* ---------------------------------------------------------------- options */
 
@@ -114,6 +138,10 @@ PHD_PROBE_OUTCOMES(X)
 
 #define X(id, code, meaning) static const char LIMIT_##id[] __attribute__((unused)) = code;
 PHD_PROBE_LIMIT_CODES(X)
+#undef X
+
+#define X(id, name, meaning) static const char GRANT_##id[] __attribute__((unused)) = name;
+PHD_PROBE_RT_GRANTS(X)
 #undef X
 
 static int outcome_known(const char *code)
@@ -594,6 +622,206 @@ static void reap_all(long ms)
     }
 }
 
+/* ---------------------------------------------------------------- real time and the memory lock */
+
+/* The measurement's real-time scheduling: chosen in the runner before any child, taken in the measured child before its
+ * exec (the policy survives the exec, so every thread the prober starts inherits it), and read back from the kernel. */
+typedef struct
+{
+    int requested;          /* sched_get_priority_max(SCHED_FIFO): what the probe asks for */
+    int chosen;             /* the priority the child asks the kernel for; 0 when there is no grant */
+    const char *granted_by; /* GRANT_CAP or GRANT_RLIMIT when chosen, else GRANT_NONE */
+    long bound;             /* the RLIMIT_RTPRIO the measured child keeps */
+    char reason[200];       /* why there is no grant */
+    int ran;                /* a measured child was started */
+    int refused;            /* its sched_setscheduler failed, with this errno */
+    int observed;           /* the kernel answered sched_getscheduler for it after the exec */
+    int policy, priority;   /* and what it said */
+} realtime_t;
+
+static realtime_t g_rt;
+
+/* The memory lock: the preload named by --lock-preload, when the bound lets the lock cover the memory limit */
+typedef struct
+{
+    int asked;           /* the preload was given to the measured child */
+    rlim_t bound;        /* the RLIMIT_MEMLOCK the measured child gets: the hard limit, RLIM_INFINITY when unbounded */
+    int unbounded;       /* the hard limit is RLIM_INFINITY */
+    int reported;        /* the preload wrote its report */
+    probe_lock_report_t report;
+    char reason[PATH_MAX + 128];
+} memlock_t;
+
+static memlock_t g_lock;
+
+/* the lock preload, as --lock-preload names it */
+static const char *g_lock_preload = PROBE_LOCK_PRELOAD;
+
+/* whether this process is in the initial user namespace: its uid_map is the identity map of every uid. In another one
+ * (rootless podman, unshare -r, PrivateUsers=yes) CapEff can show a capability the kernel does not honour for
+ * sched_setscheduler, which checks it against the initial namespace */
+static int in_initial_user_namespace(void)
+{
+    FILE *f = fopen("/proc/self/uid_map", "r");
+    unsigned long long inside, outside, count;
+    int n, lines = 0, identity = 0;
+
+    if (f == NULL)
+        return 1; /* a kernel without user namespaces has only the initial one */
+    while ((n = fscanf(f, "%llu %llu %llu", &inside, &outside, &count)) == 3)
+    {
+        lines++;
+        identity = inside == 0 && outside == 0 && count == 4294967295ULL;
+    }
+    fclose(f);
+    return lines == 1 && identity;
+}
+
+/* CAP_SYS_NICE as the kernel honours it for SCHED_FIFO: in the effective set, in the initial user namespace */
+static int has_cap_sys_nice(void)
+{
+    FILE *f = fopen("/proc/self/status", "r");
+    char line[256];
+    unsigned long long eff = 0;
+
+    if (f == NULL)
+        return 0;
+    while (fgets(line, sizeof(line), f))
+        if (!strncmp(line, "CapEff:", 7))
+            eff = strtoull(line + 7, NULL, 16);
+    fclose(f);
+    return (int)(eff >> CAP_SYS_NICE & 1) && in_initial_user_namespace();
+}
+
+/* what the measurement may take: all of SCHED_FIFO with CAP_SYS_NICE, else the RLIMIT_RTPRIO hard limit, else none
+ * (this version does not ask rtkit) */
+static void realtime_choose(void)
+{
+    struct rlimit r = { 0, 0 };
+    long hard;
+
+    memset(&g_rt, 0, sizeof(g_rt));
+    g_rt.requested = sched_get_priority_max(SCHED_FIFO);
+    getrlimit(RLIMIT_RTPRIO, &r);
+    hard = r.rlim_max == RLIM_INFINITY || r.rlim_max > (rlim_t)g_rt.requested ? g_rt.requested : (long)r.rlim_max;
+    if (has_cap_sys_nice())
+    {
+        g_rt.chosen = g_rt.requested;
+        g_rt.granted_by = GRANT_CAP;
+        /* CAP_SYS_NICE does not raise an rlimit: the bound is the hard limit, at most the priority */
+        g_rt.bound = hard;
+    }
+    else if (hard >= 1)
+    {
+        g_rt.chosen = (int)hard;
+        g_rt.granted_by = GRANT_RLIMIT;
+        g_rt.bound = hard;
+    }
+    else
+    {
+        g_rt.granted_by = GRANT_NONE;
+        snprintf(g_rt.reason, sizeof(g_rt.reason), "no CAP_SYS_NICE and an RLIMIT_RTPRIO hard limit of 0; this version "
+                                                   "does not ask rtkit");
+    }
+}
+
+/* whether the measured child gets the lock preload: only when the bound covers the memory limit, since a lock past
+ * RLIMIT_MEMLOCK would fail the plugin's own allocations before the memory limit does */
+static void memlock_choose(const options_t *o)
+{
+    struct rlimit r = { 0, 0 };
+
+    memset(&g_lock, 0, sizeof(g_lock));
+    getrlimit(RLIMIT_MEMLOCK, &r);
+    g_lock.unbounded = r.rlim_max == RLIM_INFINITY;
+    /* the hard limit itself, not the memory limit: a lock covers the mapped files and the thread stacks too, which
+     * RLIMIT_DATA does not count, so a bound of the memory limit could fail an allocation the memory limit lets through */
+    g_lock.bound = r.rlim_max;
+    /* a missing preload first: it is the reason on every machine, whatever its bound */
+    if (access(g_lock_preload, R_OK) != 0)
+        snprintf(g_lock.reason, sizeof(g_lock.reason), "no lock preload at %s", g_lock_preload);
+    else if (!g_lock.unbounded && r.rlim_max < (rlim_t)o->data_bytes)
+        snprintf(g_lock.reason, sizeof(g_lock.reason), "RLIMIT_MEMLOCK is %llu bytes, below the memory limit of %lld: a "
+                 "lock would fail the plugin's own allocations first", (unsigned long long)r.rlim_max, o->data_bytes);
+    else
+        g_lock.asked = 1;
+}
+
+static const char *policy_name(int policy)
+{
+    switch (policy)
+    {
+#define X(id, name, meaning) case SCHED_##id: return name;
+        PHD_PROBE_SCHED_POLICIES(X)
+#undef X
+    }
+    return NULL;
+}
+
+/* run.realtime: the class is what the kernel said after the exec, never what was asked for */
+static int realtime_fifo(void)
+{
+    return g_rt.observed && g_rt.policy == SCHED_FIFO && g_rt.priority >= 1;
+}
+
+static void put_realtime(sb_t *b)
+{
+    int fifo = realtime_fifo();
+
+    sb_printf(b, ",\n    \"realtime\": {\"class\": \"%s\", \"priority\": %d, \"requested\": %d, \"grantedBy\": \"%s\"",
+              fifo ? OMX_RESOURCE_THREAD_SCHEDULING_FIFO : OMX_RESOURCE_THREAD_SCHEDULING_NONE, fifo ? g_rt.priority : 0,
+              g_rt.requested, fifo ? g_rt.granted_by : GRANT_NONE);
+    if (!fifo)
+    {
+        char why[320];
+
+        if (!g_rt.ran)
+            snprintf(why, sizeof(why), "no measured child was started");
+        else if (g_rt.reason[0])
+            snprintf(why, sizeof(why), "%s", g_rt.reason);
+        else if (g_rt.refused)
+            snprintf(why, sizeof(why), "the kernel refused SCHED_FIFO %d (%s): %s", g_rt.chosen, g_rt.granted_by, strerror(g_rt.refused));
+        else if (!g_rt.observed)
+            snprintf(why, sizeof(why), "the kernel could not be asked for the measured child's scheduler");
+        else
+            snprintf(why, sizeof(why), "the kernel reports the measured child %s at %d", policy_name(g_rt.policy) ? policy_name(g_rt.policy) : "in an unknown policy",
+                     g_rt.priority);
+        sb_printf(b, ", \"reason\": ");
+        sb_str(b, why);
+    }
+    if (g_rt.observed && policy_name(g_rt.policy))
+        sb_printf(b, ", \"observed\": {\"policy\": \"%s\", \"priority\": %d}", policy_name(g_rt.policy), g_rt.priority);
+    sb_printf(b, "}");
+}
+
+/* run.memoryLock */
+static void put_memory_lock(sb_t *b)
+{
+    int locked = g_lock.asked && g_lock.reported && g_lock.report.locked;
+
+    sb_printf(b, ",\n    \"memoryLock\": {\"locked\": %s, \"limitBytes\": ", locked ? "true" : "false");
+    if (g_lock.unbounded)
+        sb_printf(b, "null");
+    else
+        sb_printf(b, "%llu", (unsigned long long)g_lock.bound);
+    if (!locked)
+    {
+        char why[PATH_MAX + 160];
+
+        if (!g_rt.ran)
+            snprintf(why, sizeof(why), "no measured child was started");
+        else if (!g_lock.asked)
+            snprintf(why, sizeof(why), "%s", g_lock.reason);
+        else if (!g_lock.reported)
+            snprintf(why, sizeof(why), "the lock preload %s did not report from the measured child", g_lock_preload);
+        else
+            snprintf(why, sizeof(why), "mlockall(MCL_CURRENT | MCL_FUTURE): %s", strerror(g_lock.report.error));
+        sb_printf(b, ", \"reason\": ");
+        sb_str(b, why);
+    }
+    sb_printf(b, "}");
+}
+
 /* ---------------------------------------------------------------- limits */
 
 static const char *signal_name(int sig)
@@ -625,8 +853,30 @@ static void put_rlimit(int resource, rlim_t soft, rlim_t hard)
         _exit(120);
 }
 
-/* in the child, before the exec: the limits of the set; exits 120 when one cannot be applied */
-static void apply_limits(const options_t *o, const cpu_set_t *pinned, int pin_option)
+/* In the child, once its priority is taken: CAP_SYS_NICE goes from every set, and every ambient capability goes, so the
+ * plugin cannot raise itself past the RLIMIT_RTPRIO bound. Out of the bounding set too where the runner may drop it,
+ * since a process running as root regains its permitted set from it at the exec. Exits 120 when it cannot. */
+static void drop_cap_sys_nice(void)
+{
+    struct __user_cap_header_struct h = { _LINUX_CAPABILITY_VERSION_3, 0 };
+    struct __user_cap_data_struct d[_LINUX_CAPABILITY_U32S_3];
+    unsigned bit = 1u << CAP_SYS_NICE;
+
+    if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_CLEAR_ALL, 0, 0, 0) != 0 && errno != EINVAL)
+        _exit(120);
+    prctl(PR_CAPBSET_DROP, CAP_SYS_NICE, 0, 0, 0);
+    if (syscall(SYS_capget, &h, d) != 0)
+        _exit(120);
+    d[0].inheritable &= ~bit;
+    d[0].permitted &= ~bit;
+    d[0].effective &= ~bit;
+    if (syscall(SYS_capset, &h, d) != 0)
+        _exit(120);
+}
+
+/* in the child, before the exec: the limits of the set; exits 120 when one cannot be applied. A measured child also takes
+ * its real-time priority, last, and writes sched_setscheduler's errno (0 when it took it) on rt_fd */
+static void apply_limits(const options_t *o, const cpu_set_t *pinned, int pin_option, int measuring, int rt_fd)
 {
     setpgid(0, 0);
     prctl(PR_SET_PDEATHSIG, SIGKILL);
@@ -637,9 +887,36 @@ static void apply_limits(const options_t *o, const cpu_set_t *pinned, int pin_op
     put_rlimit(RLIMIT_NOFILE, (rlim_t)o->files, (rlim_t)o->files);
     put_rlimit(RLIMIT_FSIZE, (rlim_t)o->file_bytes, (rlim_t)o->file_bytes);
     put_rlimit(RLIMIT_CORE, 0, 0);
-    put_rlimit(RLIMIT_RTPRIO, 0, 0);
+    /* the bounds of the measurement are the measured child's: a describe, a panel or an LV2 pin pass keeps what the runner
+     * was started with */
+    if (measuring)
+    {
+        put_rlimit(RLIMIT_RTTIME, (rlim_t)o->wall_s * 1000000, (rlim_t)o->wall_s * 1000000);
+        put_rlimit(RLIMIT_MEMLOCK, g_lock.bound, g_lock.bound);
+    }
     if (pin_option && sched_setaffinity(0, sizeof(*pinned), pinned) != 0)
         _exit(120);
+    if (measuring && g_rt.chosen > 0)
+    {
+        struct rlimit r;
+        struct sched_param sp = { .sched_priority = g_rt.chosen };
+        int e = 0;
+
+        /* the soft limit up to the hard one, which the grant is, before asking */
+        if (getrlimit(RLIMIT_RTPRIO, &r) == 0)
+        {
+            r.rlim_cur = r.rlim_max;
+            setrlimit(RLIMIT_RTPRIO, &r);
+        }
+        if (sched_setscheduler(0, SCHED_FIFO, &sp) != 0)
+            e = errno;
+        if (write(rt_fd, &e, sizeof(e)) < 0)
+            _exit(120);
+        put_rlimit(RLIMIT_RTPRIO, e ? 0 : (rlim_t)g_rt.bound, e ? 0 : (rlim_t)g_rt.bound);
+    }
+    else
+        put_rlimit(RLIMIT_RTPRIO, 0, 0);
+    drop_cap_sys_nice();
 }
 
 /* the limits of the default set, as the document lists them */
@@ -654,7 +931,12 @@ static int list_limits(const options_t *o, int pin_option, const char *cpus)
     note_applied("files", "rlimit", "count", o->files, 1, NULL);
     note_applied("file-size", "rlimit", "bytes", o->file_bytes, 1, NULL);
     note_applied("core-dump", "rlimit", "bytes", 0, 1, NULL);
-    note_applied("rt-priority", "rlimit", NULL, 0, 1, NULL);
+    note_applied("rt-priority", "rlimit", NULL, g_rt.chosen > 0 ? g_rt.bound : 0, 1, NULL);
+    note_applied("rt-time", "rlimit", "us", (long long)o->wall_s * 1000000, 1, NULL);
+    if (g_lock.unbounded)
+        note_applied("memory-lock", "rlimit", NULL, 0, 0, "unlimited");
+    else
+        note_applied("memory-lock", "rlimit", "bytes", (long long)g_lock.bound, 1, NULL);
     if (pin_option)
         note_applied("cpus", "affinity", NULL, 0, 0, cpus);
     note_applied("no-new-privs", "prctl", NULL, 0, 0, NULL);
@@ -676,6 +958,33 @@ static int list_limits(const options_t *o, int pin_option, const char *cpus)
     return 0;
 }
 
+/* --list-limits: the limits a run would apply on this machine, as the document lists them, one per line */
+static int print_limits(const options_t *o, const char *cpus)
+{
+    int i;
+
+    realtime_choose();
+    memlock_choose(o);
+    if (list_limits(o, cpus != NULL, cpus) != 0)
+        return 2;
+    for (i = 0; i < g_napplied; i++)
+    {
+        const applied_t *ap = &g_applied[i];
+
+        printf("%s\t%s", ap->name, ap->by);
+        if (ap->has_value)
+            printf("\t%lld%s%s", ap->value, ap->unit ? " " : "", ap->unit ? ap->unit : "");
+        else if (ap->str[0])
+            printf("\t%s", ap->str);
+        printf("\n");
+    }
+    for (i = 0; i < g_nunavailable; i++)
+        printf("%s\tunavailable\t%s\n", g_unavailable[i].name, g_unavailable[i].code);
+    printf("realtime\t%s\t%d of %d%s%s\n", g_rt.granted_by, g_rt.chosen, g_rt.requested, g_rt.reason[0] ? "\t" : "", g_rt.reason);
+    printf("lock-preload\t%s%s%s\n", g_lock.asked ? "asked" : "not asked", g_lock.reason[0] ? "\t" : "", g_lock.reason);
+    return fflush(stdout) == 0 ? 0 : 2;
+}
+
 /* ---------------------------------------------------------------- the run */
 
 typedef struct
@@ -690,6 +999,7 @@ typedef struct
     int protocol_error;
     int records; /* step records the child wrote on fd 3: when it wrote any, its line adds none */
     long started_ms;
+    int measuring; /* the measured child: real-time priority, the lock preload, and the kernel asked after the exec */
 } run_t;
 
 static void set_nonblock(int fd)
@@ -810,11 +1120,16 @@ static void clap_argv(const options_t *o, char **argv)
 /* the child `argv` under the limits, until it ends or `deadline` (ms of now_ms) passes; its log is appended to */
 static void run_child(const options_t *o, char **argv, const cpu_set_t *pinned, int pin_option, run_t *r, long deadline)
 {
-    int out_pipe[2], steps_pipe[2], status_pipe[2];
+    int out_pipe[2], steps_pipe[2], status_pipe[2], rt_pipe[2] = { -1, -1 }, lock_pipe[2] = { -1, -1 };
     int devnull;
     int log_fd = -1;
 
     if (pipe2(out_pipe, O_CLOEXEC) || pipe2(steps_pipe, O_CLOEXEC) || pipe2(status_pipe, O_CLOEXEC))
+    {
+        perror("pipe");
+        exit(2);
+    }
+    if (r->measuring && (pipe2(rt_pipe, O_CLOEXEC) || pipe2(lock_pipe, O_CLOEXEC)))
     {
         perror("pipe");
         exit(2);
@@ -838,8 +1153,15 @@ static void run_child(const options_t *o, char **argv, const cpu_set_t *pinned, 
         if (steps_pipe[1] != 3)
             dup2(steps_pipe[1], 3);
         fcntl(3, F_SETFD, 0);
+        /* the lock preload's report, on the descriptor its variable names */
+        if (r->measuring && g_lock.asked)
+        {
+            if (lock_pipe[1] != PROBE_LOCK_FD)
+                dup2(lock_pipe[1], PROBE_LOCK_FD);
+            fcntl(PROBE_LOCK_FD, F_SETFD, 0);
+        }
         close(status_pipe[0]);
-        apply_limits(o, pinned, pin_option);
+        apply_limits(o, pinned, pin_option, r->measuring, rt_pipe[1]);
         execvp(o->child, argv);
         {
             int e = errno;
@@ -852,6 +1174,20 @@ static void run_child(const options_t *o, char **argv, const cpu_set_t *pinned, 
     close(out_pipe[1]);
     close(steps_pipe[1]);
     close(status_pipe[1]);
+    if (r->measuring)
+    {
+        int e;
+
+        close(rt_pipe[1]);
+        close(lock_pipe[1]);
+        /* read once the child is gone: whatever the preload wrote is there, and a descendant never makes it wait */
+        set_nonblock(lock_pipe[0]);
+        g_rt.ran = 1;
+        /* the child writes before its exec, or exits before it */
+        if (g_rt.chosen > 0 && read(rt_pipe[0], &e, sizeof(e)) == (ssize_t)sizeof(e))
+            g_rt.refused = e;
+        close(rt_pipe[0]);
+    }
     if (log_fd >= 0)
         close(log_fd);
     r->out_fd = out_pipe[0];
@@ -868,6 +1204,19 @@ static void run_child(const options_t *o, char **argv, const cpu_set_t *pinned, 
             exit(2);
         }
         close(status_pipe[0]);
+    }
+    /* the exec is done: what the kernel says the measured child runs at (a child already dead is not yet reaped) */
+    if (r->measuring)
+    {
+        struct sched_param sp;
+        int policy = sched_getscheduler(r->pid);
+
+        if (policy >= 0 && sched_getparam(r->pid, &sp) == 0)
+        {
+            g_rt.observed = 1;
+            g_rt.policy = policy & ~SCHED_RESET_ON_FORK;
+            g_rt.priority = sp.sched_priority;
+        }
     }
 
     while (!r->exited)
@@ -940,6 +1289,11 @@ static void run_child(const options_t *o, char **argv, const cpu_set_t *pinned, 
     pump(&r->out_fd, &r->out_eof, &r->out);
     close(r->out_fd);
     close(r->steps_fd);
+    if (r->measuring)
+    {
+        g_lock.reported = read(lock_pipe[0], &g_lock.report, sizeof(g_lock.report)) == (ssize_t)sizeof(g_lock.report);
+        close(lock_pipe[0]);
+    }
 }
 
 /* ---------------------------------------------------------------- the document */
@@ -1082,7 +1436,7 @@ static int interposer_beside(const char *child)
     return 0;
 }
 
-/* The measured child gets the interposer and nothing else: a preload the runner was started with (another malloc
+/* The measured child gets the interposer and the lock preload, and nothing else: a preload the runner was started with (another malloc
  * interposer would hide the allocations) is dropped for the measurement, the record says so, and the runner's own
  * LD_PRELOAD is put back after the child */
 static int g_had_preload;
@@ -1093,13 +1447,26 @@ static void preload_for_measurement(const char *child)
 {
     const char *was = getenv("LD_PRELOAD");
 
+    char both[PATH_MAX * 2 + 2];
+
     g_had_preload = was != NULL;
     snprintf(g_saved_preload, sizeof(g_saved_preload), "%s", was ? was : "");
     g_dropped_preload[0] = '\0';
-    if (interposer_beside(child))
-        setenv("LD_PRELOAD", g_interposer, 1);
+    interposer_beside(child);
+    /* beside the interposer, the runner's own lock preload, which interposes nothing */
+    snprintf(both, sizeof(both), "%s%s%s", g_interposer, g_interposer[0] && g_lock.asked ? ":" : "",
+             g_lock.asked ? g_lock_preload : "");
+    if (both[0])
+        setenv("LD_PRELOAD", both, 1);
     else
         unsetenv("LD_PRELOAD");
+    if (g_lock.asked)
+    {
+        char fd[16];
+
+        snprintf(fd, sizeof(fd), "%d", PROBE_LOCK_FD);
+        setenv(PROBE_LOCK_FD_ENV, fd, 1);
+    }
     /* what the runner had and the child does not get is dropped */
     if (g_saved_preload[0] && strcmp(g_saved_preload, g_interposer))
         snprintf(g_dropped_preload, sizeof(g_dropped_preload), "%s", g_saved_preload);
@@ -1107,6 +1474,7 @@ static void preload_for_measurement(const char *child)
 
 static void preload_restore(void)
 {
+    unsetenv(PROBE_LOCK_FD_ENV);
     if (g_had_preload)
         setenv("LD_PRELOAD", g_saved_preload, 1);
     else
@@ -1255,6 +1623,7 @@ static int run_lv2(const options_t *o, const char *uri, long rate, const cpu_set
     preload_for_measurement(o->child);
     setenv(PROBE_LV2_STIMULUS_ENV, PROBE_LV2_STIMULUS, 1);
     memset(r, 0, sizeof(*r));
+    r->measuring = 1;
     run_child(o, argv, pinned, pin_option, r, deadline);
     preload_restore();
     *measure = first_line(&r->out);
@@ -1642,7 +2011,7 @@ int main(int argc, char **argv)
     jnode_t *pin_line = NULL, *measure_line = NULL;
     const jnode_t *lv2_library = NULL;
     long lv2_rate = 0;
-    int child_set = 0;
+    int child_set = 0, list_only = 0;
     int complete = 1, fd;
 
     if (argc >= 2 && !strcmp(argv[1], "describe"))
@@ -1666,7 +2035,9 @@ int main(int argc, char **argv)
                         "  --reason WHY         add, rescan, binary-changed, on-request, auto-measure, reference, ci\n"
                         "  --wall-s N  --cpu-s N  --data-bytes N  --files N  --file-bytes N  --grace-ms N\n"
                         "  --cpus LIST          pin the child to these cpus (\"0-3,8\")\n"
-                        "  --require LIMIT      refuse to run unless the limit is applied (repeatable)\n", floor_rates());
+                        "  --require LIMIT      refuse to run unless the limit is applied (repeatable)\n"
+                        "  --lock-preload FILE  the library that locks the measured child's memory (default " PROBE_LOCK_PRELOAD ")\n"
+                        "  --list-limits        print the limits a run would apply here, one per line, and exit\n", floor_rates());
         return 2;
     }
     for (a = 2; a < argc; a++)
@@ -1676,6 +2047,11 @@ int main(int argc, char **argv)
 
         if (k[0] != '-')
             break;
+        if (!strcmp(k, "--list-limits"))
+        {
+            list_only = 1;
+            continue;
+        }
         if (v == NULL)
         {
             fprintf(stderr, RUNNER_NAME ": %s needs a value\n", k);
@@ -1710,6 +2086,7 @@ int main(int argc, char **argv)
         else if (!strcmp(k, "--file-bytes")) o.file_bytes = atoll(v);
         else if (!strcmp(k, "--grace-ms")) o.grace_ms = atol(v);
         else if (!strcmp(k, "--cpus")) o.cpus = v;
+        else if (!strcmp(k, "--lock-preload")) g_lock_preload = v;
         else if (!strcmp(k, "--require"))
         {
             if (o.nrequire == 16)
@@ -1722,6 +2099,8 @@ int main(int argc, char **argv)
             return 2;
         }
     }
+    if (list_only && o.quantum && o.wall_s > 0 && o.cpu_s > 0)
+        return print_limits(&o, o.cpus);
     if (a >= argc || o.quantum == 0 || o.wall_s <= 0 || o.cpu_s <= 0)
     {
         fprintf(stderr, RUNNER_NAME ": a plugin file and positive limits are needed\n");
@@ -1792,6 +2171,8 @@ int main(int argc, char **argv)
         pin_option = 1;
     }
     cpu_list_text(&pinned, cpus_text, sizeof(cpus_text));
+    realtime_choose();
+    memlock_choose(&o);
     if (list_limits(&o, pin_option, cpus_text) != 0)
         return 2;
 
@@ -1850,11 +2231,16 @@ int main(int argc, char **argv)
         clap_argv(&o, argv_child);
         /* the CLAP prober counts under the interposer beside it, as the LV2 measurement does */
         preload_for_measurement(o.child);
+        r.measuring = 1;
         run_child(&o, argv_child, &pinned, pin_option, &r, t0 + o.wall_s * 1000);
         preload_restore();
         run_outcome = child_end("lifecycle", &o, &r, &complete);
     }
     read_idle(g_idle_after, &g_nidle, &pinned);
+    if (g_rt.refused)
+        for (i = 0; i < g_napplied; i++)
+            if (!strcmp(g_applied[i].name, "rt-priority"))
+                g_applied[i].value = 0;
 
     /* the child's facts, when it printed them */
     if (!lv2_uri && r.out.len > 0)
@@ -1959,7 +2345,10 @@ int main(int argc, char **argv)
             sb_printf(&doc, ", \"droppedPreload\": ");
             sb_str(&doc, g_dropped_preload);
         }
-        sb_printf(&doc, "},\n    \"via\": \"runner\"\n  },\n  \"plugin\": {\"format\": \"%s\", \"id\": ", lv2_uri ? "lv2" : "clap");
+        sb_printf(&doc, "},\n    \"via\": \"runner\"");
+        put_realtime(&doc);
+        put_memory_lock(&doc);
+        sb_printf(&doc, "\n  },\n  \"plugin\": {\"format\": \"%s\", \"id\": ", lv2_uri ? "lv2" : "clap");
         if (lv2_uri)
         {
             const jnode_t *integ_lv2 = jget(pin_line, "integrity"), *files = jget(integ_lv2, "files");
@@ -2018,7 +2407,8 @@ int main(int argc, char **argv)
             }
             sb_printf(&doc, "]");
         }
-        sb_printf(&doc, ", \"realtime\": \"" OMX_RESOURCE_THREAD_SCHEDULING_NONE "\"},\n  \"limits\": {\"set\": ");
+        sb_printf(&doc, ", \"realtime\": \"%s\"},\n  \"limits\": {\"set\": ",
+                  realtime_fifo() ? OMX_RESOURCE_THREAD_SCHEDULING_FIFO : OMX_RESOURCE_THREAD_SCHEDULING_NONE);
         sb_str(&doc, o.set);
         sb_printf(&doc, ",\n    \"applied\": [");
         for (i = 0; i < g_napplied; i++)

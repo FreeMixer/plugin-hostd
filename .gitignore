@@ -15,6 +15,7 @@ tests/relay-test-relay.o
 tests/format-test
 tests/plugin-hostd-fixture.lv2/*.so
 /plugin-hostd-probe
+/plugin-hostd-probe-lock.so
 tests/probe-child
 tests/lv2-probe-child
 tests/rt_interpose.so
@@ -27,4 +28,5 @@ tests/transforms-test
 fuzz/findings/
 tests/planner-test
 tests/qualcost-test
+tests/sched-refuse.so
 tools/site/node_modules/
