@@ -104,8 +104,9 @@ sed -i 's,LDFLAGS += -s,LDFLAGS +=,g' Makefile
 
 %set_build_flags
 
-%make_build
-%make_build tests/fake-host
+# PREFIX at the build too: the probe compiles in where its lock preload is installed
+%make_build PREFIX=%{_prefix}
+%make_build PREFIX=%{_prefix} tests/fake-host
 
 %install
 

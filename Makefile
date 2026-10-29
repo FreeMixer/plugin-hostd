@@ -84,7 +84,8 @@ $(PROG): $(OBJ) $(PROTOCOL_LIB)
 PROBE_SRC = src/probe.c src/json.c src/describe.c src/transforms.c src/machine.c
 $(PROBE): $(PROBE_SRC) src/json.h src/describe.h src/transforms.h src/machine.h src/probe_lock.h include/plugin-hostd/protocol.h $(RENDERED) include/plugin-hostd/pin.h
 	$(CC) -Iinclude -Isrc $(CONTRACT_CFLAGS) $(CFLAGS) -D_GNU_SOURCE -DPROBE_VERSION='"$(VERSION)"' \
-	  -DPROBE_CONTRACTDIR='"$(CONTRACTDIR)"' -DPROBE_CONTRACT_MAJOR='"$(CONTRACT_SCHEMA_MAJOR)"' -o $@ $(PROBE_SRC) -lm
+	  -DPROBE_CONTRACTDIR='"$(CONTRACTDIR)"' -DPROBE_CONTRACT_MAJOR='"$(CONTRACT_SCHEMA_MAJOR)"' \
+	  -DPROBE_LOCK_PRELOAD='"$(LIBEXECDIR)/plugin-hostd/probe-lock.so"' -o $@ $(PROBE_SRC) -lm
 
 # the probe's lock preload (src/probe_lock.c): preloaded into the measured child only, it locks the child's memory before
 # its main; installed where the runner looks for it by default, $(LIBEXECDIR)/plugin-hostd/probe-lock.so

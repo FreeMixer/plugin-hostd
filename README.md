@@ -540,7 +540,7 @@ cpus the child may use (`--cpus`). `--list-limits` prints them as a run on this 
 
 The measured child runs as the host runs the plugin: SCHED_FIFO at the highest priority the runner may give it (all of it
 with `CAP_SYS_NICE`, else the `RLIMIT_RTPRIO` hard limit the runner was started with, else none), with its memory locked
-by the runner's lock preload (`/usr/libexec/plugin-hostd/probe-lock.so`, beside the interposer) when its `RLIMIT_MEMLOCK`
+by the runner's lock preload (`<libexecdir>/plugin-hostd/probe-lock.so`, `/usr/libexec` in the packages, beside the interposer) when its `RLIMIT_MEMLOCK`
 covers the memory limit. The runner itself and an LV2 plugin's pin pass stay SCHED_OTHER. `run.realtime` says what the
 kernel reported for the child after the exec (class, priority, the priority requested, who granted it, and why none),
 `offer.realtime` is that class, and `run.memoryLock` says whether the lock held. A service that runs the probe passes the

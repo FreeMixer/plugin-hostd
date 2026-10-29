@@ -103,6 +103,7 @@
 #define CAP_SYS_NICE 23
 #endif
 #ifndef PROBE_LOCK_PRELOAD
+/* the Makefile gives it from LIBEXECDIR, as installed */
 #define PROBE_LOCK_PRELOAD "/usr/libexec/plugin-hostd/probe-lock.so"
 #endif
 

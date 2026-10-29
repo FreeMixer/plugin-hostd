@@ -47,7 +47,7 @@ before its exec, so every thread the prober starts inherits it; the runner and t
 SCHED_OTHER. The sandbox bounds instead of forbidding: RLIMIT_RTPRIO is the granted priority (0 without one) and
 RLIMIT_RTTIME the wall budget, past which the kernel kills a real\-time thread that never blocks. The memory is locked by
 the lock preload,
-.IR /usr/libexec/plugin\-hostd/probe\-lock.so ,
+.IR <libexecdir>/plugin\-hostd/probe\-lock.so ,
 preloaded beside the interposer: mlockall of every current and future page, within the RLIMIT_MEMLOCK hard limit,
 and only when that covers the memory limit. The document says what the kernel reported for the
 child after the exec in
@@ -156,7 +156,7 @@ Refuse to run unless the limit is applied. May be repeated. A limit that is aske
 version is listed in the document, never skipped in silence.
 .TP
 .BI \-\-lock\-preload " file"
-The library that locks the measured child's memory. Default /usr/libexec/plugin\-hostd/probe\-lock.so.
+The library that locks the measured child's memory. Default <libexecdir>/plugin\-hostd/probe\-lock.so, as the build was given PREFIX (/usr/libexec in the packages); the usage names it.
 .TP
 .B \-\-list\-limits
 Print the limits a run would apply on this machine, one per line (name, mechanism, value), the ones not applied, the
