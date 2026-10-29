@@ -1,0 +1,79 @@
+## df
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/loop0       31G   15G   17G  47% <work>/harvest-mnt
+## /root/first_boot.log
+
+Running autoconfig...
+
+Fixing ALSA mixer settings...
+
+Regenerating keys...
+Removing current system SSH keys...
+Generating new system SSH keys...
+Generating public/private rsa key pair.
+Your identification has been saved in /etc/ssh/ssh_host_rsa_key
+Your public key has been saved in /etc/ssh/ssh_host_rsa_key.pub
+The key fingerprint is:
+SHA256:HZOMkXvXM8RY0uKsVzrMZWQI6LSwH3VZqFbtvhkcyTs root@zynthian
+The key's randomart image is:
++---[RSA 3072]----+
+|        .o...@o  |
+|      . ++..O.B  |
+|       =.+=* O . |
+|      . =.+o+ %  |
+|       .S+.= B = |
+|        . . * E  |
+|           . . = |
+|              o  |
+|                 |
++----[SHA256]-----+
+Generating public/private ecdsa key pair.
+Your identification has been saved in /etc/ssh/ssh_host_ecdsa_key
+Your public key has been saved in /etc/ssh/ssh_host_ecdsa_key.pub
+The key fingerprint is:
+SHA256:KDjkHz6Ln9EmVYtfgyO41oeHh5q+EV4Rid47ABopXg4 root@zynthian
+The key's randomart image is:
++---[ECDSA 256]---+
+| .   ...         |
+|+E... ..         |
+|oo=o .. .        |
+|.+ oo..= o       |
+|  + =.*.S o      |
+|   = Xo* o .     |
+|    @ B.=        |
+|   o @ +         |
+|  .oO.           |
++----[SHA256]-----+
+Restarting SSH server ...
+Removing current webconf cookie secret...
+A new webconf cookie secret will be generated on next request.
+Removing current SSL certificate...
+Generating new SSL certificate for 100 years...
+Disabling first boot process ...
+Resizing partition...
+Rebooting to start zynthian-ui ...
+## qualify-sync state
+total 124
+drwxr-xr-x.  4 root root  4096 Oct 29 01:15 .
+drwxr-xr-x  34 root root  4096 Oct 28 23:19 ..
+drwx------   2 root root 12288 Oct 29 01:16 descriptors
+drwxr-xr-x   2 root root 40960 Oct 29 01:28 qualification
+-rw-r--r--   1 root root  8869 Oct 29 01:15 qualified.pins
+-rw-r--r--   1 root root 42590 Oct 29 01:15 qualify-sync.json
+-rw-r--r--   1 root root     4 Oct 29 01:09 qualify-sync.json.lock
+## qualification records
+356
+## qualify-sync.json: plugins by outcome and code
+1 clap hung probe.timeout
+5 clap qualified 
+31 clap refused hosting.rt-safety.violations-in-run
+entries 37
+## pins
+37 <work>/harvest-mnt/var/lib/omx/qualified.pins
+## descriptors
+112
+## ssh host keys
+-rw-r--r-- 1 root root 175 2026-10-15 04:12:25.100000000 +0200 <work>/harvest-mnt/etc/ssh/ssh_host_ecdsa_key.pub
+-rw-r--r-- 1 root root 567 2026-10-15 04:12:24.984000000 +0200 <work>/harvest-mnt/etc/ssh/ssh_host_rsa_key.pub
+## zynthian.service enabled?
+ls: cannot access '<work>/harvest-mnt/etc/systemd/system/*.wants/zynthian.service': No such file or directory
