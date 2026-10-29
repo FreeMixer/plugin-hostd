@@ -4240,8 +4240,10 @@ def crashes_restarts_and_quarantines_are_counted_for_the_plugin_that_earned_them
         check(int(b["last_crash_grouped"]) > 1600000000 and b["last_crash"] == "0", "when: %s" % b)
         check(b["crashed"] == "1" and a["crashed"] == "0", "only the culprit is marked crashed: %s %s" % (a["crashed"], b["crashed"]))
         # the culprit is alone now: its next crash is a crash alone
-        mark = d.mark()
+        # it is moved to a worker of its own and restored there: wait for that restore, or the one below is taken for it
+        d.wait_event("instance_restored 1 ", since=mark)
         d.wait_up(1)
+        mark = d.mark()
         d.expect("param_set 1 crash 1", "resp 0")
         d.wait_event("instance_restored 1 ", since=mark)
         b = history_of(d, other_uri)
