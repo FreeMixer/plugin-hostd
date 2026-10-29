@@ -256,7 +256,7 @@ jobs:
             rpm -qlp "$rpm"
             rpm -qp --qf '[%{FILEMODES:perms} %{FILENAMES}\n]' "$rpm" | grep -v -e '^d' -e '/\.build-id/' | cut -d' ' -f2 | sort > files.txt
             printf '%s\n' /usr/bin/plugin-hostd /usr/bin/plugin-hostd-probe /usr/share/man/man1/plugin-hostd.1.gz \
-              /usr/share/man/man1/plugin-hostd-probe.1.gz \
+              /usr/share/man/man1/plugin-hostd-probe.1.gz /usr/libexec/plugin-hostd/probe-lock.so \
               /usr/share/doc/plugin-hostd/README.md /usr/share/licenses/plugin-hostd/COPYING \
               /usr/share/plugin-hostd/protocol.json /usr/share/plugin-hostd/mod-host.json | sort > expected.txt
             diff -u expected.txt files.txt
