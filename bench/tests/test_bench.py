@@ -461,7 +461,7 @@ class FakeDaemon:
                 key = place if place.startswith(("chain:", "pool:")) and not (
                     self.pool_apart and place.startswith("pool:")) else "own%d" % i
                 workers.setdefault(key, (place, []))[1].append(i)
-            recs = ["%d:%d:clap:up:%d:%s:%s" % (n, 1000 + n, 1 + n % 3, place, ",".join(map(str, ids)))
+            recs = ["%d:%d:clap:up:%d:qualified:%s:%s" % (n, 1000 + n, 1 + n % 3, place, ",".join(map(str, ids)))
                     for n, (place, ids) in enumerate(workers.values())]
             return "resp 0 " + " ".join(recs)
         return "resp -902"

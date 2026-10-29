@@ -334,9 +334,11 @@ class Daemon:
         recs = reply.split()[2:]
         out = []
         for r in recs:
+            # <worker>:<pid>:<format>:<state>:<core>:<pool>:<place>:<instances> (docs/placement.md); an id followed
+            # by ! is an instance the pins read again refuse, still running
             f = r.split(":")
-            insts = [int(i) for i in f[-1].split(",") if i.isdigit()]
-            out.append({"worker": f[0], "pid": f[1], "row": f[2], "state": f[3], "place": ":".join(f[4:-1]),
+            insts = [int(i.rstrip("!")) for i in f[-1].split(",") if i.rstrip("!").isdigit()]
+            out.append({"worker": f[0], "pid": f[1], "row": f[2], "state": f[3], "place": ":".join(f[6:-1]),
                         "instances": insts})
         return out
 
