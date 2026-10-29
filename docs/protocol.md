@@ -165,7 +165,7 @@ Each is declared in `protocol/plugin-hostd.json`; the formats, codes and hosts c
 
 | verb | arguments | types | reply | codes | since (the group's) | hosts | meaning |
 |---|---|---|---|---|---|---|---|
-| `worker_list` | none | none | `resp <n> <worker>:<pid>:<format>:<state>:<place>:<i>,<i>,...` | -901 reply.host.memory-allocation; -902 reply.host.invalid-operation | 0.12.0 | plugin-hostd required | the workers, one record each |
+| `worker_list` | none | none | `resp <n> <worker>:<pid>:<format>:<state>:<core>:<place>:<i>,<i>,...` | -901 reply.host.memory-allocation; -902 reply.host.invalid-operation | 0.12.0 | plugin-hostd required | the workers, one record each |
 | `instance_info` | `<instance>` | int | `resp 0 <worker> <pid> <state> <crashes> <quarantined>` | -3 reply.host.instance-non-exists; -901 reply.host.memory-allocation; -902 reply.host.invalid-operation | 0.12.0 | plugin-hostd required | where an instance lives and what it has cost |
 | `supervisor_reset` | `[<worker> \| all]` | ... | `resp 0` | -506 NO_SUCH_WORKER; -901 reply.host.memory-allocation; -902 reply.host.invalid-operation | 0.12.0 | plugin-hostd required | re-arm the storm bound and the backoff of a given-up placement |
 | `quarantine_clear` | `<instance> \| all` | word | `resp 0` | -3 reply.host.instance-non-exists; -901 reply.host.memory-allocation; -902 reply.host.invalid-operation | 0.12.0 | plugin-hostd required | let a quarantined instance go back where its placement says |
@@ -178,7 +178,7 @@ Each is declared in `protocol/plugin-hostd.json`; the formats, codes and hosts c
 
 ```
 > worker_list
-< resp <n> <worker>:<pid>:<format>:<state>:<place>:<i>,<i>,...
+< resp <n> <worker>:<pid>:<format>:<state>:<core>:<place>:<i>,<i>,...
 ```
 
 `instance_info`:
@@ -239,6 +239,7 @@ Each is declared in `protocol/plugin-hostd.json`; the formats, codes and hosts c
 | `pin_accept` | `<uri>` | word | `resp 0` | -508 PIN_ABSENT; -509 PIN_BINARY_MISMATCH; -516 PIN_REFUSED; -901 reply.host.memory-allocation; -902 reply.host.invalid-operation | 0.12.0 | plugin-hostd required | pin_mode first-use only: take the plugin's files as they are now as its pin, after a pin_changed event; the layout is learned again by the next add and the verdict is dropped; -508 when the plugin has no pin, -509 when its files cannot be collected, -516 when its pins_dir pin carries verdict=refused, -902 under pin_mode strict |
 | `pin_layout` | `<instance>` | int | `resp 0 <scheme>:<sha256>` | - | 0.12.0 | omx-clap-host optional, mod-host unsupported | sent by the daemon to a worker of a format that checks layouts, after it accepted the add of a plugin whose layout pin is still unknown: the layout the worker found after init, which the daemon records in the pin |
 | `pin_expect` | `<instance> <scheme>:<sha256>` | int word | `resp 0` | -1 reply.host.instance-invalid; -902 reply.host.invalid-operation; -508 PIN_ABSENT | - | plugin-hostd unsupported, omx-clap-host required, mod-host unsupported | sent by the daemon to a worker of a format that checks layouts, just before the instance's add: the layout pin that add checks after init and before activate; any other reply than resp 0 refuses the add with that code, and the add is never forwarded |
+| `estimate` | `<rate> <quantum> <uri> [<uri> ...]` | int int word ... | `resp 0 <latency_frames> <cpu_percent> <ram_bytes> <workers> <unknown_count> <member>:<code>,...` | -533 NO_RECORD; -534 NO_CELL; -535 UNKNOWN_PLUGIN; -901 reply.host.memory-allocation; -902 reply.host.invalid-operation | 0.12.0 | plugin-hostd required | what a chain of these plugins, in signal order and named as add names them, would cost at that rate and quantum, read from the qualification records of qualification_dir; no plugin is loaded and nothing moves. latency_frames adds up each member's measured latency of the grid point, else its declared one; cpu_percent adds up each member's median nanoseconds per sample times the rate, percent of one core's cycle (a member's cost per block over the block's duration); ram_bytes adds up the Pss of the worker each member ran alone in, the history's pss_mb_solo of the binary its pin holds on this host class, - unless every member has one, since no qualification record carries a RAM figure; workers is how many workers plan would place the members in (an isolated one alone); unknown_count is how many members have no figure at that rate and quantum, and the latency and the CPU add up only the others. The last word names each of them as its position in the line, from 0, and its code, -533 for no record, -534 for no point of the grid at that rate and quantum, -535 for a uri that names no plugin installed here, joined by commas, - for none. Several records of one plugin (several versions) give the largest figure. -902 for a rate or a quantum that is not a whole number above 0, or no uri |
 
 `pin_set`:
 
@@ -275,6 +276,13 @@ Each is declared in `protocol/plugin-hostd.json`; the formats, codes and hosts c
 < resp 0
 ```
 
+`estimate`:
+
+```
+> estimate <rate> <quantum> clap:/usr/lib/clap/omx-comp.clap#org.openmixer.comp
+< resp 0 <latency_frames> <cpu_percent> <ram_bytes> <workers> <unknown_count> <member>:<code>,...
+```
+
 ### Chains and plans
 
 | verb | arguments | types | reply | codes | since (the group's) | hosts | meaning |
@@ -282,8 +290,8 @@ Each is declared in `protocol/plugin-hostd.json`; the formats, codes and hosts c
 | `chain` | `<chain> <instance> [<instance> ...]` | int int ... | `resp 0` | -518 CHAIN_UNKNOWN_INSTANCE; -519 CHAIN_DUPLICATE; -520 CHAIN_INSTANCE_BUSY; -521 CHAIN_MIXED_FORMAT; -501 PLACEMENT_INVALID; -901 reply.host.memory-allocation; -902 reply.host.invalid-operation | 0.12.0 | plugin-hostd required, omx-clap-host required, mod-host unsupported | the instances, in this order, are one chain, run in one worker of place chain:<chain>: each member's state is saved, it is removed from the worker it was in and replayed in the chain's. A chain already declared takes the new order, and a member left out of it goes back to a worker of its own; while its worker is up that worker is kept: a new member joins it (its add, the order, its state, its ledger, its connections) and no other member is restarted, unless the new member's format narrows the worker's world, which forms the chain again. Members of clap and lv2-clap form one chain. A worker that runs chains in one client (clap, lv2-clap) is sent this line, with the members it holds, after the adds of its replay; one that does not (mod-host) never is, and a refusal of it is written to stderr and is no failure. Every instance verb still names one member by its own number. A member that crashes the worker is quarantined to a worker of its own and the chain goes on without it; quarantine_clear puts it back. -518 for an instance no add made, -519 for one named twice, -520 for one in another chain, -521 for members no one worker program runs together, -501 for a plugin that may not share a worker while require_pins is on (a CLAP plugin whose first-use pin is not in-process; an LV2 member whose bundle is not found, since a chain's worker sees a world narrowed to the union of its members' bundles), -902 for a chain or an instance that is not a number, or fewer than chain_members_min (1) instances |
 | `chain_clear` | `<chain>` | int | `resp 0` | -522 NO_SUCH_CHAIN; -901 reply.host.memory-allocation; -902 reply.host.invalid-operation | 0.12.0 | plugin-hostd required | forget the chain: each member goes to a worker of its own; -522 for a chain no chain declared |
 | `chain_get` | `<chain>` | int | `resp 0 <worker> <instance>,... <instance>,...` | -522 NO_SUCH_CHAIN; -901 reply.host.memory-allocation; -902 reply.host.invalid-operation | 0.12.0 | plugin-hostd required | read a chain back: its worker (- when it has none), its members in the declared order, and the members its worker runs now in their order (- for none); a quarantined member is declared and not running; -522 for a chain no chain declared, -902 for a chain that is not a number |
-| `plan` | `<chain> <instance> [<instance> ...]` | int int ... | `resp 0 <instance>,...;<instance>,...;...` | -518 CHAIN_UNKNOWN_INSTANCE; -519 CHAIN_DUPLICATE; -520 CHAIN_INSTANCE_BUSY; -501 PLACEMENT_INVALID; -901 reply.host.memory-allocation; -902 reply.host.invalid-operation | 0.12.0 | plugin-hostd required | the instances, in signal order, are planned (the grouping-planner design note): the daemon decides, from the pin and the cost of each, which runs of consecutive members share a worker. A run of two or more is declared as a chain of place chain:<chain>.<k>, k counting segments from 0; a member that shares with no neighbour is placed own. The reply names the segments in order, the members of one joined by commas and the segments by semicolons. A chain planned again keeps the running worker of every segment that did not change, and the daemon plans it again by itself when a member is quarantined and, history_regroup_s after a death that split its group, to gather it. The plan numbers are its own, apart from chain's. While the setting grouping is off the plan is answered and kept for plan_get and nothing moves. A segment that cannot be formed refuses the whole plan with its own code, moves nothing and is told by plan_get as plan-refused:<code>. -518 for an instance no add made, -519 for one named twice, -520 for one in a chain or in the plan of another chain, -501 for a segment no world can be built for, -902 for a chain or an instance that is not a number, or fewer than chain_members_min (1) instances |
-| `plan_get` | `<chain>` | int | `resp 0 <instance>,...;<instance>,...;... <instance>:<reason>,...` | -532 NO_SUCH_PLAN; -901 reply.host.memory-allocation; -902 reply.host.invalid-operation | 0.12.0 | plugin-hostd required | read the last plan of a chain back: its segments as plan answered them, then the members that have a reason, instance:reason joined by commas (- for none); the reasons are the words of PLUGIN_HOSTD_GROUPING_REASONS (data/grouping.json); -532 for a chain no plan planned, -902 for a chain that is not a number |
+| `plan` | `<chain> <instance> [<instance> ...]` | int int ... | `resp 0 <instance>,...;<instance>,...;... <core>,...;<core>,...;...` | -518 CHAIN_UNKNOWN_INSTANCE; -519 CHAIN_DUPLICATE; -520 CHAIN_INSTANCE_BUSY; -501 PLACEMENT_INVALID; -901 reply.host.memory-allocation; -902 reply.host.invalid-operation | 0.12.0 | plugin-hostd required | the instances, in signal order, are planned (the grouping-planner design note): the daemon decides, from the pin and the cost of each, which runs of consecutive members share a worker. A run of two or more is declared as a chain of place chain:<chain>.<k>, k counting segments from 0; a member that shares with no neighbour is placed own. The reply names the segments in order, the members of one joined by commas and the segments by semicolons, then the cores: the segments again with each member replaced by the audio core of the worker that runs it now, - for one the setting placement did not pin (docs/placement.md). A chain planned again keeps the running worker of every segment that did not change, and the daemon plans it again by itself when a member is quarantined and, history_regroup_s after a death that split its group, to gather it. The plan numbers are its own, apart from chain's. While the setting grouping is off the plan is answered and kept for plan_get and nothing moves. A segment that cannot be formed refuses the whole plan with its own code, moves nothing and is told by plan_get as plan-refused:<code>. -518 for an instance no add made, -519 for one named twice, -520 for one in a chain or in the plan of another chain, -501 for a segment no world can be built for, -902 for a chain or an instance that is not a number, or fewer than chain_members_min (1) instances |
+| `plan_get` | `<chain>` | int | `resp 0 <instance>,...;<instance>,...;... <instance>:<reason>,... <core>,...;<core>,...;...` | -532 NO_SUCH_PLAN; -901 reply.host.memory-allocation; -902 reply.host.invalid-operation | 0.12.0 | plugin-hostd required | read the last plan of a chain back: its segments as plan answered them, then the members that have a reason, instance:reason joined by commas (- for none); the reasons are the words of PLUGIN_HOSTD_GROUPING_REASONS (data/grouping.json), then the cores of the members as plan answers them; -532 for a chain no plan planned, -902 for a chain that is not a number |
 | `plan_clear` | `<chain>` | int | `resp 0` | -532 NO_SUCH_PLAN; -901 reply.host.memory-allocation; -902 reply.host.invalid-operation | 0.12.0 | plugin-hostd required | forget the plan: each member goes to a worker of its own; -532 for a chain no plan planned |
 
 `chain`:
@@ -311,14 +319,14 @@ Each is declared in `protocol/plugin-hostd.json`; the formats, codes and hosts c
 
 ```
 > plan 1 0 1
-< resp 0 <instance>,...;<instance>,...;...
+< resp 0 <instance>,...;<instance>,...;... <core>,...;<core>,...;...
 ```
 
 `plan_get`:
 
 ```
 > plan_get 1
-< resp 0 <instance>,...;<instance>,...;... <instance>:<reason>,...
+< resp 0 <instance>,...;<instance>,...;... <instance>:<reason>,... <core>,...;<core>,...;...
 ```
 
 `plan_clear`:
@@ -441,7 +449,7 @@ The daemon's events and the worker lines it relays:
 | `instance_replay_refused` | `<instance> <code>` | a replayed add was refused, by its pin or by the worker, <code> the refusal's own: no worker holds the instance until the next replay |
 | `instance_quarantined` | `<instance> <worker>` | the culprit of a pool or a chain death, placed own until cleared; a chain goes on without it |
 | `chain_formed` | `<chain> <worker> <instance>,...` | a chain's worker is up with these members, in this order, after its declaration, a respawn or a member's quarantine; - for none. <chain> is the number chain declared, or <plan>.<k> for segment k of a plan |
-| `plan_reason` | `<chain> <instance>:<reason>,...` | a plan of the chain changed: what plan_get answers now after the segments, - for none |
+| `plan_reason` | `<chain> <instance>:<reason>,...` | a plan of the chain changed: the reasons plan_get answers now, after the segments, - for none |
 | `supervisor_gave_up` | `<worker> <deaths> <window_ms>` | the storm bound is spent; respawning ends |
 | `pin_changed` | `<uri> files \| layout` | an add or a replay of a plugin was refused because its files, or the layout the worker found, differ from its pin; the pin is as it was until pin_accept or pin_set |
 | `lv2_adapter_refused` | `<uri> <reason> auto \| omx-clap-host` | the LV2 adapter of the lv2-clap worker refused a plugin: <reason> is the hosting.* code after -102 on the worker's reply to that add (- when it named none); the last word is the lv2_worker in force, auto for a plugin the lv2 row runs from now on, omx-clap-host for an add answered (-512) |
@@ -525,6 +533,9 @@ The codes the daemon adds:
 | -530 | `DESCRIPTOR_PENDING` | descriptor_get (panel_get) of a plugin whose scan, started by its add, has not written its descriptor (panel) yet: ask again |
 | -531 | `DESCRIPTOR_SCAN_FAILED` | descriptor_get (panel_get) of a plugin whose last scan wrote no descriptor (panel): the scanner refused the plugin, made no dump or no panel, or is not installed; the add it ran for stands, and stderr and the scan's log say why. The next add scans again |
 | -532 | `NO_SUCH_PLAN` | plan_get or plan_clear of a chain no plan planned |
+| -533 | `NO_RECORD` | a member of estimate that no qualification record in qualification_dir names: never a reply, the code of the member in the reply's list |
+| -534 | `NO_CELL` | a member of estimate whose qualification records hold no point of the grid at that rate and quantum with a cost and a latency: never a reply, the code of the member in the reply's list |
+| -535 | `UNKNOWN_PLUGIN` | a member of estimate whose uri names no plugin installed here (its format cannot tell the plugin's binary, or the binary is not there): never a reply, the code of the member in the reply's list |
 
 5. JSON documents
 -----------------
@@ -535,4 +546,4 @@ The codes the daemon adds:
 | `protocol/probe-output.schema.json` | `/usr/share/plugin-hostd/probe-output.schema.json` | `https://github.com/FreeMixer/plugin-hostd/protocol/probe-output.schema.json` | What one probe run of one plugin binary observed | plugin-hostd.probe-output | Facts only. A verdict, a rating or a classification is never a field here: plugin-qualify writes those in the qualification record. |
 | `protocol/preset.schema.json` | `/usr/share/plugin-hostd/preset.schema.json` | `https://freemixer.org/schemas/org.openmixer.preset.schema.json` | org.openmixer.preset | org.openmixer.preset/1, org.openmixer.preset/2 | A user preset file, as a worker writes it for preset_save and reads it for preset_load and preset_show (docs/presets.md). /1 is params-only and stays valid; /2 adds the state body, additively. Unknown fields are allowed and a writer keeps them; an unknown format version is refused, never guessed. |
 
-Counts: 48 mod-host commands, 34 same, 8 differs, 6 refused; 29 verbs mod-host does not have.
+Counts: 48 mod-host commands, 34 same, 8 differs, 6 refused; 30 verbs mod-host does not have.
