@@ -609,15 +609,24 @@ def software(plugin_files):
 # ---------------------------------------------------------------- plugins
 
 
+def _search_paths():
+    """tools/search-paths.py: the lists plugin-hostd searches, written once in include/plugin-hostd/search_paths.h"""
+    import importlib.util
+    # SEARCH_PATHS_TOOL names it for a copy of bench/ that lives outside the checkout (bench/tests/sabotage.sh)
+    path = os.environ.get("SEARCH_PATHS_TOOL") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..",
+                                                               "tools", "search-paths.py")
+    spec = importlib.util.spec_from_file_location("search_paths", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
 def clap_dirs():
-    dirs = [d for d in os.environ.get("CLAP_PATH", "").split(":") if d]
-    return dirs + [os.path.expanduser("~/.clap"), "/usr/lib/clap", "/usr/lib64/clap", "/usr/local/lib/clap"]
+    return _search_paths().search("clap", env=True)
 
 
 def lv2_dirs():
-    dirs = [d for d in os.environ.get("LV2_PATH", "").split(":") if d]
-    return dirs + [os.path.expanduser("~/.lv2"), "/usr/lib/lv2", "/usr/lib64/lv2", "/usr/local/lib/lv2",
-                   "/usr/lib/%s-linux-gnu/lv2" % os.uname().machine]
+    return _search_paths().search("lv2", env=True)
 
 
 def clap_uri(spec):

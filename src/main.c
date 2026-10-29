@@ -208,7 +208,7 @@ int main(int argc, char **argv)
         fprintf(stderr, "--placement '%s' is too long\n", placement);
         return EXIT_FAILURE;
     }
-    if (conf_check(&g_conf) != 0)
+    if (conf_merge_extra(&g_conf) != 0 || conf_check(&g_conf) != 0)
         return EXIT_FAILURE;
     if (pin_files)
         return print_pin_files(pin_files);

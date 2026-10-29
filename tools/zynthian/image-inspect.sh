@@ -27,7 +27,7 @@ for r in zynthian-ui zynthian-sys zynthian-webconf zyncoder; do
 done
 echo "== /zynthian/zynthian-sw"; D "ls /zynthian/zynthian-sw" | tr -s ' \t\n' '\n' | grep -v '^\.*$' | sort | tr '\n' ' '; echo
 echo "== mod-host / jalv / mod-ui"; for f in /usr/local/bin/mod-host /usr/local/lib/jack/mod-host.so /usr/lib/jack/mod-host.so /usr/local/bin/jalv /zynthian/zynthian-sw/mod-ui/server.py; do D "stat $f" | head -1 | sed "s#^#$f: #"; done
-echo "== LV2 bundles"; for d in /usr/lib/lv2 /usr/local/lib/lv2 /zynthian/zynthian-plugins/lv2; do printf '%s %s\n' "$d" "$(D "ls $d" | tr -s ' \t\n' '\n' | grep -c '\.lv2$')"; done
+echo "== LV2 bundles"; for d in $(python3 -I "$(dirname "$0")/../search-paths.py" lv2) /zynthian/zynthian-plugins/lv2; do printf '%s %s\n' "$d" "$(D "ls $d" | tr -s ' \t\n' '\n' | grep -c '\.lv2$')"; done
 echo "== /zynthian/config/zynthian_envars.sh (audio, JACK, board)"; D "cat /zynthian/config/zynthian_envars.sh" | grep -n -E 'SOUNDCARD|JACKD_OPTIONS|ALSA|RBPI|DISPLAY_NAME|WIRING|KIT'
 echo "== /boot/firmware/config.txt (dtoverlay, governor-relevant)"; D "cat /boot/firmware/config.txt" | grep -n -E '^(dtoverlay|arm_freq|force_turbo|over_voltage|\[)' | head -20
 } >"$out/inspect.txt"

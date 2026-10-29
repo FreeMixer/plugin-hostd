@@ -15,7 +15,7 @@ FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "
 # an LV2 bundle (MOD_HOST, LV2_DIR, LV2_URI, LV2_BUNDLE, LV2_PARAM) and is skipped without them; "pin" breaks
 # include/plugin-hostd/pin.h and runs tests/pin_test.c; "readme" breaks README.md or BUILDING.md and runs
 # tests/readme_build.py, with no daemon to build; "probeschema" breaks protocol/probe-output.schema.json and runs
-# tests/probe_schema.py; "relay" breaks src/relay.c and runs tests/relay_test.c; "history" breaks src/history.c or src/fsutil.c and runs tests/history_test.c; "proc" breaks src/proc.c and runs tests/proc_test.c; "alloc" breaks src/relay.c, src/lv2.c or src/verbs.c and runs make test-alloc; "contract" breaks the probe runner or the generator and runs tests/contract_derived.py; "consumer" breaks the header and compiles tests/consumer.c against it; "probe" breaks src/probe.c and runs tests/probe_test.py; "nopins" breaks the packaging or a workflow and runs tests/no_pins.py; "ciguards" breaks a workflow and runs tests/ci_guards.py;
+# tests/probe_schema.py; "relay" breaks src/relay.c and runs tests/relay_test.c; "history" breaks src/history.c or src/fsutil.c and runs tests/history_test.c; "proc" breaks src/proc.c and runs tests/proc_test.c; "conf" breaks src/conf.c, src/main.c, the search lists or a reader of them and runs tests/conf_test.c and tests/search_paths_once.py; "alloc" breaks src/relay.c, src/lv2.c or src/verbs.c and runs make test-alloc; "contract" breaks the probe runner or the generator and runs tests/contract_derived.py; "consumer" breaks the header and compiles tests/consumer.c against it; "probe" breaks src/probe.c and runs tests/probe_test.py; "nopins" breaks the packaging or a workflow and runs tests/no_pins.py; "ciguards" breaks a workflow and runs tests/ci_guards.py;
 # "vocabulary" breaks the probe schema, its template or a copy of omx-contract's omx-vocabulary.schema.json and runs
 # tests/vocabulary_derived.py; "verbtable" breaks the header and runs tests/verb_table.py; "presetschema" breaks
 # protocol/preset.schema.json and runs tests/preset_format.py; "pool" breaks tests/sabotage_pool.py or the port range of
@@ -986,6 +986,23 @@ SABOTAGE = [
      '*seconds = (double)(u + s) / (double)hz;',
      '*seconds = (double)(u + s);',
      "proc_test", "proc"),
+    # the search lists (#212)
+    ("the default LV2 list drops Zynthian's /usr/local multiarch folder", 'include/plugin-hostd/search_paths.h',
+     '":/usr/local/lib/x86_64-linux-gnu/lv2:/usr/local/lib/aarch64-linux-gnu/lv2:/usr/local/lib/arm-linux-gnueabihf/lv2"',
+     '":/usr/local/lib/x86_64-linux-gnu/lv2:/usr/local/lib/arm-linux-gnueabihf/lv2"',
+     "conf_test", "conf"),
+    ("the default LV2 list loses the lib64 folders", 'include/plugin-hostd/search_paths.h',
+     '":/usr/lib64/lv2:/usr/local/lib64/lv2"', '""', "conf_test", "conf"),
+    ("$CLAP_PATH stands in for the CLAP default", 'src/conf.c',
+     'snprintf(conf->clap_path, sizeof(conf->clap_path), "%s:%s", env, PHD_DEFAULT_CLAP_PATH);',
+     'snprintf(conf->clap_path, sizeof(conf->clap_path), "%s", env);', "conf_test", "conf"),
+    ("lv2_extra is joined with no separator", 'src/conf.c', 'have ? ":" : "", conf->lv2_extra',
+     '"", conf->lv2_extra', "conf_test", "conf"),
+    ("the daemon never merges lv2_extra", 'src/main.c', 'conf_merge_extra(&g_conf) != 0 || ', '', "conf_test", "conf"),
+    ("the benchmark keeps a list of its own", 'bench/lib/bench.py', '    return _search_paths().search("lv2", env=True)',
+     '    return ["/usr/lib/lv2", "/usr/lib64/lv2"]', "conf_test", "conf"),
+    ("protocol.h writes the LV2 list again", 'include/plugin-hostd/protocol.h', '#include <plugin-hostd/search_paths.h>',
+     '#include <plugin-hostd/search_paths.h>\n#undef PHD_DEFAULT_LV2_PATH\n#define PHD_DEFAULT_LV2_PATH "/usr/lib/lv2:/usr/lib64/lv2"', "conf_test", "conf"),
     ('a machine of 8 cores is in the band of 9 to 16', 'src/machine.c',
      'ncpu <= 8 ?',
      'ncpu < 8 ?',
@@ -1508,6 +1525,24 @@ def run_proc_test(tree):
     return p.returncode, p.stdout
 
 
+def run_conf_test(tree):
+    """tests/conf_test.c against the tree's src/conf.c, then tests/search_paths_once.py over the tree; "ok   conf_test" when
+    neither failed"""
+    os.makedirs(os.path.join(tree, "tests"), exist_ok=True)
+    shutil.copy(os.path.join(ROOT, "tests", "conf_test.c"), os.path.join(tree, "tests"))
+    subprocess.run(["make", "-s", "-B", "MOD_HOST_DIR=" + MOD_HOST_DIR, "tests/conf-test"], cwd=tree, check=True,
+                   stdout=subprocess.DEVNULL)
+    p = subprocess.run([os.path.join(tree, "tests", "conf-test")], capture_output=True, text=True, timeout=60)
+    q = subprocess.run([sys.executable, os.path.join(ROOT, "tests", "search_paths_once.py"), tree], capture_output=True,
+                       text=True, timeout=60)
+    out = p.stdout + q.stdout
+    code = p.returncode or q.returncode
+    # red only by a check that says FAIL: a crash or a missing file is not the guard doing its work
+    if code and "FAIL" not in out:
+        return 0, out + q.stderr + "no check failed, the test itself broke\n"
+    return code, out
+
+
 def run_alloc_test(tree):
     """make test-alloc: the tables of src/relay.c and src/lv2.c when realloc fails, and the copies and the answer of
     src/verbs.c when memory runs out; prints "ok   alloc_test" when no check failed"""
@@ -1565,6 +1600,8 @@ def run_test(tree, name, jack=False):
         return run_history_test(tree)
     if jack == "proc":
         return run_proc_test(tree)
+    if jack == "conf":
+        return run_conf_test(tree)
     if jack == "contract":
         return run_contract_test(tree)
     if jack == "pin":
@@ -1657,6 +1694,12 @@ def arm(entry, tree):
         os.makedirs(tree)
         for f in ("README.md", "BUILDING.md"):
             shutil.copy(os.path.join(ROOT, f), tree)
+    elif jack == "conf":
+        # the daemon's sources and the readers of the lists, to the files the checks of tests/search_paths_once.py open
+        for d in ("src", "include", "tools", "protocol", "bench"):
+            shutil.copytree(os.path.join(ROOT, d), os.path.join(tree, d), ignore=shutil.ignore_patterns("*.o", "*.pyc", "__pycache__"))
+        shutil.copy(os.path.join(ROOT, "Makefile"), tree)
+        shutil.copy(os.path.join(ROOT, "README.md"), tree)
     elif jack in ("history", "proc"):
         for d in ("src", "include"):
             shutil.copytree(os.path.join(ROOT, d), os.path.join(tree, d), ignore=shutil.ignore_patterns("*.o"))
@@ -1738,7 +1781,7 @@ def arm(entry, tree):
                        stdout=subprocess.DEVNULL)
     if jack == "probe":
         build_probe(tree)
-    elif jack not in ("readme", "nopins", "ciguards", "format", "relay", "history", "proc", "contract", "consumer", "probeschema", "presetschema", "vocabulary", "alloc",
+    elif jack not in ("readme", "nopins", "ciguards", "format", "relay", "history", "proc", "conf", "contract", "consumer", "probeschema", "presetschema", "vocabulary", "alloc",
                       "verbtable", "planner", "qualcost", "placement", "pool"):
         for f in os.listdir(os.path.join(tree, "src")):
             if f.endswith(".o"):
