@@ -105,6 +105,7 @@ static const format_t g_builtin[] = {
         .pinned_own_only = 0,
         .native_instance_verbs = 1,
         .native_chain = 1,
+        .thread_pool = 1,
     },
     /* LV2 plugins through omx-clap-host's adapter. What differs from the lv2 row: the worker is clap_host, it takes the uri with
      * its lv2: prefix (a bare uri would be nobody's), it answers the instance verbs from the plugin, and an instantiation
@@ -128,6 +129,7 @@ static const format_t g_builtin[] = {
         .native_instance_verbs = 1,
         .adapter = 1,
         .native_chain = 1,
+        .thread_pool = 1,
     },
 };
 

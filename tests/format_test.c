@@ -264,7 +264,7 @@ int main(int argc, char **argv)
 
     /* add: no pin, no worker */
     check_reply(sup_add(uri, 0, NULL, NULL), "resp -508", "an unpinned plugin of the new format is refused");
-    check(pins_set(uri, files, layout, NULL) == SUCCESS, "pin: the pin of the new format's plugin is taken");
+    check(pins_set(uri, files, layout, NULL, NULL) == SUCCESS, "pin: the pin of the new format's plugin is taken");
     check_reply(sup_add(uri, 0, NULL, NULL), "resp 0", "add: the pinned plugin is added");
     check(contains(sup_worker_list(), ":fake3:"), "the worker list names the new format");
 

@@ -720,6 +720,11 @@ static int worker_start(worker_t *w, const char *uri)
     snprintf(logfile, sizeof(logfile), "%s/w%d.log", g_root, w->k);
     world = narrow_world(w, uri);
     w->state = W_STARTING;
+    /* the CLAP thread pool is granted by the plugin's qualification, in its pin, and only to a worker that holds that
+     * plugin alone: a worker of a pool or a chain keeps the option away, and so does a plugin with no word */
+    w->thread_pool = g_conf.require_pins && format_at(w->fmt)->thread_pool && !w->pool && !w->chain && uri &&
+                     pins_pool_cores(uri);
+    env.thread_pool = w->thread_pool;
     /* the policy pins a worker whose format worker_env gave no cpus: to the core it has, which a respawn keeps, or to the
      * least-loaded one; the child is pinned before it runs the worker, so every thread it makes is there too */
     if (g_ncores && !env.cpus[0])
@@ -1738,7 +1743,7 @@ static char *add(const char *uri, int id, const char *placement, const char *cli
             snprintf(place, sizeof(place), PHD_PLACE_OWN);
         }
         /* first-use: only a plugin qualified for a shared worker is placed in one */
-        else if (first_use && !pins_in_process(fwd))
+        else if ((first_use && !pins_in_process(fwd)) || (format->thread_pool && pins_pool_cores(fwd)))
         {
             if (placement && !strncmp(placement, PHD_PLACE_POOL_PREFIX, strlen(PHD_PLACE_POOL_PREFIX)))
                 return sup_resp(OMX_REPLY_PLUGIN_HOSTD_PLACEMENT_INVALID_RESP);
@@ -2252,9 +2257,10 @@ char *sup_worker_list(void)
 
         put(&buf, &used, &cap, " w%d:%d:%s:%s:", w->k, (int)w->pid, format_at(w->fmt)->name, g_state_states[w->state]);
         if (w->core >= 0)
-            put(&buf, &used, &cap, "%d:%s:", w->core, w->place);
+            put(&buf, &used, &cap, "%d:", w->core);
         else
-            put(&buf, &used, &cap, PHD_WORD_NONE ":%s:", w->place);
+            put(&buf, &used, &cap, PHD_WORD_NONE ":");
+        put(&buf, &used, &cap, "%s:%s:", w->thread_pool ? PHD_WORKER_POOL_ON : PHD_WORKER_POOL_QUALIFIED, w->place);
         if (!w->ninst)
             put(&buf, &used, &cap, PHD_WORD_NONE);
         for (m = 0; m < w->ninst; m++)
@@ -2669,6 +2675,8 @@ out:
  * its members' worlds, so what a format pins in a world of its own holds there and is judged by chain_world_found */
 static int must_run_own(const instance_t *i)
 {
+    if (g_conf.require_pins && format_at(i->fmt)->thread_pool && pins_pool_cores(i->uri))
+        return 1;
     return g_conf.require_pins && !format_at(i->fmt)->pinned_own_only && conf_pins_first_use(&g_conf) &&
            !pins_in_process(i->uri);
 }
@@ -2865,7 +2873,7 @@ static int plan_pin(const char *uri)
     if (!verdict)
         return PLANNER_PIN_NONE;
     if (!strcmp(verdict, PHD_PIN_VERDICT_IN_PROCESS))
-        return PLANNER_PIN_IN_PROCESS;
+        return pins_pool_cores(uri) ? PLANNER_PIN_ISOLATED : PLANNER_PIN_IN_PROCESS;
     if (!strcmp(verdict, PHD_PIN_VERDICT_ISOLATED))
         return PLANNER_PIN_ISOLATED;
     if (!strcmp(verdict, PHD_PIN_VERDICT_REFUSED))

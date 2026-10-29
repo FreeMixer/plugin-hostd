@@ -35,10 +35,10 @@ struct omx_host_verb {
 };
 #endif /* OMX_HOST_VERB_TYPES_H */
 
-/* PLUGIN_HOSTD_VERBS.workerList (data/verbs.json): The workers, one record each: <core> is the audio core the setting placement pinned the worker to, - for none. */
+/* PLUGIN_HOSTD_VERBS.workerList (data/verbs.json): The workers, one record each: <core> is the audio core the setting placement pinned the worker to, - for none; <pool> is on for a worker started with the CLAP thread pool (the pin of its plugin carries pool=cores, and no other plugin shares the worker), qualified for every other. */
 #define OMX_VERB_WORKER_LIST "worker_list"
 #define OMX_VERB_WORKER_LIST_FMT "worker_list"
-#define OMX_VERB_WORKER_LIST_REPLY "resp <n> <worker>:<pid>:<format>:<state>:<core>:<place>:<i>,<i>,..."
+#define OMX_VERB_WORKER_LIST_REPLY "resp <n> <worker>:<pid>:<format>:<state>:<core>:<pool>:<place>:<i>,<i>,..."
 #define OMX_VERB_WORKER_LIST_CODES_COUNT 2u
 #define OMX_VERB_WORKER_LIST_CODES_INIT { -901, -902 } /* reply.host.memory-allocation, reply.host.invalid-operation */
 

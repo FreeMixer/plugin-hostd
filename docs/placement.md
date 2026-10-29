@@ -50,12 +50,28 @@ and on the command line, over the file: `plugin-hostd --placement=none`.
 What reports the core
 ---------------------
 
-- `worker_list`: each record is `<worker>:<pid>:<format>:<state>:<core>:<place>:<instances>`, `<core>` the audio core
-  the policy pinned it to, `-` for none. The place still holds colons, so a record is read from both ends: five fields
-  on the left, the instances on the right.
+- `worker_list`: each record is `<worker>:<pid>:<format>:<state>:<core>:<pool>:<place>:<instances>`, `<core>` the audio
+  core the policy pinned it to, `-` for none, `<pool>` `on` or `qualified` (below). The place still holds colons, so a
+  record is read from both ends: six fields on the left, the instances on the right.
 - `plan` answers `resp 0 <segments> <cores>` and `plan_get` `resp 0 <segments> <reasons> <cores>`: `<cores>` has the
   shape of `<segments>`, each member replaced by the core of the worker that runs it now (`-` for none), so `1,2;3`
   placed on cores 2 and 1 reads `2,2;1`.
+
+The CLAP thread pool
+--------------------
+
+omx-clap-host's pool of helper threads (`--thread-pool=qualified|off|on`, omx-clap-core#395) sizes itself from the
+worker's affinity mask: N cores, N - 1 helpers. The pool is the plugin's qualification's to give, never a global switch,
+and it travels in the plugin's pin as the word `pool=cores` (or `pool=off`) after the verdict:
+
+    pin_set <uri> <files> <layout> verdict=isolated pool=cores
+
+A CLAP or lv2-clap worker of a plugin whose pin says `pool=cores` (and is not a refusal) is started with
+`--thread-pool=on`, after the cpus above are set, so the mask it sizes the pool from is the one the policy gave it. The
+plugin runs in a worker of its own: the planner leaves it alone (`verdict-isolated`), a `pool:` placement and a chain
+are refused for it, and a respawn starts the worker with the option again. Every other worker is started with no
+option, the host's `qualified`, which grants the pool to no plugin. The pool's waits past the block are in the worker's
+`xruns` line, so they are attributed as any xrun is. Pins are read while `require_pins` is on, so the pool is too.
 
 Measured
 --------

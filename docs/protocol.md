@@ -165,7 +165,7 @@ Each is declared in `protocol/plugin-hostd.json`; the formats, codes and hosts c
 
 | verb | arguments | types | reply | codes | since (the group's) | hosts | meaning |
 |---|---|---|---|---|---|---|---|
-| `worker_list` | none | none | `resp <n> <worker>:<pid>:<format>:<state>:<core>:<place>:<i>,<i>,...` | -901 reply.host.memory-allocation; -902 reply.host.invalid-operation | 0.12.0 | plugin-hostd required | the workers, one record each |
+| `worker_list` | none | none | `resp <n> <worker>:<pid>:<format>:<state>:<core>:<pool>:<place>:<i>,<i>,...` | -901 reply.host.memory-allocation; -902 reply.host.invalid-operation | 0.12.0 | plugin-hostd required | the workers, one record each |
 | `instance_info` | `<instance>` | int | `resp 0 <worker> <pid> <state> <crashes> <quarantined>` | -3 reply.host.instance-non-exists; -901 reply.host.memory-allocation; -902 reply.host.invalid-operation | 0.12.0 | plugin-hostd required | where an instance lives and what it has cost |
 | `supervisor_reset` | `[<worker> \| all]` | ... | `resp 0` | -506 NO_SUCH_WORKER; -901 reply.host.memory-allocation; -902 reply.host.invalid-operation | 0.12.0 | plugin-hostd required | re-arm the storm bound and the backoff of a given-up placement |
 | `quarantine_clear` | `<instance> \| all` | word | `resp 0` | -3 reply.host.instance-non-exists; -901 reply.host.memory-allocation; -902 reply.host.invalid-operation | 0.12.0 | plugin-hostd required | let a quarantined instance go back where its placement says |
@@ -178,7 +178,7 @@ Each is declared in `protocol/plugin-hostd.json`; the formats, codes and hosts c
 
 ```
 > worker_list
-< resp <n> <worker>:<pid>:<format>:<state>:<core>:<place>:<i>,<i>,...
+< resp <n> <worker>:<pid>:<format>:<state>:<core>:<pool>:<place>:<i>,<i>,...
 ```
 
 `instance_info`:
@@ -234,7 +234,7 @@ Each is declared in `protocol/plugin-hostd.json`; the formats, codes and hosts c
 
 | verb | arguments | types | reply | codes | since (the group's) | hosts | meaning |
 |---|---|---|---|---|---|---|---|
-| `pin_set` | `<uri> <path>=<sha256>[,<path>=<sha256>...] <scheme>:<sha256> [verdict=<verdict>]` | word word word ... | `resp 0` | -516 PIN_REFUSED; -901 reply.host.memory-allocation; -902 reply.host.invalid-operation | 0.12.0 | plugin-hostd required | the pin of one plugin: the SHA-256 of every file the host loads for it, a path relative to the bundle (the directory of a single-file format's file), its layout fingerprint and, when it is known, the verdict of its qualification; it replaces an earlier pin of the uri; -516 for a plugin whose pins_dir pin carries verdict=refused, which nothing overrides. The pin store, a pin_file and a pins_dir file hold the same line, with or without the verb |
+| `pin_set` | `<uri> <path>=<sha256>[,<path>=<sha256>...] <scheme>:<sha256> [verdict=<verdict>] [pool=<pool>]` | word word word ... | `resp 0` | -516 PIN_REFUSED; -901 reply.host.memory-allocation; -902 reply.host.invalid-operation | 0.12.0 | plugin-hostd required | the pin of one plugin: the SHA-256 of every file the host loads for it, a path relative to the bundle (the directory of a single-file format's file), its layout fingerprint and, when they are known, the verdict of its qualification and whether its worker gets the CLAP thread pool; it replaces an earlier pin of the uri; -516 for a plugin whose pins_dir pin carries verdict=refused, which nothing overrides. The pin store, a pin_file and a pins_dir file hold the same line, with or without the verb |
 | `pin_clear` | `<uri> \| all` | word | `resp 0` | -901 reply.host.memory-allocation; -902 reply.host.invalid-operation | 0.12.0 | plugin-hostd required | forget the pin of one plugin, or of every one; a pins_dir pin is read-only and holds again |
 | `pin_reload` | none | none | `resp 0` | -902 reply.host.invalid-operation | 0.12.0 | plugin-hostd required | read the pin_file and the pins_dir files again and put the pins in at once, without a restart; the daemon also does this by itself when one of those files changes. Running instances keep running: one the new pins refuse is logged and its id in worker_list is followed by !. The pin_set pins of the controller are kept. -902 under pin_mode off or when the pin_file is gone or has a line outside the grammar, and the earlier pins hold |
 | `pin_changed` | `[<uri>] [files \| layout]` | ... | `resp 0` | -902 reply.host.invalid-operation | 0.12.0 | plugin-hostd required | the notice the package sync sends to every daemon it knows after it rewrote the pin file: the same as pin_reload, with or without the pin_changed event's words after it; more words than those are -902 |
