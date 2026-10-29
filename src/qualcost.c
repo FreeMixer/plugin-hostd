@@ -53,38 +53,62 @@ static char *slurp(const char *path)
     return text;
 }
 
-/* the fraction of one core of the record's grid point, or -1.0 */
-static double point_of(const jnode_t *record, const char *id, int rate, int quantum)
+/* the grid point of the record at the rate and quantum, NULL for none; the record must name the id */
+static const jnode_t *point_at(const jnode_t *record, const char *id, int rate, int quantum, size_t *from)
 {
     const jnode_t *plugin = jget(record, "plugin"), *grid = jget(jget(record, "measurements"), "grid");
     const char *got = plugin ? jstr(plugin, "id") : NULL;
-    size_t k;
 
     if (!got || strcmp(got, id) || !grid || grid->type != J_ARR)
-        return -1.0;
-    for (k = 0; k < grid->n; k++)
+        return NULL;
+    for (; *from < grid->n; (*from)++)
     {
-        const jnode_t *point = grid->kid[k], *percentile = jget(jget(point, "cost"), "percentile");
-        double r, q, ns;
+        const jnode_t *point = grid->kid[*from];
+        double r, q;
 
         if (!point || !jnum(point, "rate", &r) || !jnum(point, "quantum", &q) || r != rate || q != quantum)
             continue;
+        (*from)++;
+        return point;
+    }
+    return NULL;
+}
+
+/* whether the record names the id */
+static int names(const jnode_t *record, const char *id)
+{
+    const char *got = jget(record, "plugin") ? jstr(jget(record, "plugin"), "id") : NULL;
+
+    return got && !strcmp(got, id);
+}
+
+/* the fraction of one core of the record's grid point, or -1.0 */
+static double point_of(const jnode_t *record, const char *id, int rate, int quantum)
+{
+    const jnode_t *point;
+    size_t k = 0;
+
+    while ((point = point_at(record, id, rate, quantum, &k)) != NULL)
+    {
+        const jnode_t *percentile = jget(jget(point, "cost"), "percentile");
+        double ns;
+
         if (percentile && jnum(percentile, "value", &ns) && ns >= 0)
             return ns * rate / 1e9;
     }
     return -1.0;
 }
 
-double qualcost_read(const char *dir, const char *id, int rate, int quantum)
+/* calls each(record, ctx) for every record of qualification_dir whose file name is the id's */
+static void each_record(const char *dir, const char *id, void (*each)(const jnode_t *, void *), void *ctx)
 {
     char prefix[PATH_MAX], path[PATH_MAX * 2];
-    double best = -1.0;
     struct dirent *e;
     size_t plen, slen = strlen(RECORD_SUFFIX);
     DIR *d;
 
     if (!dir || !*dir || !id || !*id || !(d = opendir(dir)))
-        return -1.0;
+        return;
     safe(id, prefix, sizeof(prefix) - 2);
     strcat(prefix, "@");
     plen = strlen(prefix);
@@ -93,7 +117,6 @@ double qualcost_read(const char *dir, const char *id, int rate, int quantum)
         size_t len = strlen(e->d_name);
         char *text;
         jnode_t *record;
-        double v;
 
         if (len <= plen + slen || strncmp(e->d_name, prefix, plen) || strcmp(e->d_name + len - slen, RECORD_SUFFIX))
             continue;
@@ -104,11 +127,79 @@ double qualcost_read(const char *dir, const char *id, int rate, int quantum)
         free(text);
         if (!record)
             continue;
-        v = point_of(record, id, rate, quantum);
-        if (v > best)
-            best = v;
+        each(record, ctx);
         jfree(record);
     }
     closedir(d);
-    return best;
+}
+
+struct cost_ctx {
+    const char *id;
+    int rate, quantum;
+    double best;
+};
+
+static void cost_of(const jnode_t *record, void *ctx)
+{
+    struct cost_ctx *c = ctx;
+    double v = point_of(record, c->id, c->rate, c->quantum);
+
+    if (v > c->best)
+        c->best = v;
+}
+
+double qualcost_read(const char *dir, const char *id, int rate, int quantum)
+{
+    struct cost_ctx c = { id, rate, quantum, -1.0 };
+
+    each_record(dir, id, cost_of, &c);
+    return c.best;
+}
+
+struct cell_ctx {
+    const char *id;
+    int rate, quantum;
+    int status;
+    qualcost_cell_t cell;
+};
+
+static void cell_of(const jnode_t *record, void *ctx)
+{
+    struct cell_ctx *c = ctx;
+    const jnode_t *point;
+    size_t k = 0;
+
+    if (!names(record, c->id))
+        return;
+    if (c->status == QUALCOST_CELL_NO_RECORD)
+        c->status = QUALCOST_CELL_NO_POINT;
+    while ((point = point_at(record, c->id, c->rate, c->quantum, &k)) != NULL)
+    {
+        const jnode_t *latency = jget(point, "latency");
+        double median, frames;
+
+        if (!jnum(jget(point, "cost"), "median", &median) || median < 0 ||
+            (!jnum(latency, "measuredFrames", &frames) && !jnum(latency, "declaredFrames", &frames)) || frames < 0)
+            continue;
+        if (c->status != QUALCOST_CELL_FOUND)
+        {
+            c->status = QUALCOST_CELL_FOUND;
+            c->cell.median_ns = median;
+            c->cell.latency_frames = frames;
+            continue;
+        }
+        if (median > c->cell.median_ns)
+            c->cell.median_ns = median;
+        if (frames > c->cell.latency_frames)
+            c->cell.latency_frames = frames;
+    }
+}
+
+int qualcost_cell(const char *dir, const char *id, int rate, int quantum, qualcost_cell_t *out)
+{
+    struct cell_ctx c = { id, rate, quantum, QUALCOST_CELL_NO_RECORD, { 0, 0 } };
+
+    each_record(dir, id, cell_of, &c);
+    *out = c.cell;
+    return c.status;
 }

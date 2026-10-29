@@ -1,0 +1,17 @@
+{
+  "_note": "The plugins of the Zynthian benchmark matrix (tools/zynthian/matrix.py). ours: the omx-plugins set, each in its CLAP and LV2 forms. third_party: ten LV2 effects of the Pi 5 qualification run of 2026-10-28 (qualify.json sha256 b9c335c4dc0d8c41ec044da5eada619845aed86441610c6fbcf9b49c8347caf3) rated suitable under jalv, mod-host and omx-clap-host, swept RT-clean, not instruments, with audio in and out; picked by hand across vendors and kinds (EQ, filter, compressor, delay, reverb, flanger).",
+  "ours": ["chorus", "comp", "deesser", "delay", "drive", "eq8", "eq16", "eq32", "flanger", "geq", "keyed-gate", "limiter",
+           "phaser", "pitch", "reverb", "rotary", "strip", "transient", "tremolo"],
+  "third_party": {
+    "dpf-3bandeq": {"name": "DISTRHO 3 Band EQ", "lv2": "http://distrho.sf.net/plugins/3BandEQ"},
+    "dpf-mverb": {"name": "DISTRHO MVerb", "lv2": "http://distrho.sf.net/plugins/MVerb"},
+    "x42-fil4": {"name": "x42 fil4 stereo", "lv2": "http://gareus.org/oss/lv2/fil4#stereo"},
+    "gx-flanger": {"name": "Guitarix Flanger", "lv2": "http://guitarix.sourceforge.net/plugins/gx_flanger#_flanger"},
+    "gx-reverb": {"name": "Guitarix Stereo Reverb", "lv2": "http://guitarix.sourceforge.net/plugins/gx_reverb_stereo#_reverb_stereo"},
+    "invada-comp": {"name": "Invada Compressor stereo", "lv2": "http://invadarecords.com/plugins/lv2/compressor/stereo"},
+    "invada-er": {"name": "Invada Early Reflection Reverb sum", "lv2": "http://invadarecords.com/plugins/lv2/erreverb/sum"},
+    "zam-comp": {"name": "ZamComp", "lv2": "urn:zamaudio:ZamComp"},
+    "zam-eq2": {"name": "ZamEQ2", "lv2": "urn:zamaudio:ZamEQ2"},
+    "zam-delay": {"name": "ZamDelay", "lv2": "urn:zamaudio:ZamDelay"}
+  }
+}

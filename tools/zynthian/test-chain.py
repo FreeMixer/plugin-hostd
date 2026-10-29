@@ -205,7 +205,12 @@ def workers():
     out = {}
     for rec in S.client().cmd("worker_list").split()[2:]:
         head, insts = rec.rsplit(":", 1)
+        # the place holds colons: the fields on the left, the instances on the right; a daemon with core placement
+        # (docs/placement.md) writes the worker's core, a number or -, before the place, which never is one
         k, pid, fmt, state, place = head.split(":", 4)
+        first, _, rest = place.partition(":")
+        if rest and (first.isdigit() or first == "-"):
+            place = rest
         out[k] = {"pid": int(pid), "fmt": fmt, "state": state, "place": place,
                   "inst": [] if insts == "-" else [int(x) for x in insts.split(",")]}
     return out

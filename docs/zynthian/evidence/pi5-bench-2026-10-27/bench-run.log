@@ -1,0 +1,88 @@
+bench: idle     H1 -               48000/256  ok          dsp 0.13% rss 107.6 MB add None ms 
+bench: idle     H2 -               48000/256  ok          dsp 0.15% rss 1.1 MB add None ms 
+bench: idle     H3 -               48000/256  ok          dsp 0.19% rss 121.7 MB add None ms 
+bench: idle     H4 -               48000/256  unsupported dsp None% rss None MB add None ms jalv runs one plugin per process; it has no host without a plugin
+bench: clap1    H1 shared-process  48000/256  ok          dsp 0.57% rss 108.7 MB add 18.7 ms 
+bench: clap1    H2 individual      48000/256  ok          dsp 0.55% rss 110.8 MB add 41.0 ms 
+bench: clap1    H3 -               48000/256  unsupported dsp None% rss None MB add None ms mod-host runs LV2 only
+bench: clap1    H4 -               48000/256  unsupported dsp None% rss None MB add None ms jalv runs LV2 only
+bench: lv2-1    H1 shared-process  48000/256  ok          dsp 0.7% rss 115.7 MB add 130.7 ms 
+bench: lv2-1    H2 individual      48000/256  ok          dsp 0.7% rss 118.9 MB add 186.5 ms 
+bench: lv2-1    H3 shared-process  48000/256  ok          dsp 0.72% rss 125.2 MB add 23.1 ms 
+bench: lv2-1    H4 individual      48000/256  ok          dsp 0.72% rss 115.8 MB add 133.6 ms 
+bench: chain3   H1 shared-process  48000/256  ok          dsp 1.31% rss 120.4 MB add 178.9 ms 
+bench: chain3   H2 chain           48000/256  ok          dsp 1.33% rss 122.5 MB add 595.8 ms one worker, 3 JACK clients
+bench: chain3   H3 shared-process  48000/256  ok          dsp 1.17% rss 129.2 MB add 76.5 ms LV2 builds of omx-comp, omx-delay
+bench: chain3   H4 individual      48000/256  ok          dsp 1.29% rss 345.1 MB add 421.5 ms LV2 builds of omx-comp, omx-delay
+bench: clap16   H1 shared-process  48000/256  ok          dsp 6.08% rss 112.7 MB add 404.3 ms 
+bench: clap16   H2 individual      48000/256  ok          dsp 7.19% rss 1736.5 MB add 832.1 ms 
+bench: clap16   H3 shared-process  48000/256  ok          dsp 5.32% rss 132.7 MB add 412.7 ms LV2 builds of omx-comp
+bench: clap16   H4 individual      48000/256  ok          dsp 6.69% rss 1813.3 MB add 2406.0 ms LV2 builds of omx-comp
+bench: pianoteq H1 shared-process  48000/256  ok          dsp 14.36% rss 357.4 MB add 1880.4 ms 
+bench: pianoteq H2 individual      48000/256  ok          dsp 14.29% rss 359.4 MB add 2407.7 ms 
+bench: pianoteq H3 shared-process  48000/256  ok          dsp 14.05% rss 339.5 MB add 1901.1 ms 
+bench: pianoteq H4 individual      48000/256  ok          dsp 14.43% rss 331.3 MB add 2167.2 ms 
+bench: kill1    H1 shared-process  48000/256  failed      dsp 0.56% rss 107.6 MB add 18.8 ms host process lost
+bench: kill1    H2 individual      48000/256  ok          dsp 0.56% rss 109.2 MB add 46.2 ms 
+bench: kill1    H3 shared-process  48000/256  failed      dsp 0.56% rss 122.7 MB add 17.7 ms LV2 builds of omx-comp; host process lost
+bench: kill1    H4 individual      48000/256  failed      dsp 0.54% rss 113.7 MB add 133.5 ms LV2 builds of omx-comp; host process lost
+bench: cvp3     H2 individual      48000/256  ok          dsp 1.33% rss 337.6 MB add 291.7 ms 
+bench: cvp3     H2 chain           48000/256  ok          dsp 1.3% rss 121.7 MB add 595.4 ms one worker, 3 JACK clients
+bench: cvp3     H1 shared-process  48000/256  ok          dsp 1.47% rss 119.2 MB add 189.2 ms 
+bench: cvp3     H3 shared-process  48000/256  ok          dsp 1.17% rss 128.7 MB add 82.1 ms LV2 builds of omx-comp, omx-delay
+bench: cvp3     H4 individual      48000/256  ok          dsp 1.26% rss 345.0 MB add 416.3 ms LV2 builds of omx-comp, omx-delay
+bench: cvp8     H2 individual      48000/256  ok          dsp 5.35% rss 890.1 MB add 687.1 ms 
+bench: cvp8     H2 chain           48000/256  ok          dsp 5.11% rss 129.0 MB add 1278.8 ms one worker, 8 JACK clients
+bench: cvp8     H1 shared-process  48000/256  ok          dsp 5.07% rss 127.3 MB add 323.5 ms 
+bench: cvp8     H3 shared-process  48000/256  ok          dsp 4.79% rss 134.7 MB add 204.5 ms LV2 builds of omx-comp, omx-delay, omx-drive
+bench: cvp8     H4 individual      48000/256  ok          dsp 5.36% rss 917.9 MB add 1157.9 ms LV2 builds of omx-comp, omx-delay, omx-drive
+bench: cvp16    H2 individual      48000/256  ok          dsp 10.9% rss 1782.8 MB add 1435.2 ms 
+bench: cvp16    H2 chain           48000/256  ok          dsp 9.76% rss 138.1 MB add 2506.6 ms one worker, 16 JACK clients
+bench: cvp16    H1 shared-process  48000/256  ok          dsp 9.71% rss 137.0 MB add 559.2 ms 
+bench: cvp16    H3 shared-process  48000/256  ok          dsp 9.4% rss 147.1 MB add 434.1 ms LV2 builds of omx-comp, omx-delay, omx-drive
+bench: cvp16    H4 individual      48000/256  ok          dsp 11.01% rss 1834.9 MB add 2416.9 ms LV2 builds of omx-comp, omx-delay, omx-drive
+bench: idle     H1 -               96000/256  ok          dsp 0.26% rss 107.6 MB add None ms 
+bench: idle     H2 -               96000/256  ok          dsp 0.27% rss 1.1 MB add None ms 
+bench: idle     H3 -               96000/256  ok          dsp 0.34% rss 122.2 MB add None ms 
+bench: idle     H4 -               96000/256  unsupported dsp None% rss None MB add None ms jalv runs one plugin per process; it has no host without a plugin
+bench: clap1    H1 shared-process  96000/256  ok          dsp 1.13% rss 108.7 MB add 15.6 ms 
+bench: clap1    H2 individual      96000/256  ok          dsp 1.01% rss 110.3 MB add 37.8 ms 
+bench: clap1    H3 -               96000/256  unsupported dsp None% rss None MB add None ms mod-host runs LV2 only
+bench: clap1    H4 -               96000/256  unsupported dsp None% rss None MB add None ms jalv runs LV2 only
+bench: lv2-1    H1 shared-process  96000/256  ok          dsp 1.27% rss 117.3 MB add 125.0 ms 
+bench: lv2-1    H2 individual      96000/256  ok          dsp 1.27% rss 118.3 MB add 178.0 ms 
+bench: lv2-1    H3 shared-process  96000/256  ok          dsp 1.38% rss 124.3 MB add 23.0 ms 
+bench: lv2-1    H4 individual      96000/256  ok          dsp 1.33% rss 115.8 MB add 128.2 ms 
+bench: chain3   H1 shared-process  96000/256  ok          dsp 2.37% rss 119.9 MB add 167.9 ms 
+bench: chain3   H2 chain           96000/256  ok          dsp 2.36% rss 121.9 MB add 565.5 ms one worker, 3 JACK clients
+bench: chain3   H3 shared-process  96000/256  ok          dsp 2.23% rss 127.8 MB add 68.6 ms LV2 builds of omx-comp, omx-delay
+bench: chain3   H4 individual      96000/256  ok          dsp 2.33% rss 345.0 MB add 381.7 ms LV2 builds of omx-comp, omx-delay
+bench: clap16   H1 shared-process  96000/256  ok          dsp 12.25% rss 111.2 MB add 345.4 ms 
+bench: clap16   H2 individual      96000/256  ok          dsp 13.78% rss 1736.8 MB add 719.9 ms 
+bench: clap16   H3 shared-process  96000/256  ok          dsp 10.41% rss 123.7 MB add 324.4 ms LV2 builds of omx-comp
+bench: clap16   H4 individual      96000/256  ok          dsp 15.16% rss 1811.8 MB add 2179.6 ms LV2 builds of omx-comp
+bench: pianoteq H1 shared-process  96000/256  ok          dsp 21.57% rss 358.3 MB add 1895.7 ms 
+bench: pianoteq H2 individual      96000/256  ok          dsp 21.6% rss 359.5 MB add 2396.3 ms 
+bench: pianoteq H3 shared-process  96000/256  ok          dsp 21.38% rss 340.4 MB add 1879.9 ms 
+bench: pianoteq H4 individual      96000/256  ok          dsp 20.93% rss 331.4 MB add 2194.4 ms 
+bench: kill1    H1 shared-process  96000/256  failed      dsp 1.0% rss 107.6 MB add 15.5 ms host process lost
+bench: kill1    H2 individual      96000/256  ok          dsp 0.99% rss 109.8 MB add 40.5 ms 
+bench: kill1    H3 shared-process  96000/256  failed      dsp 1.04% rss 122.2 MB add 17.6 ms LV2 builds of omx-comp; host process lost
+bench: kill1    H4 individual      96000/256  failed      dsp 0.98% rss 113.6 MB add 122.4 ms LV2 builds of omx-comp; host process lost
+bench: cvp3     H2 individual      96000/256  ok          dsp 2.47% rss 337.3 MB add 269.8 ms 
+bench: cvp3     H2 chain           96000/256  ok          dsp 2.39% rss 122.0 MB add 549.5 ms one worker, 3 JACK clients
+bench: cvp3     H1 shared-process  96000/256  ok          dsp 2.34% rss 120.5 MB add 162.5 ms 
+bench: cvp3     H3 shared-process  96000/256  ok          dsp 2.28% rss 127.8 MB add 68.6 ms LV2 builds of omx-comp, omx-delay
+bench: cvp3     H4 individual      96000/256  ok          dsp 2.33% rss 345.0 MB add 386.9 ms LV2 builds of omx-comp, omx-delay
+bench: cvp8     H2 individual      96000/256  ok          dsp 10.29% rss 889.0 MB add 630.7 ms 
+bench: cvp8     H2 chain           96000/256  ok          dsp 9.73% rss 128.2 MB add 1187.3 ms one worker, 8 JACK clients
+bench: cvp8     H1 shared-process  96000/256  ok          dsp 9.74% rss 127.5 MB add 272.2 ms 
+bench: cvp8     H3 shared-process  96000/256  ok          dsp 9.39% rss 131.3 MB add 172.3 ms LV2 builds of omx-comp, omx-delay, omx-drive
+bench: cvp8     H4 individual      96000/256  ok          dsp 10.44% rss 915.8 MB add 1050.8 ms LV2 builds of omx-comp, omx-delay, omx-drive
+bench: cvp16    H2 individual      96000/256  ok          dsp 21.78% rss 1779.1 MB add 1320.4 ms 
+bench: cvp16    H2 chain           96000/256  ok          dsp 18.91% rss 136.5 MB add 2338.2 ms one worker, 16 JACK clients
+bench: cvp16    H1 shared-process  96000/256  ok          dsp 18.83% rss 135.9 MB add 489.4 ms 
+bench: cvp16    H3 shared-process  96000/256  ok          dsp 18.27% rss 138.8 MB add 362.0 ms LV2 builds of omx-comp, omx-delay, omx-drive
+bench: cvp16    H4 individual      96000/256  ok          dsp 20.99% rss 1835.9 MB add 2206.1 ms LV2 builds of omx-comp, omx-delay, omx-drive
+bench: teardown: no host, no JACK server, no other process of this run is left
+/root/bench-results/rpi5-20261027-1.json

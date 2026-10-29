@@ -16,12 +16,14 @@ echo "== /etc/debian_version"; D "cat /etc/debian_version"
 echo "== /zynthian/build_info.txt"; D "cat /zynthian/build_info.txt"
 D "dump /var/lib/dpkg/status $out/dpkg-status"
 echo "== packages: $(grep -c '^Package:' "$out/dpkg-status")"
-for p in jackd2 libjack-jackd2-0 python3 liblilv-0-0 linux-image-rpi-v8 linux-image-rpi-2712 raspi-firmware a2jmidid; do
+for p in jackd2 libjack-jackd2-0 python3 liblilv-0-0 linux-image-rpi-v8 linux-image-rpi-2712 raspi-firmware a2jmidid \
+    openmixer-release plugin-hostd omx-clap-host omx-plugins omx-panel plugin-qualify; do
     printf '%s %s\n' "$p" "$(awk -v p="$p" '$1=="Package:"{x=($2==p)} x&&$1=="Version:"{print $2; exit}' "$out/dpkg-status")"
 done
 for r in zynthian-ui zynthian-sys zynthian-webconf zyncoder; do
     head=$(D "cat /zynthian/$r/.git/HEAD"); ref=${head#ref: }
-    printf '== %s %s %s\n' "$r" "$ref" "$(D "cat /zynthian/$r/.git/$ref" 2>/dev/null)"
+    printf '== %s %s %s %s\n' "$r" "$ref" "$(D "cat /zynthian/$r/.git/$ref" 2>/dev/null)" \
+        "$(D "cat /zynthian/$r/.git/config" | sed -n 's/^[[:space:]]*url = //p' | head -1)"
 done
 echo "== /zynthian/zynthian-sw"; D "ls /zynthian/zynthian-sw" | tr -s ' \t\n' '\n' | grep -v '^\.*$' | sort | tr '\n' ' '; echo
 echo "== mod-host / jalv / mod-ui"; for f in /usr/local/bin/mod-host /usr/local/lib/jack/mod-host.so /usr/lib/jack/mod-host.so /usr/local/bin/jalv /zynthian/zynthian-sw/mod-ui/server.py; do D "stat $f" | head -1 | sed "s#^#$f: #"; done

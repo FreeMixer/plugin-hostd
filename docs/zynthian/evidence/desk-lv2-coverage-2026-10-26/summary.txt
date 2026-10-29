@@ -1,0 +1,30 @@
+LV2 admission coverage on a Fedora 44 x86_64 desktop, 2026-10-26 20:57Z-21:17Z, the 979-URI set of 2026-10-20
+(the URI list is not published here), the coverage kit's private namespace with its own PipeWire (48 kHz,
+null sink), the desk graph checked untouched before and after each arm (93 lines).
+
+jalv 1.8.0 (/usr/bin/jalv, jalv-1.8.0-1.fc44): one `jalv -n <name> <uri>` per URI, headless, stdin held open; hosted =
+the plugin instantiated, activated and its node on the namespace graph within 10 s (probe-jalv.py).
+  hosted 977 of 979 (every one within 0.2-0.4 s)
+  not hosted:
+    http://home.gna.org/zyn/zynadd/1       refused: error: Mandatory port "midi_in" has unknown type (llext:MidiPort,
+                                           the port omx-clap-core reads since #292)
+    http://synthv1.sourceforge.net/lv2     crash at instantiate, SIGABRT (also alone, raw-jalvalone.tsv)
+  exit column: jalv 1.8.0 does not leave on stdin EOF, SIGINT or SIGTERM in this headless namespace (973 needed KILL,
+  3 left on INT, 1 on EOF); the verdict is made before the exit ladder, so this is not a hosting fault.
+  "warning: Failed to create temporary state directory" is printed for every plugin and is harmless here.
+
+mod-host 0.10.6 f14a230-11.1.fmx (installed 2026-10-17), same kit, same method as 2026-10-19 (probe.py mod):
+  hosted 975 of 979
+  not hosted:
+    http://drumkv1.sourceforge.net/lv2     crash-add SIGABRT
+    http://home.gna.org/zyn/zynadd/1       resp -102
+    http://samplv1.sourceforge.net/lv2     hang-add: socket closed (the host died)
+    http://synthv1.sourceforge.net/lv2     hang-add: socket closed (the host died)
+  The 2026-10-19 figure, 915 of 975, is the same binary on the previous day's set: 55 of its 56 refusals were plugins
+  the operator removed from the desk on 2026-10-20 (52 ll-plugins bundles, newtonator, lv2vocoder, one davemollen);
+  the one refusal that is in the 979 set is zynadd.
+
+omx-clap-core: 979 of 979 on main 9972e16 (2026-10-20: 978 in the batch, ir
+hosted alone). Not re-run today.
+
+The v1 family (drumkv1, samplv1, synthv1) crashes or kills mod-host and jalv and is hosted by omx-clap-core.

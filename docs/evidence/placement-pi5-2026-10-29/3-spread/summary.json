@@ -1,0 +1,20 @@
+{
+ "placement": "spread",
+ "instruments": 3,
+ "uris": [
+  "lv2:https://obxd.wordpress.com",
+  "lv2:https://surge-synthesizer.github.io/lv2/MoniqueMonosynth"
+ ],
+ "window_s": 60,
+ "busy_percent_by_core": {
+  "0": 1.6,
+  "1": 1.7,
+  "2": 23.8,
+  "3": 2.1
+ },
+ "busy_percent_max_core": 23.8,
+ "jack_xruns_in_window": 0,
+ "worker_xrun_events_in_window": [],
+ "xruns_last_count": {},
+ "worker_list": "resp 3 w1:96281:lv2-clap:up:1:own:0 w2:96287:lv2-clap:up:2:own:1 w3:96297:lv2-clap:up:3:own:2"
+}

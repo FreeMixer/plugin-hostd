@@ -149,6 +149,19 @@ int conf_check(const conf_t *conf)
         fprintf(stderr, "\n");
         return -1;
     }
+    ok = 0;
+#define X(id, name, meaning) ok |= !strcmp(conf->placement, name);
+    PHD_CORE_PLACEMENTS(X)
+#undef X
+    if (!ok)
+    {
+        fprintf(stderr, "placement '%s' is not one of:", conf->placement);
+#define X(id, name, meaning) fprintf(stderr, " %s", name);
+        PHD_CORE_PLACEMENTS(X)
+#undef X
+        fprintf(stderr, "\n");
+        return -1;
+    }
     if (strpbrk(conf->host_class, " \t"))
     {
         fprintf(stderr, "host_class '%s' holds white space\n", conf->host_class);
@@ -165,6 +178,11 @@ int conf_check(const conf_t *conf)
 int conf_pins_first_use(const conf_t *conf)
 {
     return !strcmp(conf->pin_mode, PHD_PIN_MODE_FIRST_USE);
+}
+
+int conf_spread(const conf_t *conf)
+{
+    return !strcmp(conf->placement, PHD_CORE_PLACEMENT_SPREAD);
 }
 
 int conf_grouping_on(const conf_t *conf)

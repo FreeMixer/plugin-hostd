@@ -1,0 +1,112 @@
+# The documentation site: its sections, in navigation order, and the entries of each.
+# tools/site/build.mjs reads this file; a new page is one entry here, and no code changes.
+#
+# An entry is one of:
+#   page: <path under docs/>   a page of this repository
+#   url: <address>             a page elsewhere (another repository's docs, a file on GitHub)
+# with a title, an optional blurb, and `pending: true` for a page that is not in docs/ yet. A pending page is shown
+# as "coming: <title>" with no link; when the page arrives the site links it, and the build says to drop the flag.
+# A page entry without the flag whose file is missing fails the build, by name.
+#
+# The landing page is docs/index.md. Its paragraph {{captures}} is replaced by the row of captures below; a capture
+# whose file is not in docs/ yet is pending, and shown as its caption alone.
+title: plugin-hostd technical manual
+
+landing:
+  page: index.md
+  captures:
+    - src: zynthian/evidence/series/04-plugin-hostd-engine/controller-page.png
+      caption: A controller page of the plugin-hostd engine
+      pending: true
+    - src: zynthian/evidence/series/08-modgui/modgui.png
+      caption: The same plugin's MOD GUI, from the same layout
+      pending: true
+    - src: zynthian/evidence/series/05a-menu-figures/menu.png
+      caption: The plugin menu with the qualification figures
+      pending: true
+
+sections:
+  - id: start
+    title: Start here
+    blurb: What plugin-hostd is, what it hosts, how it runs, and how to install it.
+    entries:
+      - page: start-here.md
+        title: plugin-hostd in four paragraphs
+
+  - id: zynthian
+    title: The Zynthian use case
+    blurb: The worked example. Zynthian running its LV2 and CLAP plugins under plugin-hostd on a Raspberry Pi 5, measured.
+    entries:
+      - page: zynthian/instruments.md
+        title: "Instruments: voices across the cores"
+        pending: true
+      - page: zynthian/benchmarks.md
+        title: Benchmarks
+        pending: true
+      - page: zynthian/tradeoffs.md
+        title: Trade-offs
+        pending: true
+      - page: zynthian/upstream-series.md
+        title: The upstream patch series
+        pending: true
+      - page: zynthian/image.md
+        title: The image and its first boot
+        pending: true
+      - page: zynthian/stress.md
+        title: The stress run
+        pending: true
+      - page: zynthian/captures.md
+        title: Captures of the menus and the MOD GUIs
+        pending: true
+      - page: zynthian/README.md
+        title: How to use it in Zynthian
+        pending: true
+      - page: zynthian/acceptance-report.md
+        title: The acceptance report
+        pending: true
+
+  - id: reference
+    title: Reference
+    blurb: The protocol, the formats, and the verbs a host uses.
+    entries:
+      - page: protocol.md
+        title: The wire protocol
+        pending: true
+      - page: formats.md
+        title: "The format tables: how a scan becomes a descriptor"
+      - page: own-host.md
+        title: Use plugin-hostd in your own host
+      - page: panel.md
+        title: The panel a plugin publishes
+      - page: presets.md
+        title: Presets in the host
+      - page: estimate.md
+        title: "The estimate verb: a chain's cost before it runs"
+        pending: true
+      - page: placement.md
+        title: "Core placement: one worker per chain, pinned across the audio cores"
+      - url: https://github.com/FreeMixer/plugin-qualify#readme
+        title: Qualification records (plugin-qualify)
+      - url: https://github.com/FreeMixer/plugin-hostd#pins
+        title: Pins (README)
+      - url: https://github.com/FreeMixer/omx-plugins/tree/main/docs/plugins
+        title: The parameters of the omx plugins (omx-plugins)
+        pending: true
+
+  - id: evidence
+    title: Evidence
+    blurb: Every file under an evidence directory, by topic and date, with the pages that cite it.
+    generated: evidence
+
+  - id: project
+    title: Project
+    blurb: Where the code comes from, how to take part, and the licence.
+    entries:
+      - url: https://github.com/FreeMixer/mod-host
+        title: The mod-host fork the LV2 workers run
+      - url: https://github.com/FreeMixer/plugin-hostd/tree/main/docs/design
+        title: The design notes (in the repository)
+      - page: contributing.md
+        title: How to contribute
+      - url: https://github.com/FreeMixer/plugin-hostd/blob/main/COPYING
+        title: "Licence: GPL-3.0-or-later"

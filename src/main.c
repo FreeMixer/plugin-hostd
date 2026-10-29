@@ -41,6 +41,8 @@
 #endif
 
 #define SOCKET_DEFAULT_PORT     PHD_DEFAULT_COMMAND_PORT
+/* the long options with no short one */
+#define OPT_PLACEMENT           256
 #define SOCKET_MSG_BUFFER_SIZE  PHD_LINE_MAX
 
 static volatile int running;
@@ -94,13 +96,14 @@ int main(int argc, char **argv)
         {"socket-port", required_argument, 0, 'p'},
         {"feedback-port", required_argument, 0, 'f'},
         {"config", required_argument, 0, 'c'},
+        {"placement", required_argument, 0, OPT_PLACEMENT},
         {"nofork", no_argument, 0, 'n'},
         {"version", no_argument, 0, 'V'},
         {"help", no_argument, 0, 'h'},
         {0, 0, 0, 0}
     };
     int opt, opt_index = 0, socket_port = SOCKET_DEFAULT_PORT, feedback_port = 0, nofork = 0;
-    const char *config = getenv("PLUGIN_HOSTD_CONF");
+    const char *config = getenv("PLUGIN_HOSTD_CONF"), *placement = NULL;
     char default_config[4096];
     struct sigaction sig;
 
@@ -121,15 +124,19 @@ int main(int argc, char **argv)
             case 'c':
                 config = optarg;
                 break;
+            case OPT_PLACEMENT:
+                placement = optarg;
+                break;
             case 'V':
                 printf("%s version: %s\n", argv[0], VERSION);
                 return EXIT_SUCCESS;
             case 'h':
             default:
-                printf("Usage: %s [-n] [-p <port>] [-f <port>] [-c <file>]\n"
+                printf("Usage: %s [-n] [-p <port>] [-f <port>] [-c <file>] [--placement=spread|none]\n"
                        "  -p, --socket-port=<port>       command port (default %d)\n"
                        "  -f, --feedback-port=<port>     feedback port (default port+1 unless -n)\n"
                        "  -c, --config=<file>            settings, one \"key value\" per line\n"
+                       "      --placement=spread|none    pin the workers across the audio cores, or nothing; over the file\n"
                        "  -n, --nofork                   accepted; the daemon never forks\n"
                        "  -V, --version                  print program version and exit\n"
                        "  -h, --help                     print this help and exit\n",
@@ -157,6 +164,12 @@ int main(int argc, char **argv)
             return EXIT_FAILURE;
     }
 
+    /* the option is over the file */
+    if (placement && snprintf(g_conf.placement, sizeof(g_conf.placement), "%s", placement) >= (int)sizeof(g_conf.placement))
+    {
+        fprintf(stderr, "--placement '%s' is too long\n", placement);
+        return EXIT_FAILURE;
+    }
     if (conf_check(&g_conf) != 0)
         return EXIT_FAILURE;
     /* the directories of what an add gathers are made, or the daemon does not start: never a silent fallback */
@@ -168,6 +181,9 @@ int main(int argc, char **argv)
     history_start(&g_conf);
     signal(SIGPIPE, SIG_IGN);
     sup_init(&g_conf);
+    /* the audio cores and the daemon's own: before the sockets and the relay, so every thread starts where it stays */
+    if (sup_placement_init() != 0)
+        return EXIT_FAILURE;
     /* the feedback port is the relay's: the daemon's events and the workers' lines go out on it through one writer */
     if (socket_start(socket_port, 0, SOCKET_MSG_BUFFER_SIZE) < 0 || relay_start(feedback_port) < 0)
         return EXIT_FAILURE;

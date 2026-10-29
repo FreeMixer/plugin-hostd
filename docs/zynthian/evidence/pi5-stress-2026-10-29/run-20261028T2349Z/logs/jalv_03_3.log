@@ -1,0 +1,29 @@
+Plugin:       http://calf.sourceforge.net/plugins/VintageDelay
+JACK Name:    jalv_03_3
+Sample rate:  48000 Hz
+Block length: 256 frames
+MIDI buffers: 32768 bytes
+Comm buffers: 524288 bytes
+Update rate:  30.0 Hz
+Scale factor: 1.0
+
+#CTR> 15#amount=0.250000
+#CTR> 24#bpm=120.000000
+#CTR> 27#bpm_host=120.000000
+#CTR> 18#dry=1.000000
+#CTR> 14#feedback=0.500000
+#CTR> 20#fragmentation=0.000000
+#CTR> 26#hz=2.000000
+#CTR> 1#level_in=1.000000
+#CTR> 2#level_out=1.000000
+#CTR> 17#medium=1.000000
+#CTR> 16#mix_mode=1.000000
+#CTR> 25#ms=500.000000
+#CTR> 0#on=1.000000
+#CTR> 21#pbeats=4.000000
+#CTR> 22#pfrag=4.000000
+#CTR> 11#subdiv=4.000000
+#CTR> 12#time_l=3.000000
+#CTR> 13#time_r=5.000000
+#CTR> 23#timing=0.000000
+#CTR> 19#width=1.000000

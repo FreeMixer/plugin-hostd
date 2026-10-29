@@ -21,6 +21,7 @@
 #include <dirent.h>
 #include <ftw.h>
 #include <limits.h>
+#include <sched.h>
 #include <signal.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -40,6 +41,7 @@
 
 #include "history.h"
 #include "pins.h"
+#include "placement.h"
 #include "planner.h"
 #include "qualcost.h"
 #include "relay.h"
@@ -75,6 +77,9 @@ static int g_npools;
 static worker_env_t g_env[FORMATS_MAX];
 static chain_t *g_chain[MAX_INSTANCE];
 static int g_nchains;
+/* the audio cores in order, while placement spread found any (docs/placement.md): a new worker is pinned to one */
+static int g_cores[CPU_SETSIZE];
+static int g_ncores;
 
 /* what plan last answered for a chain: its segments, and the chain of each segment of two or more that runs */
 typedef struct PLAN_T {
@@ -95,6 +100,7 @@ static void chain_form(chain_t *c);
 static void plans_replan_for(int id);
 static void plans_regroup(int id, int64_t now, int arm);
 static void plan_again(int id);
+static const char *record_id(const char *uri);
 
 /* a chain as the controller names it: the number chain declared, or <plan>.<k> for segment k of a plan */
 static void chain_word(const chain_t *c, char *word, size_t size)
@@ -382,6 +388,7 @@ static worker_t *worker_new(int fmt, const char *place)
     w->fd = -1;
     w->fb_fd = -1;
     w->state = W_BACKOFF;
+    w->core = -1;
     snprintf(w->place, sizeof(w->place), "%s", place);
     w->pool = strncmp(place, PHD_PLACE_POOL_PREFIX, strlen(PHD_PLACE_POOL_PREFIX)) == 0;
     if (g_nworkers == g_capworkers)
@@ -589,21 +596,144 @@ static int host_settings_replay(worker_t *w)
     return 0;
 }
 
+/* ---------------------------------------------------------------- core placement (docs/placement.md) */
+
+/* the cost of a plugin as the planner reads it, its qualification record's at group_rate and group_quantum: a fraction
+ * of one core, below 0 for none */
+static double place_cost(const char *uri)
+{
+    if (g_conf.group_rate <= 0 || g_conf.group_quantum <= 0)
+        return -1;
+    return qualcost_read(g_conf.qualification_dir, record_id(uri), g_conf.group_rate, g_conf.group_quantum);
+}
+
+/* what a worker costs, the sum of its members' costs, and in *known whether every member has one */
+static double worker_cost(const worker_t *w, int *known)
+{
+    double sum = 0, c;
+    int m;
+
+    *known = 1;
+    for (m = 0; m < w->ninst; m++)
+    {
+        c = place_cost(w->inst[m]->uri);
+        if (c < 0)
+            *known = 0;
+        else
+            sum += c;
+    }
+    return sum;
+}
+
+/* the audio core of a new worker: the least loaded by the workers already placed (src/placement.c) */
+static int place_core(const worker_t *w)
+{
+    static placement_load_t load[CPU_SETSIZE];
+    int n, k, known;
+
+    for (k = 0; k < g_ncores; k++)
+    {
+        load[k].core = g_cores[k];
+        load[k].workers = load[k].unknown = 0;
+        load[k].cost = 0;
+    }
+    for (n = 0; n < g_nworkers; n++)
+    {
+        const worker_t *v = g_workers[n];
+
+        if (v == w || v->core < 0)
+            continue;
+        for (k = 0; k < g_ncores && g_cores[k] != v->core; k++)
+            ;
+        if (k == g_ncores)
+            continue;
+        load[k].workers++;
+        load[k].cost += worker_cost(v, &known);
+        load[k].unknown += !known;
+    }
+    return g_cores[placement_pick(load, g_ncores)];
+}
+
+/* every thread of the daemon on the set; the processes it forks from now on inherit it */
+static void pin_self(const cpu_set_t *set)
+{
+    DIR *dir = opendir("/proc/self/task");
+    struct dirent *e;
+
+    if (!dir)
+    {
+        sched_setaffinity(0, sizeof(*set), set);
+        return;
+    }
+    while ((e = readdir(dir)))
+        if (e->d_name[0] >= '0' && e->d_name[0] <= '9')
+            sched_setaffinity((pid_t)atoi(e->d_name), sizeof(*set), set);
+    closedir(dir);
+}
+
+int sup_placement_init(void)
+{
+    cpu_set_t allowed, audio, reserved;
+    char a[512], r[512];
+    int c;
+
+    g_ncores = 0;
+    if (!conf_spread(&g_conf))
+        return 0;
+    if (sched_getaffinity(0, sizeof(allowed), &allowed) != 0)
+    {
+        perror("placement spread: sched_getaffinity");
+        return -1;
+    }
+    if (placement_cores(&allowed, g_conf.audio_cores, &audio, &reserved) != 0)
+    {
+        placement_list_text(&allowed, a, sizeof(a));
+        fprintf(stderr, "audio_cores '%s' is not a cpu list inside the cpus the daemon may run on, %s\n", g_conf.audio_cores, a);
+        return -1;
+    }
+    for (c = 0; c < CPU_SETSIZE; c++)
+        if (CPU_ISSET(c, &audio))
+            g_cores[g_ncores++] = c;
+    placement_list_text(&audio, a, sizeof(a));
+    placement_list_text(&reserved, r, sizeof(r));
+    if (!g_ncores)
+        fprintf(stderr, "placement spread: the daemon may run on one cpu, %s, and no audio core is left: nothing is pinned\n", r);
+    else if (!CPU_COUNT(&reserved))
+        fprintf(stderr, "placement spread: workers on the audio cores %s; no cpu is left for the daemon, which is not pinned\n", a);
+    else
+    {
+        pin_self(&reserved);
+        fprintf(stderr, "placement spread: workers on the audio cores %s, the daemon on %s\n", a, r);
+    }
+    return 0;
+}
+
 static int worker_start(worker_t *w, const char *uri)
 {
     char logfile[PATH_MAX];
     char *world;
     int rc, attempt;
+    worker_env_t env = g_env[w->fmt];
 
     if (!proc_have_binary(bin_of(w->fmt)))
         return OMX_REPLY_PLUGIN_HOSTD_NO_BACKEND_RESP;
     snprintf(logfile, sizeof(logfile), "%s/w%d.log", g_root, w->k);
     world = narrow_world(w, uri);
     w->state = W_STARTING;
+    /* the policy pins a worker whose format worker_env gave no cpus: to the core it has, which a respawn keeps, or to the
+     * least-loaded one; the child is pinned before it runs the worker, so every thread it makes is there too */
+    if (g_ncores && !env.cpus[0])
+    {
+        if (w->core < 0)
+            w->core = place_core(w);
+        snprintf(env.cpus, sizeof(env.cpus), "%d", w->core);
+    }
+    else
+        w->core = -1;
     for (attempt = 0;; attempt++)
     {
         rc = proc_spawn(&g_conf, bin_of(w->fmt), format_at(w->fmt)->world_env, world ? world : search_of(w->fmt),
-                        &g_env[w->fmt], logfile, &w->pid, &w->port, &w->fb_port);
+                        &env, logfile, &w->pid, &w->port, &w->fb_port);
         if (rc != 0)
         {
             free(world);
@@ -2117,7 +2247,11 @@ char *sup_worker_list(void)
     {
         worker_t *w = sorted[n];
 
-        put(&buf, &used, &cap, " w%d:%d:%s:%s:%s:", w->k, (int)w->pid, format_at(w->fmt)->name, g_state_states[w->state], w->place);
+        put(&buf, &used, &cap, " w%d:%d:%s:%s:", w->k, (int)w->pid, format_at(w->fmt)->name, g_state_states[w->state]);
+        if (w->core >= 0)
+            put(&buf, &used, &cap, "%d:%s:", w->core, w->place);
+        else
+            put(&buf, &used, &cap, PHD_WORD_NONE ":%s:", w->place);
         if (!w->ninst)
             put(&buf, &used, &cap, PHD_WORD_NONE);
         for (m = 0; m < w->ninst; m++)
@@ -2318,7 +2452,13 @@ char *sup_worker_env(const char *format, const char *cpus, const char *nice)
     for (f = lo; f <= hi; f++)
     {
         if (strcmp(cpus, PHD_WORD_NONE))
+        {
             snprintf(g_env[f].cpus, sizeof(g_env[f].cpus), "%s", cpus);
+            /* the format's workers run on these cpus now: the policy no longer places them */
+            for (n = 0; n < g_nworkers; n++)
+                if (g_workers[n]->fmt == f)
+                    g_workers[n]->core = -1;
+        }
         if (strcmp(nice, PHD_WORD_NONE))
             g_env[f].nice = atoi(nice);
         for (n = 0; n < g_nworkers; n++)
@@ -2489,6 +2629,25 @@ static int must_run_own(const instance_t *i)
            !pins_in_process(i->uri);
 }
 
+/* whether a world holding the m uris of the row can be built for one worker, or none needs building */
+static int world_found(int row, const char **uris, int m)
+{
+    const format_t *f = format_at(row);
+    char dir[PATH_MAX], *world;
+    int found;
+
+    if (!g_conf.require_pins || !f->pinned_own_only)
+        return 1;
+    if (!f->narrow_world)
+        return 0;
+    snprintf(dir, sizeof(dir), "%s/world-check", g_root);
+    world = f->narrow_world(&g_conf, dir, uris, m);
+    rm_tree(dir);
+    found = world != NULL;
+    free(world);
+    return found;
+}
+
 /* while require_pins is on, a chain whose worker's row pins in a world of its own forms only if the row can narrow the
  * worker's world to the union of its members of that row: it is built once in a scratch directory, every one found */
 static int chain_world_found(const int *ids, int n)
@@ -2496,7 +2655,6 @@ static int chain_world_found(const int *ids, int n)
     int row = chain_row_of(ids, n);
     const format_t *f = format_at(row);
     const char **uris;
-    char dir[PATH_MAX], *world;
     int k, m = 0, found;
 
     if (!g_conf.require_pins || !f->pinned_own_only)
@@ -2507,12 +2665,8 @@ static int chain_world_found(const int *ids, int n)
     for (k = 0; k < n; k++)
         if (g_inst[ids[k]]->fmt == row)
             uris[m++] = g_inst[ids[k]]->uri;
-    snprintf(dir, sizeof(dir), "%s/world-check", g_root);
-    world = f->narrow_world(&g_conf, dir, uris, m);
+    found = world_found(row, uris, m);
     free(uris);
-    rm_tree(dir);
-    found = world != NULL;
-    free(world);
     return found;
 }
 
@@ -2631,13 +2785,13 @@ static const char *record_id(const char *uri)
     return hash ? hash + 1 : uri;
 }
 
-/* What the planner is told of the history of an instance: the verdicts and the solo cost of its record on this host
+/* What the planner is told of the history of a plugin: the verdicts and the solo cost of its record on this host
  * class, by the rules of src/history.c, and a crash the daemon has seen itself, a quarantine, which no record of a
  * history that is off or blocked can hold. NULL for neither: a plugin with no history is judged by its pin alone. */
-static const planner_history_t *plan_history(const instance_t *i, planner_history_t *h)
+static const planner_history_t *plan_history(const char *uri, int quarantined, planner_history_t *h)
 {
     char digest[PHD_SHA256_HEX_LEN + 1];
-    const history_rec_t *r = pins_digest(i->uri, digest) == 0 ? history_find(i->uri, digest) : NULL;
+    const history_rec_t *r = pins_digest(uri, digest) == 0 ? history_find(uri, digest) : NULL;
     int any = 0;
 
     memset(h, 0, sizeof(*h));
@@ -2651,7 +2805,7 @@ static const planner_history_t *plan_history(const instance_t *i, planner_histor
             h->cpu_p95_solo = r->cpu_p95_solo / 100.0;
         any = 1;
     }
-    if (meta_of(i->id)->quarantined)
+    if (quarantined)
     {
         h->crashed = 1;
         any = 1;
@@ -2659,33 +2813,52 @@ static const planner_history_t *plan_history(const instance_t *i, planner_histor
     return any ? h : NULL;
 }
 
+/* what a pin's verdict is to the planner */
+static int plan_pin(const char *uri)
+{
+    const char *verdict = pins_verdict(uri);
+
+    if (!verdict)
+        return PLANNER_PIN_NONE;
+    if (!strcmp(verdict, PHD_PIN_VERDICT_IN_PROCESS))
+        return PLANNER_PIN_IN_PROCESS;
+    if (!strcmp(verdict, PHD_PIN_VERDICT_ISOLATED))
+        return PLANNER_PIN_ISOLATED;
+    if (!strcmp(verdict, PHD_PIN_VERDICT_REFUSED))
+        return PLANNER_PIN_REFUSED;
+    return PLANNER_PIN_NO_VERDICT;
+}
+
+/* the cost the planner reads for a plugin: its record's at group_rate and group_quantum, PLANNER_COST_UNKNOWN for none */
+static double plan_cost(const char *uri)
+{
+    double cost = g_conf.group_rate > 0 && g_conf.group_quantum > 0
+                      ? qualcost_read(g_conf.qualification_dir, record_id(uri), g_conf.group_rate, g_conf.group_quantum)
+                      : PLANNER_COST_UNKNOWN;
+
+    return cost < 0 ? PLANNER_COST_UNKNOWN : cost;
+}
+
+/* the class of the planner of a row: the worker program that runs chains in one client, else the row alone */
+static const char *plan_class(int fmt)
+{
+    const format_t *f = format_at(fmt);
+    const char *bin = bin_of(fmt);
+
+    return f->native_chain && bin ? bin : f->name;
+}
+
 /* what the planner is told of an instance: its worker program's class, its pin, whether a world can be built for it,
  * its cost and its history */
 static void plan_member(const instance_t *i, planner_member_t *m, planner_history_t *h)
 {
-    const format_t *f = format_at(i->fmt);
-    const char *bin = bin_of(i->fmt), *verdict = pins_verdict(i->uri);
-
     memset(m, 0, sizeof(*m));
     m->id = i->id;
-    m->klass = f->native_chain && bin ? bin : f->name;
-    if (!verdict)
-        m->pin = PLANNER_PIN_NONE;
-    else if (!strcmp(verdict, PHD_PIN_VERDICT_IN_PROCESS))
-        m->pin = PLANNER_PIN_IN_PROCESS;
-    else if (!strcmp(verdict, PHD_PIN_VERDICT_ISOLATED))
-        m->pin = PLANNER_PIN_ISOLATED;
-    else if (!strcmp(verdict, PHD_PIN_VERDICT_REFUSED))
-        m->pin = PLANNER_PIN_REFUSED;
-    else
-        m->pin = PLANNER_PIN_NO_VERDICT;
+    m->klass = plan_class(i->fmt);
+    m->pin = plan_pin(i->uri);
     m->world_ok = chain_world_found(&m->id, 1);
-    m->cost = g_conf.group_rate > 0 && g_conf.group_quantum > 0
-                  ? qualcost_read(g_conf.qualification_dir, record_id(i->uri), g_conf.group_rate, g_conf.group_quantum)
-                  : PLANNER_COST_UNKNOWN;
-    if (m->cost < 0)
-        m->cost = PLANNER_COST_UNKNOWN;
-    m->history = plan_history(i, h);
+    m->cost = plan_cost(i->uri);
+    m->history = plan_history(i->uri, meta_of(i->id)->quarantined, h);
 }
 
 /* the refusal chain would give the members of a segment of two or more, apart from the ones of the numbers: 0 for none */
@@ -2829,6 +3002,17 @@ static void plan_apply(plan_t *old, plan_t *p, const planner_plan_t *pp, const i
     free(at);
 }
 
+/* the planner's settings, the daemon's */
+static void plan_settings(planner_settings_t *s)
+{
+    s->require_pins = g_conf.require_pins;
+    s->pins_first_use = conf_pins_first_use(&g_conf);
+    s->grouping_on = conf_grouping_on(&g_conf);
+    s->group_max = g_conf.group_max;
+    s->group_cost_max = g_conf.group_cost_max / 100.0;
+    s->history_unavailable = !history_available();
+}
+
 /* the members are planned and the plan is applied, or only kept while grouping is off or a segment cannot be formed; the
  * plan before it is dropped, its segments that did not change are the new plan's. *refused is the code of the refusal, 0
  * for none. The members are checked by the caller. */
@@ -2843,12 +3027,7 @@ static plan_t *plan_run(int id, const int *ids, int n, int *code)
 
     for (k = 0; k < n; k++)
         plan_member(g_inst[ids[k]], &m[k], &h[k]);
-    s.require_pins = g_conf.require_pins;
-    s.pins_first_use = conf_pins_first_use(&g_conf);
-    s.grouping_on = conf_grouping_on(&g_conf);
-    s.group_max = g_conf.group_max;
-    s.group_cost_max = g_conf.group_cost_max / 100.0;
-    s.history_unavailable = !history_available();
+    plan_settings(&s);
     planner_plan(&s, m, n, &pp);
 
     /* every segment is checked before any is made: a plan that cannot be formed moves nothing */
@@ -2891,11 +3070,39 @@ static plan_t *plan_run(int id, const int *ids, int n, int *code)
     return p;
 }
 
+/* the cores word of plan and plan_get: the segments with each member replaced by the core of the worker that runs it now,
+ * - for one the placement did not pin; malloc'd */
+static char *plan_cores(const char *segments)
+{
+    size_t used = 0, cap = 64;
+    char *buf = malloc(cap), *end;
+    const char *p = segments;
+
+    buf[0] = '\0';
+    while (*p)
+    {
+        if (*p >= '0' && *p <= '9')
+        {
+            long id = strtol(p, &end, 10);
+            const instance_t *i = id < MAX_INSTANCE ? g_inst[id] : NULL;
+
+            if (i && i->w && i->w->core >= 0)
+                put(&buf, &used, &cap, "%d", i->w->core);
+            else
+                put(&buf, &used, &cap, PHD_WORD_NONE);
+            p = end;
+        }
+        else
+            put(&buf, &used, &cap, "%c", *p++);
+    }
+    return buf;
+}
+
 char *sup_plan(int id, const int *ids, int n)
 {
     plan_t *p;
     int k, j, refused;
-    char *reply;
+    char *reply, *cores;
     size_t used = 0, cap = 64;
 
     if (id < 0 || id >= MAX_INSTANCE || n < PHD_CHAIN_MEMBERS_MIN || n > PLANNER_MEMBERS_MAX)
@@ -2916,8 +3123,10 @@ char *sup_plan(int id, const int *ids, int n)
     p = plan_run(id, ids, n, &refused);
     if (refused)
         return sup_resp(refused);
+    cores = plan_cores(p->segments);
     reply = malloc(cap);
-    put(&reply, &used, &cap, "resp 0 %s", p->segments);
+    put(&reply, &used, &cap, "resp 0 %s %s", p->segments, cores);
+    free(cores);
     return reply;
 }
 
@@ -2973,12 +3182,14 @@ char *sup_plan_get(int id)
 {
     plan_t *p = (id >= 0 && id < MAX_INSTANCE) ? g_plan[id] : NULL;
     size_t used = 0, cap = 64;
-    char *buf;
+    char *buf, *cores;
 
     if (!p)
         return sup_resp(OMX_REPLY_PLUGIN_HOSTD_NO_SUCH_PLAN_RESP);
+    cores = plan_cores(p->segments);
     buf = malloc(cap);
-    put(&buf, &used, &cap, "resp 0 %s %s", p->segments, p->reasons);
+    put(&buf, &used, &cap, "resp 0 %s %s %s", p->segments, p->reasons, cores);
+    free(cores);
     return buf;
 }
 
@@ -3011,4 +3222,112 @@ char *sup_plan_clear(int id)
     g_nplans--;
     plan_free(p);
     return sup_resp(SUCCESS);
+}
+
+/* ---------------------------------------------------------------- estimate */
+
+/* the row an add of the uri would run on, and in *fwd the uri as its worker is given it; -1 for none */
+static int estimate_row(const char *uri, const char **fwd)
+{
+    int fmt = format_of_uri(uri, fwd);
+
+    if (fmt < 0 || (fmt = format_route(&g_conf, fmt, *fwd)) < 0)
+        return -1;
+    if (format_at(fmt)->adapter && !proc_have_binary(bin_of(fmt)) && lv2_worker_is_auto(&g_conf, *fwd))
+        fmt = format_by_name(PHD_FORMAT_LV2);
+    return fmt;
+}
+
+/* the plugin is installed: its format tells its binary and the binary is there; a format that tells none is believed */
+static int estimate_installed(int fmt, const char *uri)
+{
+    const format_t *f = format_at(fmt);
+    char path[PATH_MAX];
+
+    if (!f->binary)
+        return 1;
+    return f->binary(uri, search_of(fmt), path, sizeof(path)) == 0 && access(path, F_OK) == 0;
+}
+
+/* the Pss in bytes of the worker the plugin ran alone in, on this host class, for the binary its pin holds; -1 for none */
+static double estimate_ram(const char *uri)
+{
+    char digest[PHD_SHA256_HEX_LEN + 1];
+    const history_rec_t *r = pins_digest(uri, digest) == 0 ? history_find(uri, digest) : NULL;
+
+    return r && r->windows_solo > 0 && r->pss_mb_solo > 0 ? r->pss_mb_solo * 1024.0 * 1024.0 : -1.0;
+}
+
+char *sup_estimate(int rate, int quantum, const char *const *uris, int n)
+{
+    planner_member_t m[PLANNER_MEMBERS_MAX];
+    planner_history_t h[PLANNER_MEMBERS_MAX];
+    planner_settings_t s;
+    planner_plan_t pp;
+    double latency = 0, median_ns = 0, ram = 0;
+    int k, planned = 0, unknown = 0, ram_every = 1, workers = 0;
+    size_t used = 0, cap = 128, lused = 0, lcap = 64;
+    char ram_word[32], *list, *reply;
+
+    if (rate <= 0 || quantum <= 0 || n < 1 || n > PLANNER_MEMBERS_MAX)
+        return sup_resp(ERR_INVALID_OPERATION);
+    list = malloc(lcap);
+    list[0] = '\0';
+    for (k = 0; k < n; k++)
+    {
+        const char *fwd = uris[k];
+        int fmt = estimate_row(uris[k], &fwd), code = 0;
+        qualcost_cell_t cell;
+        double bytes;
+
+        if (fmt < 0 || !estimate_installed(fmt, fwd))
+            code = OMX_REPLY_PLUGIN_HOSTD_UNKNOWN_PLUGIN_RESP;
+        else
+            switch (qualcost_cell(g_conf.qualification_dir, record_id(fwd), rate, quantum, &cell))
+            {
+            case QUALCOST_CELL_FOUND:
+                latency += cell.latency_frames;
+                median_ns += cell.median_ns;
+                break;
+            case QUALCOST_CELL_NO_RECORD:
+                code = OMX_REPLY_PLUGIN_HOSTD_NO_RECORD_RESP;
+                break;
+            default:
+                code = OMX_REPLY_PLUGIN_HOSTD_NO_CELL_RESP;
+            }
+        if (code)
+            put(&list, &lused, &lcap, "%s%d:%d", unknown++ ? "," : "", k, code);
+        bytes = fmt < 0 ? -1.0 : estimate_ram(fwd);
+        if (bytes < 0)
+            ram_every = 0;
+        else
+            ram += bytes;
+        /* a plugin that is not installed is placed nowhere: it cannot be added */
+        if (code == OMX_REPLY_PLUGIN_HOSTD_UNKNOWN_PLUGIN_RESP)
+            continue;
+        memset(&m[planned], 0, sizeof(m[planned]));
+        m[planned].id = k;
+        m[planned].klass = plan_class(fmt);
+        m[planned].pin = plan_pin(fwd);
+        m[planned].world_ok = world_found(fmt, &fwd, 1);
+        m[planned].cost = plan_cost(fwd);
+        m[planned].history = plan_history(fwd, 0, &h[planned]);
+        planned++;
+    }
+    if (planned)
+    {
+        plan_settings(&s);
+        planner_plan(&s, m, planned, &pp);
+        workers = pp.nseg;
+    }
+    if (ram_every)
+        snprintf(ram_word, sizeof(ram_word), "%.0f", ram);
+    else
+        snprintf(ram_word, sizeof(ram_word), PHD_WORD_NONE);
+    /* a member's cost per block over the block's duration is its nanoseconds per sample times the rate, over 1e9 */
+    reply = malloc(cap);
+    put(&reply, &used, &cap, "resp 0 %.0f %.2f %s %d %d %s", latency, median_ns * rate / 1e9 * 100.0, ram_word, workers,
+        unknown, unknown ? list : PHD_WORD_NONE);
+    free(list);
+    return reply;
 }

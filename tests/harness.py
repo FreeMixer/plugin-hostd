@@ -87,7 +87,8 @@ def wait_for(cond, what, timeout=10.0, step=0.02):
 
 
 class Daemon:
-    def __init__(self, exe, worker, clap_worker=None, conf=None, env=None, feedback=True):
+    def __init__(self, exe, worker, clap_worker=None, conf=None, env=None, feedback=True, cpus=None, args=None):
+        """cpus: the daemon starts with this affinity, as under taskset; args: more options on its command line"""
         self.exe = exe
         DAEMONS.append(self)
         self.tmp = tempfile.mkdtemp(prefix="plugin-hostd-test.")
@@ -121,13 +122,16 @@ class Daemon:
         e.update(env or {})
         # the ports are free when port_pair picks them, not when the daemon binds: one that exits before it is ready
         # lost that race, and is started again on fresh ones
+        extra = list(args or [])
+        pin = (lambda: os.sched_setaffinity(0, cpus)) if cpus else None
         for attempt in range(3):
             self.cmd_port, self.fb_port = port_pair()
             args = [exe, "-n", "-p", str(self.cmd_port), "-c", self.conf]
             if feedback:
                 args += ["-f", str(self.fb_port)]
+            args += extra
             self.out = open(os.path.join(self.tmp, "daemon.out"), "w+")
-            self.proc = subprocess.Popen(args, stdout=self.out, stderr=subprocess.STDOUT, env=e)
+            self.proc = subprocess.Popen(args, stdout=self.out, stderr=subprocess.STDOUT, env=e, preexec_fn=pin)
             wait_for(lambda: READY_LINE in self.log().splitlines() or self.proc.poll() is not None, "the readiness line")
             if READY_LINE in self.log().splitlines():
                 break
@@ -197,9 +201,10 @@ class Daemon:
         check(parts[0] == "resp" and int(parts[1]) == len(parts) - 2, "worker_list shape: " + r)
         out = {}
         for rec in parts[2:]:
+            # the place holds colons: five fields on the left, the instances on the right
             head, insts = rec.rsplit(":", 1)
-            k, pid, fmt, state, place = head.split(":", 4)
-            out[k] = {"pid": int(pid), "fmt": fmt, "state": state, "place": place,
+            k, pid, fmt, state, core, place = head.split(":", 5)
+            out[k] = {"pid": int(pid), "fmt": fmt, "state": state, "core": None if core == "-" else int(core), "place": place,
                       "inst": [] if insts == "-" else [int(x) for x in insts.split(",")]}
         return out
 

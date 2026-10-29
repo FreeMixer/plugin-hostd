@@ -1,0 +1,120 @@
+Plugin:       http://calf.sourceforge.net/plugins/Compressor
+JACK Name:    effect_1
+Sample rate:  48000 Hz
+Block length: 256 frames
+MIDI buffers: 32768 bytes
+Comm buffers: 524288 bytes
+Update rate:  30.0 Hz
+Scale factor: 1.0
+
+#CTR> 8#attack=20.000000
+#CTR> 0#bypass=0.000000
+#CTR> 12#detection=0.000000
+#CTR> 11#knee=2.828430
+#CTR> 1#level_in=1.000000
+#CTR> 10#makeup=1.000000
+#CTR> 15#mix=1.000000
+#CTR> 7#ratio=2.000000
+#CTR> 9#release=250.000000
+#CTR> 13#stereo_link=0.000000
+#CTR> 6#threshold=0.125000
+Plugin:       http://calf.sourceforge.net/plugins/Compressor
+JACK Name:    effect_1
+Sample rate:  48000 Hz
+Block length: 256 frames
+MIDI buffers: 32768 bytes
+Comm buffers: 524288 bytes
+Update rate:  30.0 Hz
+Scale factor: 1.0
+
+#CTR> 8#attack=20.000000
+#CTR> 0#bypass=0.000000
+#CTR> 12#detection=0.000000
+#CTR> 11#knee=2.828430
+#CTR> 1#level_in=1.000000
+#CTR> 10#makeup=1.000000
+#CTR> 15#mix=1.000000
+#CTR> 7#ratio=2.000000
+#CTR> 9#release=250.000000
+#CTR> 13#stereo_link=0.000000
+#CTR> 6#threshold=0.125000
+Plugin:       http://calf.sourceforge.net/plugins/Compressor
+JACK Name:    effect_1
+Sample rate:  48000 Hz
+Block length: 256 frames
+MIDI buffers: 32768 bytes
+Comm buffers: 524288 bytes
+Update rate:  30.0 Hz
+Scale factor: 1.0
+
+#CTR> 8#attack=20.000000
+#CTR> 0#bypass=0.000000
+#CTR> 12#detection=0.000000
+#CTR> 11#knee=2.828430
+#CTR> 1#level_in=1.000000
+#CTR> 10#makeup=1.000000
+#CTR> 15#mix=1.000000
+#CTR> 7#ratio=2.000000
+#CTR> 9#release=250.000000
+#CTR> 13#stereo_link=0.000000
+#CTR> 6#threshold=0.125000
+Plugin:       http://calf.sourceforge.net/plugins/Compressor
+JACK Name:    effect_1
+Sample rate:  48000 Hz
+Block length: 256 frames
+MIDI buffers: 32768 bytes
+Comm buffers: 524288 bytes
+Update rate:  30.0 Hz
+Scale factor: 1.0
+
+#CTR> 8#attack=20.000000
+#CTR> 0#bypass=0.000000
+#CTR> 12#detection=0.000000
+#CTR> 11#knee=2.828430
+#CTR> 1#level_in=1.000000
+#CTR> 10#makeup=1.000000
+#CTR> 15#mix=1.000000
+#CTR> 7#ratio=2.000000
+#CTR> 9#release=250.000000
+#CTR> 13#stereo_link=0.000000
+#CTR> 6#threshold=0.125000
+Plugin:       http://calf.sourceforge.net/plugins/Compressor
+JACK Name:    effect_1
+Sample rate:  48000 Hz
+Block length: 256 frames
+MIDI buffers: 32768 bytes
+Comm buffers: 524288 bytes
+Update rate:  30.0 Hz
+Scale factor: 1.0
+
+#CTR> 8#attack=20.000000
+#CTR> 0#bypass=0.000000
+#CTR> 12#detection=0.000000
+#CTR> 11#knee=2.828430
+#CTR> 1#level_in=1.000000
+#CTR> 10#makeup=1.000000
+#CTR> 15#mix=1.000000
+#CTR> 7#ratio=2.000000
+#CTR> 9#release=250.000000
+#CTR> 13#stereo_link=0.000000
+#CTR> 6#threshold=0.125000
+Plugin:       http://calf.sourceforge.net/plugins/Compressor
+JACK Name:    effect_1
+Sample rate:  48000 Hz
+Block length: 256 frames
+MIDI buffers: 32768 bytes
+Comm buffers: 524288 bytes
+Update rate:  30.0 Hz
+Scale factor: 1.0
+
+#CTR> 8#attack=20.000000
+#CTR> 0#bypass=0.000000
+#CTR> 12#detection=0.000000
+#CTR> 11#knee=2.828430
+#CTR> 1#level_in=1.000000
+#CTR> 10#makeup=1.000000
+#CTR> 15#mix=1.000000
+#CTR> 7#ratio=2.000000
+#CTR> 9#release=250.000000
+#CTR> 13#stereo_link=0.000000
+#CTR> 6#threshold=0.125000
