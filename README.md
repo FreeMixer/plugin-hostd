@@ -58,7 +58,7 @@ In another terminal, add an LV2 plugin, set its gain and ask where it runs
     send "add http://plugin.org.uk/swh-plugins/amp 0"      # resp 0
     send "param_set 0 gain 6"                              # resp 0
     send "param_get 0 gain"                                # resp 0 6.0000
-    send "worker_list"                                     # resp 1 w1:<pid>:lv2:up:1:own:0
+    send "worker_list"                                     # resp 1 w1:<pid>:lv2:up:1:qualified:own:0
 
 The plugin now runs as JACK client `effect_0` in its own process. Link it in your graph as
 you would a mod-host plugin. `man plugin-hostd` has the options; the full protocol is below.
@@ -219,14 +219,14 @@ Verbs the daemon adds
 | verb | arguments | reply | meaning |
 |---|---|---|---|
 | `add` | `<uri> <instance> [own \| pool:<name> \| default] [client_name]` | `resp <instance>` | mod-host's add with a placement; a token after the instance that is not a placement is the jack client name |
-| `worker_list` | none | `resp <n> <worker>:<pid>:<format>:<state>:<core>:<place>:<i>,<i>,...` | the workers, one record each |
+| `worker_list` | none | `resp <n> <worker>:<pid>:<format>:<state>:<core>:<pool>:<place>:<i>,<i>,...` | the workers, one record each |
 | `instance_info` | `<instance>` | `resp 0 <worker> <pid> <state> <crashes> <quarantined>` | where an instance lives and what it has cost |
 | `supervisor_reset` | `[<worker> \| all]` | `resp 0` | re-arm the storm bound and the backoff of a given-up placement |
 | `quarantine_clear` | `<instance> \| all` | `resp 0` | let a quarantined instance go back where its placement says |
 | `policy_set` | `<format \| *> own \| pool:<name>` | `resp 0` | the placement of an add that says default |
 | `pool_config` | `<name> <max_instances>` | `resp 0` | the instances a pool holds before a sibling opens |
 | `worker_env` | `<format \| *> <cpu-list\|-> <nice\|->` | `resp 0` | the cpu list and the nice value of the workers of a format, at spawn and on the ones running |
-| `pin_set` | `<uri> <path>=<sha256>[,<path>=<sha256>...] <scheme>:<sha256> [verdict=<verdict>]` | `resp 0` | the pin of one plugin: the SHA-256 of every file the host loads for it, a path relative to the bundle (the directory of a single-file format's file), its layout fingerprint and, when it is known, the verdict of its qualification; it replaces an earlier pin of the uri; -516 for a plugin whose pins_dir pin carries verdict=refused, which nothing overrides. The pin store, a pin_file and a pins_dir file hold the same line, with or without the verb |
+| `pin_set` | `<uri> <path>=<sha256>[,<path>=<sha256>...] <scheme>:<sha256> [verdict=<verdict>] [pool=<pool>]` | `resp 0` | the pin of one plugin: the SHA-256 of every file the host loads for it, a path relative to the bundle (the directory of a single-file format's file), its layout fingerprint and, when they are known, the verdict of its qualification and whether its worker gets the CLAP thread pool; it replaces an earlier pin of the uri; -516 for a plugin whose pins_dir pin carries verdict=refused, which nothing overrides. The pin store, a pin_file and a pins_dir file hold the same line, with or without the verb |
 | `pin_clear` | `<uri> \| all` | `resp 0` | forget the pin of one plugin, or of every one; a pins_dir pin is read-only and holds again |
 | `pin_reload` | none | `resp 0` | read the pin_file and the pins_dir files again and put the pins in at once, without a restart; the daemon also does this by itself when one of those files changes. Running instances keep running: one the new pins refuse is logged and its id in worker_list is followed by !. The pin_set pins of the controller are kept. -902 under pin_mode off or when the pin_file is gone or has a line outside the grammar, and the earlier pins hold |
 | `pin_changed` | `[<uri>] [files \| layout]` | `resp 0` | the notice the package sync sends to every daemon it knows after it rewrote the pin file: the same as pin_reload, with or without the pin_changed event's words after it; more words than those are -902 |
@@ -249,9 +249,11 @@ Verbs the daemon adds
 A `<state>` is `up` (accepting commands), `starting` (spawned, not yet accepting), `backoff` (dead, waiting to be respawned), `given-up` (the storm bound is spent for its placement).
 <!-- END GENERATED protocol:verbs -->
 
-A record's place holds a colon (`pool:p`), so a `worker_list` record is read from both ends: five fields on the
+A record's place holds a colon (`pool:p`), so a `worker_list` record is read from both ends: six fields on the
 left, the instance list on the right, the place in between. The fifth is the audio core the setting `placement` pinned
-the worker to, `-` for none ([docs/placement.md](docs/placement.md)).
+the worker to, `-` for none ([docs/placement.md](docs/placement.md)). The sixth is the worker's thread pool: `on` for a
+worker started with `--thread-pool=on`, which only a CLAP or lv2-clap worker of one plugin whose pin carries `pool=cores`
+is, `qualified` for every other (the worker's default, which grants the pool to no plugin).
 
 `panel_get` gives a host that draws a plugin's panel itself (Zynthian's engine, a console) the panel the plugin
 publishes, as the scan of its add read it: sections, controls with their widget and visibility rule, roles, displays

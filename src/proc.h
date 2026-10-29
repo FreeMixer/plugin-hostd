@@ -32,11 +32,13 @@
 typedef struct WORKER_ENV_T {
     char cpus[128];             /* cpu list, "" leaves the mask alone */
     int nice;                   /* INT_MIN leaves it alone */
+    int thread_pool;            /* 1 starts the worker with --thread-pool=on; 0 passes no option, the worker's `qualified` */
 } worker_env_t;
 
 void proc_env_clear(worker_env_t *env);
 
-/* Start `bin` as "<bin> -n -p <port> -f <fb_port>" (PHD_WORKER_ARGUMENTS) on two free ports, its stdout and stderr
+/* Start `bin` as "<bin> -n -p <port> -f <fb_port>" (PHD_WORKER_ARGUMENTS), with env->thread_pool PHD_WORKER_THREAD_POOL_ON after
+ * them, on two free ports, its stdout and stderr
  * in `logfile`. `world` is set in the worker's environment as `world_env`, when neither is NULL. */
 int proc_spawn(const conf_t *conf, const char *bin, const char *world_env, const char *world, const worker_env_t *env,
                const char *logfile, pid_t *pid, int *port, int *fb_port);

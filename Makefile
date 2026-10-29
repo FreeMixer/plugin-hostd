@@ -64,7 +64,7 @@ INCS = -Iinclude $(PROTOCOL_CFLAGS)
 LDFLAGS += -Wl,--no-undefined
 
 # source and object files
-SRC = src/main.c src/conf.c src/proc.c src/supervisor.c src/verbs.c src/pins.c src/relay.c src/formats.c src/lv2.c \
+SRC = src/main.c src/conf.c src/proc.c src/supervisor.c src/verbs.c src/pins.c src/pin_words.c src/relay.c src/formats.c src/lv2.c \
       src/descriptors.c src/describe.c src/transforms.c src/json.c src/fsutil.c src/machine.c src/history.c src/planner.c src/qualcost.c src/placement.c
 OBJ = $(SRC:.c=.o)
 
@@ -235,9 +235,9 @@ FUZZ_CFLAGS    := -O1 -g -std=c11 -D_GNU_SOURCE -Wall -Wextra -Werror -fno-omit-
 FUZZ_INCS      := -Iinclude -Isrc -Ifuzz $(PROTOCOL_CFLAGS)
 # what each harness is built from beside its own file: the command harness links the parser and the recorder, the
 # reply harness includes src/relay.c itself
-FUZZ_SRC_command := src/verbs.c fuzz/recorder.c
+FUZZ_SRC_command := src/verbs.c src/pin_words.c fuzz/recorder.c
 FUZZ_SRC_reply   :=
-FUZZ_DEPS        := fuzz/fuzz.h fuzz/syntax.h fuzz/recorder.h src/relay.c src/verbs.h include/plugin-hostd/protocol.h $(RENDERED)
+FUZZ_DEPS        := src/pin_words.c fuzz/fuzz.h fuzz/syntax.h fuzz/recorder.h src/relay.c src/verbs.h include/plugin-hostd/protocol.h $(RENDERED)
 
 $(FUZZ_BUILD)/fuzz_%: fuzz/fuzz_%.c $(FUZZ_DEPS) $(FUZZ_SRC_command)
 	@mkdir -p $(dir $@)

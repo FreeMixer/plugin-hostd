@@ -590,7 +590,7 @@ static int answer_code(int code)
     return code;
 }
 
-int pins_set(const char *uri, const char *files, const char *layout, const char *verdict)
+int pins_set(const char *uri, const char *files, const char *layout, const char *verdict, const char *pool)
 {
     struct rec_call *c = record(REC_PINS_SET);
 
@@ -598,6 +598,7 @@ int pins_set(const char *uri, const char *files, const char *layout, const char 
     arg_s(c, files);
     arg_s(c, layout);
     arg_s(c, verdict ? verdict : "-");
+    arg_s(c, pool ? pool : "-");
     if (g_rec.refuse)
         return answer_code(g_rec.code);
     g_rec.state = mix_call(g_rec.state, c);
