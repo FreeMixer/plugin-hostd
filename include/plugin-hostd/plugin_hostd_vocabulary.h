@@ -102,5 +102,11 @@
 #define OMX_REPLY_PLUGIN_HOSTD_DESCRIPTOR_SCAN_FAILED_RESP (-531)
 #define OMX_REPLY_PLUGIN_HOSTD_NO_SUCH_PLAN "reply.plugin-hostd.no-such-plan" ///< a chain no plan verb planned
 #define OMX_REPLY_PLUGIN_HOSTD_NO_SUCH_PLAN_RESP (-532)
+#define OMX_REPLY_PLUGIN_HOSTD_NO_RECORD "reply.plugin-hostd.no-record" ///< no qualification record names the plugin
+#define OMX_REPLY_PLUGIN_HOSTD_NO_RECORD_RESP (-533)
+#define OMX_REPLY_PLUGIN_HOSTD_NO_CELL "reply.plugin-hostd.no-cell" ///< the plugin's qualification records hold no cost and latency at that rate and quantum
+#define OMX_REPLY_PLUGIN_HOSTD_NO_CELL_RESP (-534)
+#define OMX_REPLY_PLUGIN_HOSTD_UNKNOWN_PLUGIN "reply.plugin-hostd.unknown-plugin" ///< the uri names no plugin installed here
+#define OMX_REPLY_PLUGIN_HOSTD_UNKNOWN_PLUGIN_RESP (-535)
 
 #endif /* PLUGIN_HOSTD_VOCABULARY_H */

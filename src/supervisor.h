@@ -169,6 +169,10 @@ char *sup_plan(int id, const int *ids, int n);
 char *sup_plan_get(int id);
 char *sup_plan_clear(int id);
 
+/* estimate: what the n plugins, in signal order, would cost at the rate and quantum, from the qualification records and
+ * the history, and how many workers plan would place them in; nothing is loaded and nothing moves */
+char *sup_estimate(int rate, int quantum, const char *const *uris, int n);
+
 /* history_get: the summary of the binary the uri's pin holds, on this host class (src/history.c); history_clear: the
  * lines of one uri or all of them. Both answer as the verbs do */
 char *sup_history_get(const char *uri);

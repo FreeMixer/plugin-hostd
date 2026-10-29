@@ -1,0 +1,17 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='900' height='400' viewBox='0 0 900 400' role='img' font-family='DejaVu Sans, Helvetica, Arial, sans-serif'>
+<title>Matrix chain-omx cpu_pct</title>
+<rect x='0' y='0' width='900' height='400' fill='#fcfcfb'/>
+<text x='16.0' y='28.0' font-size='15' fill='#0b0b0b' text-anchor='start' font-weight='bold'>chain-omx: CPU of the host processes, % of one core, per rate and quantum</text>
+<rect x='16.0' y='42.0' width='12.0' height='12.0' rx='2' fill='#2a78d6'></rect>
+<text x='33.0' y='52.0' font-size='11' fill='#0b0b0b' text-anchor='start' font-weight='normal'>plugin-hostd grouped</text>
+<rect x='175.0' y='42.0' width='12.0' height='12.0' rx='2' fill='#eb6834'></rect>
+<text x='192.0' y='52.0' font-size='11' fill='#0b0b0b' text-anchor='start' font-weight='normal'>plugin-hostd single</text>
+<rect x='327.8' y='42.0' width='12.0' height='12.0' rx='2' fill='#6250d6'></rect>
+<text x='344.8' y='52.0' font-size='11' fill='#0b0b0b' text-anchor='start' font-weight='normal'>mod-host</text>
+<rect x='412.4' y='42.0' width='12.0' height='12.0' rx='2' fill='#e87ba4'></rect>
+<text x='429.4' y='52.0' font-size='11' fill='#0b0b0b' text-anchor='start' font-weight='normal'>jalv</text>
+<text x='450.0' y='190.0' font-size='18' fill='#52514e' text-anchor='middle' font-weight='bold'>not measured yet</text>
+<text x='450.0' y='216.0' font-size='11' fill='#52514e' text-anchor='middle' font-weight='normal'>tools/zynthian/matrix.py --out &lt;dir&gt; --only chains</text>
+<text x='16.0' y='374.0' font-size='11' fill='#52514e' text-anchor='start' font-weight='normal'>No cell of chain-omx measured yet: docs/zynthian/evidence/pi5-matrix-2026-10-28/matrix.csv holds none (tools/zynthian/matrix.py).</text>
+<text x='16.0' y='388.0' font-size='11' fill='#52514e' text-anchor='start' font-weight='normal'>One 60 s hold per cell, one run per cell. Every mod-host row is the stock binary started by the bench on a private port.</text>
+</svg>

@@ -128,6 +128,16 @@ static char *plan_words(char **tok, int ntok)
     return sup_plan(id, ids, ntok - 2);
 }
 
+/* estimate <rate> <quantum> <uri> [<uri> ...] */
+static char *estimate_words(char **tok, int ntok)
+{
+    int rate, quantum;
+
+    if (ntok < 4 || !number(tok[1], &rate) || !number(tok[2], &quantum))
+        return sup_resp(ERR_INVALID_OPERATION);
+    return sup_estimate(rate, quantum, (const char *const *)tok + 3, ntok - 3);
+}
+
 static void reply(int fd, char *text)
 {
     char refusal[32];
@@ -225,6 +235,8 @@ static char *handle(char *line, char **tok, int ntok)
 
         return ntok == 2 && number(tok[1], &id) ? sup_plan_clear(id) : sup_resp(ERR_INVALID_OPERATION);
     }
+    if (!strcmp(verb, OMX_VERB_ESTIMATE))
+        return estimate_words(tok, ntok);
     if (!strcmp(verb, OMX_VERB_PIN_SET))
         return sup_resp(pin_set_words(line, tok, ntok));
     if (!strcmp(verb, OMX_VERB_PIN_ACCEPT))

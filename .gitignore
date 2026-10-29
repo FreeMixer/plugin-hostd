@@ -27,3 +27,4 @@ tests/transforms-test
 fuzz/findings/
 tests/planner-test
 tests/qualcost-test
+tools/site/node_modules/
