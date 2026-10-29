@@ -1,3 +1,44 @@
+plugin-hostd (0.14.0) unstable; urgency=medium
+
+  * estimate <rate> <quantum> <uri> ... answers what a chain of these plugins
+    would cost at that rate and quantum (latency, CPU, RAM, workers), read from
+    the qualification records; no plugin is loaded. Members it cannot figure
+    answer -533, -534 or -535 in the reply's list (#224, #237).
+  * The setting placement runs each chain, and each plugin that may not share,
+    in a worker pinned to the audio core with the least load; the daemon pins
+    itself on the reserved cores, the lowest cpu by default (audio_cores
+    overrides). worker_list and plan records gain the core. A worker_list
+    record is now <worker>:<pid>:<format>:<state>:<core>:<place>:<i>,...; a
+    reader that splits it from the left must account for the new field before
+    the place (#226, #242).
+  * The Zynthian chain round trip, its engine patch, tools and docs are in
+    main: the verb table, the spike report, Path A and B, test-chain.py and
+    chain-e2e.sh (#228).
+  * The wire protocol is documented in docs/protocol.md, generated from the
+    protocol data and checked in CI (#230).
+  * docs/ is published as a site on GitHub Pages, shaped as a manual by
+    docs/site.yml (#229).
+  * New docs/zynthian pages: the benchmarks, the trade-offs, the image with
+    our work and its boot test, the upstream patch series, the Pi 5 stress run
+    (grouped, alone and on jalv) and the instruments; bench/ and tools/zynthian
+    gain the report writer, the qualification summary and the stress runner.
+  * The history and plan verbs answer -901 when there is no memory for a
+    message, as the shared verbs do, and reply numbers and shared verb words
+    come from the rendered omx-clap-core-contract 0.23.2 (#174, #176).
+  * The planner reads the history and says when there is none, and the
+    supervisor plans again at a quarantine and gathers a split group after
+    history_regroup_s (#208).
+  * plugin-hostd-contract requires omx-contract 3.2.0 at run time (#165).
+  * The probe refuses a cost percentile other than 95 with a coded step
+    (#111); the own-host LV2 probe closes its JACK client on every exit path
+    (#110); the fork-fault and worker_env tests wait on what they read (#113).
+  * The probe measures a plugin's cost on a SCHED_FIFO thread at the highest
+    priority the sandbox allows, detects capabilities in a user namespace,
+    and finds its lock preload at the installed PREFIX (#225, #235).
+  * Known: the zynthian-chain CI job is flaky (#246).
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Thu, 29 Oct 2026 12:00:00 +0100
+
 plugin-hostd (0.13.1) unstable; urgency=medium
 
   * The daemon reads the xruns line a worker writes (omx-clap-core 0.23.0,
