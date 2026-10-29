@@ -12,7 +12,8 @@ What the device ran
 | FreeMixer/zynthian-ui, branch vangelis | dc702a8b (includes the plugin figures and sort list, and the chain estimate footer) |
 | zynthian-sys | 656515f |
 | plugin-hostd | 0.13.1 |
-| omx-plugins (and -clap, -lv2) | 0.15.1 |
+| omx-plugins (and -clap, -lv2) | 0.15.1 for the captures above; 0.16.0 for the omx-eq8 retake below |
+| plugin-qualify | 0.16.1 (retake only) |
 | omx-panel | 0.6.0 |
 | omx-clap-host | 0.23.2 |
 | omx-contract-data | 3.4.0 |
@@ -88,6 +89,29 @@ omx-eq8 (our equaliser, records at 0.13.0)
 - [omx-eq8/modgui-shipped-screenshot.png](evidence/captures-2026-10-29/omx-eq8/modgui-shipped-screenshot.png): the screenshot the package's
   MOD GUI bundle carries, served by mod-ui (not a live pedalboard): five rows of eight controls and the two filters.
 
+omx-eq8 retaken on omx-plugins 0.16.0
+-------------------------------------
+
+The device was upgraded to omx-plugins 0.16.0 and plugin-qualify 0.16.1. plugin-qualify-sync has no option to
+qualify one plugin (its options are --system, --force and the path and port settings); its path unit ran it itself
+after the upgrade (08:39 to 08:43, "qualified 0, skipped 1581" for the rerun) and a new descriptor
+org.openmixer.eq8@0.16.0 was written at 08:41, next to the 0.13.0 ones. The pages could still not be retaken:
+
+- [omx-eq8/zynthian-add-refused-0.16.0.png](evidence/captures-2026-10-29/omx-eq8/zynthian-add-refused-0.16.0.png): omx eq8 chosen in the
+  Filter & EQ menu (Return pressed, twice) and nothing happens; the journal of the UI
+  ([journal-0.16.0.txt](evidence/captures-2026-10-29/omx-eq8/journal-0.16.0.txt)) says plugin-hostd refused the add with
+  PHD_ERR_PIN_BINARY_MISMATCH (-509) for clap:/usr/lib/clap/omx-eq8.clap#org.openmixer.eq8: the daemon the UI talks
+  to (port 5570) holds the pin of the old binary. The pin file was rewritten at 08:41; that daemon was not
+  restarted, so no pin reload reached it. Each attempt left an Audio Input chain holding an "omx eq8" box with no
+  processor; both were removed.
+- [omx-eq8/modui-add-error-0.16.0.png](evidence/captures-2026-10-29/omx-eq8/modui-add-error-0.16.0.png): adding omx eq8 to a mod-ui pedalboard
+  on 0.16.0 no longer ends the mod-ui process (no segmentation fault, no systemd restart); mod-ui shows "Error
+  adding effect" and the pedalboard stays empty. mod-ui logged "unrecognized command: pin_changed" at that moment
+  (its feedback parser does not know that message). The refusal text of the daemon on port 5555 is not in any log,
+  so the cause there is not shown; it is probably the same pin mismatch.
+
+The eq8 pages with one band per page remain to be captured once the daemon has reloaded its pins.
+
 Chains and status
 -----------------
 
@@ -113,7 +137,7 @@ Not captured
   hosting.rt-safety.violations-in-run, hosting isolated), and the menus list those plugins by their LV2 rows, which
   read RT clean; no row on the device shows RT violations.
 - The cost cell of every row, cut at the right edge of the list.
-- A live MOD GUI of omx-eq8 (see above).
+- A live MOD GUI of omx-eq8, on 0.15.1 (segmentation fault) and on 0.16.0 (add refused).
 
 Usage information
 -----------------
