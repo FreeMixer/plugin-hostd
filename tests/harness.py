@@ -201,10 +201,10 @@ class Daemon:
         check(parts[0] == "resp" and int(parts[1]) == len(parts) - 2, "worker_list shape: " + r)
         out = {}
         for rec in parts[2:]:
-            # the place holds colons: five fields on the left, the instances on the right
+            # the place holds colons: six fields on the left, the instances on the right
             head, insts = rec.rsplit(":", 1)
-            k, pid, fmt, state, core, place = head.split(":", 5)
-            out[k] = {"pid": int(pid), "fmt": fmt, "state": state, "core": None if core == "-" else int(core), "place": place,
+            k, pid, fmt, state, core, pool, place = head.split(":", 6)
+            out[k] = {"pid": int(pid), "fmt": fmt, "state": state, "core": None if core == "-" else int(core), "pool": pool, "place": place,
                       "inst": [] if insts == "-" else [int(x) for x in insts.split(",")]}
         return out
 

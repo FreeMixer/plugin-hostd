@@ -645,8 +645,16 @@ int main(int argc, char **argv)
     struct sigaction sig;
 
     clock_gettime(CLOCK_MONOTONIC, &g_start);
-    while ((opt = getopt(argc, argv, "np:f:L")) != -1)
-        if (opt == 'p')
+    /* omx-clap-host's --thread-pool=<qualified|off|on>: any other word is refused, as the host refuses it */
+    static const struct option longs[] = {{"thread-pool", required_argument, NULL, 't'}, {NULL, 0, NULL, 0}};
+
+    while ((opt = getopt_long(argc, argv, "np:f:L", longs, NULL)) != -1)
+        if (opt == 't')
+        {
+            if (strcmp(optarg, "qualified") && strcmp(optarg, "off") && strcmp(optarg, "on"))
+                return EXIT_FAILURE;
+        }
+        else if (opt == 'p')
             port = atoi(optarg);
         else if (opt == 'f')
             fb_port = atoi(optarg);

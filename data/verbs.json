@@ -164,7 +164,7 @@
       "workerList": {
         "verb": "worker_list",
         "format": "worker_list",
-        "reply": "resp <n> <worker>:<pid>:<format>:<state>:<core>:<place>:<i>,<i>,...",
+        "reply": "resp <n> <worker>:<pid>:<format>:<state>:<core>:<pool>:<place>:<i>,<i>,...",
         "codes": [
           {
             "ref": "HOST_REPLY_CODES.memoryAllocation"
@@ -176,7 +176,7 @@
         "implementedBy": {
           "plugin-hostd": "required"
         },
-        "doc": "The workers, one record each: <core> is the audio core the setting placement pinned the worker to, - for none."
+        "doc": "The workers, one record each: <core> is the audio core the setting placement pinned the worker to, - for none; <pool> is on for a worker started with the CLAP thread pool (the pin of its plugin carries pool=cores, and no other plugin shares the worker), qualified for every other."
       },
       "instanceInfo": {
         "verb": "instance_info",

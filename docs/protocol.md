@@ -165,7 +165,7 @@ Each is declared in `protocol/plugin-hostd.json`; the formats, codes and hosts c
 
 | verb | arguments | types | reply | codes | since (the group's) | hosts | meaning |
 |---|---|---|---|---|---|---|---|
-| `worker_list` | none | none | `resp <n> <worker>:<pid>:<format>:<state>:<core>:<place>:<i>,<i>,...` | -901 reply.host.memory-allocation; -902 reply.host.invalid-operation | 0.12.0 | plugin-hostd required | the workers, one record each |
+| `worker_list` | none | none | `resp <n> <worker>:<pid>:<format>:<state>:<core>:<pool>:<place>:<i>,<i>,...` | -901 reply.host.memory-allocation; -902 reply.host.invalid-operation | 0.12.0 | plugin-hostd required | the workers, one record each |
 | `instance_info` | `<instance>` | int | `resp 0 <worker> <pid> <state> <crashes> <quarantined>` | -3 reply.host.instance-non-exists; -901 reply.host.memory-allocation; -902 reply.host.invalid-operation | 0.12.0 | plugin-hostd required | where an instance lives and what it has cost |
 | `supervisor_reset` | `[<worker> \| all]` | ... | `resp 0` | -506 NO_SUCH_WORKER; -901 reply.host.memory-allocation; -902 reply.host.invalid-operation | 0.12.0 | plugin-hostd required | re-arm the storm bound and the backoff of a given-up placement |
 | `quarantine_clear` | `<instance> \| all` | word | `resp 0` | -3 reply.host.instance-non-exists; -901 reply.host.memory-allocation; -902 reply.host.invalid-operation | 0.12.0 | plugin-hostd required | let a quarantined instance go back where its placement says |
@@ -178,7 +178,7 @@ Each is declared in `protocol/plugin-hostd.json`; the formats, codes and hosts c
 
 ```
 > worker_list
-< resp <n> <worker>:<pid>:<format>:<state>:<core>:<place>:<i>,<i>,...
+< resp <n> <worker>:<pid>:<format>:<state>:<core>:<pool>:<place>:<i>,<i>,...
 ```
 
 `instance_info`:
@@ -234,7 +234,7 @@ Each is declared in `protocol/plugin-hostd.json`; the formats, codes and hosts c
 
 | verb | arguments | types | reply | codes | since (the group's) | hosts | meaning |
 |---|---|---|---|---|---|---|---|
-| `pin_set` | `<uri> <path>=<sha256>[,<path>=<sha256>...] <scheme>:<sha256> [verdict=<verdict>]` | word word word ... | `resp 0` | -516 PIN_REFUSED; -901 reply.host.memory-allocation; -902 reply.host.invalid-operation | 0.12.0 | plugin-hostd required | the pin of one plugin: the SHA-256 of every file the host loads for it, a path relative to the bundle (the directory of a single-file format's file), its layout fingerprint and, when it is known, the verdict of its qualification; it replaces an earlier pin of the uri; -516 for a plugin whose pins_dir pin carries verdict=refused, which nothing overrides. The pin store, a pin_file and a pins_dir file hold the same line, with or without the verb |
+| `pin_set` | `<uri> <path>=<sha256>[,<path>=<sha256>...] <scheme>:<sha256> [verdict=<verdict>] [pool=<pool>]` | word word word ... | `resp 0` | -516 PIN_REFUSED; -901 reply.host.memory-allocation; -902 reply.host.invalid-operation | 0.12.0 | plugin-hostd required | the pin of one plugin: the SHA-256 of every file the host loads for it, a path relative to the bundle (the directory of a single-file format's file), its layout fingerprint and, when they are known, the verdict of its qualification and whether its worker gets the CLAP thread pool; it replaces an earlier pin of the uri; -516 for a plugin whose pins_dir pin carries verdict=refused, which nothing overrides. The pin store, a pin_file and a pins_dir file hold the same line, with or without the verb |
 | `pin_clear` | `<uri> \| all` | word | `resp 0` | -901 reply.host.memory-allocation; -902 reply.host.invalid-operation | 0.12.0 | plugin-hostd required | forget the pin of one plugin, or of every one; a pins_dir pin is read-only and holds again |
 | `pin_accept` | `<uri>` | word | `resp 0` | -508 PIN_ABSENT; -509 PIN_BINARY_MISMATCH; -516 PIN_REFUSED; -901 reply.host.memory-allocation; -902 reply.host.invalid-operation | 0.12.0 | plugin-hostd required | pin_mode first-use only: take the plugin's files as they are now as its pin, after a pin_changed event; the layout is learned again by the next add and the verdict is dropped; -508 when the plugin has no pin, -509 when its files cannot be collected, -516 when its pins_dir pin carries verdict=refused, -902 under pin_mode strict |
 | `pin_layout` | `<instance>` | int | `resp 0 <scheme>:<sha256>` | - | 0.12.0 | omx-clap-host optional, mod-host unsupported | sent by the daemon to a worker of a format that checks layouts, after it accepted the add of a plugin whose layout pin is still unknown: the layout the worker found after init, which the daemon records in the pin |

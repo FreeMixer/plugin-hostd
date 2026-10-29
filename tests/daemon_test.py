@@ -3090,6 +3090,67 @@ def a_chain_declared_again_keeps_its_running_worker_and_restarts_no_survivor():
             os.unlink(log)
 
 
+def cmdline(pid):
+    """the arguments a process was started with, from /proc"""
+    with open("/proc/%d/cmdline" % pid, "rb") as f:
+        return f.read().decode().split("\0")[:-1]
+
+
+def pool_pin(p, n, verdict, pool):
+    return pin_n(p, n, verdict) + (" pool=" + pool if pool else "")
+
+
+@test
+def a_worker_of_a_plugin_whose_pin_says_pool_cores_starts_with_the_thread_pool_on_and_no_other_does():
+    """plugin-hostd#236: the pool is the plugin's qualification's to give. The worker of 1 (pool=cores) is started with
+    --thread-pool=on; those of 2 (no word) and 3 (pool=off) with no option, and 4 (pool=cores, refused) is not started;
+    worker_list says which; the plan keeps 1 apart from an in-process neighbour, and a pool placement is refused for it"""
+    p = Plugins()
+    d = p.daemon(conf={"pin_mode": "first-use", "grouping": "on"})
+    try:
+        d.expect(pool_pin(p, 1, "in-process", "cores"), "resp 0")
+        d.expect(pool_pin(p, 2, "in-process", None), "resp 0")
+        d.expect(pool_pin(p, 3, "in-process", "off"), "resp 0")
+        d.expect(pool_pin(p, 4, "refused", "cores"), "resp 0")
+        for n in (1, 2, 3):
+            d.expect("add %s %d" % (clap_n(p, n), n), "resp %d" % n)
+        d.expect("add %s 4" % clap_n(p, 4), resp("PIN_REFUSED"))
+        for n, on in ((1, True), (2, False), (3, False)):
+            _, w = d.wait_up(n)
+            args = cmdline(w["pid"])
+            check([a for a in args if a.startswith("--thread-pool")] == (["--thread-pool=on"] if on else []),
+                  "instance %d: worker started as %s" % (n, args))
+            check(w["pool"] == ("on" if on else "qualified"), "instance %d: worker_list says %r" % (n, w["pool"]))
+        expect_plan(d, "plan 1 1 2", "resp 0 1;2")
+        check("1:verdict-isolated" in d.send("plan_get 1"), "plan_get names the reason of the member with the pool")
+        _, w1 = d.wait_up(1)
+        check(w1["place"] == "own" and w1["inst"] == [1] and w1["pool"] == "on", "1 stays alone with its pool: %s" % d.workers())
+        d.expect("add %s 6 pool:p" % clap_n(p, 1), resp("PLACEMENT_INVALID"))
+        os.kill(w1["pid"], signal.SIGKILL)
+        back = wait_for(lambda: next((w for w in d.workers().values() if w["inst"] == [1] and w["state"] == "up" and
+                                      w["pid"] != w1["pid"]), None), "instance 1 up again")
+        check("--thread-pool=on" in cmdline(back["pid"]) and back["pool"] == "on",
+              "a respawned worker is started with the pool again: %s" % cmdline(back["pid"]))
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def pin_set_takes_pool_after_or_before_the_verdict_once_and_only_cores_or_off():
+    p = Plugins()
+    d = p.daemon(conf={"pin_mode": "first-use"})
+    try:
+        base = pin_n(p, 1)
+        for tail in (" pool=cores", " pool=off", " verdict=isolated pool=cores", " pool=cores verdict=isolated"):
+            d.expect(base + tail, "resp 0")
+        for tail in (" pool=", " pool=on", " pool=cores pool=off", " verdict=isolated verdict=refused", " pool=cores x=1"):
+            d.expect(base + tail, "resp -902")
+    finally:
+        d.close()
+        p.close()
+
+
 # ---------------------------------------------------------------- plan (the grouping planner, src/planner.c)
 
 def without_cores(reply):

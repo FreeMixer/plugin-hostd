@@ -83,6 +83,7 @@ typedef struct WORKER_T {
     int fb_port;
     int state;
     int pool;                   /* 1 when place is a pool */
+    int thread_pool;            /* 1 when the process was started with --thread-pool=on (its pin: pool=cores) */
     char place[48];             /* own | pool:<name> */
     int from_split;             /* an own worker born of a pool that died without a culprit */
     instance_t **inst;

@@ -53,6 +53,7 @@ typedef struct PIN_T {
     char scheme[SCHEME_MAX];
     char *layout;
     char verdict[16];           /* one of PHD_PIN_VERDICTS, or empty */
+    char pool[8];               /* one of PHD_PIN_POOLS, or empty */
     int learned;                /* the daemon recorded it: the store keeps it */
 } pin_t;
 
@@ -159,9 +160,19 @@ static int verdict_valid(const char *verdict)
     return ok;
 }
 
+static int pool_valid(const char *pool)
+{
+    int ok = 0;
+
+#define X(id, name, meaning) ok |= !strcmp(pool, name);
+    PHD_PIN_POOLS(X)
+#undef X
+    return ok;
+}
+
 /* a pin from its words; the pin is not in the table yet. `unknown_ok` lets the layout be PHD_PIN_LAYOUT_UNKNOWN */
 static int pin_build(pin_t *pin, const char *uri, const char *files, const char *layout, const char *verdict,
-                     int unknown_ok)
+                     const char *pool, int unknown_ok)
 {
     char *copy = strdup(files), *item, *save = NULL, hex[PHD_SHA256_HEX_LEN + 1];
 
@@ -171,6 +182,8 @@ static int pin_build(pin_t *pin, const char *uri, const char *files, const char 
     else if (phd_pin_layout_parse(layout, pin->scheme, sizeof(pin->scheme), hex) != 0)
         goto invalid;
     if (verdict && (!verdict_valid(verdict) || strlen(verdict) >= sizeof(pin->verdict)))
+        goto invalid;
+    if (pool && (!pool_valid(pool) || strlen(pool) >= sizeof(pin->pool)))
         goto invalid;
     for (item = strtok_r(copy, PHD_PIN_FILE_SEPARATOR, &save); item; item = strtok_r(NULL, PHD_PIN_FILE_SEPARATOR, &save))
     {
@@ -194,6 +207,8 @@ static int pin_build(pin_t *pin, const char *uri, const char *files, const char 
     pin->layout = strdup(layout);
     if (verdict)
         snprintf(pin->verdict, sizeof(pin->verdict), "%s", verdict);
+    if (pool)
+        snprintf(pin->pool, sizeof(pin->pool), "%s", pool);
     return SUCCESS;
 
 invalid:
@@ -270,6 +285,8 @@ static void line_write(FILE *file, const pin_t *p)
     fprintf(file, " %s", p->layout);
     if (*p->verdict)
         fprintf(file, " " PHD_PIN_VERDICT_KEY "%s", p->verdict);
+    if (*p->pool)
+        fprintf(file, " " PHD_PIN_POOL_KEY "%s", p->pool);
     fprintf(file, "\n");
 }
 
@@ -392,10 +409,34 @@ static void store_save(void)
 /* where a file of pin lines goes, and what a line outside the grammar costs there */
 typedef enum { LAYER_STORE, LAYER_FILE, LAYER_PKG } layer_t;
 
+/* the optional words after the layout, each once and in either order: verdict=<word>, pool=<word>; their values, NULL for
+ * a word that is not there. SUCCESS, or ERR_INVALID_OPERATION for any other word or a repeated one */
+int pins_words(char **word, int n, const char **verdict, const char **pool)
+{
+    *verdict = *pool = NULL;
+    for (int k = 0; k < n; k++)
+    {
+        const char **into;
+        size_t key;
+
+        if (!strncmp(word[k], PHD_PIN_VERDICT_KEY, strlen(PHD_PIN_VERDICT_KEY)))
+            into = verdict, key = strlen(PHD_PIN_VERDICT_KEY);
+        else if (!strncmp(word[k], PHD_PIN_POOL_KEY, strlen(PHD_PIN_POOL_KEY)))
+            into = pool, key = strlen(PHD_PIN_POOL_KEY);
+        else
+            return ERR_INVALID_OPERATION;
+        if (*into)
+            return ERR_INVALID_OPERATION;
+        *into = word[k] + key;
+    }
+    return SUCCESS;
+}
+
 /* one line: the words of pin_set, the verb in front or not; a blank or comment line is SUCCESS and records nothing */
 static int line_read(char *line, layer_t layer, const char *path, int lineno)
 {
     char *tok[8], *save = NULL, *t;
+    const char *verdict, *pool;
     int ntok = 0, first = 0, rc;
     pin_t pin;
 
@@ -405,12 +446,11 @@ static int line_read(char *line, layer_t layer, const char *path, int lineno)
         return SUCCESS;
     if (!strcmp(tok[0], OMX_VERB_PIN_SET))
         first = 1;
-    if (ntok - first != 3 && ntok - first != 4)
+    if (ntok - first < 3 || ntok - first > 5)
         return ERR_INVALID_OPERATION;
-    if (ntok - first == 4 && strncmp(tok[first + 3], PHD_PIN_VERDICT_KEY, strlen(PHD_PIN_VERDICT_KEY)))
+    if (pins_words(tok + first + 3, ntok - first - 3, &verdict, &pool) != SUCCESS)
         return ERR_INVALID_OPERATION;
-    rc = pin_build(&pin, tok[first], tok[first + 1], tok[first + 2],
-                   ntok - first == 4 ? tok[first + 3] + strlen(PHD_PIN_VERDICT_KEY) : NULL, 1);
+    rc = pin_build(&pin, tok[first], tok[first + 1], tok[first + 2], verdict, pool, 1);
     if (rc != SUCCESS)
         return rc;
     if (layer == LAYER_PKG)
@@ -553,10 +593,10 @@ int pins_init(const char *store, const char *file, const char *dir)
     return rc;
 }
 
-int pins_set(const char *uri, const char *files, const char *layout, const char *verdict)
+int pins_set(const char *uri, const char *files, const char *layout, const char *verdict, const char *pool)
 {
     pin_t pin;
-    int rc = pin_build(&pin, uri, files, layout, verdict, 0);
+    int rc = pin_build(&pin, uri, files, layout, verdict, pool, 0);
 
     if (rc != SUCCESS)
         return rc;
@@ -599,6 +639,13 @@ int pins_in_process(const char *uri)
     const pin_t *p = find(bare(uri));
 
     return p && !strcmp(p->verdict, PHD_PIN_VERDICT_IN_PROCESS);
+}
+
+int pins_pool_cores(const char *uri)
+{
+    const pin_t *p = find(bare(uri));
+
+    return p && !strcmp(p->pool, PHD_PIN_POOL_CORES) && strcmp(p->verdict, PHD_PIN_VERDICT_REFUSED);
 }
 
 const char *pins_verdict(const char *uri)
@@ -719,7 +766,7 @@ static int record(const format_t *format, const char *uri, const char *search)
             sprintf(words + strlen(words), "%s%s" PHD_PIN_DIGEST_SEPARATOR "%s", n ? PHD_PIN_FILE_SEPARATOR : "",
                     files.name[n], hex);
     }
-    if (rc == SUCCESS && pin_build(&pin, uri, words, PHD_PIN_LAYOUT_UNKNOWN, NULL, 1) != SUCCESS)
+    if (rc == SUCCESS && pin_build(&pin, uri, words, PHD_PIN_LAYOUT_UNKNOWN, NULL, NULL, 1) != SUCCESS)
         rc = pin_refuse(uri, root, "can't be pinned");
     /* the line must fit what pin_set takes, with room for the layout and the verdict that are added later */
     if (rc == SUCCESS && line_size(&pin) + LINE_RESERVE > PHD_LINE_MAX)
