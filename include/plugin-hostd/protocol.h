@@ -104,6 +104,8 @@
 #define PHD_WORD_ALL    "all"
 #define PHD_WORD_NONE   "-"
 #define PHD_WORD_UNAVAILABLE "unavailable"
+/* after an instance id in worker_list: the pins read again refuse its files, and it keeps running */
+#define PHD_WORKER_PIN_REFUSED "!"
 
 /* the built-in formats, X(id, name) in the order of the daemon's table (src/formats.c): the rest of what a format is
  * (its prefix, its worker, the files its pin holds, whether its pin holds in a shared world, who answers its instance
@@ -467,6 +469,15 @@ static inline int phd_pool_name_valid(const char *name)
       "line, with or without the verb") \
     X(PIN_CLEAR, OMX_VERB_PIN_CLEAR, "<uri> | " PHD_WORD_ALL, OMX_VERB_PIN_CLEAR_REPLY, "forget the pin of one plugin, or of every one; a pins_dir " \
       "pin is read-only and holds again") \
+    X(PIN_RELOAD, OMX_VERB_PIN_RELOAD, "", OMX_VERB_PIN_RELOAD_REPLY, \
+      "read the pin_file and the pins_dir files again and put the pins in at once, without a restart; the daemon also does " \
+      "this by itself when one of those files changes. Running instances keep running: one the new pins refuse is logged " \
+      "and its id in " OMX_VERB_WORKER_LIST " is followed by " PHD_WORKER_PIN_REFUSED ". The pin_set pins of the controller " \
+      "are kept. -902 under pin_mode off or when the pin_file is gone or has a line outside the grammar, and the earlier " \
+      "pins hold") \
+    X(PIN_CHANGED, OMX_VERB_PIN_CHANGED, "[<uri>] [files | layout]", OMX_VERB_PIN_CHANGED_REPLY, \
+      "the notice the package sync sends to every daemon it knows after it rewrote the pin file: the same as " \
+      OMX_VERB_PIN_RELOAD ", with or without the " PHD_EVENT_PIN_CHANGED " event's words after it; more words than those are -902") \
     X(LV2_WORKER_SET, OMX_VERB_LV2_WORKER_SET, "<uri> <" PHD_LV2_WORKER_MOD_HOST " | " PHD_LV2_WORKER_CLAP_HOST " | " \
       PHD_LV2_WORKER_AUTO " | " PHD_WORD_NONE ">", OMX_VERB_LV2_WORKER_SET_REPLY, \
       "the worker of one LV2 plugin, for its adds from now on: it overrides the lv2_worker setting, " PHD_WORD_NONE " takes the " \
@@ -866,6 +877,8 @@ static inline int phd_is_note_verb(const char *verb)
     X(OMX_VERB_PIN_SET, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
     X(OMX_VERB_PIN_CLEAR, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
     X(OMX_VERB_PIN_ACCEPT, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X(OMX_VERB_PIN_RELOAD, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X(OMX_VERB_PIN_CHANGED, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
     X(OMX_VERB_LV2_WORKER_SET, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
     X(OMX_VERB_CHAIN, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
     X(OMX_VERB_CHAIN_CLEAR, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
@@ -900,7 +913,7 @@ static inline int phd_is_note_verb(const char *verb)
 #define PHD_EVENT_INSTANCE_REPLAY_REFUSED "instance_replay_refused"
 #define PHD_EVENT_INSTANCE_QUARANTINED    "instance_quarantined"
 #define PHD_EVENT_SUPERVISOR_GAVE_UP      "supervisor_gave_up"
-#define PHD_EVENT_PIN_CHANGED             "pin_changed"
+#define PHD_EVENT_PIN_CHANGED             OMX_VERB_PIN_CHANGED
 #define PHD_EVENT_LV2_ADAPTER_REFUSED     "lv2_adapter_refused"
 #define PHD_EVENT_CHAIN_FORMED            "chain_formed"
 #define PHD_EVENT_PLAN_REASON             "plan_reason"

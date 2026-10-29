@@ -408,7 +408,7 @@ SABOTAGE = [
      "    int strict = layer != LAYER_STORE,", "a_bad_pins_d_line_or_file_is_skipped_and_the_rest_is_read"),
     ("a hidden pins.d file is read", "src/pins.c", "entry->d_name[0] != '.' && ", "",
      "a_pins_d_pin_admits_its_plugin_and_of_two_files_the_last_by_name_wins"),
-    ("pins_dir is not read", "src/pins.c", "    if (*dir)\n        pkg_read(dir);\n", "",
+    ("pins_dir is not read", "src/pins.c", "    if (*g_cfg_dir)\n        pkg_read(g_cfg_dir);\n", "",
      "a_pins_d_pin_admits_its_plugin_and_of_two_files_the_last_by_name_wins"),
     ("the build steps are back on the README", "README.md", "Building from source: see [BUILDING.md](BUILDING.md).",
      "Building from source:\n\n    make\n\nsee [BUILDING.md](BUILDING.md).", "README.md runs no build tool", "readme"),

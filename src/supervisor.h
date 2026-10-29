@@ -69,6 +69,7 @@ typedef struct INSTANCE_T {
     int64_t sus_seq;            /* the order of the verbs across instances, which the millisecond clock cannot give */
     int has_ckpt;
     int unreplayed;             /* its pin refused the add of the last replay: the worker does not hold it */
+    int pin_refused;            /* the pins read again refuse its files; it keeps running, worker_list marks it */
     char *track_info;           /* the latest track_info it took, replayed after its add, never to an LV2 worker */
     struct CHAIN_T *chain;      /* the chain it is a member of, NULL for none */
 } instance_t;
@@ -156,6 +157,13 @@ char *sup_instance_info(int id);
 char *sup_reset(const char *which);
 char *sup_quarantine_clear(const char *which);
 char *sup_policy_set(const char *format, const char *place);
+/* pin_reload (and the sync's pin_changed): the pins read again from their files and put in at once. Instances that run
+ * keep running; one whose files the new pins refuse is logged and marked in worker_list. SUCCESS, or the pin file's
+ * refusal with the earlier pins left as they are */
+char *sup_pin_reload(void);
+/* the same when the pin file or a pins_dir file changed since the pins were read; cheap (a stat of each) otherwise */
+void sup_pins_poll(void);
+
 /* pin_accept: the plugin's files as they are now become its pin; only under pin_mode first-use */
 char *sup_pin_accept(const char *uri);
 char *sup_pool_config(const char *name, int max);

@@ -28,6 +28,7 @@
 #include <string.h>
 #include <strings.h>
 #include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
 
 #include <host-errors.h>
@@ -54,6 +55,7 @@ typedef struct PIN_T {
     char *layout;
     char verdict[16];           /* one of PHD_PIN_VERDICTS, or empty */
     int learned;                /* the daemon recorded it: the store keeps it */
+    int from_set;               /* a controller's pin_set: a reload keeps it */
 } pin_t;
 
 /* The host's pins: the store, the pin_file and pin_set, the one table the daemon writes and saves from */
@@ -534,23 +536,135 @@ static void pkg_free(void)
     g_pkg = NULL;
 }
 
-int pins_init(const char *store, const char *file, const char *dir)
+/* where the pins came from at start, and what the files of them looked like then: a reload reads the same places */
+static char g_cfg_store[PATH_MAX], g_cfg_file[PATH_MAX], g_cfg_dir[PATH_MAX];
+static uint64_t g_signature;
+
+static uint64_t mix(uint64_t h, uint64_t v)
+{
+    return (h ^ v) * 1099511628211ULL;
+}
+
+static uint64_t stat_mix(uint64_t h, const char *path)
+{
+    struct stat st;
+
+    if (stat(path, &st) != 0)
+        return mix(h, 1);
+    h = mix(h, (uint64_t)st.st_ino);
+    h = mix(h, (uint64_t)st.st_size);
+    h = mix(h, (uint64_t)st.st_mtim.tv_sec);
+    return mix(h, (uint64_t)st.st_mtim.tv_nsec);
+}
+
+/* what the pin_file and the pins_dir files are now: inode, size and mtime of each, so a rewrite in place and a rename
+ * over it both show. The store is the daemon's own and is not looked at */
+static uint64_t signature(void)
+{
+    uint64_t h = 14695981039346656037ULL;
+    struct dirent **names;
+    char path[PATH_MAX * 2];
+    int n, count;
+
+    if (*g_cfg_file)
+        h = stat_mix(h, g_cfg_file);
+    if (!*g_cfg_dir)
+        return h;
+    h = stat_mix(h, g_cfg_dir);
+    count = scandir(g_cfg_dir, &names, pins_name, name_order);
+    for (n = 0; n < count; n++)
+    {
+        snprintf(path, sizeof(path), "%s/%s", g_cfg_dir, names[n]->d_name);
+        h = stat_mix(mix(h, (uint64_t)n), path);
+        free(names[n]);
+    }
+    if (count >= 0)
+        free(names);
+    return h;
+}
+
+static int load(void)
 {
     int n, rc;
 
-    held_free();
-    pkg_free();
-    if (*dir)
-        pkg_read(dir);
-    if (*store_path(store))
+    if (*g_cfg_dir)
+        pkg_read(g_cfg_dir);
+    if (*store_path(g_cfg_store))
         file_read(g_store, LAYER_STORE);
-    rc = *file ? file_read(file, LAYER_FILE) : 0;
+    rc = *g_cfg_file ? file_read(g_cfg_file, LAYER_FILE) : 0;
     for (n = 0; n < g_npins; n++)
         if (pkg_refusal(g_pins[n].uri))
             fprintf(stderr, "plugin-hostd: %s: its pins.d pin carries " PHD_PIN_VERDICT_KEY PHD_PIN_VERDICT_REFUSED
                             ", which the pin of the %s does not override\n", g_pins[n].uri,
                     g_pins[n].learned ? "pin store" : "pin_file");
     return rc;
+}
+
+int pins_init(const char *store, const char *file, const char *dir)
+{
+    held_free();
+    pkg_free();
+    snprintf(g_cfg_store, sizeof(g_cfg_store), "%s", store);
+    snprintf(g_cfg_file, sizeof(g_cfg_file), "%s", file);
+    snprintf(g_cfg_dir, sizeof(g_cfg_dir), "%s", dir);
+    g_signature = signature();
+    return load();
+}
+
+static void table_free(pin_t *table, int count)
+{
+    while (count)
+        pin_free(&table[--count]);
+    free(table);
+}
+
+int pins_reload(void)
+{
+    pin_t *old_pins = g_pins, *old_pkg = g_pkg;
+    int old_npins = g_npins, old_npkg = g_npkg, n, rc;
+    char **old_held = g_held;
+    int old_nheld = g_nheld, old_unreadable = g_store_unreadable;
+
+    /* the new tables are made on the side and put in at once: a bad pin_file leaves the pins as they were */
+    g_signature = signature();
+    g_pins = g_pkg = NULL;
+    g_npins = g_npkg = 0;
+    g_held = NULL;
+    g_nheld = g_store_unreadable = 0;
+    rc = load();
+    if (rc != 0)
+    {
+        table_free(g_pins, g_npins);
+        table_free(g_pkg, g_npkg);
+        held_free();
+        g_pins = old_pins;
+        g_pkg = old_pkg;
+        g_npins = old_npins;
+        g_npkg = old_npkg;
+        g_held = old_held;
+        g_nheld = old_nheld;
+        g_store_unreadable = old_unreadable;
+        fprintf(stderr, "plugin-hostd: the pins are NOT reloaded; the earlier ones hold\n");
+        return rc;
+    }
+    /* a controller's pin_set is not in any file: it holds over what was read, as it held over it at start */
+    for (n = 0; n < old_npins; n++)
+        if (old_pins[n].from_set && !pkg_refusal(old_pins[n].uri))
+        {
+            pin_put(&old_pins[n]);
+            memset(&old_pins[n], 0, sizeof(old_pins[n]));
+        }
+    table_free(old_pins, old_npins);
+    table_free(old_pkg, old_npkg);
+    while (old_nheld)
+        free(old_held[--old_nheld]);
+    free(old_held);
+    return SUCCESS;
+}
+
+int pins_changed(void)
+{
+    return (*g_cfg_file || *g_cfg_dir) && signature() != g_signature;
 }
 
 int pins_set(const char *uri, const char *files, const char *layout, const char *verdict)
@@ -567,6 +681,7 @@ int pins_set(const char *uri, const char *files, const char *layout, const char 
         pin_free(&pin);
         return OMX_REPLY_PLUGIN_HOSTD_PIN_REFUSED_RESP;
     }
+    pin.from_set = 1;
     pin_put(&pin);
     return SUCCESS;
 }

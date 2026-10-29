@@ -332,6 +332,34 @@
         },
         "doc": "Forget the pin of one plugin, or of every one: <uri> | all."
       },
+      "pinReload": {
+        "verb": "pin_reload",
+        "format": "pin_reload",
+        "reply": "resp 0",
+        "codes": [
+          {
+            "ref": "HOST_REPLY_CODES.invalidOperation"
+          }
+        ],
+        "implementedBy": {
+          "plugin-hostd": "required"
+        },
+        "doc": "Read the pin_file and the pins_dir files again and put the pins in at once; running instances keep running."
+      },
+      "pinChanged": {
+        "verb": "pin_changed",
+        "format": "pin_changed ...",
+        "reply": "resp 0",
+        "codes": [
+          {
+            "ref": "HOST_REPLY_CODES.invalidOperation"
+          }
+        ],
+        "implementedBy": {
+          "plugin-hostd": "required"
+        },
+        "doc": "The sync's notice that the pin file was rewritten: the same as pin_reload, with or without the <uri> [files|layout] of the pin_changed event."
+      },
       "pinAccept": {
         "verb": "pin_accept",
         "format": "pin_accept %s",

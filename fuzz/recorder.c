@@ -433,6 +433,11 @@ char *sup_pin_accept(const char *uri)
     return answer(c, daemon_shape(OMX_VERB_PIN_ACCEPT), 1);
 }
 
+char *sup_pin_reload(void)
+{
+    return answer(record(REC_PIN_RELOAD), daemon_shape(OMX_VERB_PIN_RELOAD), 1);
+}
+
 char *sup_pool_config(const char *name, int max)
 {
     struct rec_call *c = record(REC_POOL_CONFIG);

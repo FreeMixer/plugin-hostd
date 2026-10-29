@@ -236,6 +236,8 @@ Each is declared in `protocol/plugin-hostd.json`; the formats, codes and hosts c
 |---|---|---|---|---|---|---|---|
 | `pin_set` | `<uri> <path>=<sha256>[,<path>=<sha256>...] <scheme>:<sha256> [verdict=<verdict>]` | word word word ... | `resp 0` | -516 PIN_REFUSED; -901 reply.host.memory-allocation; -902 reply.host.invalid-operation | 0.12.0 | plugin-hostd required | the pin of one plugin: the SHA-256 of every file the host loads for it, a path relative to the bundle (the directory of a single-file format's file), its layout fingerprint and, when it is known, the verdict of its qualification; it replaces an earlier pin of the uri; -516 for a plugin whose pins_dir pin carries verdict=refused, which nothing overrides. The pin store, a pin_file and a pins_dir file hold the same line, with or without the verb |
 | `pin_clear` | `<uri> \| all` | word | `resp 0` | -901 reply.host.memory-allocation; -902 reply.host.invalid-operation | 0.12.0 | plugin-hostd required | forget the pin of one plugin, or of every one; a pins_dir pin is read-only and holds again |
+| `pin_reload` | none | none | `resp 0` | -902 reply.host.invalid-operation | 0.12.0 | plugin-hostd required | read the pin_file and the pins_dir files again and put the pins in at once, without a restart; the daemon also does this by itself when one of those files changes. Running instances keep running: one the new pins refuse is logged and its id in worker_list is followed by !. The pin_set pins of the controller are kept. -902 under pin_mode off or when the pin_file is gone or has a line outside the grammar, and the earlier pins hold |
+| `pin_changed` | `[<uri>] [files \| layout]` | ... | `resp 0` | -902 reply.host.invalid-operation | 0.12.0 | plugin-hostd required | the notice the package sync sends to every daemon it knows after it rewrote the pin file: the same as pin_reload, with or without the pin_changed event's words after it; more words than those are -902 |
 | `pin_accept` | `<uri>` | word | `resp 0` | -508 PIN_ABSENT; -509 PIN_BINARY_MISMATCH; -516 PIN_REFUSED; -901 reply.host.memory-allocation; -902 reply.host.invalid-operation | 0.12.0 | plugin-hostd required | pin_mode first-use only: take the plugin's files as they are now as its pin, after a pin_changed event; the layout is learned again by the next add and the verdict is dropped; -508 when the plugin has no pin, -509 when its files cannot be collected, -516 when its pins_dir pin carries verdict=refused, -902 under pin_mode strict |
 | `pin_layout` | `<instance>` | int | `resp 0 <scheme>:<sha256>` | - | 0.12.0 | omx-clap-host optional, mod-host unsupported | sent by the daemon to a worker of a format that checks layouts, after it accepted the add of a plugin whose layout pin is still unknown: the layout the worker found after init, which the daemon records in the pin |
 | `pin_expect` | `<instance> <scheme>:<sha256>` | int word | `resp 0` | -1 reply.host.instance-invalid; -902 reply.host.invalid-operation; -508 PIN_ABSENT | - | plugin-hostd unsupported, omx-clap-host required, mod-host unsupported | sent by the daemon to a worker of a format that checks layouts, just before the instance's add: the layout pin that add checks after init and before activate; any other reply than resp 0 refuses the add with that code, and the add is never forwarded |
@@ -251,6 +253,20 @@ Each is declared in `protocol/plugin-hostd.json`; the formats, codes and hosts c
 
 ```
 > pin_clear clap:/usr/lib/clap/omx-comp.clap#org.openmixer.comp
+< resp 0
+```
+
+`pin_reload`:
+
+```
+> pin_reload
+< resp 0
+```
+
+`pin_changed`:
+
+```
+> pin_changed
 < resp 0
 ```
 
@@ -546,4 +562,4 @@ The codes the daemon adds:
 | `protocol/probe-output.schema.json` | `/usr/share/plugin-hostd/probe-output.schema.json` | `https://github.com/FreeMixer/plugin-hostd/protocol/probe-output.schema.json` | What one probe run of one plugin binary observed | plugin-hostd.probe-output | Facts only. A verdict, a rating or a classification is never a field here: plugin-qualify writes those in the qualification record. |
 | `protocol/preset.schema.json` | `/usr/share/plugin-hostd/preset.schema.json` | `https://freemixer.org/schemas/org.openmixer.preset.schema.json` | org.openmixer.preset | org.openmixer.preset/1, org.openmixer.preset/2 | A user preset file, as a worker writes it for preset_save and reads it for preset_load and preset_show (docs/presets.md). /1 is params-only and stays valid; /2 adds the state body, additively. Unknown fields are allowed and a writer keeps them; an unknown format version is refused, never guessed. |
 
-Counts: 48 mod-host commands, 34 same, 8 differs, 6 refused; 30 verbs mod-host does not have.
+Counts: 48 mod-host commands, 34 same, 8 differs, 6 refused; 32 verbs mod-host does not have.
