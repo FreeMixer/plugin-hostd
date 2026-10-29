@@ -150,3 +150,45 @@ answer the estimate verb; it is shown as it is.
 What comes next: the estimate verb (plugin-hostd#224) gives the chain's latency, CPU, RAM and workers for the
 plugins in the chain plus the highlighted one, and zynthian-ui#13 shows CPU and RAM per chain before an insert; the
 footer then reads figures in place of "estimate unavailable".
+
+29 October, afternoon
+---------------------
+
+The Pi 5 on zynthian-ui `a136591b` (the fork's vangelis with the two preset changes: every plugin-hostd plugin shows
+the banks Factory and User), plugin-hostd 0.14.0, omx-clap-host 0.24.0, plugin-qualify 0.17.2, omx-plugins 0.16.0,
+omx-panel 0.6.0. The benchmark matrix ran on the device meanwhile. One change was made on the device, not a Zynthian
+default: Zynthian ships MDA Piano disabled in `/zynthian/config/engine_config.json`, and it was enabled for these
+captures (both its jalv and its plugin-hostd entry).
+
+- [instruments-by-tier.png](evidence/captures-2026-10-29/today/instruments-by-tier.png): the instruments menu, Synth, sorted by tier: the plugin-hostd
+  rows first, with latency and RT safety, then the plugins offered through jalv tagged refused.
+- [instruments-by-latency.png](evidence/captures-2026-10-29/today/instruments-by-latency.png): the same menu sorted by latency, 0 frames first, then
+  14, 31 and the studio tier.
+- [filter-eq-by-latency.png](evidence/captures-2026-10-29/today/filter-eq-by-latency.png): Filter & EQ sorted by latency; sorted by tier it reads the
+  same, every live row being at 0 frames.
+- [eq8-preset-banks.png](evidence/captures-2026-10-29/today/eq8-preset-banks.png): omx eq8's preset screen, the two banks Factory and User.
+- [eq8-control-pages.png](evidence/captures-2026-10-29/today/eq8-control-pages.png): omx eq8's control screens, named by their content; the names are
+  long and each band takes two screens (its controls, then its On).
+- [eq8-band3-page.png](evidence/captures-2026-10-29/today/eq8-band3-page.png): the Band 3 screen: type, frequency, gain and Q.
+- [eq8-user-bank.png](evidence/captures-2026-10-29/today/eq8-user-bank.png): omx eq8's User bank, with one row, No presets.
+- [odin2-jalv-banks.png](evidence/captures-2026-10-29/today/odin2-jalv-banks.png): Odin 2 2.3.4 through jalv, its 14 banks; its plugin-hostd entry is
+  not offered.
+- [odin2-jalv-keys.png](evidence/captures-2026-10-29/today/odin2-jalv-keys.png): Odin 2's Keys bank through jalv, 17 presets.
+- [mda-piano-add-refused.png](evidence/captures-2026-10-29/today/mda-piano-add-refused.png): adding MDA Piano through plugin-hostd fails on screen.
+- [chain-manager.png](evidence/captures-2026-10-29/today/chain-manager.png): the Chain Manager: the plugin-hostd chain (Audio Input, omx eq8), Odin 2
+  through jalv and ZynAddSubFX side by side, and the chains the failed adds left behind.
+- [mixer.png](evidence/captures-2026-10-29/today/mixer.png): the mixer with those chains; the ones left by a failed add have no fader.
+
+Not working yet, from these captures:
+
+- No preset of a plugin-hostd plugin can be listed: omx-clap-host 0.24.0 on the device does not answer `preset_list`
+  (fixed in omx-clap-core main, not released), so Factory and User show No presets.
+- An LV2 plugin that ships presets cannot be added through plugin-hostd: MDA Piano and Surge XT's LV2 are refused with
+  -509, because the pin plugin-qualify writes does not hold the preset files the daemon checks
+  (FreeMixer/plugin-qualify#228).
+- Surge XT's CLAP cannot be added either: its file name holds a space (plugin-hostd#240). So no Surge XT page could be
+  taken.
+- Odin 2's plugin-hostd entry is held back by a mod-host row the qualification records wrongly
+  (FreeMixer/plugin-qualify#224), so Odin 2 runs through jalv and shows jalv's banks, not Factory and User.
+- A failed add leaves a chain with no mixer strip or output behind it.
+- When a bank holds only "No presets", Zynthian selects that row and shows it as the preset.
