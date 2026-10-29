@@ -1,0 +1,15 @@
+Plugin:       urn:openmixer:chorus
+JACK Name:    jalv_00_3
+Sample rate:  48000 Hz
+Block length: 256 frames
+MIDI buffers: 32768 bytes
+Comm buffers: 524288 bytes
+Update rate:  30.0 Hz
+Scale factor: 1.0
+
+#CTR> 2#depth=4.000000
+#CTR> 5#enabled=1.000000
+#CTR> 4#mix=35.000000
+#CTR> 1#rate=0.600000
+#CTR> 0#spread=0.000000
+#CTR> 3#voices=3.000000

@@ -1,0 +1,21 @@
+Plugin:       urn:openmixer:drive
+JACK Name:    jalv_02_1
+Sample rate:  48000 Hz
+Block length: 256 frames
+MIDI buffers: 32768 bytes
+Comm buffers: 524288 bytes
+Update rate:  30.0 Hz
+Scale factor: 1.0
+
+#CTR> 0#amount=0.000000
+#CTR> 7#autoGain=1.000000
+#CTR> 6#band=0.000000
+#CTR> 2#bandFreq=2000.000000
+#CTR> 1#character=0.000000
+#CTR> 5#curve=0.000000
+#CTR> 11#enabled=1.000000
+#CTR> 9#hfRolloff=0.000000
+#CTR> 3#mix=100.000000
+#CTR> 10#oversample=4.000000
+#CTR> 8#stereoLink=1.000000
+#CTR> 4#trim=0.000000

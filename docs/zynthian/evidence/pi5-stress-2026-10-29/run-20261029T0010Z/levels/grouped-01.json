@@ -1,0 +1,141 @@
+{
+ "mode": "grouped",
+ "chains_asked": 1,
+ "chains_built": 1,
+ "plugins_running": 4,
+ "jack_clients_of_chains": 1,
+ "creation_s_total": 0.67,
+ "creation_s_per_chain": 0.673,
+ "workers_mine": 1,
+ "workers": [
+  {
+   "worker": "w5",
+   "pid": "85799",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "chain:1",
+   "instances": [
+    7000,
+    7001,
+    7002,
+    7003
+   ]
+  }
+ ],
+ "links": 4,
+ "refused": [],
+ "jack_clients": 11,
+ "memory": {
+  "zynthian": {
+   "processes": 1,
+   "rss_mb": 330.2,
+   "pss_mb": 230.7
+  },
+  "jackd": {
+   "processes": 1,
+   "rss_mb": 127.8,
+   "pss_mb": 36.0
+  },
+  "plugin-hostd": {
+   "processes": 1,
+   "rss_mb": 3.2,
+   "pss_mb": 1.8
+  },
+  "workers": {
+   "processes": 1,
+   "rss_mb": 112.3,
+   "pss_mb": 19.8
+  },
+  "jalv": {
+   "processes": 0,
+   "rss_mb": 0.0,
+   "pss_mb": 0.0
+  }
+ },
+ "rss_total_mb": 573.5,
+ "pss_total_mb": 288.3,
+ "ui": {
+  "zynthian_pid": 73837,
+  "state": "S",
+  "capture": true
+ },
+ "capture": "l01-grouped-zynthian.png",
+ "modui_active": "inactive",
+ "top_consumers": [
+  {
+   "pid": 73837,
+   "name": "python3",
+   "cmd": "python3 ./zynthian_main.py",
+   "cpu_pct_of_core": 4.8
+  },
+  {
+   "pid": 85799,
+   "name": "omx-clap-host",
+   "cmd": "omx-clap-host -n -p 58761 -f 53039",
+   "cpu_pct_of_core": 4.8
+  },
+  {
+   "pid": 67,
+   "name": "kworker/0:1H-mmc_complete",
+   "cmd": "",
+   "cpu_pct_of_core": 1.5
+  },
+  {
+   "pid": 772,
+   "name": "jackd",
+   "cmd": "/usr/bin/jackd -P 70 -s -S -d alsa -d hw:Dummy -r 48000 -p 256 -n 2 -X raw",
+   "cpu_pct_of_core": 1.5
+  },
+  {
+   "pid": 32111,
+   "name": "kworker/u16:3-flush-179:0",
+   "cmd": "",
+   "cpu_pct_of_core": 0.8
+  },
+  {
+   "pid": 36806,
+   "name": "kworker/2:1-events_freezable",
+   "cmd": "",
+   "cpu_pct_of_core": 0.7
+  },
+  {
+   "pid": 1124,
+   "name": "a2jmidid",
+   "cmd": "/usr/bin/a2jmidid",
+   "cpu_pct_of_core": 0.2
+  },
+  {
+   "pid": 1004,
+   "name": "ttymidi",
+   "cmd": "/usr/local/bin/ttymidi -s /dev/ttyAMA0 -b 38400",
+   "cpu_pct_of_core": 0.2
+  }
+ ],
+ "mhz_mean": 1500,
+ "xruns_meter": 0,
+ "xruns_zynthian": 0,
+ "cpu_core_mean": {
+  "cpu0": 2.8,
+  "cpu1": 3.7,
+  "cpu2": 3.4,
+  "cpu3": 3.2
+ },
+ "cpu_busiest_core": 3.7,
+ "cpu_mean": 3.3,
+ "cpu_busiest_second": 10.9,
+ "cpu_groups_pct_of_core": {
+  "zynthian": 4.8,
+  "jackd": 1.5,
+  "plugin-hostd": 0.1,
+  "workers": 4.8,
+  "jalv": 0.0
+ },
+ "tick_cpu_busiest_core": 1.4,
+ "tick_cpu_mean": 1.1,
+ "jack_dsp_mean": 5.22,
+ "jack_dsp_max": 5.91,
+ "mem_avail_min_mb": 3066.0,
+ "limit": null,
+ "teardown_clean": true,
+ "jalv_killed_after_sigterm": 0
+}

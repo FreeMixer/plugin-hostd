@@ -1,0 +1,25 @@
+Plugin:       http://calf.sourceforge.net/plugins/MultiChorus
+JACK Name:    jalv_01_3
+Sample rate:  48000 Hz
+Block length: 256 frames
+MIDI buffers: 32768 bytes
+Comm buffers: 524288 bytes
+Update rate:  30.0 Hz
+Scale factor: 1.0
+
+#CTR> 6#amount=0.500000
+#CTR> 7#dry=0.500000
+#CTR> 8#freq=100.000000
+#CTR> 9#freq2=5000.000000
+#CTR> 13#level_in=1.000000
+#CTR> 14#level_out=1.000000
+#CTR> 23#lfo=1.000000
+#CTR> 0#min_delay=5.000000
+#CTR> 1#mod_depth=6.000000
+#CTR> 2#mod_rate=0.100000
+#CTR> 12#on=1.000000
+#CTR> 11#overlap=0.750000
+#CTR> 10#q=0.125000
+#CTR> 3#stereo=180.000000
+#CTR> 4#voices=4.000000
+#CTR> 5#vphase=64.000000

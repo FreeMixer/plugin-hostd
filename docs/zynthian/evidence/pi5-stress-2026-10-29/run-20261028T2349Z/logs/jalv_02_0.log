@@ -1,0 +1,20 @@
+Plugin:       urn:openmixer:comp
+JACK Name:    jalv_02_0
+Sample rate:  48000 Hz
+Block length: 256 frames
+MIDI buffers: 32768 bytes
+Comm buffers: 524288 bytes
+Update rate:  30.0 Hz
+Scale factor: 1.0
+
+#CTR> 3#attackMs=5.000000
+#CTR> 8#detectorOversampling=0.000000
+#CTR> 9#detectorTopology=0.000000
+#CTR> 10#enabled=1.000000
+#CTR> 7#kind=0.000000
+#CTR> 2#kneeDb=6.000000
+#CTR> 5#makeupDb=0.000000
+#CTR> 6#mixPct=100.000000
+#CTR> 1#ratio=4.000000
+#CTR> 4#releaseMs=200.000000
+#CTR> 0#thresholdDb=-18.000000
