@@ -86,6 +86,10 @@ int pins_check(const format_t *format, const char *uri, const char *search, cons
 /* a refusal of a pin, with the reason on stderr: OMX_REPLY_PLUGIN_HOSTD_PIN_BINARY_MISMATCH_RESP */
 int pin_refuse(const char *uri, const char *path, const char *why);
 
+/* in as the bytes a %XX escape stands for, into out; -1 for a bad escape, %00 or no room. A CLAP path is addressed with
+ * whitespace as %20 and decoded where the daemon opens or hashes the file */
+int pin_percent_decode(const char *in, char *out, size_t size);
+
 void pins_finish(void);
 
 #endif
