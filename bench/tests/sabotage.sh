@@ -8,6 +8,8 @@ set -euo pipefail
 
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 work=$(mktemp -d)
+# the copies of bench/ below sit outside the checkout: the one list of search folders is still the checkout's
+export SEARCH_PATHS_TOOL="$here/../tools/search-paths.py"
 trap 'rm -rf "$work"' EXIT
 fail=0
 

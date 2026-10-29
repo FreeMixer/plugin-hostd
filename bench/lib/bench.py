@@ -612,7 +612,9 @@ def software(plugin_files):
 def _search_paths():
     """tools/search-paths.py: the lists plugin-hostd searches, written once in include/plugin-hostd/search_paths.h"""
     import importlib.util
-    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "tools", "search-paths.py")
+    # SEARCH_PATHS_TOOL names it for a copy of bench/ that lives outside the checkout (bench/tests/sabotage.sh)
+    path = os.environ.get("SEARCH_PATHS_TOOL") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..",
+                                                               "tools", "search-paths.py")
     spec = importlib.util.spec_from_file_location("search_paths", path)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
