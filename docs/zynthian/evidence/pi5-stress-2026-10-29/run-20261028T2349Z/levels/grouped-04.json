@@ -1,0 +1,180 @@
+{
+ "mode": "grouped",
+ "chains_asked": 4,
+ "chains_built": 4,
+ "plugins_running": 16,
+ "jack_clients_of_chains": 10,
+ "creation_s_total": 3.94,
+ "creation_s_per_chain": 0.985,
+ "workers_mine": 4,
+ "workers": [
+  {
+   "worker": "w32",
+   "pid": "79743",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "chain:1",
+   "instances": [
+    7000,
+    7001,
+    7002,
+    7003
+   ]
+  },
+  {
+   "worker": "w37",
+   "pid": "79776",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "chain:2",
+   "instances": [
+    7004,
+    7005,
+    7006,
+    7007
+   ]
+  },
+  {
+   "worker": "w42",
+   "pid": "79809",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "chain:3",
+   "instances": [
+    7008,
+    7009,
+    7010,
+    7011
+   ]
+  },
+  {
+   "worker": "w47",
+   "pid": "79840",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "chain:4",
+   "instances": [
+    7012,
+    7013,
+    7014,
+    7015
+   ]
+  }
+ ],
+ "links": 28,
+ "refused": [],
+ "jack_clients": 20,
+ "memory": {
+  "zynthian": {
+   "processes": 1,
+   "rss_mb": 345.7,
+   "pss_mb": 237.0
+  },
+  "jackd": {
+   "processes": 1,
+   "rss_mb": 129.0,
+   "pss_mb": 31.9
+  },
+  "plugin-hostd": {
+   "processes": 1,
+   "rss_mb": 3.2,
+   "pss_mb": 1.8
+  },
+  "workers": {
+   "processes": 4,
+   "rss_mb": 471.7,
+   "pss_mb": 77.4
+  },
+  "jalv": {
+   "processes": 0,
+   "rss_mb": 0.0,
+   "pss_mb": 0.0
+  }
+ },
+ "rss_total_mb": 949.6,
+ "pss_total_mb": 348.1,
+ "ui": {
+  "zynthian_pid": 73837,
+  "state": "S",
+  "capture": true
+ },
+ "capture": "l04-grouped-zynthian.png",
+ "modui_active": "inactive",
+ "top_consumers": [
+  {
+   "pid": 73837,
+   "name": "python3",
+   "cmd": "python3 ./zynthian_main.py",
+   "cpu_pct_of_core": 4.2
+  },
+  {
+   "pid": 79743,
+   "name": "omx-clap-host",
+   "cmd": "omx-clap-host -n -p 60255 -f 58975",
+   "cpu_pct_of_core": 3.1
+  },
+  {
+   "pid": 79809,
+   "name": "omx-clap-host",
+   "cmd": "omx-clap-host -n -p 54597 -f 50849",
+   "cpu_pct_of_core": 3.1
+  },
+  {
+   "pid": 79840,
+   "name": "omx-clap-host",
+   "cmd": "omx-clap-host -n -p 49133 -f 48605",
+   "cpu_pct_of_core": 2.7
+  },
+  {
+   "pid": 79776,
+   "name": "omx-clap-host",
+   "cmd": "omx-clap-host -n -p 47367 -f 48625",
+   "cpu_pct_of_core": 2.5
+  },
+  {
+   "pid": 772,
+   "name": "jackd",
+   "cmd": "/usr/bin/jackd -P 70 -s -S -d alsa -d hw:Dummy -r 48000 -p 256 -n 2 -X raw",
+   "cpu_pct_of_core": 1.4
+  },
+  {
+   "pid": 32111,
+   "name": "kworker/u16:3-v3d_render",
+   "cmd": "",
+   "cpu_pct_of_core": 0.7
+  },
+  {
+   "pid": 73798,
+   "name": "Xorg",
+   "cmd": "/usr/lib/xorg/Xorg :0 -r -s 0 -auth /tmp/serverauth.4A1IpXM05a",
+   "cpu_pct_of_core": 0.5
+  }
+ ],
+ "mhz_mean": 2400,
+ "xruns_meter": 0,
+ "xruns_zynthian": 0,
+ "cpu_core_mean": {
+  "cpu0": 4.6,
+  "cpu1": 4.7,
+  "cpu2": 5.0,
+  "cpu3": 4.6
+ },
+ "cpu_busiest_core": 5.0,
+ "cpu_mean": 4.7,
+ "cpu_busiest_second": 9.0,
+ "cpu_groups_pct_of_core": {
+  "zynthian": 4.2,
+  "jackd": 1.4,
+  "plugin-hostd": 0.1,
+  "workers": 11.5,
+  "jalv": 0.0
+ },
+ "tick_cpu_busiest_core": 21.5,
+ "tick_cpu_mean": 18.5,
+ "jack_dsp_mean": 3.99,
+ "jack_dsp_max": 4.26,
+ "mem_avail_min_mb": 3110.5,
+ "limit": null,
+ "teardown_clean": true,
+ "jalv_killed_after_sigterm": 0
+}

@@ -124,6 +124,13 @@ Latency. The bench records the latency JACK reports at `system:playback_1`, whic
 declare, not a measurement of audio; the omx plugins in these chains declare none. A measured round-trip latency per
 host needs a device with a sound card and a loopback cable: not measured yet.
 
+At scale, chains of four LV2 plugins at 1, 2, 4, 8 and 16 chains, each level held 60 s on the system JACK server of
+the Zynthian, grouped (one worker per chain), alone (one worker per plugin) and on jalv: [stress.md](stress.md)
+(2026-10-29, plugin-hostd 0.13.1, omx-clap-host 0.23.2, 48000 Hz, 256 frames, 1500 MHz, CPU from the scheduler's ns
+counters). At 16 chains the hosting processes used 70.6 % of a core grouped (60 plugins), 100.8 % alone (60) and
+82.3 % on jalv (64); PSS 224.2, 359.3 and 2745.6 MB; `jack_lsp` counted 46, 70 and 74 JACK clients, 10 of them the
+idle graph's. Grouped and alone reached 16 chains without a limit; jalv stopped there on memory, with 2 xruns.
+
 The four hosts, one plugin and short chains
 -------------------------------------------
 
@@ -411,7 +418,7 @@ What is not measured yet
 |---|---|---|
 | audio through a plugin-hostd chain on a Zynthian with a sound card | the Pi has none | the round trip on the device: `tools/zynthian/chain-e2e.sh --round-trip <zynthian-ui> <out>` with the environment of [README.md](README.md), on a Pi with a card and a loopback |
 | cost at the hosts' quantums (128, 256, 1024) and LV2 at 44.1/48/96 kHz | plugin-qualify#193 | `plugin-qualify --all --isolate --rates 48000,96000 --quanta 128,256,512,1024 --host-profile jalv,mod-host,omx-clap-host --format json --out records/ > qualify.json` once #193 is fixed |
-| JACK clients per chain for jalv and mod-host, counted | not recorded by the bench rows | `jack_lsp` on the bench's private server during a `cvp3` row: `bench/run.sh --class rpi5 --scenarios cvp3 --hosts H3,H4 --rates 48000 --frames 256 --keep-governor --logs logs/` |
+| JACK clients per chain for mod-host, counted (jalv's are counted in [stress.md](stress.md)) | not recorded by the bench rows | `jack_lsp` on the bench's private server during a `cvp3` row: `bench/run.sh --class rpi5 --scenarios cvp3 --hosts H3,H4 --rates 48000 --frames 256 --keep-governor --logs logs/` |
 | latency measured on audio, per host | needs a card and a loopback | not available in this tree |
 | the cost estimate a chain editor would ask for (FreeMixer/zynthian-ui#13) | no `estimate` verb yet | none yet |
 | the MOD-UI engine on plugin-hostd on the device | the fork's update was applied only on the evening of 2026-10-28, after these runs | after `update_zynthian_sys.sh` from FreeMixer/zynthian-sys: `tools/zynthian/path-a.sh <out>` |

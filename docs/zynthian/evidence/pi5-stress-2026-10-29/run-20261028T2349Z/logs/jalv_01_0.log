@@ -1,0 +1,15 @@
+Plugin:       http://distrho.sf.net/plugins/3BandEQ
+JACK Name:    jalv_01_0
+Sample rate:  48000 Hz
+Block length: 256 frames
+MIDI buffers: 32768 bytes
+Comm buffers: 524288 bytes
+Update rate:  30.0 Hz
+Scale factor: 1.0
+
+#CTR> 2#high=0.000000
+#CTR> 0#low=0.000000
+#CTR> 4#low_mid=440.000000
+#CTR> 3#master=0.000000
+#CTR> 1#mid=0.000000
+#CTR> 5#mid_high=1000.000000

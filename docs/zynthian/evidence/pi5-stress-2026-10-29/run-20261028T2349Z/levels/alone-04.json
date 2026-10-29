@@ -1,0 +1,288 @@
+{
+ "mode": "alone",
+ "chains_asked": 4,
+ "chains_built": 4,
+ "plugins_running": 16,
+ "jack_clients_of_chains": 16,
+ "creation_s_total": 3.11,
+ "creation_s_per_chain": 0.778,
+ "workers_mine": 16,
+ "workers": [
+  {
+   "worker": "w282",
+   "pid": "82181",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "own",
+   "instances": [
+    7000
+   ]
+  },
+  {
+   "worker": "w283",
+   "pid": "82186",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "own",
+   "instances": [
+    7001
+   ]
+  },
+  {
+   "worker": "w284",
+   "pid": "82191",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "own",
+   "instances": [
+    7002
+   ]
+  },
+  {
+   "worker": "w285",
+   "pid": "82196",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "own",
+   "instances": [
+    7003
+   ]
+  },
+  {
+   "worker": "w286",
+   "pid": "82201",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "own",
+   "instances": [
+    7004
+   ]
+  },
+  {
+   "worker": "w287",
+   "pid": "82206",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "own",
+   "instances": [
+    7005
+   ]
+  },
+  {
+   "worker": "w288",
+   "pid": "82211",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "own",
+   "instances": [
+    7006
+   ]
+  },
+  {
+   "worker": "w289",
+   "pid": "82216",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "own",
+   "instances": [
+    7007
+   ]
+  },
+  {
+   "worker": "w290",
+   "pid": "82221",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "own",
+   "instances": [
+    7008
+   ]
+  },
+  {
+   "worker": "w291",
+   "pid": "82226",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "own",
+   "instances": [
+    7009
+   ]
+  },
+  {
+   "worker": "w292",
+   "pid": "82231",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "own",
+   "instances": [
+    7010
+   ]
+  },
+  {
+   "worker": "w293",
+   "pid": "82236",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "own",
+   "instances": [
+    7011
+   ]
+  },
+  {
+   "worker": "w294",
+   "pid": "82241",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "own",
+   "instances": [
+    7012
+   ]
+  },
+  {
+   "worker": "w295",
+   "pid": "82246",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "own",
+   "instances": [
+    7013
+   ]
+  },
+  {
+   "worker": "w296",
+   "pid": "82251",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "own",
+   "instances": [
+    7014
+   ]
+  },
+  {
+   "worker": "w297",
+   "pid": "82256",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "own",
+   "instances": [
+    7015
+   ]
+  }
+ ],
+ "links": 40,
+ "refused": [],
+ "jack_clients": 26,
+ "memory": {
+  "zynthian": {
+   "processes": 1,
+   "rss_mb": 346.0,
+   "pss_mb": 231.1
+  },
+  "jackd": {
+   "processes": 1,
+   "rss_mb": 129.5,
+   "pss_mb": 26.3
+  },
+  "plugin-hostd": {
+   "processes": 1,
+   "rss_mb": 3.8,
+   "pss_mb": 2.3
+  },
+  "workers": {
+   "processes": 16,
+   "rss_mb": 1831.2,
+   "pss_mb": 156.3
+  },
+  "jalv": {
+   "processes": 0,
+   "rss_mb": 0.0,
+   "pss_mb": 0.0
+  }
+ },
+ "rss_total_mb": 2310.5,
+ "pss_total_mb": 416.0,
+ "ui": {
+  "zynthian_pid": 73837,
+  "state": "S",
+  "capture": true
+ },
+ "capture": "l04-alone-zynthian.png",
+ "modui_active": "inactive",
+ "top_consumers": [
+  {
+   "pid": 73837,
+   "name": "python3",
+   "cmd": "python3 ./zynthian_main.py",
+   "cpu_pct_of_core": 6.2
+  },
+  {
+   "pid": 82226,
+   "name": "omx-clap-host",
+   "cmd": "omx-clap-host -n -p 52209 -f 37423",
+   "cpu_pct_of_core": 2.7
+  },
+  {
+   "pid": 82191,
+   "name": "omx-clap-host",
+   "cmd": "omx-clap-host -n -p 38289 -f 53275",
+   "cpu_pct_of_core": 2.7
+  },
+  {
+   "pid": 82231,
+   "name": "omx-clap-host",
+   "cmd": "omx-clap-host -n -p 46729 -f 43969",
+   "cpu_pct_of_core": 2.3
+  },
+  {
+   "pid": 82196,
+   "name": "omx-clap-host",
+   "cmd": "omx-clap-host -n -p 51031 -f 60451",
+   "cpu_pct_of_core": 2.3
+  },
+  {
+   "pid": 772,
+   "name": "jackd",
+   "cmd": "/usr/bin/jackd -P 70 -s -S -d alsa -d hw:Dummy -r 48000 -p 256 -n 2 -X raw",
+   "cpu_pct_of_core": 2.1
+  },
+  {
+   "pid": 82211,
+   "name": "omx-clap-host",
+   "cmd": "omx-clap-host -n -p 47977 -f 54101",
+   "cpu_pct_of_core": 1.9
+  },
+  {
+   "pid": 82246,
+   "name": "omx-clap-host",
+   "cmd": "omx-clap-host -n -p 51175 -f 40287",
+   "cpu_pct_of_core": 1.9
+  }
+ ],
+ "mhz_mean": 1500,
+ "xruns_meter": 0,
+ "xruns_zynthian": 0,
+ "cpu_core_mean": {
+  "cpu0": 8.8,
+  "cpu1": 8.6,
+  "cpu2": 9.4,
+  "cpu3": 8.4
+ },
+ "cpu_busiest_core": 9.4,
+ "cpu_mean": 8.8,
+ "cpu_busiest_second": 27.6,
+ "cpu_groups_pct_of_core": {
+  "zynthian": 6.2,
+  "jackd": 2.1,
+  "plugin-hostd": 0.2,
+  "workers": 24.3,
+  "jalv": 0.0
+ },
+ "tick_cpu_busiest_core": 3.5,
+ "tick_cpu_mean": 3.3,
+ "jack_dsp_mean": 7.2,
+ "jack_dsp_max": 7.65,
+ "mem_avail_min_mb": 3068.0,
+ "limit": null,
+ "teardown_clean": true,
+ "jalv_killed_after_sigterm": 0
+}
