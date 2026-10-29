@@ -1,0 +1,2 @@
+83c4078be5726f148cfc496cbbe2ef39a1933d0e0984e730ff0477126dff19b6  2026-10-15-zynthianos-vangelis-2610-stable.img.xz (https://os.zynthian.org/, fetched 2026-10-20)
+48fca2510d93b06df5dbffe9b8f209a37869f44bba7155c632788cfbcd324d26  zynthianos-vangelis-omx.img.xz (6286200184 bytes, built 2026-10-28 by tools/zynthian/image-build.sh from 2026-10-15-zynthianos-vangelis-2610-stable.img.xz)

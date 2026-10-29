@@ -1,0 +1,127 @@
+jack_get_descriptor : dll 
+jack_get_descriptor returns null for 'jack_intime.so'
+jack_get_descriptor : dll 
+jack_get_descriptor returns null for 'jack_internal_metro.so'
+jack_get_descriptor : dll 
+jack_get_descriptor returns null for 'jack_inprocess.so'
+jackdmp 1.9.22
+Copyright 2001-2005 Paul Davis and others.
+Copyright 2004-2016 Grame.
+Copyright 2016-2023 Filipe Coelho.
+jackdmp comes with ABSOLUTELY NO WARRANTY
+This is free software, and you are welcome to redistribute it
+under certain conditions; see the file COPYING for details
+JACK server starting in realtime mode with priority 10
+self-connect-mode is "Don't restrict self connect requests"
+JackEngine::XRun: client = sine was not finished, state = Running
+JackAudioDriver::ProcessGraphAsyncMaster: Process error
+Cannot write socket fd = 17 err = Broken pipe
+CheckRes error
+Could not write notification
+ClientNotify fails name = effect_0 notification = 1 val1 = 0 val2 = 0
+Cannot write socket fd = 20 err = Broken pipe
+CheckRes error
+Could not write notification
+ClientNotify fails name = effect_0 notification = 1 val1 = 0 val2 = 0
+Cannot write socket fd = 20 err = Broken pipe
+CheckRes error
+Could not write notification
+ClientNotify fails name = effect_0 notification = 1 val1 = 0 val2 = 0
+Cannot write socket fd = 20 err = Broken pipe
+CheckRes error
+Could not write notification
+ClientNotify fails name = effect_0 notification = 1 val1 = 0 val2 = 0
+Cannot write socket fd = 17 err = Broken pipe
+CheckRes error
+Could not write notification
+ClientNotify fails name = mod-host notification = 10 val1 = 12 val2 = 0
+Cannot write socket fd = 17 err = Broken pipe
+CheckRes error
+Could not write notification
+ClientNotify fails name = mod-host notification = 10 val1 = 13 val2 = 0
+Cannot write socket fd = 17 err = Broken pipe
+CheckRes error
+Could not write notification
+ClientNotify fails name = mod-host notification = 10 val1 = 14 val2 = 0
+Cannot write socket fd = 17 err = Broken pipe
+CheckRes error
+Could not write notification
+ClientNotify fails name = mod-host notification = 10 val1 = 15 val2 = 0
+Cannot write socket fd = 17 err = Broken pipe
+CheckRes error
+Could not write notification
+ClientNotify fails name = mod-host notification = 10 val1 = 12 val2 = 0
+Cannot write socket fd = 17 err = Broken pipe
+CheckRes error
+Could not write notification
+ClientNotify fails name = mod-host notification = 10 val1 = 13 val2 = 0
+Cannot write socket fd = 17 err = Broken pipe
+CheckRes error
+Could not write notification
+ClientNotify fails name = mod-host notification = 10 val1 = 14 val2 = 0
+Cannot write socket fd = 17 err = Broken pipe
+CheckRes error
+Could not write notification
+ClientNotify fails name = mod-host notification = 10 val1 = 15 val2 = 0
+JackEngine::XRun: client = mod-host was not finished, state = Triggered
+JackEngine::XRun: client = mod-monitor was not finished, state = Triggered
+JackAudioDriver::ProcessGraphAsyncMaster: Process error
+JackEngine::XRun: client = mod-host was not finished, state = Triggered
+JackEngine::XRun: client = mod-monitor was not finished, state = Triggered
+JackAudioDriver::ProcessGraphAsyncMaster: Process error
+Cannot write socket fd = 17 err = Broken pipe
+CheckRes error
+Could not write notification
+ClientNotify fails name = effect_0 notification = 1 val1 = 0 val2 = 0
+Cannot write socket fd = 20 err = Broken pipe
+CheckRes error
+Could not write notification
+ClientNotify fails name = effect_0 notification = 1 val1 = 0 val2 = 0
+Cannot write socket fd = 17 err = Broken pipe
+CheckRes error
+Could not write notification
+ClientNotify fails name = mod-host notification = 18 val1 = 0 val2 = 0
+Cannot write socket fd = 20 err = Broken pipe
+CheckRes error
+Could not write notification
+ClientNotify fails name = mod-monitor notification = 18 val1 = 0 val2 = 0
+Cannot write socket fd = 20 err = Broken pipe
+CheckRes error
+Could not write notification
+ClientNotify fails name = mod-monitor notification = 18 val1 = 1 val2 = 0
+Cannot write socket fd = 17 err = Broken pipe
+CheckRes error
+Could not write notification
+ClientNotify fails name = mod-host notification = 18 val1 = 1 val2 = 0
+Cannot write socket fd = 20 err = Broken pipe
+CheckRes error
+Could not write notification
+ClientNotify fails name = mod-monitor notification = 4 val1 = 0 val2 = 0
+Cannot write socket fd = 17 err = Broken pipe
+CheckRes error
+Could not write notification
+ClientNotify fails name = mod-host notification = 10 val1 = 5 val2 = 0
+Cannot write socket fd = 17 err = Broken pipe
+CheckRes error
+Could not write notification
+ClientNotify fails name = mod-host notification = 10 val1 = 5 val2 = 0
+JackEngine::XRun: client = mod-monitor was not finished, state = Triggered
+JackAudioDriver::ProcessGraphAsyncMaster: Process error
+JackAudioDriver::ProcessGraphAsyncMaster: Process error
+Cannot write socket fd = 20 err = Broken pipe
+CheckRes error
+Could not write notification
+ClientNotify fails name = mod-host notification = 1 val1 = 0 val2 = 0
+Cannot write socket fd = 20 err = Broken pipe
+CheckRes error
+Could not write notification
+Cannot write socket fd = 20 err = Broken pipe
+CheckRes error
+Could not write notification
+Cannot write socket fd = 20 err = Broken pipe
+CheckRes error
+Could not write notification
+Cannot write socket fd = 20 err = Broken pipe
+CheckRes error
+Could not write notification
+Jack main caught signal 15

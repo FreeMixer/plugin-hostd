@@ -1,0 +1,3 @@
+#!/bin/sh
+# deep run 2026-10-28: plugin-qualify ends a jalv admission with SIGTERM at its deadline; some plugins make jalv ignore it (plugin-qualify#187). Forward TERM, then KILL one second later.
+exec /usr/bin/timeout -k 1 -s TERM 60 /usr/local/bin/jalv "$@"

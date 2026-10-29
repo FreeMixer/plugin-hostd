@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="478" viewBox="0 0 640 478" font-family="sans-serif" font-size="12">
+<rect width="640" height="478" fill="#ffffff"/>
+<text x="16" y="22" font-size="14" fill="#111111">MOD-UI session on mod-host and on plugin-hostd: replies per verb</text>
+<text x="16" y="40" fill="#444444">135 calls, 5 replies differ (dark)</text>
+<text x="142" y="67" text-anchor="end" fill="#111111">add</text>
+<rect x="150" y="54" width="105.0" height="18" fill="#9db8d6"/>
+<text x="261.0" y="67" fill="#111111">10</text>
+<text x="142" y="91" text-anchor="end" fill="#111111">bundle_add</text>
+<rect x="150" y="78" width="21.0" height="18" fill="#9db8d6"/>
+<text x="177.0" y="91" fill="#111111">2</text>
+<text x="142" y="115" text-anchor="end" fill="#111111">bypass</text>
+<rect x="150" y="102" width="105.0" height="18" fill="#9db8d6"/>
+<text x="261.0" y="115" fill="#111111">10</text>
+<text x="142" y="139" text-anchor="end" fill="#111111">connect</text>
+<rect x="150" y="126" width="231.0" height="18" fill="#9db8d6"/>
+<rect x="381.0" y="126" width="21.0" height="18" fill="#1f3a5f"/>
+<text x="408.0" y="139" fill="#111111">24 (2 differ)</text>
+<text x="142" y="163" text-anchor="end" fill="#111111">feature_enable</text>
+<rect x="150" y="150" width="168.0" height="18" fill="#9db8d6"/>
+<rect x="318.0" y="150" width="10.5" height="18" fill="#1f3a5f"/>
+<text x="334.5" y="163" fill="#111111">17 (1 differ)</text>
+<text x="142" y="187" text-anchor="end" fill="#111111">output_data_ready</text>
+<rect x="150" y="174" width="21.0" height="18" fill="#9db8d6"/>
+<text x="177.0" y="187" fill="#111111">2</text>
+<text x="142" y="211" text-anchor="end" fill="#111111">param_set</text>
+<rect x="150" y="198" width="420.0" height="18" fill="#9db8d6"/>
+<text x="576.0" y="211" fill="#111111">40</text>
+<text x="142" y="235" text-anchor="end" fill="#111111">preset_load</text>
+<rect x="150" y="222" width="31.5" height="18" fill="#9db8d6"/>
+<rect x="181.5" y="222" width="21.0" height="18" fill="#1f3a5f"/>
+<text x="208.5" y="235" fill="#111111">5 (2 differ)</text>
+<text x="142" y="259" text-anchor="end" fill="#111111">preset_save</text>
+<rect x="150" y="246" width="21.0" height="18" fill="#9db8d6"/>
+<text x="177.0" y="259" fill="#111111">2</text>
+<text x="142" y="283" text-anchor="end" fill="#111111">preset_show</text>
+<rect x="150" y="270" width="21.0" height="18" fill="#9db8d6"/>
+<text x="177.0" y="283" fill="#111111">2</text>
+<text x="142" y="307" text-anchor="end" fill="#111111">remove</text>
+<rect x="150" y="294" width="73.5" height="18" fill="#9db8d6"/>
+<text x="229.5" y="307" fill="#111111">7</text>
+<text x="142" y="331" text-anchor="end" fill="#111111">state_load</text>
+<rect x="150" y="318" width="31.5" height="18" fill="#9db8d6"/>
+<text x="187.5" y="331" fill="#111111">3</text>
+<text x="142" y="355" text-anchor="end" fill="#111111">state_save</text>
+<rect x="150" y="342" width="21.0" height="18" fill="#9db8d6"/>
+<text x="177.0" y="355" fill="#111111">2</text>
+<text x="142" y="379" text-anchor="end" fill="#111111">state_tmpdir</text>
+<rect x="150" y="366" width="10.5" height="18" fill="#9db8d6"/>
+<text x="166.5" y="379" fill="#111111">1</text>
+<text x="142" y="403" text-anchor="end" fill="#111111">transport</text>
+<rect x="150" y="390" width="73.5" height="18" fill="#9db8d6"/>
+<text x="229.5" y="403" fill="#111111">7</text>
+<text x="142" y="427" text-anchor="end" fill="#111111">transport_sync</text>
+<rect x="150" y="414" width="10.5" height="18" fill="#9db8d6"/>
+<text x="166.5" y="427" fill="#111111">1</text>
+<text x="16" y="466" fill="#666666">Source: docs/zynthian/evidence/path-a/diff.txt</text>
+</svg>

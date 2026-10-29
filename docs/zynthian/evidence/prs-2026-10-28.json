@@ -1,0 +1,59 @@
+{
+ "fetched_at": "2026-10-28T22:00:19Z",
+ "prs": [
+  {
+   "baseRefName": "vangelis",
+   "headRefName": "openmixer-repo",
+   "number": 1,
+   "state": "MERGED",
+   "title": "Add the OpenMixer repository",
+   "url": "https://github.com/FreeMixer/zynthian-sys/pull/1",
+   "repo": "FreeMixer/zynthian-sys"
+  },
+  {
+   "baseRefName": "vangelis",
+   "headRefName": "modhost-backend",
+   "number": 2,
+   "state": "MERGED",
+   "title": "plugin-hostd as the mod-host of the MOD-UI engine, switchable",
+   "url": "https://github.com/FreeMixer/zynthian-sys/pull/2",
+   "repo": "FreeMixer/zynthian-sys"
+  },
+  {
+   "baseRefName": "vangelis",
+   "headRefName": "omx-modgui",
+   "number": 3,
+   "state": "MERGED",
+   "title": "MOD GUIs from omx-panel",
+   "url": "https://github.com/FreeMixer/zynthian-sys/pull/3",
+   "repo": "FreeMixer/zynthian-sys"
+  },
+  {
+   "baseRefName": "vangelis",
+   "headRefName": "omx-defaults",
+   "number": 4,
+   "state": "MERGED",
+   "title": "OpenMixer as the default install, on new images and on update",
+   "url": "https://github.com/FreeMixer/zynthian-sys/pull/4",
+   "repo": "FreeMixer/zynthian-sys"
+  },
+  {
+   "baseRefName": "vangelis",
+   "headRefName": "feat/engine-plugin-hostd",
+   "number": 1,
+   "state": "MERGED",
+   "title": "PH engine: LV2 and CLAP plugins in plugin-hostd",
+   "url": "https://github.com/FreeMixer/zynthian-ui/pull/1",
+   "repo": "FreeMixer/zynthian-ui"
+  },
+  {
+   "baseRefName": "feat/engine-plugin-hostd",
+   "headRefName": "feat/ph-default-and-qualified-menus",
+   "number": 2,
+   "state": "MERGED",
+   "title": "plugin-hostd by default, snapshot converter, menus from qualification",
+   "url": "https://github.com/FreeMixer/zynthian-ui/pull/2",
+   "repo": "FreeMixer/zynthian-ui"
+  }
+ ]
+}

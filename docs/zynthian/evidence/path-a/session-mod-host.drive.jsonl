@@ -1,0 +1,67 @@
+{"step": "websocket", "request": "/websocket", "status": 101, "body": 19}
+{"step": "reset", "request": "/reset", "status": 200, "body": true}
+{"step": "add", "request": "/effect/add/graph/p0?uri=http%3A%2F%2Fmoddevices.com%2Fplugins%2Fcaps%2FAmpVTS&x=0&y=100", "status": 200, "body": "<7998 bytes>"}
+{"step": "plugin_info", "request": "/effect/get?uri=http%3A%2F%2Fmoddevices.com%2Fplugins%2Fcaps%2FAmpVTS", "status": 200, "body": "<7998 bytes>"}
+{"step": "add", "request": "/effect/add/graph/p1?uri=http%3A%2F%2Fmoddevices.com%2Fplugins%2Fcaps%2FPlateX2&x=100&y=100", "status": 200, "body": "<4507 bytes>"}
+{"step": "plugin_info", "request": "/effect/get?uri=http%3A%2F%2Fmoddevices.com%2Fplugins%2Fcaps%2FPlateX2", "status": 200, "body": "<4507 bytes>"}
+{"step": "connect", "request": "/effect/connect/graph/capture_1,/graph/p0/in", "status": 200, "body": true}
+{"step": "connect", "request": "/effect/connect/graph/p0/out,/graph/p1/inl", "status": 200, "body": true}
+{"step": "connect", "request": "/effect/connect/graph/p0/out,/graph/p1/inr", "status": 200, "body": true}
+{"step": "connect", "request": "/effect/connect/graph/p1/outl,/graph/playback_1", "status": 200, "body": true}
+{"step": "connect", "request": "/effect/connect/graph/p1/outr,/graph/playback_2", "status": 200, "body": true}
+{"step": "param_set", "request": "ws param_set /graph/p0/gain 0.250000", "status": 0, "body": null}
+{"step": "bypass_on", "request": "ws param_set /graph/p0/:bypass 1", "status": 0, "body": null}
+{"step": "bypass_off", "request": "ws param_set /graph/p0/:bypass 0", "status": 0, "body": null}
+{"step": "param_set", "request": "ws param_set /graph/p1/bandwidth 0.250000", "status": 0, "body": null}
+{"step": "bypass_on", "request": "ws param_set /graph/p1/:bypass 1", "status": 0, "body": null}
+{"step": "bypass_off", "request": "ws param_set /graph/p1/:bypass 0", "status": 0, "body": null}
+{"step": "preset_save_new", "request": "/effect/preset/save_new/graph/p0?name=spike-a-preset", "status": 200, "body": {"ok": true, "bundle": "/tmp/spike/patha/session-mod-host/.lv2/p0-spike_a_preset.lv2", "uri": "file:///tmp/spike/patha/session-mod-host/.lv2/p0-spike_a_preset.lv2/spike_a_preset.ttl"}}
+{"step": "save", "request": "/pedalboard/save", "status": 200, "body": {"ok": true, "bundlepath": "/tmp/spike/patha/session-mod-host/pedalboards/spike_a.pedalboard", "title": "spike-a"}}
+{"step": "snapshot_saveas", "request": "/snapshot/saveas?title=spike-a-s1", "status": 200, "body": {"ok": true, "id": 1, "title": "spike-a-s1"}}
+{"step": "reset", "request": "/reset", "status": 200, "body": true}
+{"step": "add", "request": "/effect/add/graph/p0?uri=http%3A%2F%2Fcalf.sourceforge.net%2Fplugins%2FMonosynth&x=0&y=100", "status": 200, "body": "<26616 bytes>"}
+{"step": "plugin_info", "request": "/effect/get?uri=http%3A%2F%2Fcalf.sourceforge.net%2Fplugins%2FMonosynth", "status": 200, "body": "<26616 bytes>"}
+{"step": "add", "request": "/effect/add/graph/p1?uri=http%3A%2F%2Fgareus.org%2Foss%2Flv2%2Ffil4%23stereo&x=100&y=100", "status": 200, "body": "<14423 bytes>"}
+{"step": "plugin_info", "request": "/effect/get?uri=http%3A%2F%2Fgareus.org%2Foss%2Flv2%2Ffil4%23stereo", "status": 200, "body": "<14423 bytes>"}
+{"step": "add", "request": "/effect/add/graph/p2?uri=http%3A%2F%2Fcalf.sourceforge.net%2Fplugins%2FReverb&x=200&y=100", "status": 200, "body": "<11261 bytes>"}
+{"step": "plugin_info", "request": "/effect/get?uri=http%3A%2F%2Fcalf.sourceforge.net%2Fplugins%2FReverb", "status": 200, "body": "<11261 bytes>"}
+{"step": "connect", "request": "/effect/connect/graph/p0/out_l,/graph/p1/inL", "status": 200, "body": true}
+{"step": "connect", "request": "/effect/connect/graph/p0/out_r,/graph/p1/inR", "status": 200, "body": true}
+{"step": "connect", "request": "/effect/connect/graph/p1/outL,/graph/p2/in_l", "status": 200, "body": true}
+{"step": "connect", "request": "/effect/connect/graph/p1/outR,/graph/p2/in_r", "status": 200, "body": true}
+{"step": "connect", "request": "/effect/connect/graph/p2/out_l,/graph/playback_1", "status": 200, "body": true}
+{"step": "connect", "request": "/effect/connect/graph/p2/out_r,/graph/playback_2", "status": 200, "body": true}
+{"step": "param_set", "request": "ws param_set /graph/p0/o1_pw -0.500000", "status": 0, "body": null}
+{"step": "bypass_on", "request": "ws param_set /graph/p0/:bypass 1", "status": 0, "body": null}
+{"step": "bypass_off", "request": "ws param_set /graph/p0/:bypass 0", "status": 0, "body": null}
+{"step": "preset_load", "request": "/effect/preset/load/graph/p0?uri=http%3A%2F%2Fcalf.sourceforge.net%2Ffactory_presets%23monosynth_Barkline", "status": 200, "body": true}
+{"step": "param_set", "request": "ws param_set /graph/p1/gain -9.000000", "status": 0, "body": null}
+{"step": "bypass_on", "request": "ws param_set /graph/p1/:bypass 1", "status": 0, "body": null}
+{"step": "bypass_off", "request": "ws param_set /graph/p1/:bypass 0", "status": 0, "body": null}
+{"step": "param_set", "request": "ws param_set /graph/p2/decay_time 4.050000", "status": 0, "body": null}
+{"step": "bypass_on", "request": "ws param_set /graph/p2/:bypass 1", "status": 0, "body": null}
+{"step": "bypass_off", "request": "ws param_set /graph/p2/:bypass 0", "status": 0, "body": null}
+{"step": "preset_load", "request": "/effect/preset/load/graph/p2?uri=http%3A%2F%2Fcalf.sourceforge.net%2Ffactory_presets%23reverb_Ambience", "status": 200, "body": true}
+{"step": "preset_save_new", "request": "/effect/preset/save_new/graph/p0?name=spike-b-preset", "status": 200, "body": {"ok": true, "bundle": "/tmp/spike/patha/session-mod-host/.lv2/p0-spike_b_preset.lv2", "uri": "file:///tmp/spike/patha/session-mod-host/.lv2/p0-spike_b_preset.lv2/spike_b_preset.ttl"}}
+{"step": "save", "request": "/pedalboard/save", "status": 200, "body": {"ok": true, "bundlepath": "/tmp/spike/patha/session-mod-host/pedalboards/spike_b.pedalboard", "title": "spike-b"}}
+{"step": "snapshot_saveas", "request": "/snapshot/saveas?title=spike-b-s1", "status": 200, "body": {"ok": true, "id": 1, "title": "spike-b-s1"}}
+{"step": "transport_bpm", "request": "ws transport-bpm 100", "status": 0, "body": null}
+{"step": "transport_rolling", "request": "ws transport-rolling 1", "status": 0, "body": null}
+{"step": "transport_stop", "request": "ws transport-rolling 0", "status": 0, "body": null}
+{"step": "reset", "request": "/reset", "status": 200, "body": true}
+{"step": "load_bundle", "request": "/pedalboard/load_bundle/", "status": 200, "body": {"ok": true, "name": "spike-a"}}
+{"step": "param_set_loaded", "request": "ws param_set /graph/p0/gain 0.250000", "status": 0, "body": null}
+{"step": "param_set_loaded", "request": "ws param_set /graph/p1/bandwidth 0.500000", "status": 0, "body": null}
+{"step": "snapshot_list", "request": "/snapshot/list", "status": 200, "body": {"0": "Default"}}
+{"step": "snapshot_load", "request": "/snapshot/load?id=0", "status": 200, "body": true}
+{"step": "cpu_load", "request": "/pedalboard/list", "status": 200, "body": [{"broken": false, "factory": false, "hasTrialPlugins": false, "uri": "file:///tmp/spike/patha/session-mod-host/pedalboards/default.pedalboard/default.ttl", "bundle": "/tmp/spike/patha/session-mod-host/pedalboards/default.pedalboard", "title": "Default", "version": 0}, {"broken": false, "factory": false, "hasTrialPlugins": false, "uri": "file:///tmp/spike/patha/session-mod-host/pedalboards/spike_a.pedalboard/spike_a.ttl", "bundle": "/tmp/spike/patha/session-mod-host/pedalboards/spike_a.pedalboard", "title": "spike-a", "version": 1}, {"broken": false, "factory": false, "hasTrialPlugins": false, "uri": "file:///tmp/spike/patha/session-mod-host/pedalboards/spike_b.pedalboard/spike_b.ttl", "bundle": "/tmp/spike/patha/session-mod-host/pedalboards/spike_b.pedalboard", "title": "spike-b", "version": 1}]}
+{"step": "reset", "request": "/reset", "status": 200, "body": true}
+{"step": "load_bundle", "request": "/pedalboard/load_bundle/", "status": 200, "body": {"ok": true, "name": "spike-b"}}
+{"step": "param_set_loaded", "request": "ws param_set /graph/p0/o1_pw 0.000000", "status": 0, "body": null}
+{"step": "param_set_loaded", "request": "ws param_set /graph/p1/gain 0.000000", "status": 0, "body": null}
+{"step": "param_set_loaded", "request": "ws param_set /graph/p2/decay_time 1.500000", "status": 0, "body": null}
+{"step": "snapshot_list", "request": "/snapshot/list", "status": 200, "body": {"0": "Default"}}
+{"step": "snapshot_load", "request": "/snapshot/load?id=0", "status": 200, "body": true}
+{"step": "cpu_load", "request": "/pedalboard/list", "status": 200, "body": [{"broken": false, "factory": false, "hasTrialPlugins": false, "uri": "file:///tmp/spike/patha/session-mod-host/pedalboards/default.pedalboard/default.ttl", "bundle": "/tmp/spike/patha/session-mod-host/pedalboards/default.pedalboard", "title": "Default", "version": 0}, {"broken": false, "factory": false, "hasTrialPlugins": false, "uri": "file:///tmp/spike/patha/session-mod-host/pedalboards/spike_a.pedalboard/spike_a.ttl", "bundle": "/tmp/spike/patha/session-mod-host/pedalboards/spike_a.pedalboard", "title": "spike-a", "version": 1}, {"broken": false, "factory": false, "hasTrialPlugins": false, "uri": "file:///tmp/spike/patha/session-mod-host/pedalboards/spike_b.pedalboard/spike_b.ttl", "bundle": "/tmp/spike/patha/session-mod-host/pedalboards/spike_b.pedalboard", "title": "spike-b", "version": 1}]}
+{"step": "ws_received", "request": "/websocket", "status": 0, "body": ["add", "add_hw_port", "bundlepath", "connect", "data_ready", "loading_end", "loading_start", "param_set", "pedal_snapshot", "preset", "remove", "size", "stats", "sys_stats", "transport", "truebypass"]}
+{"step": "reset", "request": "/reset", "status": 200, "body": true}

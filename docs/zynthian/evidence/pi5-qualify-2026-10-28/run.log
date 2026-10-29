@@ -1,0 +1,4 @@
+dpkg-query: no packages found matching ${Version}"
+== deep qualify start 2026-10-28T14:51:58Z "plugin-qualify host=zynthian 4 cores
+== plugin-qualify rc=2 2026-10-28T20:51:49Z records=3646 pins=198
+== device sync --force start 2026-10-28T20:51:49Z

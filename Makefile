@@ -284,7 +284,7 @@ clean:
 
 # the daemon against workers that are not plugin hosts at all (tests/fake-host speaks the same protocol and can be
 # made to die on cue): placement, forwarding, ledger, replay, attribution, the storm bound; no jack, no plugin
-test: test-protocol-lib test-sabotage-pool test-pin test-history test-proc test-own-host-probe-teardown test-planner test-placement test-transforms test-format-coverage test-describe test-relay test-alloc test-format test-daemon test-verbs-declared check-rendered check-generated check-schema test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-mod-host-json test-socket check-verb-table check-preset-schema test-install-schemas check-contract-floor check-readme-facts
+test: test-protocol-lib test-sabotage-pool test-pin test-history test-proc test-own-host-probe-teardown test-planner test-placement test-transforms test-format-coverage test-describe test-relay test-alloc test-format test-daemon test-verbs-declared check-rendered check-generated check-protocol-doc check-schema test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-mod-host-json test-socket check-verb-table check-preset-schema test-install-schemas check-contract-floor check-readme-facts
 	MOD_HOST_DIR=$(MOD_HOST_DIR) python3 tests/verbs_contract.py
 
 # the protocol clients plugin-hostd-tests ships (tests/lib/), against a peer that frames by NUL, and their sabotage
@@ -495,6 +495,16 @@ check-generated: $(GEN)
 # the README sells the packages: no build command on it, and BUILDING.md carries the build
 check-readme:
 	python3 tests/readme_build.py
+
+# docs/protocol.md, the wire protocol for a reader of another host, written by tools/protocol-doc.py from the protocol
+# JSON, data/verbs.json, the rendered headers, the Makefile's install rule, the README's host-verbs region and the Path A
+# evidence (docs/zynthian/verbs.tsv). `make protocol-doc` writes it, `make check-protocol-doc` fails on any drift.
+.PHONY: protocol-doc check-protocol-doc
+protocol-doc:
+	python3 tools/protocol-doc.py > docs/protocol.md.tmp && mv docs/protocol.md.tmp docs/protocol.md
+
+check-protocol-doc:
+	python3 tools/protocol-doc.py --check
 
 # the prose beside the generated protocol tables: still the daemon's and its workers' verified behavior today
 check-readme-facts:

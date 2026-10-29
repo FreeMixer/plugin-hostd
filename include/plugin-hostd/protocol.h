@@ -343,7 +343,15 @@ static inline int phd_pool_name_valid(const char *name)
                               "descriptor (panel): the scanner refused the plugin, made no dump or no panel, or is not " \
                               "installed; the add it ran for stands, and stderr and the scan's log say why. The next add " \
                               "scans again") \
-    X(NO_SUCH_PLAN, OMX_REPLY_PLUGIN_HOSTD_NO_SUCH_PLAN_RESP, OMX_VERB_PLAN_GET " or " OMX_VERB_PLAN_CLEAR " of a chain no " OMX_VERB_PLAN " planned")
+    X(NO_SUCH_PLAN, OMX_REPLY_PLUGIN_HOSTD_NO_SUCH_PLAN_RESP, OMX_VERB_PLAN_GET " or " OMX_VERB_PLAN_CLEAR " of a chain no " OMX_VERB_PLAN " planned") \
+    X(NO_RECORD, OMX_REPLY_PLUGIN_HOSTD_NO_RECORD_RESP, "a member of " OMX_VERB_ESTIMATE " that no qualification record in " \
+                 "qualification_dir names: never a reply, the code of the member in the reply's list") \
+    X(NO_CELL, OMX_REPLY_PLUGIN_HOSTD_NO_CELL_RESP, "a member of " OMX_VERB_ESTIMATE " whose qualification records hold no " \
+               "point of the grid at that rate and quantum with a cost and a latency: never a reply, the code of the " \
+               "member in the reply's list") \
+    X(UNKNOWN_PLUGIN, OMX_REPLY_PLUGIN_HOSTD_UNKNOWN_PLUGIN_RESP, "a member of " OMX_VERB_ESTIMATE " whose uri names no " \
+                      "plugin installed here (its format cannot tell the plugin's binary, or the binary is not there): " \
+                      "never a reply, the code of the member in the reply's list")
 
 /* ---------------------------------------------------------------- verbs */
 
@@ -520,7 +528,21 @@ static inline int phd_pool_name_valid(const char *name)
       "history file is blocked or history_window_s is 0, -902 for a line that is not one word") \
     X(HISTORY_CLEAR, OMX_VERB_HISTORY_CLEAR, "<uri> | " PHD_WORD_ALL, OMX_VERB_HISTORY_CLEAR_REPLY, \
       "delete the history of one plugin (every binary and host class of it), or all of it, from memory and from the " \
-      "file at once; -902 while the history is blocked or off, or for a line that is not one word")
+      "file at once; -902 while the history is blocked or off, or for a line that is not one word") \
+    X(ESTIMATE, OMX_VERB_ESTIMATE, "<rate> <quantum> <uri> [<uri> ...]", OMX_VERB_ESTIMATE_REPLY, \
+      "what a chain of these plugins, in signal order and named as " PHD_VERB_ADD " names them, would cost at that rate " \
+      "and quantum, read from the qualification records of qualification_dir; no plugin is loaded and nothing moves. " \
+      "latency_frames adds up each member's measured latency of the grid point, else its declared one; cpu_percent " \
+      "adds up each member's median nanoseconds per sample times the rate, percent of one core's cycle (a member's " \
+      "cost per block over the block's duration); ram_bytes adds up the Pss of the worker each member ran alone in, " \
+      "the history's pss_mb_solo of the binary its pin holds on this host class, " PHD_WORD_NONE " unless every " \
+      "member has one, since no qualification record carries a RAM figure; workers is how many workers " OMX_VERB_PLAN \
+      " would place the members in (an isolated one alone); unknown_count is how many members have no figure at that " \
+      "rate and quantum, and the latency and the CPU add up only the others. The last word names each of them as its " \
+      "position in the line, from 0, and its code, -533 for no record, -534 for no point of the grid at that rate " \
+      "and quantum, -535 for a uri that names no plugin installed here, joined by commas, " PHD_WORD_NONE " for none. " \
+      "Several records of one plugin (several versions) give the largest figure. -902 for a rate or a quantum that " \
+      "is not a whole number above 0, or no uri")
 
 /* ---------------------------------------------------------------- instance verbs */
 
@@ -836,7 +858,8 @@ static inline int phd_is_note_verb(const char *verb)
     X(OMX_VERB_DESCRIPTOR_GET, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
     X(OMX_VERB_PANEL_GET, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
     X(OMX_VERB_HISTORY_GET, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
-    X(OMX_VERB_HISTORY_CLEAR, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED)
+    X(OMX_VERB_HISTORY_CLEAR, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X(OMX_VERB_ESTIMATE, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED)
 
 /* ---------------------------------------------------------------- host settings */
 
