@@ -42,7 +42,6 @@ sections:
     entries:
       - page: from-file-to-page.md
         title: From a plugin file to a page
-        pending: true
       - page: zynthian/image.md
         title: "Try it: the image, its first boot, and installing on an existing system"
       - page: zynthian/captures.md
