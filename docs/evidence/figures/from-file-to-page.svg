@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 330" width="1100" height="330" role="img" aria-label="Five stages from a plugin file to a page on the screen, with the artefact each writes">
+<title>From a plugin file to a page on the screen</title>
+<style>text{font-family:sans-serif;font-size:13px;fill:#1a1a1a}.s{font-weight:bold}.m{font-size:12px;fill:#444}rect.b{fill:#eef3fa;stroke:#35537a;stroke-width:1.5}rect.a{fill:#fff;stroke:#888;stroke-dasharray:4 3}rect.c{fill:#f3f7ee;stroke:#4a6b2f}path,line{stroke:#35537a;stroke-width:1.5;fill:none}</style>
+<defs><marker id="h" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:#35537a;stroke:none"/></marker></defs>
+<rect class="b" x="20" y="20" width="188" height="70" rx="6"/>
+<text class="s" x="30" y="48">1  Scan and describe</text>
+<text class="m" x="30" y="72">plugin-hostd</text>
+<line x1="114.0" y1="90" x2="114.0" y2="120" marker-end="url(#h)"/>
+<rect class="a" x="20" y="124" width="188" height="58" rx="6"/>
+<text class="s" x="30" y="146">descriptor</text>
+<text class="m" x="30" y="166">/var/lib/omx/descriptors/</text>
+<line x1="208" y1="55.0" x2="236" y2="55.0" marker-end="url(#h)"/>
+<rect class="b" x="238" y="20" width="188" height="70" rx="6"/>
+<text class="s" x="248" y="48">2  Qualify</text>
+<text class="m" x="248" y="72">plugin-qualify</text>
+<line x1="332.0" y1="90" x2="332.0" y2="120" marker-end="url(#h)"/>
+<rect class="a" x="238" y="124" width="188" height="58" rx="6"/>
+<text class="s" x="248" y="146">record</text>
+<text class="m" x="248" y="166">/var/lib/omx/qualification/</text>
+<line x1="426" y1="55.0" x2="454" y2="55.0" marker-end="url(#h)"/>
+<rect class="b" x="456" y="20" width="188" height="70" rx="6"/>
+<text class="s" x="466" y="48">3  Pins</text>
+<text class="m" x="466" y="72">plugin-qualify-sync</text>
+<line x1="550.0" y1="90" x2="550.0" y2="120" marker-end="url(#h)"/>
+<rect class="a" x="456" y="124" width="188" height="58" rx="6"/>
+<text class="s" x="466" y="146">pin line</text>
+<text class="m" x="466" y="166">/var/lib/omx/qualified.pins</text>
+<line x1="644" y1="55.0" x2="672" y2="55.0" marker-end="url(#h)"/>
+<rect class="b" x="674" y="20" width="188" height="70" rx="6"/>
+<text class="s" x="684" y="48">4  Layout</text>
+<text class="m" x="684" y="72">omx-panel</text>
+<line x1="768.0" y1="90" x2="768.0" y2="120" marker-end="url(#h)"/>
+<rect class="a" x="674" y="124" width="188" height="58" rx="6"/>
+<text class="s" x="684" y="146">pages</text>
+<text class="m" x="684" y="166">computed from the descriptor</text>
+<line x1="862" y1="55.0" x2="890" y2="55.0" marker-end="url(#h)"/>
+<rect class="b" x="892" y="20" width="188" height="70" rx="6"/>
+<text class="s" x="902" y="48">5  Read on the device</text>
+<text class="m" x="902" y="72">zynthian-ui</text>
+<line x1="986.0" y1="90" x2="986.0" y2="120" marker-end="url(#h)"/>
+<rect class="a" x="892" y="124" width="188" height="58" rx="6"/>
+<text class="s" x="902" y="146">menu, pages, estimate</text>
+<text class="m" x="902" y="166">on the screen</text>
+<line x1="986.0" y1="182" x2="986.0" y2="202" marker-end="url(#h)"/>
+<rect class="c" x="404" y="204" width="160" height="40" rx="6"/>
+<text x="414" y="229">plugin menu row</text>
+<rect class="c" x="576" y="204" width="160" height="40" rx="6"/>
+<text x="586" y="229">controller pages</text>
+<rect class="c" x="748" y="204" width="160" height="40" rx="6"/>
+<text x="758" y="229">MOD GUI</text>
+<rect class="c" x="920" y="204" width="160" height="40" rx="6"/>
+<text x="930" y="229">chain estimate footer</text>
+<text class="m" x="404" y="266">The consumer surfaces read the artefacts; nothing is computed twice.</text>
+</svg>

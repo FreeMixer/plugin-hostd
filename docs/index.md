@@ -2,7 +2,8 @@ plugin-hostd for Zynthian
 =========================
 
 Zynthian's jalv engine runs every plugin in a process of its own, and a synth's voices all run on one core of the Pi. Nothing
-tells it, or you, what a plugin costs on that board before it is in a chain.
+tells it, or you, what a plugin costs on that board before it is in a chain. [From a plugin file to a page on the
+screen](from-file-to-page.md) shows how plugin-hostd and its tools find out, in five stages.
 
 plugin-hostd is a plugin host that speaks mod-host's protocol, so Zynthian's engines can drive it as they drive
 mod-host today. It gives Zynthian:
