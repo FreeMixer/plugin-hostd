@@ -40,6 +40,9 @@ sections:
     title: The Zynthian use case
     blurb: From a plugin file to a page, then the image and its first boot, how to use it in Zynthian, the instruments, the measurements, the upstream patch series and the acceptance report.
     entries:
+      - page: zynthian/status.md
+        title: Where this stands
+        blurb: What is in place for Zynthian today, and what is still incomplete, why and what closes it.
       - page: from-file-to-page.md
         title: From a plugin file to a page
       - page: zynthian/image.md
