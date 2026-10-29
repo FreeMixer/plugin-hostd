@@ -824,6 +824,30 @@ def the_measured_child_holds_no_cap_sys_nice_past_its_exec():
 
 
 @test
+def in_a_user_namespace_the_rlimit_is_the_grant_not_the_namespaces_cap_sys_nice():
+    # unshare -r shows every capability in CapEff, but the kernel checks CAP_SYS_NICE against the initial namespace: the
+    # runner must take the RLIMIT_RTPRIO grant it holds, not ask for the capability's priority and be refused
+    hard = resource.getrlimit(resource.RLIMIT_RTPRIO)[1]
+    n = FIFO_MAX if hard == resource.RLIM_INFINITY else min(hard, FIFO_MAX)
+    prefix = []
+    if n < 1 or n == FIFO_MAX:
+        if not cap_sys_resource():
+            cannot("an RLIMIT_RTPRIO hard limit of %d: the arm needs one between 1 and %d, and only CAP_SYS_RESOURCE sets "
+                   "it" % (hard, FIFO_MAX - 1))
+        n = 10
+        prefix = ["prlimit", "--rtprio=%d:%d" % (n, n), "--"]
+    if subprocess.run([*prefix, "unshare", "-r", "true"], capture_output=True).returncode != 0:
+        cannot("no unprivileged user namespace here")
+    why = kernel_grants([*prefix, "unshare", "-r"], n)
+    if why:
+        cannot("the kernel refuses SCHED_FIFO %d in a user namespace here (%s)" % (n, why))
+    doc, seen = rt_run([*prefix, "unshare", "-r"])
+    rt = doc["run"]["realtime"]
+    check(rt["class"] == "fifo" and rt["priority"] == n and rt["grantedBy"] == "rlimit", "run.realtime %s" % rt)
+    check(seen["policy"] == "fifo" and seen["priority"] == n, "the child: %s" % seen)
+
+
+@test
 def a_grant_the_kernel_refuses_is_recorded_as_none_with_the_refusal():
     hard = resource.getrlimit(resource.RLIMIT_RTPRIO)[1]
     prefix = []

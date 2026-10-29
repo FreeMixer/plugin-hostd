@@ -656,6 +656,27 @@ static memlock_t g_lock;
 /* the lock preload, as --lock-preload names it */
 static const char *g_lock_preload = PROBE_LOCK_PRELOAD;
 
+/* whether this process is in the initial user namespace: its uid_map is the identity map of every uid. In another one
+ * (rootless podman, unshare -r, PrivateUsers=yes) CapEff can show a capability the kernel does not honour for
+ * sched_setscheduler, which checks it against the initial namespace */
+static int in_initial_user_namespace(void)
+{
+    FILE *f = fopen("/proc/self/uid_map", "r");
+    unsigned long long inside, outside, count;
+    int n, lines = 0, identity = 0;
+
+    if (f == NULL)
+        return 1; /* a kernel without user namespaces has only the initial one */
+    while ((n = fscanf(f, "%llu %llu %llu", &inside, &outside, &count)) == 3)
+    {
+        lines++;
+        identity = inside == 0 && outside == 0 && count == 4294967295ULL;
+    }
+    fclose(f);
+    return lines == 1 && identity;
+}
+
+/* CAP_SYS_NICE as the kernel honours it for SCHED_FIFO: in the effective set, in the initial user namespace */
 static int has_cap_sys_nice(void)
 {
     FILE *f = fopen("/proc/self/status", "r");
@@ -668,7 +689,7 @@ static int has_cap_sys_nice(void)
         if (!strncmp(line, "CapEff:", 7))
             eff = strtoull(line + 7, NULL, 16);
     fclose(f);
-    return (int)(eff >> CAP_SYS_NICE & 1);
+    return (int)(eff >> CAP_SYS_NICE & 1) && in_initial_user_namespace();
 }
 
 /* what the measurement may take: all of SCHED_FIFO with CAP_SYS_NICE, else the RLIMIT_RTPRIO hard limit, else none
