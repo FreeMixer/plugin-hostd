@@ -762,6 +762,13 @@ def under_an_rtprio_rlimit_the_measurement_runs_fifo_at_the_rlimit_and_keeps_it_
 
 
 @test
+def the_measured_child_keeps_no_capability_and_the_document_says_so():
+    doc, _ = rt_run([*without_cap(), "prlimit", "--rtprio=0:0", "--"])
+    rt = doc["run"]["realtime"]
+    check(rt.get("capabilityBound") is True, "run.realtime.capabilityBound %s" % rt)
+
+
+@test
 def without_a_grant_the_measurement_stays_at_none_and_says_why():
     prefix = [*without_cap(), "prlimit", "--rtprio=0:0", "--"]
     doc, seen = rt_run(prefix)
