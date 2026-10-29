@@ -30,6 +30,9 @@ sections:
     title: Start here
     blurb: What plugin-hostd is, what it hosts, how it runs, and how to install it.
     entries:
+      - page: from-file-to-page.md
+        title: From a plugin file to a page on the screen
+        blurb: The five stages, with an instrument as the example.
       - page: start-here.md
         title: plugin-hostd in four paragraphs
 
