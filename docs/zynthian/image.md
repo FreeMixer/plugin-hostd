@@ -230,7 +230,7 @@ had finished 37 plugins when stopped at 1359 s. Two boots, because `first_boot.s
 
 The same overlay booted again (`serial-normal-boot.txt`, 600 s): kernel 1.2 s, login prompt after 25.6 s,
 `multi-user.target` after 441 s ("Startup finished in 1.247 s (kernel) + 7 min 19.570 s (userspace)"). The time is the
-same JACK wait, repeated: `jack2.service` fails (`ALSA lib ... Cannot find card '0'`, "Failed to open server") and is
+same JACK wait, repeated: `jack2.service` fails (`ALSA lib ... Cannot get card index for 0`, "Failed to open server") and is
 restarted about every 5 s (104 starts in 600 s) while `a2jmidid` and `mod-ttymidi` wait for it and time out, and the
 sweep competes for the CPU. The sweep started again at 121 s and was **killed by the memory ceiling at 286 s**
 (`plugin-qualify-sync.service: A process of this unit has been killed by the OOM killer ... Failed with result
