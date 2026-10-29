@@ -277,3 +277,19 @@ sweep to its end, the LV2 stage, and every timing on a Pi. A hardware claim need
 - Expected in a VM, not findings: `rpi-eeprom-update.service` fails (no Pi), `networking.service` timed out
   (`reduce-timeout.conf`), `run-rpc_pipefs.mount` failed (a module the scaffolding does not carry).
 - The clock: with no RTC and no network, `fake-hwclock` restores the image's time, so the SSH key files carry the image's date.
+
+### Installing on an existing vangelis
+
+A `vangelis` system already running needs no new image. As root, add the OpenMixer repository and install the
+packages; the fork's update script keeps them current afterwards:
+
+```
+curl -fsSLO https://www.openmixer.org/deb/openmixer-release.deb
+sudo apt install ./openmixer-release.deb
+sudo apt install plugin-hostd omx-clap-host omx-clap-scan omx-panel
+```
+
+`openmixer-release` carries the signing key and the apt source of the running Debian release. The fork's setup scripts
+do the same through `scripts/recipes/install_openmixer.sh`, and `update_system_image.sh` updates the packages with the
+rest of the system. No service is enabled by this; mod-host, MOD-UI, jalv and the menus are as before (step 2 of
+[the upstream patch series](upstream-series.md)).

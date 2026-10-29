@@ -83,6 +83,33 @@ const escapeHtml = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
 /** The relative path from the page at `from` (a site path) to the site path `to`. */
 const rel = (from, to) => posix.relative(posix.dirname(from), to) || posix.basename(to);
 
+/**
+ * Remove HTML comments from a page's source before it is parsed, so none is shown as text. The comment stays in the
+ * markdown file (a generated page keeps its "do not edit" marker there as the drift guard); fenced code is left alone.
+ */
+export function stripComments(source) {
+  const out = [];
+  let fence = null;
+  let rest = [];
+  const flush = () => {
+    if (rest.length) out.push(rest.join('\n').replace(/<!--[\s\S]*?-->/g, ''));
+    rest = [];
+  };
+  for (const line of source.split('\n')) {
+    const m = /^ {0,3}(`{3,}|~{3,})/.exec(line);
+    if (fence === null && m) {
+      flush();
+      fence = m[1];
+      out.push(line);
+    } else if (fence !== null) {
+      out.push(line);
+      if (m && m[1][0] === fence[0] && m[1].length >= fence.length) fence = null;
+    } else rest.push(line);
+  }
+  flush();
+  return out.join('\n');
+}
+
 function makeRenderer() {
   // No raw HTML: a page is markdown, and a tag in it is shown, not run.
   const md = new MarkdownIt({ html: false, linkify: false, typographer: false });
@@ -325,7 +352,7 @@ export function buildSite({ root, out, rev }) {
     const env = {};
     const linked = new Set();
     linksOf.set(page, linked);
-    const tokens = md.parse(source, env);
+    const tokens = md.parse(stripComments(source), env);
     const visit = (list) => {
       list.forEach((tok, i) => {
         if (tok.children) visit(tok.children);
