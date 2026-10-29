@@ -1,0 +1,32 @@
+00:10:35 baseline: holding
+00:11:36 baseline: busiest 2.0% xruns 0 rss 457.8 MB
+00:11:36 plugin-hostd on 5590: pid 85776, started here: True, first connect after 0.1 s
+00:11:36 level grouped-01: building
+00:11:38 level grouped-01: 1 chains in 0.7 s, 1 workers, 4 links; holding
+00:12:39 level grouped-01: busiest 3.7% mean 3.3% xruns 0 rss 573.5 MB limit None
+00:12:39 level grouped-02: building
+00:12:44 level grouped-02: 2 chains in 2.4 s, 2 workers, 14 links; holding
+00:13:44 level grouped-02: busiest 4.6% mean 4.4% xruns 0 rss 693.6 MB limit None
+00:13:46 level grouped-04: building
+00:13:53 level grouped-04: 4 chains in 5.3 s, 4 workers, 28 links; holding
+00:14:53 level grouped-04: busiest 7.3% mean 6.8% xruns 0 rss 933.1 MB limit None
+00:14:57 level grouped-08: building
+00:15:10 level grouped-08: 8 chains in 10.2 s, 8 workers, 50 links; holding
+00:16:10 level grouped-08: busiest 12.7% mean 12.3% xruns 0 rss 1420.2 MB limit None
+00:16:19 level grouped-16: building
+00:16:41 level grouped-16: 16 chains in 20.1 s, 16 workers, 96 links; holding
+00:17:41 level grouped-16: busiest 21.8% mean 21.0% xruns 0 rss 2371.1 MB limit None
+{
+ "grouped": {
+  "levels": [
+   1,
+   2,
+   4,
+   8,
+   16
+  ],
+  "limit": null
+ },
+ "daemon_clean": true,
+ "daemon_stopped": true
+}

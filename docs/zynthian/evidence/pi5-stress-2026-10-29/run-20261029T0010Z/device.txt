@@ -1,0 +1,16 @@
+date_utc 2026-10-29T00:10:34Z
+zynthian_ui 4f0e87fbb8acc8fbfa58a37605bfcb38cacdc6f5
+zynthian_sys aa36238dcb36fc004eaa4e027184adc8e67e8e8b
+mod_host_unit_sha256 f5f044e1f87f6ca423110116d6542a549122257b2999e7f69f50e6424943b87a
+jack_rate 48000
+jack_quantum 256
+jackd /usr/bin/jackd -P 70 -s -S -d alsa -d hw:Dummy -r 48000 -p 256 -n 2 -X raw
+kernel 6.18.50+rpt-rpi-2712
+cpus 4
+governor powersave
+model Raspberry Pi 5 Model B Rev 1.0
+mem_total_mb 4049
+unit_zynthian active/enabled
+unit_mod-host inactive/disabled
+unit_mod-ui inactive/disabled
+unit_omx-modgui-sync inactive/enabled

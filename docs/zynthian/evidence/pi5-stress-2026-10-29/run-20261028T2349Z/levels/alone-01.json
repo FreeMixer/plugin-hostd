@@ -1,0 +1,168 @@
+{
+ "mode": "alone",
+ "chains_asked": 1,
+ "chains_built": 1,
+ "plugins_running": 4,
+ "jack_clients_of_chains": 4,
+ "creation_s_total": 0.28,
+ "creation_s_per_chain": 0.276,
+ "workers_mine": 4,
+ "workers": [
+  {
+   "worker": "w270",
+   "pid": "81803",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "own",
+   "instances": [
+    7000
+   ]
+  },
+  {
+   "worker": "w271",
+   "pid": "81808",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "own",
+   "instances": [
+    7001
+   ]
+  },
+  {
+   "worker": "w272",
+   "pid": "81813",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "own",
+   "instances": [
+    7002
+   ]
+  },
+  {
+   "worker": "w273",
+   "pid": "81818",
+   "row": "lv2-clap",
+   "state": "up",
+   "place": "own",
+   "instances": [
+    7003
+   ]
+  }
+ ],
+ "links": 10,
+ "refused": [],
+ "jack_clients": 14,
+ "memory": {
+  "zynthian": {
+   "processes": 1,
+   "rss_mb": 345.7,
+   "pss_mb": 237.1
+  },
+  "jackd": {
+   "processes": 1,
+   "rss_mb": 128.8,
+   "pss_mb": 31.8
+  },
+  "plugin-hostd": {
+   "processes": 1,
+   "rss_mb": 3.8,
+   "pss_mb": 2.3
+  },
+  "workers": {
+   "processes": 4,
+   "rss_mb": 440.9,
+   "pss_mb": 50.2
+  },
+  "jalv": {
+   "processes": 0,
+   "rss_mb": 0.0,
+   "pss_mb": 0.0
+  }
+ },
+ "rss_total_mb": 919.2,
+ "pss_total_mb": 321.4,
+ "ui": {
+  "zynthian_pid": 73837,
+  "state": "S",
+  "capture": true
+ },
+ "capture": "l01-alone-zynthian.png",
+ "modui_active": "inactive",
+ "top_consumers": [
+  {
+   "pid": 73837,
+   "name": "python3",
+   "cmd": "python3 ./zynthian_main.py",
+   "cpu_pct_of_core": 5.2
+  },
+  {
+   "pid": 81813,
+   "name": "omx-clap-host",
+   "cmd": "omx-clap-host -n -p 52643 -f 53797",
+   "cpu_pct_of_core": 2.6
+  },
+  {
+   "pid": 81818,
+   "name": "omx-clap-host",
+   "cmd": "omx-clap-host -n -p 43681 -f 35743",
+   "cpu_pct_of_core": 2.2
+  },
+  {
+   "pid": 772,
+   "name": "jackd",
+   "cmd": "/usr/bin/jackd -P 70 -s -S -d alsa -d hw:Dummy -r 48000 -p 256 -n 2 -X raw",
+   "cpu_pct_of_core": 1.5
+  },
+  {
+   "pid": 67,
+   "name": "kworker/0:1H-kblockd",
+   "cmd": "",
+   "cpu_pct_of_core": 1.4
+  },
+  {
+   "pid": 81808,
+   "name": "omx-clap-host",
+   "cmd": "omx-clap-host -n -p 47781 -f 46021",
+   "cpu_pct_of_core": 0.9
+  },
+  {
+   "pid": 32111,
+   "name": "kworker/u16:3-kvfree_rcu_reclaim",
+   "cmd": "",
+   "cpu_pct_of_core": 0.8
+  },
+  {
+   "pid": 81803,
+   "name": "omx-clap-host",
+   "cmd": "omx-clap-host -n -p 34435 -f 44649",
+   "cpu_pct_of_core": 0.6
+  }
+ ],
+ "mhz_mean": 1500,
+ "xruns_meter": 0,
+ "xruns_zynthian": 0,
+ "cpu_core_mean": {
+  "cpu0": 3.6,
+  "cpu1": 3.4,
+  "cpu2": 4.0,
+  "cpu3": 3.6
+ },
+ "cpu_busiest_core": 4.0,
+ "cpu_mean": 3.7,
+ "cpu_busiest_second": 9.5,
+ "cpu_groups_pct_of_core": {
+  "zynthian": 5.2,
+  "jackd": 1.5,
+  "plugin-hostd": 0.1,
+  "workers": 6.3,
+  "jalv": 0.0
+ },
+ "tick_cpu_busiest_core": 1.5,
+ "tick_cpu_mean": 1.3,
+ "jack_dsp_mean": 5.88,
+ "jack_dsp_max": 6.65,
+ "mem_avail_min_mb": 3141.0,
+ "limit": null,
+ "teardown_clean": true,
+ "jalv_killed_after_sigterm": 0
+}

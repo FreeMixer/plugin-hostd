@@ -1,0 +1,4 @@
+{"rate": 48000, "stress": false, "outs": 2, "processes": 2, "rss_mb": 361.9, "pss_mb": 279.0, "cpu_pct": 21.2, "dsp_load_avg": 14.53, "dsp_load_max": 16.93, "xruns": 4, "peak": 0.3441, "rms": 0.0383, "add_ms": 2925}
+{"rate": 48000, "stress": true, "outs": 2, "processes": 2, "rss_mb": 361.9, "pss_mb": 279.0, "cpu_pct": 22.29, "dsp_load_avg": 17.04, "dsp_load_max": 36.12, "xruns": 3, "peak": 0.3543, "rms": 0.0393, "add_ms": 2887}
+{"rate": 96000, "stress": false, "outs": 2, "processes": 2, "rss_mb": 363.0, "pss_mb": 280.1, "cpu_pct": 29.19, "dsp_load_avg": 20.79, "dsp_load_max": 22.53, "xruns": 2, "peak": 0.3546, "rms": 0.053, "add_ms": 2924}
+{"rate": 96000, "stress": true, "outs": 2, "processes": 2, "rss_mb": 362.9, "pss_mb": 280.0, "cpu_pct": 31.29, "dsp_load_avg": 23.31, "dsp_load_max": 24.85, "xruns": 6, "peak": 0.3267, "rms": 0.0539, "add_ms": 2897}

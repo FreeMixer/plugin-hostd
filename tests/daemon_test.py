@@ -3220,6 +3220,89 @@ def the_same_members_are_planned_into_the_same_segments_and_reasons_by_every_dae
     check(len(set(answers[0] + answers[1])) == 1, "six plan_get answers, one text: %s" % answers)
 
 
+# ---------------------------------------------------------------- estimate (a chain's cost from the records, nothing loaded)
+
+def cell_for(d, plugin_id, median, measured=None, declared=0, rate=48000, quantum=128):
+    """a qualification record of one grid point with a cost median (ns per sample) and a latency: measured None leaves
+    measuredFrames out, so the declared frames stand"""
+    latency = {"declaredFrames": declared}
+    if measured is not None:
+        latency["measuredFrames"] = measured
+    point = {"rate": rate, "quantum": quantum, "outcome": "probe.ok", "latency": latency,
+             "cost": {"median": median, "percentile": {"p": 95, "value": median * 2}, "blocks": 100, "warmupBlocks": 10}}
+    doc = {"schema": "plugin-qualify.qualification-record/1", "plugin": {"format": "clap", "id": plugin_id},
+           "measurements": {"grid": [point]}}
+    with open(os.path.join(d.tmp, "qualification", "%s@1.0-0123456789ab.default.qualification.json" % plugin_id), "w") as f:
+        json.dump(doc, f)
+
+
+def estimate_daemon(history=None):
+    """plugins 1 and 2 of one file pinned in-process, 3 isolated, 4 in-process, none added; grouping on, first-use.
+    history is {n: "key=value ..."} for the n-th plugin and the binary its pin holds, on the test's host class. The records:
+    1 at 48000/128 (2000 ns, 64 frames measured), 2 only at 96000/128, 3 at 48000/128 (3000 ns, 128 frames declared), 4
+    none"""
+    p = Plugins()
+    c = {"pin_mode": "first-use", "grouping": "on"}
+    if history is not None:
+        path = os.path.join(p.dir, "history")
+        write(path, ("# plugin-hostd history/1\n" + "".join(
+            "history %s %s %s %s\n" % (clap_n(p, n), sha(p.clap), HISTORY_CLASS, kv) for n, kv in sorted(history.items()))).encode())
+        c.update({"history_file": path, "host_class": HISTORY_CLASS, "history_window_s": 3600})
+    d = p.daemon(conf=c)
+    for n in (1, 2, 4):
+        d.expect(pin_n(p, n, "in-process"), "resp 0")
+    d.expect(pin_n(p, 3, "isolated"), "resp 0")
+    cell_for(d, "org.openmixer.fault.1", 2000, measured=64, declared=60)
+    cell_for(d, "org.openmixer.fault.2", 1000, measured=32, rate=96000)
+    cell_for(d, "org.openmixer.fault.3", 3000, declared=128)
+    return p, d
+
+
+@test
+def an_estimate_adds_up_the_latency_and_the_cpu_of_the_members_and_counts_the_workers_and_the_unknown():
+    """1 2 3 at 48000/128: 64 + 128 frames; (2000 + 3000) ns per sample at 48 kHz is 24 % of a core; 1 and 2 share a
+    worker, 3 is isolated and alone: two workers; 2 has no cell at 48000/128 and is named by its position, 1, with -534.
+    No plugin is loaded to answer"""
+    p, d = estimate_daemon()
+    try:
+        ref = lambda n: clap_n(p, n)
+        no_cell, no_record, unknown = (harness.CODE[k] for k in ("NO_CELL", "NO_RECORD", "UNKNOWN_PLUGIN"))
+        d.expect("estimate 48000 128 %s %s %s" % (ref(1), ref(2), ref(3)), "resp 0 192 24.00 - 2 1 1:%d" % no_cell)
+        check(d.workers() == {}, "no worker was spawned to answer: %s" % d.workers())
+        # one member, and two that share: one worker; 4 has no record at all
+        d.expect("estimate 48000 128 %s" % ref(1), "resp 0 64 9.60 - 1 0 -")
+        d.expect("estimate 48000 128 %s %s" % (ref(1), ref(4)), "resp 0 64 9.60 - 1 1 1:%d" % no_record)
+        # at 96000/128 2 has its cell and 1 and 3 have none
+        d.expect("estimate 96000 128 %s %s %s" % (ref(1), ref(2), ref(3)), "resp 0 32 9.60 - 2 2 0:%d,2:%d" % (no_cell, no_cell))
+        # a uri that names no plugin installed here is placed nowhere: 3 alone is one worker
+        d.expect("estimate 48000 128 urn:plugin-hostd:test:nosuch %s clap:/nonexistent/x.clap#org.example.x" % ref(3),
+                 "resp 0 128 14.40 - 1 2 0:%d,2:%d" % (unknown, unknown))
+        # the same plugin twice is two members
+        d.expect("estimate 48000 128 %s %s" % (ref(1), ref(1)), "resp 0 128 19.20 - 1 0 -")
+        for bad in ("estimate", "estimate 48000 128", "estimate 0 128 %s" % ref(1), "estimate 48000 -1 %s" % ref(1),
+                    "estimate x 128 %s" % ref(1)):
+            d.expect(bad, "resp -902")
+        check(d.workers() == {}, "still no worker: %s" % d.workers())
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def an_estimate_adds_up_the_ram_of_the_members_only_when_every_one_has_a_figure():
+    """the RAM is the history's pss_mb_solo of each member, in bytes: 10 + 20 + 5 MiB; a member without one makes it -"""
+    p, d = estimate_daemon(history={1: "windows_solo=6 pss_mb_solo=10", 2: "windows_solo=6 pss_mb_solo=20",
+                                    3: "windows_solo=6 pss_mb_solo=5"})
+    try:
+        ref = lambda n: clap_n(p, n)
+        d.expect("estimate 48000 128 %s %s %s" % (ref(1), ref(2), ref(3)),
+                 "resp 0 192 24.00 %d 2 1 1:%d" % (35 * 1024 * 1024, harness.CODE["NO_CELL"]))
+        d.expect("estimate 48000 128 %s %s" % (ref(1), ref(4)), "resp 0 64 9.60 - 1 1 1:%d" % harness.CODE["NO_RECORD"])
+    finally:
+        d.close()
+        p.close()
+
+
 # ---------------------------------------------------------------- the planner reads the history, and plans again
 
 HISTORY_CLASS = "testarch/1-2/<1.5GHz"

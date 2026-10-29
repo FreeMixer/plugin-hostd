@@ -325,6 +325,29 @@ class Case(unittest.TestCase):
         self.assertEqual(r["reasons"], {"r1": 2})
         self.assertEqual(r["counts"], {"suitable": 1, "unsuitable": 2})
 
+    def test_records_with_a_verdict_per_host_count_verdicts_not_plugins(self):
+        # a plugin-qualify qualification record holds one verdict per host profile: two records, four verdicts
+        for name in ("a", "b"):
+            self.write("q/%s.json" % name, {"verdicts": [{"host": "jalv", "rating": "suitable"},
+                                                          {"host": "mod-host", "rating": "unsuitable", "deciding": "r1"}]})
+        r = m.parse_qdocs(os.path.join(self.d, "q"), [])
+        self.assertEqual((r["verdicts"], r["documents"], r["hosts"]), (4, 2, ["jalv", "mod-host"]))
+        m.main(["--bench", os.path.join(self.d, "b"), "--qualification", os.path.join(self.d, "q"), "--facts", FACTS,
+                "--out", os.path.join(self.d, "o")])
+        text = self.report()
+        self.assertIn("4 verdicts in 2 documents, one per host profile (jalv, mod-host)", text)
+        self.assertNotIn("plugins judged", text)
+        self.assertIn("| verdict | verdicts | share |", text)
+
+    def test_the_pilot_time_is_not_given_to_the_documents(self):
+        self.write("e/zy-qpilot.out", "exit=0 seconds=271\n-- verdict summary\n    5 suitable\n-- sample\nh\n-- stderr\n")
+        self.write("q/a.json", {"verdicts": [{"host": "jalv", "rating": "suitable"}]})
+        m.main(["--bench", os.path.join(self.d, "b"), "--earlier", os.path.join(self.d, "e"),
+                "--qualification", os.path.join(self.d, "q"), "--facts", FACTS, "--out", os.path.join(self.d, "o")])
+        text = self.report()
+        self.assertIn("1 verdicts in 1 documents", text)
+        self.assertNotIn("271 s", text)
+
     def test_coverage(self):
         t = "jalv 1.8.0 (x):\n  hosted 977 of 979 (a)\nmod-host 0.10.6 f:\n  hosted 975 of 979\nomx-clap-core: 979 of 979 on main\n"
         self.assertEqual(m.parse_coverage(self.write("c.txt", t)),

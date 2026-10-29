@@ -167,7 +167,7 @@ def parse_qpilot(dirpath):
 
 def parse_qdocs(dirpath, errs):
     """Verdict counts and deciding reasons from plugin-qualify interchange documents."""
-    counts, reasons, n = {}, {}, 0
+    counts, reasons, n, ndocs, hosts = {}, {}, 0, 0, set()
     for f in sorted(glob.glob(os.path.join(dirpath, "**", "*.json"), recursive=True)):
         try:
             with open(f) as fh:
@@ -178,6 +178,7 @@ def parse_qdocs(dirpath, errs):
         if not isinstance(d, dict) or "verdicts" not in d:
             errs.append("%s: missing key 'verdicts'" % f)
             continue
+        ndocs += 1
         for i, v in enumerate(d["verdicts"]):
             where = "%s: verdicts[%d]" % (f, i)
             if not _need(v, ["rating"], where, errs):
@@ -185,10 +186,12 @@ def parse_qdocs(dirpath, errs):
             if v["rating"] != "suitable" and not _need(v, ["deciding"], where + " (%s)" % v["rating"], errs):
                 continue
             n += 1
+            if isinstance(v, dict) and v.get("host"):
+                hosts.add(v["host"])
             counts[v["rating"]] = counts.get(v["rating"], 0) + 1
             if v["rating"] != "suitable":
                 reasons[v["deciding"]] = reasons.get(v["deciding"], 0) + 1
-    return {"counts": counts, "reasons": reasons, "verdicts": n} if n else None
+    return {"counts": counts, "reasons": reasons, "verdicts": n, "documents": ndocs, "hosts": sorted(hosts)} if n else None
 
 
 def parse_coverage(path):
@@ -496,32 +499,38 @@ def sec_qual(doc, facts, rpi, qpilot, qdocs, coverage):
         counts, reasons, src = qdocs["counts"], qdocs["reasons"], "plugin-qualify documents (%d verdicts)" % qdocs["verdicts"]
     elif qpilot:
         counts, reasons, src = qpilot["counts"], None, "qualification run on the Pi 5, host profile openmixer-console (zy-qpilot.out)"
-    if qpilot:
-        seconds = qpilot["seconds"]
-    elif rpi and "qualification" in rpi:
+    if qpilot and not qdocs:
+        seconds = qpilot["seconds"]     # the pilot's time is not the time of the documents' run
+    elif rpi and "qualification" in rpi and not qdocs:
         seconds = rpi["qualification"]["seconds"]
     if not counts:
         doc.na("verdict counts")
     else:
         total = sum(counts.values())
-        q = rpi["qualification"] if rpi and "qualification" in rpi else None
+        q = rpi["qualification"] if rpi and "qualification" in rpi and not qdocs else None
         extra = ""
         if q:
             extra = ", %s s, rates %s, quanta %s%s" % (num(seconds, 0), q["rates"], q["quanta"],
                                                       (", %d files" % q["files"]) if "files" in q else "")
         elif seconds is not None:
             extra = ", %s s" % num(seconds, 0)
-        doc.p("Source: %s. %d plugins judged%s." % (src, total, extra))
+        # a qualification record holds one verdict per host profile: then the counts are of verdicts, not of plugins
+        unit = "verdicts" if qdocs and qdocs.get("hosts") else "plugins"
+        if unit == "verdicts":
+            doc.p("Source: %s. %d verdicts in %d documents, one per host profile (%s)%s." % (
+                src, total, qdocs["documents"], ", ".join(qdocs["hosts"]), extra))
+        else:
+            doc.p("Source: %s. %d plugins judged%s." % (src, total, extra))
         if not qdocs and qpilot:
             if qpilot["exit"] is None:
                 doc.missing.append("4. Qualification coverage: zy-qpilot.out records no exit status")
             elif qpilot["exit"] != 0:
                 doc.p("The qualification run exited with status %d: these counts are of an aborted run." % qpilot["exit"])
                 doc.missing.append("4. Qualification coverage: the qualification run exited with status %d" % qpilot["exit"])
-        doc.table(["verdict", "plugins", "share"], [[k, str(v), "%.1f%%" % (100.0 * v / total)] for k, v in sorted(counts.items(), key=lambda kv: -kv[1])])
+        doc.table(["verdict", unit, "share"], [[k, str(v), "%.1f%%" % (100.0 * v / total)] for k, v in sorted(counts.items(), key=lambda kv: -kv[1])])
     doc.h3("Refused, with reasons")
     if reasons:
-        doc.table(["deciding reason", "plugins"], [[k, str(v)] for k, v in sorted(reasons.items(), key=lambda kv: -kv[1])])
+        doc.table(["deciding reason", "verdicts" if qdocs and qdocs.get("hosts") else "plugins"], [[k, str(v)] for k, v in sorted(reasons.items(), key=lambda kv: -kv[1])])
     elif qpilot and qpilot["sample_reasons"]:
         doc.table(["deciding reason (first lines of the run's sample only)", "plugins in sample"], [[k, str(v)] for k, v in qpilot["sample_reasons"].items()])
         doc.na("the full reason breakdown of the unsuitable plugins (needs the interchange documents from the Pi 5)")

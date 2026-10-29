@@ -65,6 +65,17 @@ jobs:
       - name: make private-refs
         run: make private-refs
 
+  # docs/protocol.md is written from the protocol data by tools/protocol-doc.py; red when it is not what the data gives
+  protocol-doc:
+    name: docs/protocol.md is the protocol data's
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: make check-protocol-doc
+        run: make check-protocol-doc
+
   test:
     name: build and test
     runs-on: ubuntu-latest
@@ -604,6 +615,9 @@ jobs:
           git -C /tmp/zynthian-ui fetch -q --depth 1 https://github.com/zynthian/zynthian-ui "$sha"
           git -C /tmp/zynthian-ui checkout -q FETCH_HEAD
           git config --global --add safe.directory '*'
+          # the round trip runs in a namespace with no network: the spike's patch is read here, before it
+          . tools/zynthian/spike-engine.sh
+          curl -fsSL --retry 5 -o /tmp/zynthian_engine_plugind.patch "$SPIKE_PATCH_URL"
 
       - name: The chain round trip, then break every guard on purpose
         run: |
@@ -612,6 +626,7 @@ jobs:
           export JACK_IDENTITY=/usr/libexec/omx-clap-host/tests/jack_identity
           export FAULT_CLAP_URI='clap:/usr/libexec/omx-clap-host/tests/fault-14.clap#org.openmixer.fault.14'
           export CHAIN_FAULT_PARAM='param_set %d 0 0.95'
+          export SPIKE_ENGINE_PATCH=/tmp/zynthian_engine_plugind.patch
           if unshare --user --map-root-user --net --pid --fork --mount-proc true; then
             tools/zynthian/chain-e2e.sh --round-trip /tmp/zynthian-ui /tmp/round-trip 2>&1 | tee round-trip.log
             grep -qx 'ROUND TRIP PASS: 0 failed' round-trip.log || { echo "the round trip did not pass"; exit 1; }

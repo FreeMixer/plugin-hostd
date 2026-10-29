@@ -2,7 +2,8 @@
 /*
  * The cost the daemon reads from qualification records (src/qualcost.c), against records written out by hand: the
  * figure of the right rate and quantum, the larger of two records, the records that are not the plugin's, and the files
- * that are no records. tests/sabotage.py breaks one rule at a time.
+ * that are no records; and the cell the estimate verb reads, a cost median and a latency at one rate and quantum.
+ * tests/sabotage.py breaks one rule at a time.
  *
  * Usage: qualcost-test [<test name>]
  */
@@ -56,6 +57,71 @@ static void record(const char *name, const char *id, int rate, int quantum, doub
              "\"warmupBlocks\":0}}]}}",
              id, rate, quantum, ns);
     put(name, text);
+}
+
+/* a record of one grid point with a cost median and a latency: declared < 0 leaves the latency out, measured < 0 its
+ * measuredFrames */
+static void cell_record(const char *name, const char *id, int rate, int quantum, double median, int declared, int measured)
+{
+    char text[1024], latency[128] = "";
+
+    if (declared >= 0 && measured >= 0)
+        snprintf(latency, sizeof(latency), ",\"latency\":{\"declaredFrames\":%d,\"measuredFrames\":%d}", declared, measured);
+    else if (declared >= 0)
+        snprintf(latency, sizeof(latency), ",\"latency\":{\"declaredFrames\":%d}", declared);
+    snprintf(text, sizeof(text),
+             "{\"schema\":\"plugin-qualify.qualification-record/1\",\"plugin\":{\"format\":\"clap\",\"id\":\"%s\"},"
+             "\"measurements\":{\"grid\":[{\"rate\":%d,\"quantum\":%d,\"outcome\":\"probe.ok\"%s,\"cost\":{\"median\":%.1f,"
+             "\"percentile\":{\"p\":95,\"value\":%.1f},\"blocks\":1,\"warmupBlocks\":0}}]}}",
+             id, rate, quantum, latency, median, median * 2);
+    put(name, text);
+}
+
+static void the_cell_is_the_median_and_the_measured_latency(void)
+{
+    qualcost_cell_t c;
+
+    CHECK(qualcost_cell(g_dir, "org.example.e", 48000, 128, &c) == QUALCOST_CELL_FOUND, "e has the cell");
+    CHECK(c.median_ns == 3000 && c.latency_frames == 70, "the median and the measured frames: %g %g", c.median_ns,
+          c.latency_frames);
+}
+
+static void a_cell_without_a_measured_latency_takes_the_declared_one(void)
+{
+    qualcost_cell_t c;
+
+    CHECK(qualcost_cell(g_dir, "org.example.f", 48000, 128, &c) == QUALCOST_CELL_FOUND, "f has the cell");
+    CHECK(c.latency_frames == 32, "the declared frames: %g", c.latency_frames);
+}
+
+static void a_point_without_a_latency_or_at_another_rate_is_no_cell(void)
+{
+    qualcost_cell_t c;
+
+    CHECK(qualcost_cell(g_dir, "org.example.g", 48000, 128, &c) == QUALCOST_CELL_NO_POINT, "g has a cost, no latency");
+    CHECK(qualcost_cell(g_dir, "org.example.a", 48000, 128, &c) == QUALCOST_CELL_NO_POINT, "a has no latency");
+    CHECK(qualcost_cell(g_dir, "org.example.e", 44100, 128, &c) == QUALCOST_CELL_NO_POINT, "no such rate");
+    CHECK(qualcost_cell(g_dir, "org.example.e", 48000, 256, &c) == QUALCOST_CELL_NO_POINT, "no such quantum");
+}
+
+static void a_plugin_no_record_names_has_no_record(void)
+{
+    qualcost_cell_t c;
+
+    CHECK(qualcost_cell(g_dir, "org.example.c", 48000, 128, &c) == QUALCOST_CELL_NO_RECORD, "c has no record");
+    CHECK(qualcost_cell(g_dir, "org.example.liar", 48000, 128, &c) == QUALCOST_CELL_NO_RECORD, "the id inside decides");
+    CHECK(qualcost_cell(g_dir, "org.example.junk", 48000, 128, &c) == QUALCOST_CELL_NO_RECORD, "junk is no record");
+    CHECK(qualcost_cell("/nonexistent/qualification", "org.example.e", 48000, 128, &c) == QUALCOST_CELL_NO_RECORD,
+          "no directory");
+}
+
+static void the_larger_of_each_figure_of_two_records_stands(void)
+{
+    qualcost_cell_t c;
+
+    CHECK(qualcost_cell(g_dir, "org.example.h", 48000, 128, &c) == QUALCOST_CELL_FOUND, "h has the cell");
+    CHECK(c.median_ns == 2000 && c.latency_frames == 10, "2000 ns of one record, 10 frames of the other: %g %g",
+          c.median_ns, c.latency_frames);
 }
 
 static void the_figure_is_the_p95_at_the_rate_and_quantum_as_a_fraction_of_a_core(void)
@@ -117,6 +183,11 @@ static const struct { const char *name; void (*fn)(void); } g_tests[] = {
     T(a_record_of_another_plugin_is_not_this_ones),
     T(a_file_that_is_no_record_is_skipped),
     T(a_directory_that_is_not_there_gives_no_figure),
+    T(the_cell_is_the_median_and_the_measured_latency),
+    T(a_cell_without_a_measured_latency_takes_the_declared_one),
+    T(a_point_without_a_latency_or_at_another_rate_is_no_cell),
+    T(a_plugin_no_record_names_has_no_record),
+    T(the_larger_of_each_figure_of_two_records_stands),
 #undef T
 };
 
@@ -157,6 +228,11 @@ int main(int argc, char **argv)
             if (strcmp(first, names[k]))
                 record(names[k], "org.example.d", 48000, 128, 10000);
     }
+    cell_record("org.example.e@1.0-eeeeeeeeeee1.default.qualification.json", "org.example.e", 48000, 128, 3000, 64, 70);
+    cell_record("org.example.f@1.0-fffffffffff1.default.qualification.json", "org.example.f", 48000, 128, 1000, 32, -1);
+    cell_record("org.example.g@1.0-999999999999.default.qualification.json", "org.example.g", 48000, 128, 1000, -1, -1);
+    cell_record("org.example.h@1.0-888888888888.default.qualification.json", "org.example.h", 48000, 128, 1000, 0, 10);
+    cell_record("org.example.h@2.0-777777777777.default.qualification.json", "org.example.h", 48000, 128, 2000, 0, 5);
     put("org.example.junk@1.0-eeeeeeeeeeee.default.qualification.json", "{not json");
     put("org.example.empty@1.0-ffffffffffff.default.qualification.json", "");
     for (n = 0; n < sizeof(g_tests) / sizeof(g_tests[0]); n++)

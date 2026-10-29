@@ -67,6 +67,7 @@
           "ctx_involuntary": { "type": "integer", "minimum": 0 },
           "xruns": { "type": "integer", "minimum": 0 },
           "latency_frames": { "type": ["integer", "null"], "minimum": 0 },
+          "jack_clients": { "type": "integer", "minimum": 0 },
           "stress": { "type": "string", "pattern": "^(none|busy[0-9]+\\+mem[0-9]+)$" },
           "repeats": { "type": "integer", "minimum": 1 },
           "spread": {

@@ -1,0 +1,85 @@
+23:49:56 baseline: holding
+23:50:56 baseline: busiest 1.8% xruns 0 rss 474.0 MB
+23:50:56 plugin-hostd on 5590: pid 79231, started here: True, first connect after 0.1 s
+23:50:56 level grouped-01: building
+23:50:59 level grouped-01: 1 chains in 0.6 s, 1 workers, 4 links; holding
+23:51:59 level grouped-01: busiest 2.7% mean 2.4% xruns 0 rss 589.7 MB limit None
+23:52:00 level grouped-02: building
+23:52:04 level grouped-02: 2 chains in 1.9 s, 2 workers, 14 links; holding
+23:53:04 level grouped-02: busiest 3.3% mean 3.1% xruns 0 rss 709.9 MB limit None
+23:53:05 level grouped-04: building
+23:53:11 level grouped-04: 4 chains in 3.9 s, 4 workers, 28 links; holding
+23:54:11 level grouped-04: busiest 5.0% mean 4.7% xruns 0 rss 949.6 MB limit None
+23:54:14 level grouped-08: building
+23:54:24 level grouped-08: 8 chains in 7.7 s, 8 workers, 50 links; holding
+23:55:24 level grouped-08: busiest 9.0% mean 8.5% xruns 0 rss 1437.2 MB limit None
+23:55:31 level grouped-16: building
+23:55:49 level grouped-16: 16 chains in 15.3 s, 16 workers, 96 links; holding
+23:56:49 level grouped-16: busiest 21.3% mean 20.6% xruns 0 rss 2388.9 MB limit None
+23:57:08 level alone-01: building
+23:57:11 level alone-01: 1 chains in 0.3 s, 4 workers, 10 links; holding
+23:58:11 level alone-01: busiest 4.0% mean 3.7% xruns 0 rss 919.2 MB limit None
+23:58:11 level alone-02: building
+23:58:14 level alone-02: 2 chains in 1.4 s, 8 workers, 20 links; holding
+23:59:15 level alone-02: busiest 5.3% mean 5.2% xruns 0 rss 1384.8 MB limit None
+23:59:15 level alone-04: building
+23:59:20 level alone-04: 4 chains in 3.1 s, 16 workers, 40 links; holding
+00:00:21 level alone-04: busiest 9.4% mean 8.8% xruns 0 rss 2310.5 MB limit None
+00:00:21 level alone-08: building
+00:00:29 level alone-08: 8 chains in 6.0 s, 31 workers, 74 links; holding
+00:01:30 level alone-08: busiest 16.8% mean 16.2% xruns 0 rss 4044.7 MB limit None
+00:01:31 level alone-16: building
+00:01:46 level alone-16: 16 chains in 12.2 s, 60 workers, 144 links; holding
+00:02:46 level alone-16: busiest 29.7% mean 29.1% xruns 0 rss 7391.6 MB limit None
+00:02:54 level jalv-01: building
+00:02:57 level jalv-01: 1 chains in 1.6 s, 0 workers, 10 links; holding
+00:03:57 level jalv-01: busiest 3.9% mean 3.3% xruns 0 rss 1069.3 MB limit None
+00:03:58 level jalv-02: building
+00:04:03 level jalv-02: 2 chains in 3.3 s, 0 workers, 20 links; holding
+00:05:03 level jalv-02: busiest 4.7% mean 4.5% xruns 0 rss 1672.1 MB limit None
+00:05:04 level jalv-04: building
+00:05:13 level jalv-04: 4 chains in 7.0 s, 0 workers, 40 links; holding
+00:06:13 level jalv-04: busiest 7.7% mean 7.3% xruns 0 rss 2881.2 MB limit None
+00:06:14 level jalv-08: building
+00:06:31 level jalv-08: 8 chains in 14.3 s, 0 workers, 76 links; holding
+00:07:31 level jalv-08: busiest 14.6% mean 13.7% xruns 0 rss 5306.1 MB limit None
+00:07:33 level jalv-16: building
+00:08:08 level jalv-16: 16 chains in 32.3 s, 0 workers, 152 links; holding
+00:09:09 level jalv-16: busiest 24.8% mean 24.1% xruns 2 rss 10066.3 MB limit memory
+{
+ "grouped": {
+  "levels": [
+   1,
+   2,
+   4,
+   8,
+   16
+  ],
+  "limit": null
+ },
+ "alone": {
+  "levels": [
+   1,
+   2,
+   4,
+   8,
+   16
+  ],
+  "limit": null
+ },
+ "daemon_clean": true,
+ "daemon_stopped": true,
+ "jalv": {
+  "levels": [
+   1,
+   2,
+   4,
+   8,
+   16
+  ],
+  "limit": {
+   "level": 16,
+   "by": "memory"
+  }
+ }
+}

@@ -18,4 +18,21 @@
  * when no record holds the point, the directory cannot be read, or a record is not one. */
 double qualcost_read(const char *dir, const char *id, int rate, int quantum);
 
+/* What the records of a plugin hold at one rate and quantum, as the estimate verb reads them: the grid point's cost
+ * median, in nanoseconds per sample, and its latency, the measured frames, else the declared ones. */
+typedef struct QUALCOST_CELL_T {
+    double median_ns;
+    double latency_frames;
+} qualcost_cell_t;
+
+enum {
+    QUALCOST_CELL_FOUND,        /* a record holds the point with both figures */
+    QUALCOST_CELL_NO_RECORD,    /* no record names the plugin (or the directory cannot be read) */
+    QUALCOST_CELL_NO_POINT      /* a record names it, none holds the point with both figures */
+};
+
+/* The cell of the plugin with this id at this rate and quantum into *out, QUALCOST_CELL_*. When several records hold
+ * the point the largest of each figure stands, as qualcost_read takes the largest cost. */
+int qualcost_cell(const char *dir, const char *id, int rate, int quantum, qualcost_cell_t *out);
+
 #endif
