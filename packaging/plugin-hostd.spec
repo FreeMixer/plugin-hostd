@@ -171,6 +171,9 @@ make test-daemon check-generated check-rendered
 - The history and plan verbs answer -901 when there is no memory (#174); the
   planner reads the history (#208); plugin-hostd-contract requires
   omx-contract 3.2.0 (#165).
+- The probe measures a plugin's cost on a SCHED_FIFO thread at the highest
+  priority the sandbox allows, with user-namespace capability detection and
+  a PREFIX-correct lock preload path (#225).
 
 * Tue Oct 27 2026 Pau Aliagas <linuxnow@gmail.com> - 0.13.1-1
 - The daemon reads the xruns line a worker writes (omx-clap-core 0.23.0,
