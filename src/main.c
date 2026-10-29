@@ -19,16 +19,19 @@
  */
 
 #include <getopt.h>
+#include <limits.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
+#include <host-errors.h>
 #include <socket.h>
 
 #include "conf.h"
 #include "descriptors.h"
+#include "formats.h"
 #include "history.h"
 #include "machine.h"
 #include "pins.h"
@@ -43,6 +46,7 @@
 #define SOCKET_DEFAULT_PORT     PHD_DEFAULT_COMMAND_PORT
 /* the long options with no short one */
 #define OPT_PLACEMENT           256
+#define OPT_PIN_FILES           257
 #define SOCKET_MSG_BUFFER_SIZE  PHD_LINE_MAX
 
 static volatile int running;
@@ -90,6 +94,35 @@ static void term_signal(int sig)
     socket_finish();
 }
 
+/* --pin-files: the files a pin of `uri` must hold, as an add collects them before it hashes them (pins_check), so a
+ * qualifier takes the list from here and never works it out again (plugin-qualify#228). "root <dir>" then one
+ * "file <name>" a line, names relative to the root; 0, 1 when the plugin's files cannot be collected (the reason on
+ * stderr), 2 for a uri of no format. */
+static int print_pin_files(const char *uri)
+{
+    const char *fwd = uri;
+    const int fmt = format_of_uri(uri, &fwd);
+    const format_t *format = format_at(fmt);
+    char root[PATH_MAX];
+    names_t files = { NULL, 0 };
+    int n, rc;
+
+    if (!format || !format->pin_collect)
+    {
+        fprintf(stderr, "plugin-hostd: %s: no format of this daemon takes it\n", uri);
+        return 2;
+    }
+    rc = format->pin_collect(fwd, format->search ? format->search(&g_conf) : NULL, root, sizeof(root), &files);
+    if (rc == SUCCESS)
+    {
+        printf("root %s\n", root);
+        for (n = 0; n < files.n; n++)
+            printf("file %s\n", files.name[n]);
+    }
+    names_free(&files);
+    return rc == SUCCESS ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+
 int main(int argc, char **argv)
 {
     static const struct option long_options[] = {
@@ -97,13 +130,14 @@ int main(int argc, char **argv)
         {"feedback-port", required_argument, 0, 'f'},
         {"config", required_argument, 0, 'c'},
         {"placement", required_argument, 0, OPT_PLACEMENT},
+        {"pin-files", required_argument, 0, OPT_PIN_FILES},
         {"nofork", no_argument, 0, 'n'},
         {"version", no_argument, 0, 'V'},
         {"help", no_argument, 0, 'h'},
         {0, 0, 0, 0}
     };
     int opt, opt_index = 0, socket_port = SOCKET_DEFAULT_PORT, feedback_port = 0, nofork = 0;
-    const char *config = getenv("PLUGIN_HOSTD_CONF"), *placement = NULL;
+    const char *config = getenv("PLUGIN_HOSTD_CONF"), *placement = NULL, *pin_files = NULL;
     char default_config[4096];
     struct sigaction sig;
 
@@ -127,6 +161,9 @@ int main(int argc, char **argv)
             case OPT_PLACEMENT:
                 placement = optarg;
                 break;
+            case OPT_PIN_FILES:
+                pin_files = optarg;
+                break;
             case 'V':
                 printf("%s version: %s\n", argv[0], VERSION);
                 return EXIT_SUCCESS;
@@ -137,6 +174,7 @@ int main(int argc, char **argv)
                        "  -f, --feedback-port=<port>     feedback port (default port+1 unless -n)\n"
                        "  -c, --config=<file>            settings, one \"key value\" per line\n"
                        "      --placement=spread|none    pin the workers across the audio cores, or nothing; over the file\n"
+                       "      --pin-files=<uri>          print the files a pin of the plugin holds, as an add checks them, and exit\n"
                        "  -n, --nofork                   accepted; the daemon never forks\n"
                        "  -V, --version                  print program version and exit\n"
                        "  -h, --help                     print this help and exit\n",
@@ -172,6 +210,8 @@ int main(int argc, char **argv)
     }
     if (conf_check(&g_conf) != 0)
         return EXIT_FAILURE;
+    if (pin_files)
+        return print_pin_files(pin_files);
     /* the directories of what an add gathers are made, or the daemon does not start: never a silent fallback */
     if (descriptors_init(&g_conf) != 0)
         return EXIT_FAILURE;

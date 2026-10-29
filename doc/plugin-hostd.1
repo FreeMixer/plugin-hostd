@@ -11,6 +11,7 @@ plugin\-hostd \- supervisor of plugin host processes behind one mod\-host protoc
 .RB [ \-c
 .IR file ]
 .RB [ \-\-placement =\fIspread\fR|\fInone\fR]
+.RB [ \-\-pin\-files =\fIuri\fR]
 .br
 .B plugin\-hostd
 .RB [ \-V | \-h ]
@@ -60,6 +61,14 @@ The setting
 .B placement
 over the settings file: spread pins each new worker to the least-loaded audio core and the daemon to the
 reserved one, none pins nothing.
+.TP
+.BR \-\-pin\-files =\fIuri\fR
+Print the files a pin of the plugin holds, as an add collects them before it checks their hashes, and exit:
+.B root
+and the directory, then one
+.B file
+and a name relative to it a line. Exit 1 when the files cannot be collected (the reason on stderr), 2 for a uri of no
+format. A qualifier writes its pins from this list.
 .TP
 .BR \-n ", " \-\-nofork
 Accepted; the daemon never forks.
