@@ -826,10 +826,14 @@ def the_measured_child_holds_no_cap_sys_nice_past_its_exec():
 @test
 def a_grant_the_kernel_refuses_is_recorded_as_none_with_the_refusal():
     hard = resource.getrlimit(resource.RLIMIT_RTPRIO)[1]
+    prefix = []
     if not cap_sys_nice() and hard == 0:
-        raise Skip("no grant here (no CAP_SYS_NICE, RLIMIT_RTPRIO hard limit 0), so nothing for the kernel to refuse")
+        if not cap_sys_resource():
+            cannot("no grant here (no CAP_SYS_NICE, RLIMIT_RTPRIO hard limit 0), so nothing for the kernel to refuse")
+        # a process holding CAP_SYS_RESOURCE (root in a container) grants itself an rlimit for the kernel to refuse
+        prefix = ["prlimit", "--rtprio=10:10", "--"]
     refuse = os.path.join(os.path.dirname(CHILD), "sched-refuse.so")
-    doc, seen = rt_run(env={"LD_PRELOAD": refuse})
+    doc, seen = rt_run(prefix, env={"LD_PRELOAD": refuse})
     rt = doc["run"]["realtime"]
     check(rt["class"] == "none" and rt["grantedBy"] == "none" and rt["priority"] == 0, "run.realtime %s" % rt)
     check("the kernel refused SCHED_FIFO" in rt.get("reason", "") and rt.get("observed") == {"policy": "other", "priority": 0},
