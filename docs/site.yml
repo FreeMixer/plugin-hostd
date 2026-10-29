@@ -28,6 +28,7 @@ landing:
 sections:
   - id: start
     title: Start here
+    page: start-here.md
     blurb: One page that says what plugin-hostd is, what it hosts and how it runs, in four paragraphs.
     entries:
       - page: from-file-to-page.md

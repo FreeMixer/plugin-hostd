@@ -1,6 +1,29 @@
 Start here: plugin-hostd in four paragraphs
 ===========================================
 
+plugin-hostd gives a Zynthian three things it already does in its own way. Each is optional and taken or left on its
+own: a maintainer who wants only one merges only that step of [the patch series](zynthian/upstream-series.md).
+
+- Plugin hosting: in place of one jalv per plugin, plugin-hostd hosts the LV2 and CLAP plugins, and a qualification on
+  the device says which are safe to load. Set `ZYNTHIAN_PLUGIN_ENGINE=plugin-hostd`, or `jalv` to go back.
+- Grouping: your chain manager stays as it is; we only change how its plugins run. When several plugins of a chain are
+  plugin-hostd processors, their records say which may share one process and which run alone, and the UI shows the
+  chain's cost and latency before you add. It comes with the plugin-hostd engine.
+- Panels: in place of hand-made control pages and MOD GUIs, both are drawn from the plugin's one description. With
+  omx-panel installed the pages follow the plugin-hostd engine, the GUIs its sync service; a plugin's own GUI is kept.
+
+![omx eq8 on a Zynthian, its low-pass filter open](zynthian/evidence/captures-2026-10-29/omx-eq8-0.16.0/controller-page-02.png)
+
+omx eq8 on a Pi 5 running Zynthian: the screens follow the plugin's own sections, here its low-pass filter.
+
+If you read one page, make it [from a plugin file to a page on the screen](from-file-to-page.md).
+
+It works on a Pi 5 today; the measurements are being redone this week, and [the status page](zynthian/status.md) says
+what is still open.
+
+A look, a question, or a plugin you would like qualified are all welcome: [open an
+issue](https://github.com/FreeMixer/plugin-hostd/issues).
+
 **What it is.** plugin-hostd is a daemon that runs audio plugins for a controller. A controller (Zynthian's engine,
 MOD-UI, a mixing console, your own program) opens its socket and speaks mod-host's protocol: same ports, same verbs,
 same replies, plus the verbs plugin-hostd adds. A plugin that crashes takes down its own worker and nothing else, and
