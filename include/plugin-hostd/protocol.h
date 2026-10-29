@@ -399,6 +399,14 @@ static inline int phd_pool_name_valid(const char *name)
     X(OFF, PHD_GROUPING_OFF, OMX_VERB_PLAN " answers the plan it would make and applies none") \
     X(ON, PHD_GROUPING_ON, OMX_VERB_PLAN " applies its plan")
 
+/* the core placements (docs/placement.md): X(id, name, meaning) */
+#define PHD_CORE_PLACEMENT_SPREAD "spread"
+#define PHD_CORE_PLACEMENT_NONE   "none"
+#define PHD_CORE_PLACEMENTS(X) \
+    X(SPREAD, PHD_CORE_PLACEMENT_SPREAD, "each new worker is pinned to the audio core that has the least load, and the " \
+      "daemon, its threads and the helpers it forks to the reserved cores") \
+    X(NONE, PHD_CORE_PLACEMENT_NONE, "nothing is pinned: the workers run where the daemon may")
+
 /* a manifest's IRI that holds this is percent-encoded */
 #define PHD_PIN_PERCENT          "%"
 
@@ -484,7 +492,9 @@ static inline int phd_pool_name_valid(const char *name)
       "pin and the cost of each, which runs of consecutive members share a worker. A run of two or more is declared " \
       "as a chain of place " PHD_PLACE_CHAIN_PREFIX "<chain>" PHD_PLACE_PLAN_SEPARATOR "<k>, k counting segments from 0; " \
       "a member that shares with no neighbour is placed " PHD_PLACE_OWN ". The reply names the segments in order, " \
-      "the members of one joined by commas and the segments by semicolons. A chain planned again keeps the running " \
+      "the members of one joined by commas and the segments by semicolons, then the cores: the segments again with " \
+      "each member replaced by the audio core of the worker that runs it now, " PHD_WORD_NONE " for one the setting " \
+      "placement did not pin (docs/placement.md). A chain planned again keeps the running " \
       "worker of every segment that did not change, and the daemon plans it again by itself when a member is " \
       "quarantined and, history_regroup_s after a death that split its group, to gather it. The plan numbers are its " \
       "own, apart from chain's. While the setting grouping is off the plan is answered and kept for " OMX_VERB_PLAN_GET " and nothing moves. A segment " \
@@ -495,8 +505,8 @@ static inline int phd_pool_name_valid(const char *name)
     X(PLAN_GET, OMX_VERB_PLAN_GET, "<chain>", OMX_VERB_PLAN_GET_REPLY, \
       "read the last plan of a chain back: its segments as " OMX_VERB_PLAN " answered them, then the members that have " \
       "a reason, instance:reason joined by commas (" PHD_WORD_NONE " for none); the reasons are the words of " \
-      "PLUGIN_HOSTD_GROUPING_REASONS (data/grouping.json); -532 for a chain no " OMX_VERB_PLAN " planned, -902 for " \
-      "a chain that is not a number") \
+      "PLUGIN_HOSTD_GROUPING_REASONS (data/grouping.json), then the cores of the members as " OMX_VERB_PLAN " answers " \
+      "them; -532 for a chain no " OMX_VERB_PLAN " planned, -902 for a chain that is not a number") \
     X(PLAN_CLEAR, OMX_VERB_PLAN_CLEAR, "<chain>", OMX_VERB_PLAN_CLEAR_REPLY, \
       "forget the plan: each member goes to a worker of its own; -532 for a chain no " OMX_VERB_PLAN " planned") \
     X(DESCRIPTOR_GET, OMX_VERB_DESCRIPTOR_GET, "<uri>", OMX_VERB_DESCRIPTOR_GET_REPLY, \
@@ -933,7 +943,7 @@ static inline int phd_is_note_verb(const char *verb)
       "quarantine; " PHD_WORD_NONE " for none. <chain> is the number chain declared, or <plan>" PHD_PLACE_PLAN_SEPARATOR \
       "<k> for segment k of a plan") \
     X(PHD_EVENT_PLAN_REASON, "<chain> <instance>:<reason>,...", \
-      "a plan of the chain changed: what " OMX_VERB_PLAN_GET " answers now after the segments, " PHD_WORD_NONE " for none") \
+      "a plan of the chain changed: the reasons " OMX_VERB_PLAN_GET " answers now, after the segments, " PHD_WORD_NONE " for none") \
     X(PHD_EVENT_SUPERVISOR_GAVE_UP, "<worker> <deaths> <window_ms>", "the storm bound is spent; respawning ends") \
     X(PHD_EVENT_PIN_CHANGED, "<uri> " PHD_PIN_CHANGED_FILES " | " PHD_PIN_CHANGED_LAYOUT, \
       "an add or a replay of a plugin was refused because its files, or the layout the worker found, differ from its " \
@@ -1005,6 +1015,7 @@ static inline int phd_is_note_verb(const char *verb)
 #define PHD_DEFAULT_IDLE_MS           25
 #define PHD_DEFAULT_POOL_MAX          8
 #define PHD_DEFAULT_GROUPING          PHD_GROUPING_OFF
+#define PHD_DEFAULT_PLACEMENT         PHD_CORE_PLACEMENT_SPREAD
 /* starting values of the planner's limits; the benchmark sets the ones a release ships (the design note, The benchmark) */
 #define PHD_DEFAULT_GROUP_MAX         8
 #define PHD_DEFAULT_GROUP_COST_MAX    60
@@ -1077,6 +1088,13 @@ static inline int phd_is_note_verb(const char *verb)
     X(grouping, word, PHD_DEFAULT_GROUPING, "", "off or on: whether plan applies its plan (a run of consecutive members " \
       "that may share a worker is declared as a chain), or only answers it; the default stays off until the benchmark " \
       "has published a win") \
+    X(placement, word, PHD_DEFAULT_PLACEMENT, "", "spread or none (docs/placement.md): spread pins each new worker to the " \
+      "audio core with the least load, the sum of the qualification costs of the workers already on it, or their number " \
+      "while one of them has a member of unknown cost, the lowest core of a tie, and keeps the daemon, its threads and " \
+      "the scans it forks on the reserved cores; a worker keeps its core across respawns, and one whose format " \
+      OMX_VERB_WORKER_ENV " gave a cpu list is not placed; none pins nothing; --placement overrides it") \
+    X(audio_cores, word, "", "", "the cpus the placement spreads the workers over, a cpu list inside the daemon's own " \
+      "affinity (\"1-3\"); empty is that affinity less its lowest cpu; the reserved cores are the rest of it") \
     X(pin_store, path, "", "", "the file first-use pins are kept in; empty is $XDG_STATE_HOME/plugin-hostd/pins, " \
       "else $HOME/.local/state/plugin-hostd/pins") \
     X(pin_file, path, "", "", "a file of pin lines loaded at start, as plugin-qualify --all --pins writes it; empty is none") \

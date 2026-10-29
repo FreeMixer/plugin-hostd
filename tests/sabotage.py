@@ -19,8 +19,35 @@ FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "
 # "vocabulary" breaks the probe schema, its template or a copy of omx-contract's omx-vocabulary.schema.json and runs
 # tests/vocabulary_derived.py; "verbtable" breaks the header and runs tests/verb_table.py; "presetschema" breaks
 # protocol/preset.schema.json and runs tests/preset_format.py; "pool" breaks tests/sabotage_pool.py or the port range of
-# tests/harness.py and runs tests/sabotage_pool_test.py
+# tests/harness.py and runs tests/sabotage_pool_test.py; "placement" breaks src/placement.c and runs tests/placement_test.c
 SABOTAGE = [
+    # core placement (docs/placement.md)
+    ('a new worker is not pinned to its core', 'src/supervisor.c',
+     '        snprintf(env.cpus, sizeof(env.cpus), "%d", w->core);\n', '',
+     'four_workers_on_a_four_core_mask_land_on_three_audio_cores_and_the_daemon_on_the_lowest'),
+    ('the daemon is not kept on the reserved core', 'src/supervisor.c', '        pin_self(&reserved);\n', '',
+     'four_workers_on_a_four_core_mask_land_on_three_audio_cores_and_the_daemon_on_the_lowest'),
+    ('a respawned worker is placed again', 'src/supervisor.c',
+     '        if (w->core < 0)\n            w->core = place_core(w);', '        w->core = place_core(w);',
+     'four_workers_on_a_four_core_mask_land_on_three_audio_cores_and_the_daemon_on_the_lowest'),
+    ('the members of a placed worker are not weighed', 'src/supervisor.c', '        load[k].cost += worker_cost(v, &known);\n',
+     '        worker_cost(v, &known);\n',
+     'the_least_loaded_core_is_the_one_whose_workers_cost_the_least_when_every_cost_is_known'),
+    ('the plan reports no core', 'src/supervisor.c', '            if (i && i->w && i->w->core >= 0)', '            if (0)',
+     'an_isolated_plugin_gets_a_worker_of_its_own_placed_by_the_same_rule_and_a_segment_stays_one_worker'),
+    ('worker_env cpus leave the workers placed', 'src/supervisor.c',
+     '                if (g_workers[n]->fmt == f)\n                    g_workers[n]->core = -1;', '                ;',
+     'a_format_given_cpus_by_worker_env_is_not_moved_by_the_policy'),
+    ('the cost never decides', 'src/placement.c', 'int k, best = 0, by_cost = 1;', 'int k, best = 0, by_cost = 0;',
+     'with_every_cost_known_the_cheapest_core_is_picked_whatever_it_holds', "placement"),
+    ('a placed worker of unknown cost leaves the cost to decide', 'src/placement.c',
+     '        if (loads[k].unknown)\n            by_cost = 0;', '        if (0)\n            by_cost = 0;',
+     'one_placed_worker_of_unknown_cost_makes_the_count_decide', "placement"),
+    ('audio_cores may name a cpu outside the mask', 'src/placement.c',
+     '        if (!CPU_EQUAL(&inside, audio))\n            return -1;\n', '',
+     'audio_cores_names_the_audio_cores_inside_the_mask_and_the_rest_is_reserved', "placement"),
+    ('the lowest cpu is not kept for the daemon', 'src/placement.c', '                CPU_CLR(c, audio);\n', '',
+     'the_default_audio_cores_are_the_mask_less_its_lowest_cpu_which_is_reserved', "placement"),
     ('the first count a worker writes is counted as xruns', 'src/supervisor.c',
      'if (w->xr_known && count > w->xr_base)\n        rose = count - w->xr_base;',
      'if (count > (w->xr_known ? w->xr_base : 0))\n        rose = count - (w->xr_known ? w->xr_base : 0);',
@@ -1498,6 +1525,8 @@ def run_test(tree, name, jack=False):
         return run_unit_test(tree, "tests/planner-test", "planner_test.c", name)
     if jack == "qualcost":
         return run_unit_test(tree, "tests/qualcost-test", "qualcost_test.c", name)
+    if jack == "placement":
+        return run_unit_test(tree, "tests/placement-test", "placement_test.c", name)
     if jack == "verbs":
         return run_verbs_test(tree, name)
     if jack == "consumer":
@@ -1642,7 +1671,7 @@ def arm(entry, tree):
             shutil.copy(os.path.join(ROOT, f), tree)
         os.makedirs(os.path.join(tree, "packaging"))
         shutil.copy(os.path.join(ROOT, "packaging", "plugin-hostd.spec"), os.path.join(tree, "packaging"))
-    elif jack in ("planner", "qualcost"):
+    elif jack in ("planner", "qualcost", "placement"):
         shutil.copytree(os.path.join(ROOT, "src"), os.path.join(tree, "src"))
         shutil.copytree(os.path.join(ROOT, "include"), os.path.join(tree, "include"))
         shutil.copy(os.path.join(ROOT, "Makefile"), tree)
@@ -1686,7 +1715,7 @@ def arm(entry, tree):
     if jack == "probe":
         build_probe(tree)
     elif jack not in ("readme", "nopins", "ciguards", "format", "relay", "history", "proc", "contract", "consumer", "probeschema", "presetschema", "vocabulary", "alloc",
-                      "verbtable", "planner", "qualcost", "pool"):
+                      "verbtable", "planner", "qualcost", "placement", "pool"):
         for f in os.listdir(os.path.join(tree, "src")):
             if f.endswith(".o"):
                 os.unlink(os.path.join(tree, "src", f))

@@ -80,6 +80,8 @@ sections:
       - page: estimate.md
         title: "The estimate verb: a chain's cost before it runs"
         pending: true
+      - page: placement.md
+        title: "Core placement: one worker per chain, pinned across the audio cores"
       - url: https://github.com/FreeMixer/plugin-qualify#readme
         title: Qualification records (plugin-qualify)
       - url: https://github.com/FreeMixer/plugin-hostd#pins

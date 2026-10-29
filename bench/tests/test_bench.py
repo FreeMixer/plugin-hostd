@@ -453,14 +453,15 @@ class FakeDaemon:
             for k, seg in enumerate(segs):
                 for i in seg:
                     self.inst[i] = "chain:1.%d" % k if len(seg) > 1 else "own"
-            return "resp 0 " + ";".join(",".join(map(str, g)) for g in segs)
+            return "resp 0 " + ";".join(",".join(map(str, g)) for g in segs) + " " + ";".join(
+                ",".join("1" for _ in g) for g in segs)
         if w[0] == "worker_list":
             workers = {}
             for i, place in sorted(self.inst.items()):
                 key = place if place.startswith(("chain:", "pool:")) and not (
                     self.pool_apart and place.startswith("pool:")) else "own%d" % i
                 workers.setdefault(key, (place, []))[1].append(i)
-            recs = ["%d:%d:clap:up:%s:%s" % (n, 1000 + n, place, ",".join(map(str, ids)))
+            recs = ["%d:%d:clap:up:%d:%s:%s" % (n, 1000 + n, 1 + n % 3, place, ",".join(map(str, ids)))
                     for n, (place, ids) in enumerate(workers.values())]
             return "resp 0 " + " ".join(recs)
         return "resp -902"

@@ -753,7 +753,10 @@ class Host:
         for rec in reply[2:]:
             f = rec.split(":")
             insts = [int(i) for i in f[-1].split(",") if i.isdigit()]
-            out.append((f[0], int(f[1]), f[2], f[3], ":".join(f[4:-1]), insts))
+            # <worker>:<pid>:<format>:<state>:[<core>:]<place>:<instances>, the place holding colons of its own; a daemon
+            # with core placement (docs/placement.md) writes the core, a number or -, which a place never is
+            place = f[5:-1] if len(f) > 6 and (f[4].isdigit() or f[4] == "-") else f[4:-1]
+            out.append((f[0], int(f[1]), f[2], f[3], ":".join(place), insts))
         return out
 
     def wait_workers(self, want, what):
