@@ -88,6 +88,18 @@ def signature(x, rec, what):
     return left
 
 
+def measured(arm, what, got, src, tries=3):
+    """the chain's taps against the noise it was fed. A run the runner disturbed (an xrun, the recording off the
+    source) leaves a response with no peak, hundreds of taps near -40 dB: that is a run not measured, not a lag, so the
+    chain is played again, at most tries times, and each run given up is said"""
+    for n in range(tries):
+        t = signature(array.array("f", src), got[0:2], what)
+        if len(t) <= 2 or n == tries - 1:
+            return t, got
+        print("     %s: run %d of %d left %d taps and no peak, played again" % (what, n + 1, tries, len(t)), flush=True)
+        got, src, _ = tc.play([arm], source=True)
+
+
 def near(a, b, rel):
     return abs(a - b) <= rel * abs(b)
 
@@ -167,7 +179,7 @@ def plays_declared(r, ref, first, floor, what):
         got, src, _ = tc.play([arm, ("effect_%d" % first, "effect_%d" % (first + 2)),
                                ("effect_%d" % base, "effect_%d" % (base + 2))], source=True)
         tc.compare(got, "the chain plays %s (%s), against %s" % (", ".join(DECLARED), what, ", ".join(order)), floor)
-    t = signature(array.array("f", src), got[0:2], what)
+    t, got = measured(arm, what, got, src)
     lead, d = s["lookahead"], s["d"]
     ratio = s["delay"][d] / s["delay"][0]
     check(sorted(t) == [lead, lead + d], "the chain plays the limiter's lag %d and the delay's %d after it (%s): %s" % (
@@ -223,7 +235,7 @@ def removing_the_limiter_re_forms_the_chain():
         ref.series(70, [MEMBERS[n][0] for n in DECLARED], params(DECLARED))
         got, src, _ = tc.play([chain_arm(r), ("effect_60", "effect_61"), ("effect_70", "effect_72")], source=True)
         tc.compare(got, "the re-formed chain plays strip, delay, against strip, limiter, delay", floor)
-        t = signature(array.array("f", src), got[0:2], "after the removal")
+        t, got = measured(chain_arm(r), "after the removal", got, src)
         d, g = s["d"], s["strip"][0]
         want = {0: g * s["delay"][0], d: g * s["delay"][d]}
         check(sorted(t) == [0, d] and all(near(t[x], want[x], 0.005) for x in want),
@@ -257,7 +269,7 @@ def a_crashed_member_leaves_the_three_playing():
         check(tc.read() == (k, [0, 1, 2, 3], [0, 1, 2, 3]), "chain_get reads back the four: %s" % (tc.read(),))
         gain = float(tc.S.client().cmd("param_get 1 0").split()[2])
         got, src, _ = tc.play([chain_arm(r)], source=True)
-        t = signature(array.array("f", src), got[0:2], "the four")
+        t, got = measured(chain_arm(r), "the four", got, src)
         lead, d = s["lookahead"], s["d"]
         # below the ceiling every member is linear: the taps are the product of the four
         want = {lead: s["strip"][0] * gain * s["delay"][0], lead + d: s["strip"][0] * gain * s["delay"][d]}
