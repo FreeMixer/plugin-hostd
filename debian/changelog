@@ -32,6 +32,9 @@ plugin-hostd (0.14.0) unstable; urgency=medium
   * The probe refuses a cost percentile other than 95 with a coded step
     (#111); the own-host LV2 probe closes its JACK client on every exit path
     (#110); the fork-fault and worker_env tests wait on what they read (#113).
+  * The probe measures a plugin's cost on a SCHED_FIFO thread at the highest
+    priority the sandbox allows, detects capabilities in a user namespace,
+    and finds its lock preload at the installed PREFIX (#225, #235).
   * Known: the zynthian-chain CI job is flaky (#246).
 
  -- Pau Aliagas <linuxnow@gmail.com>  Thu, 29 Oct 2026 12:00:00 +0100
