@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """The figures and the table of a Pi 5 stress run (tools/zynthian/stress-pi5.sh), from its summary.json alone.
 
-    stress-figures.py <run dir> <figure dir>
+    stress-figures.py <figure dir> <run dir> [<run dir> ...]
+
+With several runs, each host mode is taken from the last run that holds it, and every run's idle baseline is kept;
+the table names the run of each row.
 
 Writes cpu.svg (busiest core and mean, percent), host-cpu.svg (the hosting processes, percent of one core), memory.svg (PSS and RSS of the hosting processes, MB),
 creation.svg (seconds to build one chain) and xruns.svg, one line per host mode against the number of chains, and
@@ -72,12 +75,23 @@ def svg(path, title, ylabel, series, xs):
 
 
 def main():
-    run, figs = sys.argv[1], sys.argv[2]
+    figs, runs = sys.argv[1], sys.argv[2:]
     os.makedirs(figs, exist_ok=True)
-    s = json.load(open(os.path.join(run, "summary.json")))
-    levels = [r for r in s["levels"] if r["mode"] in MODES]
-    xs = sorted({r["chains_asked"] for r in levels})
-    by = {m: sorted([r for r in levels if r["mode"] == m], key=lambda r: r["chains_asked"]) for m in MODES}
+    rows, by = [], {}
+    for run in runs:
+        s = json.load(open(os.path.join(run, "summary.json")))
+        name = os.path.basename(os.path.normpath(run))
+        for r in s["levels"]:
+            r["run"] = name
+        rows += [r for r in s["levels"] if r["mode"] == "baseline"]
+        for m in MODES:
+            mine = sorted([r for r in s["levels"] if r["mode"] == m], key=lambda r: r["chains_asked"])
+            if mine:
+                by[m] = mine
+    for m in MODES:
+        by.setdefault(m, [])
+        rows += by[m]
+    xs = sorted({r["chains_asked"] for m in MODES for r in by[m]})
 
     def pts(m, f):
         return [(r["chains_asked"], f(r)) for r in by[m] if f(r) is not None]
@@ -95,15 +109,15 @@ def main():
     svg(os.path.join(figs, "xruns.svg"), "Xruns during the hold (the run's own JACK client)", "xruns",
         [(m, COLOURS[m], "", pts(m, lambda r: r["xruns_meter"])) for m in MODES], xs)
 
-    print("| level | host mode | plugins | busiest core % | mean % | host CPU % of a core | JACK DSP % mean / max | host PSS MB | host RSS MB "
+    print("| run | level | host mode | plugins | busiest core % | mean % | host CPU % of a core | JACK DSP % mean / max | host PSS MB | host RSS MB "
           "| RSS total MB | xruns (meter / Zynthian) | JACK clients | workers | build s (per chain) | limit |")
-    print("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
-    for r in s["levels"]:
+    print("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
+    for r in rows:
         m = r["mode"]
         lvl = "idle" if m == "baseline" else str(r["chains_asked"])
         build = "-" if r.get("creation_s_total") is None else f'{r["creation_s_total"]} ({r["creation_s_per_chain"]})'
         workers = "-" if m in ("baseline", "jalv") else str(r["workers_mine"])
-        print(f'| {lvl} | {m} | {r["plugins_running"]} | {r["cpu_busiest_core"]} | {r["cpu_mean"]} '
+        print(f'| {r["run"]} | {lvl} | {m} | {r["plugins_running"]} | {r["cpu_busiest_core"]} | {r["cpu_mean"]} '
               f'| {host_cpu(r)} | {r["jack_dsp_mean"]} / {r["jack_dsp_max"]} | {host_mem(r, "pss_mb")} | {host_mem(r, "rss_mb")} '
               f'| {r["rss_total_mb"]} | {r["xruns_meter"]} / {r["xruns_zynthian"]} | {r["jack_clients"]} | {workers} '
               f'| {build} | {r.get("limit") or "-"} |')
