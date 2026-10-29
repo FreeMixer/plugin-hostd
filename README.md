@@ -218,6 +218,8 @@ Verbs the daemon adds
 | `worker_env` | `<format \| *> <cpu-list\|-> <nice\|->` | `resp 0` | the cpu list and the nice value of the workers of a format, at spawn and on the ones running |
 | `pin_set` | `<uri> <path>=<sha256>[,<path>=<sha256>...] <scheme>:<sha256> [verdict=<verdict>]` | `resp 0` | the pin of one plugin: the SHA-256 of every file the host loads for it, a path relative to the bundle (the directory of a single-file format's file), its layout fingerprint and, when it is known, the verdict of its qualification; it replaces an earlier pin of the uri; -516 for a plugin whose pins_dir pin carries verdict=refused, which nothing overrides. The pin store, a pin_file and a pins_dir file hold the same line, with or without the verb |
 | `pin_clear` | `<uri> \| all` | `resp 0` | forget the pin of one plugin, or of every one; a pins_dir pin is read-only and holds again |
+| `pin_reload` | none | `resp 0` | read the pin_file and the pins_dir files again and put the pins in at once, without a restart; the daemon also does this by itself when one of those files changes. Running instances keep running: one the new pins refuse is logged and its id in worker_list is followed by !. The pin_set pins of the controller are kept. -902 under pin_mode off or when the pin_file is gone or has a line outside the grammar, and the earlier pins hold |
+| `pin_changed` | `[<uri> [files \| layout]]` | `resp 0` | the notice the package sync sends to every daemon it knows after it rewrote the pin file: the same as pin_reload, with or without the pin_changed event's words after it; more words than those are -902 |
 | `lv2_worker_set` | `<uri> <mod-host \| omx-clap-host \| auto \| ->` | `resp 0` | the worker of one LV2 plugin, for its adds from now on: it overrides the lv2_worker setting, - takes the override back; -902 for a word that is none of these. Like policy_set it is the controller's, not in the ledger, gone with the daemon |
 | `pin_accept` | `<uri>` | `resp 0` | pin_mode first-use only: take the plugin's files as they are now as its pin, after a pin_changed event; the layout is learned again by the next add and the verdict is dropped; -508 when the plugin has no pin, -509 when its files cannot be collected, -516 when its pins_dir pin carries verdict=refused, -902 under pin_mode strict |
 | `pin_layout` | `<instance>` | `resp 0 <scheme>:<sha256>` | sent by the daemon to a worker of a format that checks layouts, after it accepted the add of a plugin whose layout pin is still unknown: the layout the worker found after init, which the daemon records in the pin |
@@ -368,6 +370,8 @@ mechanism, and they stay optional. The preset verbs and the preset file are [doc
 | `pin_set` | daemon | required | required | required | required |
 | `pin_clear` | daemon | required | required | required | required |
 | `pin_accept` | daemon | required | required | required | required |
+| `pin_reload` | daemon | required | required | required | required |
+| `pin_changed` | daemon | required | required | required | required |
 | `lv2_worker_set` | daemon | required | required | required | required |
 | `chain` | daemon | required | required | required | required |
 | `chain_clear` | daemon | required | required | required | required |
@@ -585,7 +589,14 @@ verb optional in a file. In `first-use` only a pin with `verdict=in-process`, wh
 share a worker. A pin with `verdict=refused` names files that failed qualification. Their `add` answers `-516`
 (`PIN_REFUSED`), no worker sees it, and a replay is refused with the same code. A pin that changes to `refused` while
 the instance runs takes effect at its next replay. Files that differ from the pin answer `-509` first, because the
-verdict was given for the pinned files only. A plugin that changed since it was pinned is refused (-509, or -510 from the worker), the
+verdict was given for the pinned files only.
+
+The pins are read again while the daemon runs, so a plugin upgrade never needs a restart (#255). The daemon stats the
+`pin_file` and the `pins_dir` files at every idle tick and before every `add`, and reads them again when one changed
+(a rewrite in place or a rename over it); `pin_reload`, and the sync's `pin_changed` notice, do the same at once. The
+new tables are put in whole or not at all: a `pin_file` with a line outside the grammar answers `-902` and the earlier
+pins hold. A `pin_set` of a controller is not in any file and is kept. Running instances keep running: one whose files
+the new pins refuse is logged on stderr, and its id in `worker_list` is followed by `!` until a pin holds it again. A plugin that changed since it was pinned is refused (-509, or -510 from the worker), the
 `pin_changed <uri> files|layout` event names what changed, and `pin_accept <uri>` takes the new pin.
 
 Pins that ship with packages live in a read-only layer of their own, under the host's. At start the daemon reads

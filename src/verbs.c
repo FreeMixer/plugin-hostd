@@ -241,6 +241,11 @@ static char *handle(char *line, char **tok, int ntok)
         return sup_resp(pin_set_words(line, tok, ntok));
     if (!strcmp(verb, OMX_VERB_PIN_ACCEPT))
         return ntok == 2 ? sup_pin_accept(tok[1]) : sup_resp(ERR_INVALID_OPERATION);
+    if (!strcmp(verb, OMX_VERB_PIN_RELOAD))
+        return ntok == 1 ? sup_pin_reload() : sup_resp(ERR_INVALID_OPERATION);
+    /* the sync's notice, bare or with the words of the event of the same name: the pin file is read again */
+    if (!strcmp(verb, OMX_VERB_PIN_CHANGED))
+        return ntok <= 3 ? sup_pin_reload() : sup_resp(ERR_INVALID_OPERATION);
     if (!strcmp(verb, OMX_VERB_PIN_CLEAR))
     {
         int rc = ntok == 2 ? pins_clear(tok[1]) : ERR_INVALID_OPERATION;
