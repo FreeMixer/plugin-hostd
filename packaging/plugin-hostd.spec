@@ -27,9 +27,9 @@ Requires: mod-host-protocol%{?_isa} >= 0.10.6.f14a230-11.1
 # tests drive. A build with `--without check` needs nothing of omx-clap-core, so plugin-hostd and omx-clap-core
 # do not build-depend on each other. A floor only: the lowest release with what the tests need (omx-clap-core 0.21,
 # the first whose omx-clap-host runs a chain's members in one client in the declared order, and whose tests package
-# ships fault-14.clap and jack_identity)
+# ships fault-14.clap and jack_identity; 0.25 for param_info answered from clap.params when a plugin has no contract)
 %if %{with check}
-BuildRequires: omx-clap-host-tests >= 0.21.0
+BuildRequires: omx-clap-host-tests >= 0.25.0
 # the reader that holds the committed render of the daemon's verbs to data/verbs.json (make check-rendered)
 BuildRequires: omx-contract >= 3.4.0
 # the shared verbs and the reply.host.* codes data/verbs.json refers to (make check-rendered, test-verbs-declared)
