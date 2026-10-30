@@ -645,7 +645,7 @@ SABOTAGE = [
      '"enum": [@OMX_MEASUREMENT_LATENCY_METHODS@]', '"enum": ["impulse-onset", "declared-port", "note-onset"]',
      "the template types no list of the contract's by hand", "vocabulary"),
     ("the template takes the voice basis from nowhere", "protocol/probe-output.schema.in",
-     '                  "enum": [@OMX_MEASUREMENT_VOICE_BASES@]', '                  "type": "string"',
+     '"enum": [@OMX_MEASUREMENT_VOICE_BASES@]', '"type": "string"',
      "the template takes MEASUREMENT_VOICE_BASES from the contract", "vocabulary"),
     ("a chain declared again is always formed again", "src/supervisor.c",
      "    if (chain_in_place(c))\n        chain_update(c);",

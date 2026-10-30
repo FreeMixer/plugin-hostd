@@ -667,6 +667,9 @@
     ]
   },
   "$defs": {
+    "voiceBasis": {
+      "enum": ["declared", "probe"]
+    },
     "realtime": {
       "description": "How the measured child was scheduled: the class and priority are what the kernel reported for it after its exec (observed), never what was asked for; a class of none is a valid measurement taken without real time, and says why.",
       "type": "object",
@@ -962,7 +965,7 @@
             },
             "basis": {
               "description": "How many notes notesHeldKb holds: the instrument's declared voices, or the count the run was told to probe.",
-              "enum": ["declared", "probe"]
+              "$ref": "#/$defs/voiceBasis"
             },
             "unmeasuredReason": {
               "type": "string"
@@ -1057,7 +1060,7 @@
                   "minimum": 1
                 },
                 "basis": {
-                  "enum": ["declared", "probe"]
+                  "$ref": "#/$defs/voiceBasis"
                 },
                 "capacity": {
                   "type": "integer",
