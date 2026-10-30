@@ -1,8 +1,7 @@
 Where this stands
 =================
 
-2026-10-29, night. This page says what is in place for Zynthian today and what is still incomplete, why, and what
-closes it. The pages it links are the detail.
+This page says what is in place for Zynthian and what is still incomplete, why, and what closes it. The pages it links are the detail.
 
 In place
 --------
@@ -35,9 +34,9 @@ In place
 Still incomplete
 ----------------
 
-- **The LV2 records are not redone yet.** The CLAP part of the re-qualification finished today. Cause: the LV2 part
-  was stopped at 13:20, because the mod-host probe could not see the device's plugin folders. What closes it: the LV2
-  re-qualification, running since 23:57 CET on the new set, which the Pi now runs: plugin-hostd 0.15.0,
+- **The LV2 records are not redone yet.** The CLAP part of the re-qualification is done. Cause: the LV2 part
+  was stopped on plugin-qualify 0.17.2, because its mod-host probe could not see the device's plugin folders. What
+  closes it: the LV2 re-qualification, running on the new set, which the Pi now runs: plugin-hostd 0.15.0,
   plugin-qualify 0.17.3, omx-clap-host 0.24.2 and omx-panel 0.7.1.
 - **The captures are from before the new set.** What closes it: every capture retaken when the LV2 re-qualification
   ends, presets and the Factory and User banks included ([captures](captures.md)).

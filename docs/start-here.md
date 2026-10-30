@@ -18,7 +18,7 @@ omx eq8 on a Pi 5 running Zynthian: the screens follow the plugin's own sections
 
 If you read one page, make it [from a plugin file to a page on the screen](from-file-to-page.md).
 
-It works on a Pi 5 today; the measurements are being redone this week, and [the status page](zynthian/status.md) says
+It works on a Pi 5; the measurements are being redone, and [the status page](zynthian/status.md) says
 what is still open.
 
 A look, a question, or a plugin you would like qualified are all welcome: [open an
