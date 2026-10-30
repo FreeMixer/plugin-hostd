@@ -162,7 +162,7 @@ def check(fmt, table, installed, schema, names):
             counts["extension"] += 1
         else:
             ruling = (row["dropped"] or {}).get("ruling", "") if isinstance(row["dropped"], dict) else ""
-            lines.append("%s: dropped %s" % (key, decision))
+            lines.append("%s: dropped %s" % (key, ruling))
             counts["dropped"] += 1
             if not ruling:
                 red(key, "dropped by no decision")
