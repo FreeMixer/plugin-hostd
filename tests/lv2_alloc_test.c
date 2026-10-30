@@ -72,6 +72,18 @@ char *proc_find_lv2_bundle(const char *lv2_path, const char *uri)
     return NULL;
 }
 
+const char *sup_instance_uri(int id)
+{
+    (void)id;
+    return NULL;
+}
+
+const char *sup_instance_search(int id)
+{
+    (void)id;
+    return NULL;
+}
+
 char *sup_call(int id, const char *line)
 {
     (void)id;

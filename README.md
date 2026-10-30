@@ -268,9 +268,19 @@ instance verbs and passes the worker's reply through; the worker answers them fr
 `clap.remote-controls`, `clap.params`), except `param_info`: omx-clap-host answers it from the param contract (`org.openmixer.param-contract/1`), and
 `-511` for a parameter the worker holds no checked contract for (and `-103` for a symbol that is no parameter). `-511`
 is the stable answer to read as "no contract; fall back to the layout from `omx-clap-scan`"; the daemon passes it through
-and drops nothing. For an LV2 instance the daemon answers them itself, never forwarding them, so
-mod-host learns none of them: `track_info` is kept and answered `resp 0`, an LV2 plugin has no remote pages, and
-`param_info` answers `-511` until the daemon reads the bundle's port data. When a CLAP plugin changes its pages, its
+and drops nothing. For an LV2 instance on mod-host the daemon answers them itself, never forwarding them, so
+mod-host learns none of them: `track_info` is kept and answered `resp 0`, and the other two come from the bundle's
+Turtle, read when they are asked (the manifest and the files it names with `rdfs:seeAlso`). `remote_pages` and
+`remote_page_get` make a page of each `pg:group`'s control inputs in port order (the group's `lv2:name`, else its
+`rdfs:label`; a further page, "Name 2", for each 8 past the first), one page named Controls for the control inputs in
+no group, the pages in the order their group first appears; outputs and `pprops:notOnGUI` ports are on no page, a slot
+is the port's symbol, and the section is empty. `param_info` answers a control port from its own statements: its
+`units:unit` (the words of `data/formats/lv2.json`, empty for a port with none), `stepped` for an integer, toggled or
+enumeration port, `log` for a `pprops:logarithmic` port whose bounds are positive and `linear` otherwise, its
+`lv2:minimum`, `lv2:maximum` and `lv2:default` (a toggled port's are 0, 1 and 0 when it states none), a step of 1 for
+a stepped port and 0 for the others, and its symbol. `-511` stays the answer for a port with a unit the table has no
+word for (a unit of the plugin's own) or no range, and `-103` for a symbol that is no control port. A bundle the
+daemon cannot find or read has no pages, and `param_info` asks mod-host as it did. When a CLAP plugin changes its pages, its
 worker writes `remote_pages_changed <instance>` on its feedback port and the daemon relays it.
 
 Notes are played the same way, by a controller that is not a jack client (a web console, a test, a MIDI surface on the
