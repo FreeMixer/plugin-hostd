@@ -191,6 +191,23 @@ def the_preset_bundle_and_learn_verbs_are_relayed_and_the_workers_answer_comes_b
 
 
 @test
+def preset_show_of_an_instance_answers_one_line_of_json_the_daemon_passes_on_unchanged():
+    """plugin-hostd#151: the declared reply is `resp 0 <json>` (docs/presets.md, data/verbs.json), and the worker's line
+    comes back to the controller as it was, not rewritten into `resp 0 <carries> <name>`"""
+    d = daemon(env={"FAKE_PRESETS_LEARN": "answer"})
+    try:
+        d.expect("add clap:fake#a 0", "resp 0")
+        got = d.send("preset_show 0 warm")
+        check(got.startswith("resp 0 {") and got.endswith("}"), "resp 0 and one JSON object, not <carries> <name>: %s" % got)
+        body = json.loads(got[len("resp 0 "):])
+        check(body == {"name": "Warm", "loadKey": "warm", "location": "file:///presets/warm.json"},
+              "the worker's JSON comes back whole: %s" % got)
+        d.expect("preset_show 9 warm", "resp -3")
+    finally:
+        d.close()
+
+
+@test
 def remove_all_and_quit():
     d = daemon()
     try:
