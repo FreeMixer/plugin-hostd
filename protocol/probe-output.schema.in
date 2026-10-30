@@ -696,6 +696,10 @@
           "type": "string",
           "minLength": 1
         },
+        "capabilityBound": {
+          "description": "Whether the measured child, once exec'd, holds no capability in its permitted or effective set (as the kernel reports it), so it cannot raise RLIMIT_RTPRIO, RLIMIT_RTTIME or RLIMIT_MEMLOCK again; false for a root runner that could not drop its bounding set.",
+          "type": "boolean"
+        },
         "observed": {
           "type": "object",
           "required": [

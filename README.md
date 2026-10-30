@@ -570,6 +570,7 @@ with `CAP_SYS_NICE`, else the `RLIMIT_RTPRIO` hard limit the runner was started 
 by the runner's lock preload (`<libexecdir>/plugin-hostd/probe-lock.so`, `/usr/libexec` in the packages, beside the interposer) when its `RLIMIT_MEMLOCK`
 covers the memory limit. The runner itself and an LV2 plugin's pin pass stay SCHED_OTHER. `run.realtime` says what the
 kernel reported for the child after the exec (class, priority, the priority requested, who granted it, and why none),
+`capabilityBound` (whether the child, as the kernel reports it, holds no capability in its permitted or effective set, so it cannot raise `RLIMIT_RTPRIO`, `RLIMIT_RTTIME` or `RLIMIT_MEMLOCK` again: the probe drops every capability and the bounding set, which a runner without `CAP_SETPCAP` cannot, and then it says `false`),
 `offer.realtime` is that class, and `run.memoryLock` says whether the lock held. A service that runs the probe passes the
 grant with `LimitRTPRIO=` and `LimitMEMLOCK=` ([docs/own-host.md](docs/own-host.md#measuring-plugins-at-real-time-priority)). A limit the set asks for and this version does not
 apply (the number of tasks, namespaces, Landlock, seccomp) is listed in the document under `limits.unavailable` with its

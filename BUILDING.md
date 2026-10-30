@@ -4,7 +4,9 @@ Building plugin-hostd
     make [MOD_HOST_DIR=<mod-host checkout>]
 
 The protocol is mod-host's `libmod-host-protocol.so`, from `pkg-config
-mod-host-protocol` when it is installed (mod-host's `make install-lib`),
+mod-host-protocol` when it is installed (mod-host's `make install-lib`, which
+FreeMixer/mod-host has from 0.10.7: 0.10.6 and earlier have no such target, so
+0.10.7 is the floor for this path),
 otherwise from `MOD_HOST_DIR`, a mod-host tree where the library is built if
 missing. The daemon needs libc and that library and nothing else.
 
