@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.15.2
+Version: 0.15.3
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -33,7 +33,7 @@ BuildRequires: omx-clap-host-tests >= 0.25.0
 # the reader that holds the committed render of the daemon's verbs to data/verbs.json (make check-rendered)
 BuildRequires: omx-contract >= 3.4.0
 # the shared verbs and the reply.host.* codes data/verbs.json refers to (make check-rendered, test-verbs-declared)
-BuildRequires: omx-clap-core-contract >= 0.23.0
+BuildRequires: omx-clap-core-contract >= 0.25.1
 %endif
 # the format tables and the verbs, which readers read at run time
 Requires: %{name}-contract = %{version}-%{release}
@@ -67,7 +67,7 @@ Summary: plugin-hostd's format tables and verbs, for programs that read them at 
 BuildArch: noarch
 # verbs.json refuses with omx-clap-core's reply.host.* codes for the numbers both hosts answer: a reader of this
 # package reads that one too; a floor only
-Requires: omx-clap-core-contract >= 0.23.0
+Requires: omx-clap-core-contract >= 0.25.1
 # the tables live in omx-contract's contract directory and are read against its schema: 3.2.0 is the first whose
 # source field takes an index (omx_clap_panel_display.meter_ids[0]), so an older one never sits beside a table it
 # refuses; a floor only
@@ -160,6 +160,19 @@ make test-daemon check-generated check-rendered
 %{_datadir}/omx-contract/contract.d/3/plugin-hostd/
 
 %changelog
+* Fri Oct 30 2026 Pau Aliagas <linuxnow@gmail.com> - 0.15.3-1
+- probe: the memory limit is memory.max of a cgroup the measured child runs
+  in, and hitting it is probe.memory-limit; a machine that gives none falls
+  back to RLIMIT_DATA and says why (plugin-qualify#114).
+- probe output 1.3: a grid point carries the child's memory footprint.
+- estimate answers RAM: what the workers hold now, what the members would
+  add with what they share counted once, the host's ram_budget_mb, and how
+  many members have no figure.
+- probe: the measured child drops every capability and its bounding set
+  (#253).
+- A CLAP file whose name holds whitespace is addressed by its percent-
+  encoded path (#240).
+
 * Fri Oct 30 2026 Pau Aliagas <linuxnow@gmail.com> - 0.15.2-1
 - describe: a travel with both lv2:integer and pprops:logarithmic is log, in
   either order (#142, #307).
