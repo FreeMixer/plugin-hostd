@@ -110,6 +110,16 @@ def main():
             check(kinds.get("enable") == "toggle", "a toggle listed with its port's records %s stays a toggle (%s)"
                   % (order, kinds.get("enable") or r.stderr.strip()))
 
+        # a travel with lv2:integer and pprops:logarithmic is log in either order (#142)
+        for order, extra in (("integer first", "port:6\tlv2:portProperty\tlv2:integer\n"), ("integer last", None)):
+            lines = list(rest + port10)
+            at = next(i for i, l in enumerate(lines) if l.startswith("port:6\t") and "pprops:logarithmic" in l)
+            lines.insert(at if extra else at + 1, "port:6\tlv2:portProperty\tlv2:integer\n")
+            r = describe(CASES["lv2-compressor"], scratch(tmp, "scale-order.tsv", "".join(lines)))
+            scales = {c["id"]: (c.get("travel") or {}).get("scale") for c in json.loads(r.stdout or "{}").get("controls", [])} if r.returncode == 0 else {}
+            check(scales.get("ratio") == "log", "a travel with lv2:integer and pprops:logarithmic, %s, is log (%s)"
+                  % (order, scales.get("ratio") or r.stderr.strip()))
+
         # refusals: each exits 2 and names what it refuses
         lv2 = open(os.path.join(FIELDS, "lv2-compressor.tsv")).read()
         clap = open(os.path.join(FIELDS, "clap-controls.tsv")).read()
