@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # No pins: a dependency is declared in the packaging alone, the RPM spec and debian/control, as a floor only (>= the
-# lowest version with the API it uses; no ceiling, operator ruling 2026-10-15), installed from the FreeMixer channel by dnf builddep / apt-get build-dep. No pins file,
+# lowest version with the API it uses; no ceiling, decided 2026-10-15), installed from the FreeMixer channel by dnf builddep / apt-get build-dep. No pins file,
 # no submodule, no ref or sha a workflow checks a sibling out at, no sibling built from source.
 # omx-clap-core is a build dependency of the check stage only (%if %{with check} in the spec, <!nocheck> in
 # debian/control), so plugin-hostd builds with none of it present.
@@ -102,7 +102,7 @@ def control_edges(text):
 
 
 def check_stage_only(root):
-    """omx-clap-core is a build dependency of the check stage only (operator ruling 2026-10-16, plugin-hostd#32): a
+    """omx-clap-core is a build dependency of the check stage only (decided 2026-10-16, plugin-hostd#32): a
     build with `rpmbuild --without check` or `dpkg-buildpackage -P nocheck` needs nothing of it, so the two repositories
     do not build-depend on each other"""
     spec = open(os.path.join(root, "packaging", "plugin-hostd.spec")).read()
