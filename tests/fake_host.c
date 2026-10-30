@@ -89,6 +89,7 @@
  * a world that is no bundle (plugin-hostd#105: a world of a few dozen stray files buries the marker under 5 KB).
  */
 
+#include <ctype.h>
 #include <dirent.h>
 #include <getopt.h>
 #include <fcntl.h>
@@ -365,6 +366,12 @@ static void receive(msg_t *msg)
     else if (verb_is(verb, EFFECT_SET_BPM) || verb_is(verb, EFFECT_SET_BPB) || verb_is(verb, TRANSPORT) ||
              verb_is(verb, TRANSPORT_SYNC))
         answer(fd, getenv("FAKE_REFUSE_SETTINGS") ? "resp -902" : "resp 0");
+    else if (presets_learn && !strcmp(presets_learn, "answer") && verb_is(verb, EFFECT_PRESET_SHOW) && ntok == 3 &&
+             isdigit((unsigned char)tok[1][0]))
+        /* the instance form: one line of JSON, as docs/presets.md declares it (mod-host's form, a uri, answers resp 0) */
+        answer(fd, n >= 0 && n < MAX_INST && g_inst[n].exists
+                       ? "resp 0 {\"name\":\"Warm\",\"loadKey\":\"warm\",\"location\":\"file:///presets/warm.json\"}"
+                       : "resp -3");
     else if (presets_learn && (verb_is(verb, EFFECT_PRESET_SHOW) || verb_is(verb, BUNDLE_ADD) ||
                                verb_is(verb, BUNDLE_REMOVE)))
         answer(fd, strcmp(presets_learn, "answer") ? "resp -902" : "resp 0");

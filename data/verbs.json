@@ -595,6 +595,34 @@
         },
         "doc": "One preset, 0 to count - 1: the key preset_load takes for it, and its name."
       },
+      "presetShow": {
+        "verb": "preset_show",
+        "format": "preset_show %i %s",
+        "reply": "resp 0 <json>",
+        "codes": [
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.presetNotOffered"
+          },
+          {
+            "ref": "PLUGIN_HOSTD_REPLY_CODES.presetInvalid"
+          },
+          {
+            "ref": "HOST_REPLY_CODES.instanceNonExists"
+          },
+          {
+            "ref": "HOST_REPLY_CODES.memoryAllocation"
+          },
+          {
+            "ref": "HOST_REPLY_CODES.invalidOperation"
+          }
+        ],
+        "implementedBy": {
+          "plugin-hostd": "unsupported",
+          "omx-clap-host": "optional",
+          "mod-host": "unsupported"
+        },
+        "doc": "What a load of the preset would apply, on one line of JSON: the preset file's document with each state body's bytes replaced by its decoded size, or for a listed preset its name, loadKey and location. The instance form; mod-host's preset_show <uri> is its own verb."
+      },
       "historyGet": {
         "verb": "history_get",
         "format": "history_get %s",
