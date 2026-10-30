@@ -19,7 +19,7 @@ PROBE = os.environ.get("PROBE", os.path.join(ROOT, "plugin-hostd-probe"))
 FIELDS = os.path.join(ROOT, "tests", "fixtures", "fields")
 TABLES = os.path.join(ROOT, "data", "formats")
 CASES = {"clap-controls": "clap:controls.clap#org.freemixer.plugin-qualify.fixture.controls",
-         "lv2-compressor": "lv2:urn:example:compressor"}
+         "lv2-compressor": "lv2:urn:example:compressor", "lv2-eq": "lv2:urn:example:eq"}
 # omx-contract's reader and a data tree it reads (an omx-contract checkout's data/), when OMX_CONTRACT_CLI and
 # OMX_CONTRACT_DATA name them; READER_VERSION, the reader's schema, stands for the floor the descriptor states, which a
 # reader older than 3.0.0 refuses

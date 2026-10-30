@@ -341,6 +341,18 @@ static int apply(scan_t *s, entry_t *e, const row_t *r, const char *field, const
     else if (e->kind == 'g')
         return refuse("%s %s: %s is a control's or a port's word, and the scope is the plugin", e->scope, field,
                       WORDS[r->word].word);
+    if (!strcmp(r->key, "pg:subGroupOf"))
+    {
+        /* one level above the group read so far: the path is read outermost first */
+        const char *below = get(e, "controls[].group");
+        sb_t b = { 0 };
+
+        if (below == NULL || below[0] != '[' || v[0] != '[')
+            return refuse("%s %s %s: a pg:subGroupOf with no pg:group before it", e->scope, field, value);
+        sb_printf(&b, "[%.*s, %s", (int)strlen(v) - 2, v + 1, below + 1);
+        free(v);
+        v = b.s;
+    }
     assign(to, r->word, v);
     free(v);
     return 0;
@@ -677,7 +689,7 @@ static int put_port(sb_t *b, entry_t *const *run, size_t n, int first)
     {
         jnode_t *g = jparse(group);
 
-        sb_str(b, g && g->type == J_ARR && g->n ? g->kid[0]->str : "port");
+        sb_str(b, g && g->type == J_ARR && g->n ? g->kid[g->n - 1]->str : "port");
     }
     else
         sb_printf(b, "%s", id[0] == '"' ? id : "\"port\"");
