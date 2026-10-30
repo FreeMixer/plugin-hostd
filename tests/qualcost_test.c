@@ -174,8 +174,18 @@ static void a_directory_that_is_not_there_gives_no_figure(void)
     CHECK(qualcost_read(NULL, "org.example.a", 48000, 128) == -1.0, "no name");
 }
 
+static void a_percent_encoded_iri_finds_the_record_of_its_decoded_spelling(void)
+{
+    record("urn_a_b@1-x.lv2.qualification.json", "urn:a b", 48000, 128, 5000);
+    CHECK(fabs(qualcost_read(g_dir, "urn:a%20b", 48000, 128) - 0.24) < 1e-12, "encoded id, decoded record");
+    record("urn_a_20c@1-x.lv2.qualification.json", "urn:a%20c", 48000, 128, 5000);
+    CHECK(fabs(qualcost_read(g_dir, "urn:a%20c", 48000, 128) - 0.24) < 1e-12, "same spelling still finds it");
+    CHECK(qualcost_read(g_dir, "urn:a%2", 48000, 128) == -1.0, "a stray percent is no escape");
+}
+
 static const struct { const char *name; void (*fn)(void); } g_tests[] = {
 #define T(f) { #f, f }
+    T(a_percent_encoded_iri_finds_the_record_of_its_decoded_spelling),
     T(the_figure_is_the_p95_at_the_rate_and_quantum_as_a_fraction_of_a_core),
     T(a_rate_or_quantum_the_record_lacks_is_unknown),
     T(the_larger_of_two_records_of_one_plugin_stands),

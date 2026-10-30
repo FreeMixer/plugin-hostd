@@ -1,16 +1,15 @@
-Breaks the check of fuzz/fuzz_command.c:391 (the verdict, the word the controller wrote after its key).
+Breaks the check of fuzz/fuzz_command.c check_words_pin_set (the verdict and the pool, each the word the controller
+wrote after its key).
 Caught by the seed input "plugin-hostd-pin_set-full" of fuzz_command.
 
-diff --git a/src/verbs.c b/src/verbs.c
-index 3b7feba..dd7178d 100644
---- a/src/verbs.c
-+++ b/src/verbs.c
-@@ -81,7 +81,7 @@ static int pin_set_words(const char *line, char **tok, int ntok)
-     {
-         if (strncmp(tok[4], PHD_PIN_VERDICT_KEY, key))
+--- a/src/pin_words.c
++++ b/src/pin_words.c
+@@ -46,7 +46,7 @@ int pins_words(char **word, int n, const char **verdict, const char **pool)
              return ERR_INVALID_OPERATION;
--        verdict = tok[4] + key;
-+        verdict = tok[4];
+         if (*into)
+             return ERR_INVALID_OPERATION;
+-        *into = word[k] + key;
++        *into = word[k];
      }
-     rc = pins_set(tok[1], tok[2], tok[3], verdict);
-     /* the files of the plugin changed: the adapter may now take one it refused */
+     return SUCCESS;
+ }

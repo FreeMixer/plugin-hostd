@@ -343,7 +343,7 @@ static inline int phd_pool_name_valid(const char *name)
     X(PRESET_NOT_OFFERED, OMX_REPLY_PLUGIN_HOSTD_PRESET_NOT_OFFERED_RESP, "the worker: preset_load or preset_show of a stable name the plugin does not offer, or of a " \
                           "plugin with no preset system and no state") \
     X(PRESET_INVALID, OMX_REPLY_PLUGIN_HOSTD_PRESET_INVALID_RESP, "preset_save with a file path that is not absolute or with no name, or preset_load or " \
-                      "preset_show of a file that cannot be read, is no JSON, is of a format version other than " \
+                      OMX_VERB_PRESET_SHOW " of a file that cannot be read, is no JSON, is of a format version other than " \
                       PHD_PRESET_FORMAT_1 " and " PHD_PRESET_FORMAT_2 ", or breaks the format (docs/presets.md): the " \
                       "daemon answers it and no worker sees the file") \
     X(PRESET_NEEDS_STATE, OMX_REPLY_PLUGIN_HOSTD_PRESET_NEEDS_STATE_RESP, "the worker: a preset file that carries state for a worker that cannot take state yet") \
@@ -399,6 +399,16 @@ static inline int phd_pool_name_valid(const char *name)
     X(IN_PROCESS, PHD_PIN_VERDICT_IN_PROCESS, "qualified to run in a worker that other plugins share") \
     X(ISOLATED, PHD_PIN_VERDICT_ISOLATED, "qualified to run, in a worker of its own") \
     X(REFUSED, PHD_PIN_VERDICT_REFUSED, "failed qualification: the pin records the bytes, a host should not load them")
+
+/* the optional word after the verdict: whether the plugin's qualification measured the CLAP thread pool (docs/thread-pool.md of
+ * omx-clap-core) real-time safe and faster at the quantum, X(id, name, meaning); a plugin with no word runs serial */
+#define PHD_PIN_POOL_KEY   "pool="
+#define PHD_PIN_POOL_CORES "cores"
+#define PHD_PIN_POOL_OFF   "off"
+#define PHD_PIN_POOLS(X) \
+    X(CORES, PHD_PIN_POOL_CORES, "its worker starts with the thread pool on, one helper per core of its cpu set but one, and " \
+                                 "no other plugin shares the worker") \
+    X(OFF, PHD_PIN_POOL_OFF, "measured, and not faster or not safe with the pool: the worker keeps no option")
 
 /* what pin_changed names as changed */
 #define PHD_PIN_CHANGED_FILES  "files"
@@ -461,9 +471,10 @@ static inline int phd_pool_name_valid(const char *name)
       "the cpu list and the nice value of the workers of a format, at spawn and on the ones running") \
     X(PIN_SET, OMX_VERB_PIN_SET, "<uri> <path>" PHD_PIN_DIGEST_SEPARATOR "<sha256>[" PHD_PIN_FILE_SEPARATOR "<path>" \
       PHD_PIN_DIGEST_SEPARATOR "<sha256>...] <scheme>" PHD_PIN_SCHEME_SEPARATOR "<sha256> [" PHD_PIN_VERDICT_KEY \
-      "<verdict>]", OMX_VERB_PIN_SET_REPLY, \
+      "<verdict>] [" PHD_PIN_POOL_KEY "<pool>]", OMX_VERB_PIN_SET_REPLY, \
       "the pin of one plugin: the SHA-256 of every file the host loads for it, a path relative to the bundle (the " \
-      "directory of a single-file format's file), its layout fingerprint and, when it is known, the verdict of its qualification; " \
+      "directory of a single-file format's file), its layout fingerprint and, when they are known, the verdict of its qualification and whether its worker gets the " \
+      "CLAP thread pool; " \
       "it replaces an earlier pin of the uri; -516 for a plugin whose pins_dir pin carries " PHD_PIN_VERDICT_KEY \
       PHD_PIN_VERDICT_REFUSED ", which nothing overrides. The pin store, a pin_file and a pins_dir file hold the same " \
       "line, with or without the verb") \
@@ -824,7 +835,7 @@ static inline int phd_is_note_verb(const char *verb)
     X("bundle_remove", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
     X("preset_load", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
     X("preset_save", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
-    X("preset_show", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X(OMX_VERB_PRESET_SHOW, MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
     X("transport", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
     X("transport_sync", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
     X("cpu_load", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
@@ -1010,6 +1021,11 @@ static inline int phd_is_note_verb(const char *verb)
 
 /* a worker is started with a command port and a feedback port of its own, both on loopback and private to it */
 #define PHD_WORKER_ARGUMENTS "-n -p <command port> -f <feedback port>"
+/* the option a worker of a plugin whose pin carries pool=cores is started with, after those; every other worker keeps no
+ * option, the worker's `qualified`, which grants the pool to no plugin. worker_list names which with these words */
+#define PHD_WORKER_THREAD_POOL_ON "--thread-pool=on"
+#define PHD_WORKER_POOL_ON        "on"
+#define PHD_WORKER_POOL_QUALIFIED "qualified"
 
 /* what the daemon does with the lines a worker writes on its feedback port: X(id, meaning) */
 #define PHD_RELAY(X) \
@@ -1030,10 +1046,11 @@ static inline int phd_is_note_verb(const char *verb)
 
 /* ---------------------------------------------------------------- settings */
 
+#include <plugin-hostd/search_paths.h>
+
 #define PHD_DEFAULT_MOD_HOST          "mod-host"
 #define PHD_DEFAULT_CLAP_HOST         "omx-clap-host"
 #define PHD_DEFAULT_LV2_WORKER        PHD_LV2_WORKER_AUTO
-#define PHD_DEFAULT_LV2_PATH          "/usr/lib64/lv2:/usr/lib/lv2:/usr/local/lib/lv2"
 #define PHD_DEFAULT_STATE_ROOT        "/tmp"
 #define PHD_DEFAULT_READY_TIMEOUT_MS  5000
 #define PHD_DEFAULT_RPC_TIMEOUT_MS    5000
@@ -1113,6 +1130,10 @@ static inline int phd_is_note_verb(const char *verb)
       "first, mod-host for what it refuses, each such plugin in a worker of its own unless its add names a placement); " \
       OMX_VERB_LV2_WORKER_SET " overrides it for one plugin") \
     X(lv2_path, pathlist, PHD_DEFAULT_LV2_PATH, "LV2_PATH", "where bundles are searched") \
+    X(lv2_extra, pathlist, "", "", "the site's own bundle folders, searched after lv2_path: the one declaration of them, " \
+      "which plugin-qualify and omx-panel read too") \
+    X(clap_path, pathlist, PHD_DEFAULT_CLAP_PATH, "", "where .clap files are searched by whoever searches (plugin-qualify, " \
+      "omx-panel); an add names its file, so the daemon loads none by search; $CLAP_PATH is searched before it") \
     X(state_root, path, PHD_DEFAULT_STATE_ROOT, "XDG_RUNTIME_DIR", "the daemon's checkpoints and worker logs") \
     X(pin_mode, word, PHD_DEFAULT_PIN_MODE, "", "strict or first-use, while require_pins is 1: first-use records the pin " \
       "of a plugin on its first add, strict admits only a plugin a controller, a pin_file or pins_dir pinned") \

@@ -63,7 +63,7 @@ Limits
 One Zynthian chain, one chain line
 ---------------------------------
 
-The 2026-10-21 ruling on plugin-hostd#101: one Zynthian chain is one plugin-hostd `chain` line. The engine
+The decision on plugin-hostd#101: one Zynthian chain is one plugin-hostd `chain` line. The engine
 (`zyngine/zynthian_plugind_chain.py`, in the spike's engine patch) says a chain's audio slots to the daemon
 through the chain verb only. No `connect` or `disconnect` between plugind instances is sent.
 
@@ -101,7 +101,7 @@ strip's slot or into a foreign processor's is Zynthian's own, and a parallel slo
 Parallel slots: refused by name
 -------------------------------
 
-What Zynthian does today: every processor of a slot gets the previous slot's sources (`chain.py:342-346`, the same
+What Zynthian does: every processor of a slot gets the previous slot's sources (`chain.py:342-346`, the same
 `prev_slot_sources` for each member: a fan-out), and the NEXT slot, or the chain's outputs, gets the list of all
 members as its sources (`chain.py:347`, `:359-360`). autoconnect then connects every member's output ports to the same
 input ports of the next destination (`autoconnect.py:1089-1097`), and JACK sums them at that input. The mix is

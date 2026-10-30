@@ -1,5 +1,5 @@
-Zynthian captures, 2026-10-29
-=============================
+Zynthian captures
+=================
 
 Screens of the generated menus, the MOD GUIs and the plugin figures, taken on a Raspberry Pi 5 running the
 plugin-hostd engine of the Zynthian fork. The images are in [evidence/captures-2026-10-29/](evidence/captures-2026-10-29/), one folder per plugin.
@@ -142,7 +142,7 @@ Not captured
 Usage information
 -----------------
 
-What the UI shows today: every plugin-hostd row carries latency (measured/declared frames), RT safety and cost.
+What the UI shows: every plugin-hostd row carries latency (measured/declared frames), RT safety and cost.
 Cost reads unknown on the device because the records have no cell at its 48000 Hz and 256 frames. The chain
 estimate footer at the bottom of the plugin list reads "estimate unavailable" on plugin-hostd 0.13.1, which does not
 answer the estimate verb; it is shown as it is.
@@ -151,8 +151,8 @@ What comes next: the estimate verb (plugin-hostd#224) gives the chain's latency,
 plugins in the chain plus the highlighted one, and zynthian-ui#13 shows CPU and RAM per chain before an insert; the
 footer then reads figures in place of "estimate unavailable".
 
-29 October, afternoon
----------------------
+With the preset banks: zynthian-ui a136591b, plugin-hostd 0.14.0
+----------------------------------------------------------------
 
 The Pi 5 on zynthian-ui `a136591b` (the fork's vangelis with the two preset changes: every plugin-hostd plugin shows
 the banks Factory and User), plugin-hostd 0.14.0, omx-clap-host 0.24.0, plugin-qualify 0.17.2, omx-plugins 0.16.0,

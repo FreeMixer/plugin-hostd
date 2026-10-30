@@ -1,0 +1,39 @@
+# omx-clap-scan --fields 1
+plugin	rdfs:seeAlso	eq.lv2/eq.ttl
+plugin	doap:name	Example EQ
+plugin	rdf:type	lv2:Plugin
+plugin	rdf:type	lv2:EQPlugin
+port:0	lv2:symbol	in
+port:0	lv2:name	Input
+port:0	rdf:type	lv2:AudioPort
+port:0	rdf:type	lv2:InputPort
+port:1	lv2:symbol	out
+port:1	lv2:name	Output
+port:1	rdf:type	lv2:AudioPort
+port:1	rdf:type	lv2:OutputPort
+port:2	lv2:symbol	b1_freq
+port:2	lv2:name	Band 1 frequency
+port:2	rdf:type	lv2:ControlPort
+port:2	rdf:type	lv2:InputPort
+port:2	lv2:minimum	20
+port:2	lv2:maximum	20000
+port:2	lv2:default	1000
+port:2	pg:group	Band 1
+port:2	pg:subGroupOf	Bands
+port:3	lv2:symbol	b2_freq
+port:3	lv2:name	Band 2 frequency
+port:3	rdf:type	lv2:ControlPort
+port:3	rdf:type	lv2:InputPort
+port:3	lv2:minimum	20
+port:3	lv2:maximum	20000
+port:3	lv2:default	1000
+port:3	pg:group	Band 2
+port:3	pg:subGroupOf	Bands
+port:4	lv2:symbol	trim
+port:4	lv2:name	Trim
+port:4	rdf:type	lv2:ControlPort
+port:4	rdf:type	lv2:InputPort
+port:4	lv2:minimum	20
+port:4	lv2:maximum	20000
+port:4	lv2:default	1000
+port:4	pg:group	Master

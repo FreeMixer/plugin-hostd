@@ -267,6 +267,45 @@ static const char *get(const entry_t *e, const char *word)
     return NULL;
 }
 
+/* a travel's scale: an explicit pprops:logarithmic (log) wins over the stepped lv2:integer gives, whichever record the
+ * dump lists first, so the result does not follow the scanner's node order (plugin-hostd#142, docs/formats.md) */
+static const char *scale_of(const entry_t *e)
+{
+    int w = word_index("controls[].travel.scale");
+    const char *last = NULL;
+    size_t i;
+
+    for (i = e->n; i-- > 0;)
+        if (e->a[i].word == w)
+        {
+            if (!strcmp(e->a[i].value, "\"log\""))
+                return e->a[i].value;
+            if (last == NULL)
+                last = e->a[i].value;
+        }
+    return last;
+}
+
+/* a control's kind: travel is what lv2:ControlPort makes any control port, and a more specific kind (toggle, choice,
+ * trigger) another record of the same port gives wins over it, whichever record the dump lists first: omx-clap-scan
+ * lists a port's records by field, so rdf:type lv2:ControlPort comes after lv2:portProperty lv2:toggled */
+static const char *kind_of(const entry_t *e)
+{
+    int w = word_index("controls[].kind");
+    const char *last = NULL;
+    size_t i;
+
+    for (i = e->n; i-- > 0;)
+        if (e->a[i].word == w)
+        {
+            if (strcmp(e->a[i].value, "\"travel\""))
+                return e->a[i].value;
+            if (last == NULL)
+                last = e->a[i].value;
+        }
+    return last;
+}
+
 static void carry(scan_t *s, const char *scope, const char *field, const char *value)
 {
     char key[256];
@@ -341,6 +380,18 @@ static int apply(scan_t *s, entry_t *e, const row_t *r, const char *field, const
     else if (e->kind == 'g')
         return refuse("%s %s: %s is a control's or a port's word, and the scope is the plugin", e->scope, field,
                       WORDS[r->word].word);
+    if (!strcmp(r->key, "pg:subGroupOf"))
+    {
+        /* one level above the group read so far: the path is read outermost first */
+        const char *below = get(e, "controls[].group");
+        sb_t b = { 0 };
+
+        if (below == NULL || below[0] != '[' || v[0] != '[')
+            return refuse("%s %s %s: a pg:subGroupOf with no pg:group before it", e->scope, field, value);
+        sb_printf(&b, "[%.*s, %s", (int)strlen(v) - 2, v + 1, below + 1);
+        free(v);
+        v = b.s;
+    }
     assign(to, r->word, v);
     free(v);
     return 0;
@@ -543,7 +594,7 @@ static int by_index(const void *a, const void *b)
 
 static int put_control(sb_t *b, const entry_t *e, const char *format, const char *from, int first)
 {
-    const char *id = get(e, "controls[].id"), *name = get(e, "controls[].name"), *kind = get(e, "controls[].kind");
+    const char *id = get(e, "controls[].id"), *name = get(e, "controls[].name"), *kind = kind_of(e);
     const char *def = get(e, "controls[].travel.default"), *min = get(e, "controls[].travel.min");
     const char *max = get(e, "controls[].travel.max"), *v;
     int w = word_index("controls[].labels");
@@ -617,7 +668,7 @@ static int put_control(sb_t *b, const entry_t *e, const char *format, const char
         sb_printf(b, ", \"default\": %s", def && strtod(def, NULL) != 0 ? "true" : "false");
     else if (!strcmp(kind, "\"travel\""))
     {
-        const char *unit = get(e, "controls[].travel.unit"), *scale = get(e, "controls[].travel.scale");
+        const char *unit = get(e, "controls[].travel.unit"), *scale = scale_of(e);
 
         if (min == NULL || max == NULL)
             return refuse("%s is a travel that states no %s", e->scope, min ? "maximum" : "minimum");
@@ -677,7 +728,7 @@ static int put_port(sb_t *b, entry_t *const *run, size_t n, int first)
     {
         jnode_t *g = jparse(group);
 
-        sb_str(b, g && g->type == J_ARR && g->n ? g->kid[0]->str : "port");
+        sb_str(b, g && g->type == J_ARR && g->n ? g->kid[g->n - 1]->str : "port");
     }
     else
         sb_printf(b, "%s", id[0] == '"' ? id : "\"port\"");

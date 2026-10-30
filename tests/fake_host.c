@@ -32,6 +32,7 @@
  *   param_set <n> crash <v>     v other than 0 aborts 30 ms after the reply (FAKE_CRASH_AFTER_MS to say another), as a
  *                               plugin does in a callback
  *                               (once only when FAKE_CRASH_ONCE names a file: it is created by the crash)
+ *   state_save <dir>            aborts before the reply while the file FAKE_SAVE_CRASH_FILE names exists (only in a worker that holds the instance the file names)
  *   param_set <n> crashnow <v>  v other than 0 aborts before the reply, with the command on the wire
  *   param_set <n> hang <v>      v other than 0 never answers
  *   connect <a> <b>             with FAKE_CONNECT_AFTER_MS set, answers -205 until that long after the worker started,
@@ -88,6 +89,7 @@
  * a world that is no bundle (plugin-hostd#105: a world of a few dozen stray files buries the marker under 5 KB).
  */
 
+#include <ctype.h>
 #include <dirent.h>
 #include <getopt.h>
 #include <fcntl.h>
@@ -364,6 +366,12 @@ static void receive(msg_t *msg)
     else if (verb_is(verb, EFFECT_SET_BPM) || verb_is(verb, EFFECT_SET_BPB) || verb_is(verb, TRANSPORT) ||
              verb_is(verb, TRANSPORT_SYNC))
         answer(fd, getenv("FAKE_REFUSE_SETTINGS") ? "resp -902" : "resp 0");
+    else if (presets_learn && !strcmp(presets_learn, "answer") && verb_is(verb, EFFECT_PRESET_SHOW) && ntok == 3 &&
+             isdigit((unsigned char)tok[1][0]))
+        /* the instance form: one line of JSON, as docs/presets.md declares it (mod-host's form, a uri, answers resp 0) */
+        answer(fd, n >= 0 && n < MAX_INST && g_inst[n].exists
+                       ? "resp 0 {\"name\":\"Warm\",\"loadKey\":\"warm\",\"location\":\"file:///presets/warm.json\"}"
+                       : "resp -3");
     else if (presets_learn && (verb_is(verb, EFFECT_PRESET_SHOW) || verb_is(verb, BUNDLE_ADD) ||
                                verb_is(verb, BUNDLE_REMOVE)))
         answer(fd, strcmp(presets_learn, "answer") ? "resp -902" : "resp 0");
@@ -535,6 +543,22 @@ static void receive(msg_t *msg)
     }
     else if (verb_is(verb, STATE_SAVE) && ntok == 2)
     {
+        /* FAKE_SAVE_CRASH_FILE names a file: while it exists, a state_save aborts before the reply, as a plugin that
+         * dies in its state callback does; with an instance number in the file, only a worker that holds it */
+        if (getenv("FAKE_SAVE_CRASH_FILE"))
+        {
+            FILE *f = fopen(getenv("FAKE_SAVE_CRASH_FILE"), "r");
+            int only = -1;
+
+            if (f)
+            {
+                if (fscanf(f, "%d", &only) != 1)
+                    only = -1;
+                fclose(f);
+                if (only < 0 || (only < MAX_INST && g_inst[only].exists))
+                    crash();
+            }
+        }
         mkdir(tok[1], 0755);
         for (k = 0; k < MAX_INST; k++)
         {
@@ -645,8 +669,16 @@ int main(int argc, char **argv)
     struct sigaction sig;
 
     clock_gettime(CLOCK_MONOTONIC, &g_start);
-    while ((opt = getopt(argc, argv, "np:f:L")) != -1)
-        if (opt == 'p')
+    /* omx-clap-host's --thread-pool=<qualified|off|on>: any other word is refused, as the host refuses it */
+    static const struct option longs[] = {{"thread-pool", required_argument, NULL, 't'}, {NULL, 0, NULL, 0}};
+
+    while ((opt = getopt_long(argc, argv, "np:f:L", longs, NULL)) != -1)
+        if (opt == 't')
+        {
+            if (strcmp(optarg, "qualified") && strcmp(optarg, "off") && strcmp(optarg, "on"))
+                return EXIT_FAILURE;
+        }
+        else if (opt == 'p')
             port = atoi(optarg);
         else if (opt == 'f')
             fb_port = atoi(optarg);

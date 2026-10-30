@@ -84,6 +84,7 @@ typedef struct WORKER_T {
     int fb_port;
     int state;
     int pool;                   /* 1 when place is a pool */
+    int thread_pool;            /* 1 when the process was started with --thread-pool=on (its pin: pool=cores) */
     char place[48];             /* own | pool:<name> */
     int from_split;             /* an own worker born of a pool that died without a culprit */
     instance_t **inst;
@@ -149,6 +150,9 @@ char *sup_connect(const char *verb, const char *line, const char *port_a, const 
 char *sup_broadcast(const char *line);
 /* a command every worker shares: kept when it is one of PHD_HOST_SETTINGS and its words are its grammar */
 void sup_host_setting(const char *line, char **tok, int ntok);
+/* the instance's uri as it goes to a worker, and where its format's plugins are searched; NULL for no such instance */
+const char *sup_instance_uri(int id);
+const char *sup_instance_search(int id);
 /* a verb of PHD_INSTANCE_VERBS: routed to a CLAP worker, answered here for an LV2 instance */
 char *sup_instance_verb(const char *line, int ledger);
 

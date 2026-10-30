@@ -197,7 +197,10 @@ int proc_spawn(const conf_t *conf, const char *bin, const char *world_env, const
             setenv(world_env, world, 1);
         if (env)
             apply_thread(0, env);
-        execlp(bin, bin, "-n", "-p", port_arg, "-f", fb_arg, (char *)NULL);
+        if (env && env->thread_pool)
+            execlp(bin, bin, "-n", "-p", port_arg, "-f", fb_arg, PHD_WORKER_THREAD_POOL_ON, (char *)NULL);
+        else
+            execlp(bin, bin, "-n", "-p", port_arg, "-f", fb_arg, (char *)NULL);
         _exit(127);
     }
     close(log);

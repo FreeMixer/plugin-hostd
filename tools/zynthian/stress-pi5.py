@@ -63,7 +63,9 @@ def lv2_path():
             m = re.match(r'^export LV2_PATH="?([^"\n]*)"?', line)
             if m:
                 return m.group(1)
-    return "/usr/lib/lv2:/usr/local/lib/lv2"
+    # the plugin-hostd default (include/plugin-hostd/search_paths.h), when the image has no envars file
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "search-paths.py")
+    return subprocess.run([sys.executable, "-I", path, "lv2"], capture_output=True, text=True, check=True).stdout.replace("\n", ":").strip(":")
 
 
 def chain_members(c):
@@ -332,9 +334,11 @@ class Daemon:
         recs = reply.split()[2:]
         out = []
         for r in recs:
+            # <worker>:<pid>:<format>:<state>:<core>:<pool>:<place>:<instances> (docs/placement.md); an id followed
+            # by ! is an instance the pins read again refuse, still running
             f = r.split(":")
-            insts = [int(i) for i in f[-1].split(",") if i.isdigit()]
-            out.append({"worker": f[0], "pid": f[1], "row": f[2], "state": f[3], "place": ":".join(f[4:-1]),
+            insts = [int(i.rstrip("!")) for i in f[-1].split(",") if i.rstrip("!").isdigit()]
+            out.append({"worker": f[0], "pid": f[1], "row": f[2], "state": f[3], "place": ":".join(f[6:-1]),
                         "instances": insts})
         return out
 

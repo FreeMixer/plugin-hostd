@@ -58,7 +58,7 @@ In another terminal, add an LV2 plugin, set its gain and ask where it runs
     send "add http://plugin.org.uk/swh-plugins/amp 0"      # resp 0
     send "param_set 0 gain 6"                              # resp 0
     send "param_get 0 gain"                                # resp 0 6.0000
-    send "worker_list"                                     # resp 1 w1:<pid>:lv2:up:1:own:0
+    send "worker_list"                                     # resp 1 w1:<pid>:lv2:up:1:qualified:own:0
 
 The plugin now runs as JACK client `effect_0` in its own process. Link it in your graph as
 you would a mod-host plugin. `man plugin-hostd` has the options; the full protocol is below.
@@ -115,7 +115,9 @@ The settings live in a file, `-c`, `$PLUGIN_HOSTD_CONF` or
 | `mod_host` | `mod-host` | worker for lv2 (a name on PATH or a path) |
 | `clap_host` | `omx-clap-host` | worker for clap |
 | `lv2_worker` | `auto` | who runs an LV2 plugin: mod-host (the mod_host program), omx-clap-host (the clap_host program, through its LV2 adapter, a plugin it cannot run refused with a code) or auto (the adapter first, mod-host for what it refuses, each such plugin in a worker of its own unless its add names a placement); lv2_worker_set overrides it for one plugin |
-| `lv2_path` | `$LV2_PATH`, else `/usr/lib64/lv2:/usr/lib/lv2:/usr/local/lib/lv2` | where bundles are searched |
+| `lv2_path` | `$LV2_PATH`, else `/usr/lib/lv2:/usr/lib/x86_64-linux-gnu/lv2:/usr/lib/aarch64-linux-gnu/lv2:/usr/lib/arm-linux-gnueabihf/lv2:/usr/local/lib/lv2:/usr/local/lib/x86_64-linux-gnu/lv2:/usr/local/lib/aarch64-linux-gnu/lv2:/usr/local/lib/arm-linux-gnueabihf/lv2:/usr/lib64/lv2:/usr/local/lib64/lv2` | where bundles are searched |
+| `lv2_extra` | `` | the site's own bundle folders, searched after lv2_path: the one declaration of them, which plugin-qualify and omx-panel read too |
+| `clap_path` | `~/.clap:/usr/lib/clap` | where .clap files are searched by whoever searches (plugin-qualify, omx-panel); an add names its file, so the daemon loads none by search; $CLAP_PATH is searched before it |
 | `state_root` | `$XDG_RUNTIME_DIR`, else `/tmp` | the daemon's checkpoints and worker logs |
 | `pin_mode` | `first-use` | strict or first-use, while require_pins is 1: first-use records the pin of a plugin on its first add, strict admits only a plugin a controller, a pin_file or pins_dir pinned |
 | `grouping` | `off` | off or on: whether plan applies its plan (a run of consecutive members that may share a worker is declared as a chain), or only answers it; the default stays off until the benchmark has published a win |
@@ -148,6 +150,14 @@ The settings live in a file, `-c`, `$PLUGIN_HOSTD_CONF` or
 | `group_quantum` | 128 frames | the quantum the cost of a member is read at |
 | `require_pins` | 1  | 1: add admits only a plugin that has a pin (see pin_mode), its files hashed before any worker sees it, and a plugin of a format whose pin holds only in a world of its own gets a worker of its own, its world the plugin's files (a default that resolves to a pool is placed own); 0: no pin is checked |
 <!-- END GENERATED protocol:config -->
+
+Where plugins are searched is written once, in `include/plugin-hostd/search_paths.h`. The LV2 default is Zynthian's own
+`LV2_PATH` order (`/usr/lib/lv2`, `/usr/lib/<multiarch>/lv2`, `/usr/local/lib/lv2`, `/usr/local/lib/<multiarch>/lv2`)
+and then the lib64 folders; the CLAP rule is CLAP's own, `$CLAP_PATH`, then `~/.clap`, then `/usr/lib/clap`. A site adds
+its own folders in `lv2_extra` (a Zynthian image: `/zynthian/zynthian-plugins/lv2` and the like), searched after
+`lv2_path`; plugin-qualify and omx-panel read `lv2_path`, `lv2_extra` and `clap_path` from this file, or run
+`tools/search-paths.py lv2|clap [--existing] [--env]`, and keep no list of their own. The benchmark and the scripts of
+`tools/zynthian/` use the same script.
 
 <!-- BEGIN GENERATED protocol:constants -->
 | name | value | meaning |
@@ -209,14 +219,14 @@ Verbs the daemon adds
 | verb | arguments | reply | meaning |
 |---|---|---|---|
 | `add` | `<uri> <instance> [own \| pool:<name> \| default] [client_name]` | `resp <instance>` | mod-host's add with a placement; a token after the instance that is not a placement is the jack client name |
-| `worker_list` | none | `resp <n> <worker>:<pid>:<format>:<state>:<core>:<place>:<i>,<i>,...` | the workers, one record each |
+| `worker_list` | none | `resp <n> <worker>:<pid>:<format>:<state>:<core>:<pool>:<place>:<i>,<i>,...` | the workers, one record each |
 | `instance_info` | `<instance>` | `resp 0 <worker> <pid> <state> <crashes> <quarantined>` | where an instance lives and what it has cost |
 | `supervisor_reset` | `[<worker> \| all]` | `resp 0` | re-arm the storm bound and the backoff of a given-up placement |
 | `quarantine_clear` | `<instance> \| all` | `resp 0` | let a quarantined instance go back where its placement says |
 | `policy_set` | `<format \| *> own \| pool:<name>` | `resp 0` | the placement of an add that says default |
 | `pool_config` | `<name> <max_instances>` | `resp 0` | the instances a pool holds before a sibling opens |
 | `worker_env` | `<format \| *> <cpu-list\|-> <nice\|->` | `resp 0` | the cpu list and the nice value of the workers of a format, at spawn and on the ones running |
-| `pin_set` | `<uri> <path>=<sha256>[,<path>=<sha256>...] <scheme>:<sha256> [verdict=<verdict>]` | `resp 0` | the pin of one plugin: the SHA-256 of every file the host loads for it, a path relative to the bundle (the directory of a single-file format's file), its layout fingerprint and, when it is known, the verdict of its qualification; it replaces an earlier pin of the uri; -516 for a plugin whose pins_dir pin carries verdict=refused, which nothing overrides. The pin store, a pin_file and a pins_dir file hold the same line, with or without the verb |
+| `pin_set` | `<uri> <path>=<sha256>[,<path>=<sha256>...] <scheme>:<sha256> [verdict=<verdict>] [pool=<pool>]` | `resp 0` | the pin of one plugin: the SHA-256 of every file the host loads for it, a path relative to the bundle (the directory of a single-file format's file), its layout fingerprint and, when they are known, the verdict of its qualification and whether its worker gets the CLAP thread pool; it replaces an earlier pin of the uri; -516 for a plugin whose pins_dir pin carries verdict=refused, which nothing overrides. The pin store, a pin_file and a pins_dir file hold the same line, with or without the verb |
 | `pin_clear` | `<uri> \| all` | `resp 0` | forget the pin of one plugin, or of every one; a pins_dir pin is read-only and holds again |
 | `pin_reload` | none | `resp 0` | read the pin_file and the pins_dir files again and put the pins in at once, without a restart; the daemon also does this by itself when one of those files changes. Running instances keep running: one the new pins refuse is logged and its id in worker_list is followed by !. The pin_set pins of the controller are kept. -902 under pin_mode off or when the pin_file is gone or has a line outside the grammar, and the earlier pins hold |
 | `pin_changed` | `[<uri>] [files \| layout]` | `resp 0` | the notice the package sync sends to every daemon it knows after it rewrote the pin file: the same as pin_reload, with or without the pin_changed event's words after it; more words than those are -902 |
@@ -239,9 +249,11 @@ Verbs the daemon adds
 A `<state>` is `up` (accepting commands), `starting` (spawned, not yet accepting), `backoff` (dead, waiting to be respawned), `given-up` (the storm bound is spent for its placement).
 <!-- END GENERATED protocol:verbs -->
 
-A record's place holds a colon (`pool:p`), so a `worker_list` record is read from both ends: five fields on the
+A record's place holds a colon (`pool:p`), so a `worker_list` record is read from both ends: six fields on the
 left, the instance list on the right, the place in between. The fifth is the audio core the setting `placement` pinned
-the worker to, `-` for none ([docs/placement.md](docs/placement.md)).
+the worker to, `-` for none ([docs/placement.md](docs/placement.md)). The sixth is the worker's thread pool: `on` for a
+worker started with `--thread-pool=on`, which only a CLAP or lv2-clap worker of one plugin whose pin carries `pool=cores`
+is, `qualified` for every other (the worker's default, which grants the pool to no plugin).
 
 `panel_get` gives a host that draws a plugin's panel itself (Zynthian's engine, a console) the panel the plugin
 publishes, as the scan of its add read it: sections, controls with their widget and visibility rule, roles, displays
@@ -256,9 +268,19 @@ instance verbs and passes the worker's reply through; the worker answers them fr
 `clap.remote-controls`, `clap.params`), except `param_info`: omx-clap-host answers it from the param contract (`org.openmixer.param-contract/1`), and
 `-511` for a parameter the worker holds no checked contract for (and `-103` for a symbol that is no parameter). `-511`
 is the stable answer to read as "no contract; fall back to the layout from `omx-clap-scan`"; the daemon passes it through
-and drops nothing. For an LV2 instance the daemon answers them itself, never forwarding them, so
-mod-host learns none of them: `track_info` is kept and answered `resp 0`, an LV2 plugin has no remote pages, and
-`param_info` answers `-511` until the daemon reads the bundle's port data. When a CLAP plugin changes its pages, its
+and drops nothing. For an LV2 instance on mod-host the daemon answers them itself, never forwarding them, so
+mod-host learns none of them: `track_info` is kept and answered `resp 0`, and the other two come from the bundle's
+Turtle, read when they are asked (the manifest and the files it names with `rdfs:seeAlso`). `remote_pages` and
+`remote_page_get` make a page of each `pg:group`'s control inputs in port order (the group's `lv2:name`, else its
+`rdfs:label`; a further page, "Name 2", for each 8 past the first), one page named Controls for the control inputs in
+no group, the pages in the order their group first appears; outputs and `pprops:notOnGUI` ports are on no page, a slot
+is the port's symbol, and the section is empty. `param_info` answers a control port from its own statements: its
+`units:unit` (the words of `data/formats/lv2.json`, empty for a port with none), `stepped` for an integer, toggled or
+enumeration port, `log` for a `pprops:logarithmic` port whose bounds are positive and `linear` otherwise, its
+`lv2:minimum`, `lv2:maximum` and `lv2:default` (a toggled port's are 0, 1 and 0 when it states none), a step of 1 for
+a stepped port and 0 for the others, and its symbol. `-511` stays the answer for a port with a unit the table has no
+word for (a unit of the plugin's own) or no range, and `-103` for a symbol that is no control port. A bundle the
+daemon cannot find or read has no pages, and `param_info` asks mod-host as it did. When a CLAP plugin changes its pages, its
 worker writes `remote_pages_changed <instance>` on its feedback port and the daemon relays it.
 
 Notes are played the same way, by a controller that is not a jack client (a web console, a test, a MIDI surface on the
@@ -297,7 +319,7 @@ The ledger keeps the latest `track_info` of an instance and replays it after the
 What each host profile owes every verb a controller sends: mod-host's commands, the two that Zynthian's mod-ui still
 names, and the verbs the daemon adds. A verb has a row here before the daemon serves it. The daemon relays a worker's
 verb, an instance verb to the worker that holds the instance and any other to every worker, and passes its answer
-back: a required verb (presets and bundles for the CLAP worker and Zynthian, by the rulings of 2026-10-22) answers -902
+back: a required verb (presets and bundles for the CLAP worker and Zynthian) answers -902
 only while the worker does. MIDI learn and CV addressing are policy of the surfaces: the host answers them only as the
 mechanism, and they stay optional. The preset verbs and the preset file are [docs/presets.md](docs/presets.md).
 
@@ -524,7 +546,7 @@ note sweep carries what process() did while notes played. `run.tools.interposer`
 under it. With no interposer beside the child, or one that did not load, no count is written: rtSafety says
 `interposer: false`, and the `rt-safety` and `note-sweep` steps are `probe.not-attempted` and say why.
 
-An LV2 plugin is measured the way plugin-qualify's LV2 hosting pass measures it today, in two children under the same
+An LV2 plugin is measured the way plugin-qualify's LV2 hosting pass measures it, in two children under the same
 limits and the same wall clock. The first child (`lv2_measure --pin`) pins the bundle's files without instantiating the
 plugin. The second measures at the highest of `--rates`, in blocks of `--quantum`, with 30 instantiate and destroy cycles
 and 3 swept rt-safety runs. It runs under plugin-qualify's interposer (`rt_interpose.so` beside the child, found and with any
@@ -667,7 +689,7 @@ number is not a count.
 
 A line this version cannot read, or with a key it does not know, is kept as it is by every save and is not read. A file
 that cannot be read, or whose first line is another version, is neither read nor overwritten: stderr says why, and
-`history_get` answers `unavailable` until the operator repairs or removes it.
+`history_get` answers `unavailable` until the file is repaired or removed.
 
 `history_get <uri>` answers the record of the binary the pin holds now, on this host class, as one word: `digest=`,
 `class=`, `crashed=1` when a crash is within 30 days, `raises_xruns=1` when the share of xrun windows in a group
