@@ -958,7 +958,7 @@
             },
             "basis": {
               "description": "How many notes notesHeldKb holds: the instrument's declared voices, or the count the run was told to probe.",
-              "enum": ["declared", "probe"]
+              "enum": [@OMX_MEASUREMENT_VOICE_BASES@]
             },
             "unmeasuredReason": {
               "type": "string"
