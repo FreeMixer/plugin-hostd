@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
-"""The Zynthian benchmark matrix: every rate and quantum, under jalv, mod-host, plugin-hostd single and grouped.
+"""The Zynthian benchmark matrix: every rate and quantum, under jalv, mod-host, omx-clap-host (CLAP, and LV2 through
+its adapter), plugin-hostd single and grouped.
 
     tools/zynthian/matrix.py --out DIR [--rates 44100,48000,96000,192000] [--frames 128,256,512,1024]
         [--window 60] [--only chains|singles|all] [--wait-idle] [--wait-update] [--after-stress] [--dry-run]
@@ -9,7 +10,9 @@
 Runs bench/lib/bench.py (bench/README.md) once per cell, a cell being one scenario at one rate and one quantum on a
 private JACK server of its own (the device's JACK and its chains are never touched), and appends one CSV row per
 host and mode to DIR/matrix.csv. A cell already in the CSV with its document is not run again, so a stopped run resumes where it stopped; a cell
-whose bench.py wrote no document is run again, and three such cells in a row stop the run.
+whose bench.py wrote no document is run again, and three such cells in a row stop the run. Resuming is per host: a cell
+measured before a host joined the matrix is run again under that host alone, and its document is kept beside the
+first one.
 Each cell's omx-bench/1 document is kept under DIR/docs/ and every host's log under DIR/logs/.
 
 The plugins are those of tools/zynthian/matrix/plugins.json: our omx-plugins in both forms and ten third-party LV2
@@ -17,12 +20,15 @@ effects. Host modes, as bench.py names them:
 
   jalv                      H4, one process per plugin (LV2)
   mod-host                  H3, the stock mod-host the image ships, started by the bench on a private port (LV2)
+  omx-clap-host             H1, one omx-clap-host process for the scenario, CLAP forms
+  omx-clap-host LV2         H1, the same, LV2 forms through its LV2 adapter
   plugin-hostd single       H2 individual, one worker per plugin, no chain declared
   plugin-hostd grouped      H2 chain, one worker for the chain
 
 Scenarios, in the order they run: the two chains (all our plugins in series, CLAP forms under plugin-hostd and LV2 forms
 under jalv and mod-host; the ten third-party plugins in series) over every rate and quantum, then each plugin alone
-(our plugins once as CLAP and once as LV2 under plugin-hostd, as LV2 under jalv and mod-host) over every rate and quantum.
+(our plugins once as CLAP and once as LV2 under omx-clap-host and plugin-hostd, as LV2 under jalv and mod-host) over
+every rate and quantum.
 
 --wait-update polls every 5 minutes before each cell until the device's mod-host unit starts plugin-hostd (the fork's
 update script applied); the mod-host rows still run the stock binary, which the bench starts itself on a private port.
@@ -52,7 +58,20 @@ COLUMNS = ["cell", "scenario", "kind", "host", "mode", "host_mode", "rate", "fra
            "xruns", "latency_frames", "add_ms", "ctx_switches", "note", "doc", "finished_at"]
 HOST_MODE = {("H4", "individual"): "jalv", ("H4", None): "jalv", ("H3", "shared-process"): "mod-host",
              ("H3", None): "mod-host", ("H2", "individual"): "plugin-hostd single", ("H2", "chain"): "plugin-hostd grouped",
-             ("H2", None): "plugin-hostd single"}
+             ("H2", None): "plugin-hostd single", ("H1", "shared-process"): "omx-clap-host", ("H1", None): "omx-clap-host"}
+
+
+def lv2_form(s, cat):
+    """whether omx-clap-host and plugin-hostd run the scenario's LV2 forms: asked for, or no plugin of it has a CLAP one"""
+    if s.get("format"):
+        return s["format"] == "lv2"
+    return not any("clap" in cat[k] for k in s["plugins"])
+
+
+def host_mode(host, mode, s, cat):
+    """the row's host and mode as the CSV names it; omx-clap-host's LV2 rows are its LV2 adapter's"""
+    label = HOST_MODE.get((host, mode), host)
+    return label + " LV2" if host == "H1" and lv2_form(s, cat) else label
 
 
 def table(plugins):
@@ -65,7 +84,7 @@ def table(plugins):
         cat[k] = {"name": v["name"], "lv2": v["lv2"]}
     ours = ["omx-" + p for p in plugins["ours"]]
     tp = list(plugins["third_party"])
-    chain_modes = [m for m in base["modes"]["chains-vs-processes"] if m["host"] != "H1"]
+    chain_modes = list(base["modes"]["chains-vs-processes"])
     scen = [
         {"id": "chain-omx", "kind": "chain", "title": "our %d plugins in series" % len(ours), "plugins": ours,
          "count": len(ours), "family": "matrix-chain"},
@@ -74,12 +93,12 @@ def table(plugins):
     ]
     for k in ours:
         scen.append({"id": "one-%s-clap" % k, "kind": "single", "title": "%s alone, CLAP" % k, "plugins": [k], "format": "clap",
-                     "hosts": ["H2"]})
+                     "hosts": ["H1", "H2"]})
         scen.append({"id": "one-%s-lv2" % k, "kind": "single", "title": "%s alone, LV2" % k, "plugins": [k], "format": "lv2",
-                     "hosts": ["H2", "H3", "H4"]})
+                     "hosts": ["H1", "H2", "H3", "H4"]})
     for k in tp:
         scen.append({"id": "one-%s" % k, "kind": "single", "title": "%s alone" % cat[k]["name"], "plugins": [k],
-                     "hosts": ["H2", "H3", "H4"]})
+                     "hosts": ["H1", "H2", "H3", "H4"]})
     return {"plugins": cat, "midi": base["midi"], "scenarios": scen,
             "modes": {"matrix-chain": chain_modes, **base["modes"]}}
 
@@ -110,12 +129,37 @@ def cell_id(s, rate, fr):
     return "%s@%d/%d" % (s["id"], rate, fr)
 
 
-def done_cells(path):
+def hosts_of(s, tbl):
+    """the hosts a scenario runs under: its own list, else the hosts of the chain modes"""
+    return s.get("hosts") or sorted({m["host"] for m in tbl["modes"]["matrix-chain"]})
+
+
+def done_hosts(path):
+    """cell -> the hosts measured in it; a row with no document did not measure (bench.py could not start)"""
+    done = {}
     if not os.path.exists(path):
-        return set()
+        return done
     with open(path) as fh:
-        # a cell with no document did not measure (bench.py could not start): it is run again on resume
-        return {row["cell"] for row in csv.DictReader(fh) if row.get("doc")}
+        for row in csv.DictReader(fh):
+            if row.get("doc") and row.get("host"):
+                done.setdefault(row["cell"], set()).add(row["host"])
+    return done
+
+
+def left(tbl, rates, frames, only, done):
+    """(scenario, rate, quantum, hosts not yet measured) for each cell with any host left"""
+    out = []
+    for s, rate, fr in cells(tbl, rates, frames, only):
+        missing = [h for h in hosts_of(s, tbl) if h not in done.get(cell_id(s, rate, fr), set())]
+        if missing:
+            out.append((s, rate, fr, missing))
+    return out
+
+
+def doc_name(s, rate, fr, hosts, all_hosts):
+    """a cell's document file; one measuring some of its hosts names them, so it never replaces the first"""
+    base = cell_id(s, rate, fr).replace("/", "-").replace("@", "-")
+    return "%s.json" % (base if list(hosts) == list(all_hosts) else base + "-" + "-".join(hosts))
 
 
 def busy():
@@ -150,8 +194,7 @@ def log(msg):
     print("matrix: %s %s" % (time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), msg), flush=True)
 
 
-def run_cell(bench_dir, s, rate, fr, a, docs, logs):
-    hosts = s.get("hosts") or sorted({m["host"] for m in json.load(open(os.path.join(bench_dir, "scenarios.json")))["modes"]["matrix-chain"]})
+def run_cell(bench_dir, s, rate, fr, a, docs, logs, hosts, all_hosts):
     with tempfile.TemporaryDirectory(dir=a.out) as tmp:
         argv = [sys.executable, "-I", os.path.join(bench_dir, "lib", "bench.py"), "--class", "rpi5", "--out", tmp,
                 "--rates", str(rate), "--frames", str(fr), "--scenarios", s["id"], "--hosts", ",".join(hosts),
@@ -165,19 +208,19 @@ def run_cell(bench_dir, s, rate, fr, a, docs, logs):
         found = [f for f in glob.glob(os.path.join(tmp, "*.json")) if os.path.isfile(f)]
         if not found:
             return None, "bench.py exited %d and wrote no document" % p.returncode
-        name = "%s.json" % cell_id(s, rate, fr).replace("/", "-").replace("@", "-")
+        name = doc_name(s, rate, fr, hosts, all_hosts)
         shutil.move(found[0], os.path.join(docs, name))
         return os.path.join(docs, name), None
 
 
-def rows_of(doc_path, s, rate, fr, window):
+def rows_of(doc_path, s, rate, fr, window, cat):
     with open(doc_path) as fh:
         doc = json.load(fh)
     out = []
     for r in doc["scenarios"]:
         out.append({
             "cell": cell_id(s, rate, fr), "scenario": s["id"], "kind": s["kind"], "host": r["host"], "mode": r.get("mode", ""),
-            "host_mode": HOST_MODE.get((r["host"], r.get("mode")), r["host"]), "rate": rate, "frames": fr, "window_s": window,
+            "host_mode": host_mode(r["host"], r.get("mode"), s, cat), "rate": rate, "frames": fr, "window_s": window,
             "status": r["status"], "plugins": len(r.get("plugins", [])),
             **{k: r.get(k, "") if r.get(k) is not None else "" for k in ("dsp_load_avg", "dsp_load_max", "cpu_pct", "rss_mb_total",
                                                                          "pss_mb_total", "processes", "jack_clients", "xruns",
@@ -209,11 +252,11 @@ def main(argv=None):
     tbl = table(json.load(open(a.plugins)))
     os.makedirs(a.out, exist_ok=True)
     csv_path = os.path.join(a.out, "matrix.csv")
-    done = done_cells(csv_path)
-    todo = [c for c in cells(tbl, rates, frames, a.only) if cell_id(*c) not in done]
+    done = done_hosts(csv_path)
+    todo = left(tbl, rates, frames, a.only, done)
     if a.dry_run:
-        for s, rate, fr in todo:
-            print(cell_id(s, rate, fr))
+        for s, rate, fr, hosts in todo:
+            print("%s %s" % (cell_id(s, rate, fr), ",".join(hosts)))
         print("%d cells left, %d done" % (len(todo), len(done)), file=sys.stderr)
         return 0
     docs, logs = os.path.join(a.out, "docs"), os.path.join(a.out, "logs")
@@ -226,7 +269,7 @@ def main(argv=None):
         lost = 0
         quiet = 0
         quiet_needed = True
-        for s, rate, fr in todo:
+        for s, rate, fr, hosts in todo:
             # before the first cell the device must have been quiet for --quiet-polls polls in a row; between cells one
             while a.wait_idle or a.wait_update or a.after_stress:
                 why = (a.wait_update and update_pending()) or (a.after_stress and stress_pending()) or (a.wait_idle and busy())
@@ -236,8 +279,8 @@ def main(argv=None):
                 log("waiting: %s" % (why or "quiet for %d of %d polls" % (quiet, a.quiet_polls)))
                 time.sleep(300)
             quiet_needed = False
-            log("cell %s" % cell_id(s, rate, fr))
-            doc, err = run_cell(bench_dir, s, rate, fr, a, docs, logs)
+            log("cell %s %s" % (cell_id(s, rate, fr), ",".join(hosts)))
+            doc, err = run_cell(bench_dir, s, rate, fr, a, docs, logs, hosts, hosts_of(s, tbl))
             lost = lost + 1 if err else 0
             if lost >= 3:
                 log("three cells in a row wrote no document: stopping (see %s)" % os.path.join(logs, "bench.out"))
@@ -248,7 +291,7 @@ def main(argv=None):
                          "window_s": a.window, "status": "failed", "note": err,
                          "finished_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}]
             else:
-                rows = rows_of(doc, s, rate, fr, a.window)
+                rows = rows_of(doc, s, rate, fr, a.window, tbl["plugins"])
             new = not os.path.exists(csv_path)
             with open(csv_path, "a", newline="") as fh:
                 w = csv.DictWriter(fh, fieldnames=COLUMNS, extrasaction="ignore")
