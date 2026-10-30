@@ -4100,6 +4100,61 @@ def same_bytes(a, b):
 
 
 @test
+def a_clap_file_whose_name_holds_a_space_is_added_pinned_stored_and_described_by_its_percent_encoded_path():
+    """issue 240: Surge XT ships as "Surge XT.clap"; the uri writes the space as %20 and the daemon decodes the path where
+    it opens, hashes and scans the file; the pin names the file as the uri does, one word"""
+    s = Scan()
+    path = os.path.join(os.path.dirname(s.clap), "Surge XT.clap")
+    os.rename(s.clap, path)
+    s.clap = path
+    uri = "clap:%s#%s" % (path.replace(" ", "%20"), CLAP_ID)
+    pin = "pin_set %s Surge%%20XT.clap=%s %s" % (uri, sha(path), fake_layout())
+    store = os.path.join(s.dir, "pins")
+    pins_dir = os.path.join(s.dir, "pins.d")
+    conf = {"require_pins": 1, "pin_mode": "strict", "pin_store": store, "pins_dir": pins_dir}
+    env = {"FAKE_LOG": os.path.join(s.dir, "commands.log")}
+    d = s.daemon(conf=conf, env=env)
+    try:
+        d.expect("add %s 0" % uri, resp("PIN_ABSENT"))
+        d.expect(pin, "resp 0")
+        d.expect("add %s 0" % uri, "resp 0")
+        wait_for(lambda: answered(d, uri, s.clap_name()), "descriptor_get answers %s" % s.clap_name())
+        check(s.scans() == ["clap:%s#%s" % (path, CLAP_ID)], "the probe is run for the decoded path: %s" % s.scans())
+        write(path, b"another build")
+        d.expect("add %s 1" % uri, resp("PIN_BINARY_MISMATCH"))
+    finally:
+        d.close()
+    # a pin_file holds the pin as one line, and a daemon that reads it admits the unchanged file
+    write(path, b"a clap build")
+    pins = os.path.join(s.dir, "plugin.pins")
+    write(pins, (pin[len("pin_set "):] + "\n").encode())
+    strict = dict(conf, pin_file=pins, pin_store=os.path.join(s.dir, "empty-store"))
+    d = s.daemon(conf=strict, env=env)
+    try:
+        d.expect("add %s 2" % uri, "resp 2")
+    finally:
+        d.close()
+    # first use learns the file into the store, in one word, and a strict daemon over that store admits it
+    learn = dict(conf, pin_mode="first-use")
+    d = s.daemon(conf=learn, env=env)
+    try:
+        d.expect("add %s 3" % uri, "resp 3")
+    finally:
+        d.close()
+    with open(store) as f:
+        saved = f.read()
+    check(saved.startswith("pin_set %s Surge%%20XT.clap=%s " % (uri, sha(path))), "the store holds the pin: %r" % saved)
+    d = s.daemon(conf=conf, env=env)
+    try:
+        d.expect("add %s 4" % uri, "resp 4")
+        write(path, b"another build")
+        d.expect("add %s 5" % uri, resp("PIN_BINARY_MISMATCH"))
+    finally:
+        d.close()
+        s.close()
+
+
+@test
 def an_add_writes_the_descriptor_by_id_version_and_hash_and_descriptor_get_answers_from_it():
     s = Scan()
     d = s.daemon()
