@@ -37,6 +37,10 @@ out=$(mkdir -p "${2:?out dir}" && cd "$2" && pwd)
 here=$(cd "$(dirname "$0")" && pwd)
 . "$here/spike-engine.sh"
 PYTHON=${PYTHON:-python3}
+# the round trip's measure checks itself first, with no graph: a member's run that left no peak is played again
+if [ "$test" = test-chain-round-trip.py ]; then
+    "$PYTHON" "$here/$test" --self-test || exit 1
+fi
 export CHAIN_E2E=1 CHAIN_LV2_URI=${CHAIN_LV2_URI:-lv2:http://gareus.org/oss/lv2/fil4#stereo}
 : "${PLUGIN_HOSTD:?}" "${CLAP_HOST:?}" "${FAULT_CLAP_URI:?}" "${CHAIN_FAULT_PARAM:?}"
 if [ "$test" = test-chain.py ]; then
