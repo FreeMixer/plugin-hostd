@@ -346,7 +346,9 @@ if FAKE_CLAP:
                   "the plugin's changed comes back through the daemon: %s" % d.events[mark:])
             d.expect("remote_pages 0", "resp 2")
             d.expect("remote_page_get 0 1", 'resp 0 8 "" "Two" - - - - - - - 0')
-            d.expect("param_info 0 0", resp("NO_PARAM_CONTRACT"))
+            # the fake plugin publishes clap.params and no contract: the worker (omx-clap-host 0.25) answers from the
+            # standard parameters, parameter 0 being the stepped latency one; past the last one it still answers no
+            d.expect("param_info 0 0", "resp 0 none stepped 0 4096 64 1 param_0")
             _, w = d.holder(0)
             mark = d.mark()
             os.kill(w["pid"], signal.SIGKILL)

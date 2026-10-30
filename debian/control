@@ -6,7 +6,7 @@ Build-Depends: debhelper-compat (= 13),
                libmod-host-protocol-dev (>= 0.1.0-5),
                libomx-contract-dev (>= 3.4.0~),
                omx-clap-core-contract (>= 0.23.0~) <!nocheck>,
-               omx-clap-host-tests (>= 0.21.0~) <!nocheck>,
+               omx-clap-host-tests (>= 0.25.0~) <!nocheck>,
                omx-contract (>= 3.4.0~) <!nocheck>,
                pkgconf,
                python3
