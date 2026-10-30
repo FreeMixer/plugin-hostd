@@ -637,6 +637,8 @@ typedef struct
     int refused;            /* its sched_setscheduler failed, with this errno */
     int observed;           /* the kernel answered sched_getscheduler for it after the exec */
     int policy, priority;   /* and what it said */
+    int caps_read;          /* the kernel answered for the child's capability sets after the exec */
+    int cap_bound;          /* and the child holds none in its permitted or effective set, so it cannot lift its bounds */
 } realtime_t;
 
 static realtime_t g_rt;
@@ -764,6 +766,33 @@ static int realtime_fifo(void)
     return g_rt.observed && g_rt.policy == SCHED_FIFO && g_rt.priority >= 1;
 }
 
+/* the capability sets the kernel reports for the measured child, once it has exec'd: bound when the permitted and the
+ * effective set are empty, whoever the runner is */
+static void capabilities_observe(pid_t pid)
+{
+    char path[64], line[256];
+    unsigned long long prm = 0, eff = 0;
+    int seen = 0;
+    FILE *f;
+
+    snprintf(path, sizeof(path), "/proc/%d/status", (int)pid);
+    if ((f = fopen(path, "r")) == NULL)
+        return;
+    while (fgets(line, sizeof(line), f) != NULL)
+    {
+        if (sscanf(line, "CapPrm: %llx", &prm) == 1)
+            seen |= 1;
+        else if (sscanf(line, "CapEff: %llx", &eff) == 1)
+            seen |= 2;
+    }
+    fclose(f);
+    if (seen == 3)
+    {
+        g_rt.caps_read = 1;
+        g_rt.cap_bound = prm == 0 && eff == 0;
+    }
+}
+
 static void put_realtime(sb_t *b)
 {
     int fifo = realtime_fifo();
@@ -789,6 +818,8 @@ static void put_realtime(sb_t *b)
         sb_printf(b, ", \"reason\": ");
         sb_str(b, why);
     }
+    if (g_rt.caps_read)
+        sb_printf(b, ", \"capabilityBound\": %s", g_rt.cap_bound ? "true" : "false");
     if (g_rt.observed && policy_name(g_rt.policy))
         sb_printf(b, ", \"observed\": {\"policy\": \"%s\", \"priority\": %d}", policy_name(g_rt.policy), g_rt.priority);
     sb_printf(b, "}");
@@ -853,23 +884,22 @@ static void put_rlimit(int resource, rlim_t soft, rlim_t hard)
         _exit(120);
 }
 
-/* In the child, once its priority is taken: CAP_SYS_NICE goes from every set, and every ambient capability goes, so the
- * plugin cannot raise itself past the RLIMIT_RTPRIO bound. Out of the bounding set too where the runner may drop it,
- * since a process running as root regains its permitted set from it at the exec. Exits 120 when it cannot. */
-static void drop_cap_sys_nice(void)
+/* In the child, once its priority is taken: every capability goes from every set, and every ambient one, so the plugin
+ * cannot raise itself past the RLIMIT_RTPRIO, RLIMIT_RTTIME and RLIMIT_MEMLOCK bounds (CAP_SYS_NICE moves the priority,
+ * CAP_SYS_RESOURCE the limits). Out of the bounding set too where the runner may drop them, since a process running as
+ * root regains its permitted set from it at the exec; a runner without CAP_SETPCAP cannot, and the document says so
+ * (run.realtime.capabilityBound, read back from the kernel after the exec). Exits 120 when the sets cannot be cleared. */
+static void drop_capabilities(void)
 {
     struct __user_cap_header_struct h = { _LINUX_CAPABILITY_VERSION_3, 0 };
     struct __user_cap_data_struct d[_LINUX_CAPABILITY_U32S_3];
-    unsigned bit = 1u << CAP_SYS_NICE;
+    int cap;
 
     if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_CLEAR_ALL, 0, 0, 0) != 0 && errno != EINVAL)
         _exit(120);
-    prctl(PR_CAPBSET_DROP, CAP_SYS_NICE, 0, 0, 0);
-    if (syscall(SYS_capget, &h, d) != 0)
-        _exit(120);
-    d[0].inheritable &= ~bit;
-    d[0].permitted &= ~bit;
-    d[0].effective &= ~bit;
+    for (cap = 0; prctl(PR_CAPBSET_READ, cap, 0, 0, 0) >= 0; cap++)
+        prctl(PR_CAPBSET_DROP, cap, 0, 0, 0);
+    memset(d, 0, sizeof(d));
     if (syscall(SYS_capset, &h, d) != 0)
         _exit(120);
 }
@@ -916,7 +946,7 @@ static void apply_limits(const options_t *o, const cpu_set_t *pinned, int pin_op
     }
     else
         put_rlimit(RLIMIT_RTPRIO, 0, 0);
-    drop_cap_sys_nice();
+    drop_capabilities();
 }
 
 /* the limits of the default set, as the document lists them */
@@ -1217,6 +1247,7 @@ static void run_child(const options_t *o, char **argv, const cpu_set_t *pinned, 
             g_rt.policy = policy & ~SCHED_RESET_ON_FORK;
             g_rt.priority = sp.sched_priority;
         }
+        capabilities_observe(r->pid);
     }
 
     while (!r->exited)
