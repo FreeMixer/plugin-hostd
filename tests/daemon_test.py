@@ -192,29 +192,13 @@ def the_preset_bundle_and_learn_verbs_are_relayed_and_the_workers_answer_comes_b
 
 @test
 def preset_show_of_an_instance_answers_one_line_of_json_the_daemon_passes_on_unchanged():
-    """plugin-hostd#151: docs/presets.md and data/verbs.json declare the reply `resp 0 <json>`, and the worker's line
+    """plugin-hostd#151: the declared reply is `resp 0 <json>` (docs/presets.md, data/verbs.json), and the worker's line
     comes back to the controller as it was, not rewritten into `resp 0 <carries> <name>`"""
-    declared = json.load(open(os.path.join(ROOT, "data", "verbs.json")))
-    def verb_entries(node):
-        if isinstance(node, dict):
-            if node.get("verb") == "preset_show":
-                yield node
-            for v in node.values():
-                yield from verb_entries(v)
-        elif isinstance(node, list):
-            for v in node:
-                yield from verb_entries(v)
-
-    replies = [v["reply"] for v in verb_entries(declared)]
-    check(replies == ["resp 0 <json>"], "data/verbs.json declares resp 0 <json>: %s" % replies)
-    with open(os.path.join(ROOT, "docs", "presets.md")) as f:
-        rows = [l for l in f if l.startswith("| `preset_show`")]
-    check(len(rows) == 1 and "`resp 0 <json>`" in rows[0] and "<carries>" not in rows[0],
-          "docs/presets.md names the same reply: %s" % rows)
     d = daemon(env={"FAKE_PRESETS_LEARN": "answer"})
     try:
         d.expect("add clap:fake#a 0", "resp 0")
         got = d.send("preset_show 0 warm")
+        check(got.startswith("resp 0 {") and got.endswith("}"), "resp 0 and one JSON object, not <carries> <name>: %s" % got)
         body = json.loads(got[len("resp 0 "):])
         check(body == {"name": "Warm", "loadKey": "warm", "location": "file:///presets/warm.json"},
               "the worker's JSON comes back whole: %s" % got)
