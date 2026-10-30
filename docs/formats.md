@@ -170,6 +170,8 @@ What the tables leave to `describe`:
   entry;
 - an LV2 control's kind is `travel` (its `lv2:ControlPort` row) unless another record of the port gives a more
   specific one (`toggle`, `choice`, `trigger`), whatever order the dump lists the port's records in;
+- an LV2 travel that states both `lv2:integer` (stepped) and `pprops:logarithmic` (log) is `log`, whatever order the
+  dump lists them in;
 - an LV2 output control is `readonly`; an LV2 port that reports latency (`lv2:latency`) is no control;
 - consecutive LV2 audio ports of one direction, role and group are one port, its `channels` their count, its layout
   `mono` or `stereo` by that count;

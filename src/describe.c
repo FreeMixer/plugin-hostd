@@ -267,6 +267,25 @@ static const char *get(const entry_t *e, const char *word)
     return NULL;
 }
 
+/* a travel's scale: an explicit pprops:logarithmic (log) wins over the stepped lv2:integer gives, whichever record the
+ * dump lists first, so the result does not follow the scanner's node order (plugin-hostd#142, docs/formats.md) */
+static const char *scale_of(const entry_t *e)
+{
+    int w = word_index("controls[].travel.scale");
+    const char *last = NULL;
+    size_t i;
+
+    for (i = e->n; i-- > 0;)
+        if (e->a[i].word == w)
+        {
+            if (!strcmp(e->a[i].value, "\"log\""))
+                return e->a[i].value;
+            if (last == NULL)
+                last = e->a[i].value;
+        }
+    return last;
+}
+
 /* a control's kind: travel is what lv2:ControlPort makes any control port, and a more specific kind (toggle, choice,
  * trigger) another record of the same port gives wins over it, whichever record the dump lists first: omx-clap-scan
  * lists a port's records by field, so rdf:type lv2:ControlPort comes after lv2:portProperty lv2:toggled */
@@ -649,7 +668,7 @@ static int put_control(sb_t *b, const entry_t *e, const char *format, const char
         sb_printf(b, ", \"default\": %s", def && strtod(def, NULL) != 0 ? "true" : "false");
     else if (!strcmp(kind, "\"travel\""))
     {
-        const char *unit = get(e, "controls[].travel.unit"), *scale = get(e, "controls[].travel.scale");
+        const char *unit = get(e, "controls[].travel.unit"), *scale = scale_of(e);
 
         if (min == NULL || max == NULL)
             return refuse("%s is a travel that states no %s", e->scope, min ? "maximum" : "minimum");
