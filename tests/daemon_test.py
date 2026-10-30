@@ -1091,6 +1091,53 @@ def an_lv2_instance_is_answered_by_the_daemon_and_its_worker_never_sees_the_verb
             os.unlink(log)
 
 
+PORTS_URI = "urn:openmixer:test:ports"
+PORTS_DIR = os.path.join(ROOT, "tests", "fixtures")
+
+
+@test
+def an_lv2_instance_answers_remote_pages_from_the_groups_of_its_bundle_and_param_info_from_its_ports():
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(env={"FAKE_LOG": log}, conf={"lv2_path": PORTS_DIR})
+    try:
+        d.expect("add lv2:%s 0" % PORTS_URI, "resp 0")
+        # a pg:group is a page, the control inputs of a group in index order: a further page for each 8 past the first, the
+        # ports in no group one page of their own, an output and a notOnGUI port in none
+        d.expect("remote_pages 0", "resp 5")
+        d.expect("remote_page_get 0 0", 'resp 0 0 "" "Dynamics" threshold ratio attack knee_mode sidechain - - -')
+        d.expect("remote_page_get 0 1", 'resp 0 1 "" "Tone \\"EQ\\"" low high - - - - - -')
+        d.expect("remote_page_get 0 2", 'resp 0 2 "" "Controls" makeup loose - - - - - -')
+        d.expect("remote_page_get 0 3", 'resp 0 3 "" "Bands" b1 b2 b3 b4 b5 b6 b7 b8')
+        d.expect("remote_page_get 0 4", 'resp 0 4 "" "Bands 2" b9 - - - - - - -')
+        d.expect("remote_page_get 0 5", "resp -902")
+        d.expect("remote_page_get 0 -1", "resp -902")
+        d.expect("remote_page_get 0 x", "resp -902")
+        d.expect("remote_page_get 0", "resp -902")
+        d.expect("remote_pages 9", "resp -3")
+        d.expect("remote_page_get 9 0", "resp -3")
+        # the unit and scale of a port, its range and default, its symbol
+        d.expect("param_info 0 threshold", 'resp 0 "dB" linear -60 0 -18 0 threshold')
+        d.expect("param_info 0 ratio", 'resp 0 "" log 1 20 4 0 ratio')
+        d.expect("param_info 0 attack", 'resp 0 "ms" linear 0.1 100 10 0 attack')
+        d.expect("param_info 0 knee_mode", 'resp 0 "" stepped 0 2 1 1 knee_mode')
+        d.expect("param_info 0 sidechain", 'resp 0 "" stepped 0 1 0 1 sidechain')
+        d.expect("param_info 0 low", 'resp 0 "Hz" linear 20 400 80 0 low')
+        d.expect("param_info 0 reduction", 'resp 0 "dB" linear 0 24 0 0 reduction')
+        # a unit the daemon has no word for and a port with no range are the worker's -511; what is no control port is -103
+        d.expect("param_info 0 high", resp("NO_PARAM_CONTRACT"))
+        d.expect("param_info 0 loose", resp("NO_PARAM_CONTRACT"))
+        d.expect("param_info 0 in", "resp -103")
+        d.expect("param_info 0 no_such_symbol", "resp -103")
+        d.expect("param_info 0 :bypass", "resp -103")
+        d.expect("param_info 9 threshold", "resp -3")
+        got = [c for c in sent_to(log) if c.split(" ", 1)[0] in VERBS]
+        check(got == [], "mod-host learns none of the verbs: %s" % got)
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
+
+
 @test
 def a_clap_instance_is_routed_to_its_worker_and_its_reply_passed_through():
     log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
