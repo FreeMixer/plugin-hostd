@@ -8,14 +8,14 @@ upstream tip plus the steps before it), a few commits whose messages say what, w
 qualification, and its revert. A step changes nothing a user sees unless the step says so, and each can be reverted
 alone (later steps build on it, so a revert takes them with it).
 
-The plan of 2026-10-20 ([offer.md](offer.md)) and the spike ([spike-report.md](spike-report.md)) are the reasons; this
-page is the patches. Benchmarks and trade-offs of the Raspberry Pi 5 run of 2026-10-28 are in
+The plan ([offer.md](offer.md)) and the spike ([spike-report.md](spike-report.md)) are the reasons; this
+page is the patches. Benchmarks and trade-offs of the Raspberry Pi 5 runs are in
 [benchmarks.md](benchmarks.md) and [tradeoffs.md](tradeoffs.md), and the instruments proof is in
-[instruments.md](instruments.md) (each written in a lane of its own and linked here before it lands); this page cites
+[instruments.md](instruments.md) (each written on its own and linked here before it lands); this page cites
 them and repeats none of their figures beyond the totals.
 
-Bases: zynthian/zynthian-sys `vangelis` at `50e151022f24`, zynthian/zynthian-ui `vangelis` at `f43b7da59eb4`
-(2026-10-28). Every commit is signed. No step has been offered upstream except step 1.
+Bases: zynthian/zynthian-sys `vangelis` at `50e151022f24`, zynthian/zynthian-ui `vangelis` at `f43b7da59eb4`.
+Every commit is signed. No step has been offered upstream except step 1.
 
 | Step | Title | Repo | Branch on the fork | Base | Commits | Qualification | Upstream |
 |---|---|---|---|---|---|---|---|
@@ -24,10 +24,10 @@ Bases: zynthian/zynthian-sys `vangelis` at `50e151022f24`, zynthian/zynthian-ui 
 | 3 | plugin-hostd as MOD-UI's mod-host, switchable, off | sys | `upstream/03-modhost-backend` | 2 | 2 | ready check 0 failed; MOD-UI session diff: 135 calls, 5 replies differ (spike run); backend check on the device owed | not yet |
 | 4 | The plugin-hostd engine (PH), not the default | ui | `upstream/04-plugin-hostd-engine` | `f43b7da5` (needs sys 3 on the device) | 2 | pytest 82 passed, 1 skipped; chain round trip (spike engine) | not yet |
 | 5 | Qualification records and pins; unsuitable plugins stay on jalv | sys + ui | `upstream/05-qualification` (both) | sys 3; ui 4 | 1 + 1 | sys container check 80/80; pytest 124 passed; sync on the device owed | not yet |
-| 5a | Plugin menus sort and show the qualification figures (latency, RT safety, cost) | ui | left to its lane (FreeMixer/zynthian-ui#16) | 5 | - | in progress | not yet |
+| 5a | Plugin menus sort and show the qualification figures (latency, RT safety, cost) | ui | in its own pull request (FreeMixer/zynthian-ui#16) | 5 | - | in progress | not yet |
 | 6 | The engine is the default for LV2 instruments and effects | ui + sys | `upstream/06-engine-default` (both) | ui 5; sys 5 | 1 + 1 | pytest 133 passed; sys container check 91/91; device walk owed | not yet |
 | 7 | CLAP plugins through the engine | ui + sys | `upstream/07-clap` (both) | ui 6; sys 6 | 1 + 1 | pytest 136 passed; sys container check 96/96 | not yet |
-| 7a | Instruments through the engine: MIDI in, polyphony, MPE, Surge XT | ui | left to its lane (plugin-hostd `lane/zynthian-instruments`) | 7 | - | in progress ([instruments.md](instruments.md)) | not yet |
+| 7a | Instruments through the engine: MIDI in, polyphony, MPE, Surge XT | ui | on its own branch (plugin-hostd `lane/zynthian-instruments`) | 7 | - | in progress ([instruments.md](instruments.md)) | not yet |
 | 8 | MOD GUIs and LV2 complements from omx-panel | sys | `upstream/08-modgui` | sys 7 | 1 | sys container check 110/110 with omx-panel 0.6.0; GUIs on the device owed | not yet |
 | 9 | Chain cost estimate before an insert | ui | none: plan only (FreeMixer/zynthian-ui#13) | 6 | - | - | not yet |
 
@@ -166,7 +166,7 @@ declares in its own protocol file rather than for the port.
   [evidence/series/03-modhost-backend/verb-replies.svg](evidence/series/03-modhost-backend/verb-replies.svg), one
   bar per verb, the differing replies dark. That session ran plugin-hostd of the spike; the same session on the
   current release (`tools/zynthian/path-a.sh`) is owed, and [benchmarks.md](benchmarks.md) carries the verb diff of
-  the 2026-10-28 run.
+  the `rpi5-20261028-1` run.
 - Owed on the device: `tests/modhost-backend-check.sh` (root, JACK running, mod-ui and mod-host stopped): add,
   `param_set`, `param_get` and remove of one CLAP and one LV2 plugin over port 5555, no process or JACK client left.
 
@@ -212,7 +212,7 @@ reuse, restart and replay, parameters, presets, state, the chain and plan verbs,
 protocol-file refusals, and the menu switch; with the default changed to plugin-hostd, three of them fail. The chain
 round trip through plugin-hostd's chain verb, with a fault plugin killed mid-chain, passes in CI with the spike's
 engine ([evidence/chain/round-trip-channel.txt](evidence/chain/round-trip-channel.txt), [chain-profile.md](chain-profile.md));
-the Pi 5 chain round trip of 2026-10-28 is in [benchmarks.md](benchmarks.md). Owed on the device: the walk below
+the Pi 5 chain round trip is in [benchmarks.md](benchmarks.md). Owed on the device: the walk below
 with this engine.
 
 **How to use it in Zynthian.** Set `ZYNTHIAN_PLUGIN_ENGINE=plugin-hostd` in `/zynthian/config/zynthian_envars.sh`
@@ -263,7 +263,7 @@ the command is in the script's header): 80/80. An existing Zynthian (require_pin
 the same state, a second update changes nothing, a choice made by hand stays, a removed package stays removed, the
 image hook refuses amd64 and on stubbed arm64 qualifies one CLAP. ui: `python3 -m pytest tests`: 124 passed, 1
 skipped (the tier table row by row, real Pi 5 records as fixtures, the engine screen's own code over fixture records,
-jalv leaving the menu untouched, unsuitable plugins on jalv). The 2026-10-28 run on the Pi 5 wrote 1823 plugin
+jalv leaving the menu untouched, unsuitable plugins on jalv). The deep run on the Pi 5 (plugin-qualify 0.16.1) wrote 1823 plugin
 records; [benchmarks.md](benchmarks.md) counts them by class and [tradeoffs.md](tradeoffs.md) says what each class
 costs. Owed on the device: the first-boot sync's duration and `systemctl status plugin-qualify-sync`.
 
@@ -283,13 +283,13 @@ plugin-qualify-sync.path` and `require_pins 0` (README), or revert the two commi
 Step 5a: plugin menus sort and show the qualification figures (latency, RT safety, cost)
 ---------------------------------------------------------------------------------------
 
-Repo zynthian-ui. In progress in its own lane: issue FreeMixer/zynthian-ui#15, pull request FreeMixer/zynthian-ui#16.
-Base: step 5. Its branch is that lane's; it joins the series once rebased on `upstream/05-qualification`.
+Repo zynthian-ui. In progress: issue FreeMixer/zynthian-ui#15, pull request FreeMixer/zynthian-ui#16.
+Base: step 5. It joins the series once rebased on `upstream/05-qualification`.
 
 **Why.** The tags of step 5 say the class and one latency; a musician choosing between two reverbs wants the figures
 side by side and the list sorted by the one that matters to them.
 
-**Qualification, how to use it, revert.** Written by that lane in its pull request; this page takes them when it
+**Qualification, how to use it, revert.** Written in that pull request; this page takes them when it
 lands.
 
 Step 6: the engine is the default for LV2 instruments and effects
@@ -315,7 +315,7 @@ value, plugin-hostd not installed, the converter over fixture snapshots, an isol
 plugin-hostd (`test_plugin_engine_default`) and run there as a segment, worker and JACK client of its own
 (`test_engine_plugin_hostd`, `test_plan`). sys: `tests/default-install-check.sh`: 91/91; with the line that sets the
 variable removed, two checks fail. Owed on the device: an isolated plugin added from the menu and `worker_list`
-showing it in a worker of its own; the chain round trip and the jalv comparison of the 2026-10-28 run are in
+showing it in a worker of its own; the chain round trip and the jalv comparison of the `rpi5-20261028-1` run are in
 [benchmarks.md](benchmarks.md).
 
 **How to use it in Zynthian.** After the update, restart the UI (the recipe's report says so). Add an instrument
@@ -337,7 +337,7 @@ Repos zynthian-ui and zynthian-sys, branch `upstream/07-clap` in each. ui base s
 (`b5de40b`). Commits: ui `245d0db0` plugin-hostd engine: offer the CLAP plugins omx-clap-scan finds; sys `898d637`
 install_openmixer.sh: install omx-plugins, the CLAP and LV2 effects.
 
-**Why.** Zynthian runs no CLAP plugin today. The 2026-10-28 run on the Pi 5 counted 494 CLAP plugin records; the
+**Why.** Zynthian runs no CLAP plugin. The deep run on the Pi 5 (plugin-qualify 0.16.1) counted 494 CLAP plugin records; the
 engine already runs them.
 
 **What changes for a user.** The menus list the CLAP instruments and effects on the device ("Name (PH)"), from
@@ -364,16 +364,16 @@ start; a plugin that crashes the scan is left out and logged. Revert the two com
 Step 7a: instruments through the engine: MIDI in, polyphony, MPE, Surge XT
 --------------------------------------------------------------------------
 
-Repo zynthian-ui. In progress in its own lane (plugin-hostd branch `lane/zynthian-instruments`); its branch on the
-fork is that lane's. Base: step 7.
+Repo zynthian-ui. In progress on plugin-hostd's branch `lane/zynthian-instruments`, and on a branch of the fork.
+Base: step 7.
 
 **Why.** Zynthian is used for instruments first. An engine that runs effects well and instruments badly is not one a
 Zynthian user can take.
 
-**Qualification.** The device proof that lane is producing, [instruments.md](instruments.md): Surge XT (CLAP) on the
+**Qualification.** The device proof in progress, [instruments.md](instruments.md): Surge XT (CLAP) on the
 Pi 5, notes, polyphony and CPU per core, velocity, CC, pitch bend, sustain, all-notes-off, a capture of the engine's
-pages, and the same patch on jalv for comparison. Known gaps: CLAP voices run on one core today (the CLAP thread
-pool, FreeMixer/omx-clap-core#395, in progress); Surge's own GUI only over VNC; modulation-path assignment
+pages, and the same patch on jalv for comparison. Known gaps: CLAP voices run on one core with omx-clap-host 0.23.2 (the CLAP
+thread pool, FreeMixer/omx-clap-core#395, in progress); Surge's own GUI only over VNC; modulation-path assignment
 (FreeMixer/omx-clap-core#327).
 
 Step 8: MOD GUIs and LV2 complements from omx-panel

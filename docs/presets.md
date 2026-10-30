@@ -1,6 +1,6 @@
 # Presets in the host
 
-The ruling "PRESETS IN THE HOST" of 2026-10-22 on plugin-hostd#131, as this tree builds it. The schema is
+Presets in the host (plugin-hostd#131), as this tree builds it. The schema is
 [protocol/preset.schema.json](../protocol/preset.schema.json); `tests/preset_format.py` holds it to the examples below.
 
 ## Who owns what

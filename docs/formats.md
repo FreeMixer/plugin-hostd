@@ -6,7 +6,7 @@ plugin-hostd turns what a CLAP or LV2 plugin states about itself into a `scanned
 
 | Layer | What | Where |
 |---|---|---|
-| L1 description | one mapping table per format, data: every field a scan reads, mapped to a descriptor word, carried in the extension bag, or dropped by a named ruling | `data/formats/clap.json` (`PLUGIN_HOSTD_CLAP_MAP`), `data/formats/lv2.json` (`PLUGIN_HOSTD_LV2_MAP`), item kind `formatMap` |
+| L1 description | one mapping table per format, data: every field a scan reads, mapped to a descriptor word, carried in the extension bag, or dropped by a named decision | `data/formats/clap.json` (`PLUGIN_HOSTD_CLAP_MAP`), `data/formats/lv2.json` (`PLUGIN_HOSTD_LV2_MAP`), item kind `formatMap` |
 | L2 transforms | a closed list of named functions, each with its inverse, which a table names and never defines | `src/transforms.h` (`TRANSFORMS(X)`), `src/transforms.c` |
 | L3 runtime | the field dump of one plugin, read as a host reads it | omx-clap-core's `omx-clap-scan --fields` |
 
@@ -37,7 +37,7 @@ A table's `rows` are keyed by the source field, and each row has exactly one cla
 |---|---|---|
 | `word` | `{ word, transform, values? \| factor? }` | the descriptor word it becomes (`controls[].travel.unit`), the transform that converts it (a name of `TRANSFORMS(X)`) and that transform's data: `values` for `lookup`, `factor` for `scale-by`. Never code |
 | `extension` | `true` | carried verbatim into the descriptor's `extensions.<format>.<field>` (a record of a control's or a port's scope under `<scope>/<field>`) |
-| `dropped` | `{ ruling }` | left out, by the ruling it names: a spec path and section, or the TERM's own `out-of-scope` ruling |
+| `dropped` | `{ ruling }` | left out, by the decision it names: a spec path and section, or the TERM's own `out-of-scope` mark |
 
 Each row names what it covers, one of two: `term`, a TERM of omx-contract's format files (`LV2_UNITS_TERMS#unit`), or
 `from`, the header or specification link of a field no TERM file lists (the CLAP struct fields and `clap_entry`,
@@ -77,7 +77,7 @@ which the coverage test holds.
 
 ### What a table drops
 
-A row is `dropped` only by a ruling it names. The TERMs omx-contract marks `out-of-scope` are dropped by that ruling,
+A row is `dropped` only by a decision it names. The TERMs omx-contract marks `out-of-scope` are dropped by that mark,
 which the row quotes. A field this section rules out is dropped by `docs/formats.md#what-a-table-drops`:
 
 - a runtime handle that is no fact of the plugin (`clap_param_info.cookie`, a pointer the host passes back);
@@ -118,14 +118,14 @@ over its vectors (in, out, back in, equal).
 
 `make test-format-coverage` runs `tests/format_coverage.py` once per format. The field list is every term of the
 installed TERM files (`<contractdir>/3/omx-contract/formats/<format>/**`) plus every row with a `from`; each field has
-exactly one row. It prints, per field, `mapped <word> <transform>`, `extension <format>` or `dropped <ruling>`, then the
+exactly one row. It prints, per field, `mapped <word> <transform>`, `extension <format>` or `dropped <decision>`, then the
 count per class. It is red for:
 
 - a field with no row, and a row that covers no field (its `term` is no installed term);
 - a `word` the descriptor schema lacks (walked in the installed `omx-contract.schema.json`), or a `lookup` entry that
   is no value the word takes;
 - a `transform` that is not in `TRANSFORMS(X)`, or a `lookup` that is not one to one;
-- a `used` TERM that is `dropped`, and a `dropped` row that names no ruling;
+- a `used` TERM that is `dropped`, and a `dropped` row that names no decision;
 - an outbound-read row whose transform is neither `identity` nor `lookup`;
 - a unit row that does not map to the word its TERM names.
 

@@ -309,7 +309,7 @@ The ledger keeps the latest `track_info` of an instance and replays it after the
 What each host profile owes every verb a controller sends: mod-host's commands, the two that Zynthian's mod-ui still
 names, and the verbs the daemon adds. A verb has a row here before the daemon serves it. The daemon relays a worker's
 verb, an instance verb to the worker that holds the instance and any other to every worker, and passes its answer
-back: a required verb (presets and bundles for the CLAP worker and Zynthian, by the rulings of 2026-10-22) answers -902
+back: a required verb (presets and bundles for the CLAP worker and Zynthian) answers -902
 only while the worker does. MIDI learn and CV addressing are policy of the surfaces: the host answers them only as the
 mechanism, and they stay optional. The preset verbs and the preset file are [docs/presets.md](docs/presets.md).
 
@@ -536,7 +536,7 @@ note sweep carries what process() did while notes played. `run.tools.interposer`
 under it. With no interposer beside the child, or one that did not load, no count is written: rtSafety says
 `interposer: false`, and the `rt-safety` and `note-sweep` steps are `probe.not-attempted` and say why.
 
-An LV2 plugin is measured the way plugin-qualify's LV2 hosting pass measures it today, in two children under the same
+An LV2 plugin is measured the way plugin-qualify's LV2 hosting pass measures it, in two children under the same
 limits and the same wall clock. The first child (`lv2_measure --pin`) pins the bundle's files without instantiating the
 plugin. The second measures at the highest of `--rates`, in blocks of `--quantum`, with 30 instantiate and destroy cycles
 and 3 swept rt-safety runs. It runs under plugin-qualify's interposer (`rt_interpose.so` beside the child, found and with any
@@ -679,7 +679,7 @@ number is not a count.
 
 A line this version cannot read, or with a key it does not know, is kept as it is by every save and is not read. A file
 that cannot be read, or whose first line is another version, is neither read nor overwritten: stderr says why, and
-`history_get` answers `unavailable` until the operator repairs or removes it.
+`history_get` answers `unavailable` until the file is repaired or removed.
 
 `history_get <uri>` answers the record of the binary the pin holds now, on this host class, as one word: `digest=`,
 `class=`, `crashed=1` when a crash is within 30 days, `raises_xruns=1` when the share of xrun windows in a group

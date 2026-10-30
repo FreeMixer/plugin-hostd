@@ -1,8 +1,8 @@
 Surge XT CLAP for trixie arm64
 ==============================
 
-Built from surge-synthesizer/surge `main` at `dab78c6170732b3883216e569a84bf084ae0ea97` (project version 1.4.0,
-2026-10-25) as CLAP, in a `debian:trixie` amd64 container with Debian's arm64 cross toolchain and arm64 multiarch
+Built from surge-synthesizer/surge `main` at `dab78c6170732b3883216e569a84bf084ae0ea97` (project version 1.4.0) as
+CLAP, in a `debian:trixie` amd64 container with Debian's arm64 cross toolchain and arm64 multiarch
 libraries (no qemu: the build host's binfmt registration was not ours to change). The result is
 `Surge XT.clap`, ELF aarch64, sha256 `097a80795a0d0f89be441a5244cc61d345d382858b1874f808e82feb4d7b7500` after
 `aarch64-linux-gnu-strip`, needing only libfontconfig, libfreetype, libstdc++, libm, libgcc_s and libc.

@@ -1,27 +1,27 @@
 # Zynthian LV2 complement: generate what a plugin lacks, never touch its own bundle
 
-Status: ruled 2026-10-28 (operator, two rulings) and findings from the zynthian-ui source (vangelis @28625e7 and
-oram, 2026-10-28), for plugin-hostd#218. No code in this note's pull request: the inference rules and the bundle
+Status: decided, with findings from the zynthian-ui source (vangelis @28625e7 and oram), for
+plugin-hostd#218. No code in this note's pull request: the inference rules and the bundle
 writer land in omx-panel, beside omx-modgui-sync (the tool that already generates a MOD GUI only for a plugin that
 lacks one, and marks the bundles it writes). This note settles the design-first gate the issue asked for and closes
 #218 at the design layer.
 
 ## The measured gap
 
-On the Zynthian Pi, 2026-10-28: 1243 installed plugins have controls and only 105 declare port groups; 623 have none
+On the Zynthian Pi (ZynthianOS Vangelis-2610.1): 1243 installed plugins have controls and only 105 declare port groups; 623 have none
 and more than four controls, so the touchscreen cuts them into screens of four in port order.
 
 ## Where each Zynthian consumer reads
 
 - **mod-ui** finds a MOD GUI in any loaded file whose subject is the plugin URI (`utils/utils_lilv.cpp:2287-2318`),
-  which is why a generated, separate GUI bundle already works today (omx-modgui-sync).
+  which is why a generated, separate GUI bundle already works (omx-modgui-sync).
 - **The touchscreen engine (jalv)** reads ports through lilv, no `pg:group` sidecar: on each port it reads
   `pg:group`, and on the group node `lv2:symbol` (required — without it every port falls into one "params" group),
   `lv2:name` (falling back to `rdfs:label`) and `lv2:displayPriority` (`zyngine/zynthian_lv2.py:997-1021`); screens
   of four are cut per group, sorted by display priority (`zyngine/zynthian_engine.py:681-724`). It never reads
   `pg:mainInput`, `lv2:portGroups`, `units:unit` or `rdfs:comment` on a port. jalv is spawned per plugin
   (`jalv -n <name> <uri>`) and never talks to mod-host or plugin-hostd. No JSON, YAML or TTL sidecar keyed by plugin
-  URI or port symbol exists for layout today; `engine_config.json` caches name, type, category and description per
+  URI or port symbol exists for layout; `engine_config.json` caches name, type, category and description per
   URI after the first scan, so a changed description needs REGENERATE in webconf.
 
 ## Why an extra bundle cannot complement a third party's groups
@@ -58,7 +58,7 @@ again.
 - **Groups and a readable description, for a plugin that lacks them.** Same replacing-bundle channel as above: the
   generator restates the plugin's TTL and adds the inferred groups.
 - **A plugin that already carries its own groups.** Left alone — no marker file is written, nothing is generated,
-  per the ruling's "never touch its own bundle."
+  since a plugin's own bundle is never touched.
 - **Our own plugins.** Their TTL already carries `pg:group` + `lv2:symbol` + `rdfs:label`; `lv2:name` and
   `lv2:displayPriority` on the group nodes are still to add. Whether that lands at the source (omx-plugins' own TTL,
   since we own it) or through the same generated-complement mechanism as a third party's plugin is **not decided
@@ -76,7 +76,7 @@ per-plugin layout:
 5. a contiguous run of `lv2:index`;
 6. the plugin's own MOD GUI layout, when it has one.
 
-A plugin the rules cannot group with confidence gets no complement at all — it shows exactly as it does today,
+A plugin the rules cannot group with confidence gets no complement at all — it shows exactly as it does without one,
 never a guessed layout.
 
 ## The bundle shape
@@ -107,25 +107,25 @@ only when the restating step itself fails for one of these reasons, never as a d
    marker file, same bytes.
 4. Deleting a marked bundle restores lilv to loading the plugin's original, unmodified files.
 5. A real load of a complemented plugin still runs through plugin-hostd unchanged — `add`, `param_get`/`param_set`
-   and state save/load behave as they do for any LV2 plugin today.
+   and state save/load behave as they do for any LV2 plugin.
 
-## Lanes
+## Steps
 
-| lane | repo | what | needs |
+| step | repo | what | needs |
 |---|---|---|---|
 | G1 | omx-panel | the inference rule set above, as a pure function over a plugin's parsed TTL and its MOD GUI when it has one | |
 | G2 | omx-panel | the bundle writer: restated TTL, bumped `lv2:microVersion`, the group nodes, the marker file; runs at install time beside omx-modgui-sync, generate-only-if-missing | G1 |
 | G3 | omx-panel | the removal path: deleting a marked bundle, a re-scan confirms the original loads | G2 |
 | G4 | zynthian-ui / the console project | the Pi proof above: a matched plugin, a plugin with its own groups left untouched, the real load through plugin-hostd | G2 |
 
-No lane in this table touches plugin-hostd. The daemon's protocol is unchanged by this issue: `panel_get`
+No step in this table touches plugin-hostd. The daemon's protocol is unchanged by this issue: `panel_get`
 (`docs/panel.md`) serves CLAP's own panel-description extension and is not on Zynthian's LV2 path, which reads
 bundles directly through lilv and jalv, not through the daemon.
 
 ## Not decided here
 
 - Why the Pi showed screens of four, in port order, for one of our own plugins whose TTL already states groups —
-  open on the Pi (which bundle lilv actually loaded, which zynthian-ui version was running); named in the ruling,
+  open on the Pi (which bundle lilv actually loaded, which zynthian-ui version was running); named in the decision,
   not reproduced here.
 - Whether our own plugins' missing `lv2:name` / `lv2:displayPriority` land at the source (omx-plugins' own TTL,
   since we own it) or through the same generated-complement mechanism as a third party's plugin.
