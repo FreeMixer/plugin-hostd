@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.15.0
+Version: 0.15.1
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -160,6 +160,12 @@ make test-daemon check-generated check-rendered
 %{_datadir}/omx-contract/contract.d/3/plugin-hostd/
 
 %changelog
+* Fri Oct 30 2026 Pau Aliagas <linuxnow@gmail.com> - 0.15.1-1
+- Remote pages and param_info read an LV2 bundle's ports (#152, #294).
+- describe reads an LV2 port group's path through pg:subGroupOf (#223, #296).
+- A percent-encoded LV2 IRI matches its qualification record (#239, #298).
+- The Zynthian tools and the bench read worker_list with its pool field (#236, #285).
+
 * Thu Oct 29 2026 Pau Aliagas <linuxnow@gmail.com> - 0.15.0-1
 - A pin line takes pool=cores|off; a CLAP or lv2-clap worker for a plugin
   whose pin says pool=cores starts with --thread-pool=on, in a worker of its
