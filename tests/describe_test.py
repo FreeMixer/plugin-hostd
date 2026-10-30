@@ -97,6 +97,19 @@ def main():
             check(got["origin"] == "scanned" and got["plugin"]["format"] == fmt and got.get("extensions", {}).get(fmt),
                   "%s: scanned, format %s, the bag carries what the table classes extension" % (name, fmt))
 
+        # a toggle stays a toggle whichever order the dump lists its port's records in: omx-clap-scan lists them by
+        # field, so rdf:type lv2:ControlPort (travel) comes after lv2:portProperty lv2:toggled
+        base = open(os.path.join(FIELDS, "lv2-compressor.tsv")).read().splitlines(True)
+        port10 = [l for l in base if l.startswith("port:10\t")]
+        rest = [l for l in base if not l.startswith("port:10\t")]
+        for order, lines in (("by field", sorted(port10, key=lambda l: l.split("\t")[1])),
+                             ("ControlPort last", [l for l in port10 if "\trdf:type\t" not in l] +
+                              [l for l in port10 if "\trdf:type\t" in l])):
+            r = describe(CASES["lv2-compressor"], scratch(tmp, "toggle-order.tsv", "".join(rest + lines)))
+            kinds = {c["id"]: c["kind"] for c in json.loads(r.stdout or "{}").get("controls", [])} if r.returncode == 0 else {}
+            check(kinds.get("enable") == "toggle", "a toggle listed with its port's records %s stays a toggle (%s)"
+                  % (order, kinds.get("enable") or r.stderr.strip()))
+
         # refusals: each exits 2 and names what it refuses
         lv2 = open(os.path.join(FIELDS, "lv2-compressor.tsv")).read()
         clap = open(os.path.join(FIELDS, "clap-controls.tsv")).read()

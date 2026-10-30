@@ -168,6 +168,8 @@ What the tables leave to `describe`:
 - each scope is one entry: a CLAP `param:` scope a control, a CLAP port scope a port, an LV2 `port:` scope a control
   when a row makes it one (`lv2:ControlPort`) and a port when a row gives it a port kind; `id` and `name` follow the
   entry;
+- an LV2 control's kind is `travel` (its `lv2:ControlPort` row) unless another record of the port gives a more
+  specific one (`toggle`, `choice`, `trigger`), whatever order the dump lists the port's records in;
 - an LV2 output control is `readonly`; an LV2 port that reports latency (`lv2:latency`) is no control;
 - consecutive LV2 audio ports of one direction, role and group are one port, its `channels` their count, its layout
   `mono` or `stereo` by that count;
