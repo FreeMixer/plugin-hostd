@@ -5,7 +5,7 @@
 # ONLY=<test name> runs one test (tests/sabotage.py turns each guard off and runs the test that must go red).
 # PLUGIN_QUALIFY_BUILD=<a plugin-qualify checkout's native/build> also runs its real prober and lv2_measure over its own
 # instrument fixtures; without it those tests say they skipped.
-import json, os, resource, signal, subprocess, sys, tempfile, time
+import json, os, resource, shutil, signal, subprocess, sys, tempfile, time
 
 try:
     import jsonschema
@@ -144,16 +144,135 @@ def a_process_the_plugin_left_in_its_own_session_is_gone_after_the_run():
         kill_leftover(pidfile)
 
 
+# a hierarchy that is not there: the memory limit is RLIMIT_DATA, on any machine
+NO_CGROUP = ("--cgroup-root", "/nonexistent/plugin-hostd-probe-test")
+
+
+def own_cgroup():
+    for line in open("/proc/self/cgroup"):
+        if line.startswith("0::"):
+            return line[3:].strip()
+    return None
+
+
+def fake_cgroup_tree(controllers):
+    """a directory laid out as a hierarchy where this process's cgroup lists these controllers: the runner can make a
+    directory there, and no kernel answers its writes"""
+    root = tempfile.mkdtemp(prefix="plugin-hostd-probe-cgroup.")
+    own = os.path.join(root, (own_cgroup() or "/").lstrip("/"))
+    os.makedirs(own, exist_ok=True)
+    open(os.path.join(own, "cgroup.controllers"), "w").write(controllers + "\n")
+    open(os.path.join(own, "cgroup.subtree_control"), "w").write("\n")
+    return root
+
+
+def limit_memory(doc):
+    return next(l for l in doc["limits"]["applied"] if l["limit"] == "memory"), [
+        u["code"] for u in doc["limits"]["unavailable"] if u["limit"] == "memory"]
+
+
+def delegated_cgroup():
+    """whether a run here gets its memory.max from the kernel; a machine that does not is the other arm"""
+    r = subprocess.run([PROBE, "run", "--list-limits", CLAP, ID], capture_output=True, text=True)
+    return r.returncode == 0 and any(l.startswith("memory\tcgroup\t") for l in r.stdout.splitlines())
+
+
+def probe_cgroups_left():
+    """the runner's cgroups this run's parent and own cgroup still hold"""
+    own = "/sys/fs/cgroup" + (own_cgroup() or "")
+    left = []
+    for d in (own, os.path.dirname(own)):
+        left += [e for e in os.listdir(d) if e.startswith("plugin-hostd-probe.")]
+    return left
+
+
+@test
+def a_machine_with_no_cgroup_hierarchy_says_so_and_bounds_the_child_with_rlimit_data():
+    code, doc, _, _, _ = run(extra=NO_CGROUP)
+    valid(doc)
+    check(code == 0 and doc["run"]["outcome"] == "probe.ok", "the run ends well: %s %s" % (code, doc["run"]["outcome"]))
+    applied, why = limit_memory(doc)
+    check(applied["by"] == "rlimit", "the limit falls back to RLIMIT_DATA: %s" % applied)
+    check(why == ["probe.limit.cgroup-absent"], "the document says why: %s" % why)
+
+
+@test
+def a_machine_that_does_not_delegate_the_controller_says_so_and_bounds_the_child_with_rlimit_data():
+    for controllers, arm in (("cpu pids", "the controller is not listed"),
+                             ("cpu memory pids", "it is listed and its files cannot be written")):
+        root = fake_cgroup_tree(controllers)
+        try:
+            code, doc, _, _, _ = run(extra=("--cgroup-root", root))
+            valid(doc)
+            check(code == 0, "%s: the run ends well: %s" % (arm, code))
+            applied, why = limit_memory(doc)
+            check(applied["by"] == "rlimit" and why == ["probe.limit.controller-not-delegated"], "%s: %s %s" % (arm, applied, why))
+        finally:
+            shutil.rmtree(root)
+
+
+@test
+def a_plugin_past_memory_max_is_a_recorded_outcome_with_the_limit_and_a_plugin_within_it_is_not():
+    if not delegated_cgroup():
+        raise Skip("this machine delegates no memory controller to this user")
+    limit = 64 << 20
+    code, doc, _, _, _ = run(extra=("--data-bytes", str(limit)), env={"PROBE_CHILD_HOG_MB": "256"})
+    valid(doc)
+    applied, why = limit_memory(doc)
+    check(applied == {"limit": "memory", "value": limit, "unit": "bytes", "by": "cgroup"} and why == [], "the kernel's limit: %s %s" % (applied, why))
+    check(code == 1 and doc["run"]["outcome"] == "probe.memory-limit" and not doc["run"]["complete"], "the outcome: %s %s" % (code, doc["run"]))
+    ended = [s for s in doc["steps"] if s["outcome"] == "probe.memory-limit"]
+    check(len(ended) == 1 and str(limit) in ended[0]["detail"], "the step names the limit: %s" % doc["steps"])
+    check(probe_cgroups_left() == [], "the run left its cgroup behind: %s" % probe_cgroups_left())
+    # the same plugin with room: the limit is what ended it, not the plugin
+    code, doc, _, _, _ = run(extra=("--data-bytes", str(1 << 30)), env={"PROBE_CHILD_HOG_MB": "256"})
+    valid(doc)
+    check(code == 0 and doc["run"]["outcome"] == "probe.ok", "256 MiB within 1 GiB ends well: %s %s" % (code, doc["run"]["outcome"]))
+    check(probe_cgroups_left() == [], "the run left its cgroup behind: %s" % probe_cgroups_left())
+
+
+@test
+def a_runner_alone_in_a_delegated_scope_gets_the_limit_and_goes_home_after():
+    """systemd's delegated scope holds the runner alone: it steps into a leaf to turn the controller on, and steps back"""
+    if subprocess.run(["systemd-run", "--user", "--scope", "-q", "-p", "Delegate=yes", "true"], capture_output=True).returncode != 0:
+        raise Skip("no user manager to make a delegated scope")
+    work = tempfile.mkdtemp(prefix="plugin-hostd-probe-scope.")
+    out = os.path.join(work, "doc.json")
+    try:
+        env = dict(os.environ, PROBE_CHILD_HOG_MB="256")
+        r = subprocess.run(["systemd-run", "--user", "--scope", "-q", "-p", "Delegate=yes", "--setenv=PROBE_CHILD_HOG_MB=256",
+                            PROBE, "run", "--child", CHILD, "--rates", "48000", "--wall-s", "10",
+                            "--data-bytes", str(64 << 20), "--out", out, CLAP, ID], capture_output=True, text=True, env=env)
+        doc = json.load(open(out))
+        valid(doc)
+        applied, _ = limit_memory(doc)
+        check(applied["by"] == "cgroup" and doc["run"]["outcome"] == "probe.memory-limit", "%s %s %s" % (applied, doc["run"]["outcome"], r.stderr))
+    finally:
+        shutil.rmtree(work)
+
+
+@test
+def a_point_carries_the_footprint_taken_at_its_own_rate_and_a_rate_with_none_says_why():
+    code, doc, _, _, _ = run(rates="48000,96000", env={"PROBE_CHILD_MEMORY": "1", "PROBE_CHILD_NO_MEMORY_RATE": "96000"})
+    valid(doc)
+    at = {p["rate"]: p.get("memory") for p in doc["grid"]}
+    check(at[48000] == {"afterInstantiateKb": 480, "afterActivateKb": 960, "atRestKb": 1200, "secondInstanceKb": 240}, "48000: %s" % at[48000])
+    check(at[96000]["unmeasuredReason"] == "probe-failed" and "atRestKb" not in at[96000], "96000 says why: %s" % at[96000])
+    code, doc, _, _, _ = run(rates="48000")
+    check("memory" not in doc["grid"][0], "a child that took none gives none: %s" % doc["grid"][0])
+
+
 @test
 def every_limit_the_set_asks_for_is_applied_or_listed_unavailable():
-    code, doc, _, _, _ = run()
+    code, doc, _, _, _ = run(extra=NO_CGROUP)
     valid(doc)
     applied = {l["limit"]: l for l in doc["limits"]["applied"]}
     for name, by in (("wall-clock", "supervisor"), ("cpu-time", "rlimit"), ("memory", "rlimit"), ("files", "rlimit"),
                      ("file-size", "rlimit"), ("core-dump", "rlimit"), ("rt-priority", "rlimit"), ("no-new-privs", "prctl")):
         check(name in applied and applied[name]["by"] == by, "%s is applied by %s: %s" % (name, by, sorted(applied)))
-    check({u["limit"]: u["code"] for u in doc["limits"]["unavailable"]} == {"tasks": "probe.limit.not-implemented"},
-          "tasks is listed unavailable: %s" % doc["limits"]["unavailable"])
+    check({u["limit"]: u["code"] for u in doc["limits"]["unavailable"]} ==
+          {"tasks": "probe.limit.not-implemented", "memory": "probe.limit.cgroup-absent"},
+          "tasks and the cgroup of memory are listed unavailable: %s" % doc["limits"]["unavailable"])
 
 
 @test
@@ -177,7 +296,7 @@ def the_limits_reach_the_child():
     report = os.path.join(work, "limits.json")
     cpus = sorted(os.sched_getaffinity(0))[:1]
     code, doc, _, _, _ = run(extra=("--file-bytes", "4096", "--files", "64", "--cpu-s", "100", "--data-bytes", str(1 << 32),
-                                    "--cpus", str(cpus[0])), env={"PROBE_CHILD_LIMITS": report})
+                                    "--cpus", str(cpus[0])) + NO_CGROUP, env={"PROBE_CHILD_LIMITS": report})
     valid(doc)
     seen = json.load(open(report))
     rtprio = next(l["value"] for l in doc["limits"]["applied"] if l["limit"] == "rt-priority")
@@ -254,7 +373,7 @@ def an_instrument_point_carries_the_notes_it_held_and_an_untimed_rate_has_no_cos
                              env={"PROBE_CHILD_INSTRUMENT": "1", "PROBE_CHILD_UNMEASURED_RATE": str(untimed)})
     check(code == 0, "exit status %d" % code)
     valid(doc)
-    check(doc["formatVersion"] == "1.2", "formatVersion %s" % doc["formatVersion"])
+    check(doc["formatVersion"] == "1.3", "formatVersion %s" % doc["formatVersion"])
     check([g["rate"] for g in doc["grid"]] == rates, "a point per rate %s: %s" % (rates, [g["rate"] for g in doc["grid"]]))
     for g in doc["grid"]:
         if g["rate"] == untimed:

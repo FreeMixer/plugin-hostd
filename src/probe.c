@@ -37,8 +37,9 @@
  * (src/probe_lock.c); the runner itself, its supervisor and its reading of the pipes stay SCHED_OTHER. The document
  * says what the kernel reported after the exec (run.realtime) and whether the lock held (run.memoryLock).
  *
- * Limits applied here, on every Linux: the wall clock with the tree kill, RLIMIT_CPU, RLIMIT_DATA, RLIMIT_NOFILE,
- * RLIMIT_FSIZE, RLIMIT_CORE 0, RLIMIT_RTPRIO the granted priority (0 without one), RLIMIT_RTTIME the wall budget,
+ * Limits applied here, on every Linux: the wall clock with the tree kill, RLIMIT_CPU, the memory limit (cgroup memory.max
+ * on the measured child, src/probe_cgroup.c; RLIMIT_DATA where the controller is not delegated, and on every other child,
+ * and the document lists why), RLIMIT_NOFILE, RLIMIT_FSIZE, RLIMIT_CORE 0, RLIMIT_RTPRIO the granted priority (0 without one), RLIMIT_RTTIME the wall budget,
  * RLIMIT_MEMLOCK its hard limit, PR_SET_NO_NEW_PRIVS, PR_SET_PDEATHSIG and cpu affinity. A limit the
  * set asks for and this version does not apply (cgroup tasks, namespaces, Landlock, seccomp) is listed in the
  * document, never skipped in silence; --require turns it into a refusal.
@@ -91,6 +92,7 @@
 #include "describe.h"
 #include "json.h"
 #include "machine.h"
+#include "probe_cgroup.h"
 #include "probe_lock.h"
 
 #ifndef SCHED_DEADLINE
@@ -121,6 +123,7 @@ typedef struct
     const char *reason;
     const char *offer;
     const char *set;
+    const char *cgroup_root;
     unsigned quantum, blocks;
     /* the notes a CLAP instrument is timed holding: when it declares no voice capacity, and whatever it declares */
     unsigned probe_notes, hold;
@@ -876,6 +879,14 @@ static void drop_cap_sys_nice(void)
 
 /* in the child, before the exec: the limits of the set; exits 120 when one cannot be applied. A measured child also takes
  * its real-time priority, last, and writes sched_setscheduler's errno (0 when it took it) on rt_fd */
+/* the measured child's cgroup, when the machine gives one */
+static probe_cgroup_t g_cgroup;
+
+static void close_cgroup(void)
+{
+    probe_cgroup_close(&g_cgroup);
+}
+
 static void apply_limits(const options_t *o, const cpu_set_t *pinned, int pin_option, int measuring, int rt_fd)
 {
     setpgid(0, 0);
@@ -883,7 +894,15 @@ static void apply_limits(const options_t *o, const cpu_set_t *pinned, int pin_op
     if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0)
         _exit(120);
     put_rlimit(RLIMIT_CPU, (rlim_t)o->cpu_s, (rlim_t)o->cpu_s + 5);
-    put_rlimit(RLIMIT_DATA, (rlim_t)o->data_bytes, (rlim_t)o->data_bytes);
+    /* the measured child's memory is the cgroup's to bound when there is one: RLIMIT_DATA would refuse address space the
+     * plugin never touches */
+    if (measuring && g_cgroup.dir[0])
+    {
+        if (probe_cgroup_enter(&g_cgroup) != 0)
+            _exit(120);
+    }
+    else
+        put_rlimit(RLIMIT_DATA, (rlim_t)o->data_bytes, (rlim_t)o->data_bytes);
     put_rlimit(RLIMIT_NOFILE, (rlim_t)o->files, (rlim_t)o->files);
     put_rlimit(RLIMIT_FSIZE, (rlim_t)o->file_bytes, (rlim_t)o->file_bytes);
     put_rlimit(RLIMIT_CORE, 0, 0);
@@ -927,7 +946,21 @@ static int list_limits(const options_t *o, int pin_option, const char *cpus)
 
     note_applied("wall-clock", "supervisor", "s", o->wall_s, 1, NULL);
     note_applied("cpu-time", "rlimit", "s", o->cpu_s, 1, NULL);
-    note_applied("memory", "rlimit", "bytes", o->data_bytes, 1, NULL);
+    /* the cgroup, else RLIMIT_DATA: a machine that gives no cgroup still has a limit, and the document says which and why */
+    switch (probe_cgroup_open(&g_cgroup, o->cgroup_root, o->data_bytes))
+    {
+    case PROBE_CGROUP_OK:
+        atexit(close_cgroup);
+        note_applied("memory", "cgroup", "bytes", o->data_bytes, 1, NULL);
+        break;
+    case PROBE_CGROUP_ABSENT:
+        note_applied("memory", "rlimit", "bytes", o->data_bytes, 1, NULL);
+        note_unavailable("memory", LIMIT_CGROUP_ABSENT);
+        break;
+    default:
+        note_applied("memory", "rlimit", "bytes", o->data_bytes, 1, NULL);
+        note_unavailable("memory", LIMIT_CONTROLLER_NOT_DELEGATED);
+    }
     note_applied("files", "rlimit", "count", o->files, 1, NULL);
     note_applied("file-size", "rlimit", "bytes", o->file_bytes, 1, NULL);
     note_applied("core-dump", "rlimit", "bytes", 0, 1, NULL);
@@ -1367,6 +1400,12 @@ static const char *child_end(const char *name, const options_t *o, const run_t *
             else if (s->exit_status != 0 && r->out.len == 0)
                 code = OUT_ERROR;
         }
+        /* the kernel's count, not the signal: a plugin killed at the limit dies of the same SIGKILL as any other */
+        if (r->measuring && !r->killed_by_deadline && !r->cancelled && probe_cgroup_oom_kills(&g_cgroup) > 0)
+        {
+            code = OUT_MEMORY_LIMIT;
+            set_detail(s, "the memory limit of %lld bytes was hit; the kernel killed the process tree", o->data_bytes);
+        }
         s->outcome = code;
         if (r->killed_by_deadline)
             set_detail(s, "the wall clock of %ld s passed; the process tree was killed", o->wall_s);
@@ -1685,6 +1724,7 @@ static void put_note_sweep(sb_t *b, const jnode_t *ns)
  * its note sweep, and the plugin's behaviour over the pass (lifecycles, threads, the features it requires); a
  * translation, no judgement */
 static void put_cost(sb_t *b, const jnode_t *cost, const char *rate);
+static void put_memory(sb_t *b, const jnode_t *cost, const char *rate);
 
 static void put_lv2_measure(sb_t *b, const jnode_t *m, long rate, unsigned quantum)
 {
@@ -1709,6 +1749,7 @@ static void put_lv2_measure(sb_t *b, const jnode_t *m, long rate, unsigned quant
                   from_note ? ", \"heard\": true" : "");
     }
     put_cost(b, jget(m, "cost"), key);
+    put_memory(b, jget(m, "cost"), key);
     if (rt)
     {
         sb_printf(b, ", \"rtSafety\": {\"interposer\": %s", jbool(rt, "interposer", 0) ? "true" : "false");
@@ -1787,6 +1828,46 @@ static void put_cost(sb_t *b, const jnode_t *cost, const char *rate)
         if (jnum(voices, "capacity", &capacity))
             sb_printf(b, ", \"capacity\": %.0f", capacity);
         sb_printf(b, "}");
+    }
+    sb_printf(b, "}");
+}
+
+/* the footprint the child took at one rate, as that rate's point carries it: what the resident set grew by, in KB, at each
+ * step of one instance's life; a figure it could not take stays out, and a reason says why when none could be */
+static void put_memory(sb_t *b, const jnode_t *cost, const char *rate)
+{
+    static const char *const FIGURES[] = { "afterInstantiateKb", "afterActivateKb", "atRestKb", "notesHeldKb", "secondInstanceKb" };
+    const jnode_t *mem = jget(jget(jget(cost, "perRate"), rate), "memory");
+    const char *basis = jstr(mem, "basis"), *reason = jstr(mem, "unmeasuredReason"), *detail = jstr(mem, "unmeasuredDetail");
+    const char *sep = "";
+    size_t i;
+    double v;
+
+    if (!mem)
+        return;
+    sb_printf(b, ", \"memory\": {");
+    for (i = 0; i < sizeof(FIGURES) / sizeof(*FIGURES); i++)
+        if (jnum(mem, FIGURES[i], &v) && v >= 0)
+        {
+            sb_printf(b, "%s\"%s\": %.0f", sep, FIGURES[i], v);
+            sep = ", ";
+        }
+    if (basis)
+    {
+        sb_printf(b, "%s\"basis\": ", sep);
+        sb_str(b, basis);
+        sep = ", ";
+    }
+    if (reason)
+    {
+        sb_printf(b, "%s\"unmeasuredReason\": ", sep);
+        sb_str(b, reason);
+        sep = ", ";
+    }
+    if (detail)
+    {
+        sb_printf(b, "%s\"unmeasuredDetail\": ", sep);
+        sb_str(b, detail);
     }
     sb_printf(b, "}");
 }
@@ -1994,7 +2075,7 @@ static int panel_main(int argc, char **argv)
 int main(int argc, char **argv)
 {
     options_t o = { .child = "clap-qualify", .rates = floor_rates(), .quantum = 512, .reason = "on-request",
-                    .set = "default", .wall_s = 600, .cpu_s = 540, .files = 256, .data_bytes = 4LL << 30,
+                    .set = "default", .cgroup_root = PROBE_CGROUP_ROOT, .wall_s = 600, .cpu_s = 540, .files = 256, .data_bytes = 4LL << 30,
                     .file_bytes = 64LL << 20, .grace_ms = 300 };
     int a = 1, pin_option = 0, exit_code = 0, i, rc;
     cpu_set_t pinned;
@@ -2034,6 +2115,7 @@ int main(int argc, char **argv)
                         "  --log FILE           the child's stderr (default discarded)\n"
                         "  --reason WHY         add, rescan, binary-changed, on-request, auto-measure, reference, ci\n"
                         "  --wall-s N  --cpu-s N  --data-bytes N  --files N  --file-bytes N  --grace-ms N\n"
+                        "  --cgroup-root DIR  the cgroup v2 hierarchy the memory limit is set in (default " PROBE_CGROUP_ROOT ")\n"
                         "  --cpus LIST          pin the child to these cpus (\"0-3,8\")\n"
                         "  --require LIMIT      refuse to run unless the limit is applied (repeatable)\n"
                         "  --lock-preload FILE  the library that locks the measured child's memory (default " PROBE_LOCK_PRELOAD ")\n"
@@ -2082,6 +2164,7 @@ int main(int argc, char **argv)
         else if (!strcmp(k, "--wall-s")) o.wall_s = atol(v);
         else if (!strcmp(k, "--cpu-s")) o.cpu_s = atol(v);
         else if (!strcmp(k, "--data-bytes")) o.data_bytes = atoll(v);
+        else if (!strcmp(k, "--cgroup-root")) o.cgroup_root = v;
         else if (!strcmp(k, "--files")) o.files = atol(v);
         else if (!strcmp(k, "--file-bytes")) o.file_bytes = atoll(v);
         else if (!strcmp(k, "--grace-ms")) o.grace_ms = atol(v);
@@ -2458,6 +2541,7 @@ int main(int argc, char **argv)
                     sb_printf(&doc, ", \"heard\": %s", jbool(latency->kid[k], "heard", 1) ? "true" : "false");
                 sb_printf(&doc, "}");
                 put_cost(&doc, cost, latency->key[k]);
+                put_memory(&doc, cost, latency->key[k]);
                 if (firstpoint && rt)
                 {
                     double v = 0;
