@@ -3679,7 +3679,7 @@ def the_same_members_are_planned_into_the_same_segments_and_reasons_by_every_dae
 
 # ---------------------------------------------------------------- estimate (a chain's cost from the records, nothing loaded)
 
-def cell_for(d, plugin_id, median, measured=None, declared=0, rate=48000, quantum=128):
+def cell_for(d, plugin_id, median, measured=None, declared=0, rate=48000, quantum=128, memory=None):
     """a qualification record of one grid point with a cost median (ns per sample) and a latency: measured None leaves
     measuredFrames out, so the declared frames stand"""
     latency = {"declaredFrames": declared}
@@ -3687,6 +3687,8 @@ def cell_for(d, plugin_id, median, measured=None, declared=0, rate=48000, quantu
         latency["measuredFrames"] = measured
     point = {"rate": rate, "quantum": quantum, "outcome": "probe.ok", "latency": latency,
              "cost": {"median": median, "percentile": {"p": 95, "value": median * 2}, "blocks": 100, "warmupBlocks": 10}}
+    if memory is not None:
+        point["memory"] = memory
     doc = {"schema": "plugin-qualify.qualification-record/1", "plugin": {"format": "clap", "id": plugin_id},
            "measurements": {"grid": [point]}}
     with open(os.path.join(d.tmp, "qualification", "%s@1.0-0123456789ab.default.qualification.json" % plugin_id), "w") as f:
@@ -3724,18 +3726,18 @@ def an_estimate_adds_up_the_latency_and_the_cpu_of_the_members_and_counts_the_wo
     try:
         ref = lambda n: clap_n(p, n)
         no_cell, no_record, unknown = (harness.CODE[k] for k in ("NO_CELL", "NO_RECORD", "UNKNOWN_PLUGIN"))
-        d.expect("estimate 48000 128 %s %s %s" % (ref(1), ref(2), ref(3)), "resp 0 192 24.00 - 2 1 1:%d" % no_cell)
+        d.expect("estimate 48000 128 %s %s %s" % (ref(1), ref(2), ref(3)), "resp 0 192 24.00 - 2 1 1:%d 0 - - 3" % no_cell)
         check(d.workers() == {}, "no worker was spawned to answer: %s" % d.workers())
         # one member, and two that share: one worker; 4 has no record at all
-        d.expect("estimate 48000 128 %s" % ref(1), "resp 0 64 9.60 - 1 0 -")
-        d.expect("estimate 48000 128 %s %s" % (ref(1), ref(4)), "resp 0 64 9.60 - 1 1 1:%d" % no_record)
+        d.expect("estimate 48000 128 %s" % ref(1), "resp 0 64 9.60 - 1 0 - 0 - - 1")
+        d.expect("estimate 48000 128 %s %s" % (ref(1), ref(4)), "resp 0 64 9.60 - 1 1 1:%d 0 - - 2" % no_record)
         # at 96000/128 2 has its cell and 1 and 3 have none
-        d.expect("estimate 96000 128 %s %s %s" % (ref(1), ref(2), ref(3)), "resp 0 32 9.60 - 2 2 0:%d,2:%d" % (no_cell, no_cell))
+        d.expect("estimate 96000 128 %s %s %s" % (ref(1), ref(2), ref(3)), "resp 0 32 9.60 - 2 2 0:%d,2:%d 0 - - 3" % (no_cell, no_cell))
         # a uri that names no plugin installed here is placed nowhere: 3 alone is one worker
         d.expect("estimate 48000 128 urn:plugin-hostd:test:nosuch %s clap:/nonexistent/x.clap#org.example.x" % ref(3),
-                 "resp 0 128 14.40 - 1 2 0:%d,2:%d" % (unknown, unknown))
+                 "resp 0 128 14.40 - 1 2 0:%d,2:%d 0 - - 3" % (unknown, unknown))
         # the same plugin twice is two members
-        d.expect("estimate 48000 128 %s %s" % (ref(1), ref(1)), "resp 0 128 19.20 - 1 0 -")
+        d.expect("estimate 48000 128 %s %s" % (ref(1), ref(1)), "resp 0 128 19.20 - 1 0 - 0 - - 2")
         for bad in ("estimate", "estimate 48000 128", "estimate 0 128 %s" % ref(1), "estimate 48000 -1 %s" % ref(1),
                     "estimate x 128 %s" % ref(1)):
             d.expect(bad, "resp -902")
@@ -3753,8 +3755,41 @@ def an_estimate_adds_up_the_ram_of_the_members_only_when_every_one_has_a_figure(
     try:
         ref = lambda n: clap_n(p, n)
         d.expect("estimate 48000 128 %s %s %s" % (ref(1), ref(2), ref(3)),
-                 "resp 0 192 24.00 %d 2 1 1:%d" % (35 * 1024 * 1024, harness.CODE["NO_CELL"]))
-        d.expect("estimate 48000 128 %s %s" % (ref(1), ref(4)), "resp 0 64 9.60 - 1 1 1:%d" % harness.CODE["NO_RECORD"])
+                 "resp 0 192 24.00 %d 2 1 1:%d 0 - - 3" % (35 * 1024 * 1024, harness.CODE["NO_CELL"]))
+        d.expect("estimate 48000 128 %s %s" % (ref(1), ref(4)), "resp 0 64 9.60 - 1 1 1:%d 0 - - 2" % harness.CODE["NO_RECORD"])
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def an_estimate_says_what_is_held_what_the_members_add_with_what_they_share_counted_once_and_the_budget():
+    """the records say: 1 holds 100 MiB alone and 10 more per instance, 3 holds 40 and 40. 1 twice in one worker is 100 +
+    10; 3 is isolated, so it adds its whole figure. A member with no figure is counted and never read as 0, and with none
+    known the answer is -"""
+    p = Plugins()
+    d = p.daemon(conf={"pin_mode": "first-use", "grouping": "on", "ram_budget_mb": 2048})
+    mib = 1024 * 1024
+    try:
+        for n in (1, 2):
+            d.expect(pin_n(p, n, "in-process"), "resp 0")
+        d.expect(pin_n(p, 3, "isolated"), "resp 0")
+        ref = lambda n: clap_n(p, n)
+        cell_for(d, "org.openmixer.fault.1", 2000, measured=64, memory={"firstInstanceKb": 100 * 1024, "perInstanceKb": 10 * 1024})
+        cell_for(d, "org.openmixer.fault.2", 2000, measured=64)
+        cell_for(d, "org.openmixer.fault.3", 3000, declared=128, memory={"firstInstanceKb": 40 * 1024, "perInstanceKb": 40 * 1024})
+        words = lambda line: d.send(line).split()[-4:]
+        check(words("estimate 48000 128 %s" % ref(1)) == ["0", str(100 * mib), str(2048 * mib), "0"], "one instance holds all it shares")
+        check(words("estimate 48000 128 %s %s" % (ref(1), ref(1))) == ["0", str(110 * mib), str(2048 * mib), "0"],
+              "what two instances share is counted once")
+        check(words("estimate 48000 128 %s %s" % (ref(1), ref(3))) == ["0", str(140 * mib), str(2048 * mib), "0"], "1 and 3")
+        check(words("estimate 48000 128 %s %s" % (ref(1), ref(2))) == ["0", str(100 * mib), str(2048 * mib), "1"],
+              "2 has no figure: counted, and not read as 0")
+        check(words("estimate 48000 128 %s" % ref(2)) == ["0", "-", str(2048 * mib), "1"], "nothing known is -")
+        # the same plugin running: the workers' Pss is what is held now, and an estimate moves nothing
+        d.expect("add %s 1" % ref(1), "resp 1")
+        used = int(words("estimate 48000 128 %s" % ref(1))[0])
+        check(used > 0, "a running worker holds memory: %d" % used)
     finally:
         d.close()
         p.close()

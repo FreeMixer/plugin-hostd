@@ -3353,6 +3353,62 @@ static double estimate_ram(const char *uri)
     return r && r->windows_solo > 0 && r->pss_mb_solo > 0 ? r->pss_mb_solo * 1024.0 * 1024.0 : -1.0;
 }
 
+/* what the plugins running now hold, in bytes: the Pss of every worker; -1 when one cannot be read, which is unknown */
+static double estimate_ram_used(void)
+{
+    double bytes = 0;
+    int k;
+
+    for (k = 0; k < g_nworkers; k++)
+    {
+        long long kb;
+
+        if (g_workers[k]->pid <= 0)
+            continue;
+        if (proc_pss_kb(g_workers[k]->pid, &kb) != 0)
+            return -1.0;
+        bytes += (double)kb * 1024.0;
+    }
+    return bytes;
+}
+
+/* What these members would add, in bytes, and in *unknown how many have no figure. A plan's segment is one process, so
+ * what instances of one plugin share is counted once in a segment: the first instance there takes its whole figure and a
+ * later one its own part. Two segments are two processes, each loading it again. Members with no figure add nothing here
+ * and are counted, so a client says what is missing rather than read it as 0. */
+static double estimate_ram_added(int rate, int quantum, const char *const *uris, const planner_member_t *m, const planner_plan_t *pp,
+                                 int n, int *unknown)
+{
+    double kb = 0;
+    int seg, at = 0, placed = 0;
+
+    for (seg = 0; seg < pp->nseg; seg++)
+    {
+        int first = at, end = at + pp->seg_len[seg];
+
+        for (; at < end; at++, placed++)
+        {
+            const char *fwd = uris[m[at].id];
+            qualcost_memory_t mem;
+            int j, shared = 0;
+
+            format_of_uri(uris[m[at].id], &fwd);
+            if (qualcost_memory(g_conf.qualification_dir, record_id(fwd), rate, quantum, &mem) != 0)
+            {
+                (*unknown)++;
+                continue;
+            }
+            for (j = first; j < at; j++)
+                if (!strcmp(uris[m[j].id], uris[m[at].id]))
+                    shared = 1;
+            kb += shared ? mem.per_instance_kb : mem.first_kb;
+        }
+    }
+    /* a member that is placed nowhere has no figure either */
+    *unknown += n - placed;
+    return kb * 1024.0;
+}
+
 char *sup_estimate(int rate, int quantum, const char *const *uris, int n)
 {
     planner_member_t m[PLANNER_MEMBERS_MAX];
@@ -3360,9 +3416,10 @@ char *sup_estimate(int rate, int quantum, const char *const *uris, int n)
     planner_settings_t s;
     planner_plan_t pp;
     double latency = 0, median_ns = 0, ram = 0;
-    int k, planned = 0, unknown = 0, ram_every = 1, workers = 0;
+    int k, planned = 0, unknown = 0, ram_every = 1, workers = 0, ram_unknown = 0;
     size_t used = 0, cap = 128, lused = 0, lcap = 64;
-    char ram_word[32], *list, *reply;
+    char ram_word[32], used_word[32], added_word[32], budget_word[32], *list, *reply;
+    double ram_used, ram_added = 0;
 
     if (rate <= 0 || quantum <= 0 || n < 1 || n > PLANNER_MEMBERS_MAX)
         return sup_resp(ERR_INVALID_OPERATION);
@@ -3414,15 +3471,32 @@ char *sup_estimate(int rate, int quantum, const char *const *uris, int n)
         plan_settings(&s);
         planner_plan(&s, m, planned, &pp);
         workers = pp.nseg;
+        ram_added = estimate_ram_added(rate, quantum, uris, m, &pp, n, &ram_unknown);
     }
+    else
+        ram_unknown = n;
+    ram_used = estimate_ram_used();
+    if (ram_used < 0)
+        snprintf(used_word, sizeof(used_word), PHD_WORD_NONE);
+    else
+        snprintf(used_word, sizeof(used_word), "%.0f", ram_used);
+    /* no member has a figure: nothing is known, which is not the same as nothing added */
+    if (ram_unknown == n)
+        snprintf(added_word, sizeof(added_word), PHD_WORD_NONE);
+    else
+        snprintf(added_word, sizeof(added_word), "%.0f", ram_added);
+    if (g_conf.ram_budget_mb > 0)
+        snprintf(budget_word, sizeof(budget_word), "%lld", (long long)g_conf.ram_budget_mb * 1024LL * 1024LL);
+    else
+        snprintf(budget_word, sizeof(budget_word), PHD_WORD_NONE);
     if (ram_every)
         snprintf(ram_word, sizeof(ram_word), "%.0f", ram);
     else
         snprintf(ram_word, sizeof(ram_word), PHD_WORD_NONE);
     /* a member's cost per block over the block's duration is its nanoseconds per sample times the rate, over 1e9 */
     reply = malloc(cap);
-    put(&reply, &used, &cap, "resp 0 %.0f %.2f %s %d %d %s", latency, median_ns * rate / 1e9 * 100.0, ram_word, workers,
-        unknown, unknown ? list : PHD_WORD_NONE);
+    put(&reply, &used, &cap, "resp 0 %.0f %.2f %s %d %d %s %s %s %s %d", latency, median_ns * rate / 1e9 * 100.0, ram_word, workers,
+        unknown, unknown ? list : PHD_WORD_NONE, used_word, added_word, budget_word, ram_unknown);
     free(list);
     return reply;
 }
