@@ -165,6 +165,8 @@ make test-daemon check-generated check-rendered
 - describe reads an LV2 port group's path through pg:subGroupOf (#223, #296).
 - A percent-encoded LV2 IRI matches its qualification record (#239, #298).
 - The Zynthian tools and the bench read worker_list with its pool field (#236, #285).
+- describe: an LV2 toggle stays a toggle whatever order the dump lists its
+  port's records in (#305).
 
 * Thu Oct 29 2026 Pau Aliagas <linuxnow@gmail.com> - 0.15.0-1
 - A pin line takes pool=cores|off; a CLAP or lv2-clap worker for a plugin
