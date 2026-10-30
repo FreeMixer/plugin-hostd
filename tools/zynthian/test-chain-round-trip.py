@@ -118,19 +118,34 @@ def write_params(proc, name):
 SIG = {}
 
 
-def alone():
-    """each member alone in the reference host, the same cycles: its signature, and the graph's rate"""
+def unmeasured(s):
+    """the members whose run left no peak: hundreds of taps near -40 dB, the output not the noise's (the member's node
+    joined the graph's cycles after the feeder started, or the recording ran off the source). Every member alone has at
+    most two taps (the delay's dry and wet), so more is a run not measured"""
+    return [name for name in DECLARED if len(s[name]) > 2]
+
+
+def alone(tries=3):
+    """each member alone in the reference host, the same cycles: its signature, and the graph's rate. A run that left a
+    member with no peak is played again, at most tries times, each said (plugin-hostd#306: the strip alone once read an
+    uncorrelated output at lag 0)"""
     if SIG:
         return SIG
     ref = tc.reference()
     try:
         for k, name in enumerate(DECLARED):
             ref.series(20 + k, [MEMBERS[name][0]], params([name]))
-        got, src, rate = tc.play([("effect_%d" % (20 + k),) * 2 for k in range(3)], source=True)
+        for n in range(tries):
+            got, src, rate = tc.play([("effect_%d" % (20 + k),) * 2 for k in range(3)], source=True)
+            x = array.array("f", src)
+            s = {name: signature(x, got[2 * k:2 * k + 2], name + " alone") for k, name in enumerate(DECLARED)}
+            bad = unmeasured(s)
+            if not bad or n == tries - 1:
+                break
+            print("     alone: run %d of %d left %s with no peak (%s), played again" % (
+                n + 1, tries, ", ".join(bad), ", ".join("%d taps" % len(s[b]) for b in bad)), flush=True)
     finally:
         ref.close()
-    x = array.array("f", src)
-    s = {name: signature(x, got[2 * k:2 * k + 2], name + " alone") for k, name in enumerate(DECLARED)}
     d = round(DELAY_MS * rate / 1000)
     print("     alone at %d Hz: strip %s, limiter %s, delay %s" % (rate, said(s["strip"]), said(s["limiter"]),
                                                                  said(s["delay"])), flush=True)
@@ -327,11 +342,68 @@ SABOTAGE = [
 ]
 
 
+def self_test():
+    """alone() against played runs made up here: a member whose run is delayed past the taps searched (its node joined
+    late) is played again and the next run measured; a run that never settles stays red on the oracle's check"""
+    import random
+    rate, frames = 48000, LAGS + 16384
+    rnd = random.Random(306)
+    src = [rnd.uniform(-0.5, 0.5) for _ in range(frames)]
+    d = round(DELAY_MS * rate / 1000)
+    trim, look = 10 ** (TRIM_DB / 20), 64
+
+    def shifted(g, lag):
+        return [g * src[i - lag] if i >= lag else 0.0 for i in range(frames)]
+
+    def run(late):
+        # late: the strip's node joined after the feeder started, so what was recorded is not the noise fed (what CI
+        # read on #303: hundreds of taps near -30 dB at every lag)
+        strip = [trim * rnd.uniform(-0.5, 0.5) for _ in range(frames)] if late else shifted(trim, 0)
+        delay = [a + b for a, b in zip(shifted(MIX, 0), shifted(MIX, d))]
+        chans = [strip, strip, shifted(1.0, look), shifted(1.0, look), delay, delay]
+        return [array.array("f", c).tobytes() for c in chans], array.array("f", src).tobytes(), rate
+
+    class Ref:
+        def series(self, *a):
+            pass
+
+        def close(self):
+            pass
+    failed = 0
+    for runs, want in (([True, False], True), ([True, True, True], False)):
+        SIG.clear()
+        plays = iter(runs)
+        saved = tc.reference, tc.play
+        tc.reference, tc.play = (lambda: Ref()), (lambda arms, source=True: run(next(plays)))
+        try:
+            err = None
+            try:
+                s = alone()
+            except Exception as e:  # tc.check raises
+                err = e
+        finally:
+            tc.reference, tc.play = saved
+        ok = (err is None and s["strip"] == {0: s["strip"][0]} and abs(db(s["strip"][0]) - TRIM_DB) < 0.05) if want \
+            else (err is not None and "strip alone is" in str(err))
+        print(("ok   " if ok else "FAIL ") + "alone(), runs %s: %s" % (
+            "/".join("late" if r else "on time" for r in runs), "measured on the run that settled" if want
+            else "red on the strip's check after %d runs" % len(runs)), flush=True)
+        failed += not ok
+    SIG.clear()
+    print("SELF TEST %s: %d failed" % ("PASS" if not failed else "FAIL", failed))
+    return 1 if failed else 0
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--zui", required=True)
+    ap.add_argument("--zui")
+    ap.add_argument("--self-test", action="store_true", help="the measure's own checks, no daemon, no audio graph")
     ap.add_argument("--no-sabotage", action="store_true")
     a = ap.parse_args()
+    if a.self_test:
+        sys.exit(self_test())
+    if not a.zui:
+        ap.error("--zui is required")
     tc.S, tc.CHAIN, tc.PROC = tc.setup(a.zui)
     failed = 0
     for fn in SCENARIOS:
