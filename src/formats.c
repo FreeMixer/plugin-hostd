@@ -52,13 +52,18 @@ int clap_pin_collect(const char *uri, const char *search, char *root, size_t siz
     const char *path = uri + strlen(CLAP_PREFIX), *hash = strrchr(path, '#'), *slash;
     size_t len = hash ? (size_t)(hash - path) : strlen(path);
 
+    char encoded[PATH_MAX];
+
     (void)search;
-    snprintf(root, size, "%.*s", (int)len, path);
-    slash = strrchr(root, '/');
+    snprintf(encoded, sizeof(encoded), "%.*s", (int)len, path);
+    slash = strrchr(encoded, '/');
     if (!slash)
-        return pin_refuse(uri, root, "is not a path");
+        return pin_refuse(uri, encoded, "is not a path");
+    /* the pin holds the file name as the uri writes it, one word; the directory is the one the host opens */
     names_add(files, slash + 1);
-    root[slash - root] = '\0';
+    encoded[slash - encoded] = '\0';
+    if (pin_percent_decode(encoded, root, size) != 0)
+        return pin_refuse(uri, encoded, "is not a percent-encoded path");
     return SUCCESS;
 }
 
@@ -66,12 +71,13 @@ int clap_binary(const char *uri, const char *search, char *path, size_t size)
 {
     const char *file = uri + strlen(CLAP_PREFIX), *hash = strrchr(file, '#');
     size_t len = hash ? (size_t)(hash - file) : strlen(file);
+    char encoded[PATH_MAX];
 
     (void)search;
-    if (strncmp(uri, CLAP_PREFIX, strlen(CLAP_PREFIX)) || !len || file[0] != '/' || len >= size)
+    if (strncmp(uri, CLAP_PREFIX, strlen(CLAP_PREFIX)) || !len || file[0] != '/' || len >= sizeof(encoded))
         return -1;
-    snprintf(path, size, "%.*s", (int)len, file);
-    return 0;
+    snprintf(encoded, sizeof(encoded), "%.*s", (int)len, file);
+    return pin_percent_decode(encoded, path, size) == 0 ? 0 : -1;
 }
 
 /* The built-in rows, in the order of PHD_FORMATS. */
