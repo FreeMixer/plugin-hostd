@@ -1,3 +1,10 @@
+plugin-hostd (0.15.2) unstable; urgency=medium
+
+  * describe: a travel with both lv2:integer and pprops:logarithmic is log, in
+    either order (#142, #307).
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Fri, 30 Oct 2026 06:30:00 +0100
+
 plugin-hostd (0.15.1) unstable; urgency=medium
 
   * Remote pages and param_info read an LV2 bundle's ports (#152, #294).
