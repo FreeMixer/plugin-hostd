@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# The bundle of tests/daemon_test.py's remote pages and param_info: a plugin whose ports the daemon reads, no binary (the worker is a fake).
+@prefix lv2:  <http://lv2plug.in/ns/lv2core#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+<urn:openmixer:test:ports>
+    a lv2:Plugin ;
+    lv2:binary <ports.so> ;
+    rdfs:seeAlso <ports.ttl> .

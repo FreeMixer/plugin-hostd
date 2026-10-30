@@ -1,0 +1,19 @@
+{
+  "$schema": "https://github.com/FreeMixer/omx-contract/raw/v3/schema/omx-contract.schema.json",
+  "requires": {"omx-contract-schema": ">= 3.0.0"},
+  "origin": "scanned",
+  "plugin": {"id": "urn:example:eq", "format": "lv2", "uri": "urn:example:eq", "name": "Example EQ", "features": ["audio-effect"]},
+  "controls": [
+    {"id": "b1_freq", "name": "Band 1 frequency", "kind": "travel", "travel": {"min": 20, "max": 20000, "unit": "unknown", "default": 1000, "scale": "linear"}, "group": ["Bands", "Band 1"], "meaning": "unknown", "source": {"from": "eq.lv2/eq.ttl#b1_freq"}},
+    {"id": "b2_freq", "name": "Band 2 frequency", "kind": "travel", "travel": {"min": 20, "max": 20000, "unit": "unknown", "default": 1000, "scale": "linear"}, "group": ["Bands", "Band 2"], "meaning": "unknown", "source": {"from": "eq.lv2/eq.ttl#b2_freq"}},
+    {"id": "trim", "name": "Trim", "kind": "travel", "travel": {"min": 20, "max": 20000, "unit": "unknown", "default": 1000, "scale": "linear"}, "group": ["Master"], "meaning": "unknown", "source": {"from": "eq.lv2/eq.ttl#trim"}}
+  ],
+  "ports": [
+    {"id": "in", "name": "Input", "kind": "audio", "direction": "in", "role": "main", "channels": 1, "layout": "mono"},
+    {"id": "out", "name": "Output", "kind": "audio", "direction": "out", "role": "main", "channels": 1, "layout": "mono"}
+  ],
+  "latency": {"reports": false},
+  "extensions": {"lv2": {
+    "rdf:type": ["lv2:Plugin", "lv2:EQPlugin"]
+  }}
+}

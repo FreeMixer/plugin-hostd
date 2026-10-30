@@ -343,7 +343,7 @@ static inline int phd_pool_name_valid(const char *name)
     X(PRESET_NOT_OFFERED, OMX_REPLY_PLUGIN_HOSTD_PRESET_NOT_OFFERED_RESP, "the worker: preset_load or preset_show of a stable name the plugin does not offer, or of a " \
                           "plugin with no preset system and no state") \
     X(PRESET_INVALID, OMX_REPLY_PLUGIN_HOSTD_PRESET_INVALID_RESP, "preset_save with a file path that is not absolute or with no name, or preset_load or " \
-                      "preset_show of a file that cannot be read, is no JSON, is of a format version other than " \
+                      OMX_VERB_PRESET_SHOW " of a file that cannot be read, is no JSON, is of a format version other than " \
                       PHD_PRESET_FORMAT_1 " and " PHD_PRESET_FORMAT_2 ", or breaks the format (docs/presets.md): the " \
                       "daemon answers it and no worker sees the file") \
     X(PRESET_NEEDS_STATE, OMX_REPLY_PLUGIN_HOSTD_PRESET_NEEDS_STATE_RESP, "the worker: a preset file that carries state for a worker that cannot take state yet") \
@@ -835,7 +835,7 @@ static inline int phd_is_note_verb(const char *verb)
     X("bundle_remove", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
     X("preset_load", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
     X("preset_save", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
-    X("preset_show", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
+    X(OMX_VERB_PRESET_SHOW, MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
     X("transport", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
     X("transport_sync", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \
     X("cpu_load", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \

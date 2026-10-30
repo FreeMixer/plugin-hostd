@@ -1,8 +1,8 @@
-Pi 5 deep qualification, 2026-10-28
-===================================
+Pi 5 deep qualification, plugin-qualify 0.16.1
+==============================================
 
 What ran: `plugin-qualify --all --isolate` over every LV2 and CLAP plugin on a Raspberry Pi 5 (4 cores, 4 GB) running
-ZynthianOS vangelis, kernel 6.18.50+rpt-rpi-2712 (not PREEMPT_RT), from 2026-10-28T14:51:58Z to 20:51:49Z, then
+ZynthianOS vangelis, kernel 6.18.50+rpt-rpi-2712 (not PREEMPT_RT), for 5 h 59 min 51 s, then
 `plugin-qualify-sync --system --force`. Packages: plugin-qualify 0.16.1, plugin-hostd 0.13.1 (its probe ran every
 measurement: `plugin-hostd-probe 0.13.1`), omx-clap-host 0.23.2, omx-plugins 0.15.1; mod-host v0.10.6-595-g6c1cdd8 and
 jalv from `/usr/local/bin` as the image ships them. The script is [run.sh](run.sh); `bin-jalv` is the jalv wrapper

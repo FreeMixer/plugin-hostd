@@ -92,6 +92,8 @@ static const format_t g_builtin[] = {
         .pinned_own_only = 1,
         .native_instance_verbs = 0,
         .param_info = lv2_param_info,
+        .remote_pages = lv2_remote_pages,
+        .remote_page_get = lv2_remote_page_get,
     },
     {
         .name = PHD_FORMAT_CLAP,

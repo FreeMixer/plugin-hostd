@@ -1568,7 +1568,10 @@
       },
       "pg:subGroupOf": {
         "term": "LV2_PORT_GROUPS_TERMS#subGroupOf",
-        "extension": true
+        "word": {
+          "word": "controls[].group",
+          "transform": "port-group"
+        }
       },
       "pprops:causesArtifacts": {
         "term": "LV2_PORT_PROPS_TERMS#causesArtifacts",

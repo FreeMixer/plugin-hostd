@@ -19,7 +19,7 @@ PROBE = os.environ.get("PROBE", os.path.join(ROOT, "plugin-hostd-probe"))
 FIELDS = os.path.join(ROOT, "tests", "fixtures", "fields")
 TABLES = os.path.join(ROOT, "data", "formats")
 CASES = {"clap-controls": "clap:controls.clap#org.freemixer.plugin-qualify.fixture.controls",
-         "lv2-compressor": "lv2:urn:example:compressor"}
+         "lv2-compressor": "lv2:urn:example:compressor", "lv2-eq": "lv2:urn:example:eq"}
 # omx-contract's reader and a data tree it reads (an omx-contract checkout's data/), when OMX_CONTRACT_CLI and
 # OMX_CONTRACT_DATA name them; READER_VERSION, the reader's schema, stands for the floor the descriptor states, which a
 # reader older than 3.0.0 refuses
@@ -96,6 +96,29 @@ def main():
             fmt = target.split(":", 1)[0]
             check(got["origin"] == "scanned" and got["plugin"]["format"] == fmt and got.get("extensions", {}).get(fmt),
                   "%s: scanned, format %s, the bag carries what the table classes extension" % (name, fmt))
+
+        # a toggle stays a toggle whichever order the dump lists its port's records in: omx-clap-scan lists them by
+        # field, so rdf:type lv2:ControlPort (travel) comes after lv2:portProperty lv2:toggled
+        base = open(os.path.join(FIELDS, "lv2-compressor.tsv")).read().splitlines(True)
+        port10 = [l for l in base if l.startswith("port:10\t")]
+        rest = [l for l in base if not l.startswith("port:10\t")]
+        for order, lines in (("by field", sorted(port10, key=lambda l: l.split("\t")[1])),
+                             ("ControlPort last", [l for l in port10 if "\trdf:type\t" not in l] +
+                              [l for l in port10 if "\trdf:type\t" in l])):
+            r = describe(CASES["lv2-compressor"], scratch(tmp, "toggle-order.tsv", "".join(rest + lines)))
+            kinds = {c["id"]: c["kind"] for c in json.loads(r.stdout or "{}").get("controls", [])} if r.returncode == 0 else {}
+            check(kinds.get("enable") == "toggle", "a toggle listed with its port's records %s stays a toggle (%s)"
+                  % (order, kinds.get("enable") or r.stderr.strip()))
+
+        # a travel with lv2:integer and pprops:logarithmic is log in either order (#142)
+        for order, extra in (("integer first", "port:6\tlv2:portProperty\tlv2:integer\n"), ("integer last", None)):
+            lines = list(rest + port10)
+            at = next(i for i, l in enumerate(lines) if l.startswith("port:6\t") and "pprops:logarithmic" in l)
+            lines.insert(at if extra else at + 1, "port:6\tlv2:portProperty\tlv2:integer\n")
+            r = describe(CASES["lv2-compressor"], scratch(tmp, "scale-order.tsv", "".join(lines)))
+            scales = {c["id"]: (c.get("travel") or {}).get("scale") for c in json.loads(r.stdout or "{}").get("controls", [])} if r.returncode == 0 else {}
+            check(scales.get("ratio") == "log", "a travel with lv2:integer and pprops:logarithmic, %s, is log (%s)"
+                  % (order, scales.get("ratio") or r.stderr.strip()))
 
         # refusals: each exits 2 and names what it refuses
         lv2 = open(os.path.join(FIELDS, "lv2-compressor.tsv")).read()

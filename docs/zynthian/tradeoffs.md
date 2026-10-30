@@ -9,7 +9,7 @@ One worker per chain against one process per plugin
 
 plugin-hostd runs a Zynthian chain in one worker process (grouped) or each plugin in a worker of its own (individual);
 jalv runs one process per plugin; mod-host runs every plugin in one process. Figures: [Grouped versus
-alone](benchmarks.md#grouped-versus-alone-plugin-hostd-jalv-mod-host), Pi 5, 48000 Hz, 256 frames, 2026-10-27.
+alone](benchmarks.md#grouped-versus-alone-plugin-hostd-jalv-mod-host), Pi 5, 48000 Hz, 256 frames.
 
 | | grouped (plugin-hostd chain) | jalv (one process per plugin) | mod-host (one process) |
 |---|---|---|---|
@@ -17,7 +17,7 @@ alone](benchmarks.md#grouped-versus-alone-plugin-hostd-jalv-mod-host), Pi 5, 480
 | PSS, 16 plugins | 66.1 MB | 215.0 MB | 76.4 MB |
 | CPU, 16 plugins, % of a core | 10.16 | 11.39 | 9.54 |
 | add time, 16 plugins | 2507 ms | 2417 ms | 434 ms |
-| JACK clients per chain | 1 for an all-CLAP chain (grouped-vs-processes.md); 3 for chain3 with an LV2 member on 2026-10-28 | one per plugin, not counted | not counted |
+| JACK clients per chain | 1 for an all-CLAP chain (grouped-vs-processes.md); 3 for chain3 with an LV2 member | one per plugin, not counted | not counted |
 | a plugin crashes | the worker is put back, 347 ms (`kill1`); in a chain the other members keep playing (round-trip.txt) | that plugin's process is lost, nothing restarts it | every plugin of the process is lost |
 
 Pros:
@@ -51,7 +51,7 @@ Cons:
 CLAP hosting
 ------------
 
-Zynthian has no CLAP host today: jalv and mod-host host LV2 only (every CLAP verdict under jalv and mod-host is
+Zynthian has no CLAP host: jalv and mod-host host LV2 only (every CLAP verdict under jalv and mod-host is
 `hosting.clap.format-not-hosted` or a crash, benchmarks.md). plugin-hostd hosts CLAP in its worker, omx-clap-host, and LV2
 through the same worker's LV2 adapter.
 
@@ -74,14 +74,14 @@ Every plugin on the device is measured once by plugin-qualify, and plugin-hostd 
   run in a worker of its own and never grouped; unsuitable, a plugin that crashes, hangs, fails to load or breaks the
   host. For plugin-hostd's worker on the Pi: LV2 1059 suitable, 185 isolated, 79 unsuitable (6 unmeasured); CLAP 71,
   133, 43.
-- After the 2026-10-28 run and sync, the device's pin file holds 1187 pins `in-process`, 305 `refused` and 81 without a
-  verdict. The files predate the ruling: of the 172 plugins the sync refused, 170 failed the sweep in the run and 2
+- After the deep run and sync on plugin-qualify 0.16.1, the device's pin file holds 1187 pins `in-process`, 305 `refused` and 81 without a
+  verdict. The files predate the decision that a plugin failing the sweep is isolated: of the 172 plugins the sync refused, 170 failed the sweep in the run and 2
   under notes, so all 172 are isolated, not unsuitable; the sync's 4 crashed plugins are the unsuitable ones.
 - LV2 suitability is the same under jalv, mod-host and plugin-hostd's worker (1059, 1058, 1059 of 1329): qualification
   does not shrink what Zynthian offers for LV2; it isolates the plugins it found allocating, locking or calling into
   the kernel in the audio thread (183 LV2 records) and leaves out the ones that crash or hang (79).
-- A plugin plugin-hostd refuses today stays on jalv, listed in its menu (FreeMixer/zynthian-ui#12): nothing the user
-  has today disappears. Under the ruling an isolated plugin runs in plugin-hostd in a worker of its own instead.
+- A plugin plugin-hostd refuses stays on jalv, listed in its menu (FreeMixer/zynthian-ui#12): nothing the user
+  has disappears. An isolated plugin runs in plugin-hostd in a worker of its own instead.
 - Cost is not part of any verdict yet: the grid holds 512-frame blocks only, so every cost rating reads unknown
   (plugin-qualify#193). The menus' cost tags are therefore not from Zynthian's quantum.
 - The run is long: 6 hours on the Pi 5 for 1823 records (run.log), with the governor at powersave. It runs once per
@@ -96,7 +96,7 @@ mod-host protocol compatibility
 plugin-hostd speaks mod-host's protocol on its port, so mod-ui and Zynthian code written for mod-host talk to it
 unchanged. [verbs.tsv](verbs.tsv) lists the 33 verbs mod-ui sends and what each does under plugin-hostd.
 
-- In the driven session (spike, 2026-10-20, plugin-hostd 0.6.0) 130 of 135 replies are identical. The 5 that differ:
+- In the driven session (spike, plugin-hostd 0.6.0) 130 of 135 replies are identical. The 5 that differ:
   `connect` to `mod-monitor` (no worker owns it), `feature_enable aggregated-midi` (a later worker never hears it), and
   `preset_load` of a user preset after a pedalboard reload (the new worker never heard the `bundle_add`).
 - Feedback differs by worker: `transport` 6 times against 1.
@@ -153,13 +153,13 @@ What is not done
 ----------------
 
 - Audio proof on a device with a sound card. The fork's engine ran a chain with omx-eq8 through plugin-hostd on the
-  Pi on 2026-10-28; the Pi has no sound card, so no audio was heard. The sample-by-sample round trip ran in x86_64
+  Pi; the Pi has no sound card, so no audio was heard. The sample-by-sample round trip ran in x86_64
   containers only.
 - The cost grid at the hosts' quantums (128, 256, 1024 frames) and LV2 at 44.1, 48 and 96 kHz: plugin-qualify#193.
 - A cost estimate a chain editor can ask for before an insert (latency, CPU, RAM; recommend, warn or refuse):
   FreeMixer/zynthian-ui#13, open; plugin-hostd has no `estimate` verb yet.
 - The fork's engine still gives each processor of a CLAP chain the JACK name `effect_<instance>`, although the chain is
   one JACK client whose head carries the chain's ports. Open.
-- The MOD-UI engine on plugin-hostd was not measured on the device: until the fork's update script was applied on the
-  evening of 2026-10-28 it ran the stock mod-host.
+- The MOD-UI engine on plugin-hostd was not measured on the device: until the fork's update script was applied it ran
+  the stock mod-host.
 - JACK client counts for jalv and mod-host, and xruns over long windows: not measured yet.

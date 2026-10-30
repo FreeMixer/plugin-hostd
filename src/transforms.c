@@ -466,7 +466,7 @@ int transforms_group_path_inverse(const transforms_data_t *d, const char *value,
     return done(&o);
 }
 
-/* an LV2 group's label -> ["label"] */
+/* an LV2 group's label -> ["label"]; a pg:subGroupOf record is one level above, which describe puts before the rest */
 int transforms_port_group(const transforms_data_t *d, const char *value, char *out, size_t size)
 {
     out_t o = { out, 0, size, 0 };
@@ -480,12 +480,15 @@ int transforms_port_group(const transforms_data_t *d, const char *value, char *o
     return done(&o);
 }
 
-static int one_item(void *ctx, int k, const char *s)
+/* the path's last level is the group a port names (pg:group); the levels before it are its pg:subGroupOf chain */
+static int last_item(void *ctx, int k, const char *s)
 {
     out_t *o = ctx;
 
-    if (k > 0 || *s == '\0')
+    (void)k;
+    if (*s == '\0')
         return -1;
+    o->len = 0;
     put(o, s, strlen(s));
     return 0;
 }
@@ -496,7 +499,7 @@ int transforms_port_group_inverse(const transforms_data_t *d, const char *value,
 
     (void)d;
     out[0] = '\0';
-    if (string_array(value, one_item, &o) != 1)
+    if (string_array(value, last_item, &o) < 1)
         return TRANSFORMS_REFUSED;
     return done(&o);
 }

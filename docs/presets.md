@@ -1,6 +1,6 @@
 # Presets in the host
 
-The ruling "PRESETS IN THE HOST" of 2026-10-22 on plugin-hostd#131, as this tree builds it. The schema is
+Presets in the host (plugin-hostd#131), as this tree builds it. The schema is
 [protocol/preset.schema.json](../protocol/preset.schema.json); `tests/preset_format.py` holds it to the examples below.
 
 ## Who owns what
@@ -23,7 +23,12 @@ only as the mechanism, and the host verb table keeps them optional for every pro
 | `preset_list` | `<instance>` | `resp <count>`, then `preset_get <instance> <index>` one row each |
 | `preset_load` | `<instance> <stable name \| file path>` | `resp 0` |
 | `preset_save` | `<instance> <file path> <name>` | `resp 0`: the worker wrote the file |
-| `preset_show` | `<instance> <stable name \| file path>` | `resp 0 <carries> <name>` |
+| `preset_show` | `<instance> <stable name \| file path>` | `resp 0 <json>`: what a load would apply, on one line of JSON (below) |
+
+The reply of `preset_show` is `resp 0 <json>`, one shape on every worker and through the daemon, which passes the worker's
+line on unchanged: the rest of the line after `resp 0 ` is one JSON object on one line. For a file it is the document with
+each state body's `bytes` replaced by its decoded `size`; for a listed preset (a stable name) it holds `name`, `loadKey`
+and `location`. It is not `resp 0 <carries> <name>`: `carries` and `name` are fields of that object.
 
 A file path is absolute (it starts with `/`); any other word is a stable name of the plugin's own presets, the
 `load_key` of `preset_get`. The name of `preset_save` is the rest of the line, quoted when it holds a space. A

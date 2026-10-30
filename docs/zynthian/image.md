@@ -101,8 +101,8 @@ release assets up to 2 GiB and this image compresses to 5.9 GiB, so it is publis
 file and of each part beside them; the notes say `cat zynthianos-vangelis-omx.img.xz.* > zynthianos-vangelis-omx.img.xz`
 before checking and flashing.
 
-The build of 2026-10-28
------------------------
+The build on Vangelis-2610.1
+----------------------------
 
 On an x86_64 Fedora host with 24 cores: 434 s from the upstream `.img.xz` to the compressed image (decompress 6 s,
 update in the nspawn 3 min 7 s, compress 3 min 57 s). The image is 19.4 GB raw (upstream's 17.4 GB plus 2 GiB) and
@@ -120,7 +120,7 @@ How it is checked
   versions; `zynthian-sys` and `zynthian-ui` are on `refs/heads/vangelis` at the fork's commit with the fork's URL.
 - `/zynthian/config/zynthian_envars.sh` in the image says `ZYNTHIAN_MODHOST_BACKEND="plugin-hostd"` and
   `ZYNTHIAN_PLUGIN_ENGINE="plugin-hostd"`, and `/zynthian/config/openmixer-defaults` lists the steps done.
-- The first boot on a Raspberry Pi 5 is the operator's: the UI comes up, MOD-UI runs on plugin-hostd, a chain with an
+- The first boot on a Raspberry Pi 5 is still to be done by hand: the UI comes up, MOD-UI runs on plugin-hostd, a chain with an
   LV2 and a CLAP plugin sounds, and the qualification sync has run once (`/var/lib/omx/qualified.pins` filled).
 
 Boot test in a container

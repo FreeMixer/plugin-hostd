@@ -9,8 +9,8 @@ and gives the command that would measure it. The pros and cons drawn from these 
 The device in every Pi row: a Raspberry Pi 5 (Cortex-A76, 4 cores, 4 GB), ZynthianOS vangelis (Debian 13 arm64), kernel
 6.18.50+rpt-rpi-2712 (not PREEMPT_RT). **It has no sound card**: its JACK runs on the ALSA `Dummy` card, and every
 benchmark ran on a private JACK server on the dummy driver. DSP load, xruns and latency below are the dummy driver's;
-no row is a statement about audio heard. Until the fork's update script was applied to the device by another lane on the evening of 2026-10-28
-(`sbin/mod-host-backend.sh` dated 22:06Z, `ZYNTHIAN_MODHOST_BACKEND="plugin-hostd"` after it), its MOD-UI engine ran
+no row is a statement about audio heard. Until the fork's update script was applied to the device
+(`sbin/mod-host-backend.sh`, `ZYNTHIAN_MODHOST_BACKEND="plugin-hostd"` after it), its MOD-UI engine ran
 the stock mod-host (`/usr/local/bin/mod-host`, v0.10.6-595-g6c1cdd8, as the image ships it). Every mod-host row below,
 before and after that, is that stock binary, started by the bench on a private port of its own; no row measures MOD-UI
 or the device's own mod-host service.
@@ -47,7 +47,7 @@ jalv the LV2 builds of the omx plugins stand in for the CLAP ones (each row's no
 
 The figure shows, for 3, 8 and 16 plugins at 48000 Hz and 256 frames, the CPU, proportional memory, process count and
 add time of each mode, from run `rpi5-20261027-1`
-([evidence/pi5-bench-2026-10-27/rpi5-20261027-1.json](evidence/pi5-bench-2026-10-27/rpi5-20261027-1.json), 2026-10-27,
+([evidence/pi5-bench-2026-10-27/rpi5-20261027-1.json](evidence/pi5-bench-2026-10-27/rpi5-20261027-1.json),
 governor `performance`, plugin-hostd 0.12.0, omx-clap-host 0.22.1, jalv 1.6.9 and mod-host 0.10.6-595-g6c1cdd8 as the
 image ships them).
 
@@ -76,8 +76,8 @@ process's shared libraries again; PSS shares them out, so PSS is the memory the 
 the first `add` to the last reply, for the chain mode until the chain runs, for jalv until the last client is in the
 graph.
 
-JACK clients per chain and xruns. The 2026-10-27 omx-bench rows do not record them. The chain-only run of the same
-night, [evidence/pi5-bench-2026-10-27/grouped-vs-processes.md](evidence/pi5-bench-2026-10-27/grouped-vs-processes.md)
+JACK clients per chain and xruns. The omx-bench rows of `rpi5-20261027-1` do not record them. The chain-only run made
+with it, [evidence/pi5-bench-2026-10-27/grouped-vs-processes.md](evidence/pi5-bench-2026-10-27/grouped-vs-processes.md)
 (raw rows in `grouped-vs-processes.jsonl`, script `gvp.py`; plugin-hostd 0.12.0, all-CLAP chains of omx plugins, 256
 frames, private JACK), counts them for plugin-hostd only:
 
@@ -95,9 +95,9 @@ individual, from single 10 s windows; read them as a count, not a rate. jalv's J
 construction (one process, one client); mod-host's are one per plugin instance inside its one process. Neither was
 counted on the device: not measured yet.
 
-The run of 2026-10-28 (below) adds xruns and declared latency for N = 3 under all five modes.
+The run `rpi5-20261028-1` (below) adds xruns and declared latency for N = 3 under all five modes.
 
-Run `rpi5-20261028-1`, 2026-10-28 22:04Z to 22:15Z
+Run `rpi5-20261028-1`, eleven minutes
 ([evidence/pi5-bench-2026-10-28/rpi5-20261028-1.json](evidence/pi5-bench-2026-10-28/rpi5-20261028-1.json), the
 console output `run.out` and every host's log under `logs/`): plugin-hostd 0.13.1, omx-clap-host 0.23.2, omx-plugins
 0.15.1, the stock mod-host and jalv; 48000 Hz, 256 frames, three repeats of a 10 s window per row (the median, the spread
@@ -118,7 +118,7 @@ in the file), governor left at `powersave`. The command:
 
 The chain row's note reads `one worker, 3 JACK clients`: with an LV2 member (Calf) on the adapter row the chain is one
 worker but not one JACK client; the one-client chain of grouped-vs-processes.md is an all-CLAP chain. `kill1` repeats
-the 2026-10-27 result: plugin-hostd recovers in 346.7 ms, the other three hosts lose the process.
+the result of `rpi5-20261027-1`: plugin-hostd recovers in 346.7 ms, the other three hosts lose the process.
 
 Latency. The bench records the latency JACK reports at `system:playback_1`, which is what the clients on the path
 declare, not a measurement of audio; the omx plugins in these chains declare none. A measured round-trip latency per
@@ -126,7 +126,7 @@ host needs a device with a sound card and a loopback cable: not measured yet.
 
 At scale, chains of four LV2 plugins at 1, 2, 4, 8 and 16 chains, each level held 60 s on the system JACK server of
 the Zynthian, grouped (one worker per chain), alone (one worker per plugin) and on jalv: [stress.md](stress.md)
-(2026-10-29, plugin-hostd 0.13.1, omx-clap-host 0.23.2, 48000 Hz, 256 frames, 1500 MHz, CPU from the scheduler's ns
+(plugin-hostd 0.13.1, omx-clap-host 0.23.2, 48000 Hz, 256 frames, 1500 MHz, CPU from the scheduler's ns
 counters). At 16 chains the hosting processes used 70.6 % of a core grouped (60 plugins), 100.8 % alone (60) and
 82.3 % on jalv (64); PSS 224.2, 359.3 and 2745.6 MB; `jack_lsp` counted 46, 70 and 74 JACK clients, 10 of them the
 idle graph's. Grouped and alone reached 16 chains without a limit; jalv stopped there on memory, with 2 xruns.
@@ -183,7 +183,7 @@ the files record the signal and not who sent it.
 
 The classes (plugin-qualify#196, plugin-hostd#231): **a plugin that fails the RT-safety sweep is isolated, not
 unsuitable: it runs in a worker of its own and is never grouped with RT-safe plugins; unsuitable is only a crash, a
-hang, a load failure or behaviour that breaks the host.** The records were written before that ruling and say
+hang, a load failure or behaviour that breaks the host.** The records were written before that decision and say
 `unsuitable` for both; the classes below are derived from each verdict's deciding code by
 `tools/zynthian/qualify-summary.py`: `hosting.rt-safety.violations-*` is isolated; `probe.crashed`, `probe.timeout`,
 `probe.refused-instantiation` and `mod-host.*` (a SIGABRT or no answer from mod-host) are unsuitable;
@@ -192,7 +192,7 @@ hang, a load failure or behaviour that breaks the host.** The records were writt
 ![Classes per host profile](evidence/figures/suitability.svg)
 
 The figure shows, for each host profile and plugin format, how many plugins are suitable, isolated, unsuitable, not
-loadable by that host, or unknown (summary.json `classes_by_format`, 2026-10-28).
+loadable by that host, or unknown (summary.json `classes_by_format`).
 
 | host profile | format | suitable | isolated | unsuitable | format not hosted | unknown | of |
 |---|---|---|---|---|---|---|---|
@@ -225,7 +225,7 @@ plugin-hostd#231 gives an isolated plugin a worker of its own. Two defects show 
 
 The figure shows the RT-safety outcome of each qualification record in the three classes: suitable (swept clean),
 isolated (violations seen), unsuitable (no grid point: the probe crashed, timed out or was refused), or measured
-without a sweep (summary.json `rt_safety_records`, 2026-10-28).
+without a sweep (summary.json `rt_safety_records`).
 
 | format | suitable (clean) | isolated (violations) | unsuitable (crashed, timed out, refused) | not swept |
 |---|---|---|---|---|
@@ -245,7 +245,7 @@ plugins sweeps clean, in both formats (tables.md).
 ![Per-block cost at 48 kHz](evidence/figures/cost-48k.svg)
 
 The figure shows the per-block cost of every CLAP plugin measured at 48000 Hz and 512 frames, cheapest to dearest, with
-our plugins marked (summary.json, 2026-10-28).
+our plugins marked (summary.json).
 
 The probe times each `process()` call, drops 64 warm-up blocks and keeps the median over 512 timed blocks, in
 nanoseconds per sample (one frame). The per-block figure is that times 512. A 512-frame block at 48000 Hz lasts
@@ -290,7 +290,7 @@ few are dear. The CLAP and LV2 builds of one plugin differ at the median by up t
 ![Grid measured against grid asked](evidence/figures/grid.svg)
 
 The figure shows how many grid points were measured at each rate and quantum against the 4 x 4 grid the run asked for
-(summary.json, 2026-10-28).
+(summary.json).
 
 **The grid gap** (plugin-qualify#193). The run asked for 44100, 48000, 96000 and 192000 Hz at 128, 256, 512 and 1024
 frames. It measured only 512-frame blocks: CLAP at all four rates (408 points each), LV2 at 192000 Hz only (1250
@@ -305,25 +305,25 @@ The chain round trip
 [evidence/chain/](evidence/chain/) holds four runs of the chain verbs driven through the zynthian-ui chain code. None ran
 on the Pi; all are x86_64 Fedora 44 containers with zyncoder, pyliblo3 and zynautoconnect stubbed.
 
-| file | date | what | result |
-|---|---|---|---|
-| [fake.txt](evidence/chain/fake.txt) | 2026-10-25 | 12 chain scenarios against `tests/fake-host`, 14 sabotages | every scenario `ok`, every sabotage red |
-| [e2e.txt](evidence/chain/e2e.txt) | 2026-10-25 | 10 of those scenarios against plugin-hostd 0.10.0 and omx-clap-host from source, with x42 fil4 as the LV2 member | every scenario `ok` |
-| [round-trip.txt](evidence/chain/round-trip.txt) | 2026-10-26 | three members (omx-strip, omx-limiter CLAP; omx-delay LV2) played through the chain and compared sample by sample with a reference host | `ROUND TRIP PASS: 0 failed` |
-| [round-trip-channel.txt](evidence/chain/round-trip-channel.txt) | 2026-10-26 | the same with plugin-hostd 0.11.0 and omx-clap-host 0.21.0 from the FreeMixer channel | `ROUND TRIP PASS: 0 failed` |
+| file | what | result |
+|---|---|---|
+| [fake.txt](evidence/chain/fake.txt) | 12 chain scenarios against `tests/fake-host`, 14 sabotages | every scenario `ok`, every sabotage red |
+| [e2e.txt](evidence/chain/e2e.txt) | 10 of those scenarios against plugin-hostd 0.10.0 and omx-clap-host from source, with x42 fil4 as the LV2 member | every scenario `ok` |
+| [round-trip.txt](evidence/chain/round-trip.txt) | three members (omx-strip, omx-limiter CLAP; omx-delay LV2) played through the chain and compared sample by sample with a reference host | `ROUND TRIP PASS: 0 failed` |
+| [round-trip-channel.txt](evidence/chain/round-trip-channel.txt) | the same with plugin-hostd 0.11.0 and omx-clap-host 0.21.0 from the FreeMixer channel | `ROUND TRIP PASS: 0 failed` |
 
 What the round trip proves (round-trip.txt): the chain plays its members in the declared order, bit for bit against the
 reference host and not against the other order (peak 0.99078 against 0.32529); removing a member re-forms the chain;
 a member that crashes (`fault-14.clap`, which aborts on a parameter write of 0.9 or more) leaves the other three
 playing, peak -9.75 dBFS after the crash; and each guard's sabotage turns its scenario red.
 
-On the Pi, 2026-10-28, the fork's engine ran a chain with omx-eq8 through plugin-hostd on the device's JACK. The
+On the Pi, the fork's engine ran a chain with omx-eq8 through plugin-hostd on the device's JACK. The
 device has no sound card: the chain ran, and no audio was heard. No log of that run is in this tree.
 
 mod-ui's verbs: mod-host against plugin-hostd
 ---------------------------------------------
 
-From the spike of 2026-10-20 ([spike-report.md](spike-report.md), x86_64 container, plugin-hostd 0.6.0, mod-host
+From the spike ([spike-report.md](spike-report.md), x86_64 container, plugin-hostd 0.6.0, mod-host
 `12335c265374`, Zynthian's mod-ui `817a67234f41`; not re-run on later versions):
 
 | measure | value | file |
@@ -345,8 +345,8 @@ Voices across the cores
 Per-block cost and the use of the helper threads with the CLAP thread pool off and on, at 48000 Hz and 128, 256 and 512
 frames on the Pi 5, with Surge XT as CLAP if it is built there, else the fixture plugin: the work of
 FreeMixer/omx-clap-core#395 (branch `feat/395-thread-pool`), whose evidence is to land in FreeMixer/omx-clap-core
-under `docs/evidence/thread-pool-pi5-2026-10-29/`. **Not measured yet**: on 2026-10-28 at 22:26Z neither the branch
-nor that directory exists in FreeMixer/omx-clap-core.
+under `docs/evidence/thread-pool-pi5-2026-10-29/`. **Not measured yet**: when this page was written neither the branch
+nor that directory existed in FreeMixer/omx-clap-core.
 
 The matrix: every rate and quantum, single and grouped
 ------------------------------------------------------
@@ -358,7 +358,7 @@ The rows above hold one or two rates at 256 frames. The matrix runs every cell o
 | rate | 44100, 48000, 96000, 192000 Hz |
 | quantum | 128, 256, 512, 1024 frames |
 | host mode | jalv (one process per plugin), mod-host (the stock binary, one process, started by the bench on a private port), plugin-hostd single (one worker per plugin, no chain), plugin-hostd grouped (one worker for the chain) |
-| plugins | our 19 omx plugins, each alone in its CLAP form (plugin-hostd) and its LV2 form (all three hosts), and all 19 in series as one chain; ten third-party LV2 effects ([tools/zynthian/matrix/plugins.json](../../tools/zynthian/matrix/plugins.json): suitable under jalv, mod-host and omx-clap-host and RT-clean in the 2026-10-28 qualification), each alone and all ten as one chain |
+| plugins | our 19 omx plugins, each alone in its CLAP form (plugin-hostd) and its LV2 form (all three hosts), and all 19 in series as one chain; ten third-party LV2 effects ([tools/zynthian/matrix/plugins.json](../../tools/zynthian/matrix/plugins.json): suitable under jalv, mod-host and omx-clap-host and RT-clean in the deep qualification on plugin-qualify 0.16.1), each alone and all ten as one chain |
 
 and records per cell, after a 60 s hold: the host processes' CPU, RSS and PSS, the processes, the JACK clients the host
 put on the graph (`jack_clients`, new in the bench), xruns over the hold, the declared latency and the time to add the
@@ -371,8 +371,8 @@ writes one CSV row per host and mode and resumes where it stopped:
 512-frame blocks only (plugin-qualify#193); the matrix records the host's CPU and JACK's DSP load instead, and the
 probe's per-block cost stays in the [qualification section](#cost-and-the-grid-gap).
 
-State: on the device since 2026-10-28T22:26Z with `--wait-update --after-stress --wait-idle`: it starts its first cell
-only after another lane's stress run there has finished and the device has been quiet for 20 minutes. No cell is
+State: on the device with `--wait-update --after-stress --wait-idle`: it starts its first cell
+only after a stress run there has finished and the device has been quiet for 20 minutes. No cell is
 measured in this commit, so every matrix figure below says "not measured yet". The CSV lands under
 `evidence/pi5-matrix-2026-10-28/` as the cells finish.
 
@@ -421,8 +421,8 @@ What is not measured yet
 | JACK clients per chain for mod-host, counted (jalv's are counted in [stress.md](stress.md)) | not recorded by the bench rows | `jack_lsp` on the bench's private server during a `cvp3` row: `bench/run.sh --class rpi5 --scenarios cvp3 --hosts H3,H4 --rates 48000 --frames 256 --keep-governor --logs logs/` |
 | latency measured on audio, per host | needs a card and a loopback | not available in this tree |
 | the cost estimate a chain editor would ask for (FreeMixer/zynthian-ui#13) | no `estimate` verb yet | none yet |
-| the MOD-UI engine on plugin-hostd on the device | the fork's update was applied only on the evening of 2026-10-28, after these runs | after `update_zynthian_sys.sh` from FreeMixer/zynthian-sys: `tools/zynthian/path-a.sh <out>` |
-| Pianoteq 9 under plugin-hostd on the device | in the 2026-10-27 file (`pianoteq` rows); not repeated with 0.13.1 | `bench/run.sh --class rpi5 --scenarios pianoteq --pianoteq-dir <dir>` |
+| the MOD-UI engine on plugin-hostd on the device | the fork's update was applied only after these runs | after `update_zynthian_sys.sh` from FreeMixer/zynthian-sys: `tools/zynthian/path-a.sh <out>` |
+| Pianoteq 9 under plugin-hostd on the device | in the `rpi5-20261027-1` file (`pianoteq` rows); not repeated with 0.13.1 | `bench/run.sh --class rpi5 --scenarios pianoteq --pianoteq-dir <dir>` |
 
 Reproducing
 -----------

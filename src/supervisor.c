@@ -2160,6 +2160,16 @@ static char **words(char *copy, int *count)
     return word;
 }
 
+const char *sup_instance_uri(int id)
+{
+    return (id >= 0 && id < MAX_INSTANCE && g_inst[id]) ? g_inst[id]->uri : NULL;
+}
+
+const char *sup_instance_search(int id)
+{
+    return (id >= 0 && id < MAX_INSTANCE && g_inst[id]) ? search_of(g_inst[id]->fmt) : NULL;
+}
+
 char *sup_instance_verb(const char *line, int ledger)
 {
     char *copy = strdup(line), **word, *end, *reply;
@@ -2194,7 +2204,15 @@ char *sup_instance_verb(const char *line, int ledger)
         reply = sup_resp(SUCCESS);
     }
     else if (!strcmp(word[0], OMX_VERB_REMOTE_PAGES))
-        reply = sup_resp(count == 2 ? 0 : ERR_INVALID_OPERATION);
+        reply = count != 2 ? sup_resp(ERR_INVALID_OPERATION) :
+                format_at(i->fmt)->remote_pages ? format_at(i->fmt)->remote_pages(id) : sup_resp(0);
+    else if (!strcmp(word[0], OMX_VERB_REMOTE_PAGE_GET) && format_at(i->fmt)->remote_page_get)
+    {
+        long page = count == 3 ? strtol(word[2], &end, 10) : -1;
+
+        reply = count == 3 && !*end && end != word[2] && page >= 0 && page < INT_MAX ?
+                format_at(i->fmt)->remote_page_get(id, (int)page) : sup_resp(ERR_INVALID_OPERATION);
+    }
     else if (!strcmp(word[0], OMX_VERB_PARAM_INFO))
         reply = count == 3 ? format_at(i->fmt)->param_info(id, word[2]) : sup_resp(ERR_INVALID_OPERATION);
     else if (phd_is_note_verb(word[0]))
@@ -2559,6 +2577,18 @@ static void to_own(instance_t *i)
     respawn(own);
 }
 
+/* an instance that the checkpoint of its eviction found quarantined (its worker died saving its state): it is in no
+ * worker, and goes where a quarantined instance goes, a worker of its own that starts after the backoff */
+static void park_quarantined(instance_t *i)
+{
+    worker_t *own = worker_new(i->fmt, PHD_PLACE_OWN);
+
+    worker_attach(own, i);
+    own->state = W_BACKOFF;
+    own->backoff_ms = g_conf.backoff_base_ms;
+    own->next_try_ms = proc_now_ms() + g_conf.backoff_base_ms;
+}
+
 /* the chain's members that are not quarantined, gathered in order in one new worker and replayed there */
 static void chain_form(chain_t *c)
 {
@@ -2574,13 +2604,19 @@ static void chain_form(chain_t *c)
 
         if (!i || meta_of(i->id)->quarantined)
             continue;
+        evict(i);
+        /* its worker may have died in the checkpoint evict took, and quarantined it */
+        if (meta_of(i->id)->quarantined)
+        {
+            park_quarantined(i);
+            continue;
+        }
         if (!w)
         {
             w = worker_new(chain_row_of(c->ids, c->n), place);
             w->pool = 1;
             w->chain = c;
         }
-        evict(i);
         worker_attach(w, i);
     }
     if (c->w && c->w != w)
@@ -2628,6 +2664,12 @@ static void chain_update(chain_t *c)
         if (i->w == w || meta_of(i->id)->quarantined)
             continue;
         evict(i);
+        /* its worker may have died in the checkpoint evict took, and quarantined it: it is not replayed here */
+        if (meta_of(i->id)->quarantined)
+        {
+            park_quarantined(i);
+            continue;
+        }
         worker_attach(w, i);
         join[nj++] = i;
     }
@@ -2819,7 +2861,8 @@ char *sup_chain_get(int id)
     for (k = 0; k < c->n; k++)
         put(&buf, &used, &cap, "%s%d", k ? "," : "", c->ids[k]);
     put(&buf, &used, &cap, " ");
-    for (k = 0; c->w && k < c->w->ninst; k++)
+    /* a worker waiting to restart runs none of its members */
+    for (k = 0; c->w && c->w->state == W_UP && k < c->w->ninst; k++)
         if (!c->w->inst[k]->unreplayed)
             put(&buf, &used, &cap, "%s%d", any++ ? "," : "", c->w->inst[k]->id);
     if (!any)

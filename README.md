@@ -268,9 +268,19 @@ instance verbs and passes the worker's reply through; the worker answers them fr
 `clap.remote-controls`, `clap.params`), except `param_info`: omx-clap-host answers it from the param contract (`org.openmixer.param-contract/1`), and
 `-511` for a parameter the worker holds no checked contract for (and `-103` for a symbol that is no parameter). `-511`
 is the stable answer to read as "no contract; fall back to the layout from `omx-clap-scan`"; the daemon passes it through
-and drops nothing. For an LV2 instance the daemon answers them itself, never forwarding them, so
-mod-host learns none of them: `track_info` is kept and answered `resp 0`, an LV2 plugin has no remote pages, and
-`param_info` answers `-511` until the daemon reads the bundle's port data. When a CLAP plugin changes its pages, its
+and drops nothing. For an LV2 instance on mod-host the daemon answers them itself, never forwarding them, so
+mod-host learns none of them: `track_info` is kept and answered `resp 0`, and the other two come from the bundle's
+Turtle, read when they are asked (the manifest and the files it names with `rdfs:seeAlso`). `remote_pages` and
+`remote_page_get` make a page of each `pg:group`'s control inputs in port order (the group's `lv2:name`, else its
+`rdfs:label`; a further page, "Name 2", for each 8 past the first), one page named Controls for the control inputs in
+no group, the pages in the order their group first appears; outputs and `pprops:notOnGUI` ports are on no page, a slot
+is the port's symbol, and the section is empty. `param_info` answers a control port from its own statements: its
+`units:unit` (the words of `data/formats/lv2.json`, empty for a port with none), `stepped` for an integer, toggled or
+enumeration port, `log` for a `pprops:logarithmic` port whose bounds are positive and `linear` otherwise, its
+`lv2:minimum`, `lv2:maximum` and `lv2:default` (a toggled port's are 0, 1 and 0 when it states none), a step of 1 for
+a stepped port and 0 for the others, and its symbol. `-511` stays the answer for a port with a unit the table has no
+word for (a unit of the plugin's own) or no range, and `-103` for a symbol that is no control port. A bundle the
+daemon cannot find or read has no pages, and `param_info` asks mod-host as it did. When a CLAP plugin changes its pages, its
 worker writes `remote_pages_changed <instance>` on its feedback port and the daemon relays it.
 
 Notes are played the same way, by a controller that is not a jack client (a web console, a test, a MIDI surface on the
@@ -309,7 +319,7 @@ The ledger keeps the latest `track_info` of an instance and replays it after the
 What each host profile owes every verb a controller sends: mod-host's commands, the two that Zynthian's mod-ui still
 names, and the verbs the daemon adds. A verb has a row here before the daemon serves it. The daemon relays a worker's
 verb, an instance verb to the worker that holds the instance and any other to every worker, and passes its answer
-back: a required verb (presets and bundles for the CLAP worker and Zynthian, by the rulings of 2026-10-22) answers -902
+back: a required verb (presets and bundles for the CLAP worker and Zynthian) answers -902
 only while the worker does. MIDI learn and CV addressing are policy of the surfaces: the host answers them only as the
 mechanism, and they stay optional. The preset verbs and the preset file are [docs/presets.md](docs/presets.md).
 
@@ -536,7 +546,7 @@ note sweep carries what process() did while notes played. `run.tools.interposer`
 under it. With no interposer beside the child, or one that did not load, no count is written: rtSafety says
 `interposer: false`, and the `rt-safety` and `note-sweep` steps are `probe.not-attempted` and say why.
 
-An LV2 plugin is measured the way plugin-qualify's LV2 hosting pass measures it today, in two children under the same
+An LV2 plugin is measured the way plugin-qualify's LV2 hosting pass measures it, in two children under the same
 limits and the same wall clock. The first child (`lv2_measure --pin`) pins the bundle's files without instantiating the
 plugin. The second measures at the highest of `--rates`, in blocks of `--quantum`, with 30 instantiate and destroy cycles
 and 3 swept rt-safety runs. It runs under plugin-qualify's interposer (`rt_interpose.so` beside the child, found and with any
@@ -679,7 +689,7 @@ number is not a count.
 
 A line this version cannot read, or with a key it does not know, is kept as it is by every save and is not read. A file
 that cannot be read, or whose first line is another version, is neither read nor overwritten: stderr says why, and
-`history_get` answers `unavailable` until the operator repairs or removes it.
+`history_get` answers `unavailable` until the file is repaired or removed.
 
 `history_get <uri>` answers the record of the binary the pin holds now, on this host class, as one word: `digest=`,
 `class=`, `crashed=1` when a crash is within 30 days, `raises_xruns=1` when the share of xrun windows in a group

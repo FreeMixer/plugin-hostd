@@ -1,11 +1,11 @@
 # Grouping: the fewest workers the pins and the history allow
 
-Status: proposed 2026-10-27, for plugin-hostd#182, plugin-qualify#157 and the console project's benchmark issue. No code in this note's pull
-request. Operator priority of 2026-10-27: use plugin-hostd's ability to run many plugins in one process to save CPU and
+Status: proposed, for plugin-hostd#182, plugin-qualify#157 and the console project's benchmark issue. No code in this note's pull
+request. The priority: use plugin-hostd's ability to run many plugins in one process to save CPU and
 RAM, on Zynthian first and then wherever the host runs. A grouping that does not win in the benchmark is not the
 default.
 
-## What exists today (read from the code, 2026-10-27)
+## What exists (read from the code)
 
 - **Pins and verdicts.** A pin is `pin_set <uri> <path>=<sha256>[,...] <scheme>:<sha256> [verdict=<word>]`
   (`src/pins.h`). The verdict is `in-process`, `isolated` or `refused`. The pin carries nothing else: the cost, the
@@ -16,7 +16,7 @@ default.
   plugin's own (LV2: `pinned_own_only`) is never pooled, and always answers -501 for a pool. A pin with
   `verdict=refused` answers -516 at `add` and at every replay.
 - **Chains.** `chain <chain> <instance>...` puts the members in one worker, `chain:<chain>`, that omx-clap-host runs as one
-  JACK client and one process callback, in the declared order (the chains note, 2026-10-21). A member that
+  JACK client and one process callback, in the declared order (the chains note). A member that
   `must_run_own` (require_pins, first-use, no `in-process` verdict, not an LV2 member) makes `chain` answer -501. An LV2
   member is accepted because the chain's world is the union of its members' bundles. Rows of two programs answer -521. A
   member that crashes the worker is quarantined and moved to a worker of its own; a death that names no culprit splits the
@@ -56,7 +56,7 @@ learned from what a plugin did on this machine, and the benchmark cannot yet sho
    new way to run a plugin.
 2. **Extend the vocabulary first?** Yes, in plugin-hostd: the plan, the reason codes, the history line. The reason codes
    and the history keys are declared in `data/` and rendered like the verbs, never retyped in plugin-qualify or the
-   Zynthian engine (the engine reads the daemon's declaration, as it does for reply codes today).
+   Zynthian engine (the engine reads the daemon's declaration, as it does for reply codes).
 3. **Why isn't a plan a chain?** A chain is the controller's statement: these run together in this order. A plan is the
    daemon's answer to: given these in this order, which of them may run together. The plan ends in `chain` and `add`
    calls the daemon already has.
@@ -86,8 +86,8 @@ the middle must keep its place in the signal path. So `A B C D E` with `C` unfit
 
 | reason | when | member goes |
 |---|---|---|
-| `refused` | pin verdict `refused` | not added at all (-516), as today |
-| `no-pin` | no pin, `pin_mode strict` | not added (-508), as today |
+| `refused` | pin verdict `refused` | not added at all (-516), as before |
+| `no-pin` | no pin, `pin_mode strict` | not added (-508), as before |
 | `no-verdict` | pin without a verdict (a learned pin) | alone |
 | `verdict-isolated` | verdict `isolated` | alone |
 | `format-world` | format pins only in a world of its own, and the chain's union world cannot be built (`chain_world_found`) | alone |
@@ -112,7 +112,7 @@ decided by the benchmark's `pool` mode; until the numbers say so, leftovers stay
 
 **Where the plan runs.** In the daemon. Zynthian's engine is a Python controller that talks the socket and must not
 carry the rules; openmixer's console must reach the same answer. Two verbs, declared in `data/verbs.json` by the first
-planner lane:
+planner step:
 
 - `plan <chain> <instance> [<instance> ...]`: applies the plan for this chain. The segments become the daemon's chains and
   the lone members stay or become `own`. Reply `resp 0 <segments>` with the segments as `i,i,i;i;i,i`. A chain planned
@@ -121,7 +121,7 @@ planner lane:
   (`-` for none); a `plan_reason` event carries the same when a plan changes.
 
 `plan_clear <chain>` gives every member a worker of its own and forgets the plan, as `chain_clear` does. The place of a
-segment's worker is `chain:<chain>.<k>`; the lane that declares the verbs also amends the placement grammar for it. The
+segment's worker is `chain:<chain>.<k>`; the change that declares the verbs also amends the placement grammar for it. The
 existing `chain` verb stays as the controller's own statement and is not planned over.
 
 **Where a segment runs.** A segment is one worker, and the setting `placement` (docs/placement.md, plugin-hostd#226)
@@ -129,7 +129,7 @@ pins each new worker to the least-loaded audio core, the load being the planned 
 their number when a cost is unknown), with the daemon kept on the reserved core. The plan does not choose the core;
 `plan` and `plan_get` report it, one core per member in the shape of the segments.
 
-`grouping` is a setting: `off` (today: a plan is one segment per `chain` the controller sends, nothing more), `on`.
+`grouping` is a setting: `off` (as before: a plan is one segment per `chain` the controller sends, nothing more), `on`.
 `plan` under `off` answers the plan without applying it, with the reason `grouping-off`. The shipped default stays `off`
 until the benchmark has published a win (acceptance).
 
@@ -173,13 +173,13 @@ the moment it attributes the death. No other process writes it.
 `last_crash`; `raises-xruns` when `windows_grouped` >= `history_min_windows` (30) and the share of xrun windows grouped
 exceeds the share solo by `history_xrun_margin` (0.05), or exceeds 0.05 when the plugin has no solo windows. plugin-qualify
 reads the file directly (it runs without a daemon), so the line grammar is declared once in plugin-hostd and rendered for
-the TypeScript reader, as the pin line is today. The daemon also answers `history_get <uri>` with the summary, for a
+the TypeScript reader, as the pin line is. The daemon also answers `history_get <uri>` with the summary, for a
 controller that has no access to the file.
 
 **Privacy.** The history is local. It holds URIs, digests and counters only, no audio, no path outside the plugin's own
 files' digest, no user name, no session or preset name. The daemon never sends it anywhere and no verb writes it from
-outside; `history_clear <uri|all>` deletes it. The benchmark and plugin-qualify copy figures out of it only when the
-operator runs them and names the file.
+outside; `history_clear <uri|all>` deletes it. The benchmark and plugin-qualify copy figures out of it only when they
+are run by hand and given the file.
 
 **The xrun.** JACK reports an xrun to a client, not to a plugin, and the daemon holds no JACK client (no `jack` include in `src/` or `include/`). The worker is one
 (omx-clap-host). The worker therefore reports to the daemon on its feedback port a line `xruns <count>`, the count since
@@ -187,7 +187,7 @@ its start, when it changes and at most once a second. The daemon attributes a wi
 worker. A group's xrun window is a suspicion of each member, not proof against one; that is why the planner compares the
 grouped share with the solo share of the same plugin rather than reading an absolute count, and why a plugin that has
 never run alone is not marked `raises-xruns` by anything but a large share. This line is owed to omx-clap-core and does
-not exist today.
+not exist yet.
 
 ## How plugin-qualify uses it
 
@@ -209,13 +209,13 @@ The record gets a `history` block per host class (the applied move or `none`, th
 verdict can be audited: measured, adjusted, and why. Same plugin, different host class, different history, different
 adjusted verdict; the measured verdict does not change.
 
-When plugin-hostd and plugin-qualify disagree, the pin file wins at the daemon, as today: the daemon reads the pin, the
+When plugin-hostd and plugin-qualify disagree, the pin file wins at the daemon, as before: the daemon reads the pin, the
 planner reads the pin and the history, and the history can only make the planner more careful than the pin, never less.
 
 ## Zynthian
 
 `sync_chain` stops sending `chain` and sends `plan <zynthian chain id> <members>` instead, when the daemon declares the
-`plan` verb; against an older daemon it keeps today's behaviour. Four consequences:
+`plan` verb; against an older daemon it keeps the behaviour without a plan. Four consequences:
 
 1. One plugin that may not share no longer ungroups the strip: `A B C D E` is `[A B] [C] [D E]`.
 2. The engine stores the daemon's reply (`plan_get`) and shows the reason of a plugin left alone in the chain's plugin
@@ -229,12 +229,12 @@ The engine carries no rule of the planner. The default placement of a lone `add`
 ## The benchmark
 
 The instrument is the existing `omx-bench/1` chains-vs-processes family (`bench/`, plugin-hostd#179), extended, and run on
-the Pi 5 and on the desk. The extension is its own lane because it is the only way the claim is tested.
+the Pi 5 and on the desk. The extension is its own step because it is the only way the claim is tested.
 
 **Modes**, same plugins, same chains, same rates and quanta, one row each:
 
 1. `individual`: one process per plugin (daemon with no chain).
-2. `chain`: the whole strip declared as one chain (today's best case, all plugins fit).
+2. `chain`: the whole strip declared as one chain (the best case without a planner, all plugins fit).
 3. `plan`: the strip through the planner with `grouping on`, with at least one plugin in each strip that the pins refuse to
    share (a `no-verdict` or `isolated` one), so the plan has more than one segment.
 4. `pool`: leftovers in pools, once the planner has the cross-chain step.
@@ -270,7 +270,7 @@ settings are the values the winning run used.
   group is respawned without it and `chain_formed` names what runs (chains note). New: the crash goes into the history
   (`crashes_grouped`, `last_crash_grouped`), the planner is run again for that chain, the culprit comes out
   `history-crashed` and stays alone, and the reason is in `plan_get`. A death that names no culprit splits the members as
-  today, each member is run alone, and the plan is made again after `history_regroup_s` (600) of steady running; a member
+  before, each member is run alone, and the plan is made again after `history_regroup_s` (600) of steady running; a member
   that crashes alone is quarantined and counted as `crashes_solo`.
 - **Xruns in a group.** The window is recorded against every member. If the share exceeds the margin after
   `history_min_windows` windows, the next plan leaves the highest-cost members alone (`history-xruns`) and the group is
@@ -280,7 +280,7 @@ settings are the values the winning run used.
   (stderr says so) and the planner runs on pins and costs alone, `history-unavailable` in the reason list. A history never
   makes a plugin less safe than the pin: with no history the plan is the pin's.
 - **Pin changes.** A changed file is a new digest, so a new history; the old record is kept for the old digest. A pin that
-  goes to `refused` is applied at the next replay, as today.
+  goes to `refused` is applied at the next replay, as before.
 - **The worker does not report xruns** (an older omx-clap-host, mod-host): the windows count, `xrun_windows_*` stay zero
   and the planner never marks `raises-xruns`; the plan is the pins'.
 - **The daemon restarts.** The controller sends the same `plan` and gets the same segments from the same history. No state
@@ -288,12 +288,12 @@ settings are the values the winning run used.
 - **A plan the daemon cannot make.** Any member's `add` or `chain` refused leaves the members as they were and answers the
   refusal's own code; the plan reason is `plan-refused:<code>`.
 
-## Lanes
+## Steps
 
-Each lane is one repo and a small change, with its own test and the sabotage that reds it. They land in this order;
-lanes with no arrow can run in parallel.
+Each step is one repo and a small change, with its own test and the sabotage that reds it. They land in this order;
+steps with no arrow can run in parallel.
 
-| lane | repo | what | needs |
+| step | repo | what | needs |
 |---|---|---|---|
 | L1 (plugin-hostd#184) | plugin-hostd | history record: line grammar in `data/`, reader and writer, windows from `/proc`, crash, restart and quarantine counts, `history_get`, `history_clear`, settings; no planner | |
 | L2 (plugin-hostd#185) | plugin-hostd | the planner as a pure function and the `plan`, `plan_get`, `plan_clear` verbs, the reason codes, the chain place `chain:<n>.<k>`; rules from pins and costs; `grouping off` by default; determinism test (same inputs, same bytes); one test per reason | |

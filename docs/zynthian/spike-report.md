@@ -1,7 +1,7 @@
 Zynthian spike: plugin-hostd and plugin-qualify in Zynthian
 ===========================================================
 
-FreeMixer/plugin-hostd#124, run 2026-10-20 in a cluster pod (Fedora 44 container, x86_64, 4 CPUs, no root, no
+FreeMixer/plugin-hostd#124, run in a cluster pod (Fedora 44 container, x86_64, 4 CPUs, no root, no
 container runtime, no qemu-system). Nothing was sent to Zynthian and no Zynthian repository was written to. The plan
 built on these results is [offer.md](offer.md); the verb table is [verbs.tsv](verbs.tsv); the spike's engine was
 a patch against zynthian-ui, since superseded by the FreeMixer/zynthian-ui fork ([README.md](README.md)). Every number below names the file or command it came
@@ -13,15 +13,15 @@ What ran, and what did not
 | Part | Ran | How |
 |---|---|---|
 | Zynthian's mod-ui | yes, x86_64 | zynthian/mod-ui `zyn-mod-merge-20230514` @ `817a67234f41` (the branch zynthian-sys `scripts/recipes/install_mod-ui.sh:13` installs), Python 3.11 venv with tornado 4.3 patched as that recipe patches it, `utils/libmod_utils.so` built against JACK2 1.9.22 and lilv 0.26.4 |
-| mod-host | yes, x86_64 | moddevices/mod-host @ `12335c265374` (2026-10-19). Zynthian builds upstream mod-host at HEAD, not its own fork: `install_mod-host.sh:13` clones moddevices/mod-host, the sha line is commented out (`:9`; zynthian-sys file:line citations are at `f5e41b3b270a`, the image's commit); zynthian/mod-host has not moved since 2016-11-03 (`d44ae41`). Loaded into jackd as an internal client, as `etc/systemd/mod-host.service:17` does (`jack_load -i 5555 mod-host`) |
+| mod-host | yes, x86_64 | moddevices/mod-host @ `12335c265374`. Zynthian builds upstream mod-host at HEAD, not its own fork: `install_mod-host.sh:13` clones moddevices/mod-host, the sha line is commented out (`:9`; zynthian-sys file:line citations are at `f5e41b3b270a`, the image's commit); zynthian/mod-host stops at `d44ae41`, years behind upstream. Loaded into jackd as an internal client, as `etc/systemd/mod-host.service:17` does (`jack_load -i 5555 mod-host`) |
 | plugin-hostd | yes, x86_64 | this branch's tip built from source (0.6.0), LV2 workers = the mod-host program of the same build, CLAP worker = omx-clap-host 0.12.0 (FreeMixer RPM) |
 | JACK | yes | jackd 1.9.22, dummy driver, 48000 Hz, period 256 (the V5/V4 kits' rate and period on a Pi 4, `zynthian-sys config/zynthian_envars_V5.sh:43`) |
-| zynthian-ui engine classes | yes, imported | zynthian/zynthian-ui `vangelis` @ `f46b0189b616` (2026-10-19): `zynthian_engine`, `zynthian_engine_jalv_base`, `zynthian_controller`, `zynthian_lv2` are the real modules; `zyncoder` (not vendored), `pyliblo3`, `zynautoconnect` and the state manager are stubs (`tools/zynthian/test-path-b.py`) |
+| zynthian-ui engine classes | yes, imported | zynthian/zynthian-ui `vangelis` @ `f46b0189b616`: `zynthian_engine`, `zynthian_engine_jalv_base`, `zynthian_controller`, `zynthian_lv2` are the real modules; `zyncoder` (not vendored), `pyliblo3`, `zynautoconnect` and the state manager are stubs (`tools/zynthian/test-path-b.py`) |
 | ZynthianOS image | read, not booted | `2026-10-15-zynthianos-vangelis-2610-stable.img.xz` from os.zynthian.org, sha256 in `evidence/image/sha256.txt`, read without mounting by `tools/zynthian/image-inspect.sh` (debugfs) |
 | arm64 userland | **no** | qemu-user-static-aarch64 was fetched but nothing of the image was executed under it; the pod has no binfmt, no root and no qemu-system. Every run above is x86_64 |
 | Timing (CPU, latency, xruns) | **no** | emulation and a dummy driver give function, not timing; see OWED |
 
-The image, read (`evidence/image/inspect.txt`): ZynthianOS Vangelis-2610.1, built 2026-10-15 from Raspberry Pi OS
+The image, read (`evidence/image/inspect.txt`): ZynthianOS Vangelis-2610.1, built from Raspberry Pi OS
 trixie aarch64; Debian 13.7, 2125 packages; Python 3.13.5; jackd2 1.9.22~dfsg-4; liblilv-0-0 0.24.26; kernels
 linux-image-rpi-v8 and -2712 6.18.50-1+rpt1 (no PREEMPT_RT package); zynthian-ui `b82dfccf9ba3` (8 commits behind the
 pin; the patch applies to it: `git apply --check`), zynthian-sys `f5e41b3b270a`; mod-host at `/usr/local/bin/mod-host`,
@@ -29,12 +29,11 @@ jalv at `/usr/local/bin/jalv`, mod-ui under `/zynthian/zynthian-sw/mod-ui`; 262 
 `/usr/local/lib/lv2`, 297 in `/zynthian/zynthian-plugins/lv2`. The shipped `zynthian_envars.sh` leaves `SOUNDCARD_NAME`
 and `JACKD_OPTIONS` empty (lines 41, 44): the card is chosen at first boot.
 
-Images and environments (forum and site, checked 2026-10-20): there is no official x86 or VM image (os.zynthian.org
-lists only Pi `.img.xz`). The routes the forum knows: a Docker build of the Pi image (thread 2499, posts 2018-12-08 to
-2018-12-16); a maintainer saying official images are built in a QEMU ARM VM (thread 3569, 2019-12-20); unofficial
-x86_64 attempts (thread 4983, 2020-11-16 to 2023-03-12; thread 12782, 2026-02-05/06); a desktop setup question (thread
-11454). zynthian/ZynthianOS (CustomPiOS) last changed 2021-03-22 (`1f71e0b`) and needs root and loop devices; it was
-not built here. zynthian-emuface last changed 2018-03-22.
+Images and environments (forum and site, as checked for the spike): there is no official x86 or VM image (os.zynthian.org
+lists only Pi `.img.xz`). The routes the forum knows: a Docker build of the Pi image (thread 2499); official images built in a QEMU ARM VM (thread
+3569); unofficial x86_64 attempts (threads 4983 and 12782); a desktop setup question (thread
+11454). zynthian/ZynthianOS (CustomPiOS) is at `1f71e0b` and needs root and loop devices; it was
+not built here. zynthian-emuface is older than that.
 
 Path A: mod-ui with plugin-hostd as its daemon
 ----------------------------------------------
@@ -68,7 +67,7 @@ preset saved, snapshots, transport, both pedalboards saved and loaded back. `too
   a CLAP worker. omx-clap-host answers add, remove, bypass, transport, transport_sync, state_save, cpu_load; param_set
   with mod-ui's LV2 symbols is -103 (40 of 40), connect with mod-ui's port names -205 (22 of 24), presets, bundles,
   MIDI/CV maps, monitor_midi_program, state_tmpdir, output_data_ready are -902, state_load -105. A CLAP plugin cannot
-  appear in mod-ui at all today: mod-ui lists plugins and their ports from lilv.
+  appear in mod-ui at all: mod-ui lists plugins and their ports from lilv.
 - The fixes, smallest first, and where: `verbs.tsv`, last column. On plugin-hostd: own mod-monitor; replay `bundle_add`
   and `feature_enable` to new workers; relay host-wide feedback once; jack_connect ports no instance owns. On
   omx-clap-host: symbols for parameters, presets, state_load, the -902 verbs that are only acknowledgements. On
@@ -106,7 +105,7 @@ around the engine, a real autoconnect.
 plugin-qualify in Zynthian: the hook points
 -------------------------------------------
 
-All at zynthian-ui `f46b0189b616`. No verdict or qualification concept exists there today (no match for "verdict" or
+All at zynthian-ui `f46b0189b616`. No verdict or qualification concept exists there (no match for "verdict" or
 "qualif").
 
 - The plugin table: `zyngine/zynthian_lv2.py` keeps it in `engine_config.json` (`:195`, default copy `:194`), one row per
@@ -126,7 +125,7 @@ All at zynthian-ui `f46b0189b616`. No verdict or qualification concept exists th
 OWED, not done here
 -------------------
 
-To be run by the operator or the desk in one sitting, on a Raspberry Pi 4 and a Raspberry Pi 5, each with the V5 kit's
+To be run by hand in one sitting, on a Raspberry Pi 4 and a Raspberry Pi 5, each with the V5 kit's
 card (V5 ADAC) or a HifiBerry DAC+ ADC Pro (the V4 kit's), from the image above:
 
 1. Flash `2026-10-15-zynthianos-vangelis-2610-stable.img.xz` (sha256 `83c4078b...19b6`), boot, pick the kit in webconf,

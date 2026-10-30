@@ -97,7 +97,8 @@ static const edge_t EDGES[] = {
     { "group-path", &NONE, 1, "[\"a/b\"]", TRANSFORMS_REFUSED },      /* a level holding the separator */
     { "group-path", &NONE, 1, "[]", TRANSFORMS_REFUSED },             /* no level */
     { "port-group", &NONE, 0, "", TRANSFORMS_NONE },                  /* no group */
-    { "port-group", &NONE, 1, "[\"a\",\"b\"]", TRANSFORMS_REFUSED },  /* LV2 groups have one level */
+    { "port-group", &NONE, 1, "[]", TRANSFORMS_REFUSED },             /* no level */
+    { "port-group", &NONE, 1, "[\"\"]", TRANSFORMS_REFUSED },         /* an empty level */
 };
 
 int main(void)
@@ -146,6 +147,10 @@ int main(void)
         printf("ok   %s %s '%s': %s\n", e->name, e->inverse ? "inverse" : "in", e->in,
                e->want == TRANSFORMS_NONE ? "no value" : "refused");
     }
+    /* the inverse of a path writes its innermost level */
+    CHECK(transforms_find("port-group")->inverse(&NONE, "[\"Bands\",\"Band 1\"]", out, sizeof(out)) == TRANSFORMS_OK
+              && strcmp(out, "Band 1") == 0,
+          "port-group inverse of a two level path: %s", out);
     /* a result that does not fit is refused, never cut */
     CHECK(transforms_find("identity")->inbound(&NONE, "Threshold", out, 5) == TRANSFORMS_REFUSED, "identity: cut");
     CHECK(transforms_find("no-such") == NULL, "a name outside the list is found");
