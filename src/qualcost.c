@@ -17,6 +17,11 @@
 #define RECORD_SUFFIX ".qualification.json"
 #define RECORD_MAX    (4u << 20)
 
+static int hexval(int c)
+{
+    return c >= '0' && c <= '9' ? c - '0' : c >= 'a' && c <= 'f' ? c - 'a' + 10 : c >= 'A' && c <= 'F' ? c - 'A' + 10 : -1;
+}
+
 /* the id as plugin-qualify spells it in a file name: each character outside [A-Za-z0-9._-] is an underscore */
 static void safe(const char *id, char *out, size_t size)
 {
@@ -26,6 +31,37 @@ static void safe(const char *id, char *out, size_t size)
         out[n] = (id[n] >= 'a' && id[n] <= 'z') || (id[n] >= 'A' && id[n] <= 'Z') || (id[n] >= '0' && id[n] <= '9') ||
                  id[n] == '.' || id[n] == '_' || id[n] == '-' ? id[n] : '_';
     out[n] = '\0';
+}
+
+/* the id with each %XX escape of an IRI replaced by its byte: LV2 URIs reach the daemon percent-encoded as often as not,
+ * and a record may name the plugin in either spelling. An escape that is not two hex digits is kept as it stands. */
+static void decode(const char *id, char *out, size_t size)
+{
+    size_t n = 0;
+
+    while (*id && n + 1 < size)
+    {
+        int hi, lo;
+
+        if (id[0] == '%' && (hi = hexval(id[1])) >= 0 && (lo = hexval(id[2])) >= 0 && (hi || lo))
+        {
+            out[n++] = (char)(hi << 4 | lo);
+            id += 3;
+        }
+        else
+            out[n++] = *id++;
+    }
+    out[n] = '\0';
+}
+
+/* whether two ids are one plugin's, in either spelling */
+static int same_id(const char *a, const char *b)
+{
+    char da[PATH_MAX], db[PATH_MAX];
+
+    decode(a, da, sizeof(da));
+    decode(b, db, sizeof(db));
+    return !strcmp(da, db);
 }
 
 static char *slurp(const char *path)
@@ -59,7 +95,7 @@ static const jnode_t *point_at(const jnode_t *record, const char *id, int rate, 
     const jnode_t *plugin = jget(record, "plugin"), *grid = jget(jget(record, "measurements"), "grid");
     const char *got = plugin ? jstr(plugin, "id") : NULL;
 
-    if (!got || strcmp(got, id) || !grid || grid->type != J_ARR)
+    if (!got || !same_id(got, id) || !grid || grid->type != J_ARR)
         return NULL;
     for (; *from < grid->n; (*from)++)
     {
@@ -79,7 +115,7 @@ static int names(const jnode_t *record, const char *id)
 {
     const char *got = jget(record, "plugin") ? jstr(jget(record, "plugin"), "id") : NULL;
 
-    return got && !strcmp(got, id);
+    return got && same_id(got, id);
 }
 
 /* the fraction of one core of the record's grid point, or -1.0 */
@@ -102,9 +138,9 @@ static double point_of(const jnode_t *record, const char *id, int rate, int quan
 /* calls each(record, ctx) for every record of qualification_dir whose file name is the id's */
 static void each_record(const char *dir, const char *id, void (*each)(const jnode_t *, void *), void *ctx)
 {
-    char prefix[PATH_MAX], path[PATH_MAX * 2];
+    char prefix[PATH_MAX], plain[PATH_MAX], path[PATH_MAX * 2];
     struct dirent *e;
-    size_t plen, slen = strlen(RECORD_SUFFIX);
+    size_t plen, plain_len, slen = strlen(RECORD_SUFFIX);
     DIR *d;
 
     if (!dir || !*dir || !id || !*id || !(d = opendir(dir)))
@@ -112,13 +148,18 @@ static void each_record(const char *dir, const char *id, void (*each)(const jnod
     safe(id, prefix, sizeof(prefix) - 2);
     strcat(prefix, "@");
     plen = strlen(prefix);
+    decode(id, plain, sizeof(plain));
+    safe(plain, plain, sizeof(plain) - 2);
+    strcat(plain, "@");
+    plain_len = strlen(plain);
     while ((e = readdir(d)) != NULL)
     {
         size_t len = strlen(e->d_name);
         char *text;
         jnode_t *record;
 
-        if (len <= plen + slen || strncmp(e->d_name, prefix, plen) || strcmp(e->d_name + len - slen, RECORD_SUFFIX))
+        if (len <= slen || (strncmp(e->d_name, prefix, plen) && strncmp(e->d_name, plain, plain_len)) ||
+            len <= (strncmp(e->d_name, prefix, plen) ? plain_len : plen) + slen || strcmp(e->d_name + len - slen, RECORD_SUFFIX))
             continue;
         snprintf(path, sizeof(path), "%s/%s", dir, e->d_name);
         if (!(text = slurp(path)))
