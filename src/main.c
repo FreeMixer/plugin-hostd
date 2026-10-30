@@ -87,6 +87,50 @@ static void receive(msg_t *msg)
     verbs_receive(msg);
 }
 
+/* Whether a socket of this host listens on `port` (/proc/net/tcp and tcp6, state 0A): what the ready line stands for */
+static int port_listens(int port)
+{
+    static const char *const tables[] = {"/proc/net/tcp", "/proc/net/tcp6"};
+    char line[512];
+    size_t t;
+
+    for (t = 0; t < sizeof(tables) / sizeof(tables[0]); t++)
+    {
+        FILE *f = fopen(tables[t], "r");
+
+        if (!f)
+            continue;
+        while (fgets(line, sizeof(line), f))
+        {
+            unsigned local_port, state;
+
+            if (sscanf(line, " %*d: %*[0-9A-Fa-f]:%x %*[0-9A-Fa-f]:%*x %x", &local_port, &state) == 2 &&
+                state == 0x0A && (int)local_port == port)
+            {
+                fclose(f);
+                return 1;
+            }
+        }
+        fclose(f);
+    }
+    return 0;
+}
+
+/* The ready line promises ports that accept: it goes out only once the command port, and the feedback port when there
+ * is one, listen. A port that does not listen within two seconds is a daemon that did not start. */
+static int ports_listen(int command_port, int feedback_port)
+{
+    int waited_ms;
+
+    for (waited_ms = 0; waited_ms <= 2000; waited_ms += 5)
+    {
+        if (port_listens(command_port) && (!feedback_port || port_listens(feedback_port)))
+            return 1;
+        usleep(5000);
+    }
+    return 0;
+}
+
 static void term_signal(int sig)
 {
     (void)sig;
@@ -231,6 +275,14 @@ int main(int argc, char **argv)
     socket_set_idle_cb(idle_cb);
     socket_set_idle_interval(g_conf.idle_ms);
 
+    if (!ports_listen(socket_port, feedback_port))
+    {
+        fprintf(stderr, "the command port %d (feedback port %d) does not listen\n", socket_port, feedback_port);
+        return EXIT_FAILURE;
+    }
+
+    /* before the handlers: a SIGTERM that arrives right after them must end the loop, not be undone by this */
+    running = 1;
     memset(&sig, 0, sizeof(sig));
     sig.sa_handler = term_signal;
     sig.sa_flags = SA_RESTART;
@@ -241,7 +293,6 @@ int main(int argc, char **argv)
     printf("%s\n", PHD_READY_LINE);
     fflush(stdout);
 
-    running = 1;
     while (running)
     {
         socket_run(0);
