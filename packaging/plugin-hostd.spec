@@ -322,8 +322,8 @@ make test-daemon check-generated check-rendered
   clap-worker, console, zynthian), in protocol.h, rendered into
   protocol/plugin-hostd.json and the README, checked by
   tests/verb_table.py. midi_learn, midi_map, midi_unmap, cv_map and
-  cv_unmap are required of the CLAP worker and of Zynthian (operator
-  ruling of 2026-10-22) (#131).
+  cv_unmap are required of the CLAP worker and of Zynthian (decided
+  2026-10-22) (#131).
 - An LV2 chain under require_pins states its requirement: the chain's
   worker needs a world narrowed to the union of its members' bundles,
   so each member's LV2 pin still holds (#131).
@@ -345,7 +345,7 @@ make test-daemon check-generated check-rendered
 - The format tables PLUGIN_HOSTD_CLAP_MAP and PLUGIN_HOSTD_LV2_MAP: every
   CLAP and LV2 term of omx-contract and every field a scan reads, each
   mapped to a descriptor word, carried in the descriptor's extensions or
-  dropped by the ruling it names. plugin-hostd-devel ships them in
+  dropped by the decision it names. plugin-hostd-devel ships them in
   omx-contract's contract directory (3/plugin-hostd/formats/), and make
   install-contract installs them.
 - The build requires omx-contract-devel >= 3.0.0 (libomx-contract-dev

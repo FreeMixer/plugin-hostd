@@ -2,10 +2,10 @@
 # The format tables cover their format, every field once (docs/formats.md#the-coverage-test). The field list of a format
 # is every term of omx-contract's installed TERM files of that format plus every row of the table with a `from`; each
 # field has exactly one row. Per field it prints `mapped <word> <transform>`, `extension <format>` or
-# `dropped <ruling>`, then the count per class, and it is red, naming the field, for: a field with no row or with two; a
+# `dropped <decision>`, then the count per class, and it is red, naming the field, for: a field with no row or with two; a
 # row that covers no field; a row keyed other than its field; a word the descriptor schema lacks, or a lookup entry that
 # is no value the word takes; a transform that is not in TRANSFORMS(X), a lookup with no values or not one to one, a
-# scale-by with no factor, data a transform takes none of; a used TERM that is dropped, a drop with no ruling; an
+# scale-by with no factor, data a transform takes none of; a used TERM that is dropped, a drop with no decision; an
 # outbound-read row whose transform is neither identity nor lookup; a unit row that does not map to its TERM's word.
 #
 #   format_coverage.py [--contract-dir <dir>] [--major <n>] [--schema <file>] <format>...
@@ -162,10 +162,10 @@ def check(fmt, table, installed, schema, names):
             counts["extension"] += 1
         else:
             ruling = (row["dropped"] or {}).get("ruling", "") if isinstance(row["dropped"], dict) else ""
-            lines.append("%s: dropped %s" % (key, ruling))
+            lines.append("%s: dropped %s" % (key, decision))
             counts["dropped"] += 1
             if not ruling:
-                red(key, "dropped by no ruling")
+                red(key, "dropped by no decision")
             if term and term[1].get("status") == "used":
                 red(key, "a used TERM (%s) dropped" % row["term"])
     return lines, reds, counts
