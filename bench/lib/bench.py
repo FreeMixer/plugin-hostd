@@ -609,15 +609,24 @@ def software(plugin_files):
 # ---------------------------------------------------------------- plugins
 
 
+def _search_paths():
+    """tools/search-paths.py: the lists plugin-hostd searches, written once in include/plugin-hostd/search_paths.h"""
+    import importlib.util
+    # SEARCH_PATHS_TOOL names it for a copy of bench/ that lives outside the checkout (bench/tests/sabotage.sh)
+    path = os.environ.get("SEARCH_PATHS_TOOL") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..",
+                                                               "tools", "search-paths.py")
+    spec = importlib.util.spec_from_file_location("search_paths", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
 def clap_dirs():
-    dirs = [d for d in os.environ.get("CLAP_PATH", "").split(":") if d]
-    return dirs + [os.path.expanduser("~/.clap"), "/usr/lib/clap", "/usr/lib64/clap", "/usr/local/lib/clap"]
+    return _search_paths().search("clap", env=True)
 
 
 def lv2_dirs():
-    dirs = [d for d in os.environ.get("LV2_PATH", "").split(":") if d]
-    return dirs + [os.path.expanduser("~/.lv2"), "/usr/lib/lv2", "/usr/lib64/lv2", "/usr/local/lib/lv2",
-                   "/usr/lib/%s-linux-gnu/lv2" % os.uname().machine]
+    return _search_paths().search("lv2", env=True)
 
 
 def clap_uri(spec):
@@ -752,11 +761,11 @@ class Host:
         out = []
         for rec in reply[2:]:
             f = rec.split(":")
-            insts = [int(i) for i in f[-1].split(",") if i.isdigit()]
-            # <worker>:<pid>:<format>:<state>:[<core>:]<place>:<instances>, the place holding colons of its own; a daemon
-            # with core placement (docs/placement.md) writes the core, a number or -, which a place never is
-            place = f[5:-1] if len(f) > 6 and (f[4].isdigit() or f[4] == "-") else f[4:-1]
-            out.append((f[0], int(f[1]), f[2], f[3], ":".join(place), insts))
+            # an id followed by ! is an instance the pins read again refuse, still running
+            insts = [int(i.rstrip("!")) for i in f[-1].split(",") if i.rstrip("!").isdigit()]
+            # <worker>:<pid>:<format>:<state>:<core>:<pool>:<place>:<instances> (docs/placement.md), the place holding
+            # colons of its own
+            out.append((f[0], int(f[1]), f[2], f[3], ":".join(f[6:-1]), insts))
         return out
 
     def wait_workers(self, want, what):

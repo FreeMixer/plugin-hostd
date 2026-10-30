@@ -16,7 +16,7 @@ The harnesses
 
 | Harness | Code it drives | Input |
 | --- | --- | --- |
-| `fuzz_command` | `verbs_receive` and the dispatcher of `src/verbs.c`, with everything below it replaced by the recorder of `fuzz/recorder.c` | up to 32 messages, each a flags byte (accept, or refuse with a declared code) and the message's bytes |
+| `fuzz_command` | `verbs_receive` and the dispatcher of `src/verbs.c` with the pin line grammar of `src/pin_words.c`, with everything below it replaced by the recorder of `fuzz/recorder.c` | up to 32 messages, each a flags byte (accept, or refuse with a declared code) and the message's bytes |
 | `fuzz_reply` | the feedback reader of `src/relay.c`: `drain`, the gesture table, `relay_remove`, `relay_instance_gone`, `relay_event` | up to 512 operations: a worker writes, is read, closes, is removed; an instance goes; the controller takes short sends or goes away |
 
 The recorder stands in for the supervisor, the pins, the descriptors and the socket's send. It answers every call with

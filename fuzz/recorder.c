@@ -433,6 +433,11 @@ char *sup_pin_accept(const char *uri)
     return answer(c, daemon_shape(OMX_VERB_PIN_ACCEPT), 1);
 }
 
+char *sup_pin_reload(void)
+{
+    return answer(record(REC_PIN_RELOAD), daemon_shape(OMX_VERB_PIN_RELOAD), 1);
+}
+
 char *sup_pool_config(const char *name, int max)
 {
     struct rec_call *c = record(REC_POOL_CONFIG);
@@ -585,7 +590,7 @@ static int answer_code(int code)
     return code;
 }
 
-int pins_set(const char *uri, const char *files, const char *layout, const char *verdict)
+int pins_set(const char *uri, const char *files, const char *layout, const char *verdict, const char *pool)
 {
     struct rec_call *c = record(REC_PINS_SET);
 
@@ -593,6 +598,7 @@ int pins_set(const char *uri, const char *files, const char *layout, const char 
     arg_s(c, files);
     arg_s(c, layout);
     arg_s(c, verdict ? verdict : "-");
+    arg_s(c, pool ? pool : "-");
     if (g_rec.refuse)
         return answer_code(g_rec.code);
     g_rec.state = mix_call(g_rec.state, c);

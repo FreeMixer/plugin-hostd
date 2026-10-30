@@ -58,9 +58,14 @@ typedef struct FORMAT_T {
     int layout_check;               /* the worker takes pin_expect before the add and pin_layout after it */
     int pinned_own_only;            /* a pinned plugin runs in a worker of its own: the pin holds in no shared world */
 
+    int thread_pool;                /* the worker is omx-clap-host, which takes --thread-pool: a plugin whose pin grants the pool
+                                     * gets it, in a worker of its own */
     int native_instance_verbs;      /* the worker answers PHD_INSTANCE_VERBS; 0: the daemon does */
     int native_chain;               /* the worker takes OMX_VERB_CHAIN and runs a chain's members in order in one client */
     char *(*param_info)(int id, const char *symbol);    /* the daemon's param_info, needed when it answers */
+    /* the daemon's remote_pages and remote_page_get when it answers; NULL for a format with no pages: 0 pages, -902 for a page */
+    char *(*remote_pages)(int id);
+    char *(*remote_page_get)(int id, int page);
 } format_t;
 
 /* The two built-in rows are in the table from the start. A row added later is copied; its index is returned, or -1 with
@@ -90,6 +95,8 @@ int lv2_binary(const char *uri, const char *search, char *path, size_t size);
 int lv2_pin_collect(const char *uri, const char *search, char *root, size_t size, names_t *files);
 char *lv2_narrow_world(const conf_t *conf, const char *dir, const char *const *uris, int n);
 char *lv2_param_info(int id, const char *symbol);
+char *lv2_remote_pages(int id);
+char *lv2_remote_page_get(int id, int page);
 
 /* which LV2 row runs a uri: the lv2_worker_set override of the uri, else the lv2_worker setting; auto is the adapter's row
  * until the adapter has refused the uri. NULL names the lv2 row itself. */

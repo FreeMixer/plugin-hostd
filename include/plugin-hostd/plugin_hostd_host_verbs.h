@@ -35,10 +35,10 @@ struct omx_host_verb {
 };
 #endif /* OMX_HOST_VERB_TYPES_H */
 
-/* PLUGIN_HOSTD_VERBS.workerList (data/verbs.json): The workers, one record each: <core> is the audio core the setting placement pinned the worker to, - for none. */
+/* PLUGIN_HOSTD_VERBS.workerList (data/verbs.json): The workers, one record each: <core> is the audio core the setting placement pinned the worker to, - for none; <pool> is on for a worker started with the CLAP thread pool (the pin of its plugin carries pool=cores, and no other plugin shares the worker), qualified for every other. */
 #define OMX_VERB_WORKER_LIST "worker_list"
 #define OMX_VERB_WORKER_LIST_FMT "worker_list"
-#define OMX_VERB_WORKER_LIST_REPLY "resp <n> <worker>:<pid>:<format>:<state>:<core>:<place>:<i>,<i>,..."
+#define OMX_VERB_WORKER_LIST_REPLY "resp <n> <worker>:<pid>:<format>:<state>:<core>:<pool>:<place>:<i>,<i>,..."
 #define OMX_VERB_WORKER_LIST_CODES_COUNT 2u
 #define OMX_VERB_WORKER_LIST_CODES_INIT { -901, -902 } /* reply.host.memory-allocation, reply.host.invalid-operation */
 
@@ -97,6 +97,20 @@ struct omx_host_verb {
 #define OMX_VERB_PIN_CLEAR_REPLY "resp 0"
 #define OMX_VERB_PIN_CLEAR_CODES_COUNT 2u
 #define OMX_VERB_PIN_CLEAR_CODES_INIT { -901, -902 } /* reply.host.memory-allocation, reply.host.invalid-operation */
+
+/* PLUGIN_HOSTD_VERBS.pinReload (data/verbs.json): Read the pin_file and the pins_dir files again and put the pins in at once; running instances keep running. */
+#define OMX_VERB_PIN_RELOAD "pin_reload"
+#define OMX_VERB_PIN_RELOAD_FMT "pin_reload"
+#define OMX_VERB_PIN_RELOAD_REPLY "resp 0"
+#define OMX_VERB_PIN_RELOAD_CODES_COUNT 1u
+#define OMX_VERB_PIN_RELOAD_CODES_INIT { -902 } /* reply.host.invalid-operation */
+
+/* PLUGIN_HOSTD_VERBS.pinChanged (data/verbs.json): The sync's notice that the pin file was rewritten: the same as pin_reload, with or without the <uri> [files|layout] of the pin_changed event. */
+#define OMX_VERB_PIN_CHANGED "pin_changed"
+#define OMX_VERB_PIN_CHANGED_FMT "pin_changed ..."
+#define OMX_VERB_PIN_CHANGED_REPLY "resp 0"
+#define OMX_VERB_PIN_CHANGED_CODES_COUNT 1u
+#define OMX_VERB_PIN_CHANGED_CODES_INIT { -902 } /* reply.host.invalid-operation */
 
 /* PLUGIN_HOSTD_VERBS.pinAccept (data/verbs.json): Under pin_mode first-use, take the plugin's files as they are now as its pin: <uri>. */
 #define OMX_VERB_PIN_ACCEPT "pin_accept"
@@ -166,6 +180,13 @@ struct omx_host_verb {
 #define OMX_VERB_PRESET_GET_CODES_COUNT 4u
 #define OMX_VERB_PRESET_GET_CODES_INIT { -515, -3, -901, -902 } /* reply.plugin-hostd.no-preset-list, reply.host.instance-non-exists, reply.host.memory-allocation, reply.host.invalid-operation */
 
+/* PLUGIN_HOSTD_VERBS.presetShow (data/verbs.json): What a load of the preset would apply, on one line of JSON: the preset file's document with each state body's bytes replaced by its decoded size, or for a listed preset its name, loadKey and location. The instance form; mod-host's preset_show <uri> is its own verb. */
+#define OMX_VERB_PRESET_SHOW "preset_show"
+#define OMX_VERB_PRESET_SHOW_FMT "preset_show %i %s"
+#define OMX_VERB_PRESET_SHOW_REPLY "resp 0 <json>"
+#define OMX_VERB_PRESET_SHOW_CODES_COUNT 5u
+#define OMX_VERB_PRESET_SHOW_CODES_INIT { -523, -524, -3, -901, -902 } /* reply.plugin-hostd.preset-not-offered, reply.plugin-hostd.preset-invalid, reply.host.instance-non-exists, reply.host.memory-allocation, reply.host.invalid-operation */
+
 /* PLUGIN_HOSTD_VERBS.historyGet (data/verbs.json): What the daemon kept of one plugin on this host class, for the binary its pin holds now: <uri>. The history is one word, digest=<sha256>,class=<host class>,crashed=<0|1>,raises_xruns=<0|1> and then every key=value of PLUGIN_HOSTD_HISTORY_KEYS, joined by commas; - when the plugin has no record or no pin, unavailable while the history file is blocked. */
 #define OMX_VERB_HISTORY_GET "history_get"
 #define OMX_VERB_HISTORY_GET_FMT "history_get %s"
@@ -208,7 +229,7 @@ struct omx_host_verb {
 #define OMX_VERB_ESTIMATE_CODES_COUNT 5u
 #define OMX_VERB_ESTIMATE_CODES_INIT { -533, -534, -535, -901, -902 } /* reply.plugin-hostd.no-record, reply.plugin-hostd.no-cell, reply.plugin-hostd.unknown-plugin, reply.host.memory-allocation, reply.host.invalid-operation */
 
-#define PLUGIN_HOSTD_HOST_VERB_COUNT 25u
+#define PLUGIN_HOSTD_HOST_VERB_COUNT 28u
 
 /* Every verb, in the order of its items, with what each host owes it. */
 static inline const struct omx_host_verb *plugin_hostd_host_verbs(void) {
@@ -222,6 +243,8 @@ static inline const struct omx_host_verb *plugin_hostd_host_verbs(void) {
     { OMX_VERB_WORKER_ENV, OMX_VERB_WORKER_ENV_FMT, OMX_VERB_WORKER_ENV_REPLY, { OMX_HOST_VERB_REQUIRED, OMX_HOST_VERB_UNSUPPORTED, OMX_HOST_VERB_UNSUPPORTED } },
     { OMX_VERB_PIN_SET, OMX_VERB_PIN_SET_FMT, OMX_VERB_PIN_SET_REPLY, { OMX_HOST_VERB_REQUIRED, OMX_HOST_VERB_UNSUPPORTED, OMX_HOST_VERB_UNSUPPORTED } },
     { OMX_VERB_PIN_CLEAR, OMX_VERB_PIN_CLEAR_FMT, OMX_VERB_PIN_CLEAR_REPLY, { OMX_HOST_VERB_REQUIRED, OMX_HOST_VERB_UNSUPPORTED, OMX_HOST_VERB_UNSUPPORTED } },
+    { OMX_VERB_PIN_RELOAD, OMX_VERB_PIN_RELOAD_FMT, OMX_VERB_PIN_RELOAD_REPLY, { OMX_HOST_VERB_REQUIRED, OMX_HOST_VERB_UNSUPPORTED, OMX_HOST_VERB_UNSUPPORTED } },
+    { OMX_VERB_PIN_CHANGED, OMX_VERB_PIN_CHANGED_FMT, OMX_VERB_PIN_CHANGED_REPLY, { OMX_HOST_VERB_REQUIRED, OMX_HOST_VERB_UNSUPPORTED, OMX_HOST_VERB_UNSUPPORTED } },
     { OMX_VERB_PIN_ACCEPT, OMX_VERB_PIN_ACCEPT_FMT, OMX_VERB_PIN_ACCEPT_REPLY, { OMX_HOST_VERB_REQUIRED, OMX_HOST_VERB_UNSUPPORTED, OMX_HOST_VERB_UNSUPPORTED } },
     { OMX_VERB_PIN_LAYOUT, OMX_VERB_PIN_LAYOUT_FMT, OMX_VERB_PIN_LAYOUT_REPLY, { OMX_HOST_VERB_UNSUPPORTED, OMX_HOST_VERB_OPTIONAL, OMX_HOST_VERB_UNSUPPORTED } },
     { OMX_VERB_LV2_WORKER_SET, OMX_VERB_LV2_WORKER_SET_FMT, OMX_VERB_LV2_WORKER_SET_REPLY, { OMX_HOST_VERB_REQUIRED, OMX_HOST_VERB_UNSUPPORTED, OMX_HOST_VERB_UNSUPPORTED } },
@@ -232,6 +255,7 @@ static inline const struct omx_host_verb *plugin_hostd_host_verbs(void) {
     { OMX_VERB_PANEL_GET, OMX_VERB_PANEL_GET_FMT, OMX_VERB_PANEL_GET_REPLY, { OMX_HOST_VERB_REQUIRED, OMX_HOST_VERB_UNSUPPORTED, OMX_HOST_VERB_UNSUPPORTED } },
     { OMX_VERB_PRESET_LIST, OMX_VERB_PRESET_LIST_FMT, OMX_VERB_PRESET_LIST_REPLY, { OMX_HOST_VERB_OPTIONAL, OMX_HOST_VERB_OPTIONAL, OMX_HOST_VERB_UNSUPPORTED } },
     { OMX_VERB_PRESET_GET, OMX_VERB_PRESET_GET_FMT, OMX_VERB_PRESET_GET_REPLY, { OMX_HOST_VERB_OPTIONAL, OMX_HOST_VERB_OPTIONAL, OMX_HOST_VERB_UNSUPPORTED } },
+    { OMX_VERB_PRESET_SHOW, OMX_VERB_PRESET_SHOW_FMT, OMX_VERB_PRESET_SHOW_REPLY, { OMX_HOST_VERB_UNSUPPORTED, OMX_HOST_VERB_OPTIONAL, OMX_HOST_VERB_UNSUPPORTED } },
     { OMX_VERB_HISTORY_GET, OMX_VERB_HISTORY_GET_FMT, OMX_VERB_HISTORY_GET_REPLY, { OMX_HOST_VERB_REQUIRED, OMX_HOST_VERB_UNSUPPORTED, OMX_HOST_VERB_UNSUPPORTED } },
     { OMX_VERB_HISTORY_CLEAR, OMX_VERB_HISTORY_CLEAR_FMT, OMX_VERB_HISTORY_CLEAR_REPLY, { OMX_HOST_VERB_REQUIRED, OMX_HOST_VERB_UNSUPPORTED, OMX_HOST_VERB_UNSUPPORTED } },
     { OMX_VERB_PLAN, OMX_VERB_PLAN_FMT, OMX_VERB_PLAN_REPLY, { OMX_HOST_VERB_REQUIRED, OMX_HOST_VERB_UNSUPPORTED, OMX_HOST_VERB_UNSUPPORTED } },

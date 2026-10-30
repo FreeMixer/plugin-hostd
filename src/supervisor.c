@@ -720,6 +720,11 @@ static int worker_start(worker_t *w, const char *uri)
     snprintf(logfile, sizeof(logfile), "%s/w%d.log", g_root, w->k);
     world = narrow_world(w, uri);
     w->state = W_STARTING;
+    /* the CLAP thread pool is granted by the plugin's qualification, in its pin, and only to a worker that holds that
+     * plugin alone: a worker of a pool or a chain keeps the option away, and so does a plugin with no word */
+    w->thread_pool = g_conf.require_pins && format_at(w->fmt)->thread_pool && !w->pool && !w->chain && uri &&
+                     pins_pool_cores(uri);
+    env.thread_pool = w->thread_pool;
     /* the policy pins a worker whose format worker_env gave no cpus: to the core it has, which a respawn keeps, or to the
      * least-loaded one; the child is pinned before it runs the worker, so every thread it makes is there too */
     if (g_ncores && !env.cpus[0])
@@ -1462,6 +1467,7 @@ void sup_tick(void)
     worker_t *list[1024];
     int count = g_nworkers < 1024 ? g_nworkers : 1024;
 
+    sup_pins_poll();
     memcpy(list, g_workers, count * sizeof(worker_t *));
     for (n = 0; n < count; n++)
     {
@@ -1695,6 +1701,8 @@ static char *add(const char *uri, int id, const char *placement, const char *cli
         return sup_resp(ERR_INSTANCE_INVALID);
     if (g_inst[id])
         return sup_resp(ERR_INSTANCE_ALREADY_EXISTS);
+    /* a plugin upgraded since the pins were read is hosted by the pins as the file says now, not by a restart */
+    sup_pins_poll();
     if (placement && strcmp(placement, PHD_PLACE_DEFAULT) && !valid_place(placement))
         return sup_resp(OMX_REPLY_PLUGIN_HOSTD_PLACEMENT_INVALID_RESP);
     if (!placement || !strcmp(placement, PHD_PLACE_DEFAULT))
@@ -1735,7 +1743,7 @@ static char *add(const char *uri, int id, const char *placement, const char *cli
             snprintf(place, sizeof(place), PHD_PLACE_OWN);
         }
         /* first-use: only a plugin qualified for a shared worker is placed in one */
-        else if (first_use && !pins_in_process(fwd))
+        else if ((first_use && !pins_in_process(fwd)) || (format->thread_pool && pins_pool_cores(fwd)))
         {
             if (placement && !strncmp(placement, PHD_PLACE_POOL_PREFIX, strlen(PHD_PLACE_POOL_PREFIX)))
                 return sup_resp(OMX_REPLY_PLUGIN_HOSTD_PLACEMENT_INVALID_RESP);
@@ -2152,6 +2160,16 @@ static char **words(char *copy, int *count)
     return word;
 }
 
+const char *sup_instance_uri(int id)
+{
+    return (id >= 0 && id < MAX_INSTANCE && g_inst[id]) ? g_inst[id]->uri : NULL;
+}
+
+const char *sup_instance_search(int id)
+{
+    return (id >= 0 && id < MAX_INSTANCE && g_inst[id]) ? search_of(g_inst[id]->fmt) : NULL;
+}
+
 char *sup_instance_verb(const char *line, int ledger)
 {
     char *copy = strdup(line), **word, *end, *reply;
@@ -2186,7 +2204,15 @@ char *sup_instance_verb(const char *line, int ledger)
         reply = sup_resp(SUCCESS);
     }
     else if (!strcmp(word[0], OMX_VERB_REMOTE_PAGES))
-        reply = sup_resp(count == 2 ? 0 : ERR_INVALID_OPERATION);
+        reply = count != 2 ? sup_resp(ERR_INVALID_OPERATION) :
+                format_at(i->fmt)->remote_pages ? format_at(i->fmt)->remote_pages(id) : sup_resp(0);
+    else if (!strcmp(word[0], OMX_VERB_REMOTE_PAGE_GET) && format_at(i->fmt)->remote_page_get)
+    {
+        long page = count == 3 ? strtol(word[2], &end, 10) : -1;
+
+        reply = count == 3 && !*end && end != word[2] && page >= 0 && page < INT_MAX ?
+                format_at(i->fmt)->remote_page_get(id, (int)page) : sup_resp(ERR_INVALID_OPERATION);
+    }
     else if (!strcmp(word[0], OMX_VERB_PARAM_INFO))
         reply = count == 3 ? format_at(i->fmt)->param_info(id, word[2]) : sup_resp(ERR_INVALID_OPERATION);
     else if (phd_is_note_verb(word[0]))
@@ -2249,13 +2275,14 @@ char *sup_worker_list(void)
 
         put(&buf, &used, &cap, " w%d:%d:%s:%s:", w->k, (int)w->pid, format_at(w->fmt)->name, g_state_states[w->state]);
         if (w->core >= 0)
-            put(&buf, &used, &cap, "%d:%s:", w->core, w->place);
+            put(&buf, &used, &cap, "%d:", w->core);
         else
-            put(&buf, &used, &cap, PHD_WORD_NONE ":%s:", w->place);
+            put(&buf, &used, &cap, PHD_WORD_NONE ":");
+        put(&buf, &used, &cap, "%s:%s:", w->thread_pool ? PHD_WORKER_POOL_ON : PHD_WORKER_POOL_QUALIFIED, w->place);
         if (!w->ninst)
             put(&buf, &used, &cap, PHD_WORD_NONE);
         for (m = 0; m < w->ninst; m++)
-            put(&buf, &used, &cap, "%s%d", m ? "," : "", w->inst[m]->id);
+            put(&buf, &used, &cap, "%s%d%s", m ? "," : "", w->inst[m]->id, w->inst[m]->pin_refused ? PHD_WORKER_PIN_REFUSED : "");
     }
     free(sorted);
     return buf;
@@ -2379,6 +2406,47 @@ char *sup_pin_accept(const char *uri)
     if (rc == SUCCESS)
         lv2_refusals_forget(NULL);
     return sup_resp(rc);
+}
+
+/* the running instances against the pins just read: one the new pins refuse is not stopped, its worker holds it as it
+ * did; it is logged here and marked in worker_list until a pin that holds it is read */
+static void pins_recheck(void)
+{
+    int n, m;
+
+    for (n = 0; n < g_nworkers; n++)
+        for (m = 0; m < g_workers[n]->ninst; m++)
+        {
+            instance_t *i = g_workers[n]->inst[m];
+            const char *layout = NULL;
+            int code = pins_check(format_at(i->fmt), i->uri, search_of(i->fmt), &layout);
+
+            if (code != SUCCESS && !i->pin_refused)
+                fprintf(stderr, "plugin-hostd: instance %d (%s): the reloaded pins refuse it (resp %d); it keeps running\n",
+                        i->id, i->uri, code);
+            i->pin_refused = code != SUCCESS;
+        }
+}
+
+char *sup_pin_reload(void)
+{
+    int rc;
+
+    if (!g_conf.require_pins)
+        return sup_resp(ERR_INVALID_OPERATION);
+    rc = pins_reload();
+    if (rc != SUCCESS)
+        return sup_resp(ERR_INVALID_OPERATION);
+    /* the files of a plugin changed: the adapter may now take one it refused */
+    lv2_refusals_forget(NULL);
+    pins_recheck();
+    return sup_resp(SUCCESS);
+}
+
+void sup_pins_poll(void)
+{
+    if (g_conf.require_pins && pins_changed())
+        free(sup_pin_reload());
 }
 
 char *sup_policy_set(const char *format, const char *place)
@@ -2509,6 +2577,18 @@ static void to_own(instance_t *i)
     respawn(own);
 }
 
+/* an instance that the checkpoint of its eviction found quarantined (its worker died saving its state): it is in no
+ * worker, and goes where a quarantined instance goes, a worker of its own that starts after the backoff */
+static void park_quarantined(instance_t *i)
+{
+    worker_t *own = worker_new(i->fmt, PHD_PLACE_OWN);
+
+    worker_attach(own, i);
+    own->state = W_BACKOFF;
+    own->backoff_ms = g_conf.backoff_base_ms;
+    own->next_try_ms = proc_now_ms() + g_conf.backoff_base_ms;
+}
+
 /* the chain's members that are not quarantined, gathered in order in one new worker and replayed there */
 static void chain_form(chain_t *c)
 {
@@ -2524,13 +2604,19 @@ static void chain_form(chain_t *c)
 
         if (!i || meta_of(i->id)->quarantined)
             continue;
+        evict(i);
+        /* its worker may have died in the checkpoint evict took, and quarantined it */
+        if (meta_of(i->id)->quarantined)
+        {
+            park_quarantined(i);
+            continue;
+        }
         if (!w)
         {
             w = worker_new(chain_row_of(c->ids, c->n), place);
             w->pool = 1;
             w->chain = c;
         }
-        evict(i);
         worker_attach(w, i);
     }
     if (c->w && c->w != w)
@@ -2578,6 +2664,12 @@ static void chain_update(chain_t *c)
         if (i->w == w || meta_of(i->id)->quarantined)
             continue;
         evict(i);
+        /* its worker may have died in the checkpoint evict took, and quarantined it: it is not replayed here */
+        if (meta_of(i->id)->quarantined)
+        {
+            park_quarantined(i);
+            continue;
+        }
         worker_attach(w, i);
         join[nj++] = i;
     }
@@ -2625,6 +2717,8 @@ out:
  * its members' worlds, so what a format pins in a world of its own holds there and is judged by chain_world_found */
 static int must_run_own(const instance_t *i)
 {
+    if (g_conf.require_pins && format_at(i->fmt)->thread_pool && pins_pool_cores(i->uri))
+        return 1;
     return g_conf.require_pins && !format_at(i->fmt)->pinned_own_only && conf_pins_first_use(&g_conf) &&
            !pins_in_process(i->uri);
 }
@@ -2767,7 +2861,8 @@ char *sup_chain_get(int id)
     for (k = 0; k < c->n; k++)
         put(&buf, &used, &cap, "%s%d", k ? "," : "", c->ids[k]);
     put(&buf, &used, &cap, " ");
-    for (k = 0; c->w && k < c->w->ninst; k++)
+    /* a worker waiting to restart runs none of its members */
+    for (k = 0; c->w && c->w->state == W_UP && k < c->w->ninst; k++)
         if (!c->w->inst[k]->unreplayed)
             put(&buf, &used, &cap, "%s%d", any++ ? "," : "", c->w->inst[k]->id);
     if (!any)
@@ -2821,7 +2916,7 @@ static int plan_pin(const char *uri)
     if (!verdict)
         return PLANNER_PIN_NONE;
     if (!strcmp(verdict, PHD_PIN_VERDICT_IN_PROCESS))
-        return PLANNER_PIN_IN_PROCESS;
+        return pins_pool_cores(uri) ? PLANNER_PIN_ISOLATED : PLANNER_PIN_IN_PROCESS;
     if (!strcmp(verdict, PHD_PIN_VERDICT_ISOLATED))
         return PLANNER_PIN_ISOLATED;
     if (!strcmp(verdict, PHD_PIN_VERDICT_REFUSED))

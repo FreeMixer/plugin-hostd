@@ -105,7 +105,7 @@ class daemon:
             # a namespace's root is root: the system directories of descriptors are not this run's to write
             settings["descriptor_dir"] = os.path.join(self.tmp, "descriptors")
             settings["qualification_dir"] = os.path.join(self.tmp, "qualification")
-            settings["lv2_path"] = os.environ.get("CHAIN_LV2_PATH", "/usr/lib64/lv2")
+            settings["lv2_path"] = chain_lv2_path()
         with open(conf, "w") as f:
             for k, v in settings.items():
                 f.write("%s %s\n" % (k, v))
@@ -205,14 +205,11 @@ def workers():
     out = {}
     for rec in S.client().cmd("worker_list").split()[2:]:
         head, insts = rec.rsplit(":", 1)
-        # the place holds colons: the fields on the left, the instances on the right; a daemon with core placement
-        # (docs/placement.md) writes the worker's core, a number or -, before the place, which never is one
-        k, pid, fmt, state, place = head.split(":", 4)
-        first, _, rest = place.partition(":")
-        if rest and (first.isdigit() or first == "-"):
-            place = rest
-        out[k] = {"pid": int(pid), "fmt": fmt, "state": state, "place": place,
-                  "inst": [] if insts == "-" else [int(x) for x in insts.split(",")]}
+        # the place holds colons: six fields on the left (docs/placement.md: the core, then the pool), the instances
+        # on the right; an id followed by ! is an instance the pins read again refuse, still running
+        k, pid, fmt, state, core, pool, place = head.split(":", 6)
+        out[k] = {"pid": int(pid), "fmt": fmt, "state": state, "core": core, "pool": pool, "place": place,
+                  "inst": [] if insts == "-" else [int(x.rstrip("!")) for x in insts.split(",")]}
     return out
 
 
@@ -649,12 +646,19 @@ def audio_ports(client, output):
     return sorted(p for p in listed if p.startswith(client + ":") and "midi" not in p.lower() and "event" not in p.lower())
 
 
+def chain_lv2_path():
+    """CHAIN_LV2_PATH, else plugin-hostd's default list (include/plugin-hostd/search_paths.h)"""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "search-paths.py")
+    return os.environ.get("CHAIN_LV2_PATH") or ":".join(subprocess.run(
+        [sys.executable, "-I", path, "lv2", "--existing"], capture_output=True, text=True, check=True).stdout.split())
+
+
 class reference:
     """end to end: the same plugins one client each, in a second omx-clap-host outside the daemon, linked in series"""
 
     def __init__(self):
         self.port = free_pair()
-        env = dict(os.environ, LV2_PATH=os.environ.get("CHAIN_LV2_PATH", "/usr/lib64/lv2"))
+        env = dict(os.environ, LV2_PATH=chain_lv2_path())
         self.proc = subprocess.Popen([os.environ["CLAP_HOST"], "-n", "-p", str(self.port)], env=env,
                                      stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
         wait(lambda: "ready" in self.proc.stdout.readline(), "the reference host ready")

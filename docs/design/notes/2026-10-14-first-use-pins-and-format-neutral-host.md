@@ -1,9 +1,9 @@
 # First-use pins, one pins format, a format-neutral host
 
-Status: built, released in v0.3.0 (2026-10-16). Covers plugin-hostd#25 and #26 (PRs #30 and #31) and plugin-qualify#55.
-An external plugin carries no pins and its qualification record is evidence only (ruled 2026-10-17). First-use pins
+Status: built, released in v0.3.0. Covers plugin-hostd#25 and #26 (PRs #30 and #31) and plugin-qualify#55.
+An external plugin carries no pins and its qualification record is evidence only. First-use pins
 therefore stop for third-party plugins. A pins.d stays only for the binaries of our own packages (#42), and a record
-whose verdict is `refused` refuses an add (#71). Decided 2026-10-18 by recommendation; the operator reviews it after.
+whose verdict is `refused` refuses an add (#71). Decided on that recommendation, open to review.
 
 ## Why
 
@@ -19,7 +19,7 @@ is checked at all. The pin should be taken on first use and kept, and a change a
 | `pin_store` | empty | the file the learned pins are kept in; empty means `$XDG_STATE_HOME/plugin-hostd/pins`, else `$HOME/.local/state/plugin-hostd/pins` |
 | `pin_file` | empty | a pins file loaded at startup, written by `plugin-qualify --all --pins` |
 
-`require_pins 0` still means no pin is checked. `strict` is today's behaviour, byte for byte: a plugin with no pin is
+`require_pins 0` still means no pin is checked. `strict` is the earlier behaviour, byte for byte: a plugin with no pin is
 refused with -508. A host that pins by itself (openmixer) sets `pin_mode strict` in the drop-in it generates.
 
 ## One line format
@@ -54,7 +54,7 @@ Later `add`s check the stored pin as `strict` does: files hashed before any work
 worker with `pin_expect`. A layout of `-` sends no `pin_expect`, and the add learns it as in step 3.
 
 A replayed add (a respawned worker) never learns: it checks the pin it has, and a pin that is gone or changed refuses
-the replay as it does today.
+the replay as it did before.
 
 ## A change
 
@@ -78,7 +78,7 @@ the add answer -509.
 
 ## Format-neutral host (#26)
 
-The daemon keeps one table of formats, `PHD_FORMATS`. Today the table is two names, and the rest of the format is spread
+The daemon keeps one table of formats, `PHD_FORMATS`. Before this note the table held two names, and the rest of the format is spread
 as `if (fmt == FMT_CLAP)` in the supervisor and pins. After this change a format is one row of `src/formats.c`:
 
 | capability | meaning | lv2 | clap |

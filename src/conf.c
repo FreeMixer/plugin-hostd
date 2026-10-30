@@ -37,6 +37,25 @@ void conf_defaults(conf_t *conf)
 #define X(key, def, unit, meaning) conf->key = def;
     PHD_CONF_INTS(X)
 #undef X
+    /* CLAP's own rule (search_paths.h): $CLAP_PATH is searched before the rest, not instead of it */
+    env = getenv("CLAP_PATH");
+    if (env && *env)
+        snprintf(conf->clap_path, sizeof(conf->clap_path), "%s:%s", env, PHD_DEFAULT_CLAP_PATH);
+}
+
+int conf_merge_extra(conf_t *conf)
+{
+    size_t have = strlen(conf->lv2_path);
+
+    if (!*conf->lv2_extra)
+        return 0;
+    if (have + 1 + strlen(conf->lv2_extra) >= sizeof(conf->lv2_path))
+    {
+        fprintf(stderr, "lv2_path and lv2_extra together are longer than %zu\n", sizeof(conf->lv2_path) - 1);
+        return -1;
+    }
+    snprintf(conf->lv2_path + have, sizeof(conf->lv2_path) - have, "%s%s", have ? ":" : "", conf->lv2_extra);
+    return 0;
 }
 
 static int set_string(char *dest, size_t size, const char *value)

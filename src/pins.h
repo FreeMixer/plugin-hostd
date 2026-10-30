@@ -39,10 +39,19 @@
  * no pins */
 int pins_init(const char *store, const char *file, const char *dir);
 
+/* pin_reload: the pins read again from the places pins_init read, put in at once; a controller's pin_set pins are kept.
+ * SUCCESS, or -1 with the earlier pins left as they are (a pin_file with a line outside the grammar, or gone) */
+int pins_reload(void);
+/* whether the pin_file or a pins_dir file is not the one the pins were last read from: inode, size or mtime */
+int pins_changed(void);
+/* the optional words of a pin line after its layout, each once and in either order: verdict=<word>, pool=<word>. Their
+ * values (NULL for a word that is not there), and SUCCESS, or ERR_INVALID_OPERATION for another word or a repeated one */
+int pins_words(char **word, int n, const char **verdict, const char **pool);
+
 /* pin_set: SUCCESS, or ERR_INVALID_OPERATION for a word outside the grammar, or OMX_REPLY_PLUGIN_HOSTD_PIN_REFUSED_RESP when the package pin
  * of the uri carries verdict=refused; it replaces an earlier pin of the uri. `verdict` is NULL, or one of
- * PHD_PIN_VERDICTS */
-int pins_set(const char *uri, const char *files, const char *layout, const char *verdict);
+ * PHD_PIN_VERDICTS; `pool` likewise, one of PHD_PIN_POOLS */
+int pins_set(const char *uri, const char *files, const char *layout, const char *verdict, const char *pool);
 
 /* pin_clear of the host's pin of one uri, or of every one for "all"; a package pin holds again. SUCCESS */
 int pins_clear(const char *uri);
@@ -53,6 +62,9 @@ int pins_known(const char *uri);
  * under. -1 when the uri has no pin */
 int pins_digest(const char *uri, char hex[PHD_SHA256_HEX_LEN + 1]);
 int pins_in_process(const char *uri);
+/* whether the pin of the uri grants it the CLAP thread pool: it carries pool=cores and is not a refusal (the pool is the
+ * plugin's qualification's to give, never a global switch) */
+int pins_pool_cores(const char *uri);
 /* the verdict of the uri's pin as the pin line spells it (one of PHD_PIN_VERDICTS), "" for a pin without one, NULL when
  * there is no pin; valid until the next pin verb */
 const char *pins_verdict(const char *uri);

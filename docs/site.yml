@@ -28,7 +28,8 @@ landing:
 sections:
   - id: start
     title: Start here
-    blurb: What plugin-hostd is, what it hosts, how it runs, and how to install it.
+    page: start-here.md
+    blurb: One page that says what plugin-hostd is, what it hosts and how it runs, in four paragraphs.
     entries:
       - page: from-file-to-page.md
         title: From a plugin file to a page on the screen
@@ -38,42 +39,38 @@ sections:
 
   - id: zynthian
     title: The Zynthian use case
-    blurb: The worked example. Zynthian running its LV2 and CLAP plugins under plugin-hostd on a Raspberry Pi 5, measured.
+    blurb: From a plugin file to a page, then the image and its first boot, how to use it in Zynthian, the instruments, the measurements, the upstream patch series and the acceptance report.
     entries:
+      - page: zynthian/status.md
+        title: Where this stands
+        blurb: What is in place for Zynthian today, and what is still incomplete, why and what closes it.
+      - page: from-file-to-page.md
+        title: From a plugin file to a page
+      - page: zynthian/image.md
+        title: "Try it: the image, its first boot, and installing on an existing system"
+      - page: zynthian/captures.md
+        title: "How to use it in Zynthian: the menus, the pages and the MOD GUIs"
       - page: zynthian/instruments.md
         title: "Instruments: voices across the cores"
       - page: zynthian/benchmarks.md
         title: Benchmarks
-        pending: true
       - page: zynthian/tradeoffs.md
         title: Trade-offs
-        pending: true
-      - page: zynthian/upstream-series.md
-        title: The upstream patch series
-        pending: true
-      - page: zynthian/image.md
-        title: The image and its first boot
-        pending: true
       - page: zynthian/stress.md
         title: The stress run
-        pending: true
-      - page: zynthian/captures.md
-        title: Captures of the menus and the MOD GUIs
-        pending: true
-      - page: zynthian/README.md
-        title: How to use it in Zynthian
-        pending: true
+      - page: zynthian/upstream-series.md
+        title: The upstream patch series
       - page: zynthian/acceptance-report.md
         title: The acceptance report
-        pending: true
+      - page: zynthian/README.md
+        title: What the Zynthian directory holds
 
   - id: reference
     title: Reference
-    blurb: The protocol, the formats, and the verbs a host uses.
+    blurb: The wire protocol first, then the format tables, using plugin-hostd from your own host, the panel and presets a plugin publishes, core placement, and the qualification records and pins elsewhere.
     entries:
       - page: protocol.md
         title: The wire protocol
-        pending: true
       - page: formats.md
         title: "The format tables: how a scan becomes a descriptor"
       - page: own-host.md
@@ -82,9 +79,6 @@ sections:
         title: The panel a plugin publishes
       - page: presets.md
         title: Presets in the host
-      - page: estimate.md
-        title: "The estimate verb: a chain's cost before it runs"
-        pending: true
       - page: placement.md
         title: "Core placement: one worker per chain, pinned across the audio cores"
       - url: https://github.com/FreeMixer/plugin-qualify#readme
@@ -97,12 +91,12 @@ sections:
 
   - id: evidence
     title: Evidence
-    blurb: Every file under an evidence directory, by topic and date, with the pages that cite it.
+    blurb: Every file under an evidence directory, grouped by topic and date, each with the pages that cite it.
     generated: evidence
 
   - id: project
     title: Project
-    blurb: Where the code comes from, how to take part, and the licence.
+    blurb: The mod-host fork the workers run, the design notes, how to contribute, and the licence, in that order.
     entries:
       - url: https://github.com/FreeMixer/mod-host
         title: The mod-host fork the LV2 workers run

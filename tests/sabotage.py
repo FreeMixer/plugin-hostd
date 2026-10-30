@@ -15,7 +15,7 @@ FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "
 # an LV2 bundle (MOD_HOST, LV2_DIR, LV2_URI, LV2_BUNDLE, LV2_PARAM) and is skipped without them; "pin" breaks
 # include/plugin-hostd/pin.h and runs tests/pin_test.c; "readme" breaks README.md or BUILDING.md and runs
 # tests/readme_build.py, with no daemon to build; "probeschema" breaks protocol/probe-output.schema.json and runs
-# tests/probe_schema.py; "relay" breaks src/relay.c and runs tests/relay_test.c; "history" breaks src/history.c or src/fsutil.c and runs tests/history_test.c; "proc" breaks src/proc.c and runs tests/proc_test.c; "alloc" breaks src/relay.c, src/lv2.c or src/verbs.c and runs make test-alloc; "contract" breaks the probe runner or the generator and runs tests/contract_derived.py; "consumer" breaks the header and compiles tests/consumer.c against it; "probe" breaks src/probe.c and runs tests/probe_test.py; "nopins" breaks the packaging or a workflow and runs tests/no_pins.py; "ciguards" breaks a workflow and runs tests/ci_guards.py;
+# tests/probe_schema.py; "relay" breaks src/relay.c and runs tests/relay_test.c; "history" breaks src/history.c or src/fsutil.c and runs tests/history_test.c; "proc" breaks src/proc.c and runs tests/proc_test.c; "conf" breaks src/conf.c, src/main.c, the search lists or a reader of them and runs tests/conf_test.c and tests/search_paths_once.py; "alloc" breaks src/relay.c, src/lv2.c or src/verbs.c and runs make test-alloc; "contract" breaks the probe runner or the generator and runs tests/contract_derived.py; "consumer" breaks the header and compiles tests/consumer.c against it; "probe" breaks src/probe.c and runs tests/probe_test.py; "nopins" breaks the packaging or a workflow and runs tests/no_pins.py; "ciguards" breaks a workflow and runs tests/ci_guards.py;
 # "vocabulary" breaks the probe schema, its template or a copy of omx-contract's omx-vocabulary.schema.json and runs
 # tests/vocabulary_derived.py; "verbtable" breaks the header and runs tests/verb_table.py; "presetschema" breaks
 # protocol/preset.schema.json and runs tests/preset_format.py; "pool" breaks tests/sabotage_pool.py or the port range of
@@ -195,8 +195,9 @@ SABOTAGE = [
      "what_cannot_be_pinned_is_refused_and_never_pinned_in_part"),
     ("a plugin with no pin is not given one", "src/supervisor.c", "        if (rc == OMX_REPLY_HOST_PIN_ABSENT_RESP && first_use && !pins_known(fwd))",
      "        if (0)", "first_use_pins_an_unpinned_plugin_and_runs_it_isolated"),
-    ("a plugin pinned on first use may share a worker", "src/supervisor.c", "        else if (first_use && !pins_in_process(fwd))",
-     "        else if (0)", "first_use_pins_an_unpinned_plugin_and_runs_it_isolated"),
+    ("a plugin pinned on first use may share a worker", "src/supervisor.c",
+     "        else if ((first_use && !pins_in_process(fwd)) || (format->thread_pool && pins_pool_cores(fwd)))",
+     "        else if (format->thread_pool && pins_pool_cores(fwd))", "first_use_pins_an_unpinned_plugin_and_runs_it_isolated"),
     ("a changed plugin is refused and not announced", "src/supervisor.c",
      "    if (code == OMX_REPLY_PLUGIN_HOSTD_PIN_BINARY_MISMATCH_RESP)\n        event(PHD_EVENT_PIN_CHANGED_FMT, uri, PHD_PIN_CHANGED_FILES);\n",
      "    if (code == OMX_REPLY_PLUGIN_HOSTD_PIN_BINARY_MISMATCH_RESP)\n        ;\n", "a_plugin_changed_after_first_use_is_refused_with_an_event_until_accepted"),
@@ -408,7 +409,7 @@ SABOTAGE = [
      "    int strict = layer != LAYER_STORE,", "a_bad_pins_d_line_or_file_is_skipped_and_the_rest_is_read"),
     ("a hidden pins.d file is read", "src/pins.c", "entry->d_name[0] != '.' && ", "",
      "a_pins_d_pin_admits_its_plugin_and_of_two_files_the_last_by_name_wins"),
-    ("pins_dir is not read", "src/pins.c", "    if (*dir)\n        pkg_read(dir);\n", "",
+    ("pins_dir is not read", "src/pins.c", "    if (*g_cfg_dir)\n        pkg_read(g_cfg_dir);\n", "",
      "a_pins_d_pin_admits_its_plugin_and_of_two_files_the_last_by_name_wins"),
     ("the build steps are back on the README", "README.md", "Building from source: see [BUILDING.md](BUILDING.md).",
      "Building from source:\n\n    make\n\nsee [BUILDING.md](BUILDING.md).", "README.md runs no build tool", "readme"),
@@ -676,6 +677,18 @@ SABOTAGE = [
      "        if (g_inst[ids[k]]->fmt == row)\n            uris[m++]",
      "        if (1)\n            uris[m++]",
      "under_require_pins_a_chain_of_a_clap_and_an_lv2_member_sees_the_lv2_members_bundle_only"),
+    ("chain_get reports no survivor running while the chain's worker waits to restart", "src/supervisor.c",
+     "    for (k = 0; c->w && c->w->state == W_UP && k < c->w->ninst; k++)",
+     "    for (k = 0; c->w && k < c->w->ninst; k++)",
+     "chain_get_reports_no_survivor_running_while_the_chains_worker_waits_to_restart"),
+    ("chain_update does not replay a joiner quarantined by its eviction", "src/supervisor.c",
+     "        /* its worker may have died in the checkpoint evict took, and quarantined it: it is not replayed here */\n        if (meta_of(i->id)->quarantined)",
+     "        /* its worker may have died in the checkpoint evict took, and quarantined it: it is not replayed here */\n        if (0)",
+     "a_joiner_whose_worker_dies_saving_its_state_is_quarantined_and_does_not_join_the_chain"),
+    ("chain_form does not gather a member quarantined by its eviction", "src/supervisor.c",
+     "        /* its worker may have died in the checkpoint evict took, and quarantined it */\n        if (meta_of(i->id)->quarantined)",
+     "        /* its worker may have died in the checkpoint evict took, and quarantined it */\n        if (0)",
+     "chain_form_leaves_out_a_member_whose_worker_dies_saving_its_state"),
     ("chain_get reads the running members from the declared order", "src/supervisor.c",
      '            put(&buf, &used, &cap, "%s%d", any++ ? "," : "", c->w->inst[k]->id);',
      '            put(&buf, &used, &cap, "%s%d", any++ ? "," : "", c->ids[k]);',
@@ -986,6 +999,23 @@ SABOTAGE = [
      '*seconds = (double)(u + s) / (double)hz;',
      '*seconds = (double)(u + s);',
      "proc_test", "proc"),
+    # the search lists (#212)
+    ("the default LV2 list drops Zynthian's /usr/local multiarch folder", 'include/plugin-hostd/search_paths.h',
+     '":/usr/local/lib/x86_64-linux-gnu/lv2:/usr/local/lib/aarch64-linux-gnu/lv2:/usr/local/lib/arm-linux-gnueabihf/lv2"',
+     '":/usr/local/lib/x86_64-linux-gnu/lv2:/usr/local/lib/arm-linux-gnueabihf/lv2"',
+     "conf_test", "conf"),
+    ("the default LV2 list loses the lib64 folders", 'include/plugin-hostd/search_paths.h',
+     '":/usr/lib64/lv2:/usr/local/lib64/lv2"', '""', "conf_test", "conf"),
+    ("$CLAP_PATH stands in for the CLAP default", 'src/conf.c',
+     'snprintf(conf->clap_path, sizeof(conf->clap_path), "%s:%s", env, PHD_DEFAULT_CLAP_PATH);',
+     'snprintf(conf->clap_path, sizeof(conf->clap_path), "%s", env);', "conf_test", "conf"),
+    ("lv2_extra is joined with no separator", 'src/conf.c', 'have ? ":" : "", conf->lv2_extra',
+     '"", conf->lv2_extra', "conf_test", "conf"),
+    ("the daemon never merges lv2_extra", 'src/main.c', 'conf_merge_extra(&g_conf) != 0 || ', '', "conf_test", "conf"),
+    ("the benchmark keeps a list of its own", 'bench/lib/bench.py', '    return _search_paths().search("lv2", env=True)',
+     '    return ["/usr/lib/lv2", "/usr/lib64/lv2"]', "conf_test", "conf"),
+    ("protocol.h writes the LV2 list again", 'include/plugin-hostd/protocol.h', '#include <plugin-hostd/search_paths.h>',
+     '#include <plugin-hostd/search_paths.h>\n#undef PHD_DEFAULT_LV2_PATH\n#define PHD_DEFAULT_LV2_PATH "/usr/lib/lv2:/usr/lib64/lv2"', "conf_test", "conf"),
     ('a machine of 8 cores is in the band of 9 to 16', 'src/machine.c',
      'ncpu <= 8 ?',
      'ncpu < 8 ?',
@@ -1331,9 +1361,13 @@ SABOTAGE = [
      'if (c->best < 0)',
      'the_larger_record_stands_whichever_the_directory_lists_first', "qualcost"),
     ('the id inside the record is not read', 'src/qualcost.c',
-     'if (!got || strcmp(got, id) || !grid',
-     'if (!got || (strcmp(got, id) && 0) || !grid',
+     'if (!got || !same_id(got, id) || !grid',
+     'if (!got || (!same_id(got, id) && 0) || !grid',
      'a_record_of_another_plugin_is_not_this_ones', "qualcost"),
+    ('an encoded IRI is not decoded', 'src/qualcost.c',
+     'return !strcmp(da, db);',
+     'return !strcmp(a, b);',
+     'a_percent_encoded_iri_finds_the_record_of_its_decoded_spelling', "qualcost"),
     ('the fraction is nanoseconds over a second', 'src/qualcost.c',
      'return ns * rate / 1e9;',
      'return ns / 1e9;',
@@ -1427,6 +1461,14 @@ SABOTAGE = [
      "the_number_of_jobs_is_the_cores_to_eight_or_what_is_asked", "pool"),
     ("a range of ports is ignored", "tests/harness.py", 'base = os.environ.get("PLUGIN_HOSTD_TEST_PORT_BASE")',
      'base = None', "a_port_pair_inside_a_range_comes_from_that_range", "pool"),
+    ("a pg:group of a port is not read", "src/lv2.c", "    p->group = group ? strdup(group) : NULL;\n", "    p->group = NULL;\n", "an_lv2_instance_answers_remote_pages_from_the_groups_of_its_bundle_and_param_info_from_its_ports"),
+    ("a group past 8 ports is not paged on", "src/lv2.c", "            if (taken % PAGE_SLOTS == 0)\n", "            if (taken == 0)\n", "an_lv2_instance_answers_remote_pages_from_the_groups_of_its_bundle_and_param_info_from_its_ports"),
+    ("the outputs of a bundle are paged with its inputs", "src/lv2.c", "            if (!q->input || q->hidden || !group_eq(q->group, p->group))",
+     "            if (q->hidden || !group_eq(q->group, p->group))", "an_lv2_instance_answers_remote_pages_from_the_groups_of_its_bundle_and_param_info_from_its_ports"),
+    ("a notOnGUI port is paged", "src/lv2.c", '    p->hidden = has_property(g, node, NS_PPROPS "notOnGUI");\n', "    p->hidden = 0;\n", "an_lv2_instance_answers_remote_pages_from_the_groups_of_its_bundle_and_param_info_from_its_ports"),
+    ("a logarithmic port is answered linear", "src/lv2.c", 'p->logarithmic && p->min > 0 && p->max > 0 ? "log" : "linear"', '"linear"', "an_lv2_instance_answers_remote_pages_from_the_groups_of_its_bundle_and_param_info_from_its_ports"),
+    ("a unit with no word is answered as none", "src/lv2.c", "(p->unit_named && !p->unit))", "0)", "an_lv2_instance_answers_remote_pages_from_the_groups_of_its_bundle_and_param_info_from_its_ports"),
+    ("the bundle's ports are not read: the daemon asks mod-host", "src/lv2.c", "    ports = ports_of_instance(id);\n    if (ports != NULL)\n    {\n        p = port_named", "    ports = NULL;\n    if (ports != NULL)\n    {\n        p = port_named", "an_lv2_instance_answers_remote_pages_from_the_groups_of_its_bundle_and_param_info_from_its_ports"),
     ("the handler of a declared verb is deleted: plan", "src/verbs.c",
      "    if (!strcmp(verb, OMX_VERB_PLAN))\n        return plan_words(tok, ntok);\n", "", "verbs_declared", "verbs"),
 ]
@@ -1508,6 +1550,24 @@ def run_proc_test(tree):
     return p.returncode, p.stdout
 
 
+def run_conf_test(tree):
+    """tests/conf_test.c against the tree's src/conf.c, then tests/search_paths_once.py over the tree; "ok   conf_test" when
+    neither failed"""
+    os.makedirs(os.path.join(tree, "tests"), exist_ok=True)
+    shutil.copy(os.path.join(ROOT, "tests", "conf_test.c"), os.path.join(tree, "tests"))
+    subprocess.run(["make", "-s", "-B", "MOD_HOST_DIR=" + MOD_HOST_DIR, "tests/conf-test"], cwd=tree, check=True,
+                   stdout=subprocess.DEVNULL)
+    p = subprocess.run([os.path.join(tree, "tests", "conf-test")], capture_output=True, text=True, timeout=60)
+    q = subprocess.run([sys.executable, os.path.join(ROOT, "tests", "search_paths_once.py"), tree], capture_output=True,
+                       text=True, timeout=60)
+    out = p.stdout + q.stdout
+    code = p.returncode or q.returncode
+    # red only by a check that says FAIL: a crash or a missing file is not the guard doing its work
+    if code and "FAIL" not in out:
+        return 0, out + q.stderr + "no check failed, the test itself broke\n"
+    return code, out
+
+
 def run_alloc_test(tree):
     """make test-alloc: the tables of src/relay.c and src/lv2.c when realloc fails, and the copies and the answer of
     src/verbs.c when memory runs out; prints "ok   alloc_test" when no check failed"""
@@ -1565,6 +1625,8 @@ def run_test(tree, name, jack=False):
         return run_history_test(tree)
     if jack == "proc":
         return run_proc_test(tree)
+    if jack == "conf":
+        return run_conf_test(tree)
     if jack == "contract":
         return run_contract_test(tree)
     if jack == "pin":
@@ -1657,6 +1719,12 @@ def arm(entry, tree):
         os.makedirs(tree)
         for f in ("README.md", "BUILDING.md"):
             shutil.copy(os.path.join(ROOT, f), tree)
+    elif jack == "conf":
+        # the daemon's sources and the readers of the lists, to the files the checks of tests/search_paths_once.py open
+        for d in ("src", "include", "tools", "protocol", "bench"):
+            shutil.copytree(os.path.join(ROOT, d), os.path.join(tree, d), ignore=shutil.ignore_patterns("*.o", "*.pyc", "__pycache__"))
+        shutil.copy(os.path.join(ROOT, "Makefile"), tree)
+        shutil.copy(os.path.join(ROOT, "README.md"), tree)
     elif jack in ("history", "proc"):
         for d in ("src", "include"):
             shutil.copytree(os.path.join(ROOT, d), os.path.join(tree, d), ignore=shutil.ignore_patterns("*.o"))
@@ -1738,7 +1806,7 @@ def arm(entry, tree):
                        stdout=subprocess.DEVNULL)
     if jack == "probe":
         build_probe(tree)
-    elif jack not in ("readme", "nopins", "ciguards", "format", "relay", "history", "proc", "contract", "consumer", "probeschema", "presetschema", "vocabulary", "alloc",
+    elif jack not in ("readme", "nopins", "ciguards", "format", "relay", "history", "proc", "conf", "contract", "consumer", "probeschema", "presetschema", "vocabulary", "alloc",
                       "verbtable", "planner", "qualcost", "placement", "pool"):
         for f in os.listdir(os.path.join(tree, "src")):
             if f.endswith(".o"):

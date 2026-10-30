@@ -28,6 +28,7 @@
 #include <string.h>
 #include <strings.h>
 #include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
 
 #include <host-errors.h>
@@ -53,7 +54,9 @@ typedef struct PIN_T {
     char scheme[SCHEME_MAX];
     char *layout;
     char verdict[16];           /* one of PHD_PIN_VERDICTS, or empty */
+    char pool[8];               /* one of PHD_PIN_POOLS, or empty */
     int learned;                /* the daemon recorded it: the store keeps it */
+    int from_set;               /* a controller's pin_set: a reload keeps it */
 } pin_t;
 
 /* The host's pins: the store, the pin_file and pin_set, the one table the daemon writes and saves from */
@@ -159,9 +162,19 @@ static int verdict_valid(const char *verdict)
     return ok;
 }
 
+static int pool_valid(const char *pool)
+{
+    int ok = 0;
+
+#define X(id, name, meaning) ok |= !strcmp(pool, name);
+    PHD_PIN_POOLS(X)
+#undef X
+    return ok;
+}
+
 /* a pin from its words; the pin is not in the table yet. `unknown_ok` lets the layout be PHD_PIN_LAYOUT_UNKNOWN */
 static int pin_build(pin_t *pin, const char *uri, const char *files, const char *layout, const char *verdict,
-                     int unknown_ok)
+                     const char *pool, int unknown_ok)
 {
     char *copy = strdup(files), *item, *save = NULL, hex[PHD_SHA256_HEX_LEN + 1];
 
@@ -171,6 +184,8 @@ static int pin_build(pin_t *pin, const char *uri, const char *files, const char 
     else if (phd_pin_layout_parse(layout, pin->scheme, sizeof(pin->scheme), hex) != 0)
         goto invalid;
     if (verdict && (!verdict_valid(verdict) || strlen(verdict) >= sizeof(pin->verdict)))
+        goto invalid;
+    if (pool && (!pool_valid(pool) || strlen(pool) >= sizeof(pin->pool)))
         goto invalid;
     for (item = strtok_r(copy, PHD_PIN_FILE_SEPARATOR, &save); item; item = strtok_r(NULL, PHD_PIN_FILE_SEPARATOR, &save))
     {
@@ -194,6 +209,8 @@ static int pin_build(pin_t *pin, const char *uri, const char *files, const char 
     pin->layout = strdup(layout);
     if (verdict)
         snprintf(pin->verdict, sizeof(pin->verdict), "%s", verdict);
+    if (pool)
+        snprintf(pin->pool, sizeof(pin->pool), "%s", pool);
     return SUCCESS;
 
 invalid:
@@ -270,6 +287,8 @@ static void line_write(FILE *file, const pin_t *p)
     fprintf(file, " %s", p->layout);
     if (*p->verdict)
         fprintf(file, " " PHD_PIN_VERDICT_KEY "%s", p->verdict);
+    if (*p->pool)
+        fprintf(file, " " PHD_PIN_POOL_KEY "%s", p->pool);
     fprintf(file, "\n");
 }
 
@@ -392,10 +411,13 @@ static void store_save(void)
 /* where a file of pin lines goes, and what a line outside the grammar costs there */
 typedef enum { LAYER_STORE, LAYER_FILE, LAYER_PKG } layer_t;
 
+/* the optional words after the layout, each once and in either order: verdict=<word>, pool=<word>; their values, NULL for
+ * a word that is not there. SUCCESS, or ERR_INVALID_OPERATION for any other word or a repeated one */
 /* one line: the words of pin_set, the verb in front or not; a blank or comment line is SUCCESS and records nothing */
 static int line_read(char *line, layer_t layer, const char *path, int lineno)
 {
     char *tok[8], *save = NULL, *t;
+    const char *verdict, *pool;
     int ntok = 0, first = 0, rc;
     pin_t pin;
 
@@ -405,12 +427,11 @@ static int line_read(char *line, layer_t layer, const char *path, int lineno)
         return SUCCESS;
     if (!strcmp(tok[0], OMX_VERB_PIN_SET))
         first = 1;
-    if (ntok - first != 3 && ntok - first != 4)
+    if (ntok - first < 3 || ntok - first > 5)
         return ERR_INVALID_OPERATION;
-    if (ntok - first == 4 && strncmp(tok[first + 3], PHD_PIN_VERDICT_KEY, strlen(PHD_PIN_VERDICT_KEY)))
+    if (pins_words(tok + first + 3, ntok - first - 3, &verdict, &pool) != SUCCESS)
         return ERR_INVALID_OPERATION;
-    rc = pin_build(&pin, tok[first], tok[first + 1], tok[first + 2],
-                   ntok - first == 4 ? tok[first + 3] + strlen(PHD_PIN_VERDICT_KEY) : NULL, 1);
+    rc = pin_build(&pin, tok[first], tok[first + 1], tok[first + 2], verdict, pool, 1);
     if (rc != SUCCESS)
         return rc;
     if (layer == LAYER_PKG)
@@ -534,17 +555,62 @@ static void pkg_free(void)
     g_pkg = NULL;
 }
 
-int pins_init(const char *store, const char *file, const char *dir)
+/* where the pins came from at start, and what the files of them looked like then: a reload reads the same places */
+static char g_cfg_store[PATH_MAX], g_cfg_file[PATH_MAX], g_cfg_dir[PATH_MAX];
+static uint64_t g_signature;
+
+static uint64_t mix(uint64_t h, uint64_t v)
+{
+    return (h ^ v) * 1099511628211ULL;
+}
+
+static uint64_t stat_mix(uint64_t h, const char *path)
+{
+    struct stat st;
+
+    if (stat(path, &st) != 0)
+        return mix(h, 1);
+    h = mix(h, (uint64_t)st.st_ino);
+    h = mix(h, (uint64_t)st.st_size);
+    h = mix(h, (uint64_t)st.st_mtim.tv_sec);
+    return mix(h, (uint64_t)st.st_mtim.tv_nsec);
+}
+
+/* what the pin_file and the pins_dir files are now: inode, size and mtime of each, so a rewrite in place and a rename
+ * over it both show. The store is the daemon's own and is not looked at */
+static uint64_t signature(void)
+{
+    uint64_t h = 14695981039346656037ULL;
+    struct dirent **names;
+    char path[PATH_MAX * 2];
+    int n, count;
+
+    if (*g_cfg_file)
+        h = stat_mix(h, g_cfg_file);
+    if (!*g_cfg_dir)
+        return h;
+    h = stat_mix(h, g_cfg_dir);
+    count = scandir(g_cfg_dir, &names, pins_name, name_order);
+    for (n = 0; n < count; n++)
+    {
+        snprintf(path, sizeof(path), "%s/%s", g_cfg_dir, names[n]->d_name);
+        h = stat_mix(mix(h, (uint64_t)n), path);
+        free(names[n]);
+    }
+    if (count >= 0)
+        free(names);
+    return h;
+}
+
+static int load(void)
 {
     int n, rc;
 
-    held_free();
-    pkg_free();
-    if (*dir)
-        pkg_read(dir);
-    if (*store_path(store))
+    if (*g_cfg_dir)
+        pkg_read(g_cfg_dir);
+    if (*store_path(g_cfg_store))
         file_read(g_store, LAYER_STORE);
-    rc = *file ? file_read(file, LAYER_FILE) : 0;
+    rc = *g_cfg_file ? file_read(g_cfg_file, LAYER_FILE) : 0;
     for (n = 0; n < g_npins; n++)
         if (pkg_refusal(g_pins[n].uri))
             fprintf(stderr, "plugin-hostd: %s: its pins.d pin carries " PHD_PIN_VERDICT_KEY PHD_PIN_VERDICT_REFUSED
@@ -553,10 +619,77 @@ int pins_init(const char *store, const char *file, const char *dir)
     return rc;
 }
 
-int pins_set(const char *uri, const char *files, const char *layout, const char *verdict)
+int pins_init(const char *store, const char *file, const char *dir)
+{
+    held_free();
+    pkg_free();
+    snprintf(g_cfg_store, sizeof(g_cfg_store), "%s", store);
+    snprintf(g_cfg_file, sizeof(g_cfg_file), "%s", file);
+    snprintf(g_cfg_dir, sizeof(g_cfg_dir), "%s", dir);
+    g_signature = signature();
+    return load();
+}
+
+static void table_free(pin_t *table, int count)
+{
+    while (count)
+        pin_free(&table[--count]);
+    free(table);
+}
+
+int pins_reload(void)
+{
+    pin_t *old_pins = g_pins, *old_pkg = g_pkg;
+    int old_npins = g_npins, old_npkg = g_npkg, n, rc;
+    char **old_held = g_held;
+    int old_nheld = g_nheld, old_unreadable = g_store_unreadable;
+
+    /* the new tables are made on the side and put in at once: a bad pin_file leaves the pins as they were */
+    g_signature = signature();
+    g_pins = g_pkg = NULL;
+    g_npins = g_npkg = 0;
+    g_held = NULL;
+    g_nheld = g_store_unreadable = 0;
+    rc = load();
+    if (rc != 0)
+    {
+        table_free(g_pins, g_npins);
+        table_free(g_pkg, g_npkg);
+        held_free();
+        g_pins = old_pins;
+        g_pkg = old_pkg;
+        g_npins = old_npins;
+        g_npkg = old_npkg;
+        g_held = old_held;
+        g_nheld = old_nheld;
+        g_store_unreadable = old_unreadable;
+        fprintf(stderr, "plugin-hostd: the pins are NOT reloaded; the earlier ones hold\n");
+        return rc;
+    }
+    /* a controller's pin_set is not in any file: it holds over what was read, as it held over it at start */
+    for (n = 0; n < old_npins; n++)
+        if (old_pins[n].from_set && !pkg_refusal(old_pins[n].uri))
+        {
+            pin_put(&old_pins[n]);
+            memset(&old_pins[n], 0, sizeof(old_pins[n]));
+        }
+    table_free(old_pins, old_npins);
+    table_free(old_pkg, old_npkg);
+    while (old_nheld)
+        free(old_held[--old_nheld]);
+    free(old_held);
+    return SUCCESS;
+}
+
+int pins_changed(void)
+{
+    return (*g_cfg_file || *g_cfg_dir) && signature() != g_signature;
+}
+
+int pins_set(const char *uri, const char *files, const char *layout, const char *verdict, const char *pool)
 {
     pin_t pin;
-    int rc = pin_build(&pin, uri, files, layout, verdict, 0);
+    int rc = pin_build(&pin, uri, files, layout, verdict, pool, 0);
 
     if (rc != SUCCESS)
         return rc;
@@ -567,6 +700,7 @@ int pins_set(const char *uri, const char *files, const char *layout, const char 
         pin_free(&pin);
         return OMX_REPLY_PLUGIN_HOSTD_PIN_REFUSED_RESP;
     }
+    pin.from_set = 1;
     pin_put(&pin);
     return SUCCESS;
 }
@@ -599,6 +733,13 @@ int pins_in_process(const char *uri)
     const pin_t *p = find(bare(uri));
 
     return p && !strcmp(p->verdict, PHD_PIN_VERDICT_IN_PROCESS);
+}
+
+int pins_pool_cores(const char *uri)
+{
+    const pin_t *p = find(bare(uri));
+
+    return p && !strcmp(p->pool, PHD_PIN_POOL_CORES) && strcmp(p->verdict, PHD_PIN_VERDICT_REFUSED);
 }
 
 const char *pins_verdict(const char *uri)
@@ -719,7 +860,7 @@ static int record(const format_t *format, const char *uri, const char *search)
             sprintf(words + strlen(words), "%s%s" PHD_PIN_DIGEST_SEPARATOR "%s", n ? PHD_PIN_FILE_SEPARATOR : "",
                     files.name[n], hex);
     }
-    if (rc == SUCCESS && pin_build(&pin, uri, words, PHD_PIN_LAYOUT_UNKNOWN, NULL, 1) != SUCCESS)
+    if (rc == SUCCESS && pin_build(&pin, uri, words, PHD_PIN_LAYOUT_UNKNOWN, NULL, NULL, 1) != SUCCESS)
         rc = pin_refuse(uri, root, "can't be pinned");
     /* the line must fit what pin_set takes, with room for the layout and the verdict that are added later */
     if (rc == SUCCESS && line_size(&pin) + LINE_RESERVE > PHD_LINE_MAX)

@@ -1,8 +1,8 @@
 The offer to Zynthian: plugin-hostd and plugin-qualify, integrated
 =================================================================
 
-A plan, written 2026-10-20 from the spike FreeMixer/plugin-hostd#124 ([spike-report.md](spike-report.md)). It is a
-draft for the operator: nothing in it has been proposed to or discussed with Zynthian's maintainers yet. Every figure
+A plan, written from the spike FreeMixer/plugin-hostd#124 ([spike-report.md](spike-report.md)). It is a
+draft: nothing in it has been proposed to or discussed with Zynthian's maintainers yet. Every figure
 names its source; what was not measured says so.
 
 What we would propose, small first
@@ -104,7 +104,7 @@ OWED in the spike report.
 Rerunning: a job that watches (1) Zynthian's default `engine_config.json` per release (the enabled plugins), (2) the
 kernel package version in their image, (3) a new plugin binary hash in their plugin packages, and requeues the
 affected (plugin, class) cells on the class's machine; the set is regenerated and signed per image release. The
-cluster has no Pi today; the job needs one Pi per class reachable from it.
+cluster has no Pi yet; the job needs one Pi per class reachable from it.
 
 ### (d) The margin policy
 

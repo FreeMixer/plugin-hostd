@@ -1,5 +1,5 @@
-Zynthian captures, 2026-10-29
-=============================
+Zynthian captures
+=================
 
 Screens of the generated menus, the MOD GUIs and the plugin figures, taken on a Raspberry Pi 5 running the
 plugin-hostd engine of the Zynthian fork. The images are in [evidence/captures-2026-10-29/](evidence/captures-2026-10-29/), one folder per plugin.
@@ -92,25 +92,25 @@ omx-eq8 (our equaliser, records at 0.13.0)
 omx-eq8 retaken on omx-plugins 0.16.0
 -------------------------------------
 
-The device was upgraded to omx-plugins 0.16.0 and plugin-qualify 0.16.1. plugin-qualify-sync has no option to
-qualify one plugin (its options are --system, --force and the path and port settings); its path unit ran it itself
-after the upgrade (08:39 to 08:43, "qualified 0, skipped 1581" for the rerun) and a new descriptor
-org.openmixer.eq8@0.16.0 was written at 08:41, next to the 0.13.0 ones. The pages could still not be retaken:
+The device runs omx-plugins 0.16.0, plugin-hostd 0.14.0, plugin-qualify 0.17.1, zynthian-ui ae55cac5 and
+zynthian-sys a3f4294. The first add on 0.16.0 was refused with PHD_ERR_PIN_BINARY_MISMATCH (-509) because the
+plugin-hostd daemon on port 5555 had been started before the package changed and held the old pin
+(plugin-hostd#255 is the fix); after that daemon was stopped and the UI restarted, the add succeeds. The UI starts
+its own daemon on port 5570 at the first plugin use.
 
-- [omx-eq8/zynthian-add-refused-0.16.0.png](evidence/captures-2026-10-29/omx-eq8/zynthian-add-refused-0.16.0.png): omx eq8 chosen in the
-  Filter & EQ menu (Return pressed, twice) and nothing happens; the journal of the UI
-  ([journal-0.16.0.txt](evidence/captures-2026-10-29/omx-eq8/journal-0.16.0.txt)) says plugin-hostd refused the add with
-  PHD_ERR_PIN_BINARY_MISMATCH (-509) for clap:/usr/lib/clap/omx-eq8.clap#org.openmixer.eq8: the daemon the UI talks
-  to (port 5570) holds the pin of the old binary. The pin file was rewritten at 08:41; that daemon was not
-  restarted, so no pin reload reached it. Each attempt left an Audio Input chain holding an "omx eq8" box with no
-  processor; both were removed.
-- [omx-eq8/modui-add-error-0.16.0.png](evidence/captures-2026-10-29/omx-eq8/modui-add-error-0.16.0.png): adding omx eq8 to a mod-ui pedalboard
-  on 0.16.0 no longer ends the mod-ui process (no segmentation fault, no systemd restart); mod-ui shows "Error
-  adding effect" and the pedalboard stays empty. mod-ui logged "unrecognized command: pin_changed" at that moment
-  (its feedback parser does not know that message). The refusal text of the daemon on port 5555 is not in any log,
-  so the cause there is not shown; it is probably the same pin mismatch.
-
-The eq8 pages with one band per page remain to be captured once the daemon has reloaded its pins.
+- [omx-eq8-0.16.0/list-row.png](evidence/captures-2026-10-29/omx-eq8-0.16.0/list-row.png): the Filter & EQ menu with omx eq8 highlighted: live, 0/0 frames,
+  RT clean; the footer reads "no grid point at this rate and quantum".
+- [omx-eq8-0.16.0/controller-page-01.png](evidence/captures-2026-10-29/omx-eq8-0.16.0/controller-page-01.png) to
+  [controller-page-19.png](evidence/captures-2026-10-29/omx-eq8-0.16.0/controller-page-19.png): every page of the chain's control screen for omx eq8, one
+  capture each: 01 HPF, 02 LPF, 03 to 18 "Bands / Band 1 1", "Bands / Band 1 2" to "Bands / Band 8 1",
+  "Bands / Band 8 2", 19 Controls (Bypass).
+  omx-panel 0.6.0 lays the descriptor out as one page per band (HPF, LPF, Band 1 to Band 8, Controls: eleven
+  pages); the UI cuts a page in screens of four controls and a band has five, so each band shows as two screens, the
+  second holding Band N On. The control screen lists the nineteen screens, not the eleven pages.
+- [omx-eq8-0.16.0/chain-manager.png](evidence/captures-2026-10-29/omx-eq8-0.16.0/chain-manager.png): the Chain Manager with the Audio Input 1,2 chain
+  holding omx eq8, next to Main.
+- [omx-eq8-0.16.0/journal-0.16.0.txt](evidence/captures-2026-10-29/omx-eq8-0.16.0/journal-0.16.0.txt): the UI journal from the restart to the add; plugin-hostd
+  lists no presets for omx eq8 (ERR_INVALID_OPERATION, -902).
 
 Chains and status
 -----------------
@@ -137,12 +137,12 @@ Not captured
   hosting.rt-safety.violations-in-run, hosting isolated), and the menus list those plugins by their LV2 rows, which
   read RT clean; no row on the device shows RT violations.
 - The cost cell of every row, cut at the right edge of the list.
-- A live MOD GUI of omx-eq8, on 0.15.1 (segmentation fault) and on 0.16.0 (add refused).
+- A live MOD GUI of omx-eq8, on 0.15.1 (segmentation fault) and on 0.16.0 (the mod-ui add was not repeated after the daemon restart).
 
 Usage information
 -----------------
 
-What the UI shows today: every plugin-hostd row carries latency (measured/declared frames), RT safety and cost.
+What the UI shows: every plugin-hostd row carries latency (measured/declared frames), RT safety and cost.
 Cost reads unknown on the device because the records have no cell at its 48000 Hz and 256 frames. The chain
 estimate footer at the bottom of the plugin list reads "estimate unavailable" on plugin-hostd 0.13.1, which does not
 answer the estimate verb; it is shown as it is.
@@ -150,3 +150,45 @@ answer the estimate verb; it is shown as it is.
 What comes next: the estimate verb (plugin-hostd#224) gives the chain's latency, CPU, RAM and workers for the
 plugins in the chain plus the highlighted one, and zynthian-ui#13 shows CPU and RAM per chain before an insert; the
 footer then reads figures in place of "estimate unavailable".
+
+With the preset banks: zynthian-ui a136591b, plugin-hostd 0.14.0
+----------------------------------------------------------------
+
+The Pi 5 on zynthian-ui `a136591b` (the fork's vangelis with the two preset changes: every plugin-hostd plugin shows
+the banks Factory and User), plugin-hostd 0.14.0, omx-clap-host 0.24.0, plugin-qualify 0.17.2, omx-plugins 0.16.0,
+omx-panel 0.6.0. The benchmark matrix ran on the device meanwhile. One change was made on the device, not a Zynthian
+default: Zynthian ships MDA Piano disabled in `/zynthian/config/engine_config.json`, and it was enabled for these
+captures (both its jalv and its plugin-hostd entry).
+
+- [instruments-by-tier.png](evidence/captures-2026-10-29/today/instruments-by-tier.png): the instruments menu, Synth, sorted by tier: the plugin-hostd
+  rows first, with latency and RT safety, then the plugins offered through jalv tagged refused.
+- [instruments-by-latency.png](evidence/captures-2026-10-29/today/instruments-by-latency.png): the same menu sorted by latency, 0 frames first, then
+  14, 31 and the studio tier.
+- [filter-eq-by-latency.png](evidence/captures-2026-10-29/today/filter-eq-by-latency.png): Filter & EQ sorted by latency; sorted by tier it reads the
+  same, every live row being at 0 frames.
+- [eq8-preset-banks.png](evidence/captures-2026-10-29/today/eq8-preset-banks.png): omx eq8's preset screen, the two banks Factory and User.
+- [eq8-control-pages.png](evidence/captures-2026-10-29/today/eq8-control-pages.png): omx eq8's control screens, named by their content; the names are
+  long and each band takes two screens (its controls, then its On).
+- [eq8-band3-page.png](evidence/captures-2026-10-29/today/eq8-band3-page.png): the Band 3 screen: type, frequency, gain and Q.
+- [eq8-user-bank.png](evidence/captures-2026-10-29/today/eq8-user-bank.png): omx eq8's User bank, with one row, No presets.
+- [odin2-jalv-banks.png](evidence/captures-2026-10-29/today/odin2-jalv-banks.png): Odin 2 2.3.4 through jalv, its 14 banks; its plugin-hostd entry is
+  not offered.
+- [odin2-jalv-keys.png](evidence/captures-2026-10-29/today/odin2-jalv-keys.png): Odin 2's Keys bank through jalv, 17 presets.
+- [mda-piano-add-refused.png](evidence/captures-2026-10-29/today/mda-piano-add-refused.png): adding MDA Piano through plugin-hostd fails on screen.
+- [chain-manager.png](evidence/captures-2026-10-29/today/chain-manager.png): the Chain Manager: the plugin-hostd chain (Audio Input, omx eq8), Odin 2
+  through jalv and ZynAddSubFX side by side, and the chains the failed adds left behind.
+- [mixer.png](evidence/captures-2026-10-29/today/mixer.png): the mixer with those chains; the ones left by a failed add have no fader.
+
+Not working yet, from these captures:
+
+- No preset of a plugin-hostd plugin can be listed: omx-clap-host 0.24.0 on the device does not answer `preset_list`
+  (fixed in omx-clap-core main, not released), so Factory and User show No presets.
+- An LV2 plugin that ships presets cannot be added through plugin-hostd: MDA Piano and Surge XT's LV2 are refused with
+  -509, because the pin plugin-qualify writes does not hold the preset files the daemon checks
+  (FreeMixer/plugin-qualify#228).
+- Surge XT's CLAP cannot be added either: its file name holds a space (plugin-hostd#240). So no Surge XT page could be
+  taken.
+- Odin 2's plugin-hostd entry is held back by a mod-host row the qualification records wrongly
+  (FreeMixer/plugin-qualify#224), so Odin 2 runs through jalv and shows jalv's banks, not Factory and User.
+- A failed add leaves a chain with no mixer strip or output behind it.
+- When a bank holds only "No presets", Zynthian selects that row and shows it as the preset.

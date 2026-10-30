@@ -32,14 +32,17 @@ def main():
         print("FAIL README.md does not say omx-clap-host lists presets with preset_list and preset_get")
         failed += 1
 
-    # the LV2 sentence stays until #152: the daemon still answers -511 for every LV2 parameter
-    if "param_info` answers `-511` until the daemon reads the bundle's port data" not in readme:
-        print("FAIL README.md must still say LV2 param_info answers -511 until the daemon reads the bundle's port "
-              "data (true while #152 is open)")
+    # #152: the daemon answers LV2 param_info and remote pages from the bundle's ports
+    if "param_info` answers `-511` until the daemon reads the bundle's port data" in readme:
+        print("FAIL README.md still says LV2 param_info answers -511 until the daemon reads the bundle's port data (#152 reads it)")
+        failed += 1
+
+    if "`remote_pages` and\n`remote_page_get` make a page of each `pg:group`" not in readme:
+        print("FAIL README.md does not say LV2 remote pages come from the bundle's pg:group")
         failed += 1
 
     if not failed:
-        print("ok   README.md's CLAP param_info sentence matches org.openmixer.param-contract/1, the LV2 one unchanged")
+        print("ok   README.md's CLAP param_info sentence matches org.openmixer.param-contract/1, the LV2 ones read from the bundle")
     return 1 if failed else 0
 
 

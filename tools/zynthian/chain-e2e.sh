@@ -10,8 +10,8 @@
 # Environment: PLUGIN_HOSTD (a daemon with chain_get, plugin-hostd#162), CLAP_HOST (an omx-clap-host that runs the chain
 # line, omx-clap-core#104), FAULT_CLAP_URI and CHAIN_FAULT_PARAM (a CLAP plugin that aborts on a write, and that write
 # with %d for its instance: omx-clap-core's tests/fault-14.clap and "param_set %d 0 0.95"), PYTHON. test-chain.py
-# also takes CHAIN_LV2_URI (a stereo LV2 effect, default x42's fil4 stereo) and CHAIN_LV2_PATH (its LV2 path, default
-# /usr/lib64/lv2), CHAIN_CLAP_URI (a stereo CLAP effect). --round-trip takes JACK_IDENTITY (omx-clap-core's
+# also takes CHAIN_LV2_URI (a stereo LV2 effect, default x42's fil4 stereo) and CHAIN_LV2_PATH (its LV2 path, default the plugin-hostd
+# default list, tools/search-paths.py lv2), CHAIN_CLAP_URI (a stereo CLAP effect). --round-trip takes JACK_IDENTITY (omx-clap-core's
 # tests/jack_identity), OMX_CLAP_DIR (omx-plugins' CLAP directory, default /usr/lib/clap) and CHAIN_LV2_PATH.
 set -u
 if [ -z "${CHAIN_E2E_INSIDE:-}" ]; then
@@ -37,6 +37,10 @@ out=$(mkdir -p "${2:?out dir}" && cd "$2" && pwd)
 here=$(cd "$(dirname "$0")" && pwd)
 . "$here/spike-engine.sh"
 PYTHON=${PYTHON:-python3}
+# the round trip's measure checks itself first, with no graph: a member's run that left no peak is played again
+if [ "$test" = test-chain-round-trip.py ]; then
+    "$PYTHON" "$here/$test" --self-test || exit 1
+fi
 export CHAIN_E2E=1 CHAIN_LV2_URI=${CHAIN_LV2_URI:-lv2:http://gareus.org/oss/lv2/fil4#stereo}
 : "${PLUGIN_HOSTD:?}" "${CLAP_HOST:?}" "${FAULT_CLAP_URI:?}" "${CHAIN_FAULT_PARAM:?}"
 if [ "$test" = test-chain.py ]; then

@@ -1,3 +1,51 @@
+plugin-hostd (0.15.2) unstable; urgency=medium
+
+  * describe: a travel with both lv2:integer and pprops:logarithmic is log, in
+    either order (#142, #307).
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Fri, 30 Oct 2026 06:30:00 +0100
+
+plugin-hostd (0.15.1) unstable; urgency=medium
+
+  * Remote pages and param_info read an LV2 bundle's ports (#152, #294).
+  * describe reads an LV2 port group's path through pg:subGroupOf (#223, #296).
+  * A percent-encoded LV2 IRI matches its qualification record (#239, #298).
+  * The Zynthian tools and the bench read worker_list with its pool field
+    (#236, #285).
+  * describe: an LV2 toggle stays a toggle whatever order the dump lists its
+    port's records in (#305).
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Fri, 30 Oct 2026 03:00:00 +0100
+
+plugin-hostd (0.15.0) unstable; urgency=medium
+
+  * A pin line takes an optional pool=cores|off word beside the verdict. A
+    CLAP or lv2-clap worker for a plugin whose pin says pool=cores, and is not
+    a refusal, starts with --thread-pool=on (omx-clap-core 0.24.0 and later)
+    in a worker of its own: the planner treats it as verdict-isolated, a
+    pool: placement and a chain are refused for it, and a respawn keeps the
+    option. worker_list gains a <pool> field after <core>: on or qualified
+    (#236, #280).
+  * The daemon reads the pin files again when they change (inode, size,
+    mtime, checked at every idle tick and before every add), and at once on
+    the new verbs pin_reload and pin_changed: a plugin upgrade no longer needs
+    a restart (#255, #268).
+  * plugin-hostd [-c <conf>] --pin-files <uri> runs the format's collector on
+    the configured search path, as an add checks it, prints root <dir> and one
+    file <name> a line and exits; plugin-qualify takes a pin's files from it
+    (#278).
+  * The plugin search lists are written once, and the LV2 list holds the
+    multiarch directories of a Zynthian Pi; plugin-hostd-devel carries
+    search_paths.h (#212, #281).
+  * The daemon test's solo-crash count waits for the right restore (#271,
+    #279); the Zynthian chain round trip plays the chain again when its taps
+    show no peak (#246, #264); a CI job runs the probe's cap grant path under
+    CAP_SYS_NICE (#265).
+  * Docs: the Zynthian status page, Start here, the eq8 captures and what the
+    Pi shows on 29 October.
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Thu, 29 Oct 2026 22:00:00 +0100
+
 plugin-hostd (0.14.0) unstable; urgency=medium
 
   * estimate <rate> <quantum> <uri> ... answers what a chain of these plugins

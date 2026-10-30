@@ -68,22 +68,17 @@ static int is_placement(const char *token)
            !strncmp(token, PHD_PLACE_POOL_PREFIX, strlen(PHD_PLACE_POOL_PREFIX));
 }
 
-/* pin_set <uri> <files> <layout> [verdict=<word>]; the layout of a pin the controller sets is known */
+/* pin_set <uri> <files> <layout> [verdict=<word>] [pool=<word>]; the layout of a pin the controller sets is known */
 static int pin_set_words(const char *line, char **tok, int ntok)
 {
-    const char *verdict = NULL;
-    size_t key = strlen(PHD_PIN_VERDICT_KEY);
+    const char *verdict = NULL, *pool = NULL;
     int rc;
 
-    if ((ntok != 4 && ntok != 5) || strlen(line) > PHD_LINE_MAX || !strcmp(tok[3], PHD_PIN_LAYOUT_UNKNOWN))
+    if (ntok < 4 || ntok > 6 || strlen(line) > PHD_LINE_MAX || !strcmp(tok[3], PHD_PIN_LAYOUT_UNKNOWN))
         return ERR_INVALID_OPERATION;
-    if (ntok == 5)
-    {
-        if (strncmp(tok[4], PHD_PIN_VERDICT_KEY, key))
-            return ERR_INVALID_OPERATION;
-        verdict = tok[4] + key;
-    }
-    rc = pins_set(tok[1], tok[2], tok[3], verdict);
+    if (pins_words(tok + 4, ntok - 4, &verdict, &pool) != SUCCESS)
+        return ERR_INVALID_OPERATION;
+    rc = pins_set(tok[1], tok[2], tok[3], verdict, pool);
     /* the files of the plugin changed: the adapter may now take one it refused */
     if (rc == SUCCESS)
         lv2_refusals_forget(NULL);
@@ -241,6 +236,11 @@ static char *handle(char *line, char **tok, int ntok)
         return sup_resp(pin_set_words(line, tok, ntok));
     if (!strcmp(verb, OMX_VERB_PIN_ACCEPT))
         return ntok == 2 ? sup_pin_accept(tok[1]) : sup_resp(ERR_INVALID_OPERATION);
+    if (!strcmp(verb, OMX_VERB_PIN_RELOAD))
+        return ntok == 1 ? sup_pin_reload() : sup_resp(ERR_INVALID_OPERATION);
+    /* the sync's notice, bare or with the words of the event of the same name: the pin file is read again */
+    if (!strcmp(verb, OMX_VERB_PIN_CHANGED))
+        return ntok <= 3 ? sup_pin_reload() : sup_resp(ERR_INVALID_OPERATION);
     if (!strcmp(verb, OMX_VERB_PIN_CLEAR))
     {
         int rc = ntok == 2 ? pins_clear(tok[1]) : ERR_INVALID_OPERATION;
