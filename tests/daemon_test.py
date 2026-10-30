@@ -3141,6 +3141,85 @@ def chain_get_reads_a_chain_back_as_declared_and_as_it_runs():
 
 
 @test
+def a_joiner_whose_worker_dies_saving_its_state_is_quarantined_and_does_not_join_the_chain():
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    flag = tempfile.mktemp(prefix="plugin-hostd-save-crash.")
+    d = daemon(env={"FAKE_LOG": log, "FAKE_SAVE_CRASH_FILE": flag})
+    try:
+        d.expect("add clap:fake#m2 2", "resp 2")
+        d.expect("add clap:fake#m3 3", "resp 3")
+        d.expect("add clap:fake#m1 1 pool:p", "resp 1")
+        mark = d.mark()
+        d.expect("chain 9 2 3", "resp 0")
+        d.wait_event("chain_formed 9 ", since=mark)
+        k, w = list(chain_of(d, 9).items())[0]
+        # the joiner's worker dies in the checkpoint that evicting it takes
+        with open(flag, "w") as f:
+            f.write("1")
+        mark = d.mark()
+        d.expect("chain 9 2 3 1", "resp 0")
+        os.unlink(flag)
+        d.wait_event("instance_quarantined 1 ", since=mark)
+        check(not any(c.startswith("add ") and c.endswith(" 1") for c in sent_to(log, w["pid"])),
+              "the quarantined joiner was not added to the chain's worker: %s" % sent_to(log, w["pid"]))
+        check(chain_of(d, 9)[k]["inst"] == [2, 3], "the chain's worker holds the others only: %s" % d.workers())
+        d.expect("chain_get 9", "resp 0 %s 2,3,1 2,3" % k)
+        k1, w1 = d.wait_up(1)
+        check(w1["inst"] == [1] and k1 != k, "the quarantined joiner runs alone: %s" % w1)
+    finally:
+        d.close()
+        for f in (log, flag):
+            if os.path.exists(f):
+                os.unlink(f)
+
+
+@test
+def chain_form_leaves_out_a_member_whose_worker_dies_saving_its_state():
+    flag = tempfile.mktemp(prefix="plugin-hostd-save-crash.")
+    d = daemon(env={"FAKE_SAVE_CRASH_FILE": flag})
+    try:
+        d.expect("add clap:fake#m1 1 pool:p", "resp 1")
+        d.expect("add clap:fake#m2 2", "resp 2")
+        with open(flag, "w") as f:
+            f.write("1")
+        mark = d.mark()
+        d.expect("chain 9 1 2", "resp 0")
+        os.unlink(flag)
+        d.wait_event("instance_quarantined 1 ", since=mark)
+        d.wait_event("chain_formed 9 ", since=mark)
+        k = list(chain_of(d, 9))[0]
+        check(chain_of(d, 9)[k]["inst"] == [2], "the chain's worker holds the member that is not quarantined: %s" % d.workers())
+        d.expect("chain_get 9", "resp 0 %s 1,2 2" % k)
+    finally:
+        d.close()
+        if os.path.exists(flag):
+            os.unlink(flag)
+
+
+@test
+def chain_get_reports_no_survivor_running_while_the_chains_worker_waits_to_restart():
+    d = daemon(conf={"backoff_base_ms": 3000, "backoff_max_ms": 3000})
+    try:
+        for i in (50, 51, 52):
+            d.expect("add clap:fake#m%d %d" % (i, i), "resp %d" % i)
+        mark = d.mark()
+        d.expect("chain 8 52 50 51", "resp 0")
+        d.wait_event("chain_formed 8 ", since=mark)
+        k = list(chain_of(d, 8))[0]
+        mark = d.mark()
+        d.expect("param_set 50 crash 1", "resp 0")
+        d.wait_event("worker_died %s " % k, since=mark)
+        check(d.workers()[k]["state"] == "backoff", "the chain's worker waits to restart: %s" % d.workers())
+        d.expect("chain_get 8", "resp 0 %s 52,50,51 -" % k)
+        d.wait_event("chain_formed 8 ", since=mark)
+        k2 = list(chain_of(d, 8))[0]
+        wait_for(lambda: d.workers()[k2]["state"] == "up", "the chain's worker up")
+        d.expect("chain_get 8", "resp 0 %s 52,50,51 52,51" % k2)
+    finally:
+        d.close()
+
+
+@test
 def a_chain_declared_again_keeps_its_running_worker_and_restarts_no_survivor():
     log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log})

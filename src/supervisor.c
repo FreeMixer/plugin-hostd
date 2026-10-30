@@ -2577,6 +2577,18 @@ static void to_own(instance_t *i)
     respawn(own);
 }
 
+/* an instance that the checkpoint of its eviction found quarantined (its worker died saving its state): it is in no
+ * worker, and goes where a quarantined instance goes, a worker of its own that starts after the backoff */
+static void park_quarantined(instance_t *i)
+{
+    worker_t *own = worker_new(i->fmt, PHD_PLACE_OWN);
+
+    worker_attach(own, i);
+    own->state = W_BACKOFF;
+    own->backoff_ms = g_conf.backoff_base_ms;
+    own->next_try_ms = proc_now_ms() + g_conf.backoff_base_ms;
+}
+
 /* the chain's members that are not quarantined, gathered in order in one new worker and replayed there */
 static void chain_form(chain_t *c)
 {
@@ -2592,13 +2604,19 @@ static void chain_form(chain_t *c)
 
         if (!i || meta_of(i->id)->quarantined)
             continue;
+        evict(i);
+        /* its worker may have died in the checkpoint evict took, and quarantined it */
+        if (meta_of(i->id)->quarantined)
+        {
+            park_quarantined(i);
+            continue;
+        }
         if (!w)
         {
             w = worker_new(chain_row_of(c->ids, c->n), place);
             w->pool = 1;
             w->chain = c;
         }
-        evict(i);
         worker_attach(w, i);
     }
     if (c->w && c->w != w)
@@ -2646,6 +2664,12 @@ static void chain_update(chain_t *c)
         if (i->w == w || meta_of(i->id)->quarantined)
             continue;
         evict(i);
+        /* its worker may have died in the checkpoint evict took, and quarantined it: it is not replayed here */
+        if (meta_of(i->id)->quarantined)
+        {
+            park_quarantined(i);
+            continue;
+        }
         worker_attach(w, i);
         join[nj++] = i;
     }
@@ -2837,7 +2861,8 @@ char *sup_chain_get(int id)
     for (k = 0; k < c->n; k++)
         put(&buf, &used, &cap, "%s%d", k ? "," : "", c->ids[k]);
     put(&buf, &used, &cap, " ");
-    for (k = 0; c->w && k < c->w->ninst; k++)
+    /* a worker waiting to restart runs none of its members */
+    for (k = 0; c->w && c->w->state == W_UP && k < c->w->ninst; k++)
         if (!c->w->inst[k]->unreplayed)
             put(&buf, &used, &cap, "%s%d", any++ ? "," : "", c->w->inst[k]->id);
     if (!any)
