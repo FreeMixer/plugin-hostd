@@ -73,7 +73,7 @@ writes what a plugin states about itself as a scanned descriptor (omx\-contract'
 It runs omx\-clap\-scan \-\-fields on the plugin, under the same limits and in a process group of its own, and reads
 each field of the dump through the format's table, which plugin\-hostd\-devel installs in omx\-contract's contract
 directory (3/plugin\-hostd/formats/clap.json and lv2.json): each field becomes a descriptor word, goes verbatim into
-the descriptor's extensions, or is dropped by the ruling the table names. A field the table has no row for is refused.
+the descriptor's extensions, or is dropped by the decision the table names. A field the table has no row for is refused.
 Its options:
 .TP
 .BI \-\-table " file"
