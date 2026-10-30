@@ -25,15 +25,17 @@ Proven on the device
 Released, not proven on the device yet
 --------------------------------------
 
-- **plugin-hostd 0.15.0** ([release](https://github.com/FreeMixer/plugin-hostd/releases/tag/v0.15.0)): a plugin whose
+- **plugin-hostd 0.15.1** ([release](https://github.com/FreeMixer/plugin-hostd/releases/tag/v0.15.1)): a plugin whose
   pin asks for the thread pool gets a worker started with it; the pins are read again while the daemon runs, so a
-  plugin upgrade needs no restart (proven in CI); the plugin search paths are complete for a Zynthian Pi.
-- **plugin-qualify 0.17.3** ([release](https://github.com/FreeMixer/plugin-qualify/releases/tag/v0.17.3)): a pin holds
-  every file plugin-hostd collects for the plugin, preset files included, so an LV2 plugin that ships presets is no
-  longer refused with -509 ([plugin-qualify#228](https://github.com/FreeMixer/plugin-qualify/issues/228)). 0.17.4 is
-  out as well.
-- **omx-clap-core 0.24.2** ([release](https://github.com/FreeMixer/omx-clap-core/releases/tag/v0.24.2)): the CLAP host
-  lists, loads and saves presets, and runs a plugin's helper threads on a pool of real-time threads when its pin asks
+  plugin upgrade needs no restart (proven in CI); the plugin search paths are complete for a Zynthian Pi; an LV2
+  plugin's remote pages and `param_info` come from its bundle's ports; an LV2 IRI with percent-encoding finds its
+  qualification record; an LV2 toggle stays a toggle.
+- **plugin-qualify 0.17.5** ([release](https://github.com/FreeMixer/plugin-qualify/releases/tag/v0.17.5)): a pin
+  holds every file plugin-hostd collects for the plugin, preset files included, so an LV2 plugin that ships presets
+  is no longer refused with -509 ([plugin-qualify#228](https://github.com/FreeMixer/plugin-qualify/issues/228)); the
+  pins on disk are refreshed from plugin-hostd on its upgrade and at every sync start, measuring nothing.
+- **omx-clap-core 0.24.3** ([release](https://github.com/FreeMixer/omx-clap-core/releases/tag/v0.24.3)): the CLAP host
+  lists, loads and saves presets, answers `pin_layout`, and runs a plugin's helper threads on a pool of real-time threads when its pin asks
   for it ([instruments](instruments.md)).
 - **omx-panel 0.7.2** ([release](https://github.com/FreeMixer/omx-panel/releases/tag/v0.7.2)): the MOD GUI screenshots
   carry the control names, and `--per-page 4` gives pages of four controls, one per encoder.
@@ -41,7 +43,6 @@ Released, not proven on the device yet
   LV2; controller pages that start with the plugin's own remote pages; pages of four when omx-panel offers them;
   the format named in the menu titles, each CLAP plugin listed once; Show and Hide plugin window in the processor
   options. Its tests run in CI on every change.
-- **LV2 remote pages and `param_info` from the bundle's ports** (plugin-hostd#152), merged for the next release.
 
 Still open
 ----------
@@ -51,7 +52,7 @@ Still open
   mda Piano, Odin 2 and omx eq8 after the re-qualification
   ([plugin-hostd#269](https://github.com/FreeMixer/plugin-hostd/issues/269)).
 - **The snapshot round trip.** A snapshot holding an mda Piano chain did not load on the earlier pins (-509, the pin
-  without the preset files). What closes it: plugin-qualify 0.17.5 refreshes the pins, then a snapshot of
+  without the preset files). What closes it: plugin-qualify 0.17.5 on the Pi refreshes the pins, then a snapshot of
   plugin-hostd chains is saved and loaded back on the Pi with its plugins and settings as they were.
 - **Surge XT in both formats.** Surge XT ships its CLAP as `Surge XT.clap`, a name with a space the daemon cannot add
   yet ([plugin-hostd#240](https://github.com/FreeMixer/plugin-hostd/issues/240),
@@ -65,28 +66,10 @@ Still open
   0.7.1. What closes it: omx-plugins 0.17.0, regenerated against omx-panel 0.7.2, after its Debian build is fixed
   ([omx-plugins#276](https://github.com/FreeMixer/omx-plugins/issues/276)).
 - **openmixer does not build against plugin-hostd 0.14.0 or later.** Two reply codes it reads moved into the
-  contract's generated list. What closes it: the fix in openmixer.
+  contract's generated list. What closes it: the fix in openmixer, proven against plugin-hostd 0.15.1, landing.
 - **The benchmark matrix is partial: 287 cells so far** (682 rows, 639 ok and 43 failed). What closes it: the matrix
   fills the rest ([benchmarks, the matrix](benchmarks.md#the-matrix-every-rate-and-quantum-single-and-grouped)).
 - **The upstream patch series is at step 1.** Step 1 is open upstream
   ([zynthian/zynthian-sys#228](https://github.com/zynthian/zynthian-sys/pull/228)); steps 2 to 7 are cut on the forks
   but not offered yet, several with a check on the device still owed
   ([the upstream patch series](upstream-series.md)).
-
-Fuzzing and verification
-------------------------
-
-The libraries that read bytes from outside carry libFuzzer harnesses, each check with the one-line change that makes
-it fail and the seed that catches it. Theorem's [OSS Verify](https://github.com/theorem-labs/oss-verify) builds them
-reproducibly and proves properties of the binaries.
-
-| repository | harnesses | OSS Verify |
-|---|---|---|
-| [plugin-hostd](https://github.com/FreeMixer/plugin-hostd) | 2 (commands, worker replies) | enrolled |
-| [omx-clap-core](https://github.com/FreeMixer/omx-clap-core) | 3 | enrolled |
-| [libdiginet](https://github.com/FreeMixer/libdiginet) | 5 | enrolled (4) |
-| [libreac](https://github.com/FreeREAC/libreac) | 10 | enrolled (9) |
-| [reac-pw](https://github.com/FreeREAC/reac-pw) | 7 | enrolled |
-| [reac-repacer](https://github.com/FreeREAC/reac-repacer) | 4 | enrolled |
-| [mod-host](https://github.com/FreeMixer/mod-host) (FreeMixer's branch) | 4 (parser, dispatcher, scenarios, state paths) | pending ([theorem-labs/oss-verify#105](https://github.com/theorem-labs/oss-verify/pull/105)) |
-| [omx-dsp](https://github.com/FreeMixer/omx-dsp) | 6, in review ([omx-dsp#251](https://github.com/FreeMixer/omx-dsp/pull/251)) | pending, after #251 |
