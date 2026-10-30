@@ -35,7 +35,9 @@
  * rtSafety carries counts, PROBE_CHILD_ALLOCATIONS allocations (0 when unset); without it rtSafety says interposer false
  * and has none. Its note sweep says the same of the interposer but prints PROBE_CHILD_NOTE_ALLOCATIONS either way, so a
  * runner that copies counts the interposer did not take is seen. PROBE_CHILD_NO_RECORDS writes no step records, as
- * clap-qualify writes none, so the runner makes its steps from the line. */
+ * clap-qualify writes none, so the runner makes its steps from the line. PROBE_CHILD_MEMORY puts a footprint at every
+ * rate, its figures made from the rate as the cost's are, and PROBE_CHILD_NO_MEMORY_RATE a reason in place of it at that
+ * rate. PROBE_CHILD_HOG_MB touches that many MiB before the plugin runs, so the kernel holds them against the limit. */
 
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
@@ -200,6 +202,14 @@ static void put_rates(const char *rates, long quantum, unsigned notes)
                    "\"warmupNsPerSampleMedian\":%g,\"blocks\":256", ns, ns + 1, ns - 1, ns + 4, ns + 2);
         if (instrument && notes)
             printf(",\"voices\":{\"held\":%u,\"basis\":\"probe\"}", notes);
+        if (getenv("PROBE_CHILD_MEMORY"))
+        {
+            if (getenv("PROBE_CHILD_NO_MEMORY_RATE") && r == atol(getenv("PROBE_CHILD_NO_MEMORY_RATE")))
+                printf(",\"memory\":{\"unmeasuredReason\":\"probe-failed\",\"unmeasuredDetail\":\"the test asked for none at this rate\"}");
+            else
+                printf(",\"memory\":{\"afterInstantiateKb\":%ld,\"afterActivateKb\":%ld,\"atRestKb\":%ld,\"secondInstanceKb\":%ld}",
+                       r / 100, r / 50, r / 40, r / 200);
+        }
         printf("}");
     }
     printf("}}");
@@ -239,6 +249,16 @@ int main(int argc, char **argv)
         return 2;
     if (getenv("PROBE_CHILD_LIMITS"))
         report_limits(getenv("PROBE_CHILD_LIMITS"));
+    if (getenv("PROBE_CHILD_HOG_MB"))
+    {
+        size_t bytes = (size_t)atol(getenv("PROBE_CHILD_HOG_MB")) << 20;
+        char *hog = malloc(bytes);
+
+        if (hog)
+            memset(hog, 1, bytes);
+        if (hog && hog[bytes / 2] != 1)
+            return 1;
+    }
     /* PROBE_CHILD_ARGV names a file to write the arguments the runner gave, one to a line */
     if (getenv("PROBE_CHILD_ARGV"))
     {

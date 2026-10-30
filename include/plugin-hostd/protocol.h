@@ -140,7 +140,7 @@
 
 #define PHD_PROBE_FORMAT "plugin-hostd.probe-output"
 #define PHD_PROBE_FORMAT_MAJOR 1
-#define PHD_PROBE_FORMAT_MINOR 2
+#define PHD_PROBE_FORMAT_MINOR 3
 #define PHD_PROBE_PROTOCOL_NAME "plugin-hostd.probe-protocol"
 #define PHD_PROBE_PROTOCOL_VERSION 1
 /* version 1 of the probe protocol runs an LV2 plugin as plugin-qualify's LV2 hosting pass does today
@@ -1065,6 +1065,7 @@ static inline int phd_is_note_verb(const char *verb)
 #define PHD_DEFAULT_GROUPING          PHD_GROUPING_OFF
 #define PHD_DEFAULT_PLACEMENT         PHD_CORE_PLACEMENT_SPREAD
 /* starting values of the planner's limits; the benchmark sets the ones a release ships (the design note, The benchmark) */
+#define PHD_DEFAULT_RAM_BUDGET_MB     0
 #define PHD_DEFAULT_GROUP_MAX         8
 #define PHD_DEFAULT_GROUP_COST_MAX    60
 #define PHD_DEFAULT_GROUP_RATE        48000
@@ -1189,6 +1190,7 @@ static inline int phd_is_note_verb(const char *verb)
       "a plan whose group was split by a death that named no culprit is made again after this many seconds without " \
       "another death of its members, and the members that share are gathered in a worker again; 0 never makes it again " \
       "by itself") \
+    X(ram_budget_mb, PHD_DEFAULT_RAM_BUDGET_MB, "MiB", "the memory this host gives its plugins, which estimate answers beside what they hold; 0 for no budget set") \
     X(group_max, PHD_DEFAULT_GROUP_MAX, "instances", "most members of one segment of a plan; 0 sets no limit") \
     X(group_cost_max, PHD_DEFAULT_GROUP_COST_MAX, "percent of a core", \
       "most the costs of the members of one segment of a plan add to, each a member's coreFractionP95 of its " \
