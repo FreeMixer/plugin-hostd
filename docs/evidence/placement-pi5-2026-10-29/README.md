@@ -1,5 +1,5 @@
-Placement on the Pi 5, 2026-10-29
-=================================
+Placement on the Pi 5
+=====================
 
 `placement none` against `placement spread` (docs/placement.md), two and then three instruments, each in a worker of
 its own, a held chord of four notes on each, 60 s per run. The daemon is this branch's, built on the device; the

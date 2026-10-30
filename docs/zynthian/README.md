@@ -1,7 +1,7 @@
 Zynthian and plugin-hostd
 =========================
 
-Where this stands today, and what is still incomplete: [status.md](status.md).
+Where this stands, and what is still incomplete: [status.md](status.md).
 
 What this directory holds: the spike that put plugin-hostd under Zynthian ([spike-report.md](spike-report.md)), the
 plan built on it ([offer.md](offer.md)), mod-ui's verbs on mod-host and on plugin-hostd ([verbs.tsv](verbs.tsv)), one

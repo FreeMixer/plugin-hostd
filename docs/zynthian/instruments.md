@@ -3,9 +3,9 @@ Instruments through the engine: Surge XT on the Pi 5
 
 Zynthian is an instrument, and Surge XT is the instrument it is judged on: ZynthianOS Vangelis builds Surge XT from
 upstream `main` (`scripts/recipes/install_surge_xt.sh` in zynthian-sys) and plays it with jalv. This page records what
-plugin-hostd and omx-clap-host do with Surge XT on a Zynthian Pi 5 today: what was proven, with the numbers and the
-captures, what the host still lacks, and the exact commands. Everything below was measured on 2026-10-28 between 23:15
-and 23:47 UTC; the raw records are under [evidence/instruments-2026-10-29/](evidence/instruments-2026-10-29/).
+plugin-hostd and omx-clap-host do with Surge XT on a Zynthian Pi 5: what was proven, with the numbers and the
+captures, what the host still lacks, and the exact commands. Everything below was measured in one 32-minute session, on
+the versions named below; the raw records are under [evidence/instruments-2026-10-29/](evidence/instruments-2026-10-29/).
 
 Instruments: voices across the cores
 ------------------------------------
@@ -17,7 +17,7 @@ play before the first xrun, however idle the other three are.
 
 **What a CLAP host can do about it.** The CLAP thread-pool extension (`clap.thread-pool`) lets a plugin split its
 block into tasks (one per voice, or per group of voices) and ask the host to run them (`request_exec`). The host
-decides where those tasks run. Today omx-clap-host runs them one after the other on the audio thread that asked
+decides where those tasks run. omx-clap-host 0.23.2 runs them one after the other on the audio thread that asked
 (omx-clap-core `docs/clap-compatibility.md`, row `clap.thread-pool`): correct, and on one core.
 omx-clap-core#395 (in progress, branch `feat/395-thread-pool`) spreads them: N-1 real-time helper threads per
 worker, N being the cores the worker may use, each pinned to its own core and parked between cycles; on
@@ -44,15 +44,15 @@ to 39% at 64 voices, 48 kHz, 256 frames.
 chain) in a worker process of its own, and JACK runs independent clients in parallel. Measured: four Surge XT instances
 in four workers, each holding 16 notes, ran on cpu0, cpu1, cpu2 and cpu3 at 14-15% each, 64 voices in all, at a
 JACK DSP load of 17.6%; one instance playing 64 voices loaded JACK at 39.7%. The single-core figure (3% at 1 voice,
-10% at 16, 39% at 64) is the baseline that placement multiplies by the number of instruments. Today the kernel
-places the workers; plugin-hostd#226 (chain placement policy: spread workers across the audio cores and keep the
+10% at 16, 39% at 64) is the baseline that placement multiplies by the number of instruments. Without placement the
+kernel places the workers; plugin-hostd#226 (chain placement policy: spread workers across the audio cores and keep the
 daemon off them, not yet built) makes it the host's decision. The thread pool remains the path for the plugins that do
 split their voices into tasks.
 
 **What it costs and what it buys.** For Surge XT: placement costs one process per instrument (an omx-clap-host
 worker) and buys the other three cores for three more instruments. For the pool: the helper threads cost a wake-up per
 block and pinned real-time threads on every core, which is why the pool is gated by qualification and measured before
-it is enabled. Off versus on, with a plugin that asks for the pool, is **not measured yet**; the #395 lane measures it
+it is enabled. Off versus on, with a plugin that asks for the pool, is **not measured yet**; omx-clap-core#395 measures it
 with the bench of plugin-hostd#179 (`bench/lib/bench.py`, branch `feat/zynthian-benchmarks`), once with the pool off
 and once on (`OMX_CLAP_THREAD_POOL`, which #395 introduces):
 
@@ -68,7 +68,7 @@ What was proven
 
 Surge XT `main` (1.4.0, commit `dab78c6`) as CLAP, built for trixie arm64 and installed as
 `/usr/local/lib/clap/Surge XT.clap`; played by plugin-hostd 0.13.1 with omx-clap-host 0.23.2 workers, and by jalv as
-Zynthian's stock path plays the LV2 (installed by the image, built 2024-04-19). Pi 5, 4 GB, kernel 6.18.50+rpt,
+Zynthian's stock path plays the LV2 (installed by the image). Pi 5, 4 GB, kernel 6.18.50+rpt,
 JACK 48 kHz, 256 frames, 2 periods (dummy driver), governor `powersave` at 1.5 GHz (as found, not changed).
 `jack-instrument-probe` sends a scripted MIDI scenario into the instrument's note input and measures its two outputs
 window by window: peak and RMS level, pitch (rising zero crossings per second, meaningful for one note), brightness

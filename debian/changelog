@@ -1,3 +1,22 @@
+plugin-hostd (0.15.2) unstable; urgency=medium
+
+  * describe: a travel with both lv2:integer and pprops:logarithmic is log, in
+    either order (#142, #307).
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Fri, 30 Oct 2026 06:30:00 +0100
+
+plugin-hostd (0.15.1) unstable; urgency=medium
+
+  * Remote pages and param_info read an LV2 bundle's ports (#152, #294).
+  * describe reads an LV2 port group's path through pg:subGroupOf (#223, #296).
+  * A percent-encoded LV2 IRI matches its qualification record (#239, #298).
+  * The Zynthian tools and the bench read worker_list with its pool field
+    (#236, #285).
+  * describe: an LV2 toggle stays a toggle whatever order the dump lists its
+    port's records in (#305).
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Fri, 30 Oct 2026 03:00:00 +0100
+
 plugin-hostd (0.15.0) unstable; urgency=medium
 
   * A pin line takes an optional pool=cores|off word beside the verdict. A
