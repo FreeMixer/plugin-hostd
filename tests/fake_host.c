@@ -32,6 +32,7 @@
  *   param_set <n> crash <v>     v other than 0 aborts 30 ms after the reply (FAKE_CRASH_AFTER_MS to say another), as a
  *                               plugin does in a callback
  *                               (once only when FAKE_CRASH_ONCE names a file: it is created by the crash)
+ *   state_save <dir>            aborts before the reply while the file FAKE_SAVE_CRASH_FILE names exists (only in a worker that holds the instance the file names)
  *   param_set <n> crashnow <v>  v other than 0 aborts before the reply, with the command on the wire
  *   param_set <n> hang <v>      v other than 0 never answers
  *   connect <a> <b>             with FAKE_CONNECT_AFTER_MS set, answers -205 until that long after the worker started,
@@ -535,6 +536,22 @@ static void receive(msg_t *msg)
     }
     else if (verb_is(verb, STATE_SAVE) && ntok == 2)
     {
+        /* FAKE_SAVE_CRASH_FILE names a file: while it exists, a state_save aborts before the reply, as a plugin that
+         * dies in its state callback does; with an instance number in the file, only a worker that holds it */
+        if (getenv("FAKE_SAVE_CRASH_FILE"))
+        {
+            FILE *f = fopen(getenv("FAKE_SAVE_CRASH_FILE"), "r");
+            int only = -1;
+
+            if (f)
+            {
+                if (fscanf(f, "%d", &only) != 1)
+                    only = -1;
+                fclose(f);
+                if (only < 0 || (only < MAX_INST && g_inst[only].exists))
+                    crash();
+            }
+        }
         mkdir(tok[1], 0755);
         for (k = 0; k < MAX_INST; k++)
         {
