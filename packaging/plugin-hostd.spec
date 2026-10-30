@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.15.1
+Version: 0.15.2
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -160,6 +160,10 @@ make test-daemon check-generated check-rendered
 %{_datadir}/omx-contract/contract.d/3/plugin-hostd/
 
 %changelog
+* Fri Oct 30 2026 Pau Aliagas <linuxnow@gmail.com> - 0.15.2-1
+- describe: a travel with both lv2:integer and pprops:logarithmic is log, in
+  either order (#142, #307).
+
 * Fri Oct 30 2026 Pau Aliagas <linuxnow@gmail.com> - 0.15.1-1
 - Remote pages and param_info read an LV2 bundle's ports (#152, #294).
 - describe reads an LV2 port group's path through pg:subGroupOf (#223, #296).
