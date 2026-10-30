@@ -754,11 +754,29 @@ def under_an_rtprio_rlimit_the_measurement_runs_fifo_at_the_rlimit_and_keeps_it_
     doc, seen = rt_run(prefix)
     rt = doc["run"]["realtime"]
     check(rt == {"class": "fifo", "priority": n, "requested": FIFO_MAX, "grantedBy": "rlimit",
-                 "observed": {"policy": "fifo", "priority": n}}, "run.realtime %s" % rt)
+                 "capabilityBound": True, "observed": {"policy": "fifo", "priority": n}}, "run.realtime %s" % rt)
     check(seen["policy"] == "fifo" and seen["priority"] == n and seen["rtprio"] == n,
           "the child runs fifo %d bounded by RLIMIT_RTPRIO %d: %s" % (n, n, seen))
     check(applied(doc, "rt-priority") == {"limit": "rt-priority", "value": n, "by": "rlimit"},
           "the document lists the bound: %s" % applied(doc, "rt-priority"))
+
+
+@test
+def the_measured_child_keeps_no_capability_and_the_document_says_so():
+    doc, _ = rt_run([*without_cap(), "prlimit", "--rtprio=0:0", "--"])
+    rt = doc["run"]["realtime"]
+    check(rt.get("capabilityBound") is True, "run.realtime.capabilityBound %s" % rt)
+
+
+@test
+def a_root_runner_s_measured_child_keeps_no_capability_either():
+    # unshare -r makes the runner root with every capability in its sets, as a service without User= is: the child must
+    # still come out of the exec holding none, or the bound on RLIMIT_RTPRIO and RLIMIT_MEMLOCK is a promise it cannot keep
+    if subprocess.run(["unshare", "-r", "true"], capture_output=True).returncode != 0:
+        cannot("no unprivileged user namespace here")
+    doc, _ = rt_run([*without_cap(), "prlimit", "--rtprio=0:0", "--", "unshare", "-r"])
+    rt = doc["run"]["realtime"]
+    check(rt.get("capabilityBound") is True, "run.realtime.capabilityBound %s" % rt)
 
 
 @test
