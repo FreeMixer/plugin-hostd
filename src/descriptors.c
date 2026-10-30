@@ -38,6 +38,7 @@
 #include "descriptors.h"
 #include "formats.h"
 #include "json.h"
+#include "pins.h"
 #include "proc.h"
 #include "supervisor.h"
 
@@ -317,6 +318,22 @@ static void scan_start(scan_t *s, int panel)
     s->pid = pid;
 }
 
+/* the target as the probe takes it: a CLAP's path decoded, the id after its # as it is; malloc'd */
+static char *probe_target(const char *target)
+{
+    const char *hash = strrchr(target, '#');
+    char encoded[PATH_MAX], path[PATH_MAX], *out;
+
+    if (strncmp(target, "clap:", 5) || !hash || hash - target - 5 >= (long)sizeof(encoded))
+        return strdup(target);
+    snprintf(encoded, sizeof(encoded), "%.*s", (int)(hash - target - 5), target + 5);
+    if (pin_percent_decode(encoded, path, sizeof(path)) != 0)
+        return strdup(target);
+    out = malloc(strlen(path) + strlen(hash) + 6);
+    sprintf(out, "clap:%s%s", path, hash);
+    return out;
+}
+
 void descriptors_add(const char *uri)
 {
     char target[PATH_MAX + 16], hash[PHD_DESCRIPTOR_HASH_LEN + 1], path[PATH_MAX];
@@ -351,7 +368,7 @@ void descriptors_add(const char *uri)
     free(s->uri);
     s->uri = strdup(uri);
     free(s->target);
-    s->target = strdup(target);
+    s->target = probe_target(target);
     if (described)
     {
         snprintf(s->name, sizeof(s->name), "%s", strrchr(path, '/') + 1);
