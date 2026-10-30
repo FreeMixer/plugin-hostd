@@ -667,6 +667,9 @@
     ]
   },
   "$defs": {
+    "voiceBasis": {
+      "enum": ["declared", "probe"]
+    },
     "realtime": {
       "description": "How the measured child was scheduled: the class and priority are what the kernel reported for it after its exec (observed), never what was asked for; a class of none is a valid measurement taken without real time, and says why.",
       "type": "object",
@@ -930,6 +933,48 @@
             }
           }
         },
+        "memory": {
+          "description": "What one instance holds at this rate and quantum: how far the resident set of the child grew from before the plugin loaded, in KB, step by step. A figure the child could not take is absent, never 0; unmeasuredReason says why when none could be.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "afterInstantiateKb": {
+              "description": "After the plugin was created and initialised.",
+              "type": "integer",
+              "minimum": 0
+            },
+            "afterActivateKb": {
+              "description": "After it was activated.",
+              "type": "integer",
+              "minimum": 0
+            },
+            "atRestKb": {
+              "description": "After it processed and came to rest, activated.",
+              "type": "integer",
+              "minimum": 0
+            },
+            "notesHeldKb": {
+              "description": "With notes held, for an instrument.",
+              "type": "integer",
+              "minimum": 0
+            },
+            "secondInstanceKb": {
+              "description": "What a second instance of the same plugin added once it had done the same, so what one instance costs is told from what all of them share.",
+              "type": "integer",
+              "minimum": 0
+            },
+            "basis": {
+              "description": "How many notes notesHeldKb holds: the instrument's declared voices, or the count the run was told to probe.",
+              "$ref": "#/$defs/voiceBasis"
+            },
+            "unmeasuredReason": {
+              "type": "string"
+            },
+            "unmeasuredDetail": {
+              "type": "string"
+            }
+          }
+        },
         "cost": {
           "type": "object",
           "required": [
@@ -1015,7 +1060,7 @@
                   "minimum": 1
                 },
                 "basis": {
-                  "enum": ["declared", "probe"]
+                  "$ref": "#/$defs/voiceBasis"
                 },
                 "capacity": {
                   "type": "integer",

@@ -25,6 +25,14 @@ typedef struct QUALCOST_CELL_T {
     double latency_frames;
 } qualcost_cell_t;
 
+/* What the records of a plugin say it holds at one rate and quantum, in KB, as plugin-qualify worked it out from the
+ * measured footprint: firstInstanceKb, one instance and what all its instances share; perInstanceKb, one more instance
+ * beside it. */
+typedef struct QUALCOST_MEMORY_T {
+    double first_kb;
+    double per_instance_kb;
+} qualcost_memory_t;
+
 enum {
     QUALCOST_CELL_FOUND,        /* a record holds the point with both figures */
     QUALCOST_CELL_NO_RECORD,    /* no record names the plugin (or the directory cannot be read) */
@@ -34,5 +42,9 @@ enum {
 /* The cell of the plugin with this id at this rate and quantum into *out, QUALCOST_CELL_*. When several records hold
  * the point the largest of each figure stands, as qualcost_read takes the largest cost. */
 int qualcost_cell(const char *dir, const char *id, int rate, int quantum, qualcost_cell_t *out);
+
+/* The memory of the plugin at this rate and quantum into *out: 0, or -1 when no record holds both figures there, which is
+ * unknown and never 0. When several records hold them the largest of each stands. */
+int qualcost_memory(const char *dir, const char *id, int rate, int quantum, qualcost_memory_t *out);
 
 #endif

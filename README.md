@@ -144,6 +144,7 @@ The settings live in a file, `-c`, `$PLUGIN_HOSTD_CONF` or
 | `history_window_s` | 60 s | the length of one history window: a worker's CPU and memory are read and folded into the history of its plugins once per window, and a window the plugin was up less than half of is not counted; 0 keeps no history |
 | `history_save_s` | 300 s | the history is written at most once this often when it changed, and at quit |
 | `history_regroup_s` | 600 s | a plan whose group was split by a death that named no culprit is made again after this many seconds without another death of its members, and the members that share are gathered in a worker again; 0 never makes it again by itself |
+| `ram_budget_mb` | 0 MiB | the memory this host gives its plugins, which estimate answers beside what they hold; 0 for no budget set |
 | `group_max` | 8 instances | most members of one segment of a plan; 0 sets no limit |
 | `group_cost_max` | 60 percent of a core | most the costs of the members of one segment of a plan add to, each a member's coreFractionP95 of its qualification record at group_rate and group_quantum; a member over it alone stays alone; 0 sets no limit |
 | `group_rate` | 48000 Hz | the sample rate the cost of a member is read at |
@@ -244,7 +245,7 @@ Verbs the daemon adds
 | `panel_get` | `<uri>` | `resp 0 "<path>"` | the panel the plugin publishes (org.openmixer.panel-description/1), answered from descriptor_dir: the file panels/<id>@<version>-<hash>.json, named as its descriptor, which the same scan writes once the descriptor is in place, {"plugin": {"format", "id"}, "panel": <the panel object omx-clap-scan --json prints for the plugin, null when it serves none>}; an LV2 plugin's panel is null. The codes are descriptor_get's: -529 when there is none, -530 while its scan runs, -531 when its last scan wrote nothing, -528 when the directory could not be written |
 | `history_get` | `<uri>` | `resp 0 <history>` | what the daemon kept of the plugin on this host class, for the binary its pin holds now (the running history: the windows it ran alone and in a group, its crashes, restarts and quarantines): one word of comma-joined digest=<sha256>, class=<host class>, crashed=<0\|1>, raises_xruns=<0\|1> and then every key=value of the record (data/history.json); - when the plugin has no pin or no record, unavailable while the history file is blocked or history_window_s is 0, -902 for a line that is not one word |
 | `history_clear` | `<uri> \| all` | `resp 0` | delete the history of one plugin (every binary and host class of it), or all of it, from memory and from the file at once; -902 while the history is blocked or off, or for a line that is not one word |
-| `estimate` | `<rate> <quantum> <uri> [<uri> ...]` | `resp 0 <latency_frames> <cpu_percent> <ram_bytes> <workers> <unknown_count> <member>:<code>,...` | what a chain of these plugins, in signal order and named as add names them, would cost at that rate and quantum, read from the qualification records of qualification_dir; no plugin is loaded and nothing moves. latency_frames adds up each member's measured latency of the grid point, else its declared one; cpu_percent adds up each member's median nanoseconds per sample times the rate, percent of one core's cycle (a member's cost per block over the block's duration); ram_bytes adds up the Pss of the worker each member ran alone in, the history's pss_mb_solo of the binary its pin holds on this host class, - unless every member has one, since no qualification record carries a RAM figure; workers is how many workers plan would place the members in (an isolated one alone); unknown_count is how many members have no figure at that rate and quantum, and the latency and the CPU add up only the others. The last word names each of them as its position in the line, from 0, and its code, -533 for no record, -534 for no point of the grid at that rate and quantum, -535 for a uri that names no plugin installed here, joined by commas, - for none. Several records of one plugin (several versions) give the largest figure. -902 for a rate or a quantum that is not a whole number above 0, or no uri |
+| `estimate` | `<rate> <quantum> <uri> [<uri> ...]` | `resp 0 <latency_frames> <cpu_percent> <ram_bytes> <workers> <unknown_count> <member>:<code>,... <ram_used_bytes> <ram_added_bytes> <ram_budget_bytes> <ram_unknown_count>` | what a chain of these plugins, in signal order and named as add names them, would cost at that rate and quantum, read from the qualification records of qualification_dir; no plugin is loaded and nothing moves. latency_frames adds up each member's measured latency of the grid point, else its declared one; cpu_percent adds up each member's median nanoseconds per sample times the rate, percent of one core's cycle (a member's cost per block over the block's duration); ram_bytes adds up the Pss of the worker each member ran alone in, the history's pss_mb_solo of the binary its pin holds on this host class, - unless every member has one, since no qualification record carries a RAM figure; workers is how many workers plan would place the members in (an isolated one alone); unknown_count is how many members have no figure at that rate and quantum, and the latency and the CPU add up only the others. The last word names each of them as its position in the line, from 0, and its code, -533 for no record, -534 for no point of the grid at that rate and quantum, -535 for a uri that names no plugin installed here, joined by commas, - for none. Several records of one plugin (several versions) give the largest figure. -902 for a rate or a quantum that is not a whole number above 0, or no uri |
 
 A `<state>` is `up` (accepting commands), `starting` (spawned, not yet accepting), `backoff` (dead, waiting to be respawned), `given-up` (the storm bound is spent for its placement).
 <!-- END GENERATED protocol:verbs -->
@@ -560,7 +561,7 @@ and the soak stay plugin-qualify's until the probe protocol says which plugins g
 
 The runner kills the whole process tree of the child at its wall clock, and again when the child is done, so a process a
 plugin started in a session of its own does not outlive the run. It applies these limits on every Linux: the wall clock,
-the CPU time, the data size, the open files, the file size, no core dump, the real-time priority it was granted and the
+the CPU time, the memory, the open files, the file size, no core dump, the real-time priority it was granted and the
 wall budget as its real-time CPU time, the memory it may lock, no new privileges, the child dying with the runner, and the
 cpus the child may use (`--cpus`). `--list-limits` prints them as a run on this machine would apply them.
 
@@ -574,6 +575,18 @@ kernel reported for the child after the exec (class, priority, the priority requ
 grant with `LimitRTPRIO=` and `LimitMEMLOCK=` ([docs/own-host.md](docs/own-host.md#measuring-plugins-at-real-time-priority)). A limit the set asks for and this version does not
 apply (the number of tasks, namespaces, Landlock, seccomp) is listed in the document under `limits.unavailable` with its
 code, and `--require tasks` makes the run refuse instead.
+
+The memory limit (`--data-bytes`) is `memory.max` of a cgroup the measured child runs in, so the kernel counts what the
+plugin really holds and kills its whole tree at the limit; that run ends `probe.memory-limit`, with the limit in the step's
+detail and the document written as for any other outcome. The cgroup goes under the runner's own cgroup when that hands the
+memory controller down, else beside it, else, when the runner is alone in a delegated cgroup, under it once the runner has
+stepped into a leaf; it is removed after the run. A machine that gives none of these bounds the child with `RLIMIT_DATA`, and
+`limits.unavailable` says so: `memory` with `probe.limit.cgroup-absent` (no cgroup v2 hierarchy) or
+`probe.limit.controller-not-delegated`. Children other than the measured one always run under `RLIMIT_DATA`.
+
+A plugin's footprint, when the child took one, is the point's `memory`: how far the resident set grew from before the plugin
+loaded, in KB, after instantiate, after activate, at rest after processing, with notes held, and what a second instance
+added. A figure the child could not take is absent, and `unmeasuredReason` says why when none could be.
 
 A crash, a hang and a timeout are outcomes in the document, never a missing document: the steps the child finished before
 dying stay in it. The exit status says whether there is one: 0 a complete run, 1 a document with some step that ended
@@ -713,16 +726,22 @@ added: a chain editor asks it before an insert. It loads nothing and moves nothi
 qualification records of `qualification_dir`, the grid point at that rate and quantum: the latency is the measured
 frames, else the declared ones, added up; the CPU is the cost median in nanoseconds per sample times the rate, added up,
 as percent of one core's cycle. No per-worker overhead is added: none is measured. The RAM is the history's
-`pss_mb_solo` of each member, in bytes, and `-` unless every member has one, since no qualification record carries a
-RAM figure. The workers are the segments `plan` would make of the members, so an isolated plugin counts a worker of
+`pss_mb_solo` of each member, in bytes, and `-` unless every member has one. The workers are the segments `plan` would make of the members, so an isolated plugin counts a worker of
 its own. A member with no figure at that rate and quantum is counted and named by its position in the line, from 0,
 with `-533` (no record names it), `-534` (no point of the grid at that rate and quantum with a cost and a latency) or
 `-535` (the uri names no plugin installed here, which `plan` would place nowhere); the latency and the CPU add up only
-the others, so a client says "not measured" for those members and never reads their figure as 0:
+the others, so a client says "not measured" for those members and never reads their figure as 0.
+
+Four more words answer whether the chain fits in memory. `ram_used_bytes` is what the plugins running now hold, the Pss of
+every worker, `-` when one cannot be read. `ram_added_bytes` is what the members would add, from the memory of the
+qualification records at that rate and quantum: what instances of one plugin share is counted once in a segment, since a
+segment is one process, and again in another segment, which loads it again. `ram_budget_bytes` is the host's `ram_budget_mb`,
+`-` when none is set. `ram_unknown_count` is how many members have no figure: they add nothing to the sum and are not 0, and
+when no member has one `ram_added_bytes` is `-`:
 
 ```
 estimate 48000 128 clap:/usr/lib64/clap/a.clap#org.example.a clap:/usr/lib64/clap/a.clap#org.example.b
-resp 0 64 9.60 - 1 1 1:-534
+resp 0 64 9.60 - 1 1 1:-534 0 104857600 2147483648 1
 ```
 
 What a worker must do

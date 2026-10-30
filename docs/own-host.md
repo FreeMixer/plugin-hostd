@@ -110,6 +110,10 @@ gets the grant of the user's login session: the `rtprio` and `memlock` of `/etc/
 example the `audio` group's). `plugin-hostd-probe run --list-limits` prints what a run would get: the `realtime` line
 names the grant and the priority, or why there is none.
 
+The probe's memory limit is `memory.max` of a cgroup it makes for the measured child. A service running as root needs nothing
+for that. A service under another user needs `Delegate=memory` in the same drop-in; without it the limit is `RLIMIT_DATA`, and
+the document says so under `limits.unavailable`.
+
 What a Zynthian integration still needs from us
 -----------------------------------------------
 

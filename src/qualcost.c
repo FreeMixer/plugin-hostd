@@ -244,3 +244,39 @@ int qualcost_cell(const char *dir, const char *id, int rate, int quantum, qualco
     *out = c.cell;
     return c.status;
 }
+
+struct memory_ctx {
+    const char *id;
+    int rate, quantum, found;
+    qualcost_memory_t memory;
+};
+
+static void memory_of(const jnode_t *record, void *ctx)
+{
+    struct memory_ctx *c = ctx;
+    const jnode_t *point;
+    size_t k = 0;
+
+    while ((point = point_at(record, c->id, c->rate, c->quantum, &k)) != NULL)
+    {
+        const jnode_t *mem = jget(point, "memory");
+        double first, per;
+
+        if (!jnum(mem, "firstInstanceKb", &first) || !jnum(mem, "perInstanceKb", &per) || first < 0 || per < 0)
+            continue;
+        if (!c->found || first > c->memory.first_kb)
+            c->memory.first_kb = first;
+        if (!c->found || per > c->memory.per_instance_kb)
+            c->memory.per_instance_kb = per;
+        c->found = 1;
+    }
+}
+
+int qualcost_memory(const char *dir, const char *id, int rate, int quantum, qualcost_memory_t *out)
+{
+    struct memory_ctx c = { id, rate, quantum, 0, { 0, 0 } };
+
+    each_record(dir, id, memory_of, &c);
+    *out = c.memory;
+    return c.found ? 0 : -1;
+}
