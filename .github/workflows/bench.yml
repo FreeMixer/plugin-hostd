@@ -6,10 +6,10 @@ name: bench
 
 on:
   pull_request:
-    paths: ['bench/**', '.github/workflows/bench.yml']
+    paths: ['bench/**', 'tools/zynthian/matrix.py', 'tools/zynthian/matrix/**', 'tools/zynthian/test_matrix.py', '.github/workflows/bench.yml']
   push:
     branches: [main]
-    paths: ['bench/**', '.github/workflows/bench.yml']
+    paths: ['bench/**', 'tools/zynthian/matrix.py', 'tools/zynthian/matrix/**', 'tools/zynthian/test_matrix.py', '.github/workflows/bench.yml']
 
 permissions:
   contents: read
@@ -53,6 +53,9 @@ jobs:
 
       - name: Unit tests of the harness
         run: python3 -I bench/tests/test_bench.py
+
+      - name: Unit tests of the Zynthian benchmark matrix
+        run: python3 -I tools/zynthian/test_matrix.py
 
       - name: Unit tests of the report writer
         run: python3 -I -m unittest discover -v -s bench/report
