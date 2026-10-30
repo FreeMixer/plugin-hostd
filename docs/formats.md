@@ -109,7 +109,7 @@ format side.
 | `flag` | present -> `true` | `true` -> the row's key, `false` -> nothing | none |
 | `scale-points` | `<number> <label>` -> one point of the control's `values` and `labels` | the point back as `<number> <label>` | none |
 | `group-path` | a CLAP module path `a/b` -> the group `["a","b"]` | the group joined by `/` | none |
-| `port-group` | an LV2 group's label -> the group `["label"]` | the group's one label | none |
+| `port-group` | an LV2 group's label -> the group `["label"]`; a `pg:subGroupOf` label -> a level put before the group read so far | the path's last level, the group a port names | none |
 
 A new transform is added when a row needs it, never before; `make test-transforms` runs every function and its inverse
 over its vectors (in, out, back in, equal).
@@ -175,6 +175,9 @@ What the tables leave to `describe`:
   on CLAP and `linear` on LV2 (where a scale not stated is linear); its `meaning` is `unknown` when no row sets it; a
   control with points is a `choice`, its `ids` taken from its labels and its default the id of the default's point, a
   `toggle` defaults to its default being non-zero;
+- an LV2 port's group path is its `pg:group` label with one `pg:subGroupOf` record per group above it, nearest first
+  (the scanner follows the chain, `lv2:name` else `rdfs:label` of each group); the path is read outermost first, and a
+  `pg:subGroupOf` with no `pg:group` before it is refused;
 - the bag holds a field's one value as it is, two or more as a list;
 - a plugin no feature of which maps is an `audio-effect`; an LV2 plugin's `id` and `uri` are the URI asked for;
 - the links a scanned descriptor needs (`source.from`): a CLAP descriptor's own, `<file>#clap_entry`; each LV2
