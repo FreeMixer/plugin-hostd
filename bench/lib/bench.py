@@ -319,6 +319,20 @@ def ports(env):
     return out
 
 
+def graph_before_host(env, limit_s=READY_LIMIT_S, poll_s=0.05):
+    """the clients on the graph once the last host's have left: its process is gone a moment before JACK drops its clients,
+    and one still there would be counted out of this row's. Failed when one stays"""
+    end = time.monotonic() + limit_s
+    while True:
+        graph = set(ports(env))
+        left = sorted(c for c in graph if c.startswith("effect_"))
+        if not left:
+            return graph
+        if time.monotonic() >= end:
+            raise Failed("%s still on the graph %.0f s after the last host stopped" % (", ".join(left), limit_s))
+        time.sleep(poll_s)
+
+
 def connected(env, a, b):
     return b in run(["jack_lsp", "-c", a], env).split()
 
@@ -1024,7 +1038,7 @@ class Runner:
                 notes.append("pins: in-process, isolated for %s" % ", ".join(
                     dict.fromkeys(self.cat.name(keys[i]) for i in sorted(alone))))
             host = Host(hkey, self.procs, self.env, wd, self.port, conf)
-            graph_before = set(ports(self.env))
+            graph_before = graph_before_host(self.env)
             log_end = log_size(self.logdir, hkey)
             try:
                 host.start()
@@ -1185,7 +1199,8 @@ class Runner:
             if len(f) >= 5 and f[2] != "-" and f[4] == want:
                 return
             time.sleep(0.01)
-        raise Failed("the chain did not form within %.0f s" % READY_LIMIT_S)
+        raise Failed("the chain did not form within %.0f s; chain_get: %s; worker_list: %s" % (
+            READY_LIMIT_S, host.ctl.cmd("chain_get 1"), host.ctl.cmd("worker_list")))
 
     def kill_and_recover(self, host, r, inst, client):
         """kill -9 the process that holds the plugin; time until its client is back and wired as before"""
