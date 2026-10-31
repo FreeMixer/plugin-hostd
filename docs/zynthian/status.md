@@ -30,7 +30,7 @@ Proven on the device
   through the adapter and as CLAP with its own file name, `Surge%20XT.clap`: -13.5 dBFS at C4 at the JACK ports, run by
   hand with a `HOME` set. Without a `HOME` it is silent under jalv and the adapter and its CLAP answers -503.
 - **The chains come back at boot.** The engine reaches the daemon on loopback, and the boot load has no -509.
-- **Every LV2 plugin ran under the adapter.** 1240 runs: 1216 admitted, 16 silent, 6 refused, 2 not started.
+- **The adapter pass ran.** Its counts: 1216 admitted, 16 silent, 6 refused, 2 not started.
 - **One panel for both surfaces**: the engine's controller pages and the MOD GUIs are drawn from the same layout
   ([the pipeline page](../from-file-to-page.md)).
 
