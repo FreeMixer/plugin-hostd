@@ -91,8 +91,8 @@ For the [upstream series](upstream-series.md), small and opt-in as the rest of i
 - **To discuss, not to patch:** a parallel slot saved in a snapshot comes back in series, for every engine, since
   `set_state` adds each saved processor as a new slot and says so in a TODO. The workers follow the chain that comes back,
   so PH plugins stay correct either way. If Zynthian restores parallel slots one day, the engine needs no change.
-- **Not planned:** a parallel slot inside one worker. A worker's chain is a series; a parallel slot in one client needs a
-  mix element ([omx-plugins#229](https://github.com/FreeMixer/omx-plugins/issues/229)), and JACK's summing does the job.
+- **Not planned:** a parallel slot inside one worker. A worker's chain is a series; a parallel slot in one client would need a
+  mix element, and JACK's summing does the job.
   A Mixbus with parallel effects costs a worker per branch.
 
 Steps for the Pi
