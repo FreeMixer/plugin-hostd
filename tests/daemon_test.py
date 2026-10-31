@@ -3158,20 +3158,116 @@ def a_chain_that_dies_naming_no_culprit_is_split_and_rejoins_without_the_one_tha
         d.close()
 
 
+def refusal_file():
+    """the path FAKE_REFUSE_CHAIN reads: the fake's worker refuses every chain line while the file exists"""
+    fd, path = tempfile.mkstemp(prefix="fake-refuse-chain-")
+    os.close(fd)
+    return path
+
+
+def each_alone(d, ids):
+    for i in ids:
+        k, w = d.wait_up(i)
+        check(w["place"] == "own" and w["inst"] == [i], "%d runs in a worker of its own: %s" % (i, d.workers()))
+
+
 @test
-def a_worker_that_runs_no_chain_refuses_the_line_and_the_members_still_share_it():
-    d = daemon(env={"FAKE_REFUSE_CHAIN": "1"})
+def a_chain_its_worker_refuses_is_answered_and_each_member_runs_alone():
+    path = refusal_file()
+    d = daemon(env={"FAKE_REFUSE_CHAIN": path})
     try:
         for i in (40, 41):
             d.expect("add clap:fake#m%d %d" % (i, i), "resp %d" % i)
+        d.expect("param_set 40 gain 0.2500", "resp 0")
+        mark = d.mark()
+        d.expect("chain 5 41 40", resp("PLACEMENT_INVALID"))
+        ev = d.wait_event("chain_refused 5 ", since=mark)
+        check(ev == "chain_refused 5 -902", "the event names the chain and the worker's own code: " + ev)
+        check("chain_formed 5 " not in "\n".join(d.events[mark:]), "a refused chain is not said to be formed")
+        d.expect("chain_get 5", resp("NO_SUCH_CHAIN"))
+        check(chain_of(d, 5) == {}, "no worker is left in the chain's place: %s" % d.workers())
+        each_alone(d, (40, 41))
+        check("refused 'chain 5 41 40'" in d.log(), "the refusal is written: %s" % d.log()[-400:])
+        d.expect("param_get 40 gain", "resp 0 0.2500")
+        # refused once, the members are free: a chain the worker takes forms over them
+        os.unlink(path)
         mark = d.mark()
         d.expect("chain 5 41 40", "resp 0")
         d.wait_event("chain_formed 5 ", since=mark)
-        k, w = list(chain_of(d, 5).items())[0]
-        check(w["inst"] == [41, 40] and w["state"] == "up", "the members share the worker: %s" % w)
-        check("refused 'chain 5 41 40'" in d.log(), "the refusal is written: %s" % d.log()[-400:])
+        check(list(chain_of(d, 5).values())[0]["inst"] == [41, 40], "formed after the refusal: %s" % d.workers())
     finally:
         d.close()
+        if os.path.exists(path):
+            os.unlink(path)
+
+
+@test
+def a_running_chain_its_worker_refuses_to_change_ends_and_each_member_runs_alone():
+    path = refusal_file()
+    os.unlink(path)
+    d = daemon(env={"FAKE_REFUSE_CHAIN": path})
+    try:
+        for i in (42, 43, 44):
+            d.expect("add clap:fake#m%d %d" % (i, i), "resp %d" % i)
+        mark = d.mark()
+        d.expect("chain 6 42 43", "resp 0")
+        d.wait_event("chain_formed 6 ", since=mark)
+        open(path, "w").close()
+        d.expect("chain 6 42 43 44", resp("PLACEMENT_INVALID"))
+        d.expect("chain_get 6", resp("NO_SUCH_CHAIN"))
+        check(chain_of(d, 6) == {}, "the chain's worker is gone: %s" % d.workers())
+        each_alone(d, (42, 43, 44))
+        d.expect("chain_clear 6", resp("NO_SUCH_CHAIN"))
+    finally:
+        d.close()
+        os.unlink(path)
+
+
+@test
+def a_chain_its_worker_refuses_later_ends_and_the_event_says_so():
+    """no reply waits for the line the worker is sent after a member's remove: the tick ends the chain, the event tells"""
+    path = refusal_file()
+    os.unlink(path)
+    d = daemon(env={"FAKE_REFUSE_CHAIN": path})
+    try:
+        for i in (45, 46, 47):
+            d.expect("add clap:fake#m%d %d" % (i, i), "resp %d" % i)
+        mark = d.mark()
+        d.expect("chain 7 45 46 47", "resp 0")
+        d.wait_event("chain_formed 7 ", since=mark)
+        open(path, "w").close()
+        mark = d.mark()
+        d.expect("remove 47", "resp 0")
+        ev = d.wait_event("chain_refused 7 ", since=mark)
+        check(ev == "chain_refused 7 -902", "the controller hears of it: " + ev)
+        d.expect("chain_get 7", resp("NO_SUCH_CHAIN"))
+        check(chain_of(d, 7) == {}, "the chain's worker is gone: %s" % d.workers())
+        each_alone(d, (45, 46))
+    finally:
+        d.close()
+        os.unlink(path)
+
+
+@test
+def a_plan_whose_segment_the_worker_refuses_is_answered_and_every_member_runs_alone():
+    path = refusal_file()
+    p = Plugins()
+    d = p.daemon(conf={"pin_mode": "first-use", "grouping": "on"}, env={"FAKE_REFUSE_CHAIN": path})
+    try:
+        for n in (1, 2):
+            d.expect(pin_n(p, n, "in-process"), "resp 0")
+            d.expect("add %s %d" % (clap_n(p, n), n), "resp %d" % n)
+        d.expect("plan 1 1 2", resp("PLACEMENT_INVALID"))
+        each_alone(d, (1, 2))
+        r = d.send("plan_get 1")
+        code = harness.CODE["PLACEMENT_INVALID"]
+        check("1:plan-refused:%d,2:plan-refused:%d" % (code, code) in r, "plan_get says why: %s" % r)
+        check(plan_of(d, 1) == {}, "no segment runs: %s" % d.workers())
+        d.expect("plan_clear 1", "resp 0")
+    finally:
+        d.close()
+        p.close()
+        os.unlink(path)
 
 
 @test

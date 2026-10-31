@@ -98,6 +98,8 @@ static plan_t *g_plan[MAX_INSTANCE];
 static int g_nplans;
 
 static int chain_form(chain_t *c);
+static void chain_refused(chain_t *c);
+static int plan_worker_refused(plan_t *p);
 static void plans_replan_for(int id);
 static void plans_regroup(int id, int64_t now, int arm);
 static void plan_again(int id);
@@ -1516,6 +1518,21 @@ static int replay_conns(worker_t *w, instance_t *i)
     return 0;
 }
 
+/* the order of a chain, to a worker that runs one in one client: the members it holds. Its refusal is kept on the chain,
+ * which ends as soon as nothing is being replayed. RPC_OK, or the worker's death for the caller to handle */
+static int chain_order_send(worker_t *w)
+{
+    char line[PATH_MAX + 16];
+    int rc, code;
+
+    if (!format_at(w->fmt)->native_chain || !chain_line(w, line, sizeof(line)))
+        return RPC_OK;
+    rc = replay_line_code(w, line, &code);
+    if (rc == RPC_OK && code < 0)
+        w->chain->refused = code;
+    return rc;
+}
+
 /* chain_formed: the order a chain's worker runs now, the members it holds and replayed */
 static void chain_formed(worker_t *w)
 {
@@ -1544,7 +1561,7 @@ static void replay(worker_t *w, int64_t started)
         any_ckpt |= added && w->inst[n]->has_ckpt;
     }
     /* the order of a chain, to a worker that runs one in one client, before the state: the members it holds */
-    if (w->chain && format_at(w->fmt)->native_chain && chain_line(w, msg, sizeof(msg)) && replay_line(w, msg) != RPC_OK)
+    if (w->chain && chain_order_send(w) != RPC_OK)
     {
         on_death(w, -1);
         return;
@@ -1574,7 +1591,7 @@ static void replay(worker_t *w, int64_t started)
     for (n = 0; n < w->ninst; n++)
         if (!w->inst[n]->unreplayed)
             event(PHD_EVENT_INSTANCE_RESTORED_FMT, w->inst[n]->id, w->k);
-    if (w->chain)
+    if (w->chain && !w->chain->refused)
         chain_formed(w);
 }
 
@@ -1657,6 +1674,13 @@ void sup_tick(void)
                     chain_form(g_plan[n]->seg[k]);
             }
     }
+    /* a worker that refused a chain on a respawn or a rejoin: no one is waiting for a reply, the event says it */
+    for (n = 0; g_nchains && n < MAX_INSTANCE; n++)
+        if (g_chain[n] && g_chain[n]->refused)
+            chain_refused(g_chain[n]);
+    for (n = 0; g_nplans && n < MAX_INSTANCE; n++)
+        if (g_plan[n])
+            plan_worker_refused(g_plan[n]);
 }
 
 /* ---------------------------------------------------------------- init and finish */
@@ -2074,10 +2098,7 @@ static void chain_leave(instance_t *i)
 /* a chain's worker that is up and runs chains is told the order it holds now */
 static void chain_tell(worker_t *w)
 {
-    char line[1024];
-
-    if (w->state == W_UP && format_at(w->fmt)->native_chain && chain_line(w, line, sizeof(line)) &&
-        replay_line(w, line) != RPC_OK)
+    if (w->state == W_UP && chain_order_send(w) != RPC_OK)
         on_death(w, -1);
 }
 
@@ -2932,7 +2953,7 @@ static int chain_update(chain_t *c)
     for (k = 0; k < nj; k++)
         if (replay_add(w, join[k]) < 0)
             goto out;
-    if (format_at(w->fmt)->native_chain && chain_line(w, msg, sizeof(msg)) && replay_line(w, msg) != RPC_OK)
+    if (chain_order_send(w) != RPC_OK)
     {
         on_death(w, -1);
         goto out;
@@ -2960,7 +2981,8 @@ static int chain_update(chain_t *c)
             goto out;
         event(PHD_EVENT_INSTANCE_RESTORED_FMT, join[k]->id, w->k);
     }
-    chain_formed(w);
+    if (!c->refused)
+        chain_formed(w);
 out:
     free(join);
     return 0;
@@ -3023,7 +3045,7 @@ static int chain_world_found(const int *ids, int n)
 char *sup_chain(int id, const int *ids, int n)
 {
     chain_t *c = (id >= 0 && id < MAX_INSTANCE) ? g_chain[id] : NULL;
-    int *new_ids, k, m, found;
+    int *new_ids, k, m, found, rc;
 
     if (id < 0 || id >= MAX_INSTANCE || n < PHD_CHAIN_MEMBERS_MIN)
         return sup_resp(ERR_INVALID_OPERATION);
@@ -3084,16 +3106,22 @@ char *sup_chain(int id, const int *ids, int n)
     for (k = 0; k < n; k++)
         g_inst[ids[k]]->chain = c;
     /* a chain with no memory to form yet is the tick's to try again */
-    return sup_resp((chain_in_place(c) ? chain_update(c) : chain_form(c)) == 0 ? SUCCESS : ERR_MEMORY_ALLOCATION);
+    rc = (chain_in_place(c) ? chain_update(c) : chain_form(c)) == 0 ? SUCCESS : ERR_MEMORY_ALLOCATION;
+    /* the worker may have died forming it, and the chain have gone with its members */
+    c = g_chain[id];
+    if (c && c->refused)
+    {
+        chain_refused(c);
+        return sup_resp(OMX_REPLY_PLUGIN_HOSTD_PLACEMENT_INVALID_RESP);
+    }
+    return sup_resp(rc);
 }
 
-char *sup_chain_clear(int id)
+/* the chain is forgotten, each member in a worker of its own */
+static void chain_end(chain_t *c)
 {
-    chain_t *c = (id >= 0 && id < MAX_INSTANCE) ? g_chain[id] : NULL;
     int k;
 
-    if (!c)
-        return sup_resp(OMX_REPLY_PLUGIN_HOSTD_NO_SUCH_CHAIN_RESP);
     for (k = 0; k < c->n; k++)
     {
         instance_t *i = g_inst[c->ids[k]];
@@ -3106,6 +3134,28 @@ char *sup_chain_clear(int id)
             to_own(i);
     }
     chain_free(c);
+}
+
+/* the worker would not run the chain as one (its stderr says why): every member had a client of its own in it, which
+ * the chain's place does not say. So the chain ends as chain_clear ends it, and nothing is left to read as formed */
+static void chain_refused(chain_t *c)
+{
+    char word[24];
+
+    chain_word(c, word, sizeof(word));
+    fprintf(stderr, "plugin-hostd: chain %s: its worker refused it (resp %d); each member runs in a worker of its own\n", word,
+            c->refused);
+    event(PHD_EVENT_CHAIN_REFUSED_FMT, word, c->refused);
+    chain_end(c);
+}
+
+char *sup_chain_clear(int id)
+{
+    chain_t *c = (id >= 0 && id < MAX_INSTANCE) ? g_chain[id] : NULL;
+
+    if (!c)
+        return sup_resp(OMX_REPLY_PLUGIN_HOSTD_NO_SUCH_CHAIN_RESP);
+    chain_end(c);
     return sup_resp(SUCCESS);
 }
 
@@ -3129,7 +3179,7 @@ char *sup_chain_get(int id)
         put(&buf, &used, &cap, "%s%d", k ? "," : "", c->ids[k]);
     put(&buf, &used, &cap, " ");
     /* a worker waiting to restart runs none of its members */
-    for (k = 0; c->w && c->w->state == W_UP && k < c->w->ninst; k++)
+    for (k = 0; c->w && c->w->state == W_UP && !c->refused && k < c->w->ninst; k++)
         if (!c->w->inst[k]->unreplayed)
             put(&buf, &used, &cap, "%s%d", any++ ? "," : "", c->w->inst[k]->id);
     if (!any)
@@ -3403,6 +3453,42 @@ no_memory:
     return -1;
 }
 
+/* a worker refused a segment of the plan: the plan is refused as a whole, as a segment the daemon can see beforehand
+ * refuses it, but its members have moved, so every segment ends and each member runs in a worker of its own. The plan is
+ * kept to be read back, every member's reason plan-refused:<code>. The code, 0 when no worker refused. */
+static int plan_worker_refused(plan_t *p)
+{
+    const int code = OMX_REPLY_PLUGIN_HOSTD_PLACEMENT_INVALID_RESP;
+    size_t used = 0, cap = 64;
+    char *reasons;
+    int k, refused = 0;
+
+    for (k = 0; k < p->nseg; k++)
+        refused |= p->seg[k]->refused != 0;
+    if (!refused)
+        return 0;
+    while (p->nseg)
+    {
+        chain_t *c = p->seg[0];
+
+        if (c->refused)
+            chain_refused(c);
+        else
+            chain_end(c);
+    }
+    reasons = malloc(cap);
+    if (reasons)
+    {
+        reasons[0] = '\0';
+        for (k = 0; k < p->n; k++)
+            put(&reasons, &used, &cap, "%s%d:%s:%d", k ? "," : "", p->ids[k], planner_reason_word(PLANNER_REASON_PLAN_REFUSED), code);
+        free(p->reasons);
+        p->reasons = reasons;
+        event(PHD_EVENT_PLAN_REASON_FMT, p->id, p->reasons);
+    }
+    return code;
+}
+
 /* the planner's settings, the daemon's */
 static void plan_settings(planner_settings_t *s)
 {
@@ -3479,7 +3565,7 @@ static plan_t *plan_run(int id, const int *ids, int n, int *code)
     }
     else
         g_nplans++;
-    *code = refused;
+    *code = refused ? refused : plan_worker_refused(p);
     return p;
 }
 

@@ -63,9 +63,9 @@
  *   note_on, note_off, all_notes_off <n> ...   "resp 0" for a synth, OMX_REPLY_HOST_NOTE_QUEUE_FULL_RESP for one whose uri holds
  *                               "synth_full", OMX_REPLY_HOST_NO_NOTE_INPUT_RESP for any other; the fake
  *                               plays nothing (FAKE_LOG shows what it was sent)
- *   chain <chain> <n> ...       "resp 0" when it holds every <n>, -3 when not, -902 with FAKE_REFUSE_CHAIN, as an
- *                               omx-clap-host that runs no chain answers it; the fake runs nothing in order (FAKE_LOG
- *                               shows what it was sent)
+ *   chain <chain> <n> ...       "resp 0" when it holds every <n>, -3 when not, -902 while the file FAKE_REFUSE_CHAIN
+ *                               names exists, as an omx-clap-host that will not run them as one answers it; the fake
+ *                               runs nothing in order (FAKE_LOG shows what it was sent)
  *   set_bpm, set_bpb, transport, transport_sync   "resp 0", as mod-host answers them, -902 with FAKE_REFUSE_SETTINGS, as
  *                               omx-clap-host answers them; the fake keeps nothing of them
  *   preset_load, preset_save, preset_show, bundle_add, bundle_remove, midi_learn, midi_map, midi_unmap, cv_map, cv_unmap
@@ -372,7 +372,7 @@ static void receive(msg_t *msg)
                 g_out[k--] = g_out[--g_nout];
         answer(fd, "resp 0");
     }
-    else if (!strcmp(verb, OMX_VERB_CHAIN) && getenv("FAKE_REFUSE_CHAIN"))
+    else if (!strcmp(verb, OMX_VERB_CHAIN) && getenv("FAKE_REFUSE_CHAIN") && access(getenv("FAKE_REFUSE_CHAIN"), F_OK) == 0)
         answer(fd, "resp -902");
     else if (!strcmp(verb, OMX_VERB_CHAIN))
     {
