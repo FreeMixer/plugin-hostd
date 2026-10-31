@@ -1941,7 +1941,7 @@ static char *add(const char *uri, int id, const char *placement, const char *cli
     worker_t *w = NULL;
     meta_t *m;
     int64_t now = proc_now_ms();
-    int rc, is_new = 0, full, unavailable, code = ERR_HOST_INSTANTIATION;
+    int rc, is_new = 0, full, unavailable, code = ERR_HOST_INSTANTIATION, expected = 0;
     instance_t *i;
     int chain_id = add_chain_id(placement);
     chain_t *c = chain_id >= 0 ? g_chain[chain_id] : NULL;
@@ -2086,6 +2086,27 @@ static char *add(const char *uri, int id, const char *placement, const char *cli
             code = OMX_REPLY_PLUGIN_HOSTD_VERB_DROPPED_RESP;
         }
     }
+    /* a member after a chain's first joins the walk at its add, in the head's client, with no client of its own
+     * (chain_expect): a worker that refuses the verb takes the add and the order line instead, from then on */
+    if (rc == RPC_OK && !reply && c && c->n && c->w == w && !w->no_chain_expect)
+    {
+        char expect[64];
+
+        snprintf(expect, sizeof(expect), OMX_VERB_CHAIN_EXPECT " %d %d", id, chain_id);
+        rc = proc_rpc(&g_conf, w->pid, w->fd, expect, &reply);
+        if (rc == RPC_OK)
+        {
+            expected = resp_code(reply) >= 0;
+            w->no_chain_expect = !expected;
+            free(reply);
+            reply = NULL;
+        }
+        else
+        {
+            event(PHD_EVENT_VERB_DROPPED_FMT, id, expect);
+            code = OMX_REPLY_PLUGIN_HOSTD_VERB_DROPPED_RESP;
+        }
+    }
     if (format->worker_word)
         format->worker_word(fwd, word, sizeof(word));
     else
@@ -2112,6 +2133,13 @@ static char *add(const char *uri, int id, const char *placement, const char *cli
         }
         on_death(w, ATTRIBUTED);
         return sup_resp(code);
+    }
+    /* the worker could not put it in the chain (a plugin not as wide as the head's output): nothing of it is there, and
+     * the controller adds it own */
+    if (expected && resp_code(reply) == ERR_INVALID_OPERATION)
+    {
+        free(reply);
+        return sup_resp(OMX_REPLY_PLUGIN_HOSTD_PLACEMENT_INVALID_RESP);
     }
     if (resp_code(reply) < 0)
     {
