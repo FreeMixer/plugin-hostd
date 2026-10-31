@@ -950,7 +950,9 @@ def list_limits_prints_the_bounds_a_run_would_apply_here():
 def a_describe_child_keeps_the_memory_lock_and_rt_time_the_runner_was_started_with():
     work = tempfile.mkdtemp(prefix="plugin-hostd-probe-describe.")
     seen = os.path.join(work, "limits.json")
-    memlock = min(resource.getrlimit(resource.RLIMIT_MEMLOCK)[1], 2 << 20)
+    hard = resource.getrlimit(resource.RLIMIT_MEMLOCK)[1]
+    # an unlimited hard limit reads as -1, and min() would take it
+    memlock = 2 << 20 if hard == resource.RLIM_INFINITY else min(hard, 2 << 20)
     # the fake child is no scanner: describe refuses its output, and its limits are what is read
     subprocess.run(["prlimit", "--memlock=%d:%d" % (memlock, memlock), "--", PROBE, "describe", "--table",
                     os.path.join(ROOT, "data", "formats", "clap.json"), "--child", CHILD, "--wall-s", "5", "clap:%s#%s" % (CLAP, ID)],
