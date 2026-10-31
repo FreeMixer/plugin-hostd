@@ -12,6 +12,12 @@ import harness
 EXE = os.path.abspath(os.environ.get("ALLOC_SWEEP_DAEMON", "tests/plugin-hostd-alloc-fail"))
 FAKE = os.path.abspath(os.environ.get("FAKE_HOST", "tests/fake-host"))
 JOBS = int(os.environ.get("ALLOC_SWEEP_JOBS", "4"))
+# The daemons of this sweep run side by side, and their workers take ports the kernel hands out. A daemon's command port from
+# that same range can be given to a worker of the next daemon, and the protocol library opens its ports with SO_REUSEPORT:
+# on one address the kernel shares connections between the two, and a controller lands on somebody else's worker. So the
+# command ports come from below the kernel's range (tests/sabotage_pool.py draws arms from there too).
+os.environ.setdefault("PLUGIN_HOSTD_TEST_PORT_BASE", "20000")
+os.environ.setdefault("PLUGIN_HOSTD_TEST_PORT_SPAN", "12000")
 LV2_URI = "urn:plugin-hostd:test:pinned"
 LV2_URI_2 = "urn:plugin-hostd:test:second"
 WAIT = "wait"
@@ -190,9 +196,9 @@ failed = []
 
 
 def arm(a):
-    """daemons running side by side take their workers' ports from the system's free ones, and one can pick the command port
-    of another just as it is being opened, and hold it: a run that gets no answer is run again, on other ports, before it
-    counts. A daemon that hangs on a refusal hangs each time."""
+    """daemons running side by side take their workers' ports from the system's free ones, and two can pick one port between
+    its check and its bind: a run that gets no answer is run again, on other ports, before it counts. A daemon that hangs
+    on a refusal hangs each time."""
     for _ in range(3):
         result = one_run(**a)
         if not (result[0] and "timed out" in result[0]):

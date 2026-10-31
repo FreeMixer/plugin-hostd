@@ -109,7 +109,8 @@ after a SIGKILL the workers notice the parent gone (`PR_SET_PDEATHSIG`) and exit
 Both ports listen on 127.0.0.1, so only programs on the same machine reach them. To control the daemon from
 another machine, start it with `--bind-address <address>` or set `bind_address` in the settings; `0.0.0.0` is every
 address of the machine. A controller is not authenticated and can load a plugin from any path, so do that only on a
-network whose hosts you trust. A daemon that cannot listen on the address does not start.
+network whose hosts you trust. A daemon that cannot listen on the address does not start. The workers it starts
+listen on 127.0.0.1 whatever this says, and only the daemon talks to them.
 
 The settings live in a file, `-c`, `$PLUGIN_HOSTD_CONF` or
 `~/.config/plugin-hostd.conf`, one `key value` per line:
