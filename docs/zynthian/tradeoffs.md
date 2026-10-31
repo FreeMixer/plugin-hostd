@@ -21,7 +21,7 @@ table](benchmarks.md#current-versions-chains-up-to-24-plugins).
 | CPU, 16 plugins, % of a core | 10.16 | 11.39 | 9.54 |
 | add time, 16 plugins | 2507 ms | 2417 ms | 434 ms |
 | JACK clients per chain | 1 for an all-CLAP chain (grouped-vs-processes.md); 3 for chain3 with an LV2 member | one per plugin, not counted | not counted |
-| a plugin crashes | the worker is put back, 347 ms (`kill1`); in a chain the other members keep playing (round-trip.txt) | that plugin's process is lost, nothing restarts it | every plugin of the process is lost |
+| a plugin crashes | at the daemon the worker is put back with the links it made itself, 347 ms (`kill1`); in a chain the other members keep playing (round-trip.txt). Not yet measured through Zynthian's engine, whose links come from outside | that plugin's process is lost, nothing restarts it | every plugin of the process is lost |
 
 Pros:
 
@@ -31,8 +31,9 @@ Pros:
   than plugin-hostd's own individual mode at every N (1.50/5.39/10.16 against 1.86/6.89/14.75).
 - Fewer context switches: 2801 grouped against 38985 with one worker per plugin, in 10 s for 16 plugins at 48000 Hz, with
   the chain as one JACK client (grouped-vs-processes.md, plugin-hostd 0.12.0).
-- Crash containment by the daemon: a lost worker is restarted and re-wired in about 340 ms, which jalv and mod-host do not
-  do (`kill1`). Inside a chain a member that aborts leaves the others playing (round-trip.txt,
+- Crash containment by the daemon: a lost worker is restarted, with the links the daemon made itself, in about 340 ms, which
+  jalv and mod-host do not do (`kill1`). Links made from outside are not restored, and Zynthian's routing is made from
+  outside, so this says nothing yet for a real Zynthian. Inside a chain a member that aborts leaves the others playing (round-trip.txt,
   `a_crashed_member_leaves_the_three_playing`).
 
 Cons:

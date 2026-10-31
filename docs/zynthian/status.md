@@ -47,9 +47,12 @@ Proven on the device
   chain did not form within 20 s on one repeat. These figures measure the daemon directly, on a private graph;
   zynthian-ui gained the fix that reads the plan in [zynthian-ui#53](https://github.com/FreeMixer/zynthian-ui/pull/53),
   and a run through Zynthian's own engine is next.
-- **A lost worker comes back.** Its values may not yet ([omx-clap-core#438](https://github.com/FreeMixer/omx-clap-core/issues/438)).
-  After `kill -9` of the process holding one plugin, plugin-hostd 0.12.0 put the worker back and re-wired it in 347 ms at
-  48000 Hz (`kill1`, [benchmarks](benchmarks.md#the-four-hosts-one-plugin-and-short-chains)).
+- **At the daemon, a lost worker comes back.** After `kill -9` of the process holding one plugin, plugin-hostd 0.12.0 put the
+  worker back and re-wired the links it made itself in 347 ms at 48000 Hz (`kill1`,
+  [benchmarks](benchmarks.md#the-four-hosts-one-plugin-and-short-chains)). The daemon replays only those links: links made
+  from outside are not restored, one run stayed silent for that reason, and Zynthian's routing is made from outside. A
+  run through Zynthian's own engine says what a crash does there; until then these pages claim nothing for it. Its values
+  may not come back either ([omx-clap-core#438](https://github.com/FreeMixer/omx-clap-core/issues/438)).
   A plugin that crashes a chain's worker is quarantined and the others go on in order: proven in the CI round trip,
   not yet on the Pi ([chain profile](chain-profile.md)).
 - **One panel for both surfaces**: the engine's controller pages and the MOD GUIs are drawn from the same layout
