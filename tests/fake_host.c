@@ -43,6 +43,9 @@
  *   pin_expect <n> <pin>        the layout pin of the next add of <n>: that add answers OMX_REPLY_HOST_PIN_LAYOUT_MISMATCH_RESP
  *                               when the fake's own layout differs (FAKE_NO_PIN_EXPECT: the verb is unknown, -902;
  *                               FAKE_PIN_EXPECT_HANG: it is never answered)
+ *   chain_expect <n> <chain>    the next add of <n> joins that chain: it answers -902 when FAKE_REFUSE_CHAIN_MEMBER names
+ *                               <n>, as a worker does for a plugin not as wide as the head's output (FAKE_NO_CHAIN_EXPECT:
+ *                               the verb is unknown, -902)
  *   param_set <n> pages_changed <v>   v other than 0 writes "remote_pages_changed <n>" on the feedback port, as a CLAP
  *                               worker does when its plugin changes its remote pages
  *   param_get <n> xruns=<v>     writes "xruns <v>" on the feedback port, v as sent, as a worker does when the JACK xruns it
@@ -130,6 +133,8 @@ typedef struct INST_T {
 } inst_t;
 
 static char g_expect[MAX_INST][PHD_SHA256_HEX_LEN + 64];
+/* the chain chain_expect named for the next add of an instance, plus one: 0 when none */
+static int g_chain_expect[MAX_INST];
 
 static inst_t g_inst[MAX_INST];
 static struct { int inst; char sym[64]; long k; } g_out[MAX_OUTPUTS];
@@ -309,6 +314,13 @@ static void receive(msg_t *msg)
         snprintf(g_expect[n], sizeof(g_expect[n]), "%s", tok[2]);
         answer(fd, "resp 0");
     }
+    else if (verb_is(verb, OMX_VERB_CHAIN_EXPECT) && getenv("FAKE_NO_CHAIN_EXPECT"))
+        answer(fd, "resp -902");
+    else if (verb_is(verb, OMX_VERB_CHAIN_EXPECT) && ntok == 3 && n >= 0 && n < MAX_INST)
+    {
+        g_chain_expect[n] = atoi(tok[2]) + 1;
+        answer(fd, "resp 0");
+    }
     else if (verb_is(verb, OMX_VERB_PIN_LAYOUT) && getenv("FAKE_NO_PIN_LAYOUT"))
         answer(fd, "resp -902");
     else if (verb_is(verb, OMX_VERB_PIN_LAYOUT) && ntok == 2 && n >= 0 && n < MAX_INST && g_inst[n].exists)
@@ -320,10 +332,16 @@ static void receive(msg_t *msg)
     }
     else if (verb_is(verb, EFFECT_ADD) && ntok >= 3)
     {
-        int id = atoi(tok[2]);
+        int id = atoi(tok[2]), expected = 0;
         char mine[PHD_SHA256_HEX_LEN + 64];
 
         layout_pin(mine, sizeof(mine));
+        /* an expectation is spent by the add it was sent for */
+        if (id >= 0 && id < MAX_INST)
+        {
+            expected = g_chain_expect[id];
+            g_chain_expect[id] = 0;
+        }
         /* a plugin that aborts in instantiate on mod-host (a Qt body with no display): the adapter refuses it first */
         if (strstr(tok[1], "crash_on_add") || (strncmp(tok[1], "lv2:", 4) && strstr(tok[1], "abort_on_mod_host")))
             crash();
@@ -348,6 +366,8 @@ static void receive(msg_t *msg)
         }
         else if (strstr(tok[1], "refuse"))
             answer(fd, "resp -101");
+        else if (expected && getenv("FAKE_REFUSE_CHAIN_MEMBER") && atoi(getenv("FAKE_REFUSE_CHAIN_MEMBER")) == id)
+            answer(fd, "resp -902");
         else if (id >= 0 && id < MAX_INST && g_expect[id][0] && strcmp(g_expect[id], mine))
         {
             g_expect[id][0] = '\0';

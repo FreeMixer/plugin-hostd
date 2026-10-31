@@ -3041,9 +3041,10 @@ def an_add_into_a_chain_goes_into_its_worker_with_no_worker_of_its_own_and_no_mo
         every = sent_to(log)
         check(not any(c.split()[0] in ("state_save", "remove") for c in every), "nothing was moved: %s" % every)
         got = sent_to(log, w["pid"])
-        order = [c for c in got if c.startswith(("add ", "chain "))]
-        check(order == ["add clap:fake#m1 1", "chain 7 1", "add clap:fake#m2 2", "chain 7 1 2", "add clap:fake#m3 3",
-                        "chain 7 1 2 3"], "the worker is given each add, then the order with it: %s" % order)
+        order = [c for c in got if c.startswith(("add ", "chain ", "chain_expect "))]
+        check(order == ["add clap:fake#m1 1", "chain 7 1", "chain_expect 2 7", "add clap:fake#m2 2", "chain 7 1 2",
+                        "chain_expect 3 7", "add clap:fake#m3 3", "chain 7 1 2 3"],
+              "each member after the first is expected into the chain before its add, then the order: %s" % order)
         d.wait_event("chain_formed 7 %s 1,2,3" % k, since=mark)
         gains(d, (1, 2, 3))
         # the chain declared over members already there, in that order, is only the order line
@@ -3071,25 +3072,37 @@ def an_add_into_a_chain_goes_into_its_worker_with_no_worker_of_its_own_and_no_mo
 @test
 def an_add_the_chain_worker_refuses_to_run_in_the_chain_is_refused_and_left_out():
     """a member the worker will not run in series with the others (a width the head's output is not) is refused at the add
-    with PLACEMENT_INVALID, taken out of the worker again, and the chain runs on as it was; the controller adds it own"""
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
-    d = daemon(env={"FAKE_LOG": log, "FAKE_REFUSE_CHAIN_MEMBER": "3"})
-    try:
-        for i in (1, 2):
-            d.expect("add clap:fake#m%d %d chain:4" % (i, i), "resp %d" % i)
-        k, w = list(chain_of(d, 4).items())[0]
-        d.expect("add clap:fake#wide 3 chain:4", resp("PLACEMENT_INVALID"))
-        check(chain_of(d, 4)[k]["inst"] == [1, 2], "the chain runs on without it: %s" % d.workers())
-        d.expect("instance_info 3", "resp -3")
-        got = sent_to(log, w["pid"])
-        check("remove 3" in got and got[-1] == "chain 4 1 2", "it was taken out and the order sent again: %s" % got[-3:])
-        d.expect("add clap:fake#wide 3 own", "resp 3")
-        _, w3 = d.wait_up(3)
-        check(w3["place"] == "own", "the controller's fallback, own: %s" % w3)
-    finally:
-        d.close()
-        if os.path.exists(log):
-            os.unlink(log)
+    with PLACEMENT_INVALID and the chain runs on as it was; the controller adds it own. The worker refuses the add it was
+    told to expect into the chain, so nothing of it is there; a worker that does not know chain_expect refuses the order
+    line instead, and the member is taken out again and the order sent as it was"""
+    for no_expect in (False, True):
+        log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+        env = {"FAKE_LOG": log, "FAKE_REFUSE_CHAIN_MEMBER": "3"}
+        if no_expect:
+            env["FAKE_NO_CHAIN_EXPECT"] = "1"
+        d = daemon(env=env)
+        try:
+            for i in (1, 2):
+                d.expect("add clap:fake#m%d %d chain:4" % (i, i), "resp %d" % i)
+            k, w = list(chain_of(d, 4).items())[0]
+            d.expect("add clap:fake#wide 3 chain:4", resp("PLACEMENT_INVALID"))
+            check(chain_of(d, 4)[k]["inst"] == [1, 2], "the chain runs on without it: %s" % d.workers())
+            d.expect("instance_info 3", "resp -3")
+            got = sent_to(log, w["pid"])
+            if no_expect:
+                check(got.count("chain_expect 2 4") == 1 and "chain_expect 3 4" not in got,
+                      "a worker that refused chain_expect once is not asked again: %s" % got)
+                check("remove 3" in got and got[-1] == "chain 4 1 2", "it was taken out and the order sent again: %s" % got[-3:])
+            else:
+                check(got[-2:] == ["chain_expect 3 4", "add clap:fake#wide 3"] and "remove 3" not in got,
+                      "refused at its add, nothing to take out and no order to send again: %s" % got[-3:])
+            d.expect("add clap:fake#wide 3 own", "resp 3")
+            _, w3 = d.wait_up(3)
+            check(w3["place"] == "own", "the controller's fallback, own: %s" % w3)
+        finally:
+            d.close()
+            if os.path.exists(log):
+                os.unlink(log)
 
 
 @test
