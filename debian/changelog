@@ -1,3 +1,13 @@
+plugin-hostd (0.15.5) unstable; urgency=medium
+
+  * libmod-host-protocol0 0.1.0-8~omx or newer is required. The workers this
+    daemon starts, mod-host and omx-clap-host, listen on 127.0.0.1 with it,
+    and are not reached from another machine whatever bind_address says (#333).
+  * The daemon gives the library its address and no longer replaces bind(). A
+    daemon that cannot listen on either port still does not start (#333).
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Sat, 31 Oct 2026 10:21:20 +0100
+
 plugin-hostd (0.15.4) unstable; urgency=medium
 
   * An LV2 file named by a percent-encoded IRI, Surge XT's libSurge%20XT.so,
