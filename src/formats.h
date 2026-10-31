@@ -37,6 +37,8 @@ typedef struct FORMAT_T {
     int fallback;                   /* the format of a uri no prefix claims; one format only */
     int routed;                     /* no uri reaches it by its prefix: another row's `route` hands uris to it */
     const char *worker_prefix;      /* put before the uri the worker is given, NULL for nothing */
+    /* the word of the worker's add that names the uri; NULL for the uri as it is */
+    void (*worker_word)(const char *uri, char *out, size_t size);
     /* the row a uri of this format is run by, as a name of the table, or NULL for this one; malloc'd nothing */
     const char *(*route)(const conf_t *conf, const char *uri);
     /* the worker runs the plugin through an adapter that may refuse it: its instantiation error is OMX_REPLY_PLUGIN_HOSTD_LV2_ADAPTER_REFUSED_RESP */
@@ -67,6 +69,10 @@ typedef struct FORMAT_T {
     char *(*remote_pages)(int id);
     char *(*remote_page_get)(int id, int page);
 } format_t;
+
+/* clap:<path>#<id> with its path decoded, one string that is not a word of a line; 0, or -1 when the uri is not one or its
+ * path is not percent-encoded */
+int clap_plain_target(const char *uri, char *out, size_t size);
 
 /* The two built-in rows are in the table from the start. A row added later is copied; its index is returned, or -1 with
  * the missing or wrong field named on stderr: a row without a capability is refused, never half-registered. */
