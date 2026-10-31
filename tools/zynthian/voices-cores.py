@@ -274,9 +274,11 @@ def channel(k):
     return c + 1 if c >= 9 else c
 
 
-def probe_script(path, keys, hold_ms):
-    steps = ["wait 300"] + ["midi %x %x 64" % (0x90 | channel(k), key(k)) for k in keys]
-    steps += ["wait 1500", "mark held", "wait %d" % hold_ms, "end"]
+def probe_script(path, keys, hold_ms, attack=False):
+    """with attack the window opens before the notes, so a drum hit or another short note is inside it"""
+    steps = ["wait 300"] + (["mark held"] if attack else [])
+    steps += ["midi %x %x 64" % (0x90 | channel(k), key(k)) for k in keys]
+    steps += ["wait %d" % hold_ms, "end"] if attack else ["wait 1500", "mark held", "wait %d" % hold_ms, "end"]
     steps += ["midi %x %x 0" % (0x80 | channel(k), key(k)) for k in keys] + ["wait 500"]
     with open(path, "w") as f:
         f.write("\n".join(steps) + "\n")
@@ -327,7 +329,7 @@ def one_row(a, srv, inst, notes, rep, out, port):
             audio, midi = got[c["audio"]]
             name = "vc_probe_%d" % i
             script = os.path.join(out, "scenario-%d.txt" % i)
-            probe_script(script, [] if a.shell_notes else hands[i], hold_ms)
+            probe_script(script, [] if a.shell_notes else hands[i], hold_ms, a.attack)
             p = subprocess.Popen([PROBE, script, name], env=srv.env, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
             if p.stdout.readline().strip() != "ready":
                 raise RuntimeError("the probe did not start")
@@ -444,6 +446,7 @@ def main():
     ap.add_argument("--cmd", default="")
     ap.add_argument("--client", default="")
     ap.add_argument("--midi-client", default="")
+    ap.add_argument("--attack", action="store_true", help="read the level from before the notes, for short notes and drums")
     ap.add_argument("--shell-notes", action="store_true", help="send the notes as 'noteon' lines to a --cmd's stdin")
     ap.add_argument("--voice-query", default="", help="a line for a --cmd's stdin that prints '<line>: <voices>' in its log")
     ap.add_argument("--burst", type=int, default=5)
