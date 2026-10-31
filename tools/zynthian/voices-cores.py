@@ -38,6 +38,7 @@ HZ = os.sysconf("SC_CLK_TCK")
 COLUMNS = ["name", "host", "rate", "frames", "instances", "notes_each", "notes_total", "repeat", "status", "xruns",
            "dsp_avg", "dsp_max", "peak_db", "rms_db", "hz", "core0", "core1", "core2", "core3", "cores_over_20", "busy_threads",
            "busiest_pct", "threads_pct", "gain", "ctx_vol_s", "ctx_invol_s", "ctx_jackd_s", "pss_mb", "processes", "add_s",
+           "voices",
            "threads", "note"]
 
 
@@ -256,16 +257,27 @@ def wait_ports(srv, clients, end_s=90):
 def deal(notes, instances, total):
     """the keys of each instance; with total, the one chord dealt round-robin"""
     if not total:
-        return [[36 + i for i in range(notes)] for _ in range(instances)]
+        return [list(range(notes)) for _ in range(instances)]
     hands = [[] for _ in range(instances)]
     for i in range(notes):
-        hands[i % instances].append(36 + i)
+        hands[i % instances].append(i)
     return hands
 
 
+def key(k):
+    """the k-th note: 80 keys from 36, on one channel after another past those"""
+    return 36 + k % 80
+
+
+def channel(k):
+    c = k // 80 % 15
+    return c + 1 if c >= 9 else c
+
+
 def probe_script(path, keys, hold_ms):
-    steps = ["wait 300"] + ["midi 90 %x 64" % k for k in keys] + ["wait 1500", "mark held", "wait %d" % hold_ms, "end"]
-    steps += ["midi 80 %x 0" % k for k in keys] + ["wait 500"]
+    steps = ["wait 300"] + ["midi %x %x 64" % (0x90 | channel(k), key(k)) for k in keys]
+    steps += ["wait 1500", "mark held", "wait %d" % hold_ms, "end"]
+    steps += ["midi %x %x 0" % (0x80 | channel(k), key(k)) for k in keys] + ["wait 500"]
     with open(path, "w") as f:
         f.write("\n".join(steps) + "\n")
 
@@ -315,7 +327,7 @@ def one_row(a, srv, inst, notes, rep, out, port):
             audio, midi = got[c["audio"]]
             name = "vc_probe_%d" % i
             script = os.path.join(out, "scenario-%d.txt" % i)
-            probe_script(script, hands[i], hold_ms)
+            probe_script(script, [] if a.shell_notes else hands[i], hold_ms)
             p = subprocess.Popen([PROBE, script, name], env=srv.env, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
             if p.stdout.readline().strip() != "ready":
                 raise RuntimeError("the probe did not start")
@@ -326,6 +338,10 @@ def one_row(a, srv, inst, notes, rep, out, port):
         for p in probes:
             p.stdin.write("go\n")
             p.stdin.flush()
+        if a.shell_notes:
+            # a --cmd with a shell of its own takes the notes directly: FluidSynth's JACK MIDI did not take a chord this size
+            host.procs[0].stdin.write("".join("noteon %d %d 100\n" % (channel(k), key(k)) for k in hands[0]))
+            host.procs[0].stdin.flush()
         # the notes sound after the probes' first waits; the figures are read inside the probes' window
         time.sleep(2.2)
         pids = host.pids()
@@ -333,8 +349,16 @@ def one_row(a, srv, inst, notes, rep, out, port):
         c0, th0, x0, j0, t0 = core_times(), thread_ticks(pids), ctx(pids), ctx(jackd), time.monotonic()
         cpu_load = subprocess.Popen(["jack_cpu_load"], env=srv.env, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
         time.sleep(max(1.0, a.hold - 1.0))
+        if a.voice_query:
+            host.procs[0].stdin.write(a.voice_query + "\n")
+            host.procs[0].stdin.flush()
         c1, th1, x1, j1, t1 = core_times(), thread_ticks(pids), ctx(pids), ctx(jackd), time.monotonic()
         row["pss_mb"], row["processes"] = pss_mb(pids), len(pids)
+        if a.voice_query:
+            time.sleep(0.2)
+            with open(os.path.join(out, "host.log"), errors="replace") as f:
+                said = [line for line in f if line.lstrip("> ").startswith(a.voice_query + ":")]
+            row["voices"] = said[-1].rsplit(":", 1)[1].strip() if said else ""
         cpu_load.terminate()
         loads = []
         for line in cpu_load.communicate(timeout=5)[0].splitlines():
@@ -420,6 +444,8 @@ def main():
     ap.add_argument("--cmd", default="")
     ap.add_argument("--client", default="")
     ap.add_argument("--midi-client", default="")
+    ap.add_argument("--shell-notes", action="store_true", help="send the notes as 'noteon' lines to a --cmd's stdin")
+    ap.add_argument("--voice-query", default="", help="a line for a --cmd's stdin that prints '<line>: <voices>' in its log")
     ap.add_argument("--burst", type=int, default=5)
     ap.add_argument("--dsp-limit", type=float, default=95)
     ap.add_argument("--mem-floor", type=int, default=700)
@@ -450,8 +476,10 @@ def main():
                 if int(row["xruns"] or 0) > a.burst or float(row["dsp_avg"] or 0) > a.dsp_limit or mem_available_mb() < a.mem_floor:
                     stop = "limit"
             if stop:
-                log("%s %s: the climb stops at %d instances (%s)" % (a.name, a.host, inst, stop))
+                log("%s %s: the climb stops at %d instances, %d notes (%s)" % (a.name, a.host, inst, notes, stop))
                 break
+        if stop and "," not in a.instances:
+            break
     return 0
 
 
