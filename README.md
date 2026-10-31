@@ -6,7 +6,7 @@ puts back any worker that dies. A plugin that crashes takes down its own worker 
 else. It is for anyone who runs plugins live on Linux, on a mixing console, a stage rig or a
 Raspberry Pi, and cannot let one bad plugin stop the show.
 
-- A crash stays small: the plugin's worker is respawned with its settings put back.
+- A crash stays small: only the plugin's worker is lost, and it is respawned and re-wired.
 - Nothing to change in your controller: it speaks mod-host's socket protocol, same ports, same replies.
 - LV2 through omx-clap-host's adapter, with mod-host for the plugins the adapter refuses, and CLAP through omx-clap-host, side by side.
 - Audio never passes through the daemon; every worker is a JACK client, as in mod-host.
