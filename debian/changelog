@@ -1,3 +1,12 @@
+plugin-hostd (0.15.6) unstable; urgency=medium
+
+  * formats/clap.json asks for contract schema 3.2.0, and the rendered headers
+    follow omx-contract 3.5 (#350). 0.15.5 could not build its x86_64 RPM
+    against omx-contract 3.5, so its RPMs were not published; this release
+    carries what 0.15.5 says for them.
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Sat, 31 Oct 2026 14:31:19 +0100
+
 plugin-hostd (0.15.5) unstable; urgency=medium
 
   * libmod-host-protocol0 0.1.0-8~omx or newer is required. The workers this
