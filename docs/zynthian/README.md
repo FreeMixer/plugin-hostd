@@ -67,10 +67,11 @@ zynthian/zynthian-ui `vangelis`. It provides:
   in its menu;
 - the plugin menus ordered and tagged from the per-plugin qualification records, CLAP entries keyed by pin URI
   (`zyngine/zynthian_plugin_qualification.py`, `zyngine/zynthian_plugin_tiers.py`);
-- chains synced through the daemon's planner (`plan`, `plan_get`, `plan_clear`) when its `grouping` setting is on, which
-  is not the default: otherwise the chain is declared whole with the `chain` verb. A Grouping entry in the processor
-  options tells why a plugin runs alone (`zyngine/zynthian_plugin_hostd_grouping.py`). How many JACK clients a grouped
-  chain makes is an open question on current versions ([status](status.md#still-open));
+- a chain's runs of single-plugin slots handed to the daemon to share a worker, read through its planner (`plan`,
+  `plan_get`, `plan_clear`): [zynthian-ui#53](https://github.com/FreeMixer/zynthian-ui/pull/53) reads the plan as plugin-hostd 0.14 and later give it. A Grouping entry
+  in the processor options tells why a plugin runs alone (`zyngine/zynthian_plugin_hostd_grouping.py`). The grouped
+  figures in these pages measure the daemon directly; a run through Zynthian's own engine is next
+  ([status](status.md#still-open));
 - CLAP parameters addressed by their number;
 - the protocol read from the daemon's installed files, a missing file or name one clear refusal
   (`zyngine/zynthian_plugin_hostd_protocol.py`);
