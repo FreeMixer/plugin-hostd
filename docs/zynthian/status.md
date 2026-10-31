@@ -110,6 +110,10 @@ Still open
 - **zynthian-ui#42 and #44 on the device.** The fork on the Pi does not have them; the unmodified fork reproduces both
   (an empty chain per refused add, `AttributeError ... 'setup'` on `CHAIN_OPTIONS`). What closes it: the fork switched to
   the pull request branches and the two behaviours tried ([digital proofs](digital-proofs.md)).
+- **Mixbus chains and parallel slots on the device.** A chain now groups only plugins in series, and leaves a parallel
+  slot, the mixer strip and a jalv plugin in the signal's way: measured at JACK ports in a container, not yet on the Pi.
+  This is also the change that makes the engine group chains on plugin-hostd 0.14 and later. What closes it: the steps of
+  [mixbus chains](mixbus.md#steps-for-the-pi), then the Mixbus row of the benchmark.
 - **Pin refresh on a plugin upgrade, on the device.** Proven in CI; what closes it: a plugin upgraded on the Pi and
   added again without restarting the daemon.
 - **The captures are from before the new set.** What closes it: every capture retaken after the re-qualification

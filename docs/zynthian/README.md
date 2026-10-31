@@ -34,7 +34,7 @@ syncs; those can be disabled, and the first sync on a device with many plugins i
 What this directory holds: the spike that put plugin-hostd under Zynthian ([spike-report.md](spike-report.md)), the
 plan built on it ([offer.md](offer.md)), mod-ui's verbs on mod-host and on plugin-hostd ([verbs.tsv](verbs.tsv)), one
 Zynthian chain written as a strip profile ([chain-profile.md](chain-profile.md)), what the jalv and mod-ui engines
-give a chain ([engine-gaps.md](engine-gaps.md)), instruments through the engine with Surge XT on the Pi 5
+give a chain ([engine-gaps.md](engine-gaps.md)), Mixbus chains, effects sends and parallel slots ([mixbus.md](mixbus.md)), instruments through the engine with Surge XT on the Pi 5
 ([instruments.md](instruments.md)), the order the work is offered upstream in, step by step
 ([upstream-series.md](upstream-series.md)), the Pi 5 stress run of grouped, alone and jalv hosting
 ([stress.md](stress.md)), the screens of the menus and MOD GUIs on the Pi 5 ([captures.md](captures.md)), and the raw
