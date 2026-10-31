@@ -606,7 +606,7 @@ SABOTAGE = [
      '"enum": ["probe.exploded", "probe.ok", "probe.crashed"', "success-msi validates", "probeschema"),
     ("the probe schema takes another major", "protocol/probe-output.schema.json", '"pattern": "^1\\\\.[0-9]+$"', '"pattern": "^[0-9]+\\\\.[0-9]+$"',
      "success-msi validates", "probeschema"),
-    ("the probe schema takes a percentile of 50", "protocol/probe-output.schema.json", '"exclusiveMinimum": 50', '"exclusiveMinimum": 0',
+    ("the probe schema takes a percentile of 50", "protocol/probe-output.schema.json", '\n                  "exclusiveMinimum": 50', '\n                  "exclusiveMinimum": 0',
      "success-msi validates", "probeschema"),
     ("the record's class is the grant's, not the kernel's", "src/probe.c",
      "    return g_rt.observed && g_rt.policy == SCHED_FIFO && g_rt.priority >= 1;",
