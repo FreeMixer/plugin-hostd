@@ -9,7 +9,8 @@ One worker per chain against one process per plugin
 
 plugin-hostd runs a Zynthian chain in one worker process (grouped) or each plugin in a worker of its own (individual);
 jalv runs one process per plugin; mod-host runs every plugin in one process. Figures: [Grouped versus
-alone](benchmarks.md#grouped-versus-alone-plugin-hostd-jalv-mod-host), Pi 5, 48000 Hz, 256 frames.
+alone](benchmarks.md#grouped-versus-alone-plugin-hostd-jalv-mod-host), Pi 5, 48000 Hz, 256 frames, run `rpi5-20261027-1`
+on plugin-hostd 0.12.0. A matrix on current versions is being taken ([status](status.md)).
 
 | | grouped (plugin-hostd chain) | jalv (one process per plugin) | mod-host (one process) |
 |---|---|---|---|
@@ -26,7 +27,8 @@ Pros:
   138.1 MB against 1834.9 MB under jalv. On a 4 GB Pi this is the difference that grows with the chain.
 - CPU. Grouped uses less CPU than jalv at 8 and 16 plugins (5.39 against 5.57, 10.16 against 11.39 % of a core) and less
   than plugin-hostd's own individual mode at every N (1.50/5.39/10.16 against 1.86/6.89/14.75).
-- Fewer context switches: 2801 against 38985 in 10 s for 16 plugins at 48000 Hz (grouped-vs-processes.md).
+- Fewer context switches: 2801 grouped against 38985 with one worker per plugin, in 10 s for 16 plugins at 48000 Hz, with
+  the chain as one JACK client (grouped-vs-processes.md, plugin-hostd 0.12.0).
 - Crash containment by the daemon: a lost worker is restarted and re-wired in about 340 ms, which jalv and mod-host do not
   do (`kill1`). Inside a chain a member that aborts leaves the others playing (round-trip.txt,
   `a_crashed_member_leaves_the_three_playing`).
@@ -46,7 +48,7 @@ Cons:
 - mod-host is still the cheapest in CPU at every N (9.54 % for 16) and close in PSS (76.4 MB): plugin-hostd's gain is
   over jalv, Zynthian's default engine for LV2, not over mod-host.
 - Latency: the bench records only the latency the clients declare (none for these plugins). A measured round-trip
-  latency per host is not measured yet (no sound card on the device).
+  latency per host is not measured yet (it needs a loopback cable).
 
 CLAP hosting
 ------------
@@ -152,12 +154,11 @@ Upstream: zynthian/zynthian-sys#228 (install_mod-ui.sh on Python 3.13), open.
 What is not done
 ----------------
 
-- Audio proof on a device with a sound card. The fork's engine ran a chain with omx-eq8 through plugin-hostd on the
-  Pi; the Pi has no sound card, so no audio was heard. The sample-by-sample round trip ran in x86_64
-  containers only.
+- Audio proof at the analog outputs. Plugins are measured digitally at JACK ports on the Pi ([digital
+  proofs](digital-proofs.md)); nobody has listened. The sample-by-sample round trip ran in x86_64 containers only.
 - The cost grid at the hosts' quantums (128, 256, 1024 frames) and LV2 at 44.1, 48 and 96 kHz: plugin-qualify#193.
-- A cost estimate a chain editor can ask for before an insert (latency, CPU, RAM; recommend, warn or refuse):
-  FreeMixer/zynthian-ui#13, open; plugin-hostd has no `estimate` verb yet.
+- A cost estimate at Zynthian's quantum: the `estimate` verb and the fork's menu exist (FreeMixer/zynthian-ui#13), but
+  the records' cost comes from 512-frame blocks only (plugin-qualify#193).
 - The fork's engine still gives each processor of a CLAP chain the JACK name `effect_<instance>`, although the chain is
   one JACK client whose head carries the chain's ports. Open.
 - The MOD-UI engine on plugin-hostd was not measured on the device: until the fork's update script was applied it ran

@@ -22,9 +22,12 @@
  * command name holds spaces and parentheses, an smaps_rollup with its Pss_ lines, and then the two files of this very
  * process, whose CPU time is spent here and counted by the CPU it used, not by the clock. */
 
+#include <limits.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/resource.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "proc.h"
@@ -40,6 +43,50 @@ static void check(int ok, const char *what)
     }
 }
 
+static void write_manifest(const char *dir, const char *bundle, const char *text)
+{
+    char path[PATH_MAX];
+    FILE *f;
+
+    snprintf(path, sizeof(path), "%s/%s", dir, bundle);
+    mkdir(path, 0755);
+    snprintf(path, sizeof(path), "%s/%s/manifest.ttl", dir, bundle);
+    f = fopen(path, "w");
+    fputs(text, f);
+    fclose(f);
+}
+
+/* omx-modgui-sync writes a bundle that names the plugin and holds only its GUI; it may come first on the path */
+static void test_bundle_lookup(void)
+{
+    static const char *const uri = "http://example.org/fil#stereo";
+    static const char *const gui = "<http://example.org/fil#stereo>\n    modgui:gui [ ] .\n";
+    static const char *const real =
+        "@prefix fil: <http://example.org/fil#> .\nfil:stereo a lv2:Plugin ; lv2:binary <fil.so> .\n";
+    char root[] = "/tmp/proc_test.XXXXXX", first[PATH_MAX], second[PATH_MAX], path[PATH_MAX * 2 + 1], *found;
+
+    check(mkdtemp(root) != NULL, "a scratch directory");
+    snprintf(first, sizeof(first), "%s/a", root);
+    snprintf(second, sizeof(second), "%s/b", root);
+    mkdir(first, 0755);
+    mkdir(second, 0755);
+    write_manifest(first, "omx-modgui-fil.lv2", gui);
+    snprintf(path, sizeof(path), "%s:%s", first, second);
+    found = proc_find_lv2_bundle(path, uri);
+    check(found && strstr(found, "omx-modgui-fil.lv2"), "with no other bundle, the one that names the plugin");
+    free(found);
+    write_manifest(second, "fil.lv2", real);
+    found = proc_find_lv2_bundle(path, uri);
+    check(found && strstr(found, "/fil.lv2"), "the bundle with the binary, not the GUI bundle earlier on the path");
+    free(found);
+    write_manifest(first, "aaa-gui.lv2", gui);
+    write_manifest(first, "zzz-gui.lv2", gui);
+    found = proc_find_lv2_bundle(path, uri);
+    check(found && strstr(found, "/fil.lv2"), "the binary's bundle whichever order the directory lists them");
+    free(found);
+    check(proc_find_lv2_bundle(path, "http://example.org/other") == NULL, "a plugin no manifest names has no bundle");
+}
+
 int main(void)
 {
     long long u = -1, s = -1, kb = -1;
@@ -47,6 +94,7 @@ int main(void)
     volatile unsigned long spin = 0;
     unsigned long spun;
 
+    test_bundle_lookup();
     check(proc_parse_stat("1234 (plain) S 1 1234 1234 0 -1 4194560 100 0 0 0 7 3 0 0 20 0 1 0 100 1000000 50\n", &u, &s) == 0 &&
           u == 7 && s == 3, "utime 7 and stime 3 of a plain stat line");
     u = s = -1;
