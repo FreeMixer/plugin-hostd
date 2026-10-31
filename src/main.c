@@ -18,6 +18,7 @@
  * Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
  */
 
+#include <arpa/inet.h>
 #include <getopt.h>
 #include <limits.h>
 #include <signal.h>
@@ -30,6 +31,7 @@
 #include <socket.h>
 
 #include "conf.h"
+#include "listen.h"
 #include "descriptors.h"
 #include "formats.h"
 #include "history.h"
@@ -87,44 +89,39 @@ static void receive(msg_t *msg)
     verbs_receive(msg);
 }
 
-/* Whether a socket of this host listens on `port` (/proc/net/tcp and tcp6, state 0A): what the ready line stands for */
-static int port_listens(int port)
+/* Whether a socket of this host listens on `port` at `address` (/proc/net/tcp, state 0A): what the ready line stands for */
+static int port_listens(int port, const struct in_addr *address)
 {
-    static const char *const tables[] = {"/proc/net/tcp", "/proc/net/tcp6"};
     char line[512];
-    size_t t;
+    FILE *f = fopen("/proc/net/tcp", "r");
+    int found = 0;
 
-    for (t = 0; t < sizeof(tables) / sizeof(tables[0]); t++)
+    if (!f)
+        return 0;
+    while (!found && fgets(line, sizeof(line), f))
     {
-        FILE *f = fopen(tables[t], "r");
+        unsigned local_address, local_port, state;
 
-        if (!f)
-            continue;
-        while (fgets(line, sizeof(line), f))
-        {
-            unsigned local_port, state;
-
-            if (sscanf(line, " %*d: %*[0-9A-Fa-f]:%x %*[0-9A-Fa-f]:%*x %x", &local_port, &state) == 2 &&
-                state == 0x0A && (int)local_port == port)
-            {
-                fclose(f);
-                return 1;
-            }
-        }
-        fclose(f);
+        /* the table prints the address as the 32-bit value it holds, in network order */
+        found = sscanf(line, " %*d: %x:%x %*[0-9A-Fa-f]:%*x %x", &local_address, &local_port, &state) == 3 &&
+                state == 0x0A && (int)local_port == port && local_address == address->s_addr;
     }
-    return 0;
+    fclose(f);
+    return found;
 }
 
-/* The ready line promises ports that accept: it goes out only once the command port, and the feedback port when there
- * is one, listen. A port that does not listen within two seconds is a daemon that did not start. */
-static int ports_listen(int command_port, int feedback_port)
+/* The ready line promises ports that accept, at the address asked for: it goes out only once the command port, and the
+ * feedback port when there is one, listen there. A port that does not within two seconds is a daemon that did not start. */
+static int ports_listen(int command_port, int feedback_port, const char *address)
 {
+    struct in_addr at;
     int waited_ms;
 
+    if (inet_pton(AF_INET, address, &at) != 1)
+        return 0;
     for (waited_ms = 0; waited_ms <= 2000; waited_ms += 5)
     {
-        if (port_listens(command_port) && (!feedback_port || port_listens(feedback_port)))
+        if (port_listens(command_port, &at) && (!feedback_port || port_listens(feedback_port, &at)))
             return 1;
         usleep(5000);
     }
@@ -172,6 +169,7 @@ int main(int argc, char **argv)
     static const struct option long_options[] = {
         {"socket-port", required_argument, 0, 'p'},
         {"feedback-port", required_argument, 0, 'f'},
+        {"bind-address", required_argument, 0, 'b'},
         {"config", required_argument, 0, 'c'},
         {"placement", required_argument, 0, OPT_PLACEMENT},
         {"pin-files", required_argument, 0, OPT_PIN_FILES},
@@ -181,12 +179,12 @@ int main(int argc, char **argv)
         {0, 0, 0, 0}
     };
     int opt, opt_index = 0, socket_port = SOCKET_DEFAULT_PORT, feedback_port = 0, nofork = 0;
-    const char *config = getenv("PLUGIN_HOSTD_CONF"), *placement = NULL, *pin_files = NULL;
+    const char *config = getenv("PLUGIN_HOSTD_CONF"), *placement = NULL, *pin_files = NULL, *bind_address = NULL;
     char default_config[4096];
     struct sigaction sig;
 
     conf_defaults(&g_conf);
-    while ((opt = getopt_long(argc, argv, "np:f:c:Vh", long_options, &opt_index)) != -1)
+    while ((opt = getopt_long(argc, argv, "np:f:b:c:Vh", long_options, &opt_index)) != -1)
     {
         switch (opt)
         {
@@ -198,6 +196,9 @@ int main(int argc, char **argv)
                 break;
             case 'f':
                 feedback_port = atoi(optarg);
+                break;
+            case 'b':
+                bind_address = optarg;
                 break;
             case 'c':
                 config = optarg;
@@ -213,9 +214,11 @@ int main(int argc, char **argv)
                 return EXIT_SUCCESS;
             case 'h':
             default:
-                printf("Usage: %s [-n] [-p <port>] [-f <port>] [-c <file>] [--placement=spread|none]\n"
+                printf("Usage: %s [-n] [-p <port>] [-f <port>] [-b <address>] [-c <file>] [--placement=spread|none]\n"
                        "  -p, --socket-port=<port>       command port (default %d)\n"
                        "  -f, --feedback-port=<port>     feedback port (default port+1 unless -n)\n"
+                       "  -b, --bind-address=<address>   IPv4 address both ports listen on (default " PHD_DEFAULT_BIND_ADDRESS ",\n"
+                       "                                 this machine alone; 0.0.0.0 is every address); over the file\n"
                        "  -c, --config=<file>            settings, one \"key value\" per line\n"
                        "      --placement=spread|none    pin the workers across the audio cores, or nothing; over the file\n"
                        "      --pin-files=<uri>          print the files a pin of the plugin holds, as an add checks them, and exit\n"
@@ -252,6 +255,11 @@ int main(int argc, char **argv)
         fprintf(stderr, "--placement '%s' is too long\n", placement);
         return EXIT_FAILURE;
     }
+    if (bind_address && snprintf(g_conf.bind_address, sizeof(g_conf.bind_address), "%s", bind_address) >= (int)sizeof(g_conf.bind_address))
+    {
+        fprintf(stderr, "--bind-address '%s' is too long\n", bind_address);
+        return EXIT_FAILURE;
+    }
     if (conf_merge_extra(&g_conf) != 0 || conf_check(&g_conf) != 0)
         return EXIT_FAILURE;
     if (pin_files)
@@ -269,15 +277,17 @@ int main(int argc, char **argv)
     if (sup_placement_init() != 0)
         return EXIT_FAILURE;
     /* the feedback port is the relay's: the daemon's events and the workers' lines go out on it through one writer */
-    if (socket_start(socket_port, 0, SOCKET_MSG_BUFFER_SIZE) < 0 || relay_start(feedback_port) < 0)
+    if (listen_set_command_port(socket_port, g_conf.bind_address) != 0 ||
+        socket_start(socket_port, 0, SOCKET_MSG_BUFFER_SIZE) < 0 || relay_start(feedback_port, g_conf.bind_address) < 0)
         return EXIT_FAILURE;
     socket_set_receive_cb(receive);
     socket_set_idle_cb(idle_cb);
     socket_set_idle_interval(g_conf.idle_ms);
 
-    if (!ports_listen(socket_port, feedback_port))
+    if (!ports_listen(socket_port, feedback_port, g_conf.bind_address))
     {
-        fprintf(stderr, "the command port %d (feedback port %d) does not listen\n", socket_port, feedback_port);
+        fprintf(stderr, "the command port %d (feedback port %d) does not listen on %s\n", socket_port, feedback_port,
+                g_conf.bind_address);
         return EXIT_FAILURE;
     }
 

@@ -330,7 +330,7 @@ static void *relay_thread(void *arg)
     return NULL;
 }
 
-int relay_start(int port)
+int relay_start(int port, const char *address)
 {
     if (pipe2(g_wake, O_NONBLOCK | O_CLOEXEC) != 0)
         return -1;
@@ -345,7 +345,11 @@ int relay_start(int port)
         setsockopt(g_listen, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
         memset(&addr, 0, sizeof(addr));
         addr.sin_family = AF_INET;
-        addr.sin_addr.s_addr = htonl(INADDR_ANY);
+        if (inet_pton(AF_INET, address, &addr.sin_addr) != 1)
+        {
+            fprintf(stderr, "feedback port: '%s' is not an IPv4 address\n", address);
+            return -1;
+        }
         addr.sin_port = htons(port);
         if (bind(g_listen, (struct sockaddr *)&addr, sizeof(addr)) < 0 || listen(g_listen, 4) < 0)
         {

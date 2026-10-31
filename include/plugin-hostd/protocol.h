@@ -1064,6 +1064,7 @@ static inline int phd_is_note_verb(const char *verb)
 #define PHD_DEFAULT_POOL_MAX          8
 #define PHD_DEFAULT_GROUPING          PHD_GROUPING_OFF
 #define PHD_DEFAULT_PLACEMENT         PHD_CORE_PLACEMENT_SPREAD
+#define PHD_DEFAULT_BIND_ADDRESS      "127.0.0.1"
 /* starting values of the planner's limits; the benchmark sets the ones a release ships (the design note, The benchmark) */
 #define PHD_DEFAULT_RAM_BUDGET_MB     0
 #define PHD_DEFAULT_GROUP_MAX         8
@@ -1141,6 +1142,9 @@ static inline int phd_is_note_verb(const char *verb)
     X(grouping, word, PHD_DEFAULT_GROUPING, "", "off or on: whether plan applies its plan (a run of consecutive members " \
       "that may share a worker is declared as a chain), or only answers it; the default stays off until the benchmark " \
       "has published a win") \
+    X(bind_address, word, PHD_DEFAULT_BIND_ADDRESS, "", "the IPv4 address the command and feedback ports listen on: this " \
+      "machine alone by default; 0.0.0.0 is every address of the machine, and a controller is not authenticated, so widen " \
+      "it only on a network whose hosts are trusted; --bind-address overrides it") \
     X(placement, word, PHD_DEFAULT_PLACEMENT, "", "spread or none (docs/placement.md): spread pins each new worker to the " \
       "audio core with the least load, the sum of the qualification costs of the workers already on it, or their number " \
       "while one of them has a member of unknown cost, the lowest core of a tie, and keeps the daemon, its threads and " \

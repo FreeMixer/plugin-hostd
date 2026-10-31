@@ -64,7 +64,7 @@ INCS = -Iinclude $(PROTOCOL_CFLAGS)
 LDFLAGS += -Wl,--no-undefined
 
 # source and object files
-SRC = src/main.c src/conf.c src/proc.c src/supervisor.c src/verbs.c src/pins.c src/pin_words.c src/relay.c src/formats.c src/lv2.c \
+SRC = src/main.c src/listen.c src/conf.c src/proc.c src/supervisor.c src/verbs.c src/pins.c src/pin_words.c src/relay.c src/formats.c src/lv2.c \
       src/descriptors.c src/describe.c src/transforms.c src/json.c src/fsutil.c src/machine.c src/history.c src/planner.c src/qualcost.c src/placement.c
 OBJ = $(SRC:.c=.o)
 
@@ -295,7 +295,7 @@ clean:
 
 # the daemon against workers that are not plugin hosts at all (tests/fake-host speaks the same protocol and can be
 # made to die on cue): placement, forwarding, ledger, replay, attribution, the storm bound; no jack, no plugin
-test: test-protocol-lib test-sabotage-pool test-pin test-history test-proc test-conf test-own-host-probe-teardown test-planner test-placement test-transforms test-format-coverage test-describe test-relay test-alloc test-format test-ready-connect test-ready-connect-sabotage test-daemon test-verbs-declared check-rendered check-generated check-protocol-doc check-schema test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-mod-host-json test-socket check-verb-table check-preset-schema test-install-schemas check-contract-floor check-readme-facts test-pin-files
+test: test-protocol-lib test-sabotage-pool test-pin test-history test-proc test-conf test-own-host-probe-teardown test-planner test-placement test-transforms test-format-coverage test-describe test-relay test-alloc test-format test-ready-connect test-ready-connect-sabotage test-bind test-bind-sabotage test-daemon test-verbs-declared check-rendered check-generated check-protocol-doc check-schema test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-mod-host-json test-socket check-verb-table check-preset-schema test-install-schemas check-contract-floor check-readme-facts test-pin-files
 	MOD_HOST_DIR=$(MOD_HOST_DIR) python3 tests/verbs_contract.py
 
 # the protocol clients plugin-hostd-tests ships (tests/lib/), against a peer that frames by NUL, and their sabotage
@@ -316,6 +316,14 @@ test-ready-connect: $(PROG) $(FAKE)
 .PHONY: test-ready-connect test-ready-connect-sabotage
 test-ready-connect-sabotage: $(PROG) $(FAKE)
 	python3 tests/ready_connect_sabotage.py ./$(PROG) $(FAKE) "$(CC)" "$(CFLAGS) $(INCS)" "$(OBJ)" "$(PROTOCOL_LIBS) $(LDFLAGS)"
+
+# who reaches the ports: 127.0.0.1 by default, other addresses only when asked (tests/bind_test.py), and the same test
+# against a daemon built with each guard taken out, which must fail
+.PHONY: test-bind test-bind-sabotage
+test-bind: $(PROG) $(FAKE)
+	PLUGIN_HOSTD=./$(PROG) FAKE_HOST=./$(FAKE) python3 tests/bind_test.py
+test-bind-sabotage: $(PROG) $(FAKE)
+	python3 tests/bind_sabotage.py ./$(PROG) $(FAKE) "$(CC)" "$(CFLAGS) $(INCS)" "$(OBJ)" "$(PROTOCOL_LIBS) $(LDFLAGS)"
 
 # the same without the verb table, which is read from a mod-host checkout's README
 test-daemon: $(PROG) $(FAKE)
