@@ -1,3 +1,14 @@
+plugin-hostd (0.15.7) unstable; urgency=medium
+
+  * chain answers the worker's refusal. A worker that will not run the members
+    as one (a member whose width differs from the head's, mono after stereo)
+    made chain answer resp 0 and list every member as running, while each kept
+    a client of its own. chain now answers -501, the refused chain ends as
+    chain_clear ends it with each member in a worker of its own, and the
+    chain_refused event carries the worker's code (#342, #343).
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Sat, 31 Oct 2026 16:51:39 +0100
+
 plugin-hostd (0.15.6) unstable; urgency=medium
 
   * formats/clap.json asks for contract schema 3.2.0, and the rendered headers
