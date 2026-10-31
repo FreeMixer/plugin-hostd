@@ -179,7 +179,7 @@ int main(void)
 
     /* no memory from the start: the relay's thread gets none for its poll set either, and must wait for some */
     g_fail_after = 0;
-    if (relay_start(0) != 0)
+    if (relay_start(0, NULL) != 0)
     {
         printf("FAIL relay: relay_start\n");
         return 1;

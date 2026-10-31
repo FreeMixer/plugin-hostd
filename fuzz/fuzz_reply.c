@@ -363,7 +363,7 @@ static int next_line(size_t *at, const char **line, size_t *len)
         return 0;
     nul = memchr(g_out + *at, '\0', g_nout - *at);
     /* the shape property: the stream ends on a whole line
-     * mutant: src/relay.c:429 `strlen(line) + 1` -> `strlen(line)`
+     * mutant: src/relay.c:433 `strlen(line) + 1` -> `strlen(line)`
      * input: event */
     if (nul == NULL)
         abort();
@@ -436,9 +436,9 @@ __attribute__((noinline)) static void check_no_loss(struct source *s, size_t *at
 __attribute__((noinline)) static void check_no_loss_read(const struct source *s)
 {
     /* recv handed over every byte the worker wrote to it before the relay went on
-     * mutant: src/relay.c:506 `drain(&g_src[i]);` -> `;`
+     * mutant: src/relay.c:510 `drain(&g_src[i]);` -> `;`
      * input: written-then-removed
-     * mutant: src/relay.c:489 `drain(&g_src[i]);` -> `;`
+     * mutant: src/relay.c:493 `drain(&g_src[i]);` -> `;`
      * input: written-then-instance-gone */
     if (s->pending.n > 0)
         abort();
@@ -496,7 +496,7 @@ __attribute__((noinline)) static void check_shape_ends(struct source *s, const c
 __attribute__((noinline)) static void check_shape_done(size_t at)
 {
     /* no line the reference does not account for
-     * mutant: src/relay.c:429 `send_line(line, strlen(line) + 1);` -> `send_line(line, strlen(line) + 1); send_line(line, strlen(line) + 1);`
+     * mutant: src/relay.c:433 `send_line(line, strlen(line) + 1);` -> `send_line(line, strlen(line) + 1); send_line(line, strlen(line) + 1);`
      * input: event */
     if (at != g_nout)
         abort();
@@ -514,12 +514,12 @@ __attribute__((noinline)) static void check_shape_event(const char *event)
         return;
     }
     /* an event of the daemon's own is relayed
-     * mutant: src/relay.c:429 `send_line(line, strlen(line) + 1);` -> ``
+     * mutant: src/relay.c:433 `send_line(line, strlen(line) + 1);` -> ``
      * input: event */
     if (!next_line(&at, &line, &len))
         abort();
     /* as the daemon wrote it
-     * mutant: src/relay.c:429 `line, strlen(line) + 1` -> `line + 1, strlen(line)`
+     * mutant: src/relay.c:433 `line, strlen(line) + 1` -> `line + 1, strlen(line)`
      * input: event */
     if (len != strlen(event) || memcmp(line, event, len))
         abort();
@@ -585,7 +585,7 @@ static void op_add(void)
                 abort();
             g_s[i].open = 1;
             /* the relay follows a worker it is handed
-             * mutant: src/relay.c:435 `fd < 0` -> `fd >= 0`
+             * mutant: src/relay.c:439 `fd < 0` -> `fd >= 0`
              * input: lines */
             if (relay_add(g_s[i].fd) != 0)
                 abort();

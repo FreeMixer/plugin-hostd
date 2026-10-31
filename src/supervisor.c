@@ -69,7 +69,8 @@ static conf_t g_conf;
 static worker_t **g_workers;
 static int g_nworkers, g_capworkers, g_next_k = 1;
 static instance_t *g_inst[MAX_INSTANCE];
-static meta_t *g_meta[MAX_INSTANCE];
+/* zero pages until an instance touches its entry, and nothing that can run out */
+static meta_t g_meta[MAX_INSTANCE];
 static char g_root[PATH_MAX], g_ckpt[PATH_MAX];
 static char g_policy[FORMATS_MAX][48];
 static poolcfg_t g_pools[POOL_NAMES];
@@ -96,7 +97,7 @@ typedef struct PLAN_T {
 static plan_t *g_plan[MAX_INSTANCE];
 static int g_nplans;
 
-static void chain_form(chain_t *c);
+static int chain_form(chain_t *c);
 static void plans_replan_for(int id);
 static void plans_regroup(int id, int64_t now, int arm);
 static void plan_again(int id);
@@ -164,6 +165,9 @@ char *sup_resp(int code)
 
 static int resp_code(const char *reply)
 {
+    /* an answer there was no memory for is the refusal the controller is given for it */
+    if (!reply)
+        return ERR_MEMORY_ALLOCATION;
     return strncmp(reply, "resp ", 5) == 0 ? atoi(reply + 5) : -999;
 }
 
@@ -174,9 +178,7 @@ int sup_reply_code(const char *reply)
 
 static meta_t *meta_of(int id)
 {
-    if (!g_meta[id])
-        g_meta[id] = calloc(1, sizeof(meta_t));
-    return g_meta[id];
+    return &g_meta[id];
 }
 
 static int recent(int64_t *deaths, int *n, int64_t now)
@@ -207,29 +209,49 @@ static int valid_place(const char *place)
 
 /* ---------------------------------------------------------------- ledger */
 
-/* *replaced is the line a keyed entry gave up, NULL when the entry is new; the caller owns it */
-static void tail_add(instance_t *i, const char *line, const char *key, int kind, char **replaced)
+/* *replaced is the line a keyed entry gave up, NULL when the entry is new; the caller owns it. -1, the ledger as it was,
+ * when memory runs out */
+static int tail_add(instance_t *i, const char *line, const char *key, int kind, char **replaced)
 {
+    char *copy = strdup(line), *key_copy;
     int n;
 
     *replaced = NULL;
+    if (!copy)
+        return -1;
     if (key)
         for (n = 0; n < i->ntail; n++)
             if (i->tail[n].key && !strcmp(i->tail[n].key, key))
             {
                 *replaced = i->tail[n].line;
-                i->tail[n].line = strdup(line);
-                return;
+                i->tail[n].line = copy;
+                return 0;
             }
+    key_copy = key ? strdup(key) : NULL;
+    if (key && !key_copy)
+    {
+        free(copy);
+        return -1;
+    }
     if (i->ntail == i->captail)
     {
-        i->captail = i->captail ? i->captail * 2 : 16;
-        i->tail = realloc(i->tail, i->captail * sizeof(entry_t));
+        int cap = i->captail ? i->captail * 2 : 16;
+        entry_t *grown = realloc(i->tail, cap * sizeof(entry_t));
+
+        if (!grown)
+        {
+            free(copy);
+            free(key_copy);
+            return -1;
+        }
+        i->tail = grown;
+        i->captail = cap;
     }
-    i->tail[i->ntail].line = strdup(line);
-    i->tail[i->ntail].key = key ? strdup(key) : NULL;
+    i->tail[i->ntail].line = copy;
+    i->tail[i->ntail].key = key_copy;
     i->tail[i->ntail].kind = kind;
     i->ntail++;
+    return 0;
 }
 
 static void tail_drop_state(instance_t *i)
@@ -249,19 +271,33 @@ static void tail_drop_state(instance_t *i)
     i->ntail = kept;
 }
 
-static void conn_add(instance_t *i, const char *line)
+/* 0, or -1 with the list as it was when memory runs out */
+static int conn_add(instance_t *i, const char *line)
 {
+    char *copy;
     int n;
 
     for (n = 0; n < i->nconns; n++)
         if (!strcmp(i->conns[n], line))
-            return;
+            return 0;
+    copy = strdup(line);
+    if (!copy)
+        return -1;
     if (i->nconns == i->capconns)
     {
-        i->capconns = i->capconns ? i->capconns * 2 : 8;
-        i->conns = realloc(i->conns, i->capconns * sizeof(char *));
+        int cap = i->capconns ? i->capconns * 2 : 8;
+        char **grown = realloc(i->conns, cap * sizeof(char *));
+
+        if (!grown)
+        {
+            free(copy);
+            return -1;
+        }
+        i->conns = grown;
+        i->capconns = cap;
     }
-    i->conns[i->nconns++] = strdup(line);
+    i->conns[i->nconns++] = copy;
+    return 0;
 }
 
 static void conn_del(instance_t *i, const char *line)
@@ -379,11 +415,51 @@ static int ckpt_alone(int id, char *dir, size_t size)
 
 /* ---------------------------------------------------------------- workers */
 
-static worker_t *worker_new(int fmt, const char *place)
+/* room for `n` members; 0, or -1 with the worker as it was when memory runs out */
+static int worker_reserve(worker_t *w, int n)
+{
+    instance_t **grown;
+    int cap = w->capinst ? w->capinst : 8;
+
+    if (n <= w->capinst)
+        return 0;
+    while (cap < n)
+        cap *= 2;
+    grown = realloc(w->inst, cap * sizeof(instance_t *));
+    if (!grown)
+        return -1;
+    w->inst = grown;
+    w->capinst = cap;
+    return 0;
+}
+
+/* a worker with room for its first member and a row in the table to take, not yet a worker of the daemon: what a move
+ * asks for before it takes an instance out of the worker it runs in. NULL when memory runs out */
+static worker_t *worker_alloc(int fmt, const char *place)
 {
     worker_t *w = calloc(1, sizeof(worker_t));
 
-    w->k = g_next_k++;
+    if (!w)
+        return NULL;
+    if (worker_reserve(w, 1) != 0)
+    {
+        free(w);
+        return NULL;
+    }
+    if (g_nworkers == g_capworkers)
+    {
+        int cap = g_capworkers ? g_capworkers * 2 : 16;
+        worker_t **grown = realloc(g_workers, cap * sizeof(worker_t *));
+
+        if (!grown)
+        {
+            free(w->inst);
+            free(w);
+            return NULL;
+        }
+        g_workers = grown;
+        g_capworkers = cap;
+    }
     w->fmt = fmt;
     w->fd = -1;
     w->fb_fd = -1;
@@ -391,22 +467,48 @@ static worker_t *worker_new(int fmt, const char *place)
     w->core = -1;
     snprintf(w->place, sizeof(w->place), "%s", place);
     w->pool = strncmp(place, PHD_PLACE_POOL_PREFIX, strlen(PHD_PLACE_POOL_PREFIX)) == 0;
-    if (g_nworkers == g_capworkers)
-    {
-        g_capworkers = g_capworkers ? g_capworkers * 2 : 16;
-        g_workers = realloc(g_workers, g_capworkers * sizeof(worker_t *));
-    }
-    g_workers[g_nworkers++] = w;
     return w;
 }
 
+/* the worker worker_alloc made joins the daemon's; the room for it is there, unless another joined since */
+static int worker_join(worker_t *w)
+{
+    if (g_nworkers == g_capworkers)
+    {
+        int cap = g_capworkers ? g_capworkers * 2 : 16;
+        worker_t **grown = realloc(g_workers, cap * sizeof(worker_t *));
+
+        if (!grown)
+            return -1;
+        g_workers = grown;
+        g_capworkers = cap;
+    }
+    w->k = g_next_k++;
+    g_workers[g_nworkers++] = w;
+    return 0;
+}
+
+static void worker_unused(worker_t *w)
+{
+    free(w->inst);
+    free(w);
+}
+
+static worker_t *worker_new(int fmt, const char *place)
+{
+    worker_t *w = worker_alloc(fmt, place);
+
+    if (w && worker_join(w) != 0)
+    {
+        worker_unused(w);
+        return NULL;
+    }
+    return w;
+}
+
+/* the room is there: worker_new gave a worker room for one, and worker_reserve made it for more */
 static void worker_attach(worker_t *w, instance_t *i)
 {
-    if (w->ninst == w->capinst)
-    {
-        w->capinst = w->capinst ? w->capinst * 2 : 8;
-        w->inst = realloc(w->inst, w->capinst * sizeof(instance_t *));
-    }
     w->inst[w->ninst++] = i;
     i->w = w;
 }
@@ -483,6 +585,8 @@ static const char **chain_uris(const worker_t *w, int *n)
     int k;
 
     *n = 0;
+    if (!uris)
+        return NULL;
     for (k = 0; k < w->ninst; k++)
         if (w->inst[k]->fmt == w->fmt)
             uris[(*n)++] = w->inst[k]->uri;
@@ -528,6 +632,8 @@ static char *narrow_world(worker_t *w, const char *uri)
     if (w->chain && w->ninst)
     {
         uris = chain_uris(w, &n);
+        if (!uris)
+            return NULL;
         world = f->narrow_world(&g_conf, dir, uris, n);
         free(uris);
         return world;
@@ -548,6 +654,8 @@ static int format_words(const char *format, char **tok, int ntok)
     char *copy = strdup(format), *save = NULL, *t;
     int n = 0, ok = 1;
 
+    if (!copy)
+        return 0;
     for (t = strtok_r(copy, " ", &save); t && ok; t = strtok_r(NULL, " ", &save), n++)
     {
         char *end;
@@ -566,6 +674,7 @@ static int format_words(const char *format, char **tok, int ntok)
 void sup_host_setting(const char *line, char **tok, int ntok)
 {
     size_t v;
+    char *copy;
     int n;
 
     for (v = 0; v < HOST_SETTINGS; v++)
@@ -573,6 +682,12 @@ void sup_host_setting(const char *line, char **tok, int ntok)
             break;
     if (v == HOST_SETTINGS || !format_words(g_host_setting_verbs[v], tok, ntok))
         return;
+    copy = strdup(line);
+    if (!copy)
+    {
+        fprintf(stderr, "plugin-hostd: out of memory, a worker started from now on will not be handed: %s\n", line);
+        return;
+    }
     for (n = 0; n < g_nhost_settings; n++)
         if (verb_is(g_host_settings[n], g_host_setting_verbs[v]))
         {
@@ -582,7 +697,9 @@ void sup_host_setting(const char *line, char **tok, int ntok)
             break;
         }
     if (g_nhost_settings < (int)HOST_SETTINGS)
-        g_host_settings[g_nhost_settings++] = strdup(line);
+        g_host_settings[g_nhost_settings++] = copy;
+    else
+        free(copy);
 }
 
 /* a worker that just started is handed the host settings before anything else; its refusal of one is only written */
@@ -817,6 +934,11 @@ static worker_t *move_to_own(instance_t *i, int64_t now, int from_split)
 {
     worker_t *own = worker_new(i->fmt, PHD_PLACE_OWN);
 
+    if (!own)
+    {
+        fprintf(stderr, "plugin-hostd: out of memory, instance %d stays in worker %d\n", i->id, i->w->k);
+        return NULL;
+    }
     worker_detach(i->w, i);
     worker_attach(own, i);
     own->from_split = from_split;
@@ -1137,8 +1259,8 @@ static void on_death(worker_t *w, int in_flight)
                  * running */
                 for (n = 0; n < w->ninst; n++)
                     plans_regroup(w->inst[n]->id, now, 1);
-                while (w->ninst)
-                    move_to_own(w->inst[0], now, 1);
+                while (w->ninst && move_to_own(w->inst[0], now, 1))
+                    ;
             }
         }
     }
@@ -1220,8 +1342,18 @@ static int replay_line(worker_t *w, const char *line)
  * by the tick for a few seconds, and dropped after that (the peer is down, and its own replay makes the connection) */
 static void pend_add(worker_t *w, const char *line)
 {
-    w->pend = realloc(w->pend, (w->npend + 1) * sizeof(char *));
-    w->pend[w->npend++] = strdup(line);
+    char **grown = realloc(w->pend, (w->npend + 1) * sizeof(char *));
+    char *copy = strdup(line);
+
+    if (grown)
+        w->pend = grown;
+    if (!grown || !copy)
+    {
+        fprintf(stderr, "plugin-hostd: out of memory, a refused connect is not asked again: %s\n", line);
+        free(copy);
+        return;
+    }
+    w->pend[w->npend++] = copy;
     w->pend_until_ms = proc_now_ms() + CONNECT_RETRY_MS;
 }
 
@@ -1754,6 +1886,8 @@ static char *add(const char *uri, int id, const char *placement, const char *cli
     if (!strcmp(place, PHD_PLACE_OWN))
     {
         w = worker_new(fmt, PHD_PLACE_OWN);
+        if (!w)
+            return sup_resp(ERR_MEMORY_ALLOCATION);
         is_new = 1;
     }
     else
@@ -1771,9 +1905,14 @@ static char *add(const char *uri, int id, const char *placement, const char *cli
             else
                 snprintf(name, sizeof(name), "%s", place);
             w = worker_new(fmt, name);
+            if (!w)
+                return sup_resp(ERR_MEMORY_ALLOCATION);
             is_new = 1;
         }
     }
+    /* room for it in a pool that holds others, before the worker is asked to take it */
+    if (worker_reserve(w, w->ninst + 1) != 0)
+        return sup_resp(ERR_MEMORY_ALLOCATION);
     if (is_new)
     {
         rc = worker_start(w, fwd);
@@ -1856,18 +1995,32 @@ static char *add(const char *uri, int id, const char *placement, const char *cli
     if (g_conf.require_pins && !layout && format->layout_check)
         learn_layout(w, id, fwd);
     i = calloc(1, sizeof(instance_t));
-    i->id = id;
-    i->fmt = fmt;
-    i->uri = strdup(fwd);
-    i->add_line = strdup(line);
-    if (client)
-        i->client = strdup(client);
-    else
+    if (i)
     {
         char name[32];
 
         snprintf(name, sizeof(name), "effect_%d", id);
-        i->client = strdup(name);
+        i->id = id;
+        i->fmt = fmt;
+        i->uri = strdup(fwd);
+        i->add_line = strdup(line);
+        i->client = strdup(client ? client : name);
+    }
+    if (!i || !i->uri || !i->add_line || !i->client)
+    {
+        /* the worker holds a plugin the daemon has no memory to keep the books of: it is taken out again */
+        char *gone = NULL;
+
+        if (i)
+            instance_free(i);
+        snprintf(line, sizeof(line), EFFECT_REMOVE, id);
+        if (proc_rpc(&g_conf, w->pid, w->fd, line, &gone) != RPC_OK)
+            on_death(w, -1);
+        else if (w->ninst == 0)
+            worker_retire(w);
+        free(gone);
+        free(reply);
+        return sup_resp(ERR_MEMORY_ALLOCATION);
     }
     g_inst[id] = i;
     worker_attach(w, i);
@@ -1935,7 +2088,8 @@ static char *refuse_worker(worker_t *w)
 
 static int64_t g_sus_seq;
 
-static void record(instance_t *i, const char *line, char **tok, int ntok)
+/* 0, or -1 with the ledger as it was when memory runs out */
+static int record(instance_t *i, const char *line, char **tok, int ntok)
 {
     size_t v;
 
@@ -1951,10 +2105,11 @@ static void record(instance_t *i, const char *line, char **tok, int ntok)
                 key = keybuf;
             }
             else if (g_recorded[v].key_arg)
-                return;
+                return 0;
             if (verb_is(tok[0], EFFECT_PRESET_LOAD))
                 tail_drop_state(i);
-            tail_add(i, line, key, g_recorded[v].kind, &prev);
+            if (tail_add(i, line, key, g_recorded[v].kind, &prev) != 0)
+                return -1;
             free(i->sus_line);
             free(i->sus_prev);
             i->sus_line = strdup(line);
@@ -1966,21 +2121,25 @@ static void record(instance_t *i, const char *line, char **tok, int ntok)
                 i->dirty = 1;
                 i->changed_ms = proc_now_ms();
             }
-            return;
+            return 0;
         }
+    return 0;
 }
 
-/* the ledger takes the verb of one forwarded line, if it is one it keeps */
-static void ledger_verb(instance_t *i, const char *line)
+/* the ledger takes the verb of one forwarded line, if it is one it keeps; 0, or -1 when memory runs out */
+static int ledger_verb(instance_t *i, const char *line)
 {
     char *save = NULL, *t, *copy = strdup(line), *tok[16];
-    int ntok = 0;
+    int ntok = 0, rc = 0;
 
+    if (!copy)
+        return -1;
     for (t = strtok_r(copy, " \t", &save); t && ntok < 16; t = strtok_r(NULL, " \t", &save))
         tok[ntok++] = t;
     if (ntok)
-        record(i, line, tok, ntok);
+        rc = record(i, line, tok, ntok);
     free(copy);
+    return rc;
 }
 
 /* the verb the worker died on is not replayed: it never entered the ledger, and the controller is told so */
@@ -2015,8 +2174,12 @@ char *sup_call(int id, const char *line)
         on_death(w, id);
         return dropped;
     }
-    if (resp_code(reply) >= 0)
-        ledger_verb(i, line);
+    /* the worker did it and the ledger cannot say so, so a restart would lose it: the controller hears */
+    if (resp_code(reply) >= 0 && ledger_verb(i, line) != 0)
+    {
+        free(reply);
+        return sup_resp(ERR_MEMORY_ALLOCATION);
+    }
     return reply;
 }
 
@@ -2100,10 +2263,12 @@ char *sup_connect(const char *verb, const char *line, const char *port_a, const 
         snprintf(ledger, sizeof(ledger), EFFECT_CONNECT, port_a, port_b);
         if (verb_is(verb, EFFECT_CONNECT))
         {
-            if (a)
-                conn_add(a, ledger);
-            if (b)
-                conn_add(b, ledger);
+            /* connected, and the books cannot say so, so a restart would lose it: the controller hears */
+            if ((a && conn_add(a, ledger) != 0) || (b && conn_add(b, ledger) != 0))
+            {
+                free(reply);
+                return sup_resp(ERR_MEMORY_ALLOCATION);
+            }
         }
         else
         {
@@ -2181,6 +2346,8 @@ char *sup_instance_verb(const char *line, int ledger)
     int count;
     long id;
 
+    if (!copy)
+        return sup_resp(ERR_MEMORY_ALLOCATION);
     word = words(copy, &count);
     id = count > 1 ? strtol(word[1], &end, 10) : -1;
     if (count < 2 || *end || end == word[1])
@@ -2196,16 +2363,31 @@ char *sup_instance_verb(const char *line, int ledger)
         reply = sup_call(id, line);
         if (ledger == PHD_LEDGER_REPLACE && resp_code(reply) >= 0 && g_inst[id] == i)
         {
-            free(i->track_info);
-            i->track_info = strdup(line);
+            char *kept = strdup(line);
+
+            if (kept)
+            {
+                free(i->track_info);
+                i->track_info = kept;
+            }
+            else
+            {
+                free(reply);
+                reply = sup_resp(ERR_MEMORY_ALLOCATION);
+            }
         }
     }
     /* a format whose worker has none of these: the daemon answers, and nothing goes to the worker */
     else if (!strcmp(word[0], OMX_VERB_TRACK_INFO))
     {
-        free(i->track_info);
-        i->track_info = strdup(line);
-        reply = sup_resp(SUCCESS);
+        char *kept = strdup(line);
+
+        if (kept)
+        {
+            free(i->track_info);
+            i->track_info = kept;
+        }
+        reply = sup_resp(kept ? SUCCESS : ERR_MEMORY_ALLOCATION);
     }
     else if (!strcmp(word[0], OMX_VERB_REMOTE_PAGES))
         reply = count != 2 ? sup_resp(ERR_INVALID_OPERATION) :
@@ -2239,12 +2421,14 @@ void sup_after_reply(int id, const char *verb)
         checkpoint(i->w);
 }
 
+/* what is put goes after what the text holds; when memory runs out the text is freed, *buf is NULL, and every later put
+ * does nothing, so a caller asks once, at the end */
 static void put(char **buf, size_t *used, size_t *cap, const char *fmt, ...)
 {
     va_list ap;
     int n;
 
-    for (;;)
+    while (*buf)
     {
         va_start(ap, fmt);
         n = vsnprintf(*buf + *used, *cap - *used, fmt, ap);
@@ -2254,7 +2438,14 @@ static void put(char **buf, size_t *used, size_t *cap, const char *fmt, ...)
             *used += n;
             return;
         }
-        *buf = realloc(*buf, *cap *= 2);
+        {
+            char *grown = realloc(*buf, *cap * 2);
+
+            if (!grown)
+                free(*buf);
+            *buf = grown;
+            *cap *= 2;
+        }
     }
 }
 
@@ -2270,6 +2461,12 @@ char *sup_worker_list(void)
     int n, m;
     worker_t **sorted = malloc((g_nworkers + 1) * sizeof(worker_t *));
 
+    if (!buf || !sorted)
+    {
+        free(buf);
+        free(sorted);
+        return NULL;
+    }
     memcpy(sorted, g_workers, g_nworkers * sizeof(worker_t *));
     qsort(sorted, g_nworkers, sizeof(worker_t *), by_k);
     put(&buf, &used, &cap, "resp %d", g_nworkers);
@@ -2355,8 +2552,7 @@ char *sup_reset(const char *which)
     }
     if (all)
         for (id = 0; id < MAX_INSTANCE; id++)
-            if (g_meta[id])
-                g_meta[id]->ndeaths = 0;
+            g_meta[id].ndeaths = 0;
     return sup_resp(all || found ? SUCCESS : OMX_REPLY_PLUGIN_HOSTD_NO_SUCH_WORKER_RESP);
 }
 
@@ -2367,13 +2563,12 @@ char *sup_quarantine_clear(const char *which)
     if (!strcmp(which, PHD_WORD_ALL))
     {
         for (id = 0; id < MAX_INSTANCE; id++)
-            if (g_meta[id])
-            {
-                /* the plans that held a member back for its quarantine are made again, by the tick */
-                if (g_meta[id]->quarantined)
-                    plans_replan_for(id);
-                g_meta[id]->quarantined = 0;
-            }
+        {
+            /* the plans that held a member back for its quarantine are made again, by the tick */
+            if (g_meta[id].quarantined)
+                plans_replan_for(id);
+            g_meta[id].quarantined = 0;
+        }
         for (id = 0; id < MAX_INSTANCE; id++)
         {
             int k;
@@ -2386,7 +2581,7 @@ char *sup_quarantine_clear(const char *which)
         return sup_resp(SUCCESS);
     }
     id = atoi(which);
-    if (id < 0 || id >= MAX_INSTANCE || (!g_inst[id] && !(g_meta[id] && g_meta[id]->quarantined)))
+    if (id < 0 || id >= MAX_INSTANCE || (!g_inst[id] && !g_meta[id].quarantined))
         return sup_resp(ERR_INSTANCE_NON_EXISTS);
     if (meta_of(id)->quarantined)
         plans_replan_for(id);
@@ -2576,6 +2771,12 @@ static void to_own(instance_t *i)
 {
     worker_t *own = worker_new(i->fmt, PHD_PLACE_OWN);
 
+    /* no memory for a new worker: it goes on running where it is */
+    if (!own)
+    {
+        fprintf(stderr, "plugin-hostd: out of memory, instance %d stays in worker %d\n", i->id, i->w ? i->w->k : -1);
+        return;
+    }
     evict(i);
     worker_attach(own, i);
     respawn(own);
@@ -2583,52 +2784,83 @@ static void to_own(instance_t *i)
 
 /* an instance that the checkpoint of its eviction found quarantined (its worker died saving its state): it is in no
  * worker, and goes where a quarantined instance goes, a worker of its own that starts after the backoff */
-static void park_quarantined(instance_t *i)
+static void park_quarantined(instance_t *i, worker_t *own)
 {
-    worker_t *own = worker_new(i->fmt, PHD_PLACE_OWN);
-
+    if (worker_join(own) != 0)
+        fprintf(stderr, "plugin-hostd: out of memory, instance %d has no worker until it is removed or cleared\n", i->id);
     worker_attach(own, i);
     own->state = W_BACKOFF;
     own->backoff_ms = g_conf.backoff_base_ms;
     own->next_try_ms = proc_now_ms() + g_conf.backoff_base_ms;
 }
 
-/* the chain's members that are not quarantined, gathered in order in one new worker and replayed there */
-static void chain_form(chain_t *c)
+/* the chain's members that are not quarantined, gathered in order in one new worker and replayed there. The memory
+ * comes first: a member moves only when it has somewhere to go, so when memory runs out, -1, each stays where it runs and
+ * the tick tries again */
+static int chain_form(chain_t *c)
 {
     char place[48], word[24];
     worker_t *w = NULL;
-    int n;
+    int n, wanted = 0, short_of_memory = 0;
 
     chain_word(c, word, sizeof(word));
     snprintf(place, sizeof(place), PHD_PLACE_CHAIN_PREFIX "%s", word);
     for (n = 0; n < c->n; n++)
+        wanted += g_inst[c->ids[n]] && !meta_of(c->ids[n])->quarantined;
+    if (wanted)
+    {
+        w = worker_new(chain_row_of(c->ids, c->n), place);
+        if (w && worker_reserve(w, wanted) != 0)
+        {
+            worker_free(w);
+            w = NULL;
+        }
+        if (!w)
+        {
+            c->rejoin = 1;
+            return -1;
+        }
+        w->pool = 1;
+        w->chain = c;
+    }
+    for (n = 0; n < c->n; n++)
     {
         instance_t *i = g_inst[c->ids[n]];
+        worker_t *spare;
 
         if (!i || meta_of(i->id)->quarantined)
             continue;
+        /* evict can find the member quarantined, and then it needs a worker of its own */
+        spare = worker_alloc(i->fmt, PHD_PLACE_OWN);
+        if (!spare)
+        {
+            short_of_memory = 1;
+            continue;
+        }
         evict(i);
         /* its worker may have died in the checkpoint evict took, and quarantined it */
         if (meta_of(i->id)->quarantined)
         {
-            park_quarantined(i);
+            park_quarantined(i, spare);
             continue;
         }
-        if (!w)
-        {
-            w = worker_new(chain_row_of(c->ids, c->n), place);
-            w->pool = 1;
-            w->chain = c;
-        }
+        worker_unused(spare);
         worker_attach(w, i);
     }
     if (c->w && c->w != w)
         c->w->chain = NULL;
+    /* every member was found quarantined on its way, or had no memory to move */
+    if (w && !w->ninst)
+    {
+        w->chain = NULL;
+        worker_free(w);
+        w = NULL;
+    }
     c->w = w;
-    c->rejoin = 0;
+    c->rejoin = short_of_memory;
     if (w)
         respawn(w);
+    return 0;
 }
 
 /* whether a chain declared again takes its new order (c->ids) in the worker that runs it now: that worker is up, no
@@ -2654,26 +2886,42 @@ static int chain_in_place(const chain_t *c)
 
 /* the new order in the running worker: each member that joins leaves its worker and is replayed into this one (its
  * add, then the order, then its state alone, its ledger and its connections); no other member is restarted */
-static void chain_update(chain_t *c)
+static int chain_update(chain_t *c)
 {
     worker_t *w = c->w;
     instance_t **join = malloc(c->n * sizeof(instance_t *));
     char msg[PATH_MAX + 16], dir[PATH_MAX];
     int k, n = 0, nj = 0, rc;
 
+    /* the memory comes first: nothing has moved */
+    if (!join || worker_reserve(w, w->ninst + c->n) != 0)
+    {
+        free(join);
+        c->rejoin = 1;
+        return -1;
+    }
     for (k = 0; k < c->n; k++)
     {
         instance_t *i = g_inst[c->ids[k]];
+        worker_t *spare;
 
         if (i->w == w || meta_of(i->id)->quarantined)
             continue;
+        /* evict can find the member quarantined, and then it needs a worker of its own */
+        spare = worker_alloc(i->fmt, PHD_PLACE_OWN);
+        if (!spare)
+        {
+            c->rejoin = 1;
+            continue;
+        }
         evict(i);
         /* its worker may have died in the checkpoint evict took, and quarantined it: it is not replayed here */
         if (meta_of(i->id)->quarantined)
         {
-            park_quarantined(i);
+            park_quarantined(i, spare);
             continue;
         }
+        worker_unused(spare);
         worker_attach(w, i);
         join[nj++] = i;
     }
@@ -2715,6 +2963,7 @@ static void chain_update(chain_t *c)
     chain_formed(w);
 out:
     free(join);
+    return 0;
 }
 
 /* a plugin that may not share a worker: the rule of a pool, while require_pins is on; a chain's worker sees the union of
@@ -2747,7 +2996,8 @@ static int world_found(int row, const char **uris, int m)
 }
 
 /* while require_pins is on, a chain whose worker's row pins in a world of its own forms only if the row can narrow the
- * worker's world to the union of its members of that row: it is built once in a scratch directory, every one found */
+ * worker's world to the union of its members of that row: it is built once in a scratch directory, every one found.
+ * -1 when memory runs out */
 static int chain_world_found(const int *ids, int n)
 {
     int row = chain_row_of(ids, n);
@@ -2760,6 +3010,8 @@ static int chain_world_found(const int *ids, int n)
     if (!f->narrow_world)
         return 0;
     uris = malloc(n * sizeof(char *));
+    if (!uris)
+        return -1;
     for (k = 0; k < n; k++)
         if (g_inst[ids[k]]->fmt == row)
             uris[m++] = g_inst[ids[k]]->uri;
@@ -2771,7 +3023,7 @@ static int chain_world_found(const int *ids, int n)
 char *sup_chain(int id, const int *ids, int n)
 {
     chain_t *c = (id >= 0 && id < MAX_INSTANCE) ? g_chain[id] : NULL;
-    int k, m;
+    int *new_ids, k, m, found;
 
     if (id < 0 || id >= MAX_INSTANCE || n < PHD_CHAIN_MEMBERS_MIN)
         return sup_resp(ERR_INVALID_OPERATION);
@@ -2791,11 +3043,23 @@ char *sup_chain(int id, const int *ids, int n)
         if (must_run_own(i))
             return sup_resp(OMX_REPLY_PLUGIN_HOSTD_PLACEMENT_INVALID_RESP);
     }
-    if (!chain_world_found(ids, n))
+    found = chain_world_found(ids, n);
+    if (found < 0)
+        return sup_resp(ERR_MEMORY_ALLOCATION);
+    if (!found)
         return sup_resp(OMX_REPLY_PLUGIN_HOSTD_PLACEMENT_INVALID_RESP);
+    /* the memory comes first: nothing has moved */
+    new_ids = malloc(n * sizeof(int));
+    if (!new_ids)
+        return sup_resp(ERR_MEMORY_ALLOCATION);
     if (!c)
     {
         c = calloc(1, sizeof(chain_t));
+        if (!c)
+        {
+            free(new_ids);
+            return sup_resp(ERR_MEMORY_ALLOCATION);
+        }
         c->id = id;
         g_chain[id] = c;
         g_nchains++;
@@ -2814,16 +3078,13 @@ char *sup_chain(int id, const int *ids, int n)
             to_own(i);
     }
     free(c->ids);
-    c->ids = malloc(n * sizeof(int));
+    c->ids = new_ids;
     memcpy(c->ids, ids, n * sizeof(int));
     c->n = n;
     for (k = 0; k < n; k++)
         g_inst[ids[k]]->chain = c;
-    if (chain_in_place(c))
-        chain_update(c);
-    else
-        chain_form(c);
-    return sup_resp(SUCCESS);
+    /* a chain with no memory to form yet is the tick's to try again */
+    return sup_resp((chain_in_place(c) ? chain_update(c) : chain_form(c)) == 0 ? SUCCESS : ERR_MEMORY_ALLOCATION);
 }
 
 char *sup_chain_clear(int id)
@@ -2858,6 +3119,8 @@ char *sup_chain_get(int id)
     if (!c)
         return sup_resp(OMX_REPLY_PLUGIN_HOSTD_NO_SUCH_CHAIN_RESP);
     buf = malloc(cap);
+    if (!buf)
+        return NULL;
     if (c->w)
         put(&buf, &used, &cap, "resp 0 w%d ", c->w->k);
     else
@@ -3001,7 +3264,8 @@ static char *plan_text(size_t (*format)(const planner_member_t *, const planner_
     size_t need = format(m, pp, refused, NULL, 0);
     char *text = malloc(need + 1);
 
-    format(m, pp, refused, text, need + 1);
+    if (text)
+        format(m, pp, refused, text, need + 1);
     return text;
 }
 
@@ -3014,18 +3278,39 @@ static size_t segments_text(const planner_member_t *m, const planner_plan_t *pp,
 /* the plan p, made over the ids, is applied: the running segment of the old plan that did not change is kept, wherever
  * it now stands, the others are dissolved, a member that shares with no one gets a worker of its own, and a segment that
  * is new forms in a worker of its own. p->seg holds the segments of two or more, in plan order. */
-static void plan_apply(plan_t *old, plan_t *p, const planner_plan_t *pp, const int *ids)
+static int plan_apply(plan_t *old, plan_t *p, const planner_plan_t *pp, const int *ids)
 {
-    chain_t **at = calloc(pp->nseg, sizeof(chain_t *)), **was = NULL;
+    chain_t **at = calloc(pp->nseg, sizeof(chain_t *)), **was = NULL, **fresh = calloc(pp->nseg, sizeof(chain_t *));
     char *kept = NULL, *formed = calloc(pp->nseg, 1);
     int k, j, first, nwas = old ? old->nseg : 0;
 
     if (nwas)
     {
         was = malloc(nwas * sizeof(chain_t *));
-        memcpy(was, old->seg, nwas * sizeof(chain_t *));
         kept = calloc(nwas, 1);
+        if (was)
+            memcpy(was, old->seg, nwas * sizeof(chain_t *));
     }
+    if (!at || !fresh || !formed || (nwas && (!was || !kept)))
+        goto no_memory;
+    /* the memory comes first: nothing has moved. A segment that turns out to be a running one gives its chain back below */
+    for (k = 0; k < pp->nseg; k++)
+        if (pp->seg_len[k] > 1)
+        {
+            chain_t *c = calloc(1, sizeof(chain_t));
+
+            fresh[k] = c;
+            if (c)
+            {
+                c->id = p->id;
+                c->planned = 1;
+                c->seg = k;
+                c->n = pp->seg_len[k];
+                c->ids = malloc(c->n * sizeof(int));
+            }
+            if (!c || !c->ids)
+                goto no_memory;
+        }
     for (k = 0, first = 0; k < pp->nseg; first += pp->seg_len[k++])
         for (j = 0; pp->seg_len[k] > 1 && j < nwas && !at[k]; j++)
             if (!kept[j] && was[j]->n == pp->seg_len[k] && !memcmp(was[j]->ids, ids + first, pp->seg_len[k] * sizeof(int)))
@@ -3071,18 +3356,19 @@ static void plan_apply(plan_t *old, plan_t *p, const planner_plan_t *pp, const i
     for (k = 0, first = 0; k < pp->nseg; first += pp->seg_len[k++])
         if (pp->seg_len[k] > 1 && !at[k])
         {
-            chain_t *c = calloc(1, sizeof(chain_t));
+            chain_t *c = fresh[k];
 
-            c->id = p->id;
-            c->planned = 1;
-            c->seg = k;
-            c->n = pp->seg_len[k];
-            c->ids = malloc(c->n * sizeof(int));
             memcpy(c->ids, ids + first, c->n * sizeof(int));
             for (j = 0; j < c->n; j++)
                 g_inst[c->ids[j]]->chain = c;
             at[k] = c;
             formed[k] = 1;
+        }
+    for (k = 0; k < pp->nseg; k++)
+        if (fresh[k] && at[k] != fresh[k])
+        {
+            free(fresh[k]->ids);
+            free(fresh[k]);
         }
     for (k = 0; k < pp->nseg; k++)
         if (at[k])
@@ -3099,6 +3385,22 @@ static void plan_apply(plan_t *old, plan_t *p, const planner_plan_t *pp, const i
             chain_form(at[k]);
     free(formed);
     free(at);
+    free(fresh);
+    return 0;
+
+no_memory:
+    for (k = 0; fresh && k < pp->nseg; k++)
+        if (fresh[k])
+        {
+            free(fresh[k]->ids);
+            free(fresh[k]);
+        }
+    free(fresh);
+    free(was);
+    free(kept);
+    free(formed);
+    free(at);
+    return -1;
 }
 
 /* the planner's settings, the daemon's */
@@ -3135,17 +3437,29 @@ static plan_t *plan_run(int id, const int *ids, int n, int *code)
             refused = segment_refusal(ids + first, pp.seg_len[k]);
 
     p = calloc(1, sizeof(*p));
+    if (!p)
+    {
+        *code = ERR_MEMORY_ALLOCATION;
+        return NULL;
+    }
     p->id = id;
     p->n = n;
     p->ids = malloc(n * sizeof(int));
-    memcpy(p->ids, ids, n * sizeof(int));
+    if (p->ids)
+        memcpy(p->ids, ids, n * sizeof(int));
     p->seg = calloc(pp.nseg, sizeof(chain_t *));
     p->segments = plan_text(segments_text, m, &pp, 0);
     p->reasons = plan_text(planner_format_reasons, m, &pp, refused);
 
-    if (s.grouping_on && !refused)
-        plan_apply(old, p, &pp, ids);
-    else
+    /* no memory for the plan: nothing has moved, and the plan before it stands */
+    if (!p->ids || !p->seg || !p->segments || !p->reasons ||
+        (s.grouping_on && !refused && plan_apply(old, p, &pp, ids) != 0))
+    {
+        plan_free(p);
+        *code = ERR_MEMORY_ALLOCATION;
+        return NULL;
+    }
+    if (!s.grouping_on || refused)
     {
         /* nothing moves: the segments that run stay as they are, and the plan is kept to be read back */
         if (old)
@@ -3177,6 +3491,8 @@ static char *plan_cores(const char *segments)
     char *buf = malloc(cap), *end;
     const char *p = segments;
 
+    if (!buf)
+        return NULL;
     buf[0] = '\0';
     while (*p)
     {
@@ -3223,8 +3539,9 @@ char *sup_plan(int id, const int *ids, int n)
     if (refused)
         return sup_resp(refused);
     cores = plan_cores(p->segments);
-    reply = malloc(cap);
-    put(&reply, &used, &cap, "resp 0 %s %s", p->segments, cores);
+    reply = cores ? malloc(cap) : NULL;
+    if (reply)
+        put(&reply, &used, &cap, "resp 0 %s %s", p->segments, cores);
     free(cores);
     return reply;
 }
@@ -3247,6 +3564,11 @@ static void plan_again(int id)
             return;
     }
     ids = malloc(p->n * sizeof(int));
+    if (!ids)
+    {
+        p->replan = 1;
+        return;
+    }
     memcpy(ids, p->ids, p->n * sizeof(int));
     plan_run(id, ids, p->n, &refused);
     free(ids);
@@ -3286,8 +3608,9 @@ char *sup_plan_get(int id)
     if (!p)
         return sup_resp(OMX_REPLY_PLUGIN_HOSTD_NO_SUCH_PLAN_RESP);
     cores = plan_cores(p->segments);
-    buf = malloc(cap);
-    put(&buf, &used, &cap, "resp 0 %s %s %s", p->segments, p->reasons, cores);
+    buf = cores ? malloc(cap) : NULL;
+    if (buf)
+        put(&buf, &used, &cap, "resp 0 %s %s %s", p->segments, p->reasons, cores);
     free(cores);
     return buf;
 }
@@ -3428,6 +3751,8 @@ char *sup_estimate(int rate, int quantum, const char *const *uris, int n)
     if (rate <= 0 || quantum <= 0 || n < 1 || n > PLANNER_MEMBERS_MAX)
         return sup_resp(ERR_INVALID_OPERATION);
     list = malloc(lcap);
+    if (!list)
+        return NULL;
     list[0] = '\0';
     for (k = 0; k < n; k++)
     {
@@ -3498,8 +3823,9 @@ char *sup_estimate(int rate, int quantum, const char *const *uris, int n)
     else
         snprintf(ram_word, sizeof(ram_word), PHD_WORD_NONE);
     /* a member's cost per block over the block's duration is its nanoseconds per sample times the rate, over 1e9 */
-    reply = malloc(cap);
-    put(&reply, &used, &cap, "resp 0 %.0f %.2f %s %d %d %s %s %s %s %d", latency, median_ns * rate / 1e9 * 100.0, ram_word, workers,
+    reply = list ? malloc(cap) : NULL;
+    if (reply)
+        put(&reply, &used, &cap, "resp 0 %.0f %.2f %s %d %d %s %s %s %s %d", latency, median_ns * rate / 1e9 * 100.0, ram_word, workers,
         unknown, unknown ? list : PHD_WORD_NONE, used_word, added_word, budget_word, ram_unknown);
     free(list);
     return reply;

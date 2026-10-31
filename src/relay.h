@@ -26,7 +26,7 @@
  * are ever cut into each other. */
 
 /* Listen on `port`, 0 for none, and start the thread that reads the workers. */
-int relay_start(int port);
+int relay_start(int port, const char *address);
 void relay_finish(void);
 
 /* Before the first command of a controller: wait for it to open the feedback port, as mod-host does, until *running

@@ -133,6 +133,8 @@ int proc_have_binary(const char *bin)
     if (!path)
         return 0;
     copy = strdup(path);
+    if (!copy)
+        return 0;
     for (dir = strtok_r(copy, ":", &save); dir && !found; dir = strtok_r(NULL, ":", &save))
     {
         snprintf(full, sizeof(full), "%s/%s", dir, bin);
@@ -455,6 +457,11 @@ static int manifest_names(const char *bundle, const char *uri)
     }
     rewind(file);
     text = malloc(size + 1);
+    if (!text)
+    {
+        fclose(file);
+        return 0;
+    }
     got = fread(text, 1, size, file);
     fclose(file);
     text[got] = '\0';
@@ -468,6 +475,8 @@ char *proc_find_lv2_bundle(const char *lv2_path, const char *uri)
 {
     char *copy = strdup(lv2_path), *dir, *save = NULL, *result = NULL;
 
+    if (!copy)
+        return NULL;
     for (dir = strtok_r(copy, ":", &save); dir && !result; dir = strtok_r(NULL, ":", &save))
     {
         DIR *d = opendir(dir);
