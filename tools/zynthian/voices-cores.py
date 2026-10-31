@@ -113,7 +113,8 @@ class server:
         self.name = "vc%d" % os.getpid()
         self.env = dict(os.environ, JACK_DEFAULT_SERVER=self.name)
         self.logf = open(os.path.join(out, "jackd.log"), "a")
-        self.proc = subprocess.Popen(["jackd", "-n", self.name, "-d", "dummy", "-r", str(a.rate), "-p", str(a.frames)],
+        driver = ["-d", "alsa", "-d", a.alsa, "-n", "3"] if getattr(a, "alsa", "") else ["-d", "dummy"]
+        self.proc = subprocess.Popen(["jackd", "-n", self.name] + (["-P", "70"] if driver[1] == "alsa" else []) + driver + ["-r", str(a.rate), "-p", str(a.frames)],
                                      stdout=self.logf, stderr=subprocess.STDOUT, start_new_session=True)
         end = time.monotonic() + 10
         while time.monotonic() < end:
@@ -453,6 +454,7 @@ def main():
     ap.add_argument("--dsp-limit", type=float, default=95)
     ap.add_argument("--mem-floor", type=int, default=700)
     ap.add_argument("--port", type=int, default=5720)
+    ap.add_argument("--alsa", default="", help="a card for the private server instead of the dummy driver, e.g. hw:NAME; it must be free")
     a = ap.parse_args()
     os.makedirs(a.out, exist_ok=True)
     tsv = os.path.join(a.out, "voices-cores.tsv")
