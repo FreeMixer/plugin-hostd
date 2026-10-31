@@ -52,9 +52,8 @@ Not ready:
   ([omx-clap-core#438](https://github.com/FreeMixer/omx-clap-core/issues/438)). Wait for it before setting `grouping on`.
 - On plugin-hostd 0.15.4 the group did not form within 20 s in one of four cells at 18 plugins and on one repeat at 32 and at
   48. On 0.15.5 it formed in all six cells at 18 and in every repeat up to 24; there is no newer row at 32 or 48.
-- Ten third-party plugins in a group share one worker and keep ten JACK clients. That still saves memory (45.0 MB against
-  89.3 MB under mod-host and 463.6 MB under jalv), and no more than that yet
-  ([rows](benchmarks.md#current-versions-chains-up-to-24-plugins)).
+- Ten third-party plugins in a group share one worker and keep ten JACK clients. That saves memory (45.0 MB against
+  89.3 MB under mod-host and 463.6 MB under jalv) ([rows](benchmarks.md#current-versions-chains-up-to-24-plugins)).
 
 A channel strip as plugins
 --------------------------
