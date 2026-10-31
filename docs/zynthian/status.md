@@ -7,11 +7,11 @@ still open, why, and what closes it. The pages it links are the detail.
 On the Pi now
 -------------
 
-The Pi 5 runs plugin-hostd 0.15.3, plugin-qualify 0.18.0, omx-clap-host 0.25.1, omx-panel 0.7.2, omx-plugins 0.16.0
+The Pi 5 runs plugin-hostd 0.15.4, plugin-qualify 0.18.2, omx-clap-host 0.25.2, omx-panel 0.7.2, omx-plugins 0.16.0
 and the zynthian-ui fork at
 [f864d294](https://github.com/FreeMixer/zynthian-ui/commit/f864d29), the tip of `vangelis`. jackd runs on a Digidesign
-Mbox 2 (`hw:M2`) at 48000 Hz, 256 frames, 3 periods, with no xruns at idle. The re-qualification was stopped: 76 records
-were measured again on plugin-qualify 0.18.0 and the others are on older versions.
+Mbox 2 (`hw:M2`) at 48000 Hz, 256 frames, 3 periods, with no xruns at idle. The benchmark matrix is running on these
+versions, with the CPU governor on `performance`, on a private dummy JACK server.
 
 Proven on the device
 --------------------
@@ -26,12 +26,19 @@ Proven on the device
   and user presets by value on the daemon. Surge XT as CLAP gives the same load with the thread pool off and on: one busy
   thread, 26 % of a core at 64 voices at 48000 Hz and 256 frames. Everything is measured at JACK ports, none of it at the
   analog outputs ([digital proofs](digital-proofs.md)).
+- **Surge XT through plugin-hostd, in both formats, digitally.** On plugin-hostd 0.15.4 and omx-clap-host 0.25.2, as LV2
+  through the adapter and as CLAP with its own file name, `Surge%20XT.clap`: -13.5 dBFS at C4 at the JACK ports, run by
+  hand with a `HOME` set. Without a `HOME` it is silent under jalv and the adapter and its CLAP answers -503.
+- **The chains come back at boot.** The engine reaches the daemon on loopback, and the boot load has no -509.
+- **Every LV2 plugin ran under the adapter.** 1240 runs: 1216 admitted, 16 silent, 6 refused, 2 not started.
 - **One panel for both surfaces**: the engine's controller pages and the MOD GUIs are drawn from the same layout
   ([the pipeline page](../from-file-to-page.md)).
 
 Released, not proven on the device yet
 --------------------------------------
 
+- **plugin-qualify 0.18.3** ([release](https://github.com/FreeMixer/plugin-qualify/releases/tag/v0.18.3)): the isolated
+  step runs for every plugin of a pass, and again after it could not run; the sync's unit gives the plugins a `HOME`.
 - **plugin-hostd 0.15.1** ([release](https://github.com/FreeMixer/plugin-hostd/releases/tag/v0.15.1)): a plugin whose
   pin asks for the thread pool gets a worker started with it; the pins are read again while the daemon runs, so a
   plugin upgrade needs no restart (proven in CI); the plugin search paths are complete for a Zynthian Pi; an LV2
@@ -54,26 +61,21 @@ Released, not proven on the device yet
 Still open
 ----------
 
-- **The LV2 records are not redone yet.** The re-qualification on the Pi was stopped; what closes it: the LV2
-  re-qualification run to its end, or the records judged again offline.
+- **The isolated step is owed.** `verdict=isolated` should mean a plugin was seen running alone. On plugin-qualify 0.18.2
+  the step ran for 1 plugin of 152. What closes it: plugin-qualify 0.18.3 on the Pi, `--isolated-only`, then `--rejudge`.
 - **Presets in the menu: mda Piano and Odin 2, and loading on CLAP.** The Factory and User banks, the listing and the
   save are proven for omx eq8 in the menu. Open: loading a preset on a running CLAP instance does nothing (omx eq8 reads
   a preset file only while it is not processing, so the menu names the preset and every control stays where it was);
   mda Piano cannot be added from the menu (-509, see below); Odin 2 is refused by its pin. What closes it: omx-plugins
-  and omx-clap-core load a preset on a running instance, plugin-hostd#324 released, and captures on all three
+  and omx-clap-core load a preset on a running instance, mda Piano tried again from the menu, and captures on all three
   ([plugin-hostd#269](https://github.com/FreeMixer/plugin-hostd/issues/269), [digital proofs](digital-proofs.md)).
-- **The snapshot round trip.** A snapshot holding mda Piano still does not load: the add answers -509 because the
-  daemon does not find a bundle whose manifest names the plugin by a prefixed name (`mda:Piano`), the load stops at the
-  first such chain, no chain comes back and the UI stays busy until it is restarted. What closes it:
-  [plugin-hostd#324](https://github.com/FreeMixer/plugin-hostd/pull/324) released and on the Pi, then a snapshot of
-  plugin-hostd chains saved and loaded back with its plugins and settings as they were, by value.
-- **Surge XT in both formats.** As CLAP it plays through the engine with a symlink in place of `Surge XT.clap`: the
-  daemon takes the encoded name `Surge%20XT.clap` and the worker answers it -101
-  ([plugin-hostd#240](https://github.com/FreeMixer/plugin-hostd/issues/240)). As LV2 it plays through jalv but is silent
-  through plugin-hostd's LV2 adapter (peak -inf at the output ports with the notes taking CPU), and the device's own
-  settings refuse it (-509, the binary is `libSurge%20XT.so`). What closes it: the worker decoding the name, the
-  adapter's silent output explained and fixed, and Surge XT played in both formats through the menu
-  ([instruments](instruments.md), [digital proofs](digital-proofs.md)).
+- **The snapshot round trip.** A snapshot holding mda Piano did not load: the add answered -509, because the daemon did not
+  find a bundle whose manifest names the plugin by a prefixed name (`mda:Piano`). plugin-hostd 0.15.4 finds it, and the
+  boot load has no -509. What closes it: a snapshot of plugin-hostd chains saved and loaded back with its plugins and
+  settings as they were, by value.
+- **Surge XT has no record.** It plays in both formats by hand, but no qualification record holds it in either, so the menu
+  does not build from a measurement of it. What closes it: a sync on plugin-qualify 0.18.3, with its `HOME`, then Surge XT
+  played in both formats through the menu ([instruments](instruments.md), [digital proofs](digital-proofs.md)).
 - **Surge XT voices across the cores.** Measured with the thread pool off and on: the same one thread at 26 % of a core
   at 64 voices, and four instances on three cores, 0 xruns. Surge XT 1.4 declares no thread pool, so the pool is not
   shown to spread its voices; a plugin that does take the pool is still to be measured the same way
@@ -92,8 +94,9 @@ Still open
   ([omx-plugins#276](https://github.com/FreeMixer/omx-plugins/issues/276)).
 - **openmixer does not build against plugin-hostd 0.14.0 or later.** Two reply codes it reads moved into the
   contract's generated list. What closes it: the fix in openmixer, proven against plugin-hostd 0.15.1, landing.
-- **The benchmark matrix is partial: 287 cells so far** (682 rows, 639 ok and 43 failed). What closes it: the matrix
-  fills the rest ([benchmarks, the matrix](benchmarks.md#the-matrix-every-rate-and-quantum-single-and-grouped)).
+- **The benchmark matrix is being taken again.** The published figures come from an earlier run with the governor on
+  `powersave`, which Zynthian's power save can switch to, and mixed versions. What closes it: the new run published
+  ([benchmarks, the matrix](benchmarks.md#the-matrix-every-rate-and-quantum-single-and-grouped)).
 - **The upstream patch series is at step 1.** Step 1 is open upstream
   ([zynthian/zynthian-sys#228](https://github.com/zynthian/zynthian-sys/pull/228)); steps 2 to 7 are cut on the forks
   but not offered yet, several with a check on the device still owed
