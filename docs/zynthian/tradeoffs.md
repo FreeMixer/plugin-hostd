@@ -11,7 +11,8 @@ These figures measure the daemon directly, on a private graph; a run through Zyn
 ([zynthian-ui#53](https://github.com/FreeMixer/zynthian-ui/pull/53) gives the engine the fix that reads the plan). plugin-hostd runs a chain in one worker process (grouped) or each plugin in a worker of its own (individual);
 jalv runs one process per plugin; mod-host runs every plugin in one process. Figures: [Grouped versus
 alone](benchmarks.md#grouped-versus-alone-plugin-hostd-jalv-mod-host), Pi 5, 48000 Hz, 256 frames, run `rpi5-20261027-1`
-on plugin-hostd 0.12.0. A matrix on current versions is being taken ([status](status.md)).
+on plugin-hostd 0.12.0. On current versions, up to 24 plugins, the grouped chain has the lowest DSP load: [the
+table](benchmarks.md#current-versions-chains-up-to-24-plugins).
 
 | | grouped (plugin-hostd chain) | jalv (one process per plugin) | mod-host (one process) |
 |---|---|---|---|
@@ -46,8 +47,9 @@ Cons:
   1.50 to 10.16. On the Pi 185 of 1329 LV2 plugins and 133 of 247 CLAP plugins are isolated for plugin-hostd's worker.
 - Add time. A chain takes longer to form than the same plugins under mod-host (2507 ms against 434 ms for 16), and the
   same order as jalv. It is paid when a chain is built or changed.
-- mod-host is still the cheapest in CPU at every N (9.54 % for 16) and close in PSS (76.4 MB): plugin-hostd's gain is
-  over jalv, Zynthian's default engine for LV2, not over mod-host.
+- On 0.12.0, mod-host was the cheapest in CPU at every N (9.54 % for 16) and close in PSS (76.4 MB). On 0.15.4, with the
+  chain as one JACK client, the grouped chain reads lower (8.45 % DSP against 9.84 % at 16), on different builds of the
+  plugins. Either way plugin-hostd's large gain is over jalv, Zynthian's default engine for LV2, not over mod-host.
 - Latency: the bench records only the latency the clients declare (none for these plugins). A measured round-trip
   latency per host is not measured yet (it needs a loopback cable).
 

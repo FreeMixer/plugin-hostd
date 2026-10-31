@@ -41,10 +41,15 @@ Proven on the device
   so the gain is over one process per plugin, not over mod-host ([benchmarks](benchmarks.md#grouped-versus-alone-plugin-hostd-jalv-mod-host)).
   At 16 chains of four, plugin-hostd 0.13.1, all at 1500 MHz: 70.6 % of a core and 224.2 MB for 60 plugins grouped,
   82.3 % and 2745.6 MB for 64 plugins under jalv, which stopped there on memory with 2 xruns ([stress run](stress.md)).
-  These figures measure the daemon directly, on a private graph; zynthian-ui gained the fix that reads the plan in
-  [zynthian-ui#53](https://github.com/FreeMixer/zynthian-ui/pull/53), and a run through Zynthian's own engine is next.
-- **A lost worker comes back.** After `kill -9` of the process holding one plugin, plugin-hostd 0.12.0 put the worker back
-  and re-wired it in 347 ms at 48000 Hz (`kill1`, [benchmarks](benchmarks.md#the-four-hosts-one-plugin-and-short-chains)).
+  On current versions, 24 plugins (plugin-hostd 0.15.4, three repeats): 2 processes, one JACK client, JACK DSP 12.92 %, 62.8
+  MB PSS, against jalv's 24 processes, 18.72 % and 993.6 MB, and mod-host's one process, 15.05 % and 112.0 MB, on different
+  builds of the plugins ([benchmarks](benchmarks.md#current-versions-chains-up-to-24-plugins)). At 32 and 48 plugins the
+  chain did not form within 20 s on one repeat. These figures measure the daemon directly, on a private graph;
+  zynthian-ui gained the fix that reads the plan in [zynthian-ui#53](https://github.com/FreeMixer/zynthian-ui/pull/53),
+  and a run through Zynthian's own engine is next.
+- **A lost worker comes back.** Its values may not yet ([omx-clap-core#438](https://github.com/FreeMixer/omx-clap-core/issues/438)).
+  After `kill -9` of the process holding one plugin, plugin-hostd 0.12.0 put the worker back and re-wired it in 347 ms at
+  48000 Hz (`kill1`, [benchmarks](benchmarks.md#the-four-hosts-one-plugin-and-short-chains)).
   A plugin that crashes a chain's worker is quarantined and the others go on in order: proven in the CI round trip,
   not yet on the Pi ([chain profile](chain-profile.md)).
 - **One panel for both surfaces**: the engine's controller pages and the MOD GUIs are drawn from the same layout
@@ -91,6 +96,8 @@ Still open
   every matrix cell, single and grouped: `add lv2:http://gareus.org/oss/lv2/fil4#stereo` answered -101. The fix is merged
   ([plugin-hostd#339](https://github.com/FreeMixer/plugin-hostd/pull/339)). What closes it: those cells run again on the
   release that carries it.
+- **A chain that does not form.** A grouped chain did not form within 20 s in one of four cells at 18 plugins and on one
+  repeat at 32 and at 48. What closes it: the cause, from the logs of the next run.
 - **A chain that holds omx-keyed-gate is not one JACK client.** The earlier run on plugin-hostd 0.12.0 counted one JACK
   client for a chain of our plugins ([grouped-vs-processes](evidence/pi5-bench-2026-10-27/grouped-vs-processes.md)). In the
   new matrix the worker refuses to form the chain of all 19 because of omx-keyed-gate, while the daemon answers `resp 0`, so
