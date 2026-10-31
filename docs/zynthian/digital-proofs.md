@@ -143,6 +143,8 @@ they were, by value, cannot be compared until mda Piano can be added.
 
 ### omx eq8 as CLAP refuses to load a preset on a running instance
 
+omx-clap-host 0.25.4 fixes this at the daemon: a factory preset on a running instance changes 4 of 47 parameters and holds ([log](evidence/pi5-claims-2026-10-31/engine-proof/proof.log)). What follows is the run before it.
+
 In the menu, choosing a Factory preset shows its name in the title bar and leaves every control where it was
 ([capture](evidence/pi-digital-proofs/captures/b-eq8-factory-load-values-unchanged.png): `Gentle Tilt` with Band 1 gain
 0.0, where the LV2 form of the same preset gives 1.5). The journal has
