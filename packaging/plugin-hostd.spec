@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.15.3
+Version: 0.15.4
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -160,6 +160,17 @@ make test-daemon check-generated check-rendered
 %{_datadir}/omx-contract/contract.d/3/plugin-hostd/
 
 %changelog
+* Sat Oct 31 2026 Pau Aliagas <linuxnow@gmail.com> - 0.15.4-1
+- An LV2 file named by a percent-encoded IRI, Surge XT's libSurge%20XT.so,
+  is pinned as written and opened decoded (#329, #239).
+- The worker of a CLAP row is given the decoded path, one quoted word: a
+  CLAP file with a space in its name is added and replayed (#329, #240).
+- A manifest that names its plugin by a prefixed name is found (#324): mda
+  Piano no longer answers -509.
+- Probe output 1.4: an instrument's cost at each count of notes held,
+  voiceCurve (#326).
+- docs/zynthian: the digital proofs on the Pi 5, with what failed (#325).
+
 * Fri Oct 30 2026 Pau Aliagas <linuxnow@gmail.com> - 0.15.3-1
 - probe: the memory limit is memory.max of a cgroup the measured child runs
   in, and hitting it is probe.memory-limit; a machine that gives none falls
