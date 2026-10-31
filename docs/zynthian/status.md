@@ -78,6 +78,12 @@ the check of each on the device.
 Still open
 ----------
 
+- **A plugin's settings are lost when its chain changes or its worker restarts, on omx-clap-host 0.25.3 and earlier.** Most
+  omx plugins refuse a state load while they process, so the value goes back to its default: `ratio` set to 7.5 read 4.0 after a
+  chain formed. Loading a Factory preset on a running omx eq8 (CLAP) should fail for the same reason. Now that the engine groups real chains, a
+  user sees this at every chain change. The fix is merged for the next omx-clap-host. It is proven with omx-comp, omx-delay and omx-drive after a chain forms and after `kill -9` on a desk, and
+  the preset load only with a test plugin. Not on the Pi yet.
+
 - **A third-party chain does not run under plugin-hostd yet.** In the new matrix the chain of ten third-party LV2
   effects fails in every cell, single and grouped: `add lv2:http://gareus.org/oss/lv2/fil4#stereo` answers -101, although
   the plugin's pin says in-process and the adapter pass admitted it. So no grouped figure exists yet for other projects'
