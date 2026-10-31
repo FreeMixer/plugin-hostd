@@ -40,6 +40,9 @@ dummy JACK server, three repeats, medians ([all rows](benchmarks.md#current-vers
 | mod-host | 1 | 26 | 15.51 % | 112.1 MB |
 | jalv | 24 | 24 | 19.23 % | 993.6 MB |
 
+Ten third-party plugins in a group share one worker and keep ten JACK clients. That saves memory (45.0 MB against
+89.3 MB under mod-host and 463.6 MB under jalv) ([rows](benchmarks.md#current-versions-chains-up-to-24-plugins)).
+
 Under Zynthian, the setting is `grouping on` in `/zynthian/config/plugin-hostd.conf`, and the UI restarted. It is off unless
 you set it. A group is then what your chain has in series with nothing between: a parallel slot, the mixer strip or a jalv
 plugin ends it ([the table](mixbus.md#how-a-plugin-behaves-in-a-mixbus)). A processor that runs alone has a Grouping entry in
@@ -52,8 +55,6 @@ Not ready:
   ([omx-clap-core#438](https://github.com/FreeMixer/omx-clap-core/issues/438)). Wait for it before setting `grouping on`.
 - On plugin-hostd 0.15.4 the group did not form within 20 s in one of four cells at 18 plugins and on one repeat at 32 and at
   48. On 0.15.5 it formed in all six cells at 18 and in every repeat up to 24; there is no newer row at 32 or 48.
-- Ten third-party plugins in a group share one worker and keep ten JACK clients. That saves memory (45.0 MB against
-  89.3 MB under mod-host and 463.6 MB under jalv) ([rows](benchmarks.md#current-versions-chains-up-to-24-plugins)).
 
 A channel strip as plugins
 --------------------------
