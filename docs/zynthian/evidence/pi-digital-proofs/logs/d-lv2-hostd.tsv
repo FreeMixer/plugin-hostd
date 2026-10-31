@@ -1,0 +1,23 @@
+hostd	start	add_ms	292	ports_ms	494	note_port	effect_1:midi_in	outs	effect_1:out_1,effect_1:out_2
+hostd	velocity	vel20	-inf	-inf	0.0	0.0000	0	9.2	cpu0=6 cpu1=6 cpu2=0 cpu3=3	omx-clap-host@cpu1=1 omx-clap-host@cpu1=9
+hostd	velocity	vel64	-inf	-inf	0.0	0.0000	0	9.3	cpu0=1 cpu1=3 cpu2=1 cpu3=1	omx-clap-host@cpu1=3 omx-clap-host@cpu1=9
+hostd	velocity	vel127	-inf	-inf	0.0	0.0000	0	9.3	cpu0=11 cpu1=5 cpu2=1 cpu3=1	omx-clap-host@cpu1=3 omx-clap-host@cpu1=7
+hostd	poly	idle	-inf	-inf	0.0	0.0000	0	2.2	cpu0=1 cpu1=2 cpu2=1 cpu3=2	omx-clap-host@cpu1=2
+hostd	poly	poly1	-inf	-inf	0.0	0.0000	0	9.5	cpu0=2 cpu1=3 cpu2=1 cpu3=1	omx-clap-host@cpu1=2 omx-clap-host@cpu1=8
+hostd	poly	poly8	-inf	-inf	0.0	0.0000	0	16.5	cpu0=2 cpu1=16 cpu2=3 cpu3=2	omx-clap-host@cpu1=2 omx-clap-host@cpu1=15
+hostd	poly	poly16	-inf	-inf	0.0	0.0000	0	16.5	cpu0=3 cpu1=26 cpu2=2 cpu3=1	omx-clap-host@cpu1=2 omx-clap-host@cpu1=16
+hostd	poly	poly32	-inf	-inf	0.0	0.0000	0	16.4	cpu0=5 cpu1=25 cpu2=3 cpu3=5	omx-clap-host@cpu1=2 omx-clap-host@cpu1=15
+hostd	bend	centre	-inf	-inf	0.0	0.0000	0	9.5	cpu0=10 cpu1=5 cpu2=1 cpu3=2	omx-clap-host@cpu1=2 omx-clap-host@cpu1=8
+hostd	bend	up	-inf	-inf	0.0	0.0000	0	9.5	cpu0=4 cpu1=3 cpu2=1 cpu3=0	omx-clap-host@cpu1=2 omx-clap-host@cpu1=9
+hostd	bend	down	-inf	-inf	0.0	0.0000	0	9.5	cpu0=3 cpu1=4 cpu2=1 cpu3=0	omx-clap-host@cpu1=2 omx-clap-host@cpu1=9
+hostd	bend	back	-inf	-inf	0.0	0.0000	0	9.4	cpu0=2 cpu1=4 cpu2=0 cpu3=0	omx-clap-host@cpu1=2 omx-clap-host@cpu1=8
+hostd	sustain	released	-inf	-inf	0.0	0.0000	0	2.2	cpu0=0 cpu1=4 cpu2=2 cpu3=0	omx-clap-host@cpu1=2
+hostd	sustain	sustained	-inf	-inf	0.0	0.0000	0	9.6	cpu0=0 cpu1=21 cpu2=0 cpu3=2	omx-clap-host@cpu1=4 omx-clap-host@cpu1=8
+hostd	sustain	pedal_up	-inf	-inf	0.0	0.0000	0	2.2	cpu0=0 cpu1=4 cpu2=0 cpu3=2	omx-clap-host@cpu1=2
+hostd	anoff	held	-inf	-inf	0.0	0.0000	0	16.1	cpu0=6 cpu1=24 cpu2=2 cpu3=2	omx-clap-host@cpu1=2 omx-clap-host@cpu1=16
+hostd	anoff	after_cc123	-inf	-inf	0.0	0.0000	0	2.2	cpu0=11 cpu1=4 cpu2=2 cpu3=2	omx-clap-host@cpu1=2 omx-clap-host@cpu1=2
+hostd	anoff-verb	held_verb	peak	-inf	rms	-inf	hz	0.0	bright	0.0000	frames	24000	xruns	0
+hostd	anoff-verb	after_verb	peak	-inf	rms	-inf	hz	0.0	bright	0.0000	frames	24000	xruns	0
+hostd	mpe	member_centre	-inf	-inf	0.0	0.0000	0	9.5	cpu0=4 cpu1=4 cpu2=1 cpu3=0	omx-clap-host@cpu1=2 omx-clap-host@cpu1=9
+hostd	mpe	other_member_bent	-inf	-inf	0.0	0.0000	0	9.4	cpu0=3 cpu1=5 cpu2=1 cpu3=3	omx-clap-host@cpu1=2 omx-clap-host@cpu1=1 omx-clap-host@cpu1=9
+hostd	mpe	member_bent_quarter	-inf	-inf	0.0	0.0000	0	9.4	cpu0=11 cpu1=4 cpu2=1 cpu3=1	omx-clap-host@cpu1=2 omx-clap-host@cpu1=9
