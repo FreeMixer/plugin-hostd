@@ -303,7 +303,7 @@ class Stress(unittest.TestCase):
             self.assertEqual({st for sc, _, _, st in rows if sc["id"] == "clap1"}, {False},
                              "a scenario that declares no stress never runs under it")
             self.assertEqual(sorted(m for sc, _, m, st in rows if sc["id"] == "cvp8" and st == want[0]),
-                             ["chain", "individual"])
+                             ["chain", "chain-add", "individual"])
 
 
 def run_row(**kw):
