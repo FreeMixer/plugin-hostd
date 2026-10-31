@@ -1062,10 +1062,15 @@ class Runner:
                                env=self.env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
             insts = list(range(len(picks)))
-            placement = "own" if hkey == "H2" and mode == "individual" else None
+            placement = {"individual": "own", "chain-add": "chain:1"}.get(mode) if hkey == "H2" else None
             t0 = time.monotonic()
             clients = [host.add(uri, i, placement) for (uri, _, _), i in zip(picks, insts)]
-            if mode == "chain" and insts:
+            if mode == "chain-add" and insts:
+                # a daemon before plugin-hostd#348 reads chain:1 as a client name and gives each add a worker of its own
+                if host.ctl.cmd("chain_get 1").split()[1:2] != ["0"]:
+                    raise Refused("this plugin-hostd has no add into a chain (plugin-hostd#348)")
+                self.chain_formed(host, insts)
+            elif mode == "chain" and insts:
                 reply = host.ctl.cmd("chain 1 " + " ".join(map(str, insts)))
                 if reply != "resp 0":
                     raise Failed("chain answered '%s'" % reply)
@@ -1088,9 +1093,9 @@ class Runner:
                     mode = "individual" if len(ws) == len(insts) else "shared-process"
                 if mode == "individual" and len(ws) != len(insts):
                     notes.append("worker_list shows %d workers for %d instances" % (len(ws), len(insts)))
-                if mode == "chain" and len(ws) != 1:
+                if mode in ("chain", "chain-add") and len(ws) != 1:
                     notes.append("worker_list shows %d workers for one chain" % len(ws))
-                if mode == "chain" and len(clients) > 1:
+                if mode in ("chain", "chain-add") and len(clients) > 1:
                     notes.append("one worker, %d JACK clients" % len(clients))
             elif insts:
                 mode = mode or ("individual" if hkey == "H4" else "shared-process")
