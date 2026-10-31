@@ -113,8 +113,12 @@ class server:
         self.name = "vc%d" % os.getpid()
         self.env = dict(os.environ, JACK_DEFAULT_SERVER=self.name)
         self.logf = open(os.path.join(out, "jackd.log"), "a")
-        driver = ["-d", "alsa", "-d", a.alsa, "-n", "3"] if getattr(a, "alsa", "") else ["-d", "dummy"]
-        self.proc = subprocess.Popen(["jackd", "-n", self.name] + (["-P", "70"] if driver[1] == "alsa" else []) + driver + ["-r", str(a.rate), "-p", str(a.frames)],
+        alsa = getattr(a, "alsa", "")
+        # with no session bus jackd cannot reserve the device: as the jack2 unit does, it goes without the reservation
+        driver = ["-P", "70", "-s", "-S", "-d", "alsa", "-d", alsa, "-n", "3", "-X", "raw"] if alsa else ["-d", "dummy"]
+        if alsa:
+            self.env["JACK_NO_AUDIO_RESERVATION"] = "1"
+        self.proc = subprocess.Popen(["jackd", "-n", self.name] + driver + ["-r", str(a.rate), "-p", str(a.frames)], env=self.env,
                                      stdout=self.logf, stderr=subprocess.STDOUT, start_new_session=True)
         end = time.monotonic() + 10
         while time.monotonic() < end:
@@ -154,7 +158,8 @@ class protocol_host:
         self.logf = open(os.path.join(out, "host.log"), "a")
         if a.host in ("hostd", "hostd-chain"):
             conf = os.path.join(out, "plugin-hostd.conf")
-            state = os.path.join(out, "state")
+            # the daemon's workers read these from their own directory: a relative path breaks an LV2 plugin's world (-101)
+            state = os.path.join(os.path.abspath(out), "state")
             with open(conf, "w") as f:
                 f.write("clap_host omx-clap-host\nlv2_worker omx-clap-host\nrequire_pins 0\nstate_root %s\n"
                         "descriptor_dir %s/descriptors\nqualification_dir %s/qualification\n" % (state, state, state))
