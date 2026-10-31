@@ -73,8 +73,9 @@ of `worker_list` as they have been since plugin-hostd 0.14, and so it grouped no
 ([zynthian-ui#53](https://github.com/FreeMixer/zynthian-ui/pull/53)), which also means chains are grouped on current
 daemons from that change on.
 
-Not measured yet: all of it through Zynthian's own engine on the Pi, with Zynthian's own mixer in the path rather than script
-clients. The steps are below.
+On the Pi, plugin-hostd 0.15.7, omx-clap-host 0.25.4, the same script passes 10 of 10; those ten hold no Mixbus row
+([log](evidence/pi5-claims-2026-10-31/engine-proof/proof.log)). Not measured yet: a Mixbus with Zynthian's own mixer in the path
+rather than script clients. The steps are below.
 
 Example: one reverb and delay on a bus
 --------------------------------------
@@ -86,21 +87,35 @@ What a user does, with the plugin-hostd engine on:
    pre or post fader as you like.
 
 What you get: one reverb and one delay in place of one per chain. Measured on a Pi 5 as a JACK graph on a private dummy server,
-without Zynthian's routing: mda EPiano instruments holding notes, feeding one omx reverb and delay or a pair each, into the
-main output, 48000 Hz and 256 frames, plugin-hostd 0.15.5, omx-clap-host 0.25.3, LV2 builds on every host, one repeat so far
-([rows](evidence/pi5-claims-2026-10-31/mixbus/mixbus.tsv)). Grouped makes each reverb and delay one chain.
+without Zynthian's routing, read digitally at JACK ports: mda EPiano instruments holding notes, feeding one reverb and delay or a
+pair each, into the main output, 48000 Hz and 256 frames. Grouped makes each reverb and delay one chain.
 
-| 4 instruments | shared: JACK DSP | shared: PSS | a pair each: JACK DSP | a pair each: PSS | xruns |
+Our own omx reverb and delay, LV2 builds on every host, plugin-hostd 0.15.5, omx-clap-host 0.25.3, 4 instruments, five repeats,
+medians ([rows](evidence/pi5-claims-2026-10-31/mixbus/mixbus.tsv)):
+
+| | shared: JACK DSP | shared: PSS | a pair each: JACK DSP | a pair each: PSS |
+|---|---|---|---|---|
+| mod-host | 1.98 % | 82.1 MB | 2.16 % | 105.8 MB |
+| plugin-hostd, grouped | 2.66 % | 84.7 MB | 3.09 % | 122.2 MB |
+| plugin-hostd, one worker each | 2.85 % | 89.9 MB | 3.43 % | 133.3 MB |
+| jalv | 2.23 % | 298.2 MB | 3.28 % | 551.1 MB |
+
+Sharing saves memory on every host. mod-host uses less CPU and memory than plugin-hostd here; the gain of plugin-hostd is over
+jalv, in memory and xruns: plugin-hostd grouped read 0 in every repeat, jalv up to 7 shared and 11 with a pair each.
+
+Dragonfly Room and PitchedDelay, both stereo, plugin-hostd 0.15.7, 4 instruments, three repeats, 0 xruns, level -1.7 dBFS in every
+row ([rows](evidence/pi5-claims-2026-10-31/mixbus/mixbus-stereo-pair.tsv)):
+
+| | shared: JACK clients | shared: JACK DSP | shared: PSS | a pair each: JACK clients | a pair each: PSS |
 |---|---|---|---|---|---|
-| mod-host | 1.89 % | 82.1 MB | 2.17 % | 105.8 MB | 0 |
-| plugin-hostd, grouped | 2.76 % | 84.7 MB | 3.09 % | 122.2 MB | 0 |
-| plugin-hostd, one worker each | 2.85 % | 89.9 MB | 3.43 % | 133.3 MB | 0 |
-| jalv | 2.46 % | 298.2 MB | 6.38 % | 551.1 MB | 0 |
+| plugin-hostd, grouped | 5 | 5.85 % | 88.6 MB | 8 | 134.5 MB |
+| plugin-hostd, one worker each | 6 | 6.13 % | 93.7 MB | 12 | 145.5 MB |
 
-Sharing saves memory on every host. mod-host uses less CPU and memory than plugin-hostd here: the gain of plugin-hostd is over
-jalv, in memory and, at 8 instruments, in xruns (0 against 2).
+A group runs one audio width: a stereo reverb and a mono delay do not group. The worker refuses the chain, plugin-hostd 0.15.7
+reports the refusal, the engine ends a run at a change of width
+([zynthian-ui#57](https://github.com/FreeMixer/zynthian-ui/pull/57)), and the plugins run one by one at the same level.
 
-This example uses our own plugins. Through Zynthian's engine it has not been measured on the Pi.
+These rows are not through Zynthian's own routing; a Mixbus built from its menu has not been measured on the Pi.
 
 What stays to integrate
 -----------------------

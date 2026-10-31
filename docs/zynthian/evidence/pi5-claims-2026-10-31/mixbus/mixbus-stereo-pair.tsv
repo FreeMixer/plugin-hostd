@@ -1,0 +1,13 @@
+set	topology	instruments	host	repeat	status	plugins	xruns	dsp_avg	dsp_max	cpu_pct	pss_mb	processes	jack_clients	ctx_vol_s	ctx_invol_s	ctx_jackd_s	peak_db	rms_db	core0	core1	core2	core3	note
+third-stereo	shared	4	hostd	1	ok	6	0	6.05	6.62	9.33	93.7	7	6	2404	19	198	-1.7	-26.7	9.0	2.7	15.6	5.2	
+third-stereo	shared	4	hostd-chain	1	ok	6	0	5.85	6.43	8.93	88.6	6	5	2168	23	209	-1.7	-26.7	6.2	3.8	2.3	1.5	
+third-stereo	perchain	4	hostd	1	ok	12	0	10.99	11.24	27.32	145.5	13	12	6632	57	206	-1.7	-26.7	8.5	4.7	4.3	3.0	
+third-stereo	perchain	4	hostd-chain	1	ok	12	0	10.59	11.25	24.79	134.5	9	8	5678	25	202	-1.7	-26.7	2.9	2.6	3.0	1.6	
+third-stereo	shared	4	hostd	2	ok	6	0	6.13	6.59	9.13	93.7	7	6	2405	32	200	-1.7	-26.7	7.7	3.6	1.9	2.2	
+third-stereo	shared	4	hostd-chain	2	ok	6	0	5.85	6.36	9.13	88.6	6	5	2165	21	197	-1.7	-26.7	9.2	3.5	14.2	1.8	
+third-stereo	perchain	4	hostd	2	ok	12	0	11.2	11.49	27.72	145.5	13	12	6630	50	206	-1.7	-26.7	9.2	5.5	23.5	3.4	
+third-stereo	perchain	4	hostd-chain	2	ok	12	0	11.1	11.73	25.13	134.5	9	8	5680	147	203	-1.7	-26.7	4.4	2.9	7.8	1.3	
+third-stereo	shared	4	hostd	3	ok	6	0	6.15	6.56	9.66	93.7	7	6	2405	19	200	-1.7	-26.7	7.5	2.3	19.2	2.7	
+third-stereo	shared	4	hostd-chain	3	ok	6	0	5.86	6.34	8.86	88.7	6	5	2168	16	198	-1.7	-26.7	9.2	2.6	2.0	1.8	
+third-stereo	perchain	4	hostd	3	ok	12	0	11.24	11.85	27.39	145.6	13	12	6630	112	220	-1.7	-26.7	4.9	2.7	2.7	2.5	
+third-stereo	perchain	4	hostd-chain	3	ok	12	0	11.29	11.93	25.06	134.6	9	8	5678	336	217	-1.7	-26.7	7.0	3.8	18.8	2.7	

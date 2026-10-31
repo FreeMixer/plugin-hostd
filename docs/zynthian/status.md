@@ -8,11 +8,11 @@ Zynthian: [the Zynthian page](README.md).
 On the Pi now
 -------------
 
-The Pi 5 runs plugin-hostd 0.15.7, plugin-qualify 0.18.3, omx-clap-host 0.25.3, omx-panel 0.7.2, omx-plugins 0.16.0 and the
-zynthian-ui fork at [f864d294](https://github.com/FreeMixer/zynthian-ui/commit/f864d29), which is behind the tip of `vangelis`
-and does not have the grouping fixes. jackd runs on an RME Babyface Pro at 48000 Hz, 256 frames, 3 periods; the governor is on
-`performance`. omx-clap-host 0.25.4 and plugin-qualify 0.18.4 are released and not on the Pi yet. The figures below name their versions, and
-the earlier ones were taken with a Digidesign Mbox 2 (`hw:M2`) or the dummy card.
+The Pi 5 runs plugin-hostd 0.15.7, plugin-qualify 0.18.4, omx-clap-host 0.25.4, omx-panel 0.7.2, omx-plugins 0.16.0 and the
+zynthian-ui fork at [f864d294](https://github.com/FreeMixer/zynthian-ui/commit/f864d29), which it keeps for the benchmark queue:
+it is behind the tip of `vangelis` and does not have the grouping fixes. jackd runs on an RME Babyface Pro at 48000 Hz, 256
+frames, 3 periods; the governor is on `performance`. The figures below name their versions, and the earlier ones were taken
+with a Digidesign Mbox 2 (`hw:M2`) or the dummy card.
 
 Proven on the device
 --------------------
@@ -45,12 +45,20 @@ Proven on the device
   ([benchmarks](benchmarks.md#current-versions-chains-up-to-24-plugins)). These figures measure the daemon directly, on a private graph;
   zynthian-ui gained the fix that reads the plan in [zynthian-ui#53](https://github.com/FreeMixer/zynthian-ui/pull/53),
   and a run through Zynthian's own engine is next.
+- **Grouping through Zynthian's own engine, on its proof.** On plugin-hostd 0.15.7, omx-clap-host 0.25.4 and zynthian-ui
+  [76b5e106](https://github.com/FreeMixer/zynthian-ui/commit/76b5e106) with `grouping on`, `tools/ph_signal_path_proof.py` passes
+  10 of 10 on the Pi, read digitally at JACK ports: a run in series groups as one client, a parallel slot, the strip or another
+  client ends it, `grouping off` leaves each on its own, an edit elsewhere keeps the worker's pid, a note reaches a member that is
+  not the head. Zynthian came up with 0 Tracebacks and all its clients. The checkout then went back to f864d294
+  ([log](evidence/pi5-claims-2026-10-31/engine-proof/proof.log)).
+- **Values and presets on omx-clap-host 0.25.4, at the daemon.** omx-comp's ratio set to 7.5 reads 7.5 after a chain forms and
+  after `kill -9` of the chain's worker; a factory preset on a running CLAP omx eq8 changes 4 of 47 parameters and holds
+  ([log](evidence/pi5-claims-2026-10-31/engine-proof/proof.log)).
 - **At the daemon, a lost worker comes back.** After `kill -9` of the process holding one plugin, plugin-hostd 0.12.0 put the
   worker back and re-wired the links it made itself in 347 ms at 48000 Hz (`kill1`,
   [benchmarks](benchmarks.md#the-four-hosts-one-plugin-and-short-chains)). The daemon replays only those links: links made
   from outside are not restored, one run stayed silent for that reason, and Zynthian's routing is made from outside. A
-  run through Zynthian's own engine says what a crash does there; until then these pages claim nothing for it. Its values
-  may not come back either ([omx-clap-core#438](https://github.com/FreeMixer/omx-clap-core/issues/438)).
+  run through Zynthian's own engine says what a crash does there; until then these pages claim nothing for it.
   A plugin that crashes a chain's worker is quarantined and the others go on in order: proven in the CI round trip,
   not yet on the Pi ([chain profile](chain-profile.md)).
 - **One panel for both surfaces**: the engine's controller pages and the MOD GUIs are drawn from the same layout
@@ -59,12 +67,8 @@ Proven on the device
 Released, not proven on the device yet
 --------------------------------------
 
-omx-clap-host 0.25.4 and plugin-qualify 0.18.4 are not on the Pi yet. The Pi runs newer releases than the others, so they are installed there, and what is
-owed is the check of each on the device.
+The Pi runs these or newer releases, so they are installed there; what is owed is the check of each on the device.
 
-- **omx-clap-host 0.25.4** ([release](https://github.com/FreeMixer/omx-clap-host/releases/tag/v0.25.4)): a state or a preset
-  loads with the plugin out of processing ([omx-clap-core#438](https://github.com/FreeMixer/omx-clap-core/issues/438)), and a
-  chain member keeps its auxiliary ports on the head's client, so a chain with omx keyed-gate forms.
 - **plugin-hostd 0.15.7** ([release](https://github.com/FreeMixer/plugin-hostd/releases/tag/v0.15.7)): `chain` answers the
   worker's refusal, and a refused chain ends.
 - **plugin-qualify 0.18.4** ([release](https://github.com/FreeMixer/plugin-qualify/releases/tag/v0.18.4)): the adapter pass and
@@ -93,31 +97,23 @@ owed is the check of each on the device.
 Still open
 ----------
 
-- **Next: grouping through Zynthian's own engine.** [zynthian-ui#53](https://github.com/FreeMixer/zynthian-ui/pull/53) reads the daemon's plan and worker record as plugin-hostd
-  0.14 and later give them; it and [zynthian-ui#56](https://github.com/FreeMixer/zynthian-ui/pull/56) are on the fork, proven against a real daemon in a container. On the Pi they passed 7 of 9 proofs, among them grouping off, an edit elsewhere leaving a running worker alone, and a note reaching a member that is not the head; the Pi's Zynthian then went back to f864d294 and does not run them today. What closes it: chains built from the menu on the Pi,
-  `worker_list` showing what shares a worker, and the same figures taken that way.
-- **A plugin's settings are lost when its chain changes or its worker restarts, on omx-clap-host 0.25.3 and earlier.** Most
-  omx plugins refuse a state load while they process, so the value goes back to its default: `ratio` set to 7.5 read 4.0 after a
-  chain formed. Loading a Factory preset on a running omx eq8 (CLAP) should fail for the same reason. Now that the engine can group real chains, a
-  user would see this at every chain change. The fix ([omx-clap-core#439](https://github.com/FreeMixer/omx-clap-core/pull/439)) is released in omx-clap-host 0.25.4. It is proven with omx-comp, omx-delay and omx-drive after a chain forms and after `kill -9` on a desk, and
-  the preset load only with a test plugin. Not on the Pi yet.
+- **Next: chains from the menu with grouping on.** The proof above drives the engine. What closes it: chains built from the menu
+  on the Pi with the fork's tip, `worker_list` showing what shares a worker, and the same figures taken that way, and what a crash
+  does there.
 - **Ten third-party plugins in a group.** Since [plugin-hostd#339](https://github.com/FreeMixer/plugin-hostd/pull/339) they run,
   single and grouped: one worker, and still ten JACK clients ([rows](benchmarks.md#current-versions-chains-up-to-24-plugins)).
   What closes it: the chain as one client, as our own plugins are.
 - **A chain that does not form.** On plugin-hostd 0.15.4 a grouped chain did not form within 20 s in one of four cells at 18
   plugins and on one repeat at 32 and at 48. On 0.15.5 it formed in all six cells at 18 and every repeat up to 24. What closes
   it: rows at 32 and 48 on current versions.
-- **A chain that holds omx keyed-gate.** On omx-clap-host 0.25.3 the worker refused to form that chain while the daemon answered
-  `resp 0`, so those matrix rows are one worker and many JACK clients. omx-clap-host 0.25.4 forms it and plugin-hostd 0.15.7
-  answers a refusal. What closes it: the chain of all 19 run again on them.
+- **The chain of all 19.** On omx-clap-host 0.25.3 the worker refused a chain holding omx keyed-gate, so those matrix rows are one
+  worker and many JACK clients. omx-clap-host 0.25.4 forms it. What closes it: the chain of all 19 run again.
 - **The isolated step is owed.** `verdict=isolated` should mean a plugin was seen running alone. On plugin-qualify 0.18.2
   the step ran for 1 plugin of 152. What closes it: `--isolated-only` on a plugin-qualify that carries the fix, then `--rejudge`.
 - **Presets in the menu: mda Piano and Odin 2, and loading on CLAP.** The Factory and User banks, the listing and the
-  save are proven for omx eq8 in the menu. Open: loading a preset on a running CLAP instance does nothing (omx eq8 reads
-  a preset file only while it is not processing, so the menu names the preset and every control stays where it was);
-  mda Piano was refused from the menu (-509, see below) and has not been tried there since the fix; Odin 2 was refused
-  by its pin, which now says `isolated` and has not been tried again. What closes it: omx-plugins
-  and omx-clap-core load a preset on a running instance, mda Piano tried again from the menu, and captures on all three
+  save are proven for omx eq8 in the menu. Loading on a running CLAP instance works on the daemon on omx-clap-host 0.25.4, and has not been retried from the menu.
+  Open: mda Piano was refused from the menu (-509, see below) and has not been tried there since the fix; Odin 2 was refused
+  by its pin, which now says `isolated` and has not been tried again. What closes it: a preset loaded from the menu on a running instance, mda Piano tried again from the menu, and captures on all three
   ([plugin-hostd#269](https://github.com/FreeMixer/plugin-hostd/issues/269), [digital proofs](digital-proofs.md)).
 - **The snapshot round trip.** A snapshot holding mda Piano did not load: the add answered -509, because the daemon did not
   find a bundle whose manifest names the plugin by a prefixed name (`mda:Piano`). plugin-hostd 0.15.4 finds it, and the
@@ -136,9 +132,8 @@ Still open
   (an empty chain per refused add, `AttributeError ... 'setup'` on `CHAIN_OPTIONS`). What closes it: the fork switched to
   the pull request branches and the two behaviours tried ([digital proofs](digital-proofs.md)).
 - **Mixbus chains and parallel slots on the device.** A chain now groups only plugins in series, and leaves a parallel
-  slot, the mixer strip and a jalv plugin in the signal's way: measured at JACK ports in a container, not yet on the Pi.
-  This is also the change that makes the engine group chains on plugin-hostd 0.14 and later. What closes it: the steps of
-  [mixbus chains](mixbus.md#steps-for-the-pi), then the Mixbus row of the benchmark.
+  slot, the mixer strip and a jalv plugin in the signal's way: measured at JACK ports, in a container and with the engine's proof on the Pi, without a Mixbus in Zynthian's own mixer. What
+  closes it: the UI steps of [mixbus chains](mixbus.md#steps-for-the-pi).
 - **Pin refresh on a plugin upgrade, on the device.** Proven in CI; what closes it: a plugin upgraded on the Pi and
   added again without restarting the daemon.
 - **The captures are from before the new set.** What closes it: every capture retaken after the re-qualification
