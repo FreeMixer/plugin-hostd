@@ -41,6 +41,8 @@ Proven on the device
   so the gain is over one process per plugin, not over mod-host ([benchmarks](benchmarks.md#grouped-versus-alone-plugin-hostd-jalv-mod-host)).
   At 16 chains of four, plugin-hostd 0.13.1, all at 1500 MHz: 70.6 % of a core and 224.2 MB for 60 plugins grouped,
   82.3 % and 2745.6 MB for 64 plugins under jalv, which stopped there on memory with 2 xruns ([stress run](stress.md)).
+  These figures measure the daemon directly, on a private graph; zynthian-ui gained the fix that reads the plan in
+  [zynthian-ui#53](https://github.com/FreeMixer/zynthian-ui/pull/53), and a run through Zynthian's own engine is next.
 - **A lost worker comes back.** After `kill -9` of the process holding one plugin, plugin-hostd 0.12.0 put the worker back
   and re-wired it in 347 ms at 48000 Hz (`kill1`, [benchmarks](benchmarks.md#the-four-hosts-one-plugin-and-short-chains)).
   A plugin that crashes a chain's worker is quarantined and the others go on in order: proven in the CI round trip,
@@ -78,6 +80,13 @@ the check of each on the device.
 Still open
 ----------
 
+- **Next: grouping through Zynthian's own engine.** [zynthian-ui#53](https://github.com/FreeMixer/zynthian-ui/pull/53) reads the daemon's plan and worker record as plugin-hostd
+  0.14 and later give them; it is on the fork and not yet on a device. What closes it: chains built from the menu on the Pi,
+  `worker_list` showing what shares a worker, and the same figures taken that way.
+- **A plugin's values when a chain forms.** On plugin-hostd 0.15.4 and omx-clap-host 0.25.3, forming a chain loses a
+  member's parameters when the plugin refuses a state load while it processes, as 21 of the 24 plugins in omx-plugins do
+  ([omx-clap-core#438](https://github.com/FreeMixer/omx-clap-core/issues/438)). A worker restart takes the same steps; that
+  is expected and not measured. What closes it: the state load taken while processing, and values compared before and after.
 - **A third-party chain under plugin-hostd.** On plugin-hostd 0.15.4 the chain of ten third-party LV2 effects failed in
   every matrix cell, single and grouped: `add lv2:http://gareus.org/oss/lv2/fil4#stereo` answered -101. The fix is merged
   ([plugin-hostd#339](https://github.com/FreeMixer/plugin-hostd/pull/339)). What closes it: those cells run again on the

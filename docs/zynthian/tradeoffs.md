@@ -7,7 +7,8 @@ For a reviewer of the zynthian-ui and zynthian-sys changes. Each point names the
 One worker per chain against one process per plugin
 ---------------------------------------------------
 
-plugin-hostd runs a Zynthian chain in one worker process (grouped) or each plugin in a worker of its own (individual);
+These figures measure the daemon directly, on a private graph; a run through Zynthian's own engine is next
+([zynthian-ui#53](https://github.com/FreeMixer/zynthian-ui/pull/53) gives the engine the fix that reads the plan). plugin-hostd runs a chain in one worker process (grouped) or each plugin in a worker of its own (individual);
 jalv runs one process per plugin; mod-host runs every plugin in one process. Figures: [Grouped versus
 alone](benchmarks.md#grouped-versus-alone-plugin-hostd-jalv-mod-host), Pi 5, 48000 Hz, 256 frames, run `rpi5-20261027-1`
 on plugin-hostd 0.12.0. A matrix on current versions is being taken ([status](status.md)).
