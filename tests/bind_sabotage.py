@@ -5,22 +5,19 @@ import os, shlex, shutil, subprocess, sys, tempfile
 
 exe, fake, cc, cflags, objs, libs = sys.argv[1:7]
 
-# the readiness check would stop the daemon by itself in the first arms: the last line of each takes it out as well, so
-# what must see the fault is the test's own connect
-NO_ADDRESS_CHECK = ("src/main.c", "state == 0x0A && (int)local_port == port && local_address == address->s_addr;",
-                    "state == 0x0A && (int)local_port == port && (local_address || 1);")
 ARMS = [
     ("the default is every address",
      [("include/plugin-hostd/protocol.h", '#define PHD_DEFAULT_BIND_ADDRESS      "127.0.0.1"', '#define PHD_DEFAULT_BIND_ADDRESS      "0.0.0.0"')]),
-    ("the command port keeps the address the library gives it",
-     [("src/listen.c", "in.sin_addr = g_address;", "(void)g_address;"), NO_ADDRESS_CHECK]),
+    ("the library is not told the address",
+     [("src/main.c", "socket_set_bind_address(g_conf.bind_address) != 0 ||", "")]),
     ("the feedback port listens on every address",
-     [("src/relay.c", "if (inet_pton(AF_INET, address, &addr.sin_addr) != 1)", "if (inet_pton(AF_INET, \"0.0.0.0\", &addr.sin_addr) != 1)"),
-      NO_ADDRESS_CHECK]),
+     [("src/relay.c", "if (inet_pton(AF_INET, address, &addr.sin_addr) != 1)", "if (inet_pton(AF_INET, \"0.0.0.0\", &addr.sin_addr) != 1)")]),
     ("the option is ignored",
      [("src/main.c", "bind_address = optarg;", "(void)optarg;")]),
-    ("the command port is left where the library put it, which the ready line catches",
-     [("src/listen.c", "in.sin_addr = g_address;", "(void)g_address;")]),
+    ("a command port that cannot listen does not stop the daemon",
+     [("src/main.c", "socket_start(socket_port, 0, SOCKET_MSG_BUFFER_SIZE) < 0", "(socket_start(socket_port, 0, SOCKET_MSG_BUFFER_SIZE), 0)")]),
+    ("a feedback port that cannot listen does not stop the daemon",
+     [("src/main.c", "relay_start(feedback_port, g_conf.bind_address) < 0", "(relay_start(feedback_port, g_conf.bind_address), 0)")]),
 ]
 
 failures = 0

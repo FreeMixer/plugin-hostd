@@ -105,7 +105,8 @@ jobs:
 
       # the library, corpus and README of mod-host with the patches FreeMixer/.github carries (packaging/mod-host),
       # the same code as the mod-host-protocol packages: track_info, remote pages, param_info, NUL-framed commands
-      - uses: FreeMixer/.github/.github/actions/mod-host-protocol@v1
+      # at this commit until FreeMixer/.github moves v1 past #98: the protocol library that takes a bind address
+      - uses: FreeMixer/.github/.github/actions/mod-host-protocol@f462c98d0b84167b7a3838fe55abfa01ac0c2fd7
 
       - name: Build
         run: make
@@ -196,7 +197,8 @@ jobs:
       - name: Install the build dependencies from the channel
         run: dnf builddep -y --setopt=retries=10 packaging/plugin-hostd.spec
 
-      - uses: FreeMixer/.github/.github/actions/mod-host-protocol@v1
+      # at this commit until FreeMixer/.github moves v1 past #98: the protocol library that takes a bind address
+      - uses: FreeMixer/.github/.github/actions/mod-host-protocol@f462c98d0b84167b7a3838fe55abfa01ac0c2fd7
 
       - name: Build
         run: make
@@ -245,7 +247,8 @@ jobs:
 
       # the library, corpus and README of mod-host with the patches FreeMixer/.github carries (packaging/mod-host),
       # the same code as the mod-host-protocol packages: track_info, remote pages, param_info, NUL-framed commands
-      - uses: FreeMixer/.github/.github/actions/mod-host-protocol@v1
+      # at this commit until FreeMixer/.github moves v1 past #98: the protocol library that takes a bind address
+      - uses: FreeMixer/.github/.github/actions/mod-host-protocol@f462c98d0b84167b7a3838fe55abfa01ac0c2fd7
 
       # the CLAP headers, which Debian does not package either: built and installed from the pin of
       # FreeMixer/.github, the same one the RPM and DEB builds of the CLAP worker use
@@ -302,7 +305,8 @@ jobs:
       - name: Add the OpenMixer channel
         uses: FreeMixer/.github/.github/actions/add-openmixer@v1
 
-      - uses: FreeMixer/.github/.github/actions/mod-host-rpms@v1
+      # at this commit until FreeMixer/.github moves v1 past #98: the protocol library that takes a bind address
+      - uses: FreeMixer/.github/.github/actions/mod-host-rpms@f462c98d0b84167b7a3838fe55abfa01ac0c2fd7
 
       - uses: FreeMixer/.github/.github/actions/build-rpm@v1
 
@@ -319,7 +323,7 @@ jobs:
             diff -u expected.txt files.txt
             rpm -qp --requires "$rpm" | tee requires.txt
             grep -q 'libmod-host-protocol.so.0' requires.txt
-            grep -qx 'mod-host-protocol(.*) >= 0.10.6.f14a230-11.1' requires.txt
+            grep -qx 'mod-host-protocol(.*) >= 0.10.6.f14a230-11.3' requires.txt
             grep -qx "plugin-hostd-contract = $(rpm -qp --qf '%{VERSION}-%{RELEASE}' "$rpm")" requires.txt
             rpm -qp --recommends "$rpm" | tee recommends.txt
             grep -q '^mod-host' recommends.txt
@@ -451,7 +455,8 @@ jobs:
       - name: Add the OpenMixer channel
         uses: FreeMixer/.github/.github/actions/add-openmixer@v1
 
-      - uses: FreeMixer/.github/.github/actions/deb-deps@v1
+      # at this commit until FreeMixer/.github moves v1 past #98: the protocol library that takes a bind address
+      - uses: FreeMixer/.github/.github/actions/deb-deps@f462c98d0b84167b7a3838fe55abfa01ac0c2fd7
 
       - uses: FreeMixer/.github/.github/actions/build-deb@v1
 
@@ -538,7 +543,7 @@ jobs:
           grep -qx /usr/libexec/plugin-hostd/tests/lib/plugin_hostd_client.py tests.txt
           dpkg -s libmod-host-protocol0 | grep '^Status: install ok installed'
           dpkg-deb -f debs/plugin-hostd_*.deb Depends | tee depends.txt
-          grep -qF 'libmod-host-protocol0 (>= 0.1.0-6~fmx)' depends.txt
+          grep -qF 'libmod-host-protocol0 (>= 0.1.0-8~omx)' depends.txt
 
       - name: The installed fake worker prints its layout
         run: |
