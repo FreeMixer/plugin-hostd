@@ -100,9 +100,7 @@ main output, 48000 Hz and 256 frames, plugin-hostd 0.15.5, omx-clap-host 0.25.3,
 Sharing saves memory on every host. mod-host uses less CPU and memory than plugin-hostd here: the gain of plugin-hostd is over
 jalv, in memory and, at 8 instruments, in xruns (0 against 2).
 
-Not ready: use our own plugins for this. Grouped third-party effects on a Mixbus read near silence at the main output, -220 to
--238 dBFS at the four sizes measured, where every other host reads -3 to -9 dBFS; the cause is not proven. The same effects
-with one worker each read as the other hosts do. Through Zynthian's engine this has not been measured on the Pi.
+This example uses our own plugins. Through Zynthian's engine it has not been measured on the Pi.
 
 What stays to integrate
 -----------------------
