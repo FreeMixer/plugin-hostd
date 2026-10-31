@@ -989,8 +989,8 @@ static inline int phd_is_note_verb(const char *verb)
       "quarantine; " PHD_WORD_NONE " for none. <chain> is the number chain declared, or <plan>" PHD_PLACE_PLAN_SEPARATOR \
       "<k> for segment k of a plan") \
     X(PHD_EVENT_CHAIN_REFUSED, "<chain> <code>", \
-      "a chain's worker would not run the members as one chain, <code> its own answer, and its stderr says why: the " \
-      "chain is forgotten and each member runs in a worker of its own. <chain> as chain_formed names it") \
+      "a chain's worker would not run the members as one chain, <code> its own answer, and its stderr says why: " \
+      "the chain is forgotten and each member runs in a worker of its own. <chain> as " PHD_EVENT_CHAIN_FORMED " names it") \
     X(PHD_EVENT_PLAN_REASON, "<chain> <instance>:<reason>,...", \
       "a plan of the chain changed: the reasons " OMX_VERB_PLAN_GET " answers now, after the segments, " PHD_WORD_NONE " for none") \
     X(PHD_EVENT_SUPERVISOR_GAVE_UP, "<worker> <deaths> <window_ms>", "the storm bound is spent; respawning ends") \
