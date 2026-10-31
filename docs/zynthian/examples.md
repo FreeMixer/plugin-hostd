@@ -56,22 +56,27 @@ A channel strip as plugins
 --------------------------
 
 EQ and dynamics per chain are ordinary effects in that chain. `zynmixer` does not change: it keeps its level, pan and sends,
-and the plugins are processors like any other.
+and the plugins are processors like any other. There are two equal ways. In both, with the plugin-hostd engine on
+(`ZYNTHIAN_PLUGIN_ENGINE=plugin-hostd` in `/zynthian/config/zynthian_envars.sh`, then restart the UI), select the chain, open its
+options and use `Add Audio-FX processor`; a plugin's entry ends in "(PH)". Its controller pages follow its own sections.
 
-1. With the plugin-hostd engine on (`ZYNTHIAN_PLUGIN_ENGINE=plugin-hostd` in `/zynthian/config/zynthian_envars.sh`, then
-   restart the UI), select the chain and open its options.
-2. `Add Audio-FX processor`, and choose omx eq8 from the list; its entry ends in "(PH)". Do the same for omx comp.
-3. Turn the encoders on the controller pages, which follow the plugin's own sections. Save a preset from the menu under User.
+**Separate plugins: omx keyed-gate, omx eq8, omx comp.** You pick each one and its order, and eq8 has eight bands. Each is one
+more load and, unless they are grouped, one more worker per chain.
 
-omx strip does the same in one plugin: trim, filters, gate, four bands of EQ and compressor.
+**One plugin: omx strip.** One load and one worker per chain, on any host, CLAP or LV2. It holds input trim, filters, a gate, four
+EQ bands and a compressor, in stereo. The design is fixed: those five stages, each with its own switch, though its Order
+parameter puts them in any order.
+
+What it costs, from qualification at 48000 Hz and 512 frames, CLAP, median per block
+([table](benchmarks.md#cost-and-the-grid-gap)): omx strip 5.89 us; omx eq8 4.39 us and omx comp 6.96 us, 11.35 us together with
+eight EQ bands against four. omx keyed-gate is 17.85 us more. These are plugins alone, not a chain measured as a chain.
 
 What you get: on the Pi, omx eq8 from the menu, its pages, its Factory and User banks and a saved user preset are
 [captured](captures.md#omx-eq8-retaken-on-omx-plugins-0-16-0) and [read back](digital-proofs.md#presets-factory-and-user-banks).
 
 Limits:
 
-- There is no mixing-strip test yet: nobody has run eq8 and comp as a channel strip across a set of chains and measured it, and
-  omx strip has not been tried from the menu.
+- Neither way has a mixing-strip test yet, across a set of chains, and omx strip has not been tried from the menu.
 - A preset on a running CLAP omx eq8 loads on the daemon on omx-clap-host 0.25.4 and has not been retried from the menu.
 
 Shared effects on a Mixbus
