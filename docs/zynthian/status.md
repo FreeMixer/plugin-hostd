@@ -96,10 +96,9 @@ Still open
   chain formed. Loading a Factory preset on a running omx eq8 (CLAP) should fail for the same reason. Now that the engine can group real chains, a
   user would see this at every chain change. The fix ([omx-clap-core#439](https://github.com/FreeMixer/omx-clap-core/pull/439)) is merged for the next omx-clap-host. It is proven with omx-comp, omx-delay and omx-drive after a chain forms and after `kill -9` on a desk, and
   the preset load only with a test plugin. Not on the Pi yet.
-- **A third-party chain under plugin-hostd.** On plugin-hostd 0.15.4 the chain of ten third-party LV2 effects failed in
-  every matrix cell, single and grouped: `add lv2:http://gareus.org/oss/lv2/fil4#stereo` answered -101. The fix is merged
-  ([plugin-hostd#339](https://github.com/FreeMixer/plugin-hostd/pull/339)). What closes it: those cells run again on the
-  release that carries it.
+- **Ten third-party plugins in a group.** Since [plugin-hostd#339](https://github.com/FreeMixer/plugin-hostd/pull/339) they run,
+  single and grouped: one worker, and still ten JACK clients ([rows](benchmarks.md#current-versions-chains-up-to-24-plugins)).
+  What closes it: the chain as one client, as our own plugins are.
 - **A chain that does not form.** A grouped chain did not form within 20 s in one of four cells at 18 plugins and on one
   repeat at 32 and at 48. What closes it: the cause, from the logs of the next run.
 - **A chain that holds omx-keyed-gate is not one JACK client.** The earlier run on plugin-hostd 0.12.0 counted one JACK
