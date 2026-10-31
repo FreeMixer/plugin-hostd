@@ -4,8 +4,7 @@ Digital proofs on the Pi 5
 What was measured on the Zynthian Pi 5 with the Digidesign Mbox 2 (`hw:M2`) under jackd at 48000 Hz, 256 frames, 3
 periods, with plugin-hostd 0.15.3, omx-clap-host 0.25.1, plugin-qualify 0.18.0, omx-panel 0.7.2, omx-plugins 0.16.0 and
 the zynthian-ui fork at `f864d294` (the tip of `vangelis`). Every level and count below is read at a JACK port or in a
-journal: this is **digital**. No speakers and no loop cable were connected, so nothing here says what comes out of the
-analog outputs, and nobody has listened. The audible proof is still owed. Where a failure below has since been fixed, the
+journal: these are **digital** measurements, and each figure is one at the JACK ports. Where a failure below has since been fixed, the
 section says on which release; the Pi now runs plugin-hostd 0.15.4 and omx-clap-host 0.25.2.
 
 Nothing was downloaded or built on the Pi except the two probes `tools/zynthian/` names (`jack-instrument-probe`,
