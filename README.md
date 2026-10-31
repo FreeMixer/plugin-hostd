@@ -66,9 +66,12 @@ you would a mod-host plugin. `man plugin-hostd` has the options; the full protoc
 Using it from your own host (Zynthian, a Raspberry Pi, any Debian): [docs/own-host.md](docs/own-host.md), nine commands from
 nothing to a plugin running.
 
-Under Zynthian on a Raspberry Pi 5: the measurements are [docs/zynthian/benchmarks.md](docs/zynthian/benchmarks.md), the
-pros and cons for a reviewer [docs/zynthian/tradeoffs.md](docs/zynthian/tradeoffs.md), and the acceptance report
-[docs/zynthian/acceptance-report.md](docs/zynthian/acceptance-report.md).
+Under Zynthian on a Raspberry Pi 5: start at [docs/zynthian/README.md](docs/zynthian/README.md), which says what it is
+and how little it changes in Zynthian; [docs/zynthian/status.md](docs/zynthian/status.md) says what is proven and what is
+still open. The measurements are [docs/zynthian/benchmarks.md](docs/zynthian/benchmarks.md), the pros and cons for a
+reviewer [docs/zynthian/tradeoffs.md](docs/zynthian/tradeoffs.md), and the acceptance report
+[docs/zynthian/acceptance-report.md](docs/zynthian/acceptance-report.md). Everything measured there was measured
+digitally, at JACK ports, on one Pi 5.
 
 Building from source: see [BUILDING.md](BUILDING.md). More about FreeMixer at <https://www.openmixer.org>.
 
