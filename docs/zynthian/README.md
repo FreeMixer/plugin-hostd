@@ -31,6 +31,8 @@ skipping a plugin whose files have not changed), `plugin-qualify-sync.path`, and
 syncs; those can be disabled, and the first sync on a device with many plugins is long
 ([tradeoffs](tradeoffs.md#qualification-and-pins)).
 
+Three things to do with it, with their steps and limits: [examples.md](examples.md).
+
 What this directory holds: the spike that put plugin-hostd under Zynthian ([spike-report.md](spike-report.md)), the
 plan built on it ([offer.md](offer.md)), mod-ui's verbs on mod-host and on plugin-hostd ([verbs.tsv](verbs.tsv)), one
 Zynthian chain written as a strip profile ([chain-profile.md](chain-profile.md)), what the jalv and mod-ui engines
