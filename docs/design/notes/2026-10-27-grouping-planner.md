@@ -287,6 +287,9 @@ settings are the values the winning run used.
   is needed beyond the file.
 - **A plan the daemon cannot make.** Any member's `add` or `chain` refused leaves the members as they were and answers the
   refusal's own code; the plan reason is `plan-refused:<code>`.
+  Only the worker can refuse a segment for what its plugins are (an output another width, say), and it says so once the
+  members have moved: the plan then answers -501, every member's reason is `plan-refused:-501` and each runs in a
+  worker of its own.
 
 ## Steps
 
