@@ -436,6 +436,10 @@ static int manifest_prefixed(const char *text, const char *uri)
     return 0;
 }
 
+/* MANIFEST_NAMES when the bundle's manifest names the plugin, and MANIFEST_REALISES when it also holds a binary: a bundle
+ * that only adds to a plugin, such as a generated MOD GUI, names it too and cannot run it */
+enum { MANIFEST_NOT, MANIFEST_NAMES, MANIFEST_REALISES };
+
 static int manifest_names(const char *bundle, const char *uri)
 {
     char path[PATH_MAX], *text, needle[2048];
@@ -466,14 +470,16 @@ static int manifest_names(const char *bundle, const char *uri)
     fclose(file);
     text[got] = '\0';
     snprintf(needle, sizeof(needle), "<%s>", uri);
-    found = strstr(text, needle) != NULL || manifest_prefixed(text, uri);
+    found = MANIFEST_NOT;
+    if (strstr(text, needle) != NULL || manifest_prefixed(text, uri))
+        found = strstr(text, "binary") != NULL ? MANIFEST_REALISES : MANIFEST_NAMES;
     free(text);
     return found;
 }
 
 char *proc_find_lv2_bundle(const char *lv2_path, const char *uri)
 {
-    char *copy = strdup(lv2_path), *dir, *save = NULL, *result = NULL;
+    char *copy = strdup(lv2_path), *dir, *save = NULL, *result = NULL, *named = NULL;
 
     if (!copy)
         return NULL;
@@ -492,13 +498,27 @@ char *proc_find_lv2_bundle(const char *lv2_path, const char *uri)
             if (n < 5 || strcmp(entry->d_name + n - 4, ".lv2") != 0)
                 continue;
             snprintf(bundle, sizeof(bundle), "%s/%s", dir, entry->d_name);
-            if (manifest_names(bundle, uri))
+            switch (manifest_names(bundle, uri))
+            {
+            case MANIFEST_REALISES:
                 result = strdup(bundle);
+                break;
+            case MANIFEST_NAMES:
+                /* a manifest may leave the binary to a file it links: the first that names the plugin, when none holds one */
+                if (!named)
+                    named = strdup(bundle);
+                break;
+            }
         }
         closedir(d);
     }
     free(copy);
-    return result;
+    if (result)
+    {
+        free(named);
+        return result;
+    }
+    return named;
 }
 
 int proc_parse_stat(const char *text, long long *utime, long long *stime)
