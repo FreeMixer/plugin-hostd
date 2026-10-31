@@ -57,6 +57,12 @@ int format_by_name(const char *name)
     return 0;
 }
 
+int pin_percent_decode(const char *in, char *out, size_t size)
+{
+    snprintf(out, size, "%s", in);
+    return 0;
+}
+
 int pin_refuse(const char *uri, const char *path, const char *why)
 {
     (void)uri;

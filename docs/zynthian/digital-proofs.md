@@ -156,6 +156,9 @@ client is always processing. This is read from the source of omx-plugins 0.16.0;
 it where it opens and hashes the file) and answers -101 from the worker, which is given the encoded name. A symlink with
 no space in its name works: the proofs above used it.
 
+After this run the daemon gives the worker the decoded path, one quoted word. A build of it on this Pi, with the installed
+omx-clap-host 0.25.1, adds the encoded name with and without pins and reads -13.5 dBFS at C4, 0 xruns.
+
 ### Surge XT as LV2 through plugin-hostd's adapter
 
 Added with `lv2_worker omx-clap-host`, it runs and takes the notes (JACK DSP 9 % with one note held, 16 % at 8 voices, and a
@@ -164,6 +167,12 @@ second busy thread) but **the output ports stay silent: peak -inf dBFS in all 22
 with 0 xruns. The same plugin through jalv, in the same session, gives -13.5 dBFS. With the device's own settings
 (`require_pins 1`) the add answers -509: the manifest names the binary `libSurge%20XT.so`, which the daemon does not
 decode ([plugin-hostd#239](https://github.com/FreeMixer/plugin-hostd/issues/239)).
+
+The silence was the adapter's: its first block sent every `patch:writable` property at its `lv2:default`, and Surge XT's TTL
+says 0 for all 775 of them, the global volume among them, while its real values live in the plugin
+([omx-clap-core#433](https://github.com/FreeMixer/omx-clap-core/pull/433)). With a build of that change and of the daemon
+that decodes the binary's name, on this Pi, under `require_pins 1`: -13.5 dBFS at C4, as jalv, 0 xruns. A single low note
+reads -11.2 dBFS peak, -22.4 dBFS RMS at 65.5 Hz, the row jalv gives, at JACK DSP 3.7 % against 14.3 % before.
 
 ### Odin 2 is refused by its pin
 

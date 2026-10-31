@@ -437,9 +437,6 @@ static inline int phd_pool_name_valid(const char *name)
       "daemon, its threads and the helpers it forks to the reserved cores") \
     X(NONE, PHD_CORE_PLACEMENT_NONE, "nothing is pinned: the workers run where the daemon may")
 
-/* a manifest's IRI that holds this is percent-encoded */
-#define PHD_PIN_PERCENT          "%"
-
 /* what cannot be pinned, each a refusal and never a partial pin: X(id, meaning) */
 #define PHD_PIN_LIMITS(X) \
     X(PATH, "a path holding '" PHD_PIN_FILE_SEPARATOR "', '" PHD_PIN_DIGEST_SEPARATOR "' or whitespace cannot be pinned: " \
@@ -447,9 +444,10 @@ static inline int phd_pool_name_valid(const char *name)
             "outside its grammar") \
     X(LINE, "a " OMX_VERB_PIN_SET " line is at most line_max, " PHD_STR(PHD_LINE_MAX) " bytes, the protocol socket's " \
             "buffer; a longer one is refused as outside the grammar") \
-    X(MANIFEST, "a manifest that uses @base, or names a file of the plugin by a percent-encoded IRI, makes add answer " \
+    X(MANIFEST, "a manifest that uses @base makes add answer " \
                 "OMX_REPLY_PLUGIN_HOSTD_PIN_BINARY_MISMATCH_RESP " PHD_STR(OMX_REPLY_PLUGIN_HOSTD_PIN_BINARY_MISMATCH_RESP) ": the daemon does not resolve " \
-                "either, so it cannot know the file the host would load")
+                "it, so it cannot know the file the host would load. A file the manifest names by a percent-encoded IRI is " \
+                "pinned as written, one word, and opened decoded; a name with a stray % is refused the same way")
 
 /* the verbs the daemon adds to mod-host's, or extends: X(id, name, arguments, reply, meaning) */
 #define PHD_VERBS(X) \

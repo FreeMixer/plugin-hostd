@@ -1770,14 +1770,59 @@ def what_cannot_be_pinned_is_refused_and_never_pinned_in_part():
         mark = len(p.received())
         d.expect("add %s 1" % LV2_URI, resp("PIN_BINARY_MISMATCH"))
 
-        # a percent-encoded name: the host decodes it, the daemon would hash the file of the name as written
-        encoded = os.path.join(p.bundle, "pinned%2Eso")
-        write(encoded, b"not the binary the host loads")
-        write(manifest, (MANIFEST % LV2_URI).replace("<pinned.so>", "<pinned%2Eso>").encode())
-        d.expect(p.lv2_pin(("manifest.ttl", "pinned%2Eso", "pinned.so", "pinned.ttl")), "resp 0")
+        # a name with a stray percent: no file a host would load can be told from it
+        write(manifest, (MANIFEST % LV2_URI).replace("<pinned.so>", "<pinned%ZZso>").encode())
+        d.expect(p.lv2_pin(("manifest.ttl", "pinned.so", "pinned.ttl")), "resp 0")
         d.expect("add %s 1" % LV2_URI, resp("PIN_BINARY_MISMATCH"))
         check(p.received()[mark:] == [], "no worker saw a refused add: %s" % p.received()[mark:])
         write(manifest, good)
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def an_lv2_binary_named_by_a_percent_encoded_iri_is_pinned_and_checked_by_the_file_it_decodes_to():
+    """plugin-hostd#239: Surge XT's manifest names its binary libSurge%20XT.so, the file is "libSurge XT.so"; the pin
+    holds the name as the manifest writes it, one word, and the daemon opens the decoded file, in a bundle whose own
+    directory holds a space"""
+    p = Plugins()
+    bundle = os.path.join(p.lv2_dir, "Surge XT.lv2")
+    os.rename(p.bundle, bundle)
+    p.bundle = bundle
+    binary = os.path.join(bundle, "libSurge XT.so")
+    os.rename(os.path.join(bundle, "pinned.so"), binary)
+    write(os.path.join(bundle, "manifest.ttl"), (MANIFEST % LV2_URI).replace("<pinned.so>", "<libSurge%20XT.so>").encode())
+    word = "libSurge%20XT.so"
+    pin = "pin_set %s %s=%s,manifest.ttl=%s,pinned.ttl=%s %s" % (LV2_URI, word, sha(binary), sha(os.path.join(bundle, "manifest.ttl")),
+                                                                 sha(os.path.join(bundle, "pinned.ttl")), fake_layout())
+    good = open(binary, "rb").read()
+    d = p.daemon()
+    try:
+        d.expect("add %s 0" % LV2_URI, resp("PIN_ABSENT"))
+        d.expect(pin, "resp 0")
+        d.expect("add %s 0" % LV2_URI, "resp 0")
+        d.expect("remove 0", "resp 0")
+        write(binary, b"another build")
+        d.expect("add %s 1" % LV2_URI, resp("PIN_BINARY_MISMATCH"))
+        write(binary, good)
+    finally:
+        d.close()
+    # first use learns it, in one word, as the manifest writes it, and a strict daemon over that store admits it
+    os.unlink(p.store) if os.path.exists(p.store) else None
+    d = p.daemon(conf={"pin_mode": "first-use"})
+    try:
+        d.expect("add %s 2" % LV2_URI, "resp 2")
+    finally:
+        d.close()
+    with open(p.store) as f:
+        saved = f.read()
+    check("%s=%s" % (word, sha(binary)) in saved, "the store holds the encoded name and the digest of the decoded file: %r" % saved)
+    d = p.daemon()
+    try:
+        d.expect("add %s 3" % LV2_URI, "resp 3")
+        write(binary, b"another build")
+        d.expect("add %s 4" % LV2_URI, resp("PIN_BINARY_MISMATCH"))
     finally:
         d.close()
         p.close()
@@ -4137,7 +4182,8 @@ def same_bytes(a, b):
 @test
 def a_clap_file_whose_name_holds_a_space_is_added_pinned_stored_and_described_by_its_percent_encoded_path():
     """issue 240: Surge XT ships as "Surge XT.clap"; the uri writes the space as %20 and the daemon decodes the path where
-    it opens, hashes and scans the file; the pin names the file as the uri does, one word"""
+    it opens, hashes and scans the file and in the add it gives the worker, which opens the path it is given; the pin
+    names the file as the uri does, one word"""
     s = Scan()
     path = os.path.join(os.path.dirname(s.clap), "Surge XT.clap")
     os.rename(s.clap, path)
@@ -4155,6 +4201,8 @@ def a_clap_file_whose_name_holds_a_space_is_added_pinned_stored_and_described_by
         d.expect("add %s 0" % uri, "resp 0")
         wait_for(lambda: answered(d, uri, s.clap_name()), "descriptor_get answers %s" % s.clap_name())
         check(s.scans() == ["clap:%s#%s" % (path, CLAP_ID)], "the probe is run for the decoded path: %s" % s.scans())
+        check(['add "clap:%s#%s" 0' % (path, CLAP_ID)] == [c for c in sent_to(env["FAKE_LOG"]) if c.startswith("add ")],
+              "the worker is given the decoded path, one quoted word: %s" % sent_to(env["FAKE_LOG"]))
         write(path, b"another build")
         d.expect("add %s 1" % uri, resp("PIN_BINARY_MISMATCH"))
     finally:

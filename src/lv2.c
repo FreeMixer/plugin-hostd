@@ -380,8 +380,8 @@ int lv2_pin_collect(const char *uri, const char *search, char *root, size_t size
     free(bundle);
     if (read_manifest(root, &manifest, &manifest_size) != 0)
         return pin_refuse(uri, MANIFEST, "can't be read as a manifest");
-    /* the host resolves a base and decodes a percent-encoded name; the daemon does neither, so it cannot know the file
-     * the host would load */
+    /* the host resolves a base, which the daemon does not, so it cannot know the file the host would load. A name is an
+     * IRI: the pin holds it as the manifest writes it, one word, and the daemon decodes it where it opens the file */
     based = manifest_files(manifest, manifest_size, root, bare(uri), &names, 0);
     if (based < 0)
         rc = ERR_MEMORY_ALLOCATION;
@@ -391,8 +391,10 @@ int lv2_pin_collect(const char *uri, const char *search, char *root, size_t size
         rc = ERR_MEMORY_ALLOCATION;
     for (n = 0; n < names.n && rc == SUCCESS; n++)
     {
-        if (strstr(names.name[n], PHD_PIN_PERCENT))
-            rc = pin_refuse(uri, names.name[n], "is percent-encoded, which the daemon does not decode");
+        char decoded[PATH_MAX];
+
+        if (pin_percent_decode(names.name[n], decoded, sizeof(decoded)) != 0)
+            rc = pin_refuse(uri, names.name[n], "is not a percent-encoded name");
         else if (!names_has(files, names.name[n]) && names_add(files, names.name[n]) != 0)
             rc = ERR_MEMORY_ALLOCATION;
     }
@@ -405,7 +407,7 @@ int lv2_pin_collect(const char *uri, const char *search, char *root, size_t size
 int lv2_binary(const char *uri, const char *search, char *path, size_t size)
 {
     names_t names = { NULL, 0 };
-    char *bundle = proc_find_lv2_bundle(search, bare(uri)), *manifest = NULL;
+    char *bundle = proc_find_lv2_bundle(search, bare(uri)), *manifest = NULL, decoded[PATH_MAX];
     size_t manifest_size = 0;
     int rc = -1;
 
@@ -413,9 +415,9 @@ int lv2_binary(const char *uri, const char *search, char *path, size_t size)
         return -1;
     if (read_manifest(bundle, &manifest, &manifest_size) == 0 &&
         !manifest_files(manifest, manifest_size, bundle, bare(uri), &names, 1) && names.n == 1 &&
-        !strstr(names.name[0], PHD_PIN_PERCENT))
+        pin_percent_decode(names.name[0], decoded, sizeof(decoded)) == 0)
     {
-        snprintf(path, size, "%s/%s", bundle, names.name[0]);
+        snprintf(path, size, "%s/%s", bundle, decoded);
         rc = 0;
     }
     names_free(&names);

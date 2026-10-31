@@ -1815,7 +1815,7 @@ static char *add(const char *uri, int id, const char *placement, const char *cli
     const char *fwd;
     int fmt = format_of_uri(uri, &fwd);
     const format_t *format;
-    char place[48], line[PATH_MAX + 128], *reply = NULL;
+    char place[48], line[PATH_MAX + 640], word[PATH_MAX + 512], *reply = NULL;
     const char *layout = NULL;
     worker_t *w = NULL;
     meta_t *m;
@@ -1939,8 +1939,12 @@ static char *add(const char *uri, int id, const char *placement, const char *cli
             code = OMX_REPLY_PLUGIN_HOSTD_VERB_DROPPED_RESP;
         }
     }
+    if (format->worker_word)
+        format->worker_word(fwd, word, sizeof(word));
+    else
+        snprintf(word, sizeof(word), "%s", fwd);
     snprintf(line, sizeof(line), "%.*s %s%s %d%s%s", verb_len(EFFECT_ADD), EFFECT_ADD,
-             format->worker_prefix ? format->worker_prefix : "", fwd, id, client ? " " : "", client ? client : "");
+             format->worker_prefix ? format->worker_prefix : "", word, id, client ? " " : "", client ? client : "");
     if (rc == RPC_OK && !reply)
         rc = proc_rpc(&g_conf, w->pid, w->fd, line, &reply);
     if (rc != RPC_OK)
