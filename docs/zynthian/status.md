@@ -89,7 +89,7 @@ Still open
 ----------
 
 - **Next: grouping through Zynthian's own engine.** [zynthian-ui#53](https://github.com/FreeMixer/zynthian-ui/pull/53) reads the daemon's plan and worker record as plugin-hostd
-  0.14 and later give them; it is on the fork and not yet on a device. What closes it: chains built from the menu on the Pi,
+  0.14 and later give them; it and [zynthian-ui#56](https://github.com/FreeMixer/zynthian-ui/pull/56) are on the fork, proven against a real daemon in a container, and not yet on a device. What closes it: chains built from the menu on the Pi,
   `worker_list` showing what shares a worker, and the same figures taken that way.
 - **A plugin's settings are lost when its chain changes or its worker restarts, on omx-clap-host 0.25.3 and earlier.** Most
   omx plugins refuse a state load while they process, so the value goes back to its default: `ratio` set to 7.5 read 4.0 after a
