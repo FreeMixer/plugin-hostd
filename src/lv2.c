@@ -268,14 +268,16 @@ static void bundle_path(const scan_t *s, const char *bundle, const char *iri, ch
 enum { WANT_SUBJECT, WANT_PREDICATE, WANT_OBJECT, AFTER_OBJECT };
 
 /* the files the manifest names with lv2:binary and rdfs:seeAlso for the plugin, or with lv2:binary alone when
- * binary_only; whether it sets a base */
+ * binary_only; whether it sets a base, or -1 when memory ran out and the list is short */
 static int manifest_files(const char *text, size_t size, const char *bundle, const char *uri, names_t *names,
                           int binary_only)
 {
     scan_t *s = calloc(1, sizeof(scan_t));
     token_t t;
-    int state = WANT_SUBJECT, ours = 0, depth = 0, pred = 0, based;
+    int state = WANT_SUBJECT, ours = 0, depth = 0, pred = 0, based, short_of_memory = 0;
 
+    if (!s)
+        return -1;
     s->p = text;
     s->end = text + size;
     for (next(s, &t); t.kind != T_END; next(s, &t))
@@ -323,14 +325,14 @@ static int manifest_files(const char *text, size_t size, const char *bundle, con
                 char path[PATH_MAX];
 
                 bundle_path(s, bundle, t.text, path, sizeof(path));
-                names_add(names, path);
+                short_of_memory |= names_add(names, path) != 0;
             }
             state = AFTER_OBJECT;
         }
     }
     based = s->based;
     free(s);
-    return based;
+    return short_of_memory ? -1 : based;
 }
 
 
@@ -370,7 +372,7 @@ int lv2_pin_collect(const char *uri, const char *search, char *root, size_t size
     names_t names = { NULL, 0 };
     char *bundle = proc_find_lv2_bundle(search, bare(uri)), *manifest = NULL;
     size_t manifest_size = 0;
-    int n, rc = SUCCESS;
+    int n, based, rc = SUCCESS;
 
     if (!bundle)
         return pin_refuse(uri, MANIFEST, "is in no bundle of lv2_path naming the plugin");
@@ -380,15 +382,19 @@ int lv2_pin_collect(const char *uri, const char *search, char *root, size_t size
         return pin_refuse(uri, MANIFEST, "can't be read as a manifest");
     /* the host resolves a base and decodes a percent-encoded name; the daemon does neither, so it cannot know the file
      * the host would load */
-    if (manifest_files(manifest, manifest_size, root, bare(uri), &names, 0))
+    based = manifest_files(manifest, manifest_size, root, bare(uri), &names, 0);
+    if (based < 0)
+        rc = ERR_MEMORY_ALLOCATION;
+    else if (based)
         rc = pin_refuse(uri, MANIFEST, "sets a base the daemon does not resolve");
-    names_add(files, MANIFEST);
+    if (rc == SUCCESS && names_add(files, MANIFEST) != 0)
+        rc = ERR_MEMORY_ALLOCATION;
     for (n = 0; n < names.n && rc == SUCCESS; n++)
     {
         if (strstr(names.name[n], PHD_PIN_PERCENT))
             rc = pin_refuse(uri, names.name[n], "is percent-encoded, which the daemon does not decode");
-        else if (!names_has(files, names.name[n]))
-            names_add(files, names.name[n]);
+        else if (!names_has(files, names.name[n]) && names_add(files, names.name[n]) != 0)
+            rc = ERR_MEMORY_ALLOCATION;
     }
     names_free(&names);
     free(manifest);
@@ -489,6 +495,13 @@ static void graph_add(graph_t *g, const char *s, const char *p, const char *o, i
     g->t[g->n].s = strdup(s);
     g->t[g->n].p = strdup(p);
     g->t[g->n].o = strdup(o);
+    if (!g->t[g->n].s || !g->t[g->n].p || !g->t[g->n].o)
+    {
+        free(g->t[g->n].s);
+        free(g->t[g->n].p);
+        free(g->t[g->n].o);
+        return;
+    }
     g->t[g->n].literal = literal;
     g->n++;
 }
@@ -727,7 +740,8 @@ static int symbol_valid(const char *symbol)
     return 1;
 }
 
-static void port_read(const graph_t *g, const char *node, port_t *p)
+/* 0, or -1 with nothing held when memory runs out */
+static int port_read(const graph_t *g, const char *node, port_t *p)
 {
     const char *symbol = first_object(g, node, NS_CORE "symbol"), *name = first_object(g, node, NS_CORE "name");
     const char *group = first_object(g, node, NS_PG "group"), *unit = first_object(g, node, NS_UNITS "unit");
@@ -737,6 +751,13 @@ static void port_read(const graph_t *g, const char *node, port_t *p)
     p->symbol = strdup(symbol);
     p->name = strdup(name ? name : symbol);
     p->group = group ? strdup(group) : NULL;
+    if (!p->symbol || !p->name || (group && !p->group))
+    {
+        free(p->symbol);
+        free(p->name);
+        free(p->group);
+        return -1;
+    }
     if (number(first_object(g, node, NS_CORE "index"), &index))
         p->index = (long)index;
     p->input = has_object(g, node, RDF_TYPE, NS_CORE "InputPort");
@@ -760,6 +781,7 @@ static void port_read(const graph_t *g, const char *node, port_t *p)
         p->max = 1;
     }
     p->def = number(first_object(g, node, NS_CORE "default"), &def) ? def : p->min;
+    return 0;
 }
 
 /* the control ports of a bundle's plugin, by index: NULL when the plugin's files cannot be found or read, or when they
@@ -828,7 +850,8 @@ static ports_t *ports_load(const char *uri, const char *search)
         if (grown == NULL)
             break;
         ports->port = grown;
-        port_read(&ports->g, t->o, &ports->port[ports->n++]);
+        if (port_read(&ports->g, t->o, &ports->port[ports->n]) == 0)
+            ports->n++;
         ok = 1;
     }
     if (!ok)

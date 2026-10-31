@@ -290,12 +290,12 @@ fuzz-corpus-check:
 
 # clean rule
 clean:
-	@rm -f src/*.o $(PROG) $(PROBE) $(PROBE_LOCK) tests/probe-child tests/lv2-probe-child tests/rt_interpose.so tests/sched-refuse.so $(FAKE) $(PIN_TEST) $(HISTORY_TEST) $(PROC_TEST) $(CONF_TEST) $(PLANNER_TEST) $(QUALCOST_TEST) $(RELAY_TEST) tests/relay-test-relay.o $(FORMAT_TEST) $(GESTURE_ALLOC_TEST) $(LV2_ALLOC_TEST) tests/lv2-alloc-lv2.o $(VERBS_ALLOC_TEST) $(TRANSFORMS_TEST) $(GEN) tests/stress.clap tests/jack_levels tests/host_scenarios $(LV2_FIXTURE) $(PLACEMENT_TEST)
-	@rm -rf build
+	@rm -f src/*.o $(PROG) $(PROBE) $(PROBE_LOCK) tests/probe-child tests/lv2-probe-child tests/rt_interpose.so tests/sched-refuse.so $(FAKE) $(PIN_TEST) $(HISTORY_TEST) $(PROC_TEST) $(CONF_TEST) $(PLANNER_TEST) $(QUALCOST_TEST) $(RELAY_TEST) tests/relay-test-relay.o $(FORMAT_TEST) tests/plugin-hostd-alloc-fail $(GESTURE_ALLOC_TEST) $(LV2_ALLOC_TEST) tests/lv2-alloc-lv2.o $(VERBS_ALLOC_TEST) $(TRANSFORMS_TEST) $(GEN) tests/stress.clap tests/jack_levels tests/host_scenarios $(LV2_FIXTURE) $(PLACEMENT_TEST)
+	@rm -rf build tests/alloc-fail-objs
 
 # the daemon against workers that are not plugin hosts at all (tests/fake-host speaks the same protocol and can be
 # made to die on cue): placement, forwarding, ledger, replay, attribution, the storm bound; no jack, no plugin
-test: test-protocol-lib test-sabotage-pool test-pin test-history test-proc test-conf test-own-host-probe-teardown test-planner test-placement test-transforms test-format-coverage test-describe test-relay test-alloc test-format test-ready-connect test-ready-connect-sabotage test-bind test-bind-sabotage test-daemon test-verbs-declared check-rendered check-generated check-protocol-doc check-schema test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-mod-host-json test-socket check-verb-table check-preset-schema test-install-schemas check-contract-floor check-readme-facts test-pin-files
+test: test-protocol-lib test-sabotage-pool test-pin test-history test-proc test-conf test-own-host-probe-teardown test-planner test-placement test-transforms test-format-coverage test-describe test-relay test-alloc test-alloc-sweep test-format test-ready-connect test-ready-connect-sabotage test-bind test-bind-sabotage test-daemon test-verbs-declared check-rendered check-generated check-protocol-doc check-schema test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-mod-host-json test-socket check-verb-table check-preset-schema test-install-schemas check-contract-floor check-readme-facts test-pin-files
 	MOD_HOST_DIR=$(MOD_HOST_DIR) python3 tests/verbs_contract.py
 
 # the protocol clients plugin-hostd-tests ships (tests/lib/), against a peer that frames by NUL, and their sabotage
@@ -432,6 +432,20 @@ test-relay: $(RELAY_TEST)
 $(RELAY_TEST): tests/relay_test.c src/relay.c src/relay.h include/plugin-hostd/protocol.h $(RENDERED)
 	$(CC) -Iinclude $(CFLAGS) -Werror -Drealloc=relay_test_realloc -c -o tests/relay-test-relay.o src/relay.c
 	$(CC) -Isrc $(CFLAGS) -Werror -o $@ tests/relay_test.c tests/relay-test-relay.o -pthread
+# the whole daemon when memory runs out: built with every allocation of its own sources going through tests/alloc_fail.c,
+# and the scenario of tests/alloc_sweep.py run with each allocation refused in turn
+ALLOC_SWEEP_DAEMON = tests/plugin-hostd-alloc-fail
+$(ALLOC_SWEEP_DAEMON): $(SRC) tests/alloc_fail.c tests/alloc_fail.h $(wildcard src/*.h) include/plugin-hostd/protocol.h $(RENDERED) $(PROTOCOL_LIB)
+	mkdir -p tests/alloc-fail-objs
+	for f in $(SRC); do $(CC) $(CFLAGS) $(INCS) $(CONTRACT_CFLAGS) -include tests/alloc_fail.h -c -o tests/alloc-fail-objs/$$(basename $$f .c).o $$f || exit 1; done
+	$(CC) $(CFLAGS) -c -o tests/alloc-fail-objs/alloc_fail.o tests/alloc_fail.c
+	$(CC) tests/alloc-fail-objs/*.o $(PROTOCOL_LIBS) $(LDFLAGS) -pthread -lm -o $@
+
+.PHONY: test-alloc-sweep
+test-alloc-sweep: $(ALLOC_SWEEP_DAEMON) $(FAKE)
+	ALLOC_SWEEP_DAEMON=./$(ALLOC_SWEEP_DAEMON) FAKE_HOST=./$(FAKE) python3 tests/alloc_sweep.py
+	FAKE_HOST=./$(FAKE) python3 tests/alloc_sweep_sabotage.py "$(CC)" "$(CFLAGS) $(INCS) $(CONTRACT_CFLAGS)" "$(PROTOCOL_LIBS) $(LDFLAGS)" tests/alloc-fail-objs
+
 # the relay's gesture table, lv2.c's refusal and pick tables, and the verbs' copies and answer when memory runs out:
 # each is built with its allocation calls renamed, so the test picks the one that fails
 test-alloc: $(GESTURE_ALLOC_TEST) $(LV2_ALLOC_TEST) $(VERBS_ALLOC_TEST)
