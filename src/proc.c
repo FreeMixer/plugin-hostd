@@ -385,6 +385,55 @@ int proc_rpc(const conf_t *conf, pid_t pid, int fd, const char *msg, char **repl
     return RPC_OK;
 }
 
+/* a name character of a Turtle prefixed name: the byte after or before one is no boundary */
+static int name_char(int c)
+{
+    return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || c == '-' || c == '.' ||
+           c == ':' || (c & 0x80);
+}
+
+/* whether the manifest names the plugin as a prefixed name: `@prefix mda: <http://example.org/mda/> .` with the uri
+ * http://example.org/mda/Piano is written mda:Piano (mda-lv2's bundles do so, and so do most LV2 manifests) */
+static int manifest_prefixed(const char *text, const char *uri)
+{
+    const char *p = text;
+
+    while ((p = strstr(p, "prefix")) != NULL)
+    {
+        const char *name, *colon, *open, *close;
+        char prefix[128], full[2048];
+        size_t n, ns_len, uri_len = strlen(uri);
+        const char *at;
+
+        p += 6;
+        name = p;
+        while (*name == ' ' || *name == '\t')
+            name++;
+        colon = name;
+        while (*colon && *colon != ':' && *colon != ' ' && *colon != '\t' && *colon != '\n' && *colon != '<')
+            colon++;
+        if (*colon != ':' || (size_t)(colon - name) >= sizeof(prefix))
+            continue;
+        snprintf(prefix, sizeof(prefix), "%.*s", (int)(colon - name), name);
+        open = colon + 1;
+        while (*open == ' ' || *open == '\t')
+            open++;
+        if (*open != '<' || !(close = strchr(open, '>')))
+            continue;
+        ns_len = (size_t)(close - open - 1);
+        if (ns_len == 0 || ns_len >= uri_len || strncmp(open + 1, uri, ns_len) != 0 || strchr(uri + ns_len, '/') ||
+            strchr(uri + ns_len, '#'))
+            continue;
+        n = (size_t)snprintf(full, sizeof(full), "%s:%s", prefix, uri + ns_len);
+        if (n >= sizeof(full))
+            continue;
+        for (at = text; (at = strstr(at, full)) != NULL; at += n)
+            if ((at == text || !name_char((unsigned char)at[-1])) && !(name_char((unsigned char)at[n]) && !(at[n] == '.' && !name_char((unsigned char)at[n + 1]))))
+                return 1;
+    }
+    return 0;
+}
+
 static int manifest_names(const char *bundle, const char *uri)
 {
     char path[PATH_MAX], *text, needle[2048];
@@ -410,7 +459,7 @@ static int manifest_names(const char *bundle, const char *uri)
     fclose(file);
     text[got] = '\0';
     snprintf(needle, sizeof(needle), "<%s>", uri);
-    found = strstr(text, needle) != NULL;
+    found = strstr(text, needle) != NULL || manifest_prefixed(text, uri);
     free(text);
     return found;
 }
