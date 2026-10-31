@@ -41,6 +41,33 @@ file presets.ttl"
 "$daemon" -c "$work/conf" --pin-files urn:plugin-hostd:test:absent >/dev/null 2>"$work/err"; rc=$?
 [ $rc -eq 1 ] && grep -q 'in no bundle of lv2_path' "$work/err"; check $? "a plugin in no bundle exits 1 with the collector's reason ($rc: $(cat "$work/err"))"
 
+# a manifest that names the plugin by a prefixed name (mda-lv2's, mod-mda-Piano's, whose uri is
+# http://example.org/mda/Piano): the bundle is found, and a lookalike (mdap:Piano, mda:PianoRes) is no match
+pbundle=$work/lv2/prefixed-fixture.lv2
+mkdir -p "$pbundle"
+: > "$pbundle/Piano.so"
+: > "$pbundle/Piano.ttl"
+: > "$pbundle/presets.ttl"
+cat > "$pbundle/manifest.ttl" <<'TTL'
+@prefix lv2:  <http://lv2plug.in/ns/lv2core#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix mda:  <http://example.org/mda/> .
+@prefix mdap: <http://example.org/mda/presets#> .
+mda:Piano a lv2:Plugin ; rdfs:seeAlso <Piano.ttl> ; lv2:binary <Piano.so> .
+mdap:Piano-plain a <http://lv2plug.in/ns/ext/presets#Preset> ; lv2:appliesTo mda:Piano ; rdfs:seeAlso <presets.ttl> .
+mda:PianoRes a lv2:Plugin ; lv2:binary <Piano.so> .
+TTL
+out=$("$daemon" -c "$work/conf" --pin-files http://example.org/mda/Piano); rc=$?
+want="root $pbundle
+file manifest.ttl
+file Piano.ttl
+file Piano.so"
+[ $rc -eq 0 ] && [ "$out" = "$want" ]; check $? "an LV2 plugin the manifest names by a prefixed name is found: its binary and files, not the preset subject's (rc $rc)"
+[ "$out" = "$want" ] || echo "$out" | sed 's/^/     /'
+
+"$daemon" -c "$work/conf" --pin-files http://example.org/mda/Pian >/dev/null 2>"$work/err"; rc=$?
+[ $rc -eq 1 ] && grep -q 'in no bundle of lv2_path' "$work/err"; check $? "a name that is only the start of a prefixed name is in no bundle ($rc)"
+
 out=$("$daemon" -c "$work/conf" --pin-files "clap:/usr/lib/clap/some plugin.clap#org.example.x"); rc=$?
 [ $rc -eq 0 ] && [ "$out" = "root /usr/lib/clap
 file some plugin.clap" ]; check $? "a CLAP plugin: its .clap file beside its directory"
