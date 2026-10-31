@@ -169,6 +169,8 @@ make test-daemon check-generated check-rendered
   Piano no longer answers -509.
 - Probe output 1.4: an instrument's cost at each count of notes held,
   voiceCurve (#326).
+- The daemon listens on 127.0.0.1 unless told otherwise (#330). A controller
+  on another machine needs --bind-address or bind_address.
 - docs/zynthian: the digital proofs on the Pi 5, with what failed (#325).
 
 * Fri Oct 30 2026 Pau Aliagas <linuxnow@gmail.com> - 0.15.3-1
