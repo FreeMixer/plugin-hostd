@@ -22,6 +22,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <arpa/inet.h>
+
 #include "conf.h"
 
 void conf_defaults(conf_t *conf)
@@ -180,6 +182,15 @@ int conf_check(const conf_t *conf)
 #undef X
         fprintf(stderr, "\n");
         return -1;
+    }
+    {
+        struct in_addr address;
+
+        if (inet_pton(AF_INET, conf->bind_address, &address) != 1)
+        {
+            fprintf(stderr, "bind_address '%s' is not an IPv4 address\n", conf->bind_address);
+            return -1;
+        }
     }
     if (strpbrk(conf->host_class, " \t"))
     {
