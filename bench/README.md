@@ -63,6 +63,7 @@ for an instrument, wired through the plugins in series into the playback ports.
 | `pianoteq` | Pianoteq 9 playing chords |
 | `kill1` | omx-comp, then `kill -9` of the process that holds it |
 | `cvp3`, `cvp8`, `cvp16`, `cvp24`, `cvp32`, `cvp48` | chains vs processes: N plugins cycling omx-comp, Calf Compressor, omx-delay, omx-drive |
+| `cvc3` to `cvc48` | the same with CLAP plugins only: omx-comp, omx-delay, omx-drive. Under plugin-hostd's chain they share one JACK client, which a chain with an LV2 member does not |
 | `grp8`, `grp16` | grouping vs processes: N CLAP plugins cycling omx-comp, omx-drive, omx-delay, omx-drive, omx-comp, where omx-drive is pinned `isolated` |
 
 H1 and H2 take our plugins as CLAP and Calf through the LV2 adapter. H3 and H4 take the LV2 builds of our plugins,
