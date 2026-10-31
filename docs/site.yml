@@ -44,6 +44,9 @@ sections:
       - page: zynthian/status.md
         title: Where this stands
         blurb: What is in place for Zynthian today, and what is still incomplete, why and what closes it.
+      - page: zynthian/digital-proofs.md
+        title: Digital proofs on the Pi 5
+        blurb: Instruments, presets, snapshot and Surge XT voices measured at JACK ports on the Pi, with what failed and why.
       - page: from-file-to-page.md
         title: From a plugin file to a page
       - page: zynthian/image.md

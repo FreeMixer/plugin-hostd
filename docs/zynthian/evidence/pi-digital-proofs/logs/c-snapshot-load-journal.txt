@@ -1,0 +1,29 @@
+Oct 31 00:26:53 zynthian startx[21435]: WARNING:zynthian_autoconnect.cb_jack_xrun: Jack Audio XRUN! =>count: 2, delay: 36130.0us
+Oct 31 00:26:53 zynthian startx[21435]: ERROR:zynthian_state_manager.load_snapshot: Invalid snapshot: 'add http://moddevices.com/plugins/mda/Piano 1000' => OMX_REPLY_PLUGIN_HOSTD_PIN_BINARY_MISMATCH_RESP (-509)
+Oct 31 00:26:53 zynthian startx[21435]: Traceback (most recent call last):
+Oct 31 00:26:53 zynthian startx[21435]:   File "/zynthian/zynthian-ui/zyngine/zynthian_state_manager.py", line 1180, in load_snapshot
+Oct 31 00:26:53 zynthian startx[21435]:     self.chain_manager.set_state(state['chains'], engine_config, merge)
+Oct 31 00:26:53 zynthian startx[21435]:     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Oct 31 00:26:53 zynthian startx[21435]:   File "/zynthian/zynthian-ui/zyngine/zynthian_chain_manager.py", line 1594, in set_state
+Oct 31 00:26:53 zynthian startx[21435]:     processor = self.add_processor(chain_id, eng_code, slot, proc_id=int(proc_id), eng_config=eng_config, midi_autolearn=False)
+Oct 31 00:26:53 zynthian startx[21435]:   File "/zynthian/zynthian-ui/zyngine/zynthian_chain_manager.py", line 1104, in add_processor
+Oct 31 00:26:53 zynthian startx[21435]:     engine = self.start_engine(processor, eng_code, eng_config)
+Oct 31 00:26:53 zynthian startx[21435]:   File "/zynthian/zynthian-ui/zyngine/zynthian_chain_manager.py", line 1454, in start_engine
+Oct 31 00:26:53 zynthian startx[21435]:     processor.set_engine(zyngine)
+Oct 31 00:26:53 zynthian startx[21435]:     ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+Oct 31 00:26:53 zynthian startx[21435]:   File "/zynthian/zynthian-ui/zyngine/zynthian_processor.py", line 121, in set_engine
+Oct 31 00:26:53 zynthian startx[21435]:     self.engine.add_processor(self)
+Oct 31 00:26:53 zynthian startx[21435]:     ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+Oct 31 00:26:53 zynthian startx[21435]:   File "/zynthian/zynthian-ui/zyngine/zynthian_engine_plugin_hostd.py", line 682, in add_processor
+Oct 31 00:26:53 zynthian startx[21435]:     self.instance = daemon.add(self, self.plugin_uri)
+Oct 31 00:26:53 zynthian startx[21435]:                     ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+Oct 31 00:26:53 zynthian startx[21435]:   File "/zynthian/zynthian-ui/zyngine/zynthian_engine_plugin_hostd.py", line 246, in add
+Oct 31 00:26:53 zynthian startx[21435]:     self.call(f"add {uri} {instance}", SLOW_TIMEOUT)
+Oct 31 00:26:53 zynthian startx[21435]:     ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Oct 31 00:26:53 zynthian startx[21435]:   File "/zynthian/zynthian-ui/zyngine/zynthian_engine_plugin_hostd.py", line 211, in call
+Oct 31 00:26:53 zynthian startx[21435]:     return self.client.call(line, timeout)
+Oct 31 00:26:53 zynthian startx[21435]:            ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+Oct 31 00:26:53 zynthian startx[21435]:   File "/zynthian/zynthian-ui/zyngine/zynthian_engine_plugin_hostd.py", line 144, in call
+Oct 31 00:26:53 zynthian startx[21435]:     raise plugin_hostd_error(code, line)
+Oct 31 00:26:53 zynthian startx[21435]: zyngine.zynthian_engine_plugin_hostd.plugin_hostd_error: 'add http://moddevices.com/plugins/mda/Piano 1000' => OMX_REPLY_PLUGIN_HOSTD_PIN_BINARY_MISMATCH_RESP (-509)
+Oct 31 00:27:23 zynthian startx[21435]: WARNING:zynthian_gui.busy_thread_task: Clients have been busy for longer than 30s: {'add_processor', 'set_chain_state'}

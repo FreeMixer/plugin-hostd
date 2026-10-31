@@ -1,0 +1,250 @@
+{
+  "id": "org.openmixer.eq8@2026-10-31T00:14:42Z",
+  "createdAt": "2026-10-31T00:14:42Z",
+  "format": "org.openmixer.preset/2",
+  "plugin": {
+    "id": "org.openmixer.eq8",
+    "version": "0.16.0",
+    "fingerprint": "omx-layout/1:9d6d2712fd46bbf742f20191c2ff5bfc4cacfae87cccd58b46e44d2528b423d8"
+  },
+  "name": "omxtest",
+  "modifiedAt": "2026-10-31T00:14:42Z",
+  "carries": "params+state",
+  "params": [
+    {
+      "symbol": "0",
+      "unit": "",
+      "value": 0
+    },
+    {
+      "symbol": "1",
+      "unit": "",
+      "value": 8e+01
+    },
+    {
+      "symbol": "2",
+      "unit": "",
+      "value": 12
+    },
+    {
+      "symbol": "3",
+      "unit": "",
+      "value": 0
+    },
+    {
+      "symbol": "4",
+      "unit": "",
+      "value": 1.8e+04
+    },
+    {
+      "symbol": "5",
+      "unit": "",
+      "value": 12
+    },
+    {
+      "symbol": "6",
+      "unit": "",
+      "value": 1
+    },
+    {
+      "symbol": "7",
+      "unit": "",
+      "value": 31.5
+    },
+    {
+      "symbol": "8",
+      "unit": "",
+      "value": 6
+    },
+    {
+      "symbol": "9",
+      "unit": "",
+      "value": 1
+    },
+    {
+      "symbol": "10",
+      "unit": "",
+      "value": 0
+    },
+    {
+      "symbol": "11",
+      "unit": "",
+      "value": 0
+    },
+    {
+      "symbol": "12",
+      "unit": "",
+      "value": 8e+01
+    },
+    {
+      "symbol": "13",
+      "unit": "",
+      "value": 0
+    },
+    {
+      "symbol": "14",
+      "unit": "",
+      "value": 1
+    },
+    {
+      "symbol": "15",
+      "unit": "",
+      "value": 0
+    },
+    {
+      "symbol": "16",
+      "unit": "",
+      "value": 0
+    },
+    {
+      "symbol": "17",
+      "unit": "",
+      "value": 1.6e+02
+    },
+    {
+      "symbol": "18",
+      "unit": "",
+      "value": 0
+    },
+    {
+      "symbol": "19",
+      "unit": "",
+      "value": 1
+    },
+    {
+      "symbol": "20",
+      "unit": "",
+      "value": 0
+    },
+    {
+      "symbol": "21",
+      "unit": "",
+      "value": 0
+    },
+    {
+      "symbol": "22",
+      "unit": "",
+      "value": 4e+02
+    },
+    {
+      "symbol": "23",
+      "unit": "",
+      "value": 0
+    },
+    {
+      "symbol": "24",
+      "unit": "",
+      "value": 1
+    },
+    {
+      "symbol": "25",
+      "unit": "",
+      "value": 0
+    },
+    {
+      "symbol": "26",
+      "unit": "",
+      "value": 0
+    },
+    {
+      "symbol": "27",
+      "unit": "",
+      "value": 1e+03
+    },
+    {
+      "symbol": "28",
+      "unit": "",
+      "value": 0
+    },
+    {
+      "symbol": "29",
+      "unit": "",
+      "value": 1
+    },
+    {
+      "symbol": "30",
+      "unit": "",
+      "value": 0
+    },
+    {
+      "symbol": "31",
+      "unit": "",
+      "value": 0
+    },
+    {
+      "symbol": "32",
+      "unit": "",
+      "value": 2.5e+03
+    },
+    {
+      "symbol": "33",
+      "unit": "",
+      "value": 0
+    },
+    {
+      "symbol": "34",
+      "unit": "",
+      "value": 1
+    },
+    {
+      "symbol": "35",
+      "unit": "",
+      "value": 0
+    },
+    {
+      "symbol": "36",
+      "unit": "",
+      "value": 0
+    },
+    {
+      "symbol": "37",
+      "unit": "",
+      "value": 5e+03
+    },
+    {
+      "symbol": "38",
+      "unit": "",
+      "value": 0
+    },
+    {
+      "symbol": "39",
+      "unit": "",
+      "value": 1
+    },
+    {
+      "symbol": "40",
+      "unit": "",
+      "value": 0
+    },
+    {
+      "symbol": "41",
+      "unit": "",
+      "value": 2
+    },
+    {
+      "symbol": "42",
+      "unit": "",
+      "value": 1.25e+04
+    },
+    {
+      "symbol": "43",
+      "unit": "",
+      "value": 0
+    },
+    {
+      "symbol": "44",
+      "unit": "",
+      "value": 1
+    },
+    {
+      "symbol": "45",
+      "unit": "",
+      "value": 0
+    }
+  ],
+  "state": {
+    "encoding": "base64",
+    "context": "preset",
+    "bytes": "aHBmX29uPTAKaHBmX2ZyZXE9ODAKaHBmX3Nsb3BlPTEyCmxwZl9vbj0wCmxwZl9mcmVxPTE4MDAwCmxwZl9zbG9wZT0xMgpiMV90eXBlPTEKYjFfZnJlcT0zMS41CmIxX2dhaW49NgpiMV9xPTEKYjFfb249MApiMl90eXBlPTAKYjJfZnJlcT04MApiMl9nYWluPTAKYjJfcT0xCmIyX29uPTAKYjNfdHlwZT0wCmIzX2ZyZXE9MTYwCmIzX2dhaW49MApiM19xPTEKYjNfb249MApiNF90eXBlPTAKYjRfZnJlcT00MDAKYjRfZ2Fpbj0wCmI0X3E9MQpiNF9vbj0wCmI1X3R5cGU9MApiNV9mcmVxPTEwMDAKYjVfZ2Fpbj0wCmI1X3E9MQpiNV9vbj0wCmI2X3R5cGU9MApiNl9mcmVxPTI1MDAKYjZfZ2Fpbj0wCmI2X3E9MQpiNl9vbj0wCmI3X3R5cGU9MApiN19mcmVxPTUwMDAKYjdfZ2Fpbj0wCmI3X3E9MQpiN19vbj0wCmI4X3R5cGU9MgpiOF9mcmVxPTEyNTAwCmI4X2dhaW49MApiOF9xPTEKYjhfb249MApieXBhc3M9MAo="
+  }
+}

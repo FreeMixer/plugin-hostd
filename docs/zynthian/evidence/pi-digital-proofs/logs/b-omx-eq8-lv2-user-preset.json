@@ -1,0 +1,250 @@
+{
+  "id": "urn:openmixer:eq8@2026-10-31T00:07:52Z",
+  "createdAt": "2026-10-31T00:07:52Z",
+  "format": "org.openmixer.preset/2",
+  "plugin": {
+    "id": "urn:openmixer:eq8",
+    "version": "",
+    "fingerprint": "omx-layout/1:6f3feb3b231cd5a6d2cd994bbdd34fc9ff0a77d0cfae6d32a01c8745d56b6260"
+  },
+  "name": "omx-test",
+  "modifiedAt": "2026-10-31T00:07:52Z",
+  "carries": "params+state",
+  "params": [
+    {
+      "symbol": "hpf_on",
+      "unit": "",
+      "value": 0
+    },
+    {
+      "symbol": "hpf_freq",
+      "unit": "",
+      "value": 8e+01
+    },
+    {
+      "symbol": "hpf_slope",
+      "unit": "",
+      "value": 12
+    },
+    {
+      "symbol": "lpf_on",
+      "unit": "",
+      "value": 0
+    },
+    {
+      "symbol": "lpf_freq",
+      "unit": "",
+      "value": 1.8e+04
+    },
+    {
+      "symbol": "lpf_slope",
+      "unit": "",
+      "value": 12
+    },
+    {
+      "symbol": "b1_type",
+      "unit": "",
+      "value": 1
+    },
+    {
+      "symbol": "b1_freq",
+      "unit": "",
+      "value": 9e+01
+    },
+    {
+      "symbol": "b1_gain",
+      "unit": "",
+      "value": 3
+    },
+    {
+      "symbol": "b1_q",
+      "unit": "",
+      "value": 0.699999988079071
+    },
+    {
+      "symbol": "b1_on",
+      "unit": "",
+      "value": 1
+    },
+    {
+      "symbol": "b2_type",
+      "unit": "",
+      "value": 0
+    },
+    {
+      "symbol": "b2_freq",
+      "unit": "",
+      "value": 8e+01
+    },
+    {
+      "symbol": "b2_gain",
+      "unit": "",
+      "value": 0
+    },
+    {
+      "symbol": "b2_q",
+      "unit": "",
+      "value": 1
+    },
+    {
+      "symbol": "b2_on",
+      "unit": "",
+      "value": 0
+    },
+    {
+      "symbol": "b3_type",
+      "unit": "",
+      "value": 0
+    },
+    {
+      "symbol": "b3_freq",
+      "unit": "",
+      "value": 1.6e+02
+    },
+    {
+      "symbol": "b3_gain",
+      "unit": "",
+      "value": 4.5
+    },
+    {
+      "symbol": "b3_q",
+      "unit": "",
+      "value": 1
+    },
+    {
+      "symbol": "b3_on",
+      "unit": "",
+      "value": 0
+    },
+    {
+      "symbol": "b4_type",
+      "unit": "",
+      "value": 0
+    },
+    {
+      "symbol": "b4_freq",
+      "unit": "",
+      "value": 4e+02
+    },
+    {
+      "symbol": "b4_gain",
+      "unit": "",
+      "value": 0
+    },
+    {
+      "symbol": "b4_q",
+      "unit": "",
+      "value": 1
+    },
+    {
+      "symbol": "b4_on",
+      "unit": "",
+      "value": 0
+    },
+    {
+      "symbol": "b5_type",
+      "unit": "",
+      "value": 0
+    },
+    {
+      "symbol": "b5_freq",
+      "unit": "",
+      "value": 1e+03
+    },
+    {
+      "symbol": "b5_gain",
+      "unit": "",
+      "value": 0
+    },
+    {
+      "symbol": "b5_q",
+      "unit": "",
+      "value": 1
+    },
+    {
+      "symbol": "b5_on",
+      "unit": "",
+      "value": 0
+    },
+    {
+      "symbol": "b6_type",
+      "unit": "",
+      "value": 0
+    },
+    {
+      "symbol": "b6_freq",
+      "unit": "",
+      "value": 2.5e+03
+    },
+    {
+      "symbol": "b6_gain",
+      "unit": "",
+      "value": 0
+    },
+    {
+      "symbol": "b6_q",
+      "unit": "",
+      "value": 1
+    },
+    {
+      "symbol": "b6_on",
+      "unit": "",
+      "value": 0
+    },
+    {
+      "symbol": "b7_type",
+      "unit": "",
+      "value": 0
+    },
+    {
+      "symbol": "b7_freq",
+      "unit": "",
+      "value": 5e+03
+    },
+    {
+      "symbol": "b7_gain",
+      "unit": "",
+      "value": 0
+    },
+    {
+      "symbol": "b7_q",
+      "unit": "",
+      "value": 1
+    },
+    {
+      "symbol": "b7_on",
+      "unit": "",
+      "value": 0
+    },
+    {
+      "symbol": "b8_type",
+      "unit": "",
+      "value": 2
+    },
+    {
+      "symbol": "b8_freq",
+      "unit": "",
+      "value": 1.25e+04
+    },
+    {
+      "symbol": "b8_gain",
+      "unit": "",
+      "value": 0
+    },
+    {
+      "symbol": "b8_q",
+      "unit": "",
+      "value": 1
+    },
+    {
+      "symbol": "b8_on",
+      "unit": "",
+      "value": 0
+    }
+  ],
+  "state": {
+    "encoding": "base64",
+    "context": "lv2",
+    "bytes": "PHVybjpvcGVubWl4ZXI6ZXE4PgoJYSBwc2V0OlByZXNldCA7CglsdjI6YXBwbGllc1RvIDx1cm46b3Blbm1peGVyOmVxOD4gOwoJbHYyOnBvcnQgWwoJCWx2MjpzeW1ib2wgImIxX2ZyZXEiIDsKCQlwc2V0OnZhbHVlIDkwLjAKCV0gLCBbCgkJbHYyOnN5bWJvbCAiYjFfZ2FpbiIgOwoJCXBzZXQ6dmFsdWUgMy4wCgldICwgWwoJCWx2MjpzeW1ib2wgImIxX29uIiA7CgkJcHNldDp2YWx1ZSAxLjAKCV0gLCBbCgkJbHYyOnN5bWJvbCAiYjFfcSIgOwoJCXBzZXQ6dmFsdWUgMC42OTk5OTk5OQoJXSAsIFsKCQlsdjI6c3ltYm9sICJiMV90eXBlIiA7CgkJcHNldDp2YWx1ZSAxLjAKCV0gLCBbCgkJbHYyOnN5bWJvbCAiYjJfZnJlcSIgOwoJCXBzZXQ6dmFsdWUgODAuMAoJXSAsIFsKCQlsdjI6c3ltYm9sICJiMl9nYWluIiA7CgkJcHNldDp2YWx1ZSAwLjAKCV0gLCBbCgkJbHYyOnN5bWJvbCAiYjJfb24iIDsKCQlwc2V0OnZhbHVlIDAuMAoJXSAsIFsKCQlsdjI6c3ltYm9sICJiMl9xIiA7CgkJcHNldDp2YWx1ZSAxLjAKCV0gLCBbCgkJbHYyOnN5bWJvbCAiYjJfdHlwZSIgOwoJCXBzZXQ6dmFsdWUgMC4wCgldICwgWwoJCWx2MjpzeW1ib2wgImIzX2ZyZXEiIDsKCQlwc2V0OnZhbHVlIDE2MC4wCgldICwgWwoJCWx2MjpzeW1ib2wgImIzX2dhaW4iIDsKCQlwc2V0OnZhbHVlIDQuNQoJXSAsIFsKCQlsdjI6c3ltYm9sICJiM19vbiIgOwoJCXBzZXQ6dmFsdWUgMC4wCgldICwgWwoJCWx2MjpzeW1ib2wgImIzX3EiIDsKCQlwc2V0OnZhbHVlIDEuMAoJXSAsIFsKCQlsdjI6c3ltYm9sICJiM190eXBlIiA7CgkJcHNldDp2YWx1ZSAwLjAKCV0gLCBbCgkJbHYyOnN5bWJvbCAiYjRfZnJlcSIgOwoJCXBzZXQ6dmFsdWUgNDAwLjAKCV0gLCBbCgkJbHYyOnN5bWJvbCAiYjRfZ2FpbiIgOwoJCXBzZXQ6dmFsdWUgMC4wCgldICwgWwoJCWx2MjpzeW1ib2wgImI0X29uIiA7CgkJcHNldDp2YWx1ZSAwLjAKCV0gLCBbCgkJbHYyOnN5bWJvbCAiYjRfcSIgOwoJCXBzZXQ6dmFsdWUgMS4wCgldICwgWwoJCWx2MjpzeW1ib2wgImI0X3R5cGUiIDsKCQlwc2V0OnZhbHVlIDAuMAoJXSAsIFsKCQlsdjI6c3ltYm9sICJiNV9mcmVxIiA7CgkJcHNldDp2YWx1ZSAxMDAwLjAKCV0gLCBbCgkJbHYyOnN5bWJvbCAiYjVfZ2FpbiIgOwoJCXBzZXQ6dmFsdWUgMC4wCgldICwgWwoJCWx2MjpzeW1ib2wgImI1X29uIiA7CgkJcHNldDp2YWx1ZSAwLjAKCV0gLCBbCgkJbHYyOnN5bWJvbCAiYjVfcSIgOwoJCXBzZXQ6dmFsdWUgMS4wCgldICwgWwoJCWx2MjpzeW1ib2wgImI1X3R5cGUiIDsKCQlwc2V0OnZhbHVlIDAuMAoJXSAsIFsKCQlsdjI6c3ltYm9sICJiNl9mcmVxIiA7CgkJcHNldDp2YWx1ZSAyNTAwLjAKCV0gLCBbCgkJbHYyOnN5bWJvbCAiYjZfZ2FpbiIgOwoJCXBzZXQ6dmFsdWUgMC4wCgldICwgWwoJCWx2MjpzeW1ib2wgImI2X29uIiA7CgkJcHNldDp2YWx1ZSAwLjAKCV0gLCBbCgkJbHYyOnN5bWJvbCAiYjZfcSIgOwoJCXBzZXQ6dmFsdWUgMS4wCgldICwgWwoJCWx2MjpzeW1ib2wgImI2X3R5cGUiIDsKCQlwc2V0OnZhbHVlIDAuMAoJXSAsIFsKCQlsdjI6c3ltYm9sICJiN19mcmVxIiA7CgkJcHNldDp2YWx1ZSA1MDAwLjAKCV0gLCBbCgkJbHYyOnN5bWJvbCAiYjdfZ2FpbiIgOwoJCXBzZXQ6dmFsdWUgMC4wCgldICwgWwoJCWx2MjpzeW1ib2wgImI3X29uIiA7CgkJcHNldDp2YWx1ZSAwLjAKCV0gLCBbCgkJbHYyOnN5bWJvbCAiYjdfcSIgOwoJCXBzZXQ6dmFsdWUgMS4wCgldICwgWwoJCWx2MjpzeW1ib2wgImI3X3R5cGUiIDsKCQlwc2V0OnZhbHVlIDAuMAoJXSAsIFsKCQlsdjI6c3ltYm9sICJiOF9mcmVxIiA7CgkJcHNldDp2YWx1ZSAxMjUwMC4wCgldICwgWwoJCWx2MjpzeW1ib2wgImI4X2dhaW4iIDsKCQlwc2V0OnZhbHVlIDAuMAoJXSAsIFsKCQlsdjI6c3ltYm9sICJiOF9vbiIgOwoJCXBzZXQ6dmFsdWUgMC4wCgldICwgWwoJCWx2MjpzeW1ib2wgImI4X3EiIDsKCQlwc2V0OnZhbHVlIDEuMAoJXSAsIFsKCQlsdjI6c3ltYm9sICJiOF90eXBlIiA7CgkJcHNldDp2YWx1ZSAyLjAKCV0gLCBbCgkJbHYyOnN5bWJvbCAiaHBmX2ZyZXEiIDsKCQlwc2V0OnZhbHVlIDgwLjAKCV0gLCBbCgkJbHYyOnN5bWJvbCAiaHBmX29uIiA7CgkJcHNldDp2YWx1ZSAwLjAKCV0gLCBbCgkJbHYyOnN5bWJvbCAiaHBmX3Nsb3BlIiA7CgkJcHNldDp2YWx1ZSAxMi4wCgldICwgWwoJCWx2MjpzeW1ib2wgImxwZl9mcmVxIiA7CgkJcHNldDp2YWx1ZSAxODAwMC4wCgldICwgWwoJCWx2MjpzeW1ib2wgImxwZl9vbiIgOwoJCXBzZXQ6dmFsdWUgMC4wCgldICwgWwoJCWx2MjpzeW1ib2wgImxwZl9zbG9wZSIgOwoJCXBzZXQ6dmFsdWUgMTIuMAoJXSAuCg=="
+  }
+}
