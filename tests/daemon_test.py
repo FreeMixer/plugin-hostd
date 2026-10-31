@@ -3184,6 +3184,7 @@ def a_chain_its_worker_refuses_is_answered_and_each_member_runs_alone():
         ev = d.wait_event("chain_refused 5 ", since=mark)
         check(ev == "chain_refused 5 -902", "the event names the chain and the worker's own code: " + ev)
         check("chain_formed 5 " not in "\n".join(d.events[mark:]), "a refused chain is not said to be formed")
+        check("worker_died" not in "\n".join(d.events[mark:]), "a refusal is no death: %s" % d.events[mark:])
         d.expect("chain_get 5", resp("NO_SUCH_CHAIN"))
         check(chain_of(d, 5) == {}, "no worker is left in the chain's place: %s" % d.workers())
         each_alone(d, (40, 41))
