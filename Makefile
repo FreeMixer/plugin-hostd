@@ -64,7 +64,7 @@ INCS = -Iinclude $(PROTOCOL_CFLAGS)
 LDFLAGS += -Wl,--no-undefined
 
 # source and object files
-SRC = src/main.c src/listen.c src/conf.c src/proc.c src/supervisor.c src/verbs.c src/pins.c src/pin_words.c src/relay.c src/formats.c src/lv2.c \
+SRC = src/main.c src/conf.c src/proc.c src/supervisor.c src/verbs.c src/pins.c src/pin_words.c src/relay.c src/formats.c src/lv2.c \
       src/descriptors.c src/describe.c src/transforms.c src/json.c src/fsutil.c src/machine.c src/history.c src/planner.c src/qualcost.c src/placement.c
 OBJ = $(SRC:.c=.o)
 

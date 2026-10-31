@@ -18,7 +18,6 @@
  * Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
  */
 
-#include <arpa/inet.h>
 #include <getopt.h>
 #include <limits.h>
 #include <signal.h>
@@ -31,7 +30,6 @@
 #include <socket.h>
 
 #include "conf.h"
-#include "listen.h"
 #include "descriptors.h"
 #include "formats.h"
 #include "history.h"
@@ -87,45 +85,6 @@ static void receive(msg_t *msg)
 {
     relay_await_controller(&running);
     verbs_receive(msg);
-}
-
-/* Whether a socket of this host listens on `port` at `address` (/proc/net/tcp, state 0A): what the ready line stands for */
-static int port_listens(int port, const struct in_addr *address)
-{
-    char line[512];
-    FILE *f = fopen("/proc/net/tcp", "r");
-    int found = 0;
-
-    if (!f)
-        return 0;
-    while (!found && fgets(line, sizeof(line), f))
-    {
-        unsigned local_address, local_port, state;
-
-        /* the table prints the address as the 32-bit value it holds, in network order */
-        found = sscanf(line, " %*d: %x:%x %*[0-9A-Fa-f]:%*x %x", &local_address, &local_port, &state) == 3 &&
-                state == 0x0A && (int)local_port == port && local_address == address->s_addr;
-    }
-    fclose(f);
-    return found;
-}
-
-/* The ready line promises ports that accept, at the address asked for: it goes out only once the command port, and the
- * feedback port when there is one, listen there. A port that does not within two seconds is a daemon that did not start. */
-static int ports_listen(int command_port, int feedback_port, const char *address)
-{
-    struct in_addr at;
-    int waited_ms;
-
-    if (inet_pton(AF_INET, address, &at) != 1)
-        return 0;
-    for (waited_ms = 0; waited_ms <= 2000; waited_ms += 5)
-    {
-        if (port_listens(command_port, &at) && (!feedback_port || port_listens(feedback_port, &at)))
-            return 1;
-        usleep(5000);
-    }
-    return 0;
 }
 
 static void term_signal(int sig)
@@ -276,20 +235,14 @@ int main(int argc, char **argv)
     /* the audio cores and the daemon's own: before the sockets and the relay, so every thread starts where it stays */
     if (sup_placement_init() != 0)
         return EXIT_FAILURE;
-    /* the feedback port is the relay's: the daemon's events and the workers' lines go out on it through one writer */
-    if (listen_set_command_port(socket_port, g_conf.bind_address) != 0 ||
+    /* the feedback port is the relay's: the daemon's events and the workers' lines go out on it through one writer.
+     * Both return once the port listens, and a port that cannot is a daemon that does not start. */
+    if (socket_set_bind_address(g_conf.bind_address) != 0 ||
         socket_start(socket_port, 0, SOCKET_MSG_BUFFER_SIZE) < 0 || relay_start(feedback_port, g_conf.bind_address) < 0)
         return EXIT_FAILURE;
     socket_set_receive_cb(receive);
     socket_set_idle_cb(idle_cb);
     socket_set_idle_interval(g_conf.idle_ms);
-
-    if (!ports_listen(socket_port, feedback_port, g_conf.bind_address))
-    {
-        fprintf(stderr, "the command port %d (feedback port %d) does not listen on %s\n", socket_port, feedback_port,
-                g_conf.bind_address);
-        return EXIT_FAILURE;
-    }
 
     /* before the handlers: a SIGTERM that arrives right after them must end the loop, not be undone by this */
     running = 1;

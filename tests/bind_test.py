@@ -50,8 +50,8 @@ def connects(address, port):
         return False
 
 
-def start(tmp, args=(), conf=()):
-    cmd, fb = harness.port_pair()
+def start(tmp, args=(), conf=(), ports=None):
+    cmd, fb = ports or harness.port_pair()
     path = os.path.join(tmp, "plugin-hostd.conf")
     with open(path, "w") as f:
         for k, v in (("mod_host", FAKE), ("clap_host", FAKE), ("state_root", tmp), ("require_pins", 0), ("pins_dir", ""),
@@ -113,6 +113,24 @@ def refused_to_start(name, args=(), conf=()):
     shutil.rmtree(tmp, ignore_errors=True)
 
 
+def refused_when_held(name, which):
+    """the port taken by another program: the daemon that cannot listen on it does not start"""
+    tmp = tempfile.mkdtemp(prefix="plugin-hostd-bind.")
+    ports = harness.port_pair()
+    with socket.socket() as holder:
+        holder.bind(("127.0.0.1", ports[which]))
+        holder.listen(1)
+        p, cmd, _ = start(tmp, ports=ports)
+        if cmd is not None:
+            stop(p)
+            failed.append("%s: the daemon started" % name)
+        elif p.returncode == 0:
+            failed.append("%s: the daemon exited 0" % name)
+        else:
+            print("%s: the daemon refuses to start, exit %d" % (name, p.returncode))
+    shutil.rmtree(tmp, ignore_errors=True)
+
+
 nic = off_loopback()
 others = ["127.0.0.2"] + ([nic] if nic else [])
 if not nic:
@@ -128,6 +146,8 @@ if nic:
 refused_to_start("--bind-address localhost", args=("--bind-address", "localhost"))
 refused_to_start("bind_address ::1 in the settings", conf=(("bind_address", "::1"),))
 refused_to_start("an address of no interface", args=("-b", "192.0.2.1"))
+refused_when_held("the command port held by another program", 0)
+refused_when_held("the feedback port held by another program", 1)
 
 if failed:
     print("FAIL %d:\n  %s" % (len(failed), "\n  ".join(failed)))
