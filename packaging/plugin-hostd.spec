@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.15.4
+Version: 0.15.5
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -160,6 +160,17 @@ make test-daemon check-generated check-rendered
 %{_datadir}/omx-contract/contract.d/3/plugin-hostd/
 
 %changelog
+* Sat Oct 31 2026 Pau Aliagas <linuxnow@gmail.com> - 0.15.5-1
+- mod-host-protocol 0.10.6.f14a230-11.3 or newer is required. The workers this
+  daemon starts, mod-host and omx-clap-host, listen on 127.0.0.1 with it, and
+  are not reached from another machine whatever bind_address says (#333).
+- The daemon gives the library its address and no longer replaces bind(). A
+  daemon that cannot listen on either port still does not start (#333).
+- An LV2 plugin's bundle is the one that holds its binary, not a GUI bundle
+  that names it. fil4 and x42 dpl no longer answer -101 where a generated GUI
+  bundle is listed first (#339).
+- The probe test passes on a host with no memory lock limit (#340).
+
 * Sat Oct 31 2026 Pau Aliagas <linuxnow@gmail.com> - 0.15.4-1
 - An LV2 file named by a percent-encoded IRI, Surge XT's libSurge%20XT.so,
   is pinned as written and opened decoded (#329, #239).
