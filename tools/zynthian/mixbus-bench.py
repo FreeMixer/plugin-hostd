@@ -43,6 +43,7 @@ class rig:
         self.srv = vc.server(b, out)
         self.host = vc.proc_host(b, self.srv, out) if host == "jalv" else vc.protocol_host(b, self.srv, out, a.port)
         self.n = 0
+        self.via_host = False  # the daemon's own connect verb, which it replays after a crash; jack_connect's links it does not know
 
     def add(self, uri):
         self.n += 1
@@ -76,7 +77,12 @@ class rig:
         if not outs or not ins:
             raise RuntimeError("no ports to link %s to %s" % (src, dst))
         for i, d in enumerate(ins[:2]):
-            subprocess.run(["jack_connect", outs[min(i, len(outs) - 1)], d], env=self.srv.env, stderr=subprocess.DEVNULL)
+            if self.via_host:
+                r = self.host.cmd("connect %s %s" % (outs[min(i, len(outs) - 1)], d))
+                if not r.startswith("resp 0"):
+                    raise RuntimeError("connect answered " + r)
+            else:
+                subprocess.run(["jack_connect", outs[min(i, len(outs) - 1)], d], env=self.srv.env, stderr=subprocess.DEVNULL)
 
     def close(self):
         self.host.close()
@@ -228,6 +234,7 @@ def crash_row(a, instruments, rep):
     r = rig(a, "hostd", a.out)
     p = None
     try:
+        r.via_host = True
         insts, tails = build(r, "shared", instruments, SETS["omx"])
         worker = None
         for w in r.host.cmd("worker_list").split()[2:]:
