@@ -180,6 +180,8 @@ static int pin_build(pin_t *pin, const char *uri, const char *files, const char 
     char *copy = strdup(files), *item, *save = NULL, hex[PHD_SHA256_HEX_LEN + 1];
 
     memset(pin, 0, sizeof(*pin));
+    if (!copy)
+        return ERR_MEMORY_ALLOCATION;
     if (unknown_ok && !strcmp(layout, PHD_PIN_LAYOUT_UNKNOWN))
         ;
     else if (phd_pin_layout_parse(layout, pin->scheme, sizeof(pin->scheme), hex) != 0)
@@ -197,17 +199,31 @@ static int pin_build(pin_t *pin, const char *uri, const char *files, const char 
         *eq = '\0';
         if (!path_valid(item) || !phd_pin_hex_valid(eq + 1) || held(pin, item) >= 0)
             goto invalid;
-        pin->path = realloc(pin->path, (pin->nfiles + 1) * sizeof(char *));
-        pin->digest = realloc(pin->digest, (pin->nfiles + 1) * sizeof(*pin->digest));
+        {
+            char **paths = realloc(pin->path, (pin->nfiles + 1) * sizeof(char *));
+            char (*digests)[PHD_SHA256_HEX_LEN + 1];
+
+            if (!paths)
+                goto no_memory;
+            pin->path = paths;
+            digests = realloc(pin->digest, (pin->nfiles + 1) * sizeof(*pin->digest));
+            if (!digests)
+                goto no_memory;
+            pin->digest = digests;
+        }
         pin->path[pin->nfiles] = strdup(item);
+        if (!pin->path[pin->nfiles])
+            goto no_memory;
         memcpy(pin->digest[pin->nfiles], eq + 1, PHD_SHA256_HEX_LEN + 1);
         pin->nfiles++;
     }
     if (!pin->nfiles)
         goto invalid;
-    free(copy);
     pin->uri = strdup(bare(uri));
     pin->layout = strdup(layout);
+    if (!pin->uri || !pin->layout)
+        goto no_memory;
+    free(copy);
     if (verdict)
         snprintf(pin->verdict, sizeof(pin->verdict), "%s", verdict);
     if (pool)
@@ -218,10 +234,16 @@ invalid:
     free(copy);
     pin_free(pin);
     return ERR_INVALID_OPERATION;
+
+no_memory:
+    free(copy);
+    pin_free(pin);
+    return ERR_MEMORY_ALLOCATION;
 }
 
-/* the pin in the host's table, replacing the one of its uri */
-static void pin_put(pin_t *pin)
+/* the pin in the host's table, replacing the one of its uri; -1, the table as it was and the pin still the caller's,
+ * when memory runs out */
+static int pin_put(pin_t *pin)
 {
     pin_t *old = find_in(g_pins, g_npins, pin->uri);
 
@@ -232,9 +254,14 @@ static void pin_put(pin_t *pin)
     }
     else
     {
-        g_pins = realloc(g_pins, (g_npins + 1) * sizeof(pin_t));
+        pin_t *grown = realloc(g_pins, (g_npins + 1) * sizeof(pin_t));
+
+        if (!grown)
+            return -1;
+        g_pins = grown;
         g_pins[g_npins++] = *pin;
     }
+    return 0;
 }
 
 /* the pin in the packages' table: of two pins of one uri a refusal wins, else the later one, read from the file later in
@@ -441,7 +468,11 @@ static int line_read(char *line, layer_t layer, const char *path, int lineno)
         return SUCCESS;
     }
     pin.learned = layer == LAYER_STORE;
-    pin_put(&pin);
+    if (pin_put(&pin) != 0)
+    {
+        pin_free(&pin);
+        return ERR_MEMORY_ALLOCATION;
+    }
     return SUCCESS;
 }
 
@@ -671,8 +702,10 @@ int pins_reload(void)
     for (n = 0; n < old_npins; n++)
         if (old_pins[n].from_set && !pkg_refusal(old_pins[n].uri))
         {
-            pin_put(&old_pins[n]);
-            memset(&old_pins[n], 0, sizeof(old_pins[n]));
+            if (pin_put(&old_pins[n]) == 0)
+                memset(&old_pins[n], 0, sizeof(old_pins[n]));
+            else
+                fprintf(stderr, "plugin-hostd: %s: out of memory, its pin_set does not hold over the reload\n", old_pins[n].uri);
         }
     table_free(old_pins, old_npins);
     table_free(old_pkg, old_npkg);
@@ -702,7 +735,11 @@ int pins_set(const char *uri, const char *files, const char *layout, const char 
         return OMX_REPLY_PLUGIN_HOSTD_PIN_REFUSED_RESP;
     }
     pin.from_set = 1;
-    pin_put(&pin);
+    if (pin_put(&pin) != 0)
+    {
+        pin_free(&pin);
+        return ERR_MEMORY_ALLOCATION;
+    }
     return SUCCESS;
 }
 
@@ -903,6 +940,11 @@ static int record(const format_t *format, const char *uri, const char *search)
     for (n = 0; n < files.n; n++)
         cap += strlen(files.name[n]) + PHD_SHA256_HEX_LEN + 2;
     words = calloc(1, cap);
+    if (!words)
+    {
+        names_free(&files);
+        return ERR_MEMORY_ALLOCATION;
+    }
     for (n = 0; n < files.n && rc == SUCCESS; n++)
     {
         if (digest_of(root, files.name[n], hex) != 0)
@@ -924,7 +966,11 @@ static int record(const format_t *format, const char *uri, const char *search)
     if (rc != SUCCESS)
         return rc;
     pin.learned = 1;
-    pin_put(&pin);
+    if (pin_put(&pin) != 0)
+    {
+        pin_free(&pin);
+        return ERR_MEMORY_ALLOCATION;
+    }
     store_save();
     return SUCCESS;
 }
@@ -949,13 +995,16 @@ int pins_accept(const format_t *format, const char *uri, const char *search)
 
 int pins_set_layout(const char *uri, const char *layout)
 {
-    char scheme[SCHEME_MAX], hex[PHD_SHA256_HEX_LEN + 1];
+    char scheme[SCHEME_MAX], hex[PHD_SHA256_HEX_LEN + 1], *copy;
     pin_t *p = find(bare(uri));
 
     if (!p || phd_pin_layout_parse(layout, scheme, sizeof(scheme), hex) != 0 || strcmp(scheme, PHD_PIN_LAYOUT_SCHEME))
         return ERR_INVALID_OPERATION;
+    copy = strdup(layout);
+    if (!copy)
+        return ERR_MEMORY_ALLOCATION;
     free(p->layout);
-    p->layout = strdup(layout);
+    p->layout = copy;
     snprintf(p->scheme, sizeof(p->scheme), "%s", scheme);
     if (p->learned)
         store_save();

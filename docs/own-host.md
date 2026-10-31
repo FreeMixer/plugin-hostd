@@ -35,7 +35,8 @@ What each step did:
    machine that already runs JACK (Zynthian does) leave `jackd2` out.
 4. `jackd -r -d dummy` starts a JACK server that needs no sound card. On a real machine use the one you have.
 5. `plugin-hostd -n -p 5555` starts the daemon on the command port, 5555. It prints `plugin-hostd ready!` once the port
-   accepts. No worker exists until the first `add`.
+   accepts. No worker exists until the first `add`. The ports listen on 127.0.0.1; a controller on another machine needs
+   `--bind-address` (`man plugin-hostd`).
 6. `omx-clap-scan` reads the plugin's layout: every parameter, its number, range and default. The number is the symbol
    the protocol takes, so the compressor's Ratio is `1`.
 7. `add` loads the plugin as instance `0`. The daemon starts a worker of its own for it, a JACK client named

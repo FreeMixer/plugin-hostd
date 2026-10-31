@@ -332,7 +332,7 @@ void descriptors_add(const char *uri)
     const char *format, *id;
     scan_t *s;
 
-    char panel[PATH_MAX];
+    char panel[PATH_MAX], *new_uri, *new_target, *new_id;
     int described;
 
     if (!g_conf || identify(uri, target, sizeof(target), &format, &id, hash) != 0)
@@ -348,19 +348,39 @@ void descriptors_add(const char *uri)
     s = scan_of(format, id, hash);
     if (s && s->pid > 0)
         return;
+    /* no memory for its words is no scan this time; the next add of the plugin asks again */
+    new_uri = strdup(uri);
+    new_target = probe_target(target);
+    new_id = s ? NULL : strdup(id);
+    if (!new_uri || !new_target || (!s && !new_id))
+    {
+        free(new_uri);
+        free(new_target);
+        free(new_id);
+        return;
+    }
     if (!s)
     {
-        g_scans = realloc(g_scans, (size_t)(g_nscans + 1) * sizeof(scan_t));
+        scan_t *grown = realloc(g_scans, (size_t)(g_nscans + 1) * sizeof(scan_t));
+
+        if (!grown)
+        {
+            free(new_uri);
+            free(new_target);
+            free(new_id);
+            return;
+        }
+        g_scans = grown;
         s = &g_scans[g_nscans++];
         memset(s, 0, sizeof(*s));
         snprintf(s->format, sizeof(s->format), "%s", format);
         snprintf(s->hash, sizeof(s->hash), "%s", hash);
-        s->id = strdup(id);
+        s->id = new_id;
     }
     free(s->uri);
-    s->uri = strdup(uri);
+    s->uri = new_uri;
     free(s->target);
-    s->target = probe_target(target);
+    s->target = new_target;
     if (described)
     {
         snprintf(s->name, sizeof(s->name), "%s", strrchr(path, '/') + 1);
@@ -372,7 +392,7 @@ void descriptors_add(const char *uri)
 /* the scan's stdout as a document of its stage, or NULL: read back, fsync'd */
 static jnode_t *scan_output(scan_t *s)
 {
-    sb_t text = { 0 };
+    sb_t text = { .keep_going = 1 };
     jnode_t *doc;
     int fd;
 

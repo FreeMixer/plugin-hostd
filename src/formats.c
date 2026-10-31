@@ -60,7 +60,8 @@ int clap_pin_collect(const char *uri, const char *search, char *root, size_t siz
     if (!slash)
         return pin_refuse(uri, encoded, "is not a path");
     /* the pin holds the file name as the uri writes it, one word; the directory is the one the host opens */
-    names_add(files, slash + 1);
+    if (names_add(files, slash + 1) != 0)
+        return ERR_MEMORY_ALLOCATION;
     encoded[slash - encoded] = '\0';
     if (pin_percent_decode(encoded, root, size) != 0)
         return pin_refuse(uri, encoded, "is not a percent-encoded path");

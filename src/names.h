@@ -30,10 +30,20 @@ typedef struct NAMES_T {
     int n;
 } names_t;
 
-static inline void names_add(names_t *names, const char *name)
+/* 0, or -1 with the list as it was when memory runs out */
+static inline int names_add(names_t *names, const char *name)
 {
-    names->name = realloc(names->name, (names->n + 1) * sizeof(char *));
-    names->name[names->n++] = strdup(name);
+    char **grown = realloc(names->name, (names->n + 1) * sizeof(char *));
+    char *copy;
+
+    if (!grown)
+        return -1;
+    names->name = grown;
+    copy = strdup(name);
+    if (!copy)
+        return -1;
+    names->name[names->n++] = copy;
+    return 0;
 }
 
 static inline int names_has(const names_t *names, const char *name)

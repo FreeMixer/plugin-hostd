@@ -106,6 +106,11 @@ It prints `plugin-hostd ready!` once both ports accept.
 No worker exists until the first `add`. `quit` or SIGTERM stops every worker and the daemon;
 after a SIGKILL the workers notice the parent gone (`PR_SET_PDEATHSIG`) and exit.
 
+Both ports listen on 127.0.0.1, so only programs on the same machine reach them. To control the daemon from
+another machine, start it with `--bind-address <address>` or set `bind_address` in the settings; `0.0.0.0` is every
+address of the machine. A controller is not authenticated and can load a plugin from any path, so do that only on a
+network whose hosts you trust. A daemon that cannot listen on the address does not start.
+
 The settings live in a file, `-c`, `$PLUGIN_HOSTD_CONF` or
 `~/.config/plugin-hostd.conf`, one `key value` per line:
 
@@ -121,6 +126,7 @@ The settings live in a file, `-c`, `$PLUGIN_HOSTD_CONF` or
 | `state_root` | `$XDG_RUNTIME_DIR`, else `/tmp` | the daemon's checkpoints and worker logs |
 | `pin_mode` | `first-use` | strict or first-use, while require_pins is 1: first-use records the pin of a plugin on its first add, strict admits only a plugin a controller, a pin_file or pins_dir pinned |
 | `grouping` | `off` | off or on: whether plan applies its plan (a run of consecutive members that may share a worker is declared as a chain), or only answers it; the default stays off until the benchmark has published a win |
+| `bind_address` | `127.0.0.1` | the IPv4 address the command and feedback ports listen on: this machine alone by default; 0.0.0.0 is every address of the machine, and a controller is not authenticated, so widen it only on a network whose hosts are trusted; --bind-address overrides it |
 | `placement` | `spread` | spread or none (docs/placement.md): spread pins each new worker to the audio core with the least load, the sum of the qualification costs of the workers already on it, or their number while one of them has a member of unknown cost, the lowest core of a tie, and keeps the daemon, its threads and the scans it forks on the reserved cores; a worker keeps its core across respawns, and one whose format worker_env gave a cpu list is not placed; none pins nothing; --placement overrides it |
 | `audio_cores` | `` | the cpus the placement spreads the workers over, a cpu list inside the daemon's own affinity ("1-3"); empty is that affinity less its lowest cpu; the reserved cores are the rest of it |
 | `pin_store` | `` | the file first-use pins are kept in; empty is $XDG_STATE_HOME/plugin-hostd/pins, else $HOME/.local/state/plugin-hostd/pins |
