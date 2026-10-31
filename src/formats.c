@@ -80,6 +80,38 @@ int clap_binary(const char *uri, const char *search, char *path, size_t size)
     return pin_percent_decode(encoded, path, size) == 0 ? 0 : -1;
 }
 
+int clap_plain_target(const char *uri, char *out, size_t size)
+{
+    char path[PATH_MAX];
+    const char *hash = strrchr(uri, '#');
+
+    if (clap_binary(uri, NULL, path, sizeof(path)) != 0 || !hash ||
+        snprintf(out, size, CLAP_PREFIX "%s%s", path, hash) >= (int)size)
+        return -1;
+    return 0;
+}
+
+/* The worker opens the path it is given: the percent-encoded form is this daemon's, one word in a pin and on the
+ * controller's line, and its other names are not the worker's to guess (a file may be named a%20b.clap). A path with a
+ * space goes as one quoted word, which mod-host's tokenizer reads. What cannot be said so goes as the uri is written, and
+ * the worker answers for it. */
+static void clap_worker_word(const char *uri, char *out, size_t size)
+{
+    char plain[PATH_MAX + 512];
+    size_t n;
+
+    if (clap_plain_target(uri, plain, sizeof(plain)) != 0 || strpbrk(plain, "\"\\\n\r"))
+    {
+        snprintf(out, size, "%s", uri);
+        return;
+    }
+    n = strcspn(plain, " \t");
+    if (plain[n])
+        snprintf(out, size, "\"%s\"", plain);
+    else
+        snprintf(out, size, "%s", plain);
+}
+
 /* The built-in rows, in the order of PHD_FORMATS. */
 static const format_t g_builtin[] = {
     {
@@ -109,6 +141,7 @@ static const format_t g_builtin[] = {
         .worker = clap_worker,
         .pin_collect = clap_pin_collect,
         .binary = clap_binary,
+        .worker_word = clap_worker_word,
         .layout_check = 1,
         .pinned_own_only = 0,
         .native_instance_verbs = 1,
