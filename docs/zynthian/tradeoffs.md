@@ -7,10 +7,12 @@ For a reviewer of the zynthian-ui and zynthian-sys changes. Each point names the
 One worker per chain against one process per plugin
 ---------------------------------------------------
 
-plugin-hostd runs a Zynthian chain in one worker process (grouped) or each plugin in a worker of its own (individual);
+These figures measure the daemon directly, on a private graph; a run through Zynthian's own engine is next
+([zynthian-ui#53](https://github.com/FreeMixer/zynthian-ui/pull/53) gives the engine the fix that reads the plan). plugin-hostd runs a chain in one worker process (grouped) or each plugin in a worker of its own (individual);
 jalv runs one process per plugin; mod-host runs every plugin in one process. Figures: [Grouped versus
 alone](benchmarks.md#grouped-versus-alone-plugin-hostd-jalv-mod-host), Pi 5, 48000 Hz, 256 frames, run `rpi5-20261027-1`
-on plugin-hostd 0.12.0. A matrix on current versions is being taken ([status](status.md)).
+on plugin-hostd 0.12.0. On current versions, up to 24 plugins, the grouped chain has the lowest DSP load: [the
+table](benchmarks.md#current-versions-chains-up-to-24-plugins).
 
 | | grouped (plugin-hostd chain) | jalv (one process per plugin) | mod-host (one process) |
 |---|---|---|---|
@@ -19,7 +21,7 @@ on plugin-hostd 0.12.0. A matrix on current versions is being taken ([status](st
 | CPU, 16 plugins, % of a core | 10.16 | 11.39 | 9.54 |
 | add time, 16 plugins | 2507 ms | 2417 ms | 434 ms |
 | JACK clients per chain | 1 for an all-CLAP chain (grouped-vs-processes.md); 3 for chain3 with an LV2 member | one per plugin, not counted | not counted |
-| a plugin crashes | the worker is put back, 347 ms (`kill1`); in a chain the other members keep playing (round-trip.txt) | that plugin's process is lost, nothing restarts it | every plugin of the process is lost |
+| a plugin crashes | at the daemon the worker is put back with the links it made itself, 347 ms (`kill1`); in a chain the other members keep playing (round-trip.txt). Not yet measured through Zynthian's engine, whose links come from outside | that plugin's process is lost, nothing restarts it | every plugin of the process is lost |
 
 Pros:
 
@@ -29,8 +31,9 @@ Pros:
   than plugin-hostd's own individual mode at every N (1.50/5.39/10.16 against 1.86/6.89/14.75).
 - Fewer context switches: 2801 grouped against 38985 with one worker per plugin, in 10 s for 16 plugins at 48000 Hz, with
   the chain as one JACK client (grouped-vs-processes.md, plugin-hostd 0.12.0).
-- Crash containment by the daemon: a lost worker is restarted and re-wired in about 340 ms, which jalv and mod-host do not
-  do (`kill1`). Inside a chain a member that aborts leaves the others playing (round-trip.txt,
+- Crash containment by the daemon: a lost worker is restarted, with the links the daemon made itself, in about 340 ms, which
+  jalv and mod-host do not do (`kill1`). Links made from outside are not restored, and Zynthian's routing is made from
+  outside, so this says nothing yet for a real Zynthian. Inside a chain a member that aborts leaves the others playing (round-trip.txt,
   `a_crashed_member_leaves_the_three_playing`).
 
 Cons:
@@ -45,8 +48,9 @@ Cons:
   1.50 to 10.16. On the Pi 185 of 1329 LV2 plugins and 133 of 247 CLAP plugins are isolated for plugin-hostd's worker.
 - Add time. A chain takes longer to form than the same plugins under mod-host (2507 ms against 434 ms for 16), and the
   same order as jalv. It is paid when a chain is built or changed.
-- mod-host is still the cheapest in CPU at every N (9.54 % for 16) and close in PSS (76.4 MB): plugin-hostd's gain is
-  over jalv, Zynthian's default engine for LV2, not over mod-host.
+- On 0.12.0, mod-host was the cheapest in CPU at every N (9.54 % for 16) and close in PSS (76.4 MB). On 0.15.4, with the
+  chain as one JACK client, the grouped chain reads lower (8.45 % DSP against 9.84 % at 16), on different builds of the
+  plugins. Either way plugin-hostd's large gain is over jalv, Zynthian's default engine for LV2, not over mod-host.
 - Latency: the bench records only the latency the clients declare (none for these plugins). A measured round-trip
   latency per host is not measured yet (it needs a loopback cable).
 
@@ -154,8 +158,8 @@ Upstream: zynthian/zynthian-sys#228 (install_mod-ui.sh on Python 3.13), open.
 What is not done
 ----------------
 
-- Audio proof at the analog outputs. Plugins are measured digitally at JACK ports on the Pi ([digital
-  proofs](digital-proofs.md)); nobody has listened. The sample-by-sample round trip ran in x86_64 containers only.
+- A listening test through the audio interface, which is next. Plugins are measured digitally at JACK ports on the Pi
+  ([digital proofs](digital-proofs.md)). The sample-by-sample round trip ran in x86_64 containers.
 - The cost grid at the hosts' quantums (128, 256, 1024 frames) and LV2 at 44.1, 48 and 96 kHz: plugin-qualify#193.
 - A cost estimate at Zynthian's quantum: the `estimate` verb and the fork's menu exist (FreeMixer/zynthian-ui#13), but
   the records' cost comes from 512-frame blocks only (plugin-qualify#193).
