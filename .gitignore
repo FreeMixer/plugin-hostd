@@ -1,6 +1,8 @@
 src/*.o
 /plugin-hostd
 tests/fake-host
+tests/plugin-hostd-alloc-fail
+tests/alloc-fail-objs/
 tests/*.clap
 __pycache__/
 tests/jack_levels

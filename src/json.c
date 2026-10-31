@@ -20,17 +20,35 @@
 
 /* ---------------------------------------------------------------- strings that grow */
 
+static void sb_out_of_memory(sb_t *b)
+{
+    if (!b->keep_going)
+    {
+        fprintf(stderr, "plugin-hostd-probe: out of memory\n");
+        exit(2);
+    }
+    free(b->s);
+    b->s = NULL;
+    b->len = b->cap = 0;
+    b->failed = 1;
+}
+
 void sb_put(sb_t *b, const char *data, size_t n)
 {
+    if (b->failed)
+        return;
     if (b->len + n + 1 > b->cap)
     {
-        b->cap = (b->len + n + 1) * 2;
-        b->s = realloc(b->s, b->cap);
-        if (b->s == NULL)
+        size_t cap = (b->len + n + 1) * 2;
+        char *grown = realloc(b->s, cap);
+
+        if (grown == NULL)
         {
-            fprintf(stderr, "plugin-hostd-probe: out of memory\n");
-            exit(2);
+            sb_out_of_memory(b);
+            return;
         }
+        b->s = grown;
+        b->cap = cap;
     }
     memcpy(b->s + b->len, data, n);
     b->len += n;
@@ -56,6 +74,11 @@ void sb_printf(sb_t *b, const char *fmt, ...)
     {
         char *big = malloc((size_t)n + 1);
 
+        if (big == NULL)
+        {
+            sb_out_of_memory(b);
+            return;
+        }
         va_start(ap, fmt);
         vsnprintf(big, (size_t)n + 1, fmt, ap);
         va_end(ap);
@@ -111,7 +134,7 @@ static void jskip(const char **p)
 
 static char *jparse_string(const char **p)
 {
-    sb_t b = { 0 };
+    sb_t b = { .keep_going = 1 };
 
     (*p)++;
     while (**p && **p != '"')
@@ -152,14 +175,29 @@ static char *jparse_string(const char **p)
         return NULL;
     }
     (*p)++;
+    if (b.failed)
+        return NULL;
     return b.s ? b.s : strdup("");
+}
+
+/* an array of a node holds `n` elements from here on, or stays as it was and the answer is 0 */
+#define jgrow(array, n, size) jgrow_((void **)(array), (n), (size))
+static int jgrow_(void **array, size_t n, size_t size)
+{
+    void *grown = realloc(*array, n * size);
+
+    if (grown == NULL)
+        return 0;
+    *array = grown;
+    return 1;
 }
 
 static jnode_t *jnew(jtype_t t)
 {
     jnode_t *n = calloc(1, sizeof(*n));
 
-    n->type = t;
+    if (n)
+        n->type = t;
     return n;
 }
 
@@ -207,6 +245,8 @@ static jnode_t *jparse_bare(const char **p, int depth)
     if (**p == '{')
     {
         n = jnew(J_OBJ);
+        if (n == NULL)
+            return NULL;
         (*p)++;
         jskip(p);
         if (**p == '}')
@@ -225,8 +265,8 @@ static jnode_t *jparse_bare(const char **p, int depth)
             jskip(p);
             if (*(*p)++ != ':' || (v = jparse_value(p, depth + 1)) == NULL)
                 return NULL;
-            n->kid = realloc(n->kid, (n->n + 1) * sizeof(*n->kid));
-            n->key = realloc(n->key, (n->n + 1) * sizeof(*n->key));
+            if (!jgrow(&n->kid, n->n + 1, sizeof(*n->kid)) || !jgrow(&n->key, n->n + 1, sizeof(*n->key)))
+                return NULL;
             n->key[n->n] = key;
             n->kid[n->n++] = v;
             jskip(p);
@@ -246,6 +286,8 @@ static jnode_t *jparse_bare(const char **p, int depth)
     if (**p == '[')
     {
         n = jnew(J_ARR);
+        if (n == NULL)
+            return NULL;
         (*p)++;
         jskip(p);
         if (**p == ']')
@@ -259,7 +301,8 @@ static jnode_t *jparse_bare(const char **p, int depth)
 
             if (v == NULL)
                 return NULL;
-            n->kid = realloc(n->kid, (n->n + 1) * sizeof(*n->kid));
+            if (!jgrow(&n->kid, n->n + 1, sizeof(*n->kid)))
+                return NULL;
             n->kid[n->n++] = v;
             jskip(p);
             if (**p == ',')
@@ -278,12 +321,16 @@ static jnode_t *jparse_bare(const char **p, int depth)
     if (**p == '"')
     {
         n = jnew(J_STR);
+        if (n == NULL)
+            return NULL;
         n->str = jparse_string(p);
         return n->str ? n : NULL;
     }
     if (!strncmp(*p, "true", 4) || !strncmp(*p, "false", 5))
     {
         n = jnew(J_BOOL);
+        if (n == NULL)
+            return NULL;
         n->boolean = **p == 't';
         *p += n->boolean ? 4 : 5;
         return n;
@@ -300,6 +347,8 @@ static jnode_t *jparse_bare(const char **p, int depth)
         if (end == *p)
             return NULL;
         n = jnew(J_NUM);
+        if (n == NULL)
+            return NULL;
         n->num = v;
         *p = end;
         return n;

@@ -17,6 +17,9 @@ typedef struct
 {
     char *s;
     size_t len, cap;
+    /* when memory runs out: 0 ends the program (a scanner has nothing to save); 1 drops the text and sets failed, and every
+     * later put does nothing, so the owner asks once, at the end */
+    int keep_going, failed;
 } sb_t;
 
 void sb_put(sb_t *b, const char *data, size_t n);
