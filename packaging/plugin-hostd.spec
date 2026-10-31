@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.15.6
+Version: 0.15.7
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -160,6 +160,14 @@ make test-daemon check-generated check-rendered
 %{_datadir}/omx-contract/contract.d/3/plugin-hostd/
 
 %changelog
+* Sat Oct 31 2026 Pau Aliagas <linuxnow@gmail.com> - 0.15.7-1
+- chain answers the worker's refusal. A worker that will not run the members
+  as one (a member whose width differs from the head's, mono after stereo)
+  made chain answer resp 0 and list every member as running, while each kept a
+  client of its own. chain now answers -501, the refused chain ends as
+  chain_clear ends it with each member in a worker of its own, and the
+  chain_refused event carries the worker's code (#342, #343).
+
 * Sat Oct 31 2026 Pau Aliagas <linuxnow@gmail.com> - 0.15.6-1
 - formats/clap.json asks for contract schema 3.2.0, and the rendered headers
   follow omx-contract 3.5 (#350). 0.15.5 could not build its x86_64 RPM against
