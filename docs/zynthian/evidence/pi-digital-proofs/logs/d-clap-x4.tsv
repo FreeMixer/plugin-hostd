@@ -1,0 +1,4 @@
+hostd	instances	4	resp 4 w1:39707:clap:up:1:qualified:own:1 w2:39715:clap:up:2:qualified:own:2 w3:39721:clap:up:3:qualified:own:3 w4:39868:clap:up:1:qualified:own:4
+hostd	start	add_ms	398	ports_ms	2413	note_port	effect_1:midi_in	outs	effect_1:out_1,effect_1:out_2
+hostd	poly	idle	-inf	-inf	0.0	0.0000	0	3.6	cpu0=6 cpu1=2 cpu2=2 cpu3=1	omx-clap-host@cpu1=1 omx-clap-host@cpu2=1 omx-clap-host@cpu3=1
+hostd	poly	poly16	3.3	-9.8	634.8	0.1277	0	18.8	cpu0=1 cpu1=24 cpu2=3 cpu3=2	omx-clap-host@cpu1=10 omx-clap-host@cpu2=10 omx-clap-host@cpu3=10 omx-clap-host@cpu1=8

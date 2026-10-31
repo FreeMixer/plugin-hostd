@@ -1,0 +1,80 @@
+{
+  "id": "http://moddevices.com/plugins/mda/Piano@2026-10-31T00:06:43Z",
+  "createdAt": "2026-10-31T00:06:43Z",
+  "format": "org.openmixer.preset/2",
+  "plugin": {
+    "id": "http://moddevices.com/plugins/mda/Piano",
+    "version": "",
+    "fingerprint": "omx-layout/1:5e9f1402bc4748e7f121402d47a1cf1ecce9068ed7ce12add168187c6ce3d2a3"
+  },
+  "name": "omx-test",
+  "modifiedAt": "2026-10-31T00:06:43Z",
+  "carries": "params+state",
+  "params": [
+    {
+      "symbol": "env_decay",
+      "unit": "",
+      "value": 5e+01
+    },
+    {
+      "symbol": "env_release",
+      "unit": "",
+      "value": 60.20000076293945
+    },
+    {
+      "symbol": "hardness_offset",
+      "unit": "",
+      "value": 0
+    },
+    {
+      "symbol": "vel_to_hardness",
+      "unit": "",
+      "value": 5e+01
+    },
+    {
+      "symbol": "muffling_filter",
+      "unit": "",
+      "value": 55
+    },
+    {
+      "symbol": "vel_to_muffling",
+      "unit": "",
+      "value": 25.100000381469727
+    },
+    {
+      "symbol": "vel_sensitivity",
+      "unit": "",
+      "value": 33.599998474121094
+    },
+    {
+      "symbol": "stereo_width",
+      "unit": "",
+      "value": 130.1999969482422
+    },
+    {
+      "symbol": "polyphony",
+      "unit": "",
+      "value": 1
+    },
+    {
+      "symbol": "fine_tuning",
+      "unit": "",
+      "value": 0
+    },
+    {
+      "symbol": "random_detuning",
+      "unit": "",
+      "value": 15.850000381469727
+    },
+    {
+      "symbol": "stretch_tuning",
+      "unit": "",
+      "value": 0
+    }
+  ],
+  "state": {
+    "encoding": "base64",
+    "context": "lv2",
+    "bytes": "PGh0dHA6Ly9tb2RkZXZpY2VzLmNvbS9wbHVnaW5zL21kYS9QaWFubz4KCWEgcHNldDpQcmVzZXQgOwoJbHYyOmFwcGxpZXNUbyA8aHR0cDovL21vZGRldmljZXMuY29tL3BsdWdpbnMvbWRhL1BpYW5vPiA7CglsdjI6cG9ydCBbCgkJbHYyOnN5bWJvbCAiZW52X2RlY2F5IiA7CgkJcHNldDp2YWx1ZSA1MC4wCgldICwgWwoJCWx2MjpzeW1ib2wgImVudl9yZWxlYXNlIiA7CgkJcHNldDp2YWx1ZSA2MC4yMDAwMDA3NgoJXSAsIFsKCQlsdjI6c3ltYm9sICJmaW5lX3R1bmluZyIgOwoJCXBzZXQ6dmFsdWUgMC4wCgldICwgWwoJCWx2MjpzeW1ib2wgImhhcmRuZXNzX29mZnNldCIgOwoJCXBzZXQ6dmFsdWUgMC4wCgldICwgWwoJCWx2MjpzeW1ib2wgIm11ZmZsaW5nX2ZpbHRlciIgOwoJCXBzZXQ6dmFsdWUgNTUuMAoJXSAsIFsKCQlsdjI6c3ltYm9sICJwb2x5cGhvbnkiIDsKCQlwc2V0OnZhbHVlIDEuMAoJXSAsIFsKCQlsdjI6c3ltYm9sICJyYW5kb21fZGV0dW5pbmciIDsKCQlwc2V0OnZhbHVlIDE1Ljg1MDAwMDM4CgldICwgWwoJCWx2MjpzeW1ib2wgInN0ZXJlb193aWR0aCIgOwoJCXBzZXQ6dmFsdWUgMTMwLjE5OTk5Njk1CgldICwgWwoJCWx2MjpzeW1ib2wgInN0cmV0Y2hfdHVuaW5nIiA7CgkJcHNldDp2YWx1ZSAwLjAKCV0gLCBbCgkJbHYyOnN5bWJvbCAidmVsX3NlbnNpdGl2aXR5IiA7CgkJcHNldDp2YWx1ZSAzMy41OTk5OTg0NwoJXSAsIFsKCQlsdjI6c3ltYm9sICJ2ZWxfdG9faGFyZG5lc3MiIDsKCQlwc2V0OnZhbHVlIDUwLjAKCV0gLCBbCgkJbHYyOnN5bWJvbCAidmVsX3RvX211ZmZsaW5nIiA7CgkJcHNldDp2YWx1ZSAyNS4xMDAwMDAzOAoJXSAuCg=="
+  }
+}
