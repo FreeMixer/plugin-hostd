@@ -202,6 +202,17 @@ static void put_rates(const char *rates, long quantum, unsigned notes)
                    "\"warmupNsPerSampleMedian\":%g,\"blocks\":256", ns, ns + 1, ns - 1, ns + 4, ns + 2);
         if (instrument && notes)
             printf(",\"voices\":{\"held\":%u,\"basis\":\"probe\"}", notes);
+        /* the curve plugin-qualify#203 asks for: the cost at each count up to the notes held, one malformed entry dropped */
+        if (instrument && notes && r != unmeasured && getenv("PROBE_CHILD_VOICE_CURVE"))
+        {
+            static const unsigned counts[] = { 1, 8, 16, 32, 64 };
+            const char *sep = "";
+
+            printf(",\"voiceCurve\":[");
+            for (unsigned k = 0; k < sizeof counts / sizeof *counts && counts[k] <= notes; k++, sep = ",")
+                printf("%s{\"held\":%u,\"nsPerSampleMedian\":%g,\"nsPerSampleP95\":%g}", sep, counts[k], ns + counts[k], ns + counts[k] + 1);
+            printf(",{\"held\":\"many\",\"nsPerSampleMedian\":1}]");
+        }
         if (getenv("PROBE_CHILD_MEMORY"))
         {
             if (getenv("PROBE_CHILD_NO_MEMORY_RATE") && r == atol(getenv("PROBE_CHILD_NO_MEMORY_RATE")))

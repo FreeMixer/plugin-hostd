@@ -373,7 +373,7 @@ def an_instrument_point_carries_the_notes_it_held_and_an_untimed_rate_has_no_cos
                              env={"PROBE_CHILD_INSTRUMENT": "1", "PROBE_CHILD_UNMEASURED_RATE": str(untimed)})
     check(code == 0, "exit status %d" % code)
     valid(doc)
-    check(doc["formatVersion"] == "1.3", "formatVersion %s" % doc["formatVersion"])
+    check(doc["formatVersion"] == "1.4", "formatVersion %s" % doc["formatVersion"])
     check([g["rate"] for g in doc["grid"]] == rates, "a point per rate %s: %s" % (rates, [g["rate"] for g in doc["grid"]]))
     for g in doc["grid"]:
         if g["rate"] == untimed:
@@ -388,6 +388,20 @@ def an_instrument_point_carries_the_notes_it_held_and_an_untimed_rate_has_no_cos
     code, doc, _, _, _ = run(extra=("--hold", "8"), env={"PROBE_CHILD_INSTRUMENT": "1"})
     valid(doc)
     check(doc["grid"][0]["cost"]["voices"] == {"held": 8, "basis": "probe"}, "--hold 8 is the count held: %s" % doc["grid"][0])
+    check(all("voiceCurve" not in g.get("cost", {}) for g in doc["grid"]), "a child that times one count gives no curve: %s" % doc["grid"])
+    # plugin-qualify#203: the cost at each count held, carried into each point; an entry that is not a count and its
+    # two figures is left out
+    code, doc, _, _, _ = run(rates=None, extra=("--probe-notes", "32"),
+                             env={"PROBE_CHILD_INSTRUMENT": "1", "PROBE_CHILD_VOICE_CURVE": "1", "PROBE_CHILD_UNMEASURED_RATE": str(untimed)})
+    check(code == 0, "exit status %d" % code)
+    valid(doc)
+    for g in doc["grid"]:
+        if g["rate"] == untimed:
+            check("cost" not in g, "the rate the child did not time has no curve either: %s" % g)
+            continue
+        ns = g["rate"] / 1000
+        want = [{"held": k, "median": ns + k, "percentile": {"p": 95, "value": ns + k + 1}} for k in (1, 8, 16, 32)]
+        check(g["cost"].get("voiceCurve") == want, "the point at %d carries the cost at 1, 8, 16 and 32 notes: %s" % (g["rate"], g["cost"].get("voiceCurve")))
 
 # ---------------------------------------------------------------- LV2: the runner drives lv2_measure's passes
 
