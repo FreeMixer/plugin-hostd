@@ -207,8 +207,7 @@ changing.
 and effect is offered through plugin-hostd ("Name (PH)") instead of jalv; MIDI tools stay with jalv. The engine
 starts one daemon per Zynthian on port 5570 with step 3's script, reads the daemon's reply codes from the files it
 ships (a missing file is one clear refusal), declares each chain to the daemon's planner, which says what runs
-together, brings a lost daemon back and replays each instance's preset and values (a plugin that refuses a state load while it
-processes loses them, FreeMixer/omx-clap-core#438), and builds its controller pages from
+together, brings a lost daemon back and replays each instance's preset and values (with omx-clap-host 0.25.4 or later), and builds its controller pages from
 omx-panel's layout of the plugin descriptor when omx-panel is installed (step 8 installs it; `apt install omx-panel`
 before that). A processor that runs alone has a "Grouping" entry in its options saying why. Snapshots holding PH
 processors load whatever the setting. Differences from the fork: the fork made plugin-hostd the default and listed

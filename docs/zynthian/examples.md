@@ -1,11 +1,10 @@
 Usage examples
 ==============
 
-Three things to do with plugin-hostd under Zynthian, each with the steps, what you get and what is not ready. The figures are
-from the [benchmarks](benchmarks.md), and what is proven on the device is on the [status page](status.md). Through
-Zynthian's own engine, grouping is not yet measured on the Pi: the engine's fixes
-([zynthian-ui#53](https://github.com/FreeMixer/zynthian-ui/pull/53), [#56](https://github.com/FreeMixer/zynthian-ui/pull/56))
-are proven against a real daemon in a container, and they are not yet on a device.
+Three things to do with plugin-hostd under Zynthian, each with the steps, what you get and its limits. The figures are from the
+[benchmarks](benchmarks.md), and what is proven on the device is on the [status page](status.md). Through Zynthian's own engine,
+grouping has passed its proof on the Pi on omx-clap-host 0.25.4 and zynthian-ui's fork at
+[76b5e106](https://github.com/FreeMixer/zynthian-ui/commit/76b5e106); chains built from the menu with it are still to be measured.
 
 A group: plugins in series in one worker
 ----------------------------------------
@@ -28,7 +27,7 @@ To see it on the daemon, install the packages as in [Use plugin-hostd in your ow
     jack_lsp | cut -d: -f1 | sort -u                                        # effect_0 and system
     send "chain_clear 1"                                                    # back to a worker each
 
-These lines were run as written in a clean debian:trixie container, with plugin-hostd 0.15.6 and omx-clap-host 0.25.3. With
+These lines were run as written in a clean debian:trixie container, with plugin-hostd 0.15.6 and omx-clap-host 0.25.3; on that release a value set before `chain` was lost, as 0.25.4 fixes, so have 0.25.4. With
 pins on, the default, `chain` answers -501 for a plugin whose pin does not say it may share a worker.
 
 What you get, 24 LV2 plugins in series (omx comp, delay and drive in turn) on a Pi 5 at 48000 Hz and 256 frames, on a private
@@ -48,11 +47,8 @@ you set it. A group is then what your chain has in series with nothing between: 
 plugin ends it ([the table](mixbus.md#how-a-plugin-behaves-in-a-mixbus)). A processor that runs alone has a Grouping entry in
 its options saying why.
 
-Not ready:
+A limit:
 
-- On omx-clap-host 0.25.3 a plugin's values are lost when a group forms, for most omx plugins: Ratio set to 8 reads 4 after
-  the `chain` above, and reads 8 again if you set it after. omx-clap-host 0.25.4 has the fix
-  ([omx-clap-core#438](https://github.com/FreeMixer/omx-clap-core/issues/438)). Have it before setting `grouping on`.
 - On plugin-hostd 0.15.4 the group did not form within 20 s in one of four cells at 18 plugins and on one repeat at 32 and at
   48. On 0.15.5 it formed in all six cells at 18 and in every repeat up to 24; there is no newer row at 32 or 48.
 
@@ -72,15 +68,14 @@ omx strip does the same in one plugin: trim, filters, gate, four bands of EQ and
 What you get: on the Pi, omx eq8 from the menu, its pages, its Factory and User banks and a saved user preset are
 [captured](captures.md#omx-eq8-retaken-on-omx-plugins-0-16-0) and [read back](digital-proofs.md#presets-factory-and-user-banks).
 
-Not ready:
+Limits:
 
 - There is no mixing-strip test yet: nobody has run eq8 and comp as a channel strip across a set of chains and measured it, and
   omx strip has not been tried from the menu.
-- A preset chosen on a running CLAP instance of omx eq8 changes no control on omx-plugins 0.16.0 and omx-clap-host 0.25.3
-  ([digital proofs](digital-proofs.md#omx-eq8-as-clap-refuses-to-load-a-preset-on-a-running-instance)).
+- A preset on a running CLAP omx eq8 loads on the daemon on omx-clap-host 0.25.4 and has not been retried from the menu.
 
 Shared effects on a Mixbus
 --------------------------
 
-One effect on a bus instead of one per chain, sent to from each chain with Zynthian's own sends. The steps, the figures and what
-is not ready are on the Mixbus page: [one reverb and delay on a bus](mixbus.md#example-one-reverb-and-delay-on-a-bus).
+One effect on a bus instead of one per chain, sent to from each chain with Zynthian's own sends. The steps, the figures and the limits
+are on the Mixbus page: [one reverb and delay on a bus](mixbus.md#example-one-reverb-and-delay-on-a-bus).
