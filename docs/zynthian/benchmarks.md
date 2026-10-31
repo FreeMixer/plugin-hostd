@@ -7,9 +7,9 @@ and gives the command that would measure it. The pros and cons drawn from these 
 [tradeoffs.md](tradeoffs.md); the acceptance report the bench tool writes is [acceptance-report.md](acceptance-report.md).
 
 The device in every Pi row: a Raspberry Pi 5 (Cortex-A76, 4 cores, 4 GB), ZynthianOS vangelis (Debian 13 arm64), kernel
-6.18.50+rpt-rpi-2712 (not PREEMPT_RT). **It has no sound card**: its JACK runs on the ALSA `Dummy` card, and every
-benchmark ran on a private JACK server on the dummy driver. DSP load, xruns and latency below are the dummy driver's;
-no row is a statement about audio heard. Until the fork's update script was applied to the device
+6.18.50+rpt-rpi-2712 (not PREEMPT_RT). Its JACK ran on the ALSA `Dummy` card in these runs, and every
+benchmark ran on a private JACK server on the dummy driver. DSP load, xruns and latency below are the dummy driver's.
+Until the fork's update script was applied to the device
 (`sbin/mod-host-backend.sh`, `ZYNTHIAN_MODHOST_BACKEND="plugin-hostd"` after it), its MOD-UI engine ran
 the stock mod-host (`/usr/local/bin/mod-host`, v0.10.6-595-g6c1cdd8, as the image ships it). Every mod-host row below,
 before and after that, is that stock binary, started by the bench on a private port of its own; no row measures MOD-UI
@@ -122,7 +122,7 @@ the result of `rpi5-20261027-1`: plugin-hostd recovers in 346.7 ms, the other th
 
 Latency. The bench records the latency JACK reports at `system:playback_1`, which is what the clients on the path
 declare, not a measurement of audio; the omx plugins in these chains declare none. A measured round-trip latency per
-host needs a device with a sound card and a loopback cable: not measured yet.
+host needs a loopback cable through the audio interface: not measured yet.
 
 At scale, chains of four LV2 plugins at 1, 2, 4, 8 and 16 chains, each level held 60 s on the system JACK server of
 the Zynthian, grouped (one worker per chain), alone (one worker per plugin) and on jalv: [stress.md](stress.md)
@@ -317,8 +317,8 @@ reference host and not against the other order (peak 0.99078 against 0.32529); r
 a member that crashes (`fault-14.clap`, which aborts on a parameter write of 0.9 or more) leaves the other three
 playing, peak -9.75 dBFS after the crash; and each guard's sabotage turns its scenario red.
 
-On the Pi, the fork's engine ran a chain with omx-eq8 through plugin-hostd on the device's JACK. The
-device has no sound card: the chain ran, and no audio was heard. No log of that run is in this tree.
+On the Pi, the fork's engine ran a chain with omx-eq8 through plugin-hostd on the device's JACK. JACK
+ran on the dummy card, and the chain ran. No log of that run is in this tree.
 
 mod-ui's verbs: mod-host against plugin-hostd
 ---------------------------------------------
@@ -416,10 +416,10 @@ What is not measured yet
 
 | what | why not | the command that measures it |
 |---|---|---|
-| audio through a plugin-hostd chain on a Zynthian with a sound card | the Pi has none | the round trip on the device: `tools/zynthian/chain-e2e.sh --round-trip <zynthian-ui> <out>` with the environment of [README.md](README.md), on a Pi with a card and a loopback |
+| audio through a plugin-hostd chain on a Zynthian with an audio interface | next, with the interface | the round trip on the device: `tools/zynthian/chain-e2e.sh --round-trip <zynthian-ui> <out>` with the environment of [README.md](README.md), on a Pi with a card and a loopback |
 | cost at the hosts' quantums (128, 256, 1024) and LV2 at 44.1/48/96 kHz | plugin-qualify#193 | `plugin-qualify --all --isolate --rates 48000,96000 --quanta 128,256,512,1024 --host-profile jalv,mod-host,omx-clap-host --format json --out records/ > qualify.json` once #193 is fixed |
 | JACK clients per chain for mod-host, counted (jalv's are counted in [stress.md](stress.md)) | not recorded by the bench rows | `jack_lsp` on the bench's private server during a `cvp3` row: `bench/run.sh --class rpi5 --scenarios cvp3 --hosts H3,H4 --rates 48000 --frames 256 --keep-governor --logs logs/` |
-| latency measured on audio, per host | needs a card and a loopback | not available in this tree |
+| latency measured on audio, per host | needs a loopback through the interface | not available in this tree |
 | the cost estimate a chain editor would ask for (FreeMixer/zynthian-ui#13) | no `estimate` verb yet | none yet |
 | the MOD-UI engine on plugin-hostd on the device | the fork's update was applied only after these runs | after `update_zynthian_sys.sh` from FreeMixer/zynthian-sys: `tools/zynthian/path-a.sh <out>` |
 | Pianoteq 9 under plugin-hostd on the device | in the `rpi5-20261027-1` file (`pianoteq` rows); not repeated with 0.13.1 | `bench/run.sh --class rpi5 --scenarios pianoteq --pianoteq-dir <dir>` |

@@ -154,8 +154,8 @@ Upstream: zynthian/zynthian-sys#228 (install_mod-ui.sh on Python 3.13), open.
 What is not done
 ----------------
 
-- Audio proof at the analog outputs. Plugins are measured digitally at JACK ports on the Pi ([digital
-  proofs](digital-proofs.md)); nobody has listened. The sample-by-sample round trip ran in x86_64 containers only.
+- A listening test through the audio interface, which is next. Plugins are measured digitally at JACK ports on the Pi
+  ([digital proofs](digital-proofs.md)). The sample-by-sample round trip ran in x86_64 containers.
 - The cost grid at the hosts' quantums (128, 256, 1024 frames) and LV2 at 44.1, 48 and 96 kHz: plugin-qualify#193.
 - A cost estimate at Zynthian's quantum: the `estimate` verb and the fork's menu exist (FreeMixer/zynthian-ui#13), but
   the records' cost comes from 512-frame blocks only (plugin-qualify#193).

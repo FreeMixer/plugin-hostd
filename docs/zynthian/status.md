@@ -26,8 +26,8 @@ Proven on the device
   as LV2 (through jalv) give a signal at their JACK output ports at the right pitch with 0 xruns; omx eq8 shows Factory
   and User preset banks in the menu and saves a user preset; omx eq8 (LV2), mda Piano and Odin 2 load factory presets
   and user presets by value on the daemon. Surge XT as CLAP gives the same load with the thread pool off and on: one busy
-  thread, 26 % of a core at 64 voices at 48000 Hz and 256 frames. Everything is measured at JACK ports, none of it at the
-  analog outputs ([digital proofs](digital-proofs.md)).
+  thread, 26 % of a core at 64 voices at 48000 Hz and 256 frames. Every level and count here is measured digitally at the
+  JACK ports ([digital proofs](digital-proofs.md)).
 - **Surge XT through plugin-hostd, in both formats, digitally.** On plugin-hostd 0.15.4 and omx-clap-host 0.25.2, as LV2
   through the adapter and as CLAP with its own file name, `Surge%20XT.clap`: -13.5 dBFS at C4 at the JACK ports, run by
   hand with a `HOME` set. Without a `HOME` it is silent under jalv and the adapter and its CLAP answers -503.
@@ -78,13 +78,16 @@ the check of each on the device.
 Still open
 ----------
 
-- **A third-party chain does not run under plugin-hostd yet.** In the new matrix the chain of ten third-party LV2
-  effects fails in every cell, single and grouped: `add lv2:http://gareus.org/oss/lv2/fil4#stereo` answers -101, although
-  the plugin's pin says in-process and the adapter pass admitted it. So no grouped figure exists yet for other projects'
-  plugins on current versions. What closes it: the cause found and fixed, then those cells run again.
-- **JACK clients of a grouped chain.** The earlier run on plugin-hostd 0.12.0 counted one JACK client for a chain of our
-  plugins ([grouped-vs-processes](evidence/pi5-bench-2026-10-27/grouped-vs-processes.md)); the new matrix on 0.15.4 notes
-  one worker and 19 JACK clients for a chain of 19. What closes it: the reason, and the figure in the published matrix.
+- **A third-party chain under plugin-hostd.** On plugin-hostd 0.15.4 the chain of ten third-party LV2 effects failed in
+  every matrix cell, single and grouped: `add lv2:http://gareus.org/oss/lv2/fil4#stereo` answered -101. The fix is merged
+  ([plugin-hostd#339](https://github.com/FreeMixer/plugin-hostd/pull/339)). What closes it: those cells run again on the
+  release that carries it.
+- **A chain that holds omx-keyed-gate is not one JACK client.** The earlier run on plugin-hostd 0.12.0 counted one JACK
+  client for a chain of our plugins ([grouped-vs-processes](evidence/pi5-bench-2026-10-27/grouped-vs-processes.md)). In the
+  new matrix the worker refuses to form the chain of all 19 because of omx-keyed-gate, while the daemon answers `resp 0`, so
+  those rows are one worker and many clients, not a chain in one client
+  ([plugin-hostd#342](https://github.com/FreeMixer/plugin-hostd/issues/342)). What closes it: the chain run again without
+  that plugin, and the daemon answering the worker's refusal.
 - **The isolated step is owed.** `verdict=isolated` should mean a plugin was seen running alone. On plugin-qualify 0.18.2
   the step ran for 1 plugin of 152. What closes it: plugin-qualify 0.18.3 on the Pi, `--isolated-only`, then `--rejudge`.
 - **Presets in the menu: mda Piano and Odin 2, and loading on CLAP.** The Factory and User banks, the listing and the
@@ -105,8 +108,8 @@ Still open
   at 64 voices. Four instances at 16 voices each, in four workers, ran on cpu1, cpu2, cpu3 and cpu1, 0 xruns: what spreads
   today is instances across workers. Surge XT 1.4 declares no thread pool, so the pool does not spread one instance's
   voices. No instrument that takes the pool has been measured yet (omx-clap-core#395).
-- **What is heard.** Nothing has gone through the analog outputs: the figures are at JACK ports. What closes it: a person
-  listening to mda Piano and Surge XT through the Mbox 2 outputs, with a speaker or a loop cable.
+- **Next: a listening test through the audio interface.** The figures are read digitally at the JACK ports; the next step
+  takes mda Piano and Surge XT through the interface's outputs.
 - **zynthian-ui#42 and #44 on the device.** The fork on the Pi does not have them; the unmodified fork reproduces both
   (an empty chain per refused add, `AttributeError ... 'setup'` on `CHAIN_OPTIONS`). What closes it: the fork switched to
   the pull request branches and the two behaviours tried ([digital proofs](digital-proofs.md)).
