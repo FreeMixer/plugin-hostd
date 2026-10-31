@@ -14,7 +14,7 @@
     "default": "default",
     "pool_prefix": "pool:",
     "pool_sibling_separator": "#",
-    "syntax": "own | pool:<name> | default",
+    "syntax": "own | pool:<name> | chain:<chain> | default",
     "pool_name": {"pattern": "^[A-Za-z0-9_-]{1,32}$", "class": "A-Za-z0-9_-", "min": 1, "max": 32}
   },
   "formats": ["lv2", "clap", "lv2-clap"],
@@ -63,7 +63,7 @@
     {"name": "UNKNOWN_PLUGIN", "macro": "OMX_REPLY_PLUGIN_HOSTD_UNKNOWN_PLUGIN_RESP", "code": -535, "meaning": "a member of estimate whose uri names no plugin installed here (its format cannot tell the plugin's binary, or the binary is not there): never a reply, the code of the member in the reply's list"}
   ],
   "verbs": [
-    {"name": "add", "arguments": "<uri> <instance> [own | pool:<name> | default] [client_name]", "reply": "resp <instance>", "meaning": "mod-host's add with a placement; a token after the instance that is not a placement is the jack client name"},
+    {"name": "add", "arguments": "<uri> <instance> [own | pool:<name> | chain:<chain> | default] [client_name]", "reply": "resp <instance>", "meaning": "mod-host's add with a placement; a token after the instance that is not a placement is the jack client name"},
     {"name": "worker_list", "arguments": "", "reply": "resp <n> <worker>:<pid>:<format>:<state>:<core>:<pool>:<place>:<i>,<i>,...", "meaning": "the workers, one record each"},
     {"name": "instance_info", "arguments": "<instance>", "reply": "resp 0 <worker> <pid> <state> <crashes> <quarantined>", "meaning": "where an instance lives and what it has cost"},
     {"name": "supervisor_reset", "arguments": "[<worker> | all]", "reply": "resp 0", "meaning": "re-arm the storm bound and the backoff of a given-up placement"},
