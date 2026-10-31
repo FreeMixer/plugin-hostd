@@ -383,6 +383,19 @@ omx-clap-host 0.25.3 ([evidence](evidence/pi5-claims-2026-10-31/cvl/rpi5-2026103
 | 24 | mod-host | 1 | 26 | 15.51 | 112.1 | 108719 | 0, 0 | 717 |
 | 24 | jalv | 24 | 24 | 19.23 | 993.6 | 113806 | 13, 64 | 21921 |
 
+Ten third-party LV2 effects in series ([tools/zynthian/matrix/plugins.json](../../tools/zynthian/matrix/plugins.json)),
+plugin-hostd 0.15.5, omx-clap-host 0.25.3, three repeats of 30 s at 48000 Hz and 256 frames, medians
+([1](evidence/pi5-claims-2026-10-31/chain-tp-1/matrix.csv), [2](evidence/pi5-claims-2026-10-31/chain-tp-2/matrix.csv),
+[3](evidence/pi5-claims-2026-10-31/chain-tp-3/matrix.csv)). The group is one worker and still ten JACK clients.
+
+| mode | processes | JACK clients | JACK DSP % | PSS MB | xruns over the repeats |
+|---|---|---|---|---|---|
+| plugin-hostd, grouped | 2 | 10 | 6.04 | 45.0 | 0, 0, 0 |
+| plugin-hostd, one worker each | 11 | 10 | 7.19 | 111.1 | 0, 0, 0 |
+| omx-clap-host, one process | 1 | 10 | 6.55 | 44.0 | 0, 0, 0 |
+| mod-host | 1 | 12 | 6.23 | 89.3 | 0, 0, 0 |
+| jalv | 10 | 10 | 6.99 | 463.6 | 25, 5, 14 |
+
 The large gain is over one process per plugin, mainly in memory; mod-host stays close and adds faster. At 32 and 48 plugins the grouped chain did not form within 20 s on one repeat, and in one of four
 cells at 18 ([chain-omx-18](evidence/pi5-claims-2026-10-31/chain-omx-18-1/matrix.csv), a chain without omx-keyed-gate);
 the cause is not known yet.
