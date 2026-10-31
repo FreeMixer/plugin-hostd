@@ -1,0 +1,23 @@
+hostd	start	add_ms	449	ports_ms	681	note_port	effect_1:midi_in	outs	effect_1:out_1,effect_1:out_2
+hostd	velocity	vel20	-13.5	-21.9	262.9	0.2047	0	3.4	cpu0=61 cpu1=1 cpu2=3 cpu3=0	omx-clap-host@cpu1=1
+hostd	velocity	vel64	-13.5	-21.9	261.4	0.2046	0	3.4	cpu0=44 cpu1=0 cpu2=1 cpu3=3	omx-clap-host@cpu1=3
+hostd	velocity	vel127	-13.5	-21.9	262.9	0.2047	0	2.6	cpu0=0 cpu1=1 cpu2=1 cpu3=1	omx-clap-host@cpu1=3
+hostd	poly	idle	-395.7	-415.1	0.0	0.0300	0	2.0	cpu0=1 cpu1=2 cpu2=1 cpu3=1	
+hostd	poly	poly1	-11.2	-22.4	65.5	0.1080	0	2.6	cpu0=9 cpu1=9 cpu2=4 cpu3=3	omx-clap-host@cpu1=2
+hostd	poly	poly8	1.2	-13.2	387.8	0.1183	0	4.9	cpu0=4 cpu1=1 cpu2=1 cpu3=1	omx-clap-host@cpu1=4
+hostd	poly	poly16	2.6	-10.1	655.0	0.1333	0	7.7	cpu0=1 cpu1=22 cpu2=1 cpu3=1	omx-clap-host@cpu1=7
+hostd	poly	poly32	2.8	-10.4	1417.5	0.2180	0	7.8	cpu0=5 cpu1=1 cpu2=1 cpu3=1	omx-clap-host@cpu1=7
+hostd	bend	centre	-13.9	-21.9	440.0	0.2643	0	2.6	cpu0=2 cpu1=3 cpu2=0 cpu3=0	
+hostd	bend	up	-14.0	-21.9	494.0	0.2801	0	2.8	cpu0=2 cpu1=5 cpu2=6 cpu3=4	omx-clap-host@cpu1=2
+hostd	bend	down	-13.9	-21.9	392.0	0.2497	0	2.6	cpu0=1 cpu1=1 cpu2=3 cpu3=0	omx-clap-host@cpu1=2
+hostd	bend	back	-13.9	-21.9	440.0	0.2643	0	2.6	cpu0=1 cpu1=1 cpu2=1 cpu3=2	omx-clap-host@cpu1=2
+hostd	sustain	released	-364.6	-377.9	0.0	0.0300	0	2.0	cpu0=6 cpu1=0 cpu2=2 cpu3=2	omx-clap-host@cpu1=2
+hostd	sustain	sustained	-13.5	-21.9	262.0	0.2043	0	2.7	cpu0=22 cpu1=2 cpu2=0 cpu3=2	omx-clap-host@cpu1=2
+hostd	sustain	pedal_up	-359.9	-373.3	0.0	270215658918956.4375	0	2.0	cpu0=2 cpu1=2 cpu2=0 cpu3=2	
+hostd	anoff	held	-0.9	-12.2	1138.0	0.2113	0	4.9	cpu0=0 cpu1=0 cpu2=0 cpu3=0	omx-clap-host@cpu1=4
+hostd	anoff	after_cc123	-342.3	-355.6	0.0	253202643005451.3125	0	1.9	cpu0=6 cpu1=2 cpu2=2 cpu3=0	
+hostd	anoff-verb	held_verb	peak	-2.3	rms	-13.6	hz	1380.0	bright	0.2499	frames	24000	xruns	0
+hostd	anoff-verb	after_verb	peak	-434.7	rms	-448.0	hz	0.0	bright	6689169426940242944.0000	frames	24000	xruns	0
+hostd	mpe	member_centre	-13.9	-21.9	440.0	0.2644	0	2.6	cpu0=1 cpu1=0 cpu2=1 cpu3=2	omx-clap-host@cpu1=1 omx-clap-host@cpu1=2
+hostd	mpe	other_member_bent	-13.9	-21.9	440.0	0.2643	0	2.7	cpu0=2 cpu1=1 cpu2=0 cpu3=0	plugin-hostd@cpu0=1 omx-clap-host@cpu1=2
+hostd	mpe	member_bent_quarter	-14.4	-22.0	881.0	0.3741	0	2.7	cpu0=1 cpu1=2 cpu2=3 cpu3=0	omx-clap-host@cpu1=2
