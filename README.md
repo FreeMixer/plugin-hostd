@@ -184,7 +184,7 @@ Placement
 ---------
 
 <!-- BEGIN GENERATED protocol:placement -->
-The placement of an `add` is `own | pool:<name> | default`. `own` is a worker for that instance alone; `pool:<name>` is the pool's worker, opened on first use and capped by `pool_config`, and a full pool opens `<name>#2`, `<name>#3`, and so on; `default` is the policy of `policy_set`. A pool name matches `^[A-Za-z0-9_-]{1,32}$`.
+The placement of an `add` is `own | pool:<name> | chain:<chain> | default`. `own` is a worker for that instance alone; `pool:<name>` is the pool's worker, opened on first use and capped by `pool_config`, and a full pool opens `<name>#2`, `<name>#3`, and so on; `default` is the policy of `policy_set`. A pool name matches `^[A-Za-z0-9_-]{1,32}$`.
 <!-- END GENERATED protocol:placement -->
 
 `<uri>` is `lv2:<uri>` or a bare URI for an LV2 plugin, `clap:<path>#<id>`
@@ -229,7 +229,7 @@ Verbs the daemon adds
 <!-- BEGIN GENERATED protocol:verbs -->
 | verb | arguments | reply | meaning |
 |---|---|---|---|
-| `add` | `<uri> <instance> [own \| pool:<name> \| default] [client_name]` | `resp <instance>` | mod-host's add with a placement; a token after the instance that is not a placement is the jack client name |
+| `add` | `<uri> <instance> [own \| pool:<name> \| chain:<chain> \| default] [client_name]` | `resp <instance>` | mod-host's add with a placement; a token after the instance that is not a placement is the jack client name |
 | `worker_list` | none | `resp <n> <worker>:<pid>:<format>:<state>:<core>:<pool>:<place>:<i>,<i>,...` | the workers, one record each |
 | `instance_info` | `<instance>` | `resp 0 <worker> <pid> <state> <crashes> <quarantined>` | where an instance lives and what it has cost |
 | `supervisor_reset` | `[<worker> \| all]` | `resp 0` | re-arm the storm bound and the backoff of a given-up placement |

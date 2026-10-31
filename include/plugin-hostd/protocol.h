@@ -73,7 +73,8 @@
 #define PHD_PLACE_OWN           "own"
 #define PHD_PLACE_DEFAULT       "default"
 #define PHD_PLACE_POOL_PREFIX   "pool:"
-/* the place of a chain's worker in worker_list, chain:<chain>; no add names it, chain puts instances there */
+/* the place of a chain's worker in worker_list, chain:<chain>; chain puts instances there, and an add naming it puts its
+ * instance at the end of that chain, in the chain's worker (#348) */
 #define PHD_PLACE_CHAIN_PREFIX  "chain:"
 /* the place of the worker of segment k of a plan, chain:<plan>.<k>, k counting from 0 in the plan's order; only plan
  * puts instances there, and the plan's number is its own, apart from the numbers of the chains chain declares */
@@ -87,7 +88,7 @@
 #define PHD_POOL_NAME_CLASS "A-Za-z0-9_-"
 
 #define PHD_PLACEMENT_SYNTAX \
-    PHD_PLACE_OWN " | " PHD_PLACE_POOL_PREFIX "<name> | " PHD_PLACE_DEFAULT
+    PHD_PLACE_OWN " | " PHD_PLACE_POOL_PREFIX "<name> | " PHD_PLACE_CHAIN_PREFIX "<chain> | " PHD_PLACE_DEFAULT
 
 #define PHD_STR_(x) #x
 #define PHD_STR(x)  PHD_STR_(x)

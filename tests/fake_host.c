@@ -234,6 +234,17 @@ static void answer(int fd, const char *fmt, ...)
     socket_send(fd, buffer, strlen(buffer) + 1);
 }
 
+/* whether a chain line's members (from its third word) hold the instance */
+static int chain_holds(char **tok, int ntok, int instance)
+{
+    int k;
+
+    for (k = 2; k < ntok; k++)
+        if (atoi(tok[k]) == instance)
+            return 1;
+    return 0;
+}
+
 /* the hosting code omx-clap-host's LV2 adapter refuses a plugin with, by a word in its uri: "" for a refusal that
  * names none, NULL for a plugin it takes */
 static const char *adapter_refusal(const char *uri)
@@ -373,6 +384,10 @@ static void receive(msg_t *msg)
         answer(fd, "resp 0");
     }
     else if (!strcmp(verb, OMX_VERB_CHAIN) && getenv("FAKE_REFUSE_CHAIN") && access(getenv("FAKE_REFUSE_CHAIN"), F_OK) == 0)
+        answer(fd, "resp -902");
+    /* FAKE_REFUSE_CHAIN_MEMBER=<instance>: a chain line holding that member is refused, as a worker refuses a member not
+     * as wide as the head's output, and every other chain line is taken */
+    else if (!strcmp(verb, OMX_VERB_CHAIN) && getenv("FAKE_REFUSE_CHAIN_MEMBER") && chain_holds(tok, ntok, atoi(getenv("FAKE_REFUSE_CHAIN_MEMBER"))))
         answer(fd, "resp -902");
     else if (!strcmp(verb, OMX_VERB_CHAIN))
     {

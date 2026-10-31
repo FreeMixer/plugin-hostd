@@ -65,7 +65,8 @@ static const struct { const char *name; int ledger; } g_instance_info_verbs[] = 
 static int is_placement(const char *token)
 {
     return !strcmp(token, PHD_PLACE_OWN) || !strcmp(token, PHD_PLACE_DEFAULT) ||
-           !strncmp(token, PHD_PLACE_POOL_PREFIX, strlen(PHD_PLACE_POOL_PREFIX));
+           !strncmp(token, PHD_PLACE_POOL_PREFIX, strlen(PHD_PLACE_POOL_PREFIX)) ||
+           !strncmp(token, PHD_PLACE_CHAIN_PREFIX, strlen(PHD_PLACE_CHAIN_PREFIX));
 }
 
 /* pin_set <uri> <files> <layout> [verdict=<word>] [pool=<word>]; the layout of a pin the controller sets is known */
