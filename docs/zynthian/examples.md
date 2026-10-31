@@ -51,8 +51,8 @@ its options saying why.
 Not ready:
 
 - On omx-clap-host 0.25.3 a plugin's values are lost when a group forms, for most omx plugins: Ratio set to 8 reads 4 after
-  the `chain` above, and reads 8 again if you set it after. The fix is for the next omx-clap-host
-  ([omx-clap-core#438](https://github.com/FreeMixer/omx-clap-core/issues/438)). Wait for it before setting `grouping on`.
+  the `chain` above, and reads 8 again if you set it after. omx-clap-host 0.25.4 has the fix
+  ([omx-clap-core#438](https://github.com/FreeMixer/omx-clap-core/issues/438)). Have it before setting `grouping on`.
 - On plugin-hostd 0.15.4 the group did not form within 20 s in one of four cells at 18 plugins and on one repeat at 32 and at
   48. On 0.15.5 it formed in all six cells at 18 and in every repeat up to 24; there is no newer row at 32 or 48.
 
