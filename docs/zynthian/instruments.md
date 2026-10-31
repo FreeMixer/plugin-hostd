@@ -19,7 +19,7 @@ play before the first xrun, however idle the other three are.
 block into tasks (one per voice, or per group of voices) and ask the host to run them (`request_exec`). The host
 decides where those tasks run. omx-clap-host 0.23.2 runs them one after the other on the audio thread that asked
 (omx-clap-core `docs/clap-compatibility.md`, row `clap.thread-pool`): correct, and on one core.
-omx-clap-core#395 (in progress, branch `feat/395-thread-pool`) spreads them: N-1 real-time helper threads per
+omx-clap-core#395, released in omx-clap-core, spreads them: N-1 real-time helper threads per
 worker, N being the cores the worker may use, each pinned to its own core and parked between cycles; on
 `request_exec` the tasks are handed out by one atomic counter, the audio thread takes its share, and the call returns
 when the last task is done, with no allocation, lock or system call on that path.
@@ -46,7 +46,7 @@ in four workers, each holding 16 notes, ran on cpu0, cpu1, cpu2 and cpu3 at 14-1
 JACK DSP load of 17.6%; one instance playing 64 voices loaded JACK at 39.7%. The single-core figure (3% at 1 voice,
 10% at 16, 39% at 64) is the baseline that placement multiplies by the number of instruments. Without placement the
 kernel places the workers; plugin-hostd#226 (chain placement policy: spread workers across the audio cores and keep the
-daemon off them, not yet built) makes it the host's decision. The thread pool remains the path for the plugins that do
+daemon off them) makes it the host's decision. The thread pool remains the path for the plugins that do
 split their voices into tasks.
 
 **What it costs and what it buys.** For Surge XT: placement costs one process per instrument (an omx-clap-host
