@@ -227,8 +227,8 @@ def samples(pids):
 # ---------------------------------------------------------------- repeats
 
 MEASURED = ("dsp_load_avg", "dsp_load_max", "rss_mb", "add_ms", "recover_ms", "processes", "rss_mb_total",
-            "pss_mb_total", "cpu_pct", "ctx_switches", "ctx_involuntary", "xruns", "latency_frames", "jack_clients")
-COUNTS = ("processes", "ctx_switches", "ctx_involuntary", "xruns", "latency_frames", "samples", "jack_clients")
+            "pss_mb_total", "cpu_pct", "ctx_switches", "ctx_involuntary", "ctx_jackd", "ctx_jackd_involuntary", "xruns", "latency_frames", "jack_clients")
+COUNTS = ("processes", "ctx_switches", "ctx_involuntary", "ctx_jackd", "ctx_jackd_involuntary", "xruns", "latency_frames", "samples", "jack_clients")
 
 
 def aggregate(runs, wanted=None):
@@ -1103,6 +1103,7 @@ class Runner:
 
             pids = host.pids()
             before = samples(pids)
+            jackd_before = samples([self.jackd.pid])
             t_start = time.monotonic()
             x_before = self.probe.count()
             self.jack_log_end = jack_log_xruns(self.jack_log, self.jack_log_end)[1]
@@ -1110,6 +1111,7 @@ class Runner:
             logged, self.jack_log_end = jack_log_xruns(self.jack_log, self.jack_log_end)
             r["xruns"] = window_xruns(self.probe.count() - x_before, logged)
             after = samples(pids)
+            jackd_after = samples([self.jackd.pid])
             span = time.monotonic() - t_start
             if not host.pids() or any(not alive(p) for p in pids):
                 raise Failed("a host process exited during the window")
@@ -1132,6 +1134,10 @@ class Runner:
             invol = sum(after[p]["invol"] - before[p]["invol"] for p in common)
             r["ctx_switches"] = vol + invol
             r["ctx_involuntary"] = invol
+            if self.jackd.pid in jackd_before and self.jackd.pid in jackd_after:
+                j0, j1 = jackd_before[self.jackd.pid], jackd_after[self.jackd.pid]
+                r["ctx_jackd"] = j1["vol"] - j0["vol"] + j1["invol"] - j0["invol"]
+                r["ctx_jackd_involuntary"] = j1["invol"] - j0["invol"]
             r["latency_frames"] = self.probe.latency_frames("system:playback_1")
             # the JACK clients the host put on the graph: every client there now that was not there before it started,
             # the source excepted
