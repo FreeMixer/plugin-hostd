@@ -8,12 +8,11 @@ Zynthian: [the Zynthian page](README.md).
 On the Pi now
 -------------
 
-The Pi 5 runs plugin-hostd 0.15.4, plugin-qualify 0.18.3, omx-clap-host 0.25.2, omx-panel 0.7.2, omx-plugins 0.16.0
-and the zynthian-ui fork at
-[f864d294](https://github.com/FreeMixer/zynthian-ui/commit/f864d29), the tip of `vangelis`. jackd runs on an RME
-Babyface Pro at 48000 Hz, 256 frames, 3 periods. The figures below were read with a Digidesign Mbox 2 (`hw:M2`) as its card
-until now. The benchmark matrix is running on these versions, with the CPU governor on `performance`, on a private dummy JACK server. The figures below name their versions,
-because the earlier ones were taken on older releases.
+The Pi 5 runs plugin-hostd 0.15.5, plugin-qualify 0.18.3, omx-clap-host 0.25.3, omx-panel 0.7.2, omx-plugins 0.16.0 and the
+zynthian-ui fork at [76b5e106](https://github.com/FreeMixer/zynthian-ui/commit/76b5e106), the tip of `vangelis`. jackd runs on
+an RME Babyface Pro at 48000 Hz, 256 frames, 3 periods; the governor is on `performance`. plugin-hostd 0.15.7,
+omx-clap-host 0.25.4 and plugin-qualify 0.18.4 are released and not on the Pi yet. The figures below name their versions, and
+the earlier ones were taken with a Digidesign Mbox 2 (`hw:M2`) or the dummy card.
 
 Proven on the device
 --------------------
@@ -41,10 +40,9 @@ Proven on the device
   so the gain is over one process per plugin, not over mod-host ([benchmarks](benchmarks.md#grouped-versus-alone-plugin-hostd-jalv-mod-host)).
   At 16 chains of four, plugin-hostd 0.13.1, all at 1500 MHz: 70.6 % of a core and 224.2 MB for 60 plugins grouped,
   82.3 % and 2745.6 MB for 64 plugins under jalv, which stopped there on memory with 2 xruns ([stress run](stress.md)).
-  On current versions, 24 plugins (plugin-hostd 0.15.4, three repeats): 2 processes, one JACK client, JACK DSP 12.92 %, 62.8
-  MB PSS, against jalv's 24 processes, 18.72 % and 993.6 MB, and mod-host's one process, 15.05 % and 112.0 MB, on different
-  builds of the plugins ([benchmarks](benchmarks.md#current-versions-chains-up-to-24-plugins)). At 32 and 48 plugins the
-  chain did not form within 20 s on one repeat. These figures measure the daemon directly, on a private graph;
+  On plugin-hostd 0.15.5, 24 LV2 plugins, three repeats: 2 processes, one JACK client, JACK DSP 13.51 %, 61.1 MB PSS, against
+  jalv's 24 processes, 19.23 % and 993.6 MB, and mod-host's one process, 15.51 % and 112.1 MB
+  ([benchmarks](benchmarks.md#current-versions-chains-up-to-24-plugins)). These figures measure the daemon directly, on a private graph;
   zynthian-ui gained the fix that reads the plan in [zynthian-ui#53](https://github.com/FreeMixer/zynthian-ui/pull/53),
   and a run through Zynthian's own engine is next.
 - **At the daemon, a lost worker comes back.** After `kill -9` of the process holding one plugin, plugin-hostd 0.12.0 put the
@@ -61,9 +59,16 @@ Proven on the device
 Released, not proven on the device yet
 --------------------------------------
 
-The Pi runs newer releases than most of these, so they are installed there; what is owed is
-the check of each on the device.
+The first three are not on the Pi yet. The Pi runs newer releases than the others, so they are installed there, and what is
+owed is the check of each on the device.
 
+- **omx-clap-host 0.25.4** ([release](https://github.com/FreeMixer/omx-clap-host/releases/tag/v0.25.4)): a state or a preset
+  loads with the plugin out of processing ([omx-clap-core#438](https://github.com/FreeMixer/omx-clap-core/issues/438)), and a
+  chain member keeps its auxiliary ports on the head's client, so a chain with omx keyed-gate forms.
+- **plugin-hostd 0.15.7** ([release](https://github.com/FreeMixer/plugin-hostd/releases/tag/v0.15.7)): `chain` answers the
+  worker's refusal, and a refused chain ends.
+- **plugin-qualify 0.18.4** ([release](https://github.com/FreeMixer/plugin-qualify/releases/tag/v0.18.4)): the adapter pass and
+  the isolated step play an instrument a wide range of keys, so a drum kit that answers only some keys is heard.
 - **plugin-qualify 0.18.3** ([release](https://github.com/FreeMixer/plugin-qualify/releases/tag/v0.18.3)): the isolated
   step runs for every plugin of a pass, and again after it could not run; the sync's unit gives the plugins a `HOME`.
 - **plugin-hostd 0.15.1** ([release](https://github.com/FreeMixer/plugin-hostd/releases/tag/v0.15.1)): a plugin whose
@@ -89,24 +94,22 @@ Still open
 ----------
 
 - **Next: grouping through Zynthian's own engine.** [zynthian-ui#53](https://github.com/FreeMixer/zynthian-ui/pull/53) reads the daemon's plan and worker record as plugin-hostd
-  0.14 and later give them; it and [zynthian-ui#56](https://github.com/FreeMixer/zynthian-ui/pull/56) are on the fork, proven against a real daemon in a container, and not yet on a device. What closes it: chains built from the menu on the Pi,
+  0.14 and later give them; it and [zynthian-ui#56](https://github.com/FreeMixer/zynthian-ui/pull/56) are on the fork and on the Pi's checkout, proven against a real daemon in a container; the run on the device is not finished. What closes it: chains built from the menu on the Pi,
   `worker_list` showing what shares a worker, and the same figures taken that way.
 - **A plugin's settings are lost when its chain changes or its worker restarts, on omx-clap-host 0.25.3 and earlier.** Most
   omx plugins refuse a state load while they process, so the value goes back to its default: `ratio` set to 7.5 read 4.0 after a
   chain formed. Loading a Factory preset on a running omx eq8 (CLAP) should fail for the same reason. Now that the engine can group real chains, a
-  user would see this at every chain change. The fix ([omx-clap-core#439](https://github.com/FreeMixer/omx-clap-core/pull/439)) is merged for the next omx-clap-host. It is proven with omx-comp, omx-delay and omx-drive after a chain forms and after `kill -9` on a desk, and
+  user would see this at every chain change. The fix ([omx-clap-core#439](https://github.com/FreeMixer/omx-clap-core/pull/439)) is released in omx-clap-host 0.25.4. It is proven with omx-comp, omx-delay and omx-drive after a chain forms and after `kill -9` on a desk, and
   the preset load only with a test plugin. Not on the Pi yet.
 - **Ten third-party plugins in a group.** Since [plugin-hostd#339](https://github.com/FreeMixer/plugin-hostd/pull/339) they run,
   single and grouped: one worker, and still ten JACK clients ([rows](benchmarks.md#current-versions-chains-up-to-24-plugins)).
   What closes it: the chain as one client, as our own plugins are.
-- **A chain that does not form.** A grouped chain did not form within 20 s in one of four cells at 18 plugins and on one
-  repeat at 32 and at 48. What closes it: the cause, from the logs of the next run.
-- **A chain that holds omx-keyed-gate is not one JACK client.** The earlier run on plugin-hostd 0.12.0 counted one JACK
-  client for a chain of our plugins ([grouped-vs-processes](evidence/pi5-bench-2026-10-27/grouped-vs-processes.md)). In the
-  new matrix the worker refuses to form the chain of all 19 because of omx-keyed-gate, while the daemon answers `resp 0`, so
-  those rows are one worker and many clients, not a chain in one client
-  ([plugin-hostd#342](https://github.com/FreeMixer/plugin-hostd/issues/342)). What closes it: the chain run again without
-  that plugin, and the daemon answering the worker's refusal.
+- **A chain that does not form.** On plugin-hostd 0.15.4 a grouped chain did not form within 20 s in one of four cells at 18
+  plugins and on one repeat at 32 and at 48. On 0.15.5 it formed in all six cells at 18 and every repeat up to 24. What closes
+  it: rows at 32 and 48 on current versions.
+- **A chain that holds omx keyed-gate.** On omx-clap-host 0.25.3 the worker refused to form that chain while the daemon answered
+  `resp 0`, so those matrix rows are one worker and many JACK clients. omx-clap-host 0.25.4 forms it and plugin-hostd 0.15.7
+  answers a refusal. What closes it: the chain of all 19 run again on them.
 - **The isolated step is owed.** `verdict=isolated` should mean a plugin was seen running alone. On plugin-qualify 0.18.2
   the step ran for 1 plugin of 152. What closes it: `--isolated-only` on a plugin-qualify that carries the fix, then `--rejudge`.
 - **Presets in the menu: mda Piano and Odin 2, and loading on CLAP.** The Factory and User banks, the listing and the
@@ -145,9 +148,9 @@ Still open
   ([omx-plugins#276](https://github.com/FreeMixer/omx-plugins/issues/276)).
 - **openmixer does not build against plugin-hostd 0.14.0 or later.** Two reply codes it reads moved into the
   contract's generated list. What closes it: the fix in openmixer, proven against plugin-hostd 0.15.1, landing.
-- **The benchmark matrix is being taken again.** The published figures come from an earlier run with the governor on
-  `powersave`, which Zynthian's power save can switch to, and mixed versions. What closes it: the new run published
-  ([benchmarks, the matrix](benchmarks.md#the-matrix-every-rate-and-quantum-single-and-grouped)).
+- **The benchmark matrix is on hold.** Its chain cells were taken on current versions, and the single-plugin cells wait while
+  the device runs other measurements. The rows in use are in [benchmarks](benchmarks.md#current-versions-chains-up-to-24-plugins).
+  What closes it: the single-plugin cells taken and published.
 - **The upstream patch series is at step 1.** Step 1 is open upstream
   ([zynthian/zynthian-sys#228](https://github.com/zynthian/zynthian-sys/pull/228)); steps 2 to 8 are cut on the forks
   but not offered yet, several with a check on the device still owed
