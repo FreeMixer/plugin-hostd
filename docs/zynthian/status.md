@@ -91,10 +91,11 @@ Still open
 - **Next: grouping through Zynthian's own engine.** [zynthian-ui#53](https://github.com/FreeMixer/zynthian-ui/pull/53) reads the daemon's plan and worker record as plugin-hostd
   0.14 and later give them; it is on the fork and not yet on a device. What closes it: chains built from the menu on the Pi,
   `worker_list` showing what shares a worker, and the same figures taken that way.
-- **A plugin's values when a chain forms.** On plugin-hostd 0.15.4 and omx-clap-host 0.25.3, forming a chain loses a
-  member's parameters when the plugin refuses a state load while it processes, as 21 of the 24 plugins in omx-plugins do
-  ([omx-clap-core#438](https://github.com/FreeMixer/omx-clap-core/issues/438)). A worker restart takes the same steps; that
-  is expected and not measured. What closes it: the state load taken while processing, and values compared before and after.
+- **A plugin's settings are lost when its chain changes or its worker restarts, on omx-clap-host 0.25.3 and earlier.** Most
+  omx plugins refuse a state load while they process, so the value goes back to its default: `ratio` set to 7.5 read 4.0 after a
+  chain formed. Loading a Factory preset on a running omx eq8 (CLAP) should fail for the same reason. Now that the engine can group real chains, a
+  user would see this at every chain change. The fix ([omx-clap-core#439](https://github.com/FreeMixer/omx-clap-core/pull/439)) is merged for the next omx-clap-host. It is proven with omx-comp, omx-delay and omx-drive after a chain forms and after `kill -9` on a desk, and
+  the preset load only with a test plugin. Not on the Pi yet.
 - **A third-party chain under plugin-hostd.** On plugin-hostd 0.15.4 the chain of ten third-party LV2 effects failed in
   every matrix cell, single and grouped: `add lv2:http://gareus.org/oss/lv2/fil4#stereo` answered -101. The fix is merged
   ([plugin-hostd#339](https://github.com/FreeMixer/plugin-hostd/pull/339)). What closes it: those cells run again on the
