@@ -67,13 +67,15 @@ def one_row(a, mode, rep):
         sine = subprocess.Popen(["jack_simple_client"], env=srv.env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
         time.sleep(1)
         ports = srv.ports()
+        for k in (1, 2):
+            subprocess.run(["jack_disconnect", "jack_simple_client:output%d" % k, "system:playback_%d" % k], env=srv.env, stderr=subprocess.DEVNULL)
         wired = 0
         for n in added:
             head = "effect_%d" % n
             ins = [x for x in ports if x.startswith(head + ":in")]
             outs = [x for x in ports if x.startswith(head + ":out")]
             if ins and outs:
-                subprocess.run(["jack_connect", "jack_simple:output1", ins[0]], env=srv.env, stderr=subprocess.DEVNULL)
+                subprocess.run(["jack_connect", "jack_simple_client:output1", ins[0]], env=srv.env, stderr=subprocess.DEVNULL)
                 subprocess.run(["jack_connect", outs[0], "system:playback_1"], env=srv.env, stderr=subprocess.DEVNULL)
                 wired += 1
         if wired != a.plugins:
@@ -107,7 +109,7 @@ def one_row(a, mode, rep):
         c1, th1, x1, j1, t1 = vc.core_times(), vc.thread_ticks(pids), vc.ctx(pids), vc.ctx(jd), time.monotonic()
         row["pss_mb"], row["processes"] = vc.pss_mb(pids), len(pids)
         row["workers"] = host.cmd("worker_list")[:400].replace("\t", " ")
-        row["jack_clients"] = len({n.split(":")[0] for n in srv.ports()} - {"system", "jack_simple", "pool_probe"})
+        row["jack_clients"] = len({n.split(":")[0] for n in srv.ports()} - {"system", "jack_simple_client", "pool_probe"})
         load.terminate()
         vals = []
         for line in load.communicate(timeout=5)[0].splitlines():
