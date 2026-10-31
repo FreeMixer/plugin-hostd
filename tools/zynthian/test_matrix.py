@@ -4,6 +4,8 @@ import csv
 import importlib.util
 import json
 import os
+import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -13,6 +15,16 @@ matrix = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(matrix)
 TBL = matrix.table(json.load(open(os.path.join(HERE, "matrix", "plugins.json"))))
 BY_ID = {s["id"]: s for s in TBL["scenarios"]}
+
+
+class BenchCopy(unittest.TestCase):
+    def test_the_copy_finds_the_search_lists_outside_the_checkout(self):
+        with tempfile.TemporaryDirectory() as work:
+            dst = matrix.bench_copy(work, TBL)
+            code = "import sys; sys.path.insert(0, sys.argv[1]); import bench; print(bench.clap_dirs())"
+            p = subprocess.run([sys.executable, "-I", "-c", code, os.path.join(dst, "lib")], text=True,
+                               stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=dict(os.environ, **matrix.bench_env()))
+            self.assertEqual(p.returncode, 0, p.stdout)
 
 
 class FiveHosts(unittest.TestCase):
