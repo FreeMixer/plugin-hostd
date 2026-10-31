@@ -3024,6 +3024,75 @@ def a_chain_of_one_runs_in_a_worker_of_its_own_and_a_chain_of_none_is_refused():
 
 
 @test
+def an_add_into_a_chain_goes_into_its_worker_with_no_worker_of_its_own_and_no_move():
+    """add <uri> <instance> chain:<chain> (#348): the first member starts the chain's worker, the next ones join it, and the
+    worker is told the order; no member ever has a worker of its own, so no state is saved and nothing is removed"""
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(env={"FAKE_LOG": log})
+    try:
+        mark = d.mark()
+        for i in (1, 2, 3):
+            d.expect("add clap:fake#m%d %d chain:7" % (i, i), "resp %d" % i)
+            d.expect("param_set %d gain 0.%d000" % (i, i), "resp 0")
+        w = chain_of(d, 7)
+        check(len(w) == 1 and len(d.workers()) == 1, "one worker, the chain's, and no other: %s" % d.workers())
+        k, w = list(w.items())[0]
+        check(w["inst"] == [1, 2, 3] and w["fmt"] == "clap" and w["state"] == "up", "its members, in order: %s" % w)
+        every = sent_to(log)
+        check(not any(c.split()[0] in ("state_save", "remove") for c in every), "nothing was moved: %s" % every)
+        got = sent_to(log, w["pid"])
+        order = [c for c in got if c.startswith(("add ", "chain "))]
+        check(order == ["add clap:fake#m1 1", "chain 7 1", "add clap:fake#m2 2", "chain 7 1 2", "add clap:fake#m3 3",
+                        "chain 7 1 2 3"], "the worker is given each add, then the order with it: %s" % order)
+        d.wait_event("chain_formed 7 %s 1,2,3" % k, since=mark)
+        gains(d, (1, 2, 3))
+        # the chain declared over members already there, in that order, is only the order line
+        n = len(sent_to(log, w["pid"]))
+        d.expect("chain 7 1 2 3", "resp 0")
+        check([c.split()[0] for c in sent_to(log, w["pid"])[n:]] == ["chain"], "only the order line: %s" % sent_to(log, w["pid"])[n:])
+        check(chain_of(d, 7)[k]["pid"] == w["pid"], "the same worker runs it: %s" % d.workers())
+        # refused at the add, nothing started: another row, and placements that are no chain
+        before = d.workers()
+        d.expect("add fake:lv 9 chain:7", resp("CHAIN_MIXED_FORMAT"))
+        for bad in ("chain:", "chain:x", "chain:-1", "chain:7x"):
+            d.expect("add clap:fake#x 10 %s" % bad, resp("PLACEMENT_INVALID"))
+        check(d.workers() == before, "a refused add starts nothing: %s" % d.workers())
+        d.expect("instance_info 9", "resp -3")
+        # a removed member leaves the order, as a declared chain's does
+        d.expect("remove 2", "resp 0")
+        check(chain_of(d, 7)[k]["inst"] == [1, 3] and [c for c in sent_to(log, w["pid"]) if c.startswith("chain ")][-1] == "chain 7 1 3",
+              "the chain goes on without it: %s" % sent_to(log, w["pid"])[-2:])
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
+
+
+@test
+def an_add_the_chain_worker_refuses_to_run_in_the_chain_is_refused_and_left_out():
+    """a member the worker will not run in series with the others (a width the head's output is not) is refused at the add
+    with PLACEMENT_INVALID, taken out of the worker again, and the chain runs on as it was; the controller adds it own"""
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(env={"FAKE_LOG": log, "FAKE_REFUSE_CHAIN_MEMBER": "3"})
+    try:
+        for i in (1, 2):
+            d.expect("add clap:fake#m%d %d chain:4" % (i, i), "resp %d" % i)
+        k, w = list(chain_of(d, 4).items())[0]
+        d.expect("add clap:fake#wide 3 chain:4", resp("PLACEMENT_INVALID"))
+        check(chain_of(d, 4)[k]["inst"] == [1, 2], "the chain runs on without it: %s" % d.workers())
+        d.expect("instance_info 3", "resp -3")
+        got = sent_to(log, w["pid"])
+        check("remove 3" in got and got[-1] == "chain 4 1 2", "it was taken out and the order sent again: %s" % got[-3:])
+        d.expect("add clap:fake#wide 3 own", "resp 3")
+        _, w3 = d.wait_up(3)
+        check(w3["place"] == "own", "the controller's fallback, own: %s" % w3)
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
+
+
+@test
 def under_require_pins_a_chain_of_lv2_members_runs_in_a_world_of_the_union_of_their_bundles():
     """an LV2 pin holds only in a world narrowed to the plugin's bundle: a chain's worker sees a world narrowed to the union
     of its members' bundles, each linked once, so a chain of pinned LV2 members forms under require_pins; a chain with a

@@ -181,7 +181,7 @@ SABOTAGE = [
     ("the manifest's bytes are not compared with the pin", "src/pins.c", "else if (phd_pin_fd_digest(fd, hex) != 0 || strcmp(hex, want))",
      "else if (phd_pin_fd_digest(fd, hex) != 0)", "an_lv2_bundle_is_pinned_by_its_manifest_binary_and_seealso"),
     ("a pinned LV2 plugin may ask for a pool", "src/supervisor.c",
-     "        if (format->pinned_own_only)\n        {\n            if (placement && !strncmp(placement, PHD_PLACE_POOL_PREFIX, strlen(PHD_PLACE_POOL_PREFIX)))\n"
+     "        if (format->pinned_own_only)\n        {\n            if (chain_id >= 0 || (placement && !strncmp(placement, PHD_PLACE_POOL_PREFIX, strlen(PHD_PLACE_POOL_PREFIX))))\n"
      "                return sup_resp(OMX_REPLY_PLUGIN_HOSTD_PLACEMENT_INVALID_RESP);\n", "        if (format->pinned_own_only)\n        {\n", "a_pinned_lv2_plugin_gets_a_worker_of_its_own"),
     ("a pinned LV2 plugin follows a policy into a pool", "src/supervisor.c",
      "            snprintf(place, sizeof(place), PHD_PLACE_OWN);\n        }\n        /* first-use", "        }\n        /* first-use",

@@ -48,7 +48,7 @@ mod-host's templates name no reply codes per verb: a relayed verb answers what i
 
 | verb | mod-host arguments | levels | answer | what the data says |
 |---|---|---|---|---|
-| `add` | word int ... | required (every profile) | differs | plugin-hostd declares it: `<uri> <instance> [own \| pool:<name> \| default] [client_name]` → `resp <instance>`; mod-host's add with a placement; a token after the instance that is not a placement is the jack client name<br>Path A: none; no |
+| `add` | word int ... | required (every profile) | differs | plugin-hostd declares it: `<uri> <instance> [own \| pool:<name> \| chain:<chain> \| default] [client_name]` → `resp <instance>`; mod-host's add with a placement; a token after the instance that is not a placement is the jack client name<br>Path A: none; no |
 | `remove` | int | required (every profile) | same | Path A: none; no |
 | `preset_load` | int word | required (every profile) | differs | Path A: LV2: user presets fail after a pedalboard reload; CLAP: yes, presets |
 | `preset_save` | int word word word | required (every profile) | same | Path A: CLAP: user presets cannot be saved |
