@@ -1,0 +1,11 @@
+Oct 31 00:24:55 zynthian startx[21435]: ERROR:zynthian_gui.task_cuia_thread: CUIA 'chain_options' failed with params: []
+Oct 31 00:24:55 zynthian startx[21435]: Traceback (most recent call last):
+Oct 31 00:24:55 zynthian startx[21435]:   File "/zynthian/zynthian-ui/zyngui/zynthian_gui.py", line 3147, in task_cuia_thread
+Oct 31 00:24:55 zynthian startx[21435]:     result = self.callable_ui_action(cuia, params)
+Oct 31 00:24:55 zynthian startx[21435]:   File "/zynthian/zynthian-ui/zyngui/zynthian_gui.py", line 1241, in callable_ui_action
+Oct 31 00:24:55 zynthian startx[21435]:     cuia_func(params)
+Oct 31 00:24:55 zynthian startx[21435]:     ~~~~~~~~~^^^^^^^^
+Oct 31 00:24:55 zynthian startx[21435]:   File "/zynthian/zynthian-ui/zyngui/zynthian_gui.py", line 2046, in cuia_chain_options
+Oct 31 00:24:55 zynthian startx[21435]:     self.screens['chain_options'].setup(chain_id)
+Oct 31 00:24:55 zynthian startx[21435]:     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Oct 31 00:24:55 zynthian startx[21435]: AttributeError: 'zynthian_gui_chain_options' object has no attribute 'setup'
