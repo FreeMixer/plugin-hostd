@@ -372,8 +372,31 @@ The figures measure the daemon directly, not through Zynthian's engine
 | 24 | mod-host | 1 | 26 | 15.05 | 112.0 | 104438 | 0, 0 | 674 |
 | 24 | jalv | 24 | 24 | 18.72 | 993.6 | 116687 | 5, 14 | 21420 |
 
-The large gain is over one process per plugin, mainly in memory; mod-host stays close, adds faster, and runs a different
-build of each plugin. At 32 and 48 plugins the grouped chain did not form within 20 s on one repeat, and in one of four
+The same chain in LV2 builds on every host, run `rpi5-20261031-1`, scenarios `cvl8` to `cvl24`, plugin-hostd 0.15.5,
+omx-clap-host 0.25.3 ([evidence](evidence/pi5-claims-2026-10-31/cvl/rpi5-20261031-1.json)):
+
+| N | mode | processes | JACK clients | JACK DSP % | PSS MB | context switches in 20 s | xruns, median, worst | add ms |
+|---|---|---|---|---|---|---|---|---|
+| 24 | plugin-hostd, grouped | 2 | 1 | 13.51 | 61.1 | 8986 | 0, 0 | 3559 |
+| 24 | plugin-hostd, one worker each | 25 | one each | 19.31 | 157.3 | 131116 | 0, 5 | 1635 |
+| 24 | omx-clap-host, one process | 1 | 24 | 16.49 | 60.3 | 105277 | 0, 0 | 838 |
+| 24 | mod-host | 1 | 26 | 15.51 | 112.1 | 108719 | 0, 0 | 717 |
+| 24 | jalv | 24 | 24 | 19.23 | 993.6 | 113806 | 13, 64 | 21921 |
+
+Ten third-party LV2 effects in series ([tools/zynthian/matrix/plugins.json](../../tools/zynthian/matrix/plugins.json)),
+plugin-hostd 0.15.5, omx-clap-host 0.25.3, three repeats of 30 s at 48000 Hz and 256 frames, medians
+([1](evidence/pi5-claims-2026-10-31/chain-tp-1/matrix.csv), [2](evidence/pi5-claims-2026-10-31/chain-tp-2/matrix.csv),
+[3](evidence/pi5-claims-2026-10-31/chain-tp-3/matrix.csv)). The group is one worker and still ten JACK clients.
+
+| mode | processes | JACK clients | JACK DSP % | PSS MB | xruns over the repeats |
+|---|---|---|---|---|---|
+| plugin-hostd, grouped | 2 | 10 | 6.04 | 45.0 | 0, 0, 0 |
+| plugin-hostd, one worker each | 11 | 10 | 7.19 | 111.1 | 0, 0, 0 |
+| omx-clap-host, one process | 1 | 10 | 6.55 | 44.0 | 0, 0, 0 |
+| mod-host | 1 | 12 | 6.23 | 89.3 | 0, 0, 0 |
+| jalv | 10 | 10 | 6.99 | 463.6 | 25, 5, 14 |
+
+The large gain is over one process per plugin, mainly in memory; mod-host stays close and adds faster. At 32 and 48 plugins the grouped chain did not form within 20 s on one repeat, and in one of four
 cells at 18 ([chain-omx-18](evidence/pi5-claims-2026-10-31/chain-omx-18-1/matrix.csv), a chain without omx-keyed-gate);
 the cause is not known yet.
 
