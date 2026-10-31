@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.15.5
+Version: 0.15.6
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -160,6 +160,12 @@ make test-daemon check-generated check-rendered
 %{_datadir}/omx-contract/contract.d/3/plugin-hostd/
 
 %changelog
+* Sat Oct 31 2026 Pau Aliagas <linuxnow@gmail.com> - 0.15.6-1
+- formats/clap.json asks for contract schema 3.2.0, and the rendered headers
+  follow omx-contract 3.5 (#350). 0.15.5 could not build its x86_64 RPM against
+  omx-contract 3.5, so its RPMs were not published; this release carries what
+  0.15.5 says for them.
+
 * Sat Oct 31 2026 Pau Aliagas <linuxnow@gmail.com> - 0.15.5-1
 - mod-host-protocol 0.10.6.f14a230-11.3 or newer is required. The workers this
   daemon starts, mod-host and omx-clap-host, listen on 127.0.0.1 with it, and
