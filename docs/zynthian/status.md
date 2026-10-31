@@ -8,11 +8,11 @@ Zynthian: [the Zynthian page](README.md).
 On the Pi now
 -------------
 
-The Pi 5 runs plugin-hostd 0.15.4, plugin-qualify 0.18.2, omx-clap-host 0.25.2, omx-panel 0.7.2, omx-plugins 0.16.0
+The Pi 5 runs plugin-hostd 0.15.4, plugin-qualify 0.18.3, omx-clap-host 0.25.2, omx-panel 0.7.2, omx-plugins 0.16.0
 and the zynthian-ui fork at
-[f864d294](https://github.com/FreeMixer/zynthian-ui/commit/f864d29), the tip of `vangelis`. jackd runs on a Digidesign
-Mbox 2 (`hw:M2`) at 48000 Hz, 256 frames, 3 periods, with no xruns at idle. The benchmark matrix is running on these
-versions, with the CPU governor on `performance`, on a private dummy JACK server. The figures below name their versions,
+[f864d294](https://github.com/FreeMixer/zynthian-ui/commit/f864d29), the tip of `vangelis`. jackd runs on an RME
+Babyface Pro at 48000 Hz, 256 frames, 3 periods. The figures below were read with a Digidesign Mbox 2 (`hw:M2`) as its card
+until now. The benchmark matrix is running on these versions, with the CPU governor on `performance`, on a private dummy JACK server. The figures below name their versions,
 because the earlier ones were taken on older releases.
 
 Proven on the device
@@ -51,7 +51,7 @@ Proven on the device
 Released, not proven on the device yet
 --------------------------------------
 
-The Pi runs newer releases than most of these, so they are installed there, except plugin-qualify 0.18.3; what is owed is
+The Pi runs newer releases than most of these, so they are installed there; what is owed is
 the check of each on the device.
 
 - **plugin-qualify 0.18.3** ([release](https://github.com/FreeMixer/plugin-qualify/releases/tag/v0.18.3)): the isolated
@@ -89,7 +89,7 @@ Still open
   ([plugin-hostd#342](https://github.com/FreeMixer/plugin-hostd/issues/342)). What closes it: the chain run again without
   that plugin, and the daemon answering the worker's refusal.
 - **The isolated step is owed.** `verdict=isolated` should mean a plugin was seen running alone. On plugin-qualify 0.18.2
-  the step ran for 1 plugin of 152. What closes it: plugin-qualify 0.18.3 on the Pi, `--isolated-only`, then `--rejudge`.
+  the step ran for 1 plugin of 152. What closes it: `--isolated-only` on a plugin-qualify that carries the fix, then `--rejudge`.
 - **Presets in the menu: mda Piano and Odin 2, and loading on CLAP.** The Factory and User banks, the listing and the
   save are proven for omx eq8 in the menu. Open: loading a preset on a running CLAP instance does nothing (omx eq8 reads
   a preset file only while it is not processing, so the menu names the preset and every control stays where it was);
