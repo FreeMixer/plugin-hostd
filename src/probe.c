@@ -1837,9 +1837,33 @@ static void put_lv2_measure(sb_t *b, const jnode_t *m, long rate, unsigned quant
     sb_printf(b, "]}}");
 }
 
+/* the cost at each count of notes the child held (`voiceCurve` of its rate: {held, nsPerSampleMedian, nsPerSampleP95}),
+ * in the point's own shape; an entry that is not a whole count of at least one with its two figures is left out, and
+ * none left means no curve */
+static void put_voice_curve(sb_t *b, const jnode_t *curve, double percentile)
+{
+    size_t taken = 0;
+    double held, median, p95;
+
+    if (!curve || curve->type != J_ARR)
+        return;
+    for (size_t i = 0; i < curve->n; i++)
+    {
+        const jnode_t *e = curve->kid[i];
+
+        if (!jnum(e, "held", &held) || held < 1 || held != (double)(long)held || !jnum(e, "nsPerSampleMedian", &median) ||
+            !jnum(e, "nsPerSampleP95", &p95) || median < 0 || p95 < 0)
+            continue;
+        sb_printf(b, "%s{\"held\": %.0f, \"median\": %.9g, \"percentile\": {\"p\": %.9g, \"value\": %.9g}}",
+                  taken++ ? ", " : ", \"voiceCurve\": [", held, median, percentile, p95);
+    }
+    if (taken)
+        sb_printf(b, "]");
+}
+
 /* the cost arm's figures at one rate, as that rate's point carries them: nanoseconds per sample, and for an instrument
- * the notes it held; a rate the arm did not time (an unmeasuredReason in place of the figures) gets no cost, never a
- * neighbour's */
+ * the notes it held and, when the child timed several counts, the cost at each (voiceCurve, plugin-qualify#203); a rate
+ * the arm did not time (an unmeasuredReason in place of the figures) gets no cost, never a neighbour's */
 static void put_cost(sb_t *b, const jnode_t *cost, const char *rate)
 {
     const jnode_t *at = jget(jget(cost, "perRate"), rate), *voices = jget(at, "voices");
@@ -1860,6 +1884,7 @@ static void put_cost(sb_t *b, const jnode_t *cost, const char *rate)
             sb_printf(b, ", \"capacity\": %.0f", capacity);
         sb_printf(b, "}");
     }
+    put_voice_curve(b, jget(at, "voiceCurve"), percentile);
     sb_printf(b, "}");
 }
 
