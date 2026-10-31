@@ -29,7 +29,11 @@ spec = importlib.util.spec_from_file_location("voices_cores", os.path.join(HERE,
 vc = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(vc)
 INSTRUMENT = "http://moddevices.com/plugins/mda/EPiano"
-SETS = {"third": ("urn:dragonfly:room", "urn:zamaudio:ZamDelay"), "omx": ("urn:openmixer:reverb", "urn:openmixer:delay")}
+# third: Dragonfly Room (2 in, 2 out) then ZamDelay (1 in, 1 out), a pair no worker runs as one client (the chain library
+# refuses a member whose width differs from the head's); third-stereo: Dragonfly Room then PitchedDelay, both 2 in, 2 out
+SETS = {"third": ("urn:dragonfly:room", "urn:zamaudio:ZamDelay"),
+        "third-stereo": ("urn:dragonfly:room", "http://code.google.com/p/lkjb-dc12/"),
+        "omx": ("urn:openmixer:reverb", "urn:openmixer:delay")}
 COLUMNS = ["set", "topology", "instruments", "host", "repeat", "status", "plugins", "xruns", "dsp_avg", "dsp_max", "cpu_pct", "pss_mb",
            "processes", "jack_clients", "ctx_vol_s", "ctx_invol_s", "ctx_jackd_s", "peak_db", "rms_db", "core0", "core1", "core2", "core3", "note"]
 
@@ -104,23 +108,31 @@ def probe_up(r, steps, name="mb_probe"):
     return p, ["%s:in_1" % name, "%s:in_2" % name]
 
 
-def build(r, topology, instruments, fx):
-    """the plugins and their wires; returns the instruments, and the clients that reach main"""
+def build(r, topology, instruments, fx, notes=None):
+    """the plugins and their wires; returns the instruments, and the clients that reach main. A chain the daemon refuses
+    (plugin-hostd 0.15.7 answers -501), or one that answered resp 0 while its members kept their own clients (0.15.6 and
+    before), is linked member by member as the ungrouped rows are, and said in notes: a row never reads the silence of
+    a member nobody wired."""
     insts = [r.add(INSTRUMENT) for _ in range(instruments)]
     pairs = [(r.add(fx[0]), r.add(fx[1]))] if topology == "shared" else [(r.add(fx[0]), r.add(fx[1])) for _ in range(instruments)]
     for c in insts + [x for pair in pairs for x in pair]:
         r.wait(c)
     grouped = r.kind == "hostd-chain"
+    refused = set()
     if grouped:
         for k, (a, b) in enumerate(pairs, 1):
             reply = r.host.cmd("chain %d %s %s" % (k, a.split("_")[1], b.split("_")[1]))
             if reply != "resp 0":
-                raise RuntimeError("chain answered " + reply)
+                refused.add(k - 1)
+                if notes is not None:
+                    notes.append("chain %d refused: %s" % (k, reply))
         time.sleep(1)
     tails = []
     for k, (a, b) in enumerate(pairs):
-        one_client = grouped and not r.ports_of(b, "output")
-        if not grouped:
+        one_client = grouped and k not in refused and not r.ports_of(b, "output")
+        if grouped and not one_client and k not in refused and notes is not None:
+            notes.append("chain %d answered resp 0 and did not form" % (k + 1))
+        if not one_client:
             r.link(a, b)
         tails.append(a if one_client else b)
     for i, c in enumerate(insts):
@@ -134,7 +146,10 @@ def graph_row(a, fx_name, topology, instruments, host, rep):
     load, p = None, None
     try:
         r = rig(a, host, a.out)
-        insts, tails = build(r, topology, instruments, SETS[fx_name])
+        notes = []
+        insts, tails = build(r, topology, instruments, SETS[fx_name], notes)
+        if notes:
+            row["note"] = "; ".join(notes)[:250]
         keys = [48, 52, 55, 60]
         steps = ["wait 300"] + ["midi 90 %x 64" % k for k in keys] + ["wait 1500", "mark held", "wait %d" % int((a.window + 3) * 1000), "end"]
         steps += ["midi 80 %x 0" % k for k in keys] + ["wait 300"]
