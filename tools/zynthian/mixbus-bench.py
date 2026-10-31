@@ -240,9 +240,11 @@ def crash_row(a, instruments, rep):
         before = r.host.cmd("param_get %d mix" % (instruments + 1))
         row["param_before"] = before
         step_ms, total = 50, 8000
-        steps = ["wait 300"] + ["midi 90 %x 64" % k for k in (48, 52, 55, 60)] + ["wait 1000"]
+        # the notes struck again and again, so that a silence at main is the kill and not the notes dying away
+        strike = ["midi 90 %x 64" % k for k in (48, 52, 55, 60)]
+        steps = ["wait 300"] + strike + ["wait 1000"]
         for i in range(total // step_ms):
-            steps += ["mark w%d" % i, "wait %d" % step_ms, "end"]
+            steps += (strike if i % 8 == 0 else []) + ["mark w%d" % i, "wait %d" % step_ms, "end"]
         p, ins = probe_up(r, steps)
         for c in insts:
             for m in midi_inputs(r, c)[:1]:
@@ -254,7 +256,7 @@ def crash_row(a, instruments, rep):
         time.sleep(3.3)
         t_kill = time.monotonic()
         os.kill(worker, signal.SIGKILL)
-        client = tails[0]
+        client = "effect_%d" % (instruments + 1)
         gone, back, wired = None, None, None
         while time.monotonic() - t_kill < 20:
             if gone is None and not r.ports_of(client, "output"):
@@ -263,8 +265,11 @@ def crash_row(a, instruments, rep):
                 back = time.monotonic() - t_kill
             if back is not None:
                 out = subprocess.run(["jack_lsp", "-c"], env=r.srv.env, capture_output=True, text=True).stdout
-                if "mb_probe:in_1" in out.split(client + ":")[-1]:
-                    wired = time.monotonic() - t_kill
+                lines = out.splitlines()
+                for i, line in enumerate(lines):
+                    if line.startswith(client + ":in") and i + 1 < len(lines) and lines[i + 1].startswith(" "):
+                        wired = time.monotonic() - t_kill
+                if wired:
                     break
             time.sleep(0.02)
         row["client_back_s"] = round(back, 2) if back else ""
