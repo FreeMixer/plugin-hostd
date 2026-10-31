@@ -859,14 +859,12 @@ int pin_percent_decode(const char *in, char *out, size_t size)
 }
 
 /* root/path as a file name: a pin names its files percent-encoded, whatever its path holds of whitespace */
-static int full_path(const char *root, const char *path, char *full, size_t size, int decode)
+static int full_path(const char *root, const char *path, char *full, size_t size)
 {
     char name[PATH_MAX];
     const char *c;
     int slashes = 0, decoded = 0;
 
-    if (!decode)
-        return snprintf(full, size, "%s/%s", root, path) >= (int)size ? -1 : 0;
     if (pin_percent_decode(path, name, sizeof(name)) != 0)
         return -1;
     for (c = path; *c; c++)
@@ -885,7 +883,7 @@ static int hash_file(const char *root, const char *path, const char *want, const
     struct stat st;
     int fd, rc = SUCCESS;
 
-    if (full_path(root, path, full, sizeof(full), !strncmp(uri, "clap:", 5)) != 0)
+    if (full_path(root, path, full, sizeof(full)) != 0)
         return pin_refuse(uri, path, "is not a file name");
     fd = open(full, O_RDONLY | O_CLOEXEC);
     if (fd < 0)
@@ -900,13 +898,13 @@ static int hash_file(const char *root, const char *path, const char *want, const
 
 /* ---------------------------------------------------------------- first use */
 
-static int digest_of(const char *root, const char *path, char hex[PHD_SHA256_HEX_LEN + 1], int decode)
+static int digest_of(const char *root, const char *path, char hex[PHD_SHA256_HEX_LEN + 1])
 {
     char full[PATH_MAX * 2];
     struct stat st;
     int fd, rc = -1;
 
-    if (full_path(root, path, full, sizeof(full), decode) != 0)
+    if (full_path(root, path, full, sizeof(full)) != 0)
         return -1;
     fd = open(full, O_RDONLY | O_CLOEXEC);
     if (fd < 0)
@@ -949,7 +947,7 @@ static int record(const format_t *format, const char *uri, const char *search)
     }
     for (n = 0; n < files.n && rc == SUCCESS; n++)
     {
-        if (digest_of(root, files.name[n], hex, !strncmp(uri, "clap:", 5)) != 0)
+        if (digest_of(root, files.name[n], hex) != 0)
             rc = pin_refuse(uri, files.name[n], "is missing or not a file");
         else
             sprintf(words + strlen(words), "%s%s" PHD_PIN_DIGEST_SEPARATOR "%s", n ? PHD_PIN_FILE_SEPARATOR : "",

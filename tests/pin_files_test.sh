@@ -68,6 +68,23 @@ file Piano.so"
 "$daemon" -c "$work/conf" --pin-files http://example.org/mda/Pian >/dev/null 2>"$work/err"; rc=$?
 [ $rc -eq 1 ] && grep -q 'in no bundle of lv2_path' "$work/err"; check $? "a name that is only the start of a prefixed name is in no bundle ($rc)"
 
+# a file named by a percent-encoded IRI (Surge XT's libSurge%20XT.so): listed as the manifest writes it, the word of a pin
+ebundle=$work/lv2/Surge-fixture.lv2
+mkdir -p "$ebundle"
+: > "$ebundle/libSurge XT.so"
+cat > "$ebundle/manifest.ttl" <<'TTL'
+@prefix lv2: <http://lv2plug.in/ns/lv2core#> .
+<urn:plugin-hostd:test:encoded> a lv2:Plugin ; lv2:binary <libSurge%20XT.so> .
+<urn:plugin-hostd:test:stray> a lv2:Plugin ; lv2:binary <libSurge%ZZXT.so> .
+TTL
+out=$("$daemon" -c "$work/conf" --pin-files urn:plugin-hostd:test:encoded); rc=$?
+[ $rc -eq 0 ] && [ "$out" = "root $ebundle
+file manifest.ttl
+file libSurge%20XT.so" ]; check $? "a percent-encoded name is listed as the manifest writes it (rc $rc)"
+[ "$rc" -eq 0 ] || echo "$out" | sed 's/^/     /'
+"$daemon" -c "$work/conf" --pin-files urn:plugin-hostd:test:stray >/dev/null 2>"$work/err"; rc=$?
+[ $rc -eq 1 ] && grep -q 'is not a percent-encoded name' "$work/err"; check $? "a stray percent in a name exits 1 with its reason ($rc: $(cat "$work/err"))"
+
 out=$("$daemon" -c "$work/conf" --pin-files "clap:/usr/lib/clap/some plugin.clap#org.example.x"); rc=$?
 [ $rc -eq 0 ] && [ "$out" = "root /usr/lib/clap
 file some plugin.clap" ]; check $? "a CLAP plugin: its .clap file beside its directory"

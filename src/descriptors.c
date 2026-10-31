@@ -321,18 +321,9 @@ static void scan_start(scan_t *s, int panel)
 /* the target as the probe takes it: a CLAP's path decoded, the id after its # as it is; malloc'd */
 static char *probe_target(const char *target)
 {
-    const char *hash = strrchr(target, '#');
-    char encoded[PATH_MAX], path[PATH_MAX], *out;
+    char plain[PATH_MAX + 512];
 
-    if (strncmp(target, "clap:", 5) || !hash || hash - target - 5 >= (long)sizeof(encoded))
-        return strdup(target);
-    snprintf(encoded, sizeof(encoded), "%.*s", (int)(hash - target - 5), target + 5);
-    if (pin_percent_decode(encoded, path, sizeof(path)) != 0)
-        return strdup(target);
-    out = malloc(strlen(path) + strlen(hash) + 6);
-    if (out)
-        sprintf(out, "clap:%s%s", path, hash);
-    return out;
+    return strdup(clap_plain_target(target, plain, sizeof(plain)) == 0 ? plain : target);
 }
 
 void descriptors_add(const char *uri)

@@ -255,13 +255,32 @@ static const char *adapter_refusal(const char *uri)
 
 static void receive(msg_t *msg)
 {
-    char *line = strndup(msg->data, msg->data_size), *copy = strdup(line), *tok[16], *save = NULL, *t;
+    char *line = strndup(msg->data, msg->data_size), *copy = strdup(line), *tok[16], *t;
     int ntok = 0, fd = msg->sender_id, n, k;
     const char *verb, *presets_learn = getenv("FAKE_PRESETS_LEARN");
 
     log_command(line);
-    for (t = strtok_r(copy, " \t\n", &save); t && ntok < 16; t = strtok_r(NULL, " \t\n", &save))
-        tok[ntok++] = t;
+    /* a quoted word is one word, as mod-host's tokenizer reads it */
+    for (t = copy; t && ntok < 16;)
+    {
+        t += strspn(t, " \t\n");
+        if (!*t)
+            break;
+        if (*t == '"')
+        {
+            tok[ntok++] = ++t;
+            t = strchr(t, '"');
+        }
+        else
+        {
+            tok[ntok++] = t;
+            t += strcspn(t, " \t\n");
+            if (!*t)
+                break;
+        }
+        if (t)
+            *t++ = '\0';
+    }
     if (!ntok)
     {
         answer(fd, "resp -902");
