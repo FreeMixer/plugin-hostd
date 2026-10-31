@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # The real workers behind the daemon, over jack, in the namespace tests/jack_e2e.sh built.
-import filecmp, os, shutil, signal, subprocess, sys, tempfile, threading, time
+import filecmp, os, shutil, signal, socket, subprocess, sys, tempfile, threading, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from harness import Daemon, Fail, alive, check, resp, run_tests, wait_for
@@ -220,6 +220,57 @@ def audio_of_the_other_strip_never_changes_when_one_worker_is_killed():
         d.close()
 
 
+# An address of this machine that is not 127.0.0.1, as a machine on the network connects to it: 198.18.0.1 on the namespace's
+# own loopback device, so no kernel module and no runner's network is needed. A port bound to 127.0.0.1 refuses it.
+OFF_LOOPBACK = ("127.0.0.2", "198.18.0.1")
+
+
+def connects(address, port):
+    try:
+        socket.create_connection((address, port), timeout=2).close()
+        return True
+    except OSError:
+        return False
+
+
+def reach_tells_them_apart():
+    """the measure against listeners of the test's own, or a refusal below could be no route at all"""
+    subprocess.run(["ip", "addr", "replace", OFF_LOOPBACK[1] + "/32", "dev", "lo"], check=True)
+    for bound, reached in (("0.0.0.0", True), ("127.0.0.1", False)):
+        with socket.socket() as s:
+            s.bind((bound, 0))
+            s.listen(4)
+            for address in OFF_LOOPBACK:
+                check(connects(address, s.getsockname()[1]) == reached,
+                      "a listener on %s is %s at %s" % (bound, "reached" if reached else "refused", address))
+
+
+def worker_is_not_reached_off_the_loopback(add, drive):
+    """the daemon is widened to every address, and the worker behind it still takes nobody but this machine"""
+    reach_tells_them_apart()
+    d = daemon(args=("--bind-address", "0.0.0.0"))
+    try:
+        d.expect(add, "resp 0")
+        _, w = d.holder(0)
+        argv = open("/proc/%d/cmdline" % w["pid"], "rb").read().split(b"\0")
+        ports = [int(argv[argv.index(o) + 1]) for o in (b"-p", b"-f")]
+        for address in OFF_LOOPBACK:
+            check(connects(address, d.cmd_port), "the widened daemon is reached at %s" % address)
+            for port in ports:
+                check(not connects(address, port), "worker %d: port %d is refused at %s" % (w["pid"], port, address))
+        for port in ports:
+            check(connects("127.0.0.1", port), "worker %d: port %d listens on 127.0.0.1" % (w["pid"], port))
+        # the daemon still drives the worker it holds
+        d.expect(drive, "resp 0")
+    finally:
+        d.close()
+
+
+@test
+def clap_worker_is_not_reached_off_the_loopback():
+    worker_is_not_reached_off_the_loopback("add %s 0" % STRESS, "param_set 0 %d 0.5" % LEVEL)
+
+
 @test
 def clap_file_whose_name_holds_a_space_is_opened_by_the_real_worker_from_its_encoded_uri():
     """Surge XT ships as "Surge XT.clap": the real omx-clap-host opens the path it is given, so the daemon gives it the
@@ -315,6 +366,10 @@ if COMPRESSOR and METER_SOURCE:
 
 
 if LV2:
+    @test
+    def lv2_worker_is_not_reached_off_the_loopback():
+        worker_is_not_reached_off_the_loopback("add lv2:%s 0" % LV2_URI, "param_set 0 %s 0.25" % LV2_PARAM)
+
     @test
     def lv2_own_worker_sees_one_bundle_and_replays_after_a_kill():
         d = daemon()
