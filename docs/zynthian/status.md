@@ -8,10 +8,10 @@ Zynthian: [the Zynthian page](README.md).
 On the Pi now
 -------------
 
-The Pi 5 runs plugin-hostd 0.15.5, plugin-qualify 0.18.3, omx-clap-host 0.25.3, omx-panel 0.7.2, omx-plugins 0.16.0 and the
-zynthian-ui fork at [76b5e106](https://github.com/FreeMixer/zynthian-ui/commit/76b5e106), the tip of `vangelis`. jackd runs on
-an RME Babyface Pro at 48000 Hz, 256 frames, 3 periods; the governor is on `performance`. plugin-hostd 0.15.7,
-omx-clap-host 0.25.4 and plugin-qualify 0.18.4 are released and not on the Pi yet. The figures below name their versions, and
+The Pi 5 runs plugin-hostd 0.15.7, plugin-qualify 0.18.3, omx-clap-host 0.25.3, omx-panel 0.7.2, omx-plugins 0.16.0 and the
+zynthian-ui fork at [f864d294](https://github.com/FreeMixer/zynthian-ui/commit/f864d29), which is behind the tip of `vangelis`
+and does not have the grouping fixes. jackd runs on an RME Babyface Pro at 48000 Hz, 256 frames, 3 periods; the governor is on
+`performance`. omx-clap-host 0.25.4 and plugin-qualify 0.18.4 are released and not on the Pi yet. The figures below name their versions, and
 the earlier ones were taken with a Digidesign Mbox 2 (`hw:M2`) or the dummy card.
 
 Proven on the device
@@ -59,7 +59,7 @@ Proven on the device
 Released, not proven on the device yet
 --------------------------------------
 
-The first three are not on the Pi yet. The Pi runs newer releases than the others, so they are installed there, and what is
+omx-clap-host 0.25.4 and plugin-qualify 0.18.4 are not on the Pi yet. The Pi runs newer releases than the others, so they are installed there, and what is
 owed is the check of each on the device.
 
 - **omx-clap-host 0.25.4** ([release](https://github.com/FreeMixer/omx-clap-host/releases/tag/v0.25.4)): a state or a preset
@@ -94,7 +94,7 @@ Still open
 ----------
 
 - **Next: grouping through Zynthian's own engine.** [zynthian-ui#53](https://github.com/FreeMixer/zynthian-ui/pull/53) reads the daemon's plan and worker record as plugin-hostd
-  0.14 and later give them; it and [zynthian-ui#56](https://github.com/FreeMixer/zynthian-ui/pull/56) are on the fork and on the Pi's checkout, proven against a real daemon in a container; the run on the device is not finished. What closes it: chains built from the menu on the Pi,
+  0.14 and later give them; it and [zynthian-ui#56](https://github.com/FreeMixer/zynthian-ui/pull/56) are on the fork, proven against a real daemon in a container. On the Pi they passed 7 of 9 proofs, among them grouping off, an edit elsewhere leaving a running worker alone, and a note reaching a member that is not the head; the Pi's Zynthian then went back to f864d294 and does not run them today. What closes it: chains built from the menu on the Pi,
   `worker_list` showing what shares a worker, and the same figures taken that way.
 - **A plugin's settings are lost when its chain changes or its worker restarts, on omx-clap-host 0.25.3 and earlier.** Most
   omx plugins refuse a state load while they process, so the value goes back to its default: `ratio` set to 7.5 read 4.0 after a
