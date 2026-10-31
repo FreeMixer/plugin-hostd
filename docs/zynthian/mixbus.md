@@ -34,7 +34,7 @@ The same holds in any chain, and a synth at its head starts its first group. A M
 which is Zynthian's own: with no synth in the chain, its first slot takes `zynmixer_chan:send_<nn>`, and the last effect
 feeds the Mixbus's strip. That route is built by `zynthian_chain.py` whatever the engine is.
 
-With the setting `grouping` on, the daemon's planner decides inside each group: it may split one further, by a plugin's
+The table is with the setting `grouping` on; with it off, the default, every plugin has a worker of its own. With it on, the daemon's planner decides inside each group: it may split one further, by a plugin's
 pin and cost, and never joins anything across a slot. A plugin qualified as isolated has a worker of its own, in a Mixbus
 as elsewhere. A worker that does not run some members as one (a member with a side chain, omx keyed-gate for one) keeps a
 client per member; the engine sees that in the graph and connects those members one by one.
@@ -73,10 +73,36 @@ of `worker_list` as they have been since plugin-hostd 0.14, and so it grouped no
 ([zynthian-ui#53](https://github.com/FreeMixer/zynthian-ui/pull/53)), which also means chains are grouped on current
 daemons from that change on.
 
-[FIGURE: mixbus row]
+Not measured yet: all of it through Zynthian's own engine on the Pi, with Zynthian's own mixer in the path rather than script
+clients. The steps are below.
 
-Not measured yet: all of it on the Pi, and with Zynthian's own mixer in the path rather than script clients. The steps
-are below.
+Example: one reverb and delay on a bus
+--------------------------------------
+
+What a user does, with the plugin-hostd engine on:
+
+1. Add a chain and choose Mixbus. In its options, `Add Audio-FX processor`: omx reverb, then omx delay, each "(PH)".
+2. In each chain that should feed it, open the mixer processor's controller page and raise the send level for that Mixbus,
+   pre or post fader as you like.
+
+What you get: one reverb and one delay in place of one per chain. Measured on a Pi 5 as a JACK graph on a private dummy server,
+without Zynthian's routing: mda EPiano instruments holding notes, feeding one omx reverb and delay or a pair each, into the
+main output, 48000 Hz and 256 frames, plugin-hostd 0.15.5, omx-clap-host 0.25.3, LV2 builds on every host, one repeat so far
+([rows](evidence/pi5-claims-2026-10-31/mixbus/mixbus.tsv)). Grouped makes each reverb and delay one chain.
+
+| 4 instruments | shared: JACK DSP | shared: PSS | a pair each: JACK DSP | a pair each: PSS | xruns |
+|---|---|---|---|---|---|
+| mod-host | 1.89 % | 82.1 MB | 2.17 % | 105.8 MB | 0 |
+| plugin-hostd, grouped | 2.76 % | 84.7 MB | 3.09 % | 122.2 MB | 0 |
+| plugin-hostd, one worker each | 2.85 % | 89.9 MB | 3.43 % | 133.3 MB | 0 |
+| jalv | 2.46 % | 298.2 MB | 6.38 % | 551.1 MB | 0 |
+
+Sharing saves memory on every host. mod-host uses less CPU and memory than plugin-hostd here: the gain of plugin-hostd is over
+jalv, in memory and, at 8 instruments, in xruns (0 against 2).
+
+Not ready: use our own plugins for this. Grouped third-party effects on a Mixbus read near silence at the main output, -220 to
+-238 dBFS at the four sizes measured, where every other host reads -3 to -9 dBFS; the cause is not proven. The same effects
+with one worker each read as the other hosts do. Through Zynthian's engine this has not been measured on the Pi.
 
 What stays to integrate
 -----------------------
@@ -115,4 +141,3 @@ into the first's slot and read it again: the send connects to both clients and b
 a send to the Mixbus, then raise the send level and switch pre and post fader, and read the level at the strip's input
 for each. Save a snapshot, load it, and read `jack_lsp -c` a third time.
 
-The Mixbus row of the benchmark, with the same plugins grouped and one worker per plugin, fills `[FIGURE: mixbus row]`.
