@@ -1,0 +1,36 @@
+> # Odin 2 2.3.4 LV2 on omx-clap-host's adapter, spoken to directly (plugin-hostd refuses it: pin verdict refused)
+< not found
+> add https://thewavewarden.com/odin2 1
+< resp 1
+> preset_list 1
+< resp 1
+> preset_get 1 0
+< resp 0 https://thewavewarden.com/odin2#preset001 
+> param_get 1 osc1_octave
+< resp 0 0.5000
+> param_get 1 osc1_semitones
+< resp 0 0.5000
+> param_get 1 osc1_finetune
+< resp 0 0.5000
+> preset_load 1 https://thewavewarden.com/odin2#preset001
+< resp 0
+> param_get 1 osc1_octave
+< resp 0 0.5000
+> param_get 1 osc1_semitones
+< resp 0 0.5000
+> param_get 1 osc1_finetune
+< resp 0 0.5000
+> param_set 1 osc1_finetune 0.8
+< resp 0
+> param_get 1 osc1_finetune
+< resp 0 0.8000
+> preset_save 1 /tmp/omx-proofs/b-odin-user/omx-test.json omxtest
+< resp 0
+> preset_load 1 https://thewavewarden.com/odin2#preset001
+< resp 0
+> param_get 1 osc1_finetune
+< resp 0 0.5000
+> preset_load 1 /tmp/omx-proofs/b-odin-user/omx-test.json
+< resp 0
+> param_get 1 osc1_finetune
+< resp 0 0.8000

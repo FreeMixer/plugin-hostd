@@ -1,0 +1,99 @@
+# omx eq8: LV2 is instance 1, CLAP is instance 2, both through plugin-hostd with the device's own settings and pins
+> add urn:openmixer:eq8 1
+< resp 1
+> add clap:/usr/lib/clap/omx-eq8.clap#org.openmixer.eq8 2
+< resp 2
+# Factory banks
+> preset_list 1
+< resp 8
+> preset_get 1 0
+< resp 0 urn:openmixer:eq8#preset-amp-input Amp Input
+> preset_get 1 1
+< resp 0 urn:openmixer:eq8#preset-eq-601 Gentle Tilt
+> preset_get 1 2
+< resp 0 urn:openmixer:eq8#preset-maxer-low Low Shelf
+> preset_get 1 3
+< resp 0 urn:openmixer:eq8#preset-mustard-eq Warm Presence
+> preset_get 1 4
+< resp 0 urn:openmixer:eq8#preset-portico-5033 Five Band Polish
+> preset_get 1 5
+< resp 0 urn:openmixer:eq8#preset-pultec-low Low Shelf Boost and Dip
+> preset_get 1 6
+< resp 0 urn:openmixer:eq8#preset-pultec-mid Mid Presence
+> preset_get 1 7
+< resp 0 urn:openmixer:eq8#preset-vocal-cleanup Vocal Cleanup
+> preset_list 2
+< resp 8
+> preset_get 2 0
+< resp 0 file:/usr/share/omx/presets/org.openmixer.eq8//amp-input.json Amp Input
+> preset_get 2 1
+< resp 0 file:/usr/share/omx/presets/org.openmixer.eq8//eq-601.json Gentle Tilt
+> preset_get 2 2
+< resp 0 file:/usr/share/omx/presets/org.openmixer.eq8//maxer-low.json Low Shelf
+> preset_get 2 3
+< resp 0 file:/usr/share/omx/presets/org.openmixer.eq8//mustard-eq.json Warm Presence
+> preset_get 2 4
+< resp 0 file:/usr/share/omx/presets/org.openmixer.eq8//portico-5033.json Five Band Polish
+> preset_get 2 5
+< resp 0 file:/usr/share/omx/presets/org.openmixer.eq8//pultec-low.json Low Shelf Boost and Dip
+> preset_get 2 6
+< resp 0 file:/usr/share/omx/presets/org.openmixer.eq8//pultec-mid.json Mid Presence
+> preset_get 2 7
+< resp 0 file:/usr/share/omx/presets/org.openmixer.eq8//vocal-cleanup.json Vocal Cleanup
+# LV2: values by symbol across two factory presets
+> param_get 1 b1_gain
+< resp 0 0.0000
+> param_get 1 b2_gain
+< resp 0 0.0000
+> param_get 1 b3_gain
+< resp 0 0.0000
+> param_get 1 b4_gain
+< resp 0 0.0000
+> preset_load 1 urn:openmixer:eq8#preset-eq-601
+< resp 0
+> param_get 1 b1_gain
+< resp 0 1.5000
+> param_get 1 b2_gain
+< resp 0 -1.5000
+> param_get 1 b3_gain
+< resp 0 2.0000
+> param_get 1 b4_gain
+< resp 0 2.5000
+> preset_load 1 urn:openmixer:eq8#preset-maxer-low
+< resp 0
+> param_get 1 b1_gain
+< resp 0 3.0000
+> param_get 1 b2_gain
+< resp 0 0.0000
+> param_get 1 b3_gain
+< resp 0 0.0000
+> param_get 1 b4_gain
+< resp 0 0.0000
+# LV2 User preset: set a value, save, load a factory preset, load the file back
+> param_set 1 b3_gain 4.5
+< resp 0
+> param_get 1 b3_gain
+< resp 0 4.5000
+> preset_save 1 /tmp/omx-proofs/b-eq8-user/omx-test-lv2.json omx-test
+< resp 0
+> preset_load 1 urn:openmixer:eq8#preset-eq-601
+< resp 0
+> param_get 1 b3_gain
+< resp 0 2.0000
+> preset_load 1 /tmp/omx-proofs/b-eq8-user/omx-test-lv2.json
+< resp 0
+> param_get 1 b3_gain
+< resp 0 4.5000
+# CLAP: the same by saved files
+> preset_load 2 file:/usr/share/omx/presets/org.openmixer.eq8//eq-601.json
+< resp -104 PRESET_NOT_OFFERED
+> preset_save 2 /tmp/omx-proofs/b-eq8-user/clap-eq-601.json after-eq-601
+< resp 0
+> preset_load 2 file:/usr/share/omx/presets/org.openmixer.eq8//maxer-low.json
+< resp -104 PRESET_NOT_OFFERED
+> preset_save 2 /tmp/omx-proofs/b-eq8-user/clap-maxer-low.json after-maxer-low
+< resp 0
+> preset_load 2 /tmp/omx-proofs/b-eq8-user/clap-eq-601.json
+< resp -104 LOAD_REFUSED
+> preset_save 2 /tmp/omx-proofs/b-eq8-user/clap-roundtrip.json roundtrip
+< resp 0

@@ -1,0 +1,4 @@
+hostd	start	add_ms	292	ports_ms	494	note_port	effect_1:midi_in	outs	effect_1:out_1,effect_1:out_2
+hostd	poly	idle	-inf	-inf	0.0	0.0000	0	2.2	cpu0=3 cpu1=2 cpu2=1 cpu3=2	omx-clap-host@cpu1=2
+hostd	poly	poly1	-inf	-inf	0.0	0.0000	0	9.5	cpu0=4 cpu1=11 cpu2=2 cpu3=3	omx-clap-host@cpu1=2 omx-clap-host@cpu1=8
+hostd	poly	poly8	-inf	-inf	0.0	0.0000	0	16.4	cpu0=2 cpu1=5 cpu2=1 cpu3=1	omx-clap-host@cpu1=2 omx-clap-host@cpu1=15
