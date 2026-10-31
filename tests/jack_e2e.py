@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # The real workers behind the daemon, over jack, in the namespace tests/jack_e2e.sh built.
-import filecmp, os, signal, subprocess, sys, tempfile, threading, time
+import filecmp, os, shutil, signal, subprocess, sys, tempfile, threading, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from harness import Daemon, Fail, alive, check, resp, run_tests, wait_for
@@ -217,6 +217,28 @@ def audio_of_the_other_strip_never_changes_when_one_worker_is_killed():
     finally:
         if probe:
             probe.kill()
+        d.close()
+
+
+@test
+def clap_file_whose_name_holds_a_space_is_opened_by_the_real_worker_from_its_encoded_uri():
+    """Surge XT ships as "Surge XT.clap": the real omx-clap-host opens the path it is given, so the daemon gives it the
+    decoded one, in the add and in the replay after a crash"""
+    d = daemon()
+    try:
+        spaced = os.path.join(d.tmp, "stress plugin.clap")
+        shutil.copyfile(os.environ["STRESS_CLAP"], spaced)
+        uri = "clap:%s#org.plugin-hostd.test.stress" % spaced.replace(" ", "%20")
+        d.expect("add %s 0" % uri, "resp 0")
+        check(has_ports(0), "the plugin of the spaced file is in the graph")
+        d.expect("param_set 0 %d 0.75" % LEVEL, "resp 0")
+        _, w = d.holder(0)
+        mark = d.mark()
+        os.kill(w["pid"], signal.SIGKILL)
+        d.wait_event("instance_restored 0 ", since=mark)
+        wait_for(lambda: has_ports(0), "effect_0's ports to come back")
+        d.expect("param_get 0 %d" % LEVEL, "resp 0 0.7500")
+    finally:
         d.close()
 
 
