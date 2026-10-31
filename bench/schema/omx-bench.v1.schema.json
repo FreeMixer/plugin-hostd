@@ -65,6 +65,8 @@
           "cpu_pct": { "type": "number", "minimum": 0 },
           "ctx_switches": { "type": "integer", "minimum": 0 },
           "ctx_involuntary": { "type": "integer", "minimum": 0 },
+          "ctx_jackd": { "type": "integer", "minimum": 0 },
+          "ctx_jackd_involuntary": { "type": "integer", "minimum": 0 },
           "xruns": { "type": "integer", "minimum": 0 },
           "latency_frames": { "type": ["integer", "null"], "minimum": 0 },
           "jack_clients": { "type": "integer", "minimum": 0 },

@@ -62,7 +62,7 @@ for an instrument, wired through the plugins in series into the playback ports.
 | `clap16` | 16 instances of omx-comp |
 | `pianoteq` | Pianoteq 9 playing chords |
 | `kill1` | omx-comp, then `kill -9` of the process that holds it |
-| `cvp3`, `cvp8`, `cvp16` | chains vs processes: N plugins cycling omx-comp, Calf Compressor, omx-delay, omx-drive |
+| `cvp3`, `cvp8`, `cvp16`, `cvp24`, `cvp32`, `cvp48` | chains vs processes: N plugins cycling omx-comp, Calf Compressor, omx-delay, omx-drive |
 | `grp8`, `grp16` | grouping vs processes: N CLAP plugins cycling omx-comp, omx-drive, omx-delay, omx-drive, omx-comp, where omx-drive is pinned `isolated` |
 
 H1 and H2 take our plugins as CLAP and Calf through the LV2 adapter. H3 and H4 take the LV2 builds of our plugins,
@@ -111,6 +111,7 @@ Reading the numbers
 | `processes` | the host's processes: itself and every descendant, the workers of plugin-hostd included |
 | `cpu_pct` | utime plus stime of those processes over the window, in percent of one core |
 | `ctx_switches`, `ctx_involuntary` | context switches of all their threads over the window, and how many of them were involuntary |
+| `ctx_jackd`, `ctx_jackd_involuntary` | the same for the private JACK server over the same window, since a graph of more clients costs the server switches too |
 | `add_ms` | from the first `add` to the last reply; for H2 `chain` until the chain runs; for H4 until the last client is in the graph |
 | `recover_ms` | from `kill -9` of the worker until its client is back and wired as before |
 | `status` | `ok`; `unsupported` when the host cannot run the scenario; `failed` when it ran and broke; the note says why |
