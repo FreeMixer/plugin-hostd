@@ -322,7 +322,7 @@ SABOTAGE = [
      "    if (f->worker_prefix && !*f->worker_prefix)\n        return reject(f,", "    if (0)\n        return reject(f,", "format_test", "format"),
     ("a row's route is ignored", "src/formats.c", "    return name ? format_by_name(name) : format;", "    return format;", "format_test", "format"),
     ("a routed row's worker is not given its prefix", "src/supervisor.c",
-     "             format->worker_prefix ? format->worker_prefix : \"\", fwd,", "             \"\", fwd,",
+     "             format->worker_prefix ? format->worker_prefix : \"\", word,", "             \"\", word,",
      "lv2_worker_omx_clap_host_runs_the_plugin_in_the_clap_program_on_the_adapter_row"),
     ("track_info's kind is not checked", "include/plugin-hostd/protocol.h",
      "phd_track_kind(count == 5 ? word[4] : NULL) >= 0;", "1;",
