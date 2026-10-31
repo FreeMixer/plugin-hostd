@@ -121,6 +121,8 @@ typedef struct CHAIN_T {
     int n;
     worker_t *w;                /* NULL while no worker holds it */
     int rejoin;                 /* its members are to be gathered in one worker again, by the tick */
+    int refused;                /* the code the worker answered the chain line with, 0 for none: the chain ends at once
+                                 * (chain_answered, or the tick when it came on a respawn) */
     int planned;                /* a segment of a plan, not a chain the controller declared: id is the plan's number, seg the
                                  * segment's place in the plan, and no g_chain row holds it */
     int seg;

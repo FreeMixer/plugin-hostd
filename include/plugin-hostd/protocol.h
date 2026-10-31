@@ -511,8 +511,10 @@ static inline int phd_pool_name_valid(const char *name)
       "and no other member is restarted, unless the new member's format narrows the worker's world, which forms " \
       "the chain again. Members of " PHD_FORMAT_CLAP " and " PHD_FORMAT_LV2_CLAP " form one chain. A worker that runs " \
       "chains in one client (" PHD_FORMAT_CLAP ", " PHD_FORMAT_LV2_CLAP ") is sent this line, with the members it holds, " \
-      "after the adds of its replay; one that does not (mod-host) never is, and a refusal of it is written to stderr " \
-      "and is no failure. Every instance verb still names one member by its own number. A member that crashes the " \
+      "after the adds of its replay; one that does not (mod-host) never is. A worker that refuses the line would not " \
+      "run the members as one: the chain is forgotten and each member runs in a worker of its own, the line answers " \
+      "-501, and the event " PHD_EVENT_CHAIN_REFUSED " carries the worker's own code, also when the refusal comes later, on a " \
+      "respawn. Every instance verb still names one member by its own number. A member that crashes the " \
       "worker is quarantined to a worker of its own and the chain goes on without it; quarantine_clear puts it back. " \
       "-518 for an instance no add made, -519 for one named twice, -520 for one in another chain, -521 for members no " \
       "one worker program runs together, -501 for a plugin that may not share a worker while require_pins is on (a CLAP plugin " \
@@ -537,8 +539,10 @@ static inline int phd_pool_name_valid(const char *name)
       "quarantined and, history_regroup_s after a death that split its group, to gather it. The plan numbers are its " \
       "own, apart from chain's. While the setting grouping is off the plan is answered and kept for " OMX_VERB_PLAN_GET " and nothing moves. A segment " \
       "that cannot be formed refuses the whole plan with its own code, moves nothing and is told by " OMX_VERB_PLAN_GET \
-      " as plan-refused:<code>. -518 for an instance no add made, -519 for one named twice, -520 for one in a chain " \
-      "or in the plan of another chain, -501 for a segment no world can be built for, -902 for a chain or an " \
+      " as plan-refused:<code>. A segment its worker refuses, which is known only once it has moved, refuses the plan " \
+      "with -501 too, and then every segment ends and each member runs in a worker of its own. -518 for an instance no add " \
+      "made, -519 for one named twice, -520 for one in a chain " \
+      "or in the plan of another chain, -501 for a segment no world can be built for or its worker refuses, -902 for a chain or an " \
       "instance that is not a number, or fewer than chain_members_min (" PHD_STR(PHD_CHAIN_MEMBERS_MIN) ") instances") \
     X(PLAN_GET, OMX_VERB_PLAN_GET, "<chain>", OMX_VERB_PLAN_GET_REPLY, \
       "read the last plan of a chain back: its segments as " OMX_VERB_PLAN " answered them, then the members that have " \
@@ -925,6 +929,7 @@ static inline int phd_is_note_verb(const char *verb)
 #define PHD_EVENT_PIN_CHANGED             OMX_VERB_PIN_CHANGED
 #define PHD_EVENT_LV2_ADAPTER_REFUSED     "lv2_adapter_refused"
 #define PHD_EVENT_CHAIN_FORMED            "chain_formed"
+#define PHD_EVENT_CHAIN_REFUSED           "chain_refused"
 #define PHD_EVENT_PLAN_REASON             "plan_reason"
 /* written by a worker, relayed as it wrote it */
 #define PHD_EVENT_REMOTE_PAGES_CHANGED    "remote_pages_changed"
@@ -959,6 +964,7 @@ static inline int phd_is_note_verb(const char *verb)
 #define PHD_EVENT_PIN_CHANGED_FMT           PHD_EVENT_PIN_CHANGED " %s %s"
 #define PHD_EVENT_LV2_ADAPTER_REFUSED_FMT   PHD_EVENT_LV2_ADAPTER_REFUSED " %s %s %s"
 #define PHD_EVENT_CHAIN_FORMED_FMT          PHD_EVENT_CHAIN_FORMED " %s w%d %s"
+#define PHD_EVENT_CHAIN_REFUSED_FMT         PHD_EVENT_CHAIN_REFUSED " %s %d"
 #define PHD_EVENT_PLAN_REASON_FMT           PHD_EVENT_PLAN_REASON " %d %s"
 
 /* the table of the docs: X(name, fields, meaning), one row per shape of a line */
@@ -982,6 +988,9 @@ static inline int phd_is_note_verb(const char *verb)
       "a chain's worker is up with these members, in this order, after its declaration, a respawn or a member's " \
       "quarantine; " PHD_WORD_NONE " for none. <chain> is the number chain declared, or <plan>" PHD_PLACE_PLAN_SEPARATOR \
       "<k> for segment k of a plan") \
+    X(PHD_EVENT_CHAIN_REFUSED, "<chain> <code>", \
+      "a chain's worker would not run the members as one chain, <code> its own answer, and its stderr says why: the " \
+      "chain is forgotten and each member runs in a worker of its own. <chain> as chain_formed names it") \
     X(PHD_EVENT_PLAN_REASON, "<chain> <instance>:<reason>,...", \
       "a plan of the chain changed: the reasons " OMX_VERB_PLAN_GET " answers now, after the segments, " PHD_WORD_NONE " for none") \
     X(PHD_EVENT_SUPERVISOR_GAVE_UP, "<worker> <deaths> <window_ms>", "the storm bound is spent; respawning ends") \
