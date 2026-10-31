@@ -112,6 +112,11 @@ def bench_copy(work, tbl):
     return dst
 
 
+def bench_env():
+    """what the copy of bench/ needs to find outside itself: bench.py reads the search lists through the repository's tool"""
+    return {"SEARCH_PATHS_TOOL": os.path.join(REPO, "tools", "search-paths.py")}
+
+
 def cells(tbl, rates, frames, only):
     out = []
     for kind in ("chain", "single"):
@@ -201,7 +206,7 @@ def run_cell(bench_dir, s, rate, fr, a, docs, logs, hosts, all_hosts):
                 "--repeats", "1", "--window", str(a.window), "--stress", "none", "--keep-governor",
                 "--logs", os.path.join(logs, cell_id(s, rate, fr).replace("/", "-"))]
         # bench.py's work directory goes under the cell's own temporary directory, removed with it
-        env = dict(os.environ, TMPDIR=tmp)
+        env = dict(os.environ, TMPDIR=tmp, **bench_env())
         p = subprocess.run(argv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=env)
         with open(os.path.join(logs, "bench.out"), "a") as fh:
             fh.write("$ %s\n%s\nexit %d\n" % (" ".join(argv), p.stdout, p.returncode))
