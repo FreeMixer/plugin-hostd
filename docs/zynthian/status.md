@@ -69,6 +69,12 @@ Released, not proven on the device yet
 
 The Pi runs these or newer releases, so they are installed there; what is owed is the check of each on the device.
 
+- **Time to add, measured on builds that 0.15.8 carries.** Grouped, 24 of our plugins are added in 435 ms with one JACK client
+  and 64 MB, against mod-host's 749 ms, 26 clients and 112 MB; from a cold host a snapshot loads 2.3 to 3.6 times faster than
+  under mod-host on both sets. On a third-party set of ten, warm adds are behind mod-host (501 against 306 ms) for the reason
+  in the open list below ([rows](benchmarks.md#time-to-add-and-the-same-chain-with-the-add-into-the-chain)).
+- **Through Zynthian's update.** The signed tags are zynthian-ui `omx-track/2026103102` at ee76d0ce and zynthian-sys
+  `omx-track/2026110101` at c34723a; the update now moves zynthian-ui, zynthian-sys, zynthian-webconf and the packages together.
 - **plugin-hostd 0.15.7** ([release](https://github.com/FreeMixer/plugin-hostd/releases/tag/v0.15.7)): `chain` answers the
   worker's refusal, and a refused chain ends.
 - **plugin-qualify 0.18.4** ([release](https://github.com/FreeMixer/plugin-qualify/releases/tag/v0.18.4)): the adapter pass and
@@ -101,8 +107,10 @@ Still open
   on the Pi with the fork's tip, `worker_list` showing what shares a worker, and the same figures taken that way, and what a crash
   does there.
 - **Ten third-party plugins in a group.** Since [plugin-hostd#339](https://github.com/FreeMixer/plugin-hostd/pull/339) they run,
-  single and grouped: one worker, and still ten JACK clients ([rows](benchmarks.md#current-versions-chains-up-to-24-plugins)).
-  What closes it: the chain as one client, as our own plugins are.
+  single and grouped. With the add into the chain, six stereo members form one chain and the four mono ones each have a worker of
+  their own: five clients, and 501 ms to add against mod-host's 306 ms ([rows](benchmarks.md#time-to-add-and-the-same-chain-with-the-add-into-the-chain)).
+  What closes it: a mono plugin run inside a stereo chain ([omx-clap-core#361](https://github.com/FreeMixer/omx-clap-core/issues/361)),
+  then the rows again.
 - **A chain that does not form.** On plugin-hostd 0.15.4 a grouped chain did not form within 20 s in one of four cells at 18
   plugins and on one repeat at 32 and at 48. On 0.15.5 it formed in all six cells at 18 and every repeat up to 24. What closes
   it: rows at 32 and 48 on current versions.
