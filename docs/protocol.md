@@ -466,6 +466,7 @@ The daemon's events and the worker lines it relays:
 | `instance_quarantined` | `<instance> <worker>` | the culprit of a pool or a chain death, placed own until cleared; a chain goes on without it |
 | `chain_formed` | `<chain> <worker> <instance>,...` | a chain's worker is up with these members, in this order, after its declaration, a respawn or a member's quarantine; - for none. <chain> is the number chain declared, or <plan>.<k> for segment k of a plan |
 | `chain_refused` | `<chain> <code>` | a chain's worker would not run the members as one chain, <code> its own answer, and its stderr says why: the chain is forgotten and each member runs in a worker of its own. <chain> as chain_formed names it |
+| `chain_stalled` | `<chain> <instance \| -> <step> <code>` | a chain, or a plan's segment, has not formed within chain_form_timeout_ms of its declaration: the member and the step that held it (spawn, add, pin, state, memory) and the code it answered, 0 for none, - for no one member; said once each time it is declared or gathered again, and the daemon goes on trying |
 | `plan_reason` | `<chain> <instance>:<reason>,...` | a plan of the chain changed: the reasons plan_get answers now, after the segments, - for none |
 | `supervisor_gave_up` | `<worker> <deaths> <window_ms>` | the storm bound is spent; respawning ends |
 | `pin_changed` | `<uri> files \| layout` | an add or a replay of a plugin was refused because its files, or the layout the worker found, differ from its pin; the pin is as it was until pin_accept or pin_set |
