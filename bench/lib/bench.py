@@ -738,6 +738,7 @@ class Host:
     """one host program started for one scenario row"""
 
     def __init__(self, key, procs, env, workdir, port, conf=("require_pins 0",)):
+        self.own_fallback = set()
         self.key, self.procs, self.env, self.workdir, self.port = key, procs, env, workdir, port
         self.conf = conf
         self.proc = None
@@ -845,6 +846,12 @@ class Host:
             return client
         line = "add %s %d" % (uri, inst) + (" " + placement if placement else "")
         reply = self.ctl.cmd(line)
+        if placement and placement.startswith("chain:") and reply == "resp -501":
+            # the daemon will not put it in the chain (a width the chain's head does not take): the controller adds it
+            # in a worker of its own, as Zynthian does
+            self.own_fallback.add(inst)
+            line = "add %s %d own" % (uri, inst)
+            reply = self.ctl.cmd(line)
         if reply != "resp %d" % inst:
             raise Failed("%s answered '%s' to: %s" % (HOST_PROGRAM[self.key], reply, line))
         return client
@@ -1069,7 +1076,11 @@ class Runner:
                 # a daemon before plugin-hostd#348 reads chain:1 as a client name and gives each add a worker of its own
                 if host.ctl.cmd("chain_get 1").split()[1:2] != ["0"]:
                     raise Refused("this plugin-hostd has no add into a chain (plugin-hostd#348)")
-                self.chain_formed(host, insts)
+                members = [i for i in insts if i not in host.own_fallback]
+                if members:
+                    self.chain_formed(host, members)
+                if host.own_fallback:
+                    notes.append("%d added own: the chain's head does not take their width" % len(host.own_fallback))
             elif mode == "chain" and insts:
                 reply = host.ctl.cmd("chain 1 " + " ".join(map(str, insts)))
                 if reply != "resp 0":
