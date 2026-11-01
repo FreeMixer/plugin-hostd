@@ -1678,6 +1678,48 @@ static void respawn(worker_t *w)
     replay(w, started);
 }
 
+static void to_own(instance_t *i);
+
+/* the instances whose worker said abi_clobber (PHD_EVENT_ABI_CLOBBER): each is quarantined, so the history and the plans
+ * keep it alone from now on, and one that shares its worker or is in a chain moves to a worker of its own with its state
+ * saved; the guard of the worker put its registers back, but not the other members' state. Gathered first, moved after:
+ * a move retires and makes workers. A report is acted on only while the instance is still on the worker that wrote it.
+ * A worker that is not up is read at the tick that finds it up; one that died has its reports dropped with its socket:
+ * the crash path quarantines a member it names, and a plugin that clobbers again in its new worker says so again */
+static void abi_isolate(void)
+{
+    enum { MAX_REPORTS = 256 };
+    int ids[MAX_REPORTS], from[MAX_REPORTS];
+    int n, k, total = 0;
+
+    for (n = 0; n < g_nworkers && total < MAX_REPORTS; n++)
+        if (g_workers[n]->state == W_UP && g_workers[n]->fb_fd >= 0)
+        {
+            const int got = relay_abi_clobbers(g_workers[n]->fb_fd, ids + total, MAX_REPORTS - total);
+
+            for (k = 0; k < got; k++)
+                from[total + k] = g_workers[n]->k;
+            total += got;
+        }
+    for (k = 0; k < total; k++)
+    {
+        instance_t *i = ids[k] >= 0 && ids[k] < MAX_INSTANCE ? g_inst[ids[k]] : NULL;
+        worker_t *w = i ? i->w : NULL;
+        int shared;
+
+        if (!w || w->k != from[k])
+            continue;
+        shared = w->ninst >= 2 || i->chain != NULL;
+        if (meta_of(i->id)->quarantined && !shared)
+            continue;
+        fprintf(stderr, "plugin-hostd: instance %d returned from its plugin with a callee-saved register changed: %s\n",
+                i->id, shared ? "it moves to a worker of its own" : "it stays alone");
+        quarantine(i, w);
+        if (shared)
+            to_own(i);
+    }
+}
+
 void sup_tick(void)
 {
     int n;
@@ -1715,6 +1757,7 @@ void sup_tick(void)
         if (due)
             checkpoint(w);
     }
+    abi_isolate();
     for (n = 0; n < g_nworkers; n++)
         hist_tick(g_workers[n], now);
     history_tick(now / 1000);
