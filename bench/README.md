@@ -63,6 +63,7 @@ for an instrument, wired through the plugins in series into the playback ports.
 | `pianoteq` | Pianoteq 9 playing chords |
 | `kill1` | omx-comp, then `kill -9` of the process that holds it |
 | `cvp3`, `cvp8`, `cvp16`, `cvp24` | chains vs processes: N plugins cycling omx-comp, Calf Compressor, omx-delay, omx-drive |
+| `cvp24-lv2` | `cvp24` with the LV2 builds on every host, plugin-hostd and omx-clap-host through the LV2 adapter |
 | `tp10` | chains vs processes: ten third-party LV2 effects in series, the set of `tools/zynthian/matrix/plugins.json` |
 | `grp8`, `grp16` | grouping vs processes: N CLAP plugins cycling omx-comp, omx-drive, omx-delay, omx-drive, omx-comp, where omx-drive is pinned `isolated` |
 
