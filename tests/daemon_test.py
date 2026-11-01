@@ -475,6 +475,53 @@ def a_member_that_returns_with_a_callee_saved_register_changed_leaves_its_pool_w
 
 
 @test
+def a_chain_member_that_returns_with_a_callee_saved_register_changed_leaves_the_chain_and_the_others_stay_chained():
+    """quarantine splits the chain: the member goes to a worker of its own with its state, the chain's other members stay
+    in the chain's worker, in order"""
+    d = daemon()
+    try:
+        for i in (1, 2, 3):
+            d.expect("add clap:fake#m%d %d chain:7" % (i, i), "resp %d" % i)
+            d.expect("param_set %d gain 0.%d000" % (i, i), "resp 0")
+        k_chain, w = list(chain_of(d, 7).items())[0]
+        check(w["inst"] == [1, 2, 3], "the chain holds its three members: %s" % w)
+        mark = d.mark()
+        d.expect("param_set 2 abi_clobber 1", "resp 0")
+        d.wait_event("instance_quarantined 2 %s" % k_chain, since=mark)
+        k2, w2 = d.wait_up(2)
+        check(w2["place"] == "own" and w2["inst"] == [2], "the member runs alone: %s" % w2)
+        d.expect("param_get 2 gain", "resp 0 0.2000")
+        wait_for(lambda: [x["inst"] for x in chain_of(d, 7).values()] == [[1, 3]] or None, "the chain without the member")
+        for i in (1, 3):
+            d.expect("param_get %d gain" % i, "resp 0 0.%d000" % i)
+    finally:
+        d.close()
+
+
+@test
+def every_member_that_says_abi_clobber_is_isolated_however_many_say_it_at_once():
+    """twenty members in one worker (a pool raised to twenty; a plan's segment has no limit by default) report at once:
+    every report between two ticks is acted on, none dropped"""
+    d = daemon(conf={"pool_max": 20})
+    try:
+        ids = list(range(100, 120))
+        make_pool(d, ids)
+        w = d.workers()
+        check(len(w) == 1 and list(w.values())[0]["inst"] == ids, "one worker holds the twenty: %s" % w)
+        mark = d.mark()
+        # one burst of twenty lines, all before the daemon's next tick
+        d.expect("param_set %d abi_clobber_all 1" % ids[0], "resp 0")
+        for i in ids:
+            d.wait_event("instance_quarantined %d " % i, since=mark, timeout=30.0)
+        for i in ids:
+            # the last left in the pool is alone where it is: quarantined, not moved
+            _, w = d.wait_up(i, timeout=30.0)
+            check(w["inst"] == [i], "instance %d runs alone: %s" % (i, w))
+    finally:
+        d.close()
+
+
+@test
 def pool_in_flight_command_names_the_culprit_and_the_pool_stays_a_pool():
     d = daemon(conf={"rpc_timeout_ms": 400})
     try:
