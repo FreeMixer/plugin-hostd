@@ -1,0 +1,21 @@
+cell,scenario,kind,host,mode,host_mode,rate,frames,window_s,status,plugins,dsp_load_avg,dsp_load_max,cpu_pct,rss_mb_total,pss_mb_total,processes,jack_clients,xruns,latency_frames,add_ms,ctx_switches,note,doc,finished_at
+chain-omx@48000/256,chain-omx,chain,H2,individual,plugin-hostd single,48000,256,30,ok,1,0.37,0.61,0.45,110.8,28.4,2,1,0,0,51.7,8775,,chain-omx-48000-256.json,2026-10-31T14:29:56Z
+chain-omx@48000/256,chain-omx,chain,H2,chain,plugin-hostd grouped,48000,256,30,ok,1,0.34,0.4,0.42,110.3,28.6,2,1,0,0,131.3,8781,,chain-omx-48000-256.json,2026-10-31T14:29:56Z
+chain-omx@48000/256,chain-omx,chain,H1,shared-process,omx-clap-host,48000,256,30,ok,1,0.36,0.5,0.38,108.7,27.6,1,1,0,0,29.1,7511,,chain-omx-48000-256.json,2026-10-31T14:29:56Z
+chain-omx@48000/256,chain-omx,chain,H3,shared-process,mod-host,48000,256,30,ok,1,0.39,0.49,0.38,152.5,72.3,1,3,0,0,28.3,17708,LV2 builds of omx-eq8,chain-omx-48000-256.json,2026-10-31T14:29:56Z
+chain-omx@48000/256,chain-omx,chain,H4,individual,jalv,48000,256,30,ok,1,0.4,0.52,0.26,143.7,62.8,1,1,0,0,816.3,6937,LV2 builds of omx-eq8,chain-omx-48000-256.json,2026-10-31T14:29:56Z
+chain-tp@48000/256,chain-tp,chain,H2,individual,plugin-hostd single,48000,256,30,ok,10,7.33,8.12,9.77,1111.5,111.1,11,10,0,0,941.5,77201,,chain-tp-48000-256.json,2026-10-31T14:32:56Z
+chain-tp@48000/256,chain-tp,chain,H2,chain,plugin-hostd grouped,48000,256,30,ok,10,5.98,6.15,6.13,128.3,45.0,2,10,0,0,1424.2,61771,"one worker, 10 JACK clients",chain-tp-48000-256.json,2026-10-31T14:32:56Z
+chain-tp@48000/256,chain-tp,chain,H1,shared-process,omx-clap-host LV2,48000,256,30,ok,10,6.55,6.69,6.77,125.7,44.0,1,10,0,0,446.6,60613,,chain-tp-48000-256.json,2026-10-31T14:32:56Z
+chain-tp@48000/256,chain-tp,chain,H3,shared-process,mod-host,48000,256,30,ok,10,6.23,7.52,6.32,169.6,89.3,1,12,0,0,290.1,70721,,chain-tp-48000-256.json,2026-10-31T14:32:56Z
+chain-tp@48000/256,chain-tp,chain,H4,individual,jalv,48000,256,30,ok,10,6.99,7.91,7.31,1451.2,463.5,10,10,25,0,8763.4,69420,,chain-tp-48000-256.json,2026-10-31T14:32:56Z
+chain-omx@48000/128,chain-omx,chain,H2,individual,plugin-hostd single,48000,128,30,ok,1,0.55,0.73,0.51,110.3,28.5,2,1,0,0,46.7,14689,,chain-omx-48000-128.json,2026-10-31T14:35:43Z
+chain-omx@48000/128,chain-omx,chain,H2,chain,plugin-hostd grouped,48000,128,30,ok,1,0.56,0.69,0.51,110.3,28.6,2,1,0,0,120.5,14697,,chain-omx-48000-128.json,2026-10-31T14:35:43Z
+chain-omx@48000/128,chain-omx,chain,H1,shared-process,omx-clap-host,48000,128,30,ok,1,0.54,0.68,0.48,108.7,27.6,1,1,0,0,23.6,13486,,chain-omx-48000-128.json,2026-10-31T14:35:43Z
+chain-omx@48000/128,chain-omx,chain,H3,shared-process,mod-host,48000,128,30,ok,1,0.69,0.9,0.61,152.5,72.3,1,3,0,0,28.4,35614,LV2 builds of omx-eq8,chain-omx-48000-128.json,2026-10-31T14:35:43Z
+chain-omx@48000/128,chain-omx,chain,H4,individual,jalv,48000,128,30,ok,1,0.62,0.79,0.35,142.9,62.9,1,1,0,0,859.3,12909,LV2 builds of omx-eq8,chain-omx-48000-128.json,2026-10-31T14:35:43Z
+chain-tp@48000/128,chain-tp,chain,H2,individual,plugin-hostd single,48000,128,30,ok,10,8.86,9.85,11.49,1111.0,111.0,11,10,53,0,837.0,137358,,chain-tp-48000-128.json,2026-10-31T14:38:43Z
+chain-tp@48000/128,chain-tp,chain,H2,chain,plugin-hostd grouped,48000,128,30,ok,10,6.95,7.24,6.96,128.9,44.9,2,10,0,0,1341.3,120579,"one worker, 10 JACK clients",chain-tp-48000-128.json,2026-10-31T14:38:43Z
+chain-tp@48000/128,chain-tp,chain,H1,shared-process,omx-clap-host LV2,48000,128,30,ok,10,8.13,8.43,8.4,124.2,43.9,1,10,0,0,397.5,119363,,chain-tp-48000-128.json,2026-10-31T14:38:43Z
+chain-tp@48000/128,chain-tp,chain,H3,shared-process,mod-host,48000,128,30,ok,10,7.46,9.4,7.47,170.0,89.3,1,12,0,0,252.9,141177,,chain-tp-48000-128.json,2026-10-31T14:38:43Z
+chain-tp@48000/128,chain-tp,chain,H4,individual,jalv,48000,128,30,ok,10,8.91,9.52,9.13,1449.7,463.5,10,10,61,0,9222.3,128205,,chain-tp-48000-128.json,2026-10-31T14:38:43Z

@@ -84,6 +84,7 @@ typedef struct WORKER_T {
     int fb_port;
     int state;
     int pool;                   /* 1 when place is a pool */
+    int no_chain_expect;        /* 1 once the worker refused chain_expect: its chain adds take the add and the order */
     int thread_pool;            /* 1 when the process was started with --thread-pool=on (its pin: pool=cores) */
     char place[48];             /* own | pool:<name> */
     int from_split;             /* an own worker born of a pool that died without a culprit */
@@ -121,6 +122,8 @@ typedef struct CHAIN_T {
     int n;
     worker_t *w;                /* NULL while no worker holds it */
     int rejoin;                 /* its members are to be gathered in one worker again, by the tick */
+    int refused;                /* the code the worker answered the chain line with, 0 for none: the chain ends at once
+                                 * (chain_answered, or the tick when it came on a respawn) */
     int planned;                /* a segment of a plan, not a chain the controller declared: id is the plan's number, seg the
                                  * segment's place in the plan, and no g_chain row holds it */
     int seg;

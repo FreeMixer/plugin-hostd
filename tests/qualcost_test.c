@@ -8,6 +8,7 @@
  * Usage: qualcost-test [<test name>]
  */
 
+#include <fcntl.h>
 #include <math.h>
 #include <dirent.h>
 #include <stdio.h>
@@ -183,6 +184,46 @@ static void a_percent_encoded_iri_finds_the_record_of_its_decoded_spelling(void)
     CHECK(qualcost_read(g_dir, "urn:a%2", 48000, 128) == -1.0, "a stray percent is no escape");
 }
 
+
+/* the daemon reads a plugin's records on every add, from a directory of thousands: a repeat read neither lists the
+ * directory again nor parses a record it parsed, while a record replaced (written and renamed in, as plugin-qualify
+ * writes), rewritten in place, or added is read as a fresh read reads it */
+static void a_repeat_read_lists_and_parses_once_and_a_change_is_read(void)
+{
+    static const char *const name = "org.example.m@1.0-eeeeeeeeeeee.default.qualification.json";
+    char path[512], tmp[512];
+    struct timespec t[2] = { { 0, 0 }, { 1700000000, 0 } };
+    unsigned long scans, parses;
+    double c;
+
+    record(name, "org.example.m", 48000, 128, 3000);
+    c = qualcost_read(g_dir, "org.example.m", 48000, 128);
+    CHECK(c > 0, "the record is read: %g", c);
+    scans = qualcost_dir_scans;
+    parses = qualcost_record_parses;
+    c = qualcost_read(g_dir, "org.example.m", 48000, 128);
+    CHECK(qualcost_dir_scans == scans && qualcost_record_parses == parses,
+          "a repeat read lists the directory %lu more times and parses %lu more records", qualcost_dir_scans - scans,
+          qualcost_record_parses - parses);
+    /* replaced: written beside it and renamed over it */
+    snprintf(path, sizeof(path), "%s/%s", g_dir, name);
+    snprintf(tmp, sizeof(tmp), "%s/.tmp-m", g_dir);
+    record(".tmp-m", "org.example.m", 48000, 128, 6000);
+    CHECK(rename(tmp, path) == 0, "renamed in");
+    CHECK(qualcost_read(g_dir, "org.example.m", 48000, 128) > 1.9 * c, "a replaced record is read again");
+    /* rewritten in place, the directory unchanged: its own time says so */
+    c = qualcost_read(g_dir, "org.example.m", 48000, 128);
+    record(name, "org.example.m", 48000, 128, 12000);
+    t[0].tv_sec = 1700000000;
+    t[0].tv_nsec = t[1].tv_nsec = 123;
+    CHECK(utimensat(AT_FDCWD, path, t, 0) == 0, "its time set apart");
+    CHECK(qualcost_read(g_dir, "org.example.m", 48000, 128) > 1.9 * c, "a record rewritten in place is read again");
+    /* another record of the plugin added: the larger stands */
+    c = qualcost_read(g_dir, "org.example.m", 48000, 128);
+    record("org.example.m@2.0-ffffffffffff.default.qualification.json", "org.example.m", 48000, 128, 50000);
+    CHECK(qualcost_read(g_dir, "org.example.m", 48000, 128) > 3.9 * c, "a record added is read");
+}
+
 static const struct { const char *name; void (*fn)(void); } g_tests[] = {
 #define T(f) { #f, f }
     T(a_percent_encoded_iri_finds_the_record_of_its_decoded_spelling),
@@ -198,6 +239,7 @@ static const struct { const char *name; void (*fn)(void); } g_tests[] = {
     T(a_point_without_a_latency_or_at_another_rate_is_no_cell),
     T(a_plugin_no_record_names_has_no_record),
     T(the_larger_of_each_figure_of_two_records_stands),
+    T(a_repeat_read_lists_and_parses_once_and_a_change_is_read),
 #undef T
 };
 

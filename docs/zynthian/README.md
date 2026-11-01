@@ -3,10 +3,40 @@ Zynthian and plugin-hostd
 
 Where this stands, and what is still incomplete: [status.md](status.md). What was measured at JACK ports on the Pi 5, and what failed: [digital-proofs.md](digital-proofs.md).
 
+What it is
+----------
+
+plugin-hostd answers mod-host's protocol and runs plugins in worker processes: LV2 through mod-host or omx-clap-host's
+adapter, CLAP through omx-clap-host. Under Zynthian it is one more engine beside jalv, so a Zynthian can host CLAP
+plugins as well as LV2, keep a crash inside one worker, and run a whole chain in one worker instead of one process per
+plugin. plugin-qualify measures each plugin on the device first, and the menus are built from what it found.
+
+How much it changes in Zynthian
+-------------------------------
+
+Nothing in Zynthian depends on it. It stays on jackd: no file that configures JACK changes and no PipeWire is involved.
+The [upstream series](upstream-series.md) keeps the engine off until a user sets `ZYNTHIAN_PLUGIN_ENGINE=plugin-hostd`,
+and MOD-UI on `jack_load` until a user runs `set_modhost_backend.sh plugin-hostd`; going back is the same setting. Up to
+step 7 it touches five existing files of zynthian-ui (65 lines added, 8 removed) and adds seven modules; up to step 8
+it touches zynthian-sys in `mod-host.service`, the mod-ui recipe, the two setup scripts, the two update scripts and
+`zynthian_envars.sh`, and adds its own scripts and unit drop-ins.
+
+The fork is further along than the series and has it on: on FreeMixer/zynthian-sys and FreeMixer/zynthian-ui `vangelis`,
+plugin-hostd is the default engine and MOD-UI's default backend, and the qualification sync is enabled. How to go back
+is in the [zynthian-sys README](https://github.com/FreeMixer/zynthian-sys#openmixer-in-this-zynthian).
+
+What runs when nobody uses it: the UI starts a daemon only when a chain holds a plugin-hostd plugin. What stays enabled
+once the qualification step is in is `plugin-qualify-sync.timer` (two minutes after boot, lowest CPU and disk priority,
+skipping a plugin whose files have not changed), `plugin-qualify-sync.path`, and omx-panel's MOD GUI and complement
+syncs; those can be disabled, and the first sync on a device with many plugins is long
+([tradeoffs](tradeoffs.md#qualification-and-pins)).
+
+Three things to do with it, with their steps and limits: [examples.md](examples.md).
+
 What this directory holds: the spike that put plugin-hostd under Zynthian ([spike-report.md](spike-report.md)), the
 plan built on it ([offer.md](offer.md)), mod-ui's verbs on mod-host and on plugin-hostd ([verbs.tsv](verbs.tsv)), one
 Zynthian chain written as a strip profile ([chain-profile.md](chain-profile.md)), what the jalv and mod-ui engines
-give a chain ([engine-gaps.md](engine-gaps.md)), instruments through the engine with Surge XT on the Pi 5
+give a chain ([engine-gaps.md](engine-gaps.md)), Mixbus chains, effects sends and parallel slots ([mixbus.md](mixbus.md)), instruments through the engine with Surge XT on the Pi 5
 ([instruments.md](instruments.md)), the order the work is offered upstream in, step by step
 ([upstream-series.md](upstream-series.md)), the Pi 5 stress run of grouped, alone and jalv hosting
 ([stress.md](stress.md)), the screens of the menus and MOD GUIs on the Pi 5 ([captures.md](captures.md)), and the raw
@@ -34,14 +64,16 @@ zynthian/zynthian-ui `vangelis`. It provides:
 
 - the engine `PH` (`zyngine/zynthian_engine_plugin_hostd.py`): LV2 and CLAP plugins, each processor one instance of a
   shared plugin-hostd daemon spoken to over the mod-host protocol, the daemon started with zynthian-sys's
-  `plugin-hostd-start.sh`;
-- LV2 plugins offered through plugin-hostd by default; a plugin plugin-hostd refuses stays on jalv, listed in its
-  menu;
+  `plugin-hostd-start.sh` when a chain first needs it;
+- on the fork, LV2 plugins offered through plugin-hostd by default; a plugin plugin-hostd refuses stays on jalv, listed
+  in its menu;
 - the plugin menus ordered and tagged from the per-plugin qualification records, CLAP entries keyed by pin URI
   (`zyngine/zynthian_plugin_qualification.py`, `zyngine/zynthian_plugin_tiers.py`);
-- chains synced through the daemon's planner (`plan`, `plan_get`, `plan_clear`): what runs together is the daemon's
-  answer, and a Grouping entry in the processor options tells why a plugin runs alone
-  (`zyngine/zynthian_plugin_hostd_grouping.py`); a grouped member, and a chain on the lv2-clap row, is one JACK client;
+- a chain's runs of single-plugin slots handed to the daemon to share a worker, read through its planner (`plan`,
+  `plan_get`, `plan_clear`): [zynthian-ui#53](https://github.com/FreeMixer/zynthian-ui/pull/53) reads the plan as plugin-hostd 0.14 and later give it. A Grouping entry
+  in the processor options tells why a plugin runs alone (`zyngine/zynthian_plugin_hostd_grouping.py`). The grouped
+  figures in these pages measure the daemon directly; a run through Zynthian's own engine is next
+  ([status](status.md#still-open));
 - CLAP parameters addressed by their number;
 - the protocol read from the daemon's installed files, a missing file or name one clear refusal
   (`zyngine/zynthian_plugin_hostd_protocol.py`);

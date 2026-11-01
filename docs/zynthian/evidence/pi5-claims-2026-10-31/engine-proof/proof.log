@@ -1,0 +1,36 @@
+=== 2026-10-31T18:32:26Z versions: plugin-hostd  0.15.7, omx-clap-host  0.25.4
+=== 2026-10-31T18:32:26Z values: a preset load on a running omx-eq8, omx-comp's ratio after a chain forms and after a crash
+== versions: plugin-hostd version: 0.15.7 omx-clap-host version: 0.25.4
+== 1. a preset load on a running omx-eq8
+  > add clap:/usr/lib/clap/omx-eq8.clap#org.openmixer.eq8 1 => resp 1
+  47 parameters read back
+  > preset_list 1 => resp 8
+  > preset_get 1 0 => resp 0 file:/usr/share/omx/presets/org.openmixer.eq8//amp-input.json Amp Input
+  > preset_load 1 file:/usr/share/omx/presets/org.openmixer.eq8//amp-input.json => resp 0
+  factory preset 0: 4 of 47 parameters changed, held a second later: True
+  worker up: True
+== 2. omx-comp's ratio after a chain forms (#438) and after its worker is killed
+  > add clap:/usr/lib/clap/omx-comp.clap#org.openmixer.comp 2 => resp 2
+  > add clap:/usr/lib/clap/omx-eq8.clap#org.openmixer.eq8 3 => resp 3
+  > param_set 2 1 7.5 => resp 0
+  ratio (parameter 1) before the chain: 7.5
+  > chain 1 3 2 => resp 0
+  ratio after the chain formed: 7.5   (worker_list: resp 2 w1:506362:clap:up:1:qualified:own:1 w4:506391:clap:up:2:qualified:chain:1:3,2)
+  killing the chain's worker, pid 506391
+  ratio after the crash and respawn: 7.5   (worker 506398)
+=== 2026-10-31T18:33:15Z #56/#57 with grouping on, zynthian-ui at 76b5e106
+=== 2026-10-31T18:34:07Z zynthian active; Tracebacks 0; clients: a2j audioplayer effect_1000 system ttymidi ZynMaster ZynMidiRouter zynmixer_bus zynmixer_chan zynseq zynsmf 
+Setting up omx-plugins-test (0.16.0) ...
+ok   series: +0.00 dB, right answer +0.00; clients ['effect_1000']; workers w3:507115:clap:up:1:qualified:chain:1.0:1000,1001
+ok   parallel: +6.02 dB, right answer +6.02; clients ['effect_1000', 'effect_1001']; workers w4:507156:clap:up:2:qualified:own:1000 w5:507161:clap:up:1:qualified:own:1001
+ok   strip: -20.00 dB, right answer -20.00; clients ['effect_1000', 'effect_1001']; workers w1:507181:clap:up:1:qualified:own:1000 w2:507186:clap:up:2:qualified:own:1001
+ok   other: -6.02 dB, right answer -6.02; clients ['effect_1000', 'effect_1001']; workers w1:507206:clap:up:1:qualified:own:1000 w2:507211:clap:up:2:qualified:own:1001
+ok   grouping_off: +0.00 dB, right answer +0.00; clients ['effect_1000', 'effect_1001'] (want 2); workers w1:507239:clap:up:1:qualified:own:1000 w2:507244:clap:up:2:qualified:own:1001; grouping off: each plugin in a worker of its own
+ok   edit_elsewhere: -20.00 dB, right answer -20.00; clients ['effect_1002']; workers w6:507293:clap:up:2:qualified:chain:2001.0:1002,1003; the run after the strip, worker 507293 -> 507293
+ok   notes_behind_effect: +5.58 dB, right answer +5.58; clients ['effect_1000', 'effect_1001']; workers w1:507325:clap:up:1:qualified:own:1000 w2:507330:clap:up:2:qualified:own:1001; a note to the effect that takes notes: -999.0 -> -14.4 dBFS, its client effect_1001
+ok   zynthian_unqualified: +0.00 dB, right answer +0.00; clients ['effect_1000', 'effect_1001'] (want 2); workers w1:507442:clap:up:1:qualified:own:1000 w2:507447:clap:up:2:qualified:own:1001; reasons {1000: 'no-verdict', 1001: 'no-verdict'}
+ok   zynthian_qualified: +0.00 dB, right answer +0.00; clients ['effect_1000'] (want 1); workers w3:507477:clap:up:1:qualified:chain:1.0:1000,1001; reasons {}
+ok   zynthian_packaged: +0.00 dB, right answer +0.00; clients ['effect_1000'] (want 1); workers w3:507524:clap:up:1:qualified:chain:1.0:1000,1001; package pins pin it in-process; reasons {}
+Removing omx-plugins-test (0.16.0) ...
+=== 2026-10-31T18:35:15Z step 10: back
+=== 2026-10-31T18:36:06Z zui f864d294; conf grouping lines 0; zynthian active; Tracebacks 0; missing clients: none; omx-plugins-test: not installed

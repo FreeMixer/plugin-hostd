@@ -4,8 +4,8 @@ Digital proofs on the Pi 5
 What was measured on the Zynthian Pi 5 with the Digidesign Mbox 2 (`hw:M2`) under jackd at 48000 Hz, 256 frames, 3
 periods, with plugin-hostd 0.15.3, omx-clap-host 0.25.1, plugin-qualify 0.18.0, omx-panel 0.7.2, omx-plugins 0.16.0 and
 the zynthian-ui fork at `f864d294` (the tip of `vangelis`). Every level and count below is read at a JACK port or in a
-journal: this is **digital**. No speakers and no loop cable were connected, so nothing here says what comes out of the
-analog outputs, and nobody has listened. The audible proof is still owed.
+journal: these are **digital** measurements, and each figure is one at the JACK ports. Where a failure below has since been fixed, the
+section says on which release; the Pi now runs plugin-hostd 0.15.4 and omx-clap-host 0.25.2.
 
 Nothing was downloaded or built on the Pi except the two probes `tools/zynthian/` names (`jack-instrument-probe`,
 `jack-note-meter`, compiled with the gcc and `jack.h` that are already on the image). Every run is a script in
@@ -72,8 +72,9 @@ one core of the thread that carries the work (`omx-clap-host@cpuN`), 0 xruns in 
 
 Both settings give one busy thread, on cpu1, and the same load. Surge XT 1.4 declares no `clap.thread-pool`, so the
 pool has nothing of its to run: **the pool does not spread Surge XT's voices on this Pi**. Four instances of the same
-plugin (16 voices each) take one core each: three workers at 10 % on cpu1, cpu2 and cpu3, JACK DSP 18.8 % without the pool
-and 18.6 % with it, 0 xruns in both. Tables:
+plugin (16 voices each) run in four workers, spread over the cores: 10 %, 10 % and 10 % on cpu1, cpu2 and cpu3 and 8 % on
+cpu1 again, JACK DSP 18.8 % without the pool and 18.6 % with it, 0 xruns in both. That is the same 64 voices at a lower
+JACK DSP load than one instance's 27.5 %. What spreads is instances across workers, not one instance's voices. Tables:
 [pool off](evidence/pi-digital-proofs/logs/d-clap-poly64-pool-off.tsv),
 [pool cores](evidence/pi-digital-proofs/logs/d-clap-poly64-pool-cores.tsv),
 [four instances](evidence/pi-digital-proofs/logs/d-clap-x4.tsv),
@@ -120,8 +121,9 @@ and every plugin of the `mod-mda-*` bundles are refused the same way. The cause 
 looks for the literal `<http://moddevices.com/plugins/mda/Piano>` in each manifest, and these manifests write
 `mda:Piano` under an `@prefix`, so no bundle is found and no pin can be collected.
 `plugin-hostd --pin-files http://moddevices.com/plugins/mda/Piano` fails with `manifest.ttl is in no bundle of lv2_path
-naming the plugin`. The fix is [plugin-hostd#324](https://github.com/FreeMixer/plugin-hostd/pull/324); it needs a release
-and an upgrade of the Pi, which was not done.
+naming the plugin`. The fix is [plugin-hostd#324](https://github.com/FreeMixer/plugin-hostd/pull/324), in plugin-hostd
+0.15.4, which the Pi now runs: the chains load at boot with no -509. Adding mda Piano from the menu has not been tried
+again.
 
 Each refused add left an empty chain in the mixer, one per try
 ([capture](evidence/pi-digital-proofs/captures/b-refused-adds-leave-empty-chains.png)). This is what
@@ -141,6 +143,8 @@ they were, by value, cannot be compared until mda Piano can be added.
 
 ### omx eq8 as CLAP refuses to load a preset on a running instance
 
+omx-clap-host 0.25.4 fixes this at the daemon: a factory preset on a running instance changes 4 of 47 parameters and holds ([log](evidence/pi5-claims-2026-10-31/engine-proof/proof.log)). What follows is the run before it.
+
 In the menu, choosing a Factory preset shows its name in the title bar and leaves every control where it was
 ([capture](evidence/pi-digital-proofs/captures/b-eq8-factory-load-values-unchanged.png): `Gentle Tilt` with Band 1 gain
 0.0, where the LV2 form of the same preset gives 1.5). The journal has
@@ -156,8 +160,8 @@ client is always processing. This is read from the source of omx-plugins 0.16.0;
 it where it opens and hashes the file) and answers -101 from the worker, which is given the encoded name. A symlink with
 no space in its name works: the proofs above used it.
 
-After this run the daemon gives the worker the decoded path, one quoted word. A build of it on this Pi, with the installed
-omx-clap-host 0.25.1, adds the encoded name with and without pins and reads -13.5 dBFS at C4, 0 xruns.
+After this run the daemon gives the worker the decoded path, one quoted word. On plugin-hostd 0.15.4 and omx-clap-host
+0.25.2 the encoded name reads -13.5 dBFS at C4, run by hand with a `HOME` set: without a `HOME` its CLAP answers -503.
 
 ### Surge XT as LV2 through plugin-hostd's adapter
 
@@ -172,13 +176,16 @@ The silence was the adapter's: its first block sent every `patch:writable` prope
 says 0 for all 775 of them, the global volume among them, while its real values live in the plugin
 ([omx-clap-core#433](https://github.com/FreeMixer/omx-clap-core/pull/433)). With a build of that change and of the daemon
 that decodes the binary's name, on this Pi, under `require_pins 1`: -13.5 dBFS at C4, as jalv, 0 xruns. A single low note
-reads -11.2 dBFS peak, -22.4 dBFS RMS at 65.5 Hz, the row jalv gives, at JACK DSP 3.7 % against 14.3 % before.
+reads -11.2 dBFS peak, -22.4 dBFS RMS at 65.5 Hz, the row jalv gives, at JACK DSP 3.7 % against 14.3 % before. The released
+plugin-hostd 0.15.4 and omx-clap-host 0.25.2 give the same -13.5 dBFS at C4, by hand with a `HOME` set; without a `HOME`
+Surge XT is silent, under jalv too. Surge XT still has no qualification record in either form.
 
 ### Odin 2 is refused by its pin
 
-The pin of Odin 2 carries `verdict=refused` (its record says `unsuitable`, isolated, from real-time violations in the
-sweep), so the daemon answers -516 and the menu lists it as `refused`. Presets were proven by speaking to the worker
-directly (above).
+In this run the pin of Odin 2 carried `verdict=refused` (its record said `unsuitable`, isolated, from real-time violations
+in the sweep), so the daemon answered -516 and the menu listed it as `refused`. Presets were proven by speaking to the
+worker directly (above). Since then its record says `isolated` for the same violations, the adapter pass admits it and the
+pin carries `verdict=isolated`, which means a worker of its own; adding and playing it has not been tried again.
 
 ### zynthian-ui #42 and #44
 

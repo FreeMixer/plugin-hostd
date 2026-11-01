@@ -436,6 +436,12 @@ static int manifest_prefixed(const char *text, const char *uri)
     return 0;
 }
 
+/* MANIFEST_NAMES when the bundle's manifest names the plugin, and MANIFEST_REALISES when it also holds a binary: a bundle
+ * that only adds to a plugin, such as a generated MOD GUI, names it too and cannot run it */
+enum { MANIFEST_NOT, MANIFEST_NAMES, MANIFEST_REALISES };
+
+unsigned long proc_manifest_reads;
+
 static int manifest_names(const char *bundle, const char *uri)
 {
     char path[PATH_MAX], *text, needle[2048];
@@ -445,6 +451,7 @@ static int manifest_names(const char *bundle, const char *uri)
     int found;
 
     snprintf(path, sizeof(path), "%s/manifest.ttl", bundle);
+    proc_manifest_reads++;
     file = fopen(path, "rb");
     if (!file)
         return 0;
@@ -466,15 +473,76 @@ static int manifest_names(const char *bundle, const char *uri)
     fclose(file);
     text[got] = '\0';
     snprintf(needle, sizeof(needle), "<%s>", uri);
-    found = strstr(text, needle) != NULL || manifest_prefixed(text, uri);
+    found = MANIFEST_NOT;
+    if (strstr(text, needle) != NULL || manifest_prefixed(text, uri))
+        found = strstr(text, "binary") != NULL ? MANIFEST_REALISES : MANIFEST_NAMES;
     free(text);
     return found;
 }
 
+/* the bundles found holding a plugin's binary, by search path and uri: a repeat lookup reads that one manifest again
+ * instead of walking the path. Only an answer that holds the binary is kept, and only while its manifest still holds it,
+ * so a plugin installed, moved or removed while the daemon runs is found as a walk finds it. The daemon's lookups run
+ * on its one control thread. */
+#define BUNDLE_MEMO_MAX 4096
+static struct bundle_memo
+{
+    char *path, *uri, *bundle;
+} g_bundle_memo[BUNDLE_MEMO_MAX];
+static int g_bundle_memos;
+
+static struct bundle_memo *bundle_memo_find(const char *lv2_path, const char *uri)
+{
+    int k;
+
+    for (k = 0; k < g_bundle_memos; k++)
+        if (!strcmp(g_bundle_memo[k].uri, uri) && !strcmp(g_bundle_memo[k].path, lv2_path))
+            return &g_bundle_memo[k];
+    return NULL;
+}
+
+/* remembers a bundle that holds the plugin's binary; with no memory for it, nothing is remembered and the next lookup
+ * walks the path */
+static void bundle_memo_keep(const char *lv2_path, const char *uri, const char *bundle)
+{
+    struct bundle_memo *m = bundle_memo_find(lv2_path, uri);
+    char *copy = strdup(bundle);
+
+    if (!copy)
+        return;
+    if (m)
+    {
+        free(m->bundle);
+        m->bundle = copy;
+        return;
+    }
+    if (g_bundle_memos == BUNDLE_MEMO_MAX)
+    {
+        free(copy);
+        return;
+    }
+    m = &g_bundle_memo[g_bundle_memos];
+    m->path = strdup(lv2_path);
+    m->uri = strdup(uri);
+    if (!m->path || !m->uri)
+    {
+        free(m->path);
+        free(m->uri);
+        free(copy);
+        return;
+    }
+    m->bundle = copy;
+    g_bundle_memos++;
+}
+
 char *proc_find_lv2_bundle(const char *lv2_path, const char *uri)
 {
-    char *copy = strdup(lv2_path), *dir, *save = NULL, *result = NULL;
+    struct bundle_memo *m = bundle_memo_find(lv2_path, uri);
+    char *copy, *dir, *save = NULL, *result = NULL, *named = NULL;
 
+    if (m && manifest_names(m->bundle, uri) == MANIFEST_REALISES)
+        return strdup(m->bundle);
+    copy = strdup(lv2_path);
     if (!copy)
         return NULL;
     for (dir = strtok_r(copy, ":", &save); dir && !result; dir = strtok_r(NULL, ":", &save))
@@ -492,13 +560,28 @@ char *proc_find_lv2_bundle(const char *lv2_path, const char *uri)
             if (n < 5 || strcmp(entry->d_name + n - 4, ".lv2") != 0)
                 continue;
             snprintf(bundle, sizeof(bundle), "%s/%s", dir, entry->d_name);
-            if (manifest_names(bundle, uri))
+            switch (manifest_names(bundle, uri))
+            {
+            case MANIFEST_REALISES:
                 result = strdup(bundle);
+                break;
+            case MANIFEST_NAMES:
+                /* a manifest may leave the binary to a file it links: the first that names the plugin, when none holds one */
+                if (!named)
+                    named = strdup(bundle);
+                break;
+            }
         }
         closedir(d);
     }
     free(copy);
-    return result;
+    if (result)
+    {
+        free(named);
+        bundle_memo_keep(lv2_path, uri, result);
+        return result;
+    }
+    return named;
 }
 
 int proc_parse_stat(const char *text, long long *utime, long long *stime)

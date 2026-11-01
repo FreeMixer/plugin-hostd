@@ -58,7 +58,7 @@
           "recover_ms": { "type": ["number", "null"], "minimum": 0 },
           "status": { "enum": ["ok", "unsupported", "failed"] },
           "note": { "type": "string" },
-          "mode": { "enum": ["individual", "chain", "shared-process", "plan", "pool"] },
+          "mode": { "enum": ["individual", "chain", "chain-add", "shared-process", "plan", "pool"] },
           "processes": { "type": "integer", "minimum": 0 },
           "rss_mb_total": { "type": "number", "minimum": 0 },
           "pss_mb_total": { "type": "number", "minimum": 0 },

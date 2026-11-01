@@ -15,7 +15,15 @@ page is the patches. Benchmarks and trade-offs of the Raspberry Pi 5 runs are in
 them and repeats none of their figures beyond the totals.
 
 Bases: zynthian/zynthian-sys `vangelis` at `50e151022f24`, zynthian/zynthian-ui `vangelis` at `f43b7da59eb4`.
-Every commit is signed. No step has been offered upstream except step 1.
+Every commit is signed. No step has been offered upstream except step 1. Upstream has moved since the cut (one commit on
+zynthian-sys, two on zynthian-ui), and the fork has moved further than the series: the Factory and User preset banks,
+controller pages from the plugin's own sections, the sort list and the chain estimate are on the fork and in no step yet.
+
+What the series touches, against the upstream tip: in zynthian-ui, up to step 7, five existing files
+(`zyngine/__init__.py`, `zynthian_chain.py`, `zynthian_chain_manager.py`, `zyngui/zynthian_gui_engine.py`,
+`zynthian_gui_processor_options.py`: 65 lines added, 8 removed) and seven new modules. In zynthian-sys, up to step 8,
+`mod-host.service`, `install_mod-ui.sh`, the two setup scripts, `update_system_image.sh`, `update_zynthian_sys.sh`,
+`zynthian_envars.sh` and the README, and twelve new files of its own. No file that configures JACK changes.
 
 | Step | Title | Repo | Branch on the fork | Base | Commits | Qualification | Upstream |
 |---|---|---|---|---|---|---|---|
@@ -24,12 +32,12 @@ Every commit is signed. No step has been offered upstream except step 1.
 | 3 | plugin-hostd as MOD-UI's mod-host, switchable, off | sys | `upstream/03-modhost-backend` | 2 | 2 | ready check 0 failed; MOD-UI session diff: 135 calls, 5 replies differ (spike run); backend check on the device owed | not yet |
 | 4 | The plugin-hostd engine (PH), not the default | ui | `upstream/04-plugin-hostd-engine` | `f43b7da5` (needs sys 3 on the device) | 2 | pytest 82 passed, 1 skipped; chain round trip (spike engine) | not yet |
 | 5 | Qualification records and pins; unsuitable plugins stay on jalv | sys + ui | `upstream/05-qualification` (both) | sys 3; ui 4 | 1 + 1 | sys container check 80/80; pytest 124 passed; sync on the device owed | not yet |
-| 5a | Plugin menus sort and show the qualification figures (latency, RT safety, cost) | ui | in its own pull request (FreeMixer/zynthian-ui#16) | 5 | - | in progress | not yet |
+| 5a | Plugin menus sort and show the qualification figures (latency, RT safety, cost) | ui | merged on the fork (FreeMixer/zynthian-ui#16), not cut | 5 | - | on the fork | not yet |
 | 6 | The engine is the default for LV2 instruments and effects | ui + sys | `upstream/06-engine-default` (both) | ui 5; sys 5 | 1 + 1 | pytest 133 passed; sys container check 91/91; device walk owed | not yet |
 | 7 | CLAP plugins through the engine | ui + sys | `upstream/07-clap` (both) | ui 6; sys 6 | 1 + 1 | pytest 136 passed; sys container check 96/96 | not yet |
-| 7a | Instruments through the engine: MIDI in, polyphony, MPE, Surge XT | ui | on its own branch (plugin-hostd `lane/zynthian-instruments`) | 7 | - | in progress ([instruments.md](instruments.md)) | not yet |
+| 7a | Instruments through the engine: MIDI in, polyphony, MPE, Surge XT | ui | on the fork, not cut | 7 | - | digital proofs on the Pi ([digital-proofs.md](digital-proofs.md)) | not yet |
 | 8 | MOD GUIs and LV2 complements from omx-panel | sys | `upstream/08-modgui` | sys 7 | 1 | sys container check 110/110 with omx-panel 0.6.0; GUIs on the device owed | not yet |
-| 9 | Chain cost estimate before an insert | ui | none: plan only (FreeMixer/zynthian-ui#13) | 6 | - | - | not yet |
+| 9 | Chain cost estimate before an insert | ui | on the fork (FreeMixer/zynthian-ui#13), not cut | 6 | - | - | not yet |
 
 "sys" is zynthian-sys, "ui" zynthian-ui. A ui step needs the sys steps before it on the device: the engine of step 4
 starts its daemon with step 3's `sbin/plugin-hostd-start.sh`, and step 5's menus read the records step 5's sync
@@ -71,8 +79,8 @@ Device proofs and captures
 
 Each step lists what it proves without the device (run for this page, results below) and what only the device can
 prove. The device is a Raspberry Pi 5 with ZynthianOS Vangelis-2610.1 ([evidence/image/inspect.txt](evidence/image/inspect.txt)).
-Screen captures go to `evidence/series/<step>/` under the names given in each step; they are owed: they need a root
-login on the device, which this run did not have. Each is taken the same way:
+Screen captures go to `evidence/series/<step>/` under the names given in each step; those named in the steps are still
+owed, on these branches. Each is taken the same way:
 
     # the touchscreen UI, on the device (zynthian.service draws on X display :0)
     DISPLAY=:0 xwd -root -silent | convert xwd:- png:- > /tmp/<name>.png
@@ -199,7 +207,7 @@ changing.
 and effect is offered through plugin-hostd ("Name (PH)") instead of jalv; MIDI tools stay with jalv. The engine
 starts one daemon per Zynthian on port 5570 with step 3's script, reads the daemon's reply codes from the files it
 ships (a missing file is one clear refusal), declares each chain to the daemon's planner, which says what runs
-together, brings a lost daemon back with every instance's preset and values, and builds its controller pages from
+together, brings a lost daemon back and replays each instance's preset and values (with omx-clap-host 0.25.4 or later), and builds its controller pages from
 omx-panel's layout of the plugin descriptor when omx-panel is installed (step 8 installs it; `apt install omx-panel`
 before that). A processor that runs alone has a "Grouping" entry in its options saying why. Snapshots holding PH
 processors load whatever the setting. Differences from the fork: the fork made plugin-hostd the default and listed
@@ -283,14 +291,14 @@ plugin-qualify-sync.path` and `require_pins 0` (README), or revert the two commi
 Step 5a: plugin menus sort and show the qualification figures (latency, RT safety, cost)
 ---------------------------------------------------------------------------------------
 
-Repo zynthian-ui. In progress: issue FreeMixer/zynthian-ui#15, pull request FreeMixer/zynthian-ui#16.
+Repo zynthian-ui. Merged on the fork: issue FreeMixer/zynthian-ui#15, pull request FreeMixer/zynthian-ui#16.
 Base: step 5. It joins the series once rebased on `upstream/05-qualification`.
 
 **Why.** The tags of step 5 say the class and one latency; a musician choosing between two reverbs wants the figures
 side by side and the list sorted by the one that matters to them.
 
-**Qualification, how to use it, revert.** Written in that pull request; this page takes them when it
-lands.
+**Qualification, how to use it, revert.** Written in that pull request; this page takes them when the step
+is cut.
 
 Step 6: the engine is the default for LV2 instruments and effects
 -----------------------------------------------------------------
@@ -364,16 +372,16 @@ start; a plugin that crashes the scan is left out and logged. Revert the two com
 Step 7a: instruments through the engine: MIDI in, polyphony, MPE, Surge XT
 --------------------------------------------------------------------------
 
-Repo zynthian-ui. In progress on plugin-hostd's branch `lane/zynthian-instruments`, and on a branch of the fork.
-Base: step 7.
+Repo zynthian-ui. On the fork, not cut yet. Base: step 7.
 
 **Why.** Zynthian is used for instruments first. An engine that runs effects well and instruments badly is not one a
 Zynthian user can take.
 
-**Qualification.** The device proof in progress, [instruments.md](instruments.md): Surge XT (CLAP) on the
-Pi 5, notes, polyphony and CPU per core, velocity, CC, pitch bend, sustain, all-notes-off, a capture of the engine's
-pages, and the same patch on jalv for comparison. Known gaps: CLAP voices run on one core with omx-clap-host 0.23.2 (the CLAP
-thread pool, FreeMixer/omx-clap-core#395, in progress); Surge's own GUI only over VNC; modulation-path assignment
+**Qualification.** The device proofs, [instruments.md](instruments.md) and [digital-proofs.md](digital-proofs.md): mda
+Piano and Surge XT on the Pi 5, notes, polyphony and CPU per core, velocity, CC, pitch bend, sustain, all-notes-off, and
+the same patch on jalv for comparison. Known gaps: Surge XT takes no thread pool, so one instance's voices stay on one
+core (the pool itself is in omx-clap-core, FreeMixer/omx-clap-core#395, and no instrument that takes it has been measured
+yet); Surge XT has no qualification record yet; Surge's own GUI only over VNC; modulation-path assignment
 (FreeMixer/omx-clap-core#327).
 
 Step 8: MOD GUIs and LV2 complements from omx-panel
@@ -411,22 +419,23 @@ Revert: `systemctl disable omx-modgui-sync omx-complement-sync`, or revert the c
 
 **Upstream.** Not yet.
 
-Step 9: chain cost estimate before an insert (plan only)
---------------------------------------------------------
+Step 9: chain cost estimate before an insert
+--------------------------------------------
 
-Repo zynthian-ui. No branch: the work is FreeMixer/zynthian-ui#13. Base: step 6.
+Repo zynthian-ui. On the fork, not cut: FreeMixer/zynthian-ui#13. Base: step 6.
 
 **Why.** On a Pi, the plugin that breaks a chain is the one added last. The chain editor can ask plugin-hostd what a
 chain with the new plugin would cost (latency, CPU, RAM) from the qualification records before the insert, and
 recommend, warn or refuse.
 
-**Plan.** The question goes to the daemon's planner, which already answers `plan` and `plan_get` (step 4); a cost
-query is new protocol and lands in plugin-hostd first. The menu shows the answer at the insert; a refusal names the
-figure that refused it. No patch until the daemon's verb exists and is released.
+**State.** The daemon answers `estimate` from the qualification records, and the fork's menu shows the chain's figures
+with the highlighted plugin in it. The cost in a record comes from 512-frame blocks only, not Zynthian's quantum
+(FreeMixer/plugin-qualify#193), so it is a guide for now, not a promise.
 
 Not done in this run
 --------------------
 
-- Every capture above, and every proof marked owed on the device: they need a root login on the Pi 5.
+- Every capture above, and every proof marked owed on the device, on these branches: the device runs the fork, not the
+  series.
 - shellcheck reports three info or style notes in the fork's own test scripts (`default-install-check.sh`,
   `plugin-hostd-ready-check.sh`), none of warning level; they are left as the fork has them.

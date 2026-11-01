@@ -319,6 +319,20 @@ def ports(env):
     return out
 
 
+def graph_before_host(env, limit_s=READY_LIMIT_S, poll_s=0.05):
+    """the clients on the graph once the last host's have left: its process is gone a moment before JACK drops its clients,
+    and one still there would be counted out of this row's. Failed when one stays"""
+    end = time.monotonic() + limit_s
+    while True:
+        graph = set(ports(env))
+        left = sorted(c for c in graph if c.startswith("effect_"))
+        if not left:
+            return graph
+        if time.monotonic() >= end:
+            raise Failed("%s still on the graph %.0f s after the last host stopped" % (", ".join(left), limit_s))
+        time.sleep(poll_s)
+
+
 def connected(env, a, b):
     return b in run(["jack_lsp", "-c", a], env).split()
 
@@ -724,6 +738,7 @@ class Host:
     """one host program started for one scenario row"""
 
     def __init__(self, key, procs, env, workdir, port, conf=("require_pins 0",)):
+        self.own_fallback = set()
         self.key, self.procs, self.env, self.workdir, self.port = key, procs, env, workdir, port
         self.conf = conf
         self.proc = None
@@ -831,6 +846,12 @@ class Host:
             return client
         line = "add %s %d" % (uri, inst) + (" " + placement if placement else "")
         reply = self.ctl.cmd(line)
+        if placement and placement.startswith("chain:") and reply == "resp -501":
+            # the daemon will not put it in the chain (a width the chain's head does not take): the controller adds it
+            # in a worker of its own, as Zynthian does
+            self.own_fallback.add(inst)
+            line = "add %s %d own" % (uri, inst)
+            reply = self.ctl.cmd(line)
         if reply != "resp %d" % inst:
             raise Failed("%s answered '%s' to: %s" % (HOST_PROGRAM[self.key], reply, line))
         return client
@@ -1024,7 +1045,7 @@ class Runner:
                 notes.append("pins: in-process, isolated for %s" % ", ".join(
                     dict.fromkeys(self.cat.name(keys[i]) for i in sorted(alone))))
             host = Host(hkey, self.procs, self.env, wd, self.port, conf)
-            graph_before = set(ports(self.env))
+            graph_before = graph_before_host(self.env)
             log_end = log_size(self.logdir, hkey)
             try:
                 host.start()
@@ -1048,10 +1069,19 @@ class Runner:
                                env=self.env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
             insts = list(range(len(picks)))
-            placement = "own" if hkey == "H2" and mode == "individual" else None
+            placement = {"individual": "own", "chain-add": "chain:1"}.get(mode) if hkey == "H2" else None
             t0 = time.monotonic()
             clients = [host.add(uri, i, placement) for (uri, _, _), i in zip(picks, insts)]
-            if mode == "chain" and insts:
+            if mode == "chain-add" and insts:
+                # a daemon before plugin-hostd#348 reads chain:1 as a client name and gives each add a worker of its own
+                if host.ctl.cmd("chain_get 1").split()[1:2] != ["0"]:
+                    raise Refused("this plugin-hostd has no add into a chain (plugin-hostd#348)")
+                members = [i for i in insts if i not in host.own_fallback]
+                if members:
+                    self.chain_formed(host, members)
+                if host.own_fallback:
+                    notes.append("%d added own: the chain's head does not take their width" % len(host.own_fallback))
+            elif mode == "chain" and insts:
                 reply = host.ctl.cmd("chain 1 " + " ".join(map(str, insts)))
                 if reply != "resp 0":
                     raise Failed("chain answered '%s'" % reply)
@@ -1074,9 +1104,9 @@ class Runner:
                     mode = "individual" if len(ws) == len(insts) else "shared-process"
                 if mode == "individual" and len(ws) != len(insts):
                     notes.append("worker_list shows %d workers for %d instances" % (len(ws), len(insts)))
-                if mode == "chain" and len(ws) != 1:
+                if mode in ("chain", "chain-add") and len(ws) != 1:
                     notes.append("worker_list shows %d workers for one chain" % len(ws))
-                if mode == "chain" and len(clients) > 1:
+                if mode in ("chain", "chain-add") and len(clients) > 1:
                     notes.append("one worker, %d JACK clients" % len(clients))
             elif insts:
                 mode = mode or ("individual" if hkey == "H4" else "shared-process")
@@ -1191,7 +1221,8 @@ class Runner:
             if len(f) >= 5 and f[2] != "-" and f[4] == want:
                 return
             time.sleep(0.01)
-        raise Failed("the chain did not form within %.0f s" % READY_LIMIT_S)
+        raise Failed("the chain did not form within %.0f s; chain_get: %s; worker_list: %s" % (
+            READY_LIMIT_S, host.ctl.cmd("chain_get 1"), host.ctl.cmd("worker_list")))
 
     def kill_and_recover(self, host, r, inst, client):
         """kill -9 the process that holds the plugin; time until its client is back and wired as before"""
