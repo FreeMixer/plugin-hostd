@@ -33,7 +33,7 @@ BuildRequires: omx-clap-host-tests >= 0.25.0
 # the reader that holds the committed render of the daemon's verbs to data/verbs.json (make check-rendered)
 BuildRequires: omx-contract >= 3.4.0
 # the shared verbs and the reply.host.* codes data/verbs.json refers to (make check-rendered, test-verbs-declared)
-BuildRequires: omx-clap-core-contract >= 0.26.0
+BuildRequires: omx-clap-core-contract >= 0.25.1
 %endif
 # the format tables and the verbs, which readers read at run time
 Requires: %{name}-contract = %{version}-%{release}
@@ -67,7 +67,7 @@ Summary: plugin-hostd's format tables and verbs, for programs that read them at 
 BuildArch: noarch
 # verbs.json refuses with omx-clap-core's reply.host.* codes for the numbers both hosts answer: a reader of this
 # package reads that one too; a floor only
-Requires: omx-clap-core-contract >= 0.26.0
+Requires: omx-clap-core-contract >= 0.25.1
 # the tables live in omx-contract's contract directory and are read against its schema: 3.2.0 is the first whose
 # source field takes an index (omx_clap_panel_display.meter_ids[0]), so an older one never sits beside a table it
 # refuses; a floor only
