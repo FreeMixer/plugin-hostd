@@ -19,6 +19,7 @@
  */
 
 #include <arpa/inet.h>
+#include <ctype.h>
 #include <errno.h>
 #include <limits.h>
 #include <fcntl.h>
@@ -156,7 +157,7 @@ static void abi_seen(source_t *s, const char *line)
     long id;
     char *end;
 
-    if (strncmp(line, PHD_EVENT_ABI_CLOBBER, word) || line[word] != ' ' || *digits < '0' || *digits > '9')
+    if (strncmp(line, PHD_EVENT_ABI_CLOBBER, word) || line[word] != ' ' || !isdigit((unsigned char)*digits))
         return;
     id = strtol(digits, &end, 10);
     if (*end != ' ' || id > INT_MAX)
@@ -529,8 +530,7 @@ int relay_abi_clobbers(int fd, int *ids, int max)
     for (i = 0; i < g_nsrc; i++)
         if (g_src[i].fd == fd)
         {
-            if (!g_src[i].eof)
-                drain(&g_src[i]);
+            /* the relay thread reads the worker; reading it here too would read a worker no controller listens to */
             for (n = 0; n < g_src[i].nabi && n < max; n++)
                 ids[n] = g_src[i].abi[n];
             /* what did not fit waits for the next call */
