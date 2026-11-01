@@ -341,7 +341,8 @@ static const char *const g_call_words[REC_FN_COUNT] = {
 static int is_placement(const char *word)
 {
     return !strcmp(word, PHD_PLACE_OWN) || !strcmp(word, PHD_PLACE_DEFAULT) ||
-           !strncmp(word, PHD_PLACE_POOL_PREFIX, strlen(PHD_PLACE_POOL_PREFIX));
+           !strncmp(word, PHD_PLACE_POOL_PREFIX, strlen(PHD_PLACE_POOL_PREFIX)) ||
+           !strncmp(word, PHD_PLACE_CHAIN_PREFIX, strlen(PHD_PLACE_CHAIN_PREFIX));
 }
 
 /* the words property for add <uri> <instance> [<placement>] [<client>]: the placement is word 3 when that word is one,
