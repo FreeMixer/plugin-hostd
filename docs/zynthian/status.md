@@ -75,8 +75,20 @@ The Pi runs these or newer releases, so they are installed there; what is owed i
   against mod-host's 1683 ms, 3.1 times faster. On the CLAP builds, where only our hosts can run them, grouped adds in 428 ms;
   that row is not comparable with mod-host. On a third-party set of ten, all LV2, mod-host still adds faster warm (306 ms
   against 501 ms) for the reason in the open list below ([rows](benchmarks.md#time-to-add-and-the-same-chain-with-the-add-into-the-chain)).
-- **Through Zynthian's update.** The signed tags are zynthian-ui `omx-track/2026103102` at ee76d0ce and zynthian-sys
-  `omx-track/2026110101` at c34723a; the update now moves zynthian-ui, zynthian-sys, zynthian-webconf and the packages together.
+- **Through Zynthian's update.** The signed tags are zynthian-ui `omx-track/2026110101` at c9b855e7 and zynthian-sys
+  `omx-track/2026110102` at 0bc0cff4. In zynthian-sys the webconf follows `vangelis` and the packages follow `main`: the
+  earlier tag could not move a device, because it fetched zynthian-packages at a branch upstream does not have. The
+  zynthian-ui tag carries the bypass, nudge and chain 0 rows of the engine proof
+  ([zynthian-ui#59](https://github.com/FreeMixer/zynthian-ui/pull/59)) and the Easy first page with Compare
+  ([zynthian-ui#60](https://github.com/FreeMixer/zynthian-ui/pull/60)).
+- **omx-clap-core 0.26.0** ([release](https://github.com/FreeMixer/omx-clap-core/releases/tag/v0.26.0)): the add into a chain
+  joins the head's client, with `chain_expect` for a member that gets no client of its own.
+- **omx-dsp 0.28.0** ([release](https://github.com/FreeMixer/omx-dsp/releases/tag/v0.28.0)): new effect faces (a bus
+  compressor, a leveler to a LUFS target, a spring reverb, a spectral balancer, among them) and the delay's read taps.
+- **omx-panel 0.8.0** ([release](https://github.com/FreeMixer/omx-panel/releases/tag/v0.8.0)): the Easy face, a page and a
+  MOD GUI section first, and Compare A/B/C/D with an undo ring.
+- **Not published yet**: plugin-hostd 0.15.8 ([release pull request](https://github.com/FreeMixer/plugin-hostd/pull/363), open)
+  and omx-clap-core 0.26.1, which would carry the mono width rule, have no release page.
 - **plugin-hostd 0.15.7** ([release](https://github.com/FreeMixer/plugin-hostd/releases/tag/v0.15.7)): `chain` answers the
   worker's refusal, and a refused chain ends.
 - **plugin-qualify 0.18.4** ([release](https://github.com/FreeMixer/plugin-qualify/releases/tag/v0.18.4)): the adapter pass and
@@ -111,8 +123,10 @@ Still open
 - **Ten third-party plugins in a group.** Since [plugin-hostd#339](https://github.com/FreeMixer/plugin-hostd/pull/339) they run,
   single and grouped. With the add into the chain, six stereo members form one chain and the four mono ones each have a worker of
   their own: five clients, and 501 ms to add against mod-host's 306 ms ([rows](benchmarks.md#time-to-add-and-the-same-chain-with-the-add-into-the-chain)).
-  What closes it: a mono plugin run inside a stereo chain ([omx-clap-core#447](https://github.com/FreeMixer/omx-clap-core/issues/447)),
-  then the rows again.
+  A mono plugin now joins a stereo chain in the library ([omx-clap-core#447](https://github.com/FreeMixer/omx-clap-core/pull/447),
+  merged, in no release yet): four of this set are 1 in, 1 out and no longer split a run. omx-clap-host's chain checks,
+  plugin-hostd's planner and Zynthian's run rule ([zynthian-ui#61](https://github.com/FreeMixer/zynthian-ui/pull/61), open)
+  take the same width rule next. What closes it: those three landed, then the rows again.
 - **A chain that does not form.** On plugin-hostd 0.15.4 a grouped chain did not form within 20 s in one of four cells at 18
   plugins and on one repeat at 32 and at 48. On 0.15.5 it formed in all six cells at 18 and every repeat up to 24. What closes
   it: rows at 32 and 48 on current versions.
@@ -149,8 +163,18 @@ Still open
 - **The captures are from before the new set.** What closes it: every capture retaken after the re-qualification
   ([captures](captures.md)).
 - **The MOD GUIs on the device show no text.** The Pi runs omx-plugins 0.16.0, whose screenshots predate omx-panel
-  0.7.1. What closes it: omx-plugins 0.17.0, regenerated against omx-panel 0.7.2, after its Debian build is fixed
-  ([omx-plugins#276](https://github.com/FreeMixer/omx-plugins/issues/276)).
+  0.7.1. The Debian build issue is closed ([omx-plugins#276](https://github.com/FreeMixer/omx-plugins/issues/276)); omx-plugins
+  0.17.0 has no release page yet. What closes it: omx-plugins 0.17.0, regenerated against omx-panel 0.7.2 or newer, on the Pi.
+- **Plugins that change a callee-saved register.** The four LSP limiters return from `run()` with d15 changed on aarch64.
+  The hosts now save and restore the callee-saved registers around every plugin call
+  ([omx-clap-core#449](https://github.com/FreeMixer/omx-clap-core/pull/449), open) and plugin-hostd moves such a plugin to a
+  worker of its own ([plugin-hostd#366](https://github.com/FreeMixer/plugin-hostd/pull/366), open); neither is merged or released.
+  What closes it: both merged and released, and a limiter added in a chain on the Pi.
+- **The 148 'probe crashed' records.** They came from the probe, not the plugins: one instance reused across four sample rates
+  ([plugin-qualify#278](https://github.com/FreeMixer/plugin-qualify/pull/278)), dead JACK registry slots left by the adapter
+  pass ([#279](https://github.com/FreeMixer/plugin-qualify/pull/279)), and activate before connect
+  ([#280](https://github.com/FreeMixer/plugin-qualify/pull/280)); all three are merged. The counts are in
+  [tradeoffs](tradeoffs.md). What closes it: a sync on a plugin-qualify release that carries them.
 - **openmixer does not build against plugin-hostd 0.14.0 or later.** Two reply codes it reads moved into the
   contract's generated list. What closes it: the fix in openmixer, proven against plugin-hostd 0.15.1, landing.
 - **The benchmark matrix is on hold.** Its chain cells were taken on current versions, and the single-plugin cells wait while
