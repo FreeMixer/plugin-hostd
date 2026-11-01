@@ -1610,6 +1610,39 @@ static void respawn(worker_t *w)
     replay(w, started);
 }
 
+static void to_own(instance_t *i);
+
+/* the instances whose worker said abi_clobber (PHD_EVENT_ABI_CLOBBER): each is quarantined, so the history and the plans
+ * keep it alone from now on, and one that shares its worker or is in a chain moves to a worker of its own with its state
+ * saved; the guard of the worker put its registers back, but not the other members' state. Gathered first, moved after:
+ * a move retires and makes workers */
+static void abi_isolate(void)
+{
+    int ids[MAX_INSTANCE < 256 ? MAX_INSTANCE : 256];
+    int n, k, total = 0;
+
+    for (n = 0; n < g_nworkers && total < (int)(sizeof(ids) / sizeof(ids[0])); n++)
+        if (g_workers[n]->state == W_UP && g_workers[n]->fb_fd >= 0)
+            total += relay_abi_clobbers(g_workers[n]->fb_fd, ids + total, (int)(sizeof(ids) / sizeof(ids[0])) - total);
+    for (k = 0; k < total; k++)
+    {
+        instance_t *i = ids[k] >= 0 && ids[k] < MAX_INSTANCE ? g_inst[ids[k]] : NULL;
+        worker_t *w = i ? i->w : NULL;
+        int shared;
+
+        if (!w)
+            continue;
+        shared = w->ninst >= 2 || i->chain != NULL;
+        if (meta_of(i->id)->quarantined && !shared)
+            continue;
+        fprintf(stderr, "plugin-hostd: instance %d returned from its plugin with a callee-saved register changed: %s\n",
+                i->id, shared ? "it moves to a worker of its own" : "it stays alone");
+        quarantine(i, w);
+        if (shared)
+            to_own(i);
+    }
+}
+
 void sup_tick(void)
 {
     int n;
@@ -1647,6 +1680,7 @@ void sup_tick(void)
         if (due)
             checkpoint(w);
     }
+    abi_isolate();
     for (n = 0; n < g_nworkers; n++)
         hist_tick(g_workers[n], now);
     history_tick(now / 1000);

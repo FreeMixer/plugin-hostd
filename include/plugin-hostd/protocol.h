@@ -938,6 +938,7 @@ static inline int phd_is_note_verb(const char *verb)
 #define PHD_EVENT_PARAM_GESTURE           "param_gesture"
 /* a worker's own count, not an instance's: omx-clap-core's HOST_EVENTS word xruns (tests/verbs_declared.py holds this to it) */
 #define PHD_EVENT_XRUNS                   "xruns"
+#define PHD_EVENT_ABI_CLOBBER             "abi_clobber"
 /* mod-host's own feedback line for a parameter, the same word as its command */
 #define PHD_EVENT_PARAM_SET               "param_set"
 
@@ -1019,6 +1020,12 @@ static inline int phd_is_note_verb(const char *verb)
       "the first count of a worker as its baseline and, at the close of each history window, adds the window to " \
       "xrun_windows_solo or xrun_windows_grouped of every member of the worker when the count rose in it; a line that " \
       "is not the word and one whole number is not a count") \
+    X(PHD_EVENT_ABI_CLOBBER, "<instance> <mask> <registers> <call> <block>", \
+      "relayed from a worker (omx-clap-host 0.26.2 or later), and read by the daemon: the plugin returned from a call " \
+      "with a callee-saved register changed, said once per instance. The worker put the registers back, so its own " \
+      "frame is whole; the other members' state in the same process is not covered, so the daemon quarantines the " \
+      "instance (instance_quarantined, and the history keeps it alone from then on) and, when it shares its worker or " \
+      "is in a chain, moves it to a worker of its own with its state saved; one already alone is only marked") \
     X(PHD_EVENT_PARAM_SET, "<instance> <symbol> <value>", \
       "relayed from a worker: parameter feedback, a value the plugin moved by itself (its automation, an LFO, a " \
       "preset load, a MIDI map, the user's knob of the plugin's own), as mod-host writes it; a controller updates its " \
