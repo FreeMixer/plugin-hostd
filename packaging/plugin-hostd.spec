@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.15.7
+Version: 0.15.8
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -160,6 +160,22 @@ make test-daemon check-generated check-rendered
 %{_datadir}/omx-contract/contract.d/3/plugin-hostd/
 
 %changelog
+* Sun Nov 01 2026 Pau Aliagas <linuxnow@gmail.com> - 0.15.8-1
+- add <uri> <instance> chain:<chain> adds the plugin into that chain's worker,
+  at its end, with no worker of its own and no move. A plugin the chain cannot
+  take (a width its head does not take, a format pinned to a world of its own)
+  is refused with -501 and nothing is left, so the controller adds it own
+  (#348, #357).
+- A member after a chain's first is expected into the chain (chain_expect,
+  omx-clap-host 0.26.0): it joins the walk with no JACK client of its own. A
+  worker that does not answer chain_expect gets the add and the order line as
+  before (#358). On a Pi 5, 24 plugins add in 435 ms grouped, against 749 ms
+  under mod-host.
+- A repeat lookup of a plugin's bundle reads its one manifest instead of
+  walking the LV2 path, and its qualification records are read again only when
+  they change: a later own add of an LV2 plugin on a Pi drops from about 69 ms
+  to 59, and from 91 to 59 for one found late in the walk (#359).
+
 * Sat Oct 31 2026 Pau Aliagas <linuxnow@gmail.com> - 0.15.7-1
 - chain answers the worker's refusal. A worker that will not run the members
   as one (a member whose width differs from the head's, mono after stereo)
