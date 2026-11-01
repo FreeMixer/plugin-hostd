@@ -53,9 +53,10 @@ typedef struct SOURCE_T {
     /* the worker's last xruns line (PHD_EVENT_XRUNS), a cumulative count; counted is 0 until one was read */
     int counted;
     unsigned long long xruns;
-    /* the instances the worker said abi_clobber of (PHD_EVENT_ABI_CLOBBER), not yet taken by the supervisor */
-    int abi[16];
-    int nabi;
+    /* the instances the worker said abi_clobber of (PHD_EVENT_ABI_CLOBBER), not yet taken by the supervisor: each once,
+     * as many as there are (a pool has no size limit by default) */
+    int *abi;
+    int nabi, capabi;
 } source_t;
 
 static pthread_mutex_t g_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -158,8 +159,23 @@ static void abi_seen(source_t *s, const char *line)
     if (strncmp(line, PHD_EVENT_ABI_CLOBBER, word) || line[word] != ' ' || *digits < '0' || *digits > '9')
         return;
     id = strtol(digits, &end, 10);
-    if (*end != ' ' || id > INT_MAX || s->nabi >= (int)(sizeof(s->abi) / sizeof(s->abi[0])))
+    if (*end != ' ' || id > INT_MAX)
         return;
+    for (int n = 0; n < s->nabi; n++)
+        if (s->abi[n] == (int)id)
+            return;
+    if (s->nabi == s->capabi)
+    {
+        int cap = s->capabi ? 2 * s->capabi : 16, *grown = realloc(s->abi, (size_t)cap * sizeof(int));
+
+        if (!grown)
+        {
+            fprintf(stderr, "plugin-hostd: out of memory: the abi_clobber of instance %ld is not kept, it is not isolated\n", id);
+            return;
+        }
+        s->abi = grown;
+        s->capabi = cap;
+    }
     s->abi[s->nabi++] = (int)id;
 }
 
@@ -516,7 +532,9 @@ int relay_abi_clobbers(int fd, int *ids, int max)
                 drain(&g_src[i]);
             for (n = 0; n < g_src[i].nabi && n < max; n++)
                 ids[n] = g_src[i].abi[n];
-            g_src[i].nabi = 0;
+            /* what did not fit waits for the next call */
+            memmove(g_src[i].abi, g_src[i].abi + n, (size_t)(g_src[i].nabi - n) * sizeof(int));
+            g_src[i].nabi -= n;
             break;
         }
     pthread_mutex_unlock(&g_lock);
@@ -533,6 +551,12 @@ void relay_instance_gone(int id)
         if (!g_src[i].eof)
             drain(&g_src[i]);
         gestures_end_instance(&g_src[i], id);
+        /* a report of the removed instance is not one of whatever takes its number next */
+        for (int n = 0; n < g_src[i].nabi; n++)
+            if (g_src[i].abi[n] == id)
+            {
+                g_src[i].abi[n--] = g_src[i].abi[--g_src[i].nabi];
+            }
     }
     pthread_mutex_unlock(&g_lock);
 }
@@ -551,6 +575,7 @@ void relay_remove(int fd)
                 drain(&g_src[i]);
             gestures_end(&g_src[i]);
             free(g_src[i].buf);
+            free(g_src[i].abi);
             g_src[i] = g_src[--g_nsrc];
             break;
         }
