@@ -5,7 +5,7 @@ Maintainer: Pau Aliagas <linuxnow@gmail.com>
 Build-Depends: debhelper-compat (= 13),
                libmod-host-protocol-dev (>= 0.1.0-8~omx),
                libomx-contract-dev (>= 3.4.0~),
-               omx-clap-core-contract (>= 0.25.1~) <!nocheck>,
+               omx-clap-core-contract (>= 0.26.2~) <!nocheck>,
                omx-clap-host-tests (>= 0.25.0~) <!nocheck>,
                omx-contract (>= 3.4.0~) <!nocheck>,
                pkgconf,
@@ -18,7 +18,7 @@ Package: plugin-hostd
 Architecture: any
 Depends: libmod-host-protocol0 (>= 0.1.0-8~omx), plugin-hostd-contract (= ${source:Version}), ${shlibs:Depends},
          ${misc:Depends}
-Recommends: omx-clap-host (>= 0.21.0)
+Recommends: omx-clap-host (>= 0.26.2)
 Suggests: mod-host
 Description: run LV2 and CLAP plugins so that one crash cannot stop the show
  plugin-hostd keeps your effects and instruments running when one of them
@@ -56,7 +56,7 @@ Description: C header to drive plugin-hostd from your own controller
 
 Package: plugin-hostd-contract
 Architecture: all
-Depends: omx-clap-core-contract (>= 0.25.1~), omx-contract (>= 3.2.0~), ${misc:Depends}
+Depends: omx-clap-core-contract (>= 0.26.2~), omx-contract (>= 3.2.0~), ${misc:Depends}
 Breaks: plugin-hostd-dev (<< ${source:Version})
 Replaces: plugin-hostd-dev (<< ${source:Version})
 Description: plugin-hostd's format tables and verbs, read at run time
