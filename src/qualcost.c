@@ -10,11 +10,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 
 #include "json.h"
 #include "qualcost.h"
 
 #define RECORD_SUFFIX ".qualification.json"
+
+unsigned long qualcost_dir_scans, qualcost_record_parses;
 #define RECORD_MAX    (4u << 20)
 
 static int hexval(int c)
@@ -135,16 +138,70 @@ static double point_of(const jnode_t *record, const char *id, int rate, int quan
     return -1.0;
 }
 
-/* calls each(record, ctx) for every record of qualification_dir whose file name is the id's */
-static void each_record(const char *dir, const char *id, void (*each)(const jnode_t *, void *), void *ctx)
+/* the records of an id, remembered with the directory's time and each file's time and size: a repeat read lists the
+ * directory again only when an entry was added, removed or renamed (the directory's time moves), and parses a record
+ * again only when its own time or size moved. Without memory to remember, a read is as it always was. The daemon reads
+ * records on its one control thread. */
+#define RECORD_MEMO_MAX 1024
+typedef struct
+{
+    char *path;
+    struct timespec mtime;
+    off_t size;
+    jnode_t *record;
+} memo_file_t;
+static struct record_memo
+{
+    char *dir, *id;
+    struct timespec mtime;
+    int n;
+    memo_file_t *files;
+} g_record_memo[RECORD_MEMO_MAX];
+static int g_record_memos;
+
+static int same_time(struct timespec a, struct timespec b)
+{
+    return a.tv_sec == b.tv_sec && a.tv_nsec == b.tv_nsec;
+}
+
+static jnode_t *parse_file(const char *path)
+{
+    char *text = slurp(path);
+    jnode_t *record;
+
+    if (!text)
+        return NULL;
+    record = jparse(text);
+    qualcost_record_parses++;
+    free(text);
+    return record;
+}
+
+static void memo_files_free(memo_file_t *files, int n)
+{
+    int k;
+
+    for (k = 0; k < n; k++)
+    {
+        free(files[k].path);
+        jfree(files[k].record);
+    }
+    free(files);
+}
+
+/* the records whose file name is the id's, listed and parsed: n files, NULL with *n 0 when none or no memory */
+static memo_file_t *list_records(const char *dir, const char *id, int *n)
 {
     char prefix[PATH_MAX], plain[PATH_MAX], path[PATH_MAX * 2];
     struct dirent *e;
     size_t plen, plain_len, slen = strlen(RECORD_SUFFIX);
+    memo_file_t *files = NULL, *grown;
     DIR *d;
 
-    if (!dir || !*dir || !id || !*id || !(d = opendir(dir)))
-        return;
+    *n = 0;
+    if (!(d = opendir(dir)))
+        return NULL;
+    qualcost_dir_scans++;
     safe(id, prefix, sizeof(prefix) - 2);
     strcat(prefix, "@");
     plen = strlen(prefix);
@@ -155,23 +212,108 @@ static void each_record(const char *dir, const char *id, void (*each)(const jnod
     while ((e = readdir(d)) != NULL)
     {
         size_t len = strlen(e->d_name);
-        char *text;
+        struct stat st;
         jnode_t *record;
 
         if (len <= slen || (strncmp(e->d_name, prefix, plen) && strncmp(e->d_name, plain, plain_len)) ||
             len <= (strncmp(e->d_name, prefix, plen) ? plain_len : plen) + slen || strcmp(e->d_name + len - slen, RECORD_SUFFIX))
             continue;
         snprintf(path, sizeof(path), "%s/%s", dir, e->d_name);
-        if (!(text = slurp(path)))
+        if (stat(path, &st) != 0 || !(record = parse_file(path)))
             continue;
-        record = jparse(text);
-        free(text);
-        if (!record)
+        grown = realloc(files, (*n + 1) * sizeof(*files));
+        if (!grown || !(grown[*n].path = strdup(path)))
+        {
+            jfree(record);
+            files = grown ? grown : files;
             continue;
-        each(record, ctx);
-        jfree(record);
+        }
+        files = grown;
+        files[*n].mtime = st.st_mtim;
+        files[*n].size = st.st_size;
+        files[*n].record = record;
+        (*n)++;
     }
     closedir(d);
+    return files;
+}
+
+static struct record_memo *record_memo_find(const char *dir, const char *id)
+{
+    int k;
+
+    for (k = 0; k < g_record_memos; k++)
+        if (!strcmp(g_record_memo[k].id, id) && !strcmp(g_record_memo[k].dir, dir))
+            return &g_record_memo[k];
+    return NULL;
+}
+
+/* calls each(record, ctx) for every record of qualification_dir whose file name is the id's */
+static void each_record(const char *dir, const char *id, void (*each)(const jnode_t *, void *), void *ctx)
+{
+    struct record_memo *m;
+    struct stat st;
+    int k, n;
+    memo_file_t *files;
+
+    if (!dir || !*dir || !id || !*id || stat(dir, &st) != 0)
+        return;
+    m = record_memo_find(dir, id);
+    if (m && same_time(m->mtime, st.st_mtim))
+    {
+        for (k = 0; k < m->n; k++)
+        {
+            struct stat fs;
+
+            if (stat(m->files[k].path, &fs) != 0)
+                break;
+            if (!same_time(fs.st_mtim, m->files[k].mtime) || fs.st_size != m->files[k].size)
+            {
+                jnode_t *record = parse_file(m->files[k].path);
+
+                if (!record)
+                    break;
+                jfree(m->files[k].record);
+                m->files[k].record = record;
+                m->files[k].mtime = fs.st_mtim;
+                m->files[k].size = fs.st_size;
+            }
+        }
+        if (k == m->n)
+        {
+            for (k = 0; k < m->n; k++)
+                each(m->files[k].record, ctx);
+            return;
+        }
+    }
+    files = list_records(dir, id, &n);
+    for (k = 0; k < n; k++)
+        each(files[k].record, ctx);
+    if (m)
+    {
+        memo_files_free(m->files, m->n);
+        m->files = files;
+        m->n = n;
+        m->mtime = st.st_mtim;
+        return;
+    }
+    if (g_record_memos < RECORD_MEMO_MAX)
+    {
+        m = &g_record_memo[g_record_memos];
+        m->dir = strdup(dir);
+        m->id = strdup(id);
+        if (m->dir && m->id)
+        {
+            m->files = files;
+            m->n = n;
+            m->mtime = st.st_mtim;
+            g_record_memos++;
+            return;
+        }
+        free(m->dir);
+        free(m->id);
+    }
+    memo_files_free(files, n);
 }
 
 struct cost_ctx {

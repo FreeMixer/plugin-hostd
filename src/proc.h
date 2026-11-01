@@ -71,6 +71,8 @@ void proc_env_report(pid_t pid, const worker_env_t *env);
 
 /* The directory of LV2_PATH holding the bundle whose manifest names `uri`; malloc'd, NULL if none. */
 char *proc_find_lv2_bundle(const char *lv2_path, const char *uri);
+/* how many manifests the lookups have read: what a test counts to see the path not walked again */
+extern unsigned long proc_manifest_reads;
 
 /* Is `bin` executable, by path or on PATH. */
 int proc_have_binary(const char *bin);
