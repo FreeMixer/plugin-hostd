@@ -396,9 +396,58 @@ plugin-hostd 0.15.5, omx-clap-host 0.25.3, three repeats of 30 s at 48000 Hz and
 | mod-host | 1 | 12 | 6.23 | 89.3 | 0, 0, 0 |
 | jalv | 10 | 10 | 6.99 | 463.6 | 25, 5, 14 |
 
-The large gain is over one process per plugin, mainly in memory; mod-host stays close and adds faster. At 32 and 48 plugins the grouped chain did not form within 20 s on one repeat, and in one of four
+The large gain is over one process per plugin, mainly in memory; mod-host stays close in CPU. The time to add is in the next section. At 32 and 48 plugins the grouped chain did not form within 20 s on one repeat, and in one of four
 cells at 18 ([chain-omx-18](evidence/pi5-claims-2026-10-31/chain-omx-18-1/matrix.csv), a chain without omx-keyed-gate);
 the cause is not known yet.
+
+Time to add, and the same chain with the add into the chain
+-----------------------------------------------------------
+
+The rows above add each plugin as a worker of its own and then group them, which is why grouped read slowest to add. The
+daemon can now add a plugin into a chain's worker directly, with no worker and no JACK client of its own for the members
+after the first ([plugin-hostd#348](https://github.com/FreeMixer/plugin-hostd/issues/348)), and a repeat lookup of a pin's
+manifest reads one file ([#359](https://github.com/FreeMixer/plugin-hostd/pull/359)). These rows are measurement builds:
+plugin-hostd main with [#358](https://github.com/FreeMixer/plugin-hostd/pull/358) and #359, which is what 0.15.8 carries,
+and omx-clap-host 0.26.0. Pi 5, 48000 Hz, 256 frames, three repeats, medians, read digitally at JACK ports, the daemon
+measured directly and not through Zynthian's engine
+([the bench document](evidence/add-time-2026-11-01/rpi5-20261101-1.json)). Time to add is from the first `add` until every plugin runs.
+
+24 plugins in series, omx comp, delay and drive in turn and Calf, in LV2 builds on every host:
+
+| mode | JACK clients | time to add | PSS | JACK DSP | xruns |
+|---|---|---|---|---|---|
+| plugin-hostd, add into the chain | 1 | 435 ms [433, 436] | 64 MB | 12.3 % | 0 |
+| mod-host | 26 | 749 ms [701, 776] | 112 MB | 14.6 % | 0 |
+| omx-clap-host, one process | 24 | 865 ms | 64 MB | 15.4 % | 0 |
+| plugin-hostd, one worker each | one each | 2466 ms | 184 MB | 18.2 % | 24 |
+| plugin-hostd, add then move into a chain (before) | 1 | 4586 ms | | | |
+| jalv | 24 | 26039 ms | 1092 MB | | |
+
+Ten third-party LV2 plugins in series ([list](../../tools/zynthian/matrix/plugins.json)):
+
+| mode | JACK clients | time to add | PSS |
+|---|---|---|---|
+| mod-host | 12 | 306 ms [306, 328] | 93 MB |
+| omx-clap-host, one process | 10 | 441 ms | 44 MB |
+| plugin-hostd, add into the chain | 5 | 501 ms [496, 501] | 90 MB |
+| plugin-hostd, one worker each | 10 | 683 ms | 111 MB |
+| jalv | 10 | 10454 ms | 505 MB |
+
+Grouping adds faster than mod-host for 24 of our plugins, and not yet for this third-party set. Six of the ten are stereo and
+form one chain; the four mono plugins each get a worker of their own, so the host makes five clients and five processes
+where mod-host makes one. Running a mono plugin inside a stereo run is the change planned in
+[omx-clap-core#361](https://github.com/FreeMixer/omx-clap-core/issues/361).
+
+From a cold host to a loaded snapshot, on the full plugin world (1336 LV2 plugins on the Pi), three repeats, medians with
+[min, max], same builds and settings. mod-host scans the whole world when it starts, and that start is part of its time.
+
+| snapshot | plugin-hostd | omx-clap-host | mod-host |
+|---|---|---|---|
+| 24 plugins in series | 440 ms [439, 475] | 889 ms | 1566 ms [1563, 1599], of which 863 ms is its start |
+| ten third-party plugins | 531 ms [520, 583] (the four mono members in workers of their own) | 464 ms | 1209 ms [1172, 1251], of which 868 ms is its start |
+
+From cold, a snapshot loads 2.3 to 3.6 times faster under plugin-hostd than under mod-host on both sets. Adds on a warm host,
+the table above, are ahead for 24 of our plugins and behind on the third-party set until the mono change.
 
 Instruments on the cores
 ------------------------
