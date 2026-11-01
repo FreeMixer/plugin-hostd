@@ -5,8 +5,8 @@ A Raspberry Pi 5 running Zynthian, 48000 Hz, 256 frames. Measurement builds: omx
 plugin-hostd 0.15.8~meas, against Zynthian's own mod-host (September 2024 build). Read digitally at JACK ports. 0 xruns
 in every row.
 
-The raw data is on the Pi, in `/root/omx-build/bench-rows/out-0261b` (`rpi5-20261101-1.json` and `run.log`). It was not
-copied into this tree; the figures below are the ones that run reported. The earlier rows are in
+The run's own files are here: [rpi5-20261101-1.json](rpi5-20261101-1.json) (every row), [run.log](run.log) (the
+summary lines) and [versions.txt](versions.txt) (what was installed). The earlier rows are in
 [../../benchmarks.md](../../benchmarks.md).
 
 cvp24: 24 plugins, CLAP builds
