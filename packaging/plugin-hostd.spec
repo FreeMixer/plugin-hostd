@@ -161,6 +161,9 @@ make test-daemon check-generated check-rendered
 
 %changelog
 * Sun Nov 01 2026 Pau Aliagas <linuxnow@gmail.com> - 0.15.8-1
+- A chain that does not form within chain_form_timeout_ms (10 s) says why, once:
+  chain_stalled <chain> <member> <step> <code>, the member, the step and the
+  refusal code that held it (#365).
 - add <uri> <instance> chain:<chain> adds the plugin into that chain's worker,
   at its end, with no worker of its own and no move. A plugin the chain cannot
   take (a width its head does not take, a format pinned to a world of its own)
