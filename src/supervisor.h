@@ -127,6 +127,12 @@ typedef struct CHAIN_T {
     int planned;                /* a segment of a plan, not a chain the controller declared: id is the plan's number, seg the
                                  * segment's place in the plan, and no g_chain row holds it */
     int seg;
+    /* while it forms: since when (0 when formed), whether chain_stalled was said for this attempt, and what last held it */
+    int64_t forming_ms;
+    int stall_said;
+    int stall_member;           /* -1 for no one member */
+    int stall_code;
+    char stall_step[8];
 } chain_t;
 
 void sup_init(const conf_t *conf);

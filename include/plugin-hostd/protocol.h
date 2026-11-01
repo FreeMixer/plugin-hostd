@@ -931,6 +931,7 @@ static inline int phd_is_note_verb(const char *verb)
 #define PHD_EVENT_LV2_ADAPTER_REFUSED     "lv2_adapter_refused"
 #define PHD_EVENT_CHAIN_FORMED            "chain_formed"
 #define PHD_EVENT_CHAIN_REFUSED           "chain_refused"
+#define PHD_EVENT_CHAIN_STALLED           "chain_stalled"
 #define PHD_EVENT_PLAN_REASON             "plan_reason"
 /* written by a worker, relayed as it wrote it */
 #define PHD_EVENT_REMOTE_PAGES_CHANGED    "remote_pages_changed"
@@ -967,6 +968,7 @@ static inline int phd_is_note_verb(const char *verb)
 #define PHD_EVENT_LV2_ADAPTER_REFUSED_FMT   PHD_EVENT_LV2_ADAPTER_REFUSED " %s %s %s"
 #define PHD_EVENT_CHAIN_FORMED_FMT          PHD_EVENT_CHAIN_FORMED " %s w%d %s"
 #define PHD_EVENT_CHAIN_REFUSED_FMT         PHD_EVENT_CHAIN_REFUSED " %s %d"
+#define PHD_EVENT_CHAIN_STALLED_FMT         PHD_EVENT_CHAIN_STALLED " %s %s %s %d"
 #define PHD_EVENT_PLAN_REASON_FMT           PHD_EVENT_PLAN_REASON " %d %s"
 
 /* the table of the docs: X(name, fields, meaning), one row per shape of a line */
@@ -993,6 +995,10 @@ static inline int phd_is_note_verb(const char *verb)
     X(PHD_EVENT_CHAIN_REFUSED, "<chain> <code>", \
       "a chain's worker would not run the members as one chain, <code> its own answer, and its stderr says why: " \
       "the chain is forgotten and each member runs in a worker of its own. <chain> as " PHD_EVENT_CHAIN_FORMED " names it") \
+    X(PHD_EVENT_CHAIN_STALLED, "<chain> <instance | -> <step> <code>", \
+      "a chain, or a plan's segment, has not formed within chain_form_timeout_ms of its declaration: the member and the " \
+      "step that held it (spawn, add, pin, state, memory) and the code it answered, 0 for none, - for no one member; " \
+      "said once each time it is declared or gathered again, and the daemon goes on trying") \
     X(PHD_EVENT_PLAN_REASON, "<chain> <instance>:<reason>,...", \
       "a plan of the chain changed: the reasons " OMX_VERB_PLAN_GET " answers now, after the segments, " PHD_WORD_NONE " for none") \
     X(PHD_EVENT_SUPERVISOR_GAVE_UP, "<worker> <deaths> <window_ms>", "the storm bound is spent; respawning ends") \
@@ -1075,6 +1081,7 @@ static inline int phd_is_note_verb(const char *verb)
 #define PHD_DEFAULT_STORM_WINDOW_MS   60000
 #define PHD_DEFAULT_SUSPECT_WINDOW_MS 500
 #define PHD_DEFAULT_CHECKPOINT_MS     5000
+#define PHD_DEFAULT_CHAIN_FORM_TIMEOUT_MS 10000
 #define PHD_DEFAULT_IDLE_MS           25
 #define PHD_DEFAULT_POOL_MAX          8
 #define PHD_DEFAULT_GROUPING          PHD_GROUPING_OFF
@@ -1198,6 +1205,8 @@ static inline int phd_is_note_verb(const char *verb)
     X(suspect_window_ms, PHD_DEFAULT_SUSPECT_WINDOW_MS, "ms", \
       "a worker that dies this soon after a reply drops the verb it answered; 0 turns it off") \
     X(checkpoint_ms, PHD_DEFAULT_CHECKPOINT_MS, "ms", "a quiet interval with a changed ledger writes a checkpoint") \
+    X(chain_form_timeout_ms, PHD_DEFAULT_CHAIN_FORM_TIMEOUT_MS, "ms", \
+      "a chain or a plan's segment that has not formed in this long is said with chain_stalled; 0 turns it off") \
     X(idle_ms, PHD_DEFAULT_IDLE_MS, "ms", "the period of the idle tick: reap, respawn, checkpoint") \
     X(pool_max, PHD_DEFAULT_POOL_MAX, "instances", "instances in a pool before a sibling opens") \
     X(history_window_s, PHD_DEFAULT_HISTORY_WINDOW_S, "s", \
