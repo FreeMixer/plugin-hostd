@@ -437,6 +437,44 @@ def pool_callback_crash_splits_the_pool_and_the_culprit_comes_back_own():
 
 
 @test
+def a_member_that_returns_with_a_callee_saved_register_changed_leaves_its_pool_with_its_state():
+    """omx-clap-host put the registers back, so its own frame is whole, but the other members' state in the same process
+    is not covered: the member is quarantined and goes to a worker of its own with its state, the others stay where they
+    run, and a member already alone is only marked, never to be grouped again"""
+    d = daemon()
+    try:
+        make_pool(d, [10, 11, 12])
+        w = d.workers()
+        pool_k = list(w)[0]
+        pool_pid = w[pool_k]["pid"]
+        d.expect("param_set 11 gain 0.7500", "resp 0")
+        mark = d.mark()
+        d.expect("param_set 11 abi_clobber 1", "resp 0")
+        d.wait_event("abi_clobber 11 0x1 x19 process 2", since=mark)
+        d.wait_event("instance_quarantined 11 %s" % pool_k, since=mark)
+        k, w11 = d.wait_up(11)
+        check(w11["place"] == "own" and w11["inst"] == [11], "the member runs alone: %s" % w11)
+        d.expect("param_get 11 gain", "resp 0 0.7500")
+        w = d.workers()
+        check(pool_k in w and w[pool_k]["inst"] == [10, 12] and w[pool_k]["pid"] == pool_pid,
+              "the others stay in the pool, the same process: %s" % w)
+        for i in (10, 12):
+            d.expect("param_get %d gain" % i, "resp 0 0.%d000" % (i % 10))
+        check(not any(e.startswith("instance_quarantined") and (" 10 " in e or " 12 " in e) for e in d.events),
+              "no other member was quarantined: %s" % d.events)
+        own_pid = w11["pid"]
+        mark = d.mark()
+        d.expect("param_set 11 abi_clobber 1", "resp 0")
+        d.wait_event("abi_clobber 11 ", since=mark)
+        time.sleep(0.5)
+        k2, w11 = d.holder(11)
+        check(k2 == k and w11["pid"] == own_pid and not [e for e in d.events[mark:] if e.startswith("instance_quarantined")],
+              "alone already: not moved again, not said again: %s %s" % (w11, d.events[mark:]))
+    finally:
+        d.close()
+
+
+@test
 def pool_in_flight_command_names_the_culprit_and_the_pool_stays_a_pool():
     d = daemon(conf={"rpc_timeout_ms": 400})
     try:
