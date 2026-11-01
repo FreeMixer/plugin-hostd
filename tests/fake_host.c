@@ -464,15 +464,15 @@ static void receive(msg_t *msg)
             for (int k = 0; k < MAX_INST; k++)
                 if (g_inst[k].exists)
                 {
-                    snprintf(event, sizeof(event), "abi_clobber %d 0x1 x19 process 2", k);
+                    snprintf(event, sizeof(event), PHD_EVENT_ABI_CLOBBER " %d 0x1 x19 process 2", k);
                     socket_send_feedback(event);
                 }
         }
-        if (!strcmp(tok[2], "abi_clobber") && atof(tok[3]) != 0.0)
+        if (!strcmp(tok[2], PHD_EVENT_ABI_CLOBBER) && atof(tok[3]) != 0.0)
         {
             char event[96];
 
-            snprintf(event, sizeof(event), "abi_clobber %d 0x1 x19 process 2", n);
+            snprintf(event, sizeof(event), PHD_EVENT_ABI_CLOBBER " %d 0x1 x19 process 2", n);
             socket_send_feedback(event);
         }
         if (!strcmp(tok[2], "long_line") && atof(tok[3]) > 0.0)
