@@ -1,0 +1,5 @@
+libomx-clap-core1	0.26.1
+omx-clap-host	0.26.1
+plugin-hostd	0.15.8~meas20261101
+mod-host	Sep 6 2024 (Zynthian's build)
+LV2_PATH=/usr/lib/lv2:/usr/lib/aarch64-linux-gnu/lv2:/usr/local/lib/lv2:/usr/local/lib/aarch64-linux-gnu/lv2:/zynthian/zynthian-plugins/lv2:/zynthian/zynthian-my-data/plugins/lv2:/zynthian/zynthian-plugins/lv2-presets:/zynthian/zynthian-data/presets/lv2:/zynthian/zynthian-my-data/presets/lv2

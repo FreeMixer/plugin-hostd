@@ -1,0 +1,17 @@
+bench: cvp24    H2 individual      48000/256  ok          dsp 17.34% rss 2684.2 MB add 1933.4 ms xruns 0 
+bench: cvp24    H2 chain           48000/256  ok          dsp 12.32% rss 148.0 MB add 4586.1 ms xruns 0 
+bench: cvp24    H2 chain-add       48000/256  ok          dsp 12.37% rss 146.7 MB add 422.1 ms xruns 0 
+bench: cvp24    H1 shared-process  48000/256  ok          dsp 15.12% rss 145.0 MB add 885.7 ms xruns 0 
+bench: cvp24    H3 shared-process  48000/256  ok          dsp 14.47% rss 192.1 MB add 717.0 ms xruns 0 LV2 builds of omx-comp, omx-delay, omx-drive
+bench: tp10     H2 individual      48000/256  ok          dsp 7.41% rss 1106.7 MB add 480.4 ms xruns 0 
+bench: tp10     H2 chain           48000/256  ok          dsp 5.54% rss 128.8 MB add 1476.6 ms xruns 0 
+bench: tp10     H2 chain-add       48000/256  ok          dsp 5.57% rss 127.8 MB add 256.3 ms xruns 0 
+bench: tp10     H1 shared-process  48000/256  ok          dsp 6.67% rss 125.2 MB add 436.6 ms xruns 0 
+bench: tp10     H3 shared-process  48000/256  ok          dsp 6.34% rss 174.2 MB add 316.9 ms xruns 0 
+bench: cvp24-lv2 H2 individual      48000/256  ok          dsp 18.0% rss 2695.9 MB add 1965.6 ms xruns 0 
+bench: cvp24-lv2 H2 chain           48000/256  ok          dsp 12.5% rss 145.9 MB add 4698.5 ms xruns 0 
+bench: cvp24-lv2 H2 chain-add       48000/256  ok          dsp 14.13% rss 145.4 MB add 555.3 ms xruns 0 
+bench: cvp24-lv2 H1 shared-process  48000/256  ok          dsp 16.87% rss 143.7 MB add 1132.2 ms xruns 0 
+bench: cvp24-lv2 H3 shared-process  48000/256  ok          dsp 15.74% rss 192.7 MB add 754.1 ms xruns 0 LV2 builds of omx-comp, omx-delay, omx-drive
+bench: teardown: no host, no JACK server, no other process of this run is left
+/root/omx-build/bench-rows/out-0261b/rpi5-20261101-1.json
