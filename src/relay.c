@@ -20,6 +20,7 @@
 
 #include <arpa/inet.h>
 #include <errno.h>
+#include <limits.h>
 #include <fcntl.h>
 #include <netinet/in.h>
 #include <poll.h>
@@ -52,6 +53,9 @@ typedef struct SOURCE_T {
     /* the worker's last xruns line (PHD_EVENT_XRUNS), a cumulative count; counted is 0 until one was read */
     int counted;
     unsigned long long xruns;
+    /* the instances the worker said abi_clobber of (PHD_EVENT_ABI_CLOBBER), not yet taken by the supervisor */
+    int abi[16];
+    int nabi;
 } source_t;
 
 static pthread_mutex_t g_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -140,6 +144,23 @@ static void xruns_seen(source_t *s, const char *line)
         return;
     s->xruns = count;
     s->counted = 1;
+}
+
+/* an abi_clobber line the worker wrote: the word, a space and the instance number first; the rest is the controller's to
+ * read. The instance is kept for the supervisor until it takes it; past the table, none is kept */
+static void abi_seen(source_t *s, const char *line)
+{
+    size_t word = strlen(PHD_EVENT_ABI_CLOBBER);
+    const char *digits = line + word + 1;
+    long id;
+    char *end;
+
+    if (strncmp(line, PHD_EVENT_ABI_CLOBBER, word) || line[word] != ' ' || *digits < '0' || *digits > '9')
+        return;
+    id = strtol(digits, &end, 10);
+    if (*end != ' ' || id > INT_MAX || s->nabi >= (int)(sizeof(s->abi) / sizeof(s->abi[0])))
+        return;
+    s->abi[s->nabi++] = (int)id;
 }
 
 /* the end of a held gesture, its line up to the last word and the word end, as one line of whatever length; g_lock is
@@ -233,6 +254,7 @@ static void drain(source_t *s)
                 send_line(start, nul - start + 1);
                 gesture_seen(s, start);
                 xruns_seen(s, start);
+                abi_seen(s, start);
             }
             start = nul + 1;
         }
@@ -480,6 +502,25 @@ int relay_xruns(int fd, unsigned long long *count)
         }
     pthread_mutex_unlock(&g_lock);
     return counted;
+}
+
+int relay_abi_clobbers(int fd, int *ids, int max)
+{
+    int i, n = 0;
+
+    pthread_mutex_lock(&g_lock);
+    for (i = 0; i < g_nsrc; i++)
+        if (g_src[i].fd == fd)
+        {
+            if (!g_src[i].eof)
+                drain(&g_src[i]);
+            for (n = 0; n < g_src[i].nabi && n < max; n++)
+                ids[n] = g_src[i].abi[n];
+            g_src[i].nabi = 0;
+            break;
+        }
+    pthread_mutex_unlock(&g_lock);
+    return n;
 }
 
 void relay_instance_gone(int id)
