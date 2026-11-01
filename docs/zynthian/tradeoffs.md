@@ -83,9 +83,10 @@ Every plugin on the device is measured once by plugin-qualify, and plugin-hostd 
 - After the deep run and sync on plugin-qualify 0.16.1, the device's pin file holds 1187 pins `in-process`, 305 `refused` and 81 without a
   verdict. The files predate the decision that a plugin failing the sweep is isolated: of the 172 plugins the sync refused, 170 failed the sweep in the run and 2
   under notes, so all 172 are isolated, not unsuitable; the sync's 4 crashed plugins are the unsuitable ones.
-- After the rejudge, the Pi's pin file holds 1516 plugins. LV2: 995 may share a worker, 176 get a worker of their own, 38
-  have no verdict yet and run in a worker of their own until they are qualified, and 7 are refused. CLAP: 248 plugins, about 189
-  offered and 59 not. Under our host the LV2 set reads 1033 suitable, 177 conditional, 6 unsuitable and 113 unknown; the same
+- After the rejudge, the Pi's pin file holds 1516 plugins: 1283 LV2 and 233 CLAP. Of the LV2 ones, 995 may share a worker,
+  176 get a worker of their own, 38 have no verdict yet and run in a worker of their own until they are qualified, and 7 are
+  refused; that is 1216, and I have not broken down the other 67. The qualification records hold 248 distinct CLAP
+  plugins, of which about 189 are offered and 59 are not. Under our host the LV2 set reads 1033 suitable, 177 conditional, 6 unsuitable and 113 unknown; the same
   plugins under mod-host read 781, 174, 279 and 95. 96 records are still owed. 148 records say "probe crashed": that is our
   probe, which reused one instance across four sample rates, and LSP plugins crash when reactivated at a new rate. They are
   being run again with a fresh instance per rate, so no plugin is called broken here. The counts below are from the run before
