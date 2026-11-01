@@ -522,6 +522,33 @@ def every_member_that_says_abi_clobber_is_isolated_however_many_say_it_at_once()
 
 
 @test
+def an_abi_report_of_a_removed_instance_never_reaches_the_new_instance_that_reuses_its_number():
+    """the report and the remove race: whether the daemon acted on the report before the remove or the remove purged it,
+    nothing of it is left once the number's quarantine is cleared: a new instance given the same number (another plugin,
+    so no history of the old one applies) runs in the pool and is never quarantined. A quarantine is the number's until
+    cleared, so the clear is what tells a stale report from the kept quarantine"""
+    d = daemon()
+    try:
+        make_pool(d, [50, 51, 52])
+        pool_k = list(d.workers())[0]
+        d.expect("param_set 50 abi_clobber 1", "resp 0")
+        d.expect("remove 50", "resp 0")
+        time.sleep(0.5)
+        r = d.send("quarantine_clear 50")
+        check(r in ("resp 0", "resp -3"), "the clear answers 0 (it was quarantined) or -3 (it was purged first): " + r)
+        mark = d.mark()
+        d.expect("add fake:m53 50 pool:p", "resp 50")
+        k, w = d.wait_up(50)
+        time.sleep(1.0)
+        check(not [e for e in d.events[mark:] if e.startswith("instance_quarantined 50 ")],
+              "the new instance 50 was not quarantined: %s" % d.events[mark:])
+        k, w = d.holder(50)
+        check(k == pool_k and w["place"] == "pool:p" and 50 in w["inst"], "the new instance 50 runs in the pool: %s" % w)
+    finally:
+        d.close()
+
+
+@test
 def pool_in_flight_command_names_the_culprit_and_the_pool_stays_a_pool():
     d = daemon(conf={"rpc_timeout_ms": 400})
     try:
