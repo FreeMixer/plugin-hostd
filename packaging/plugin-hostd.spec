@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.15.8
+Version: 0.15.9
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -160,6 +160,13 @@ make test-daemon check-generated check-rendered
 %{_datadir}/omx-contract/contract.d/3/plugin-hostd/
 
 %changelog
+* Mon Nov 02 2026 Pau Aliagas <linuxnow@gmail.com> - 0.15.9-1
+- A worker that says abi_clobber (omx-clap-host 0.26.2: a plugin returned from a call
+  with a callee-saved register changed) has that plugin quarantined: the history keeps
+  it alone from then on, and when it shares its worker or sits in a chain it moves to a
+  worker of its own with its state saved; the other members stay where they run (#366).
+- The packages require omx-clap-core-contract 0.26.2 and recommend omx-clap-host 0.26.2.
+
 * Sun Nov 01 2026 Pau Aliagas <linuxnow@gmail.com> - 0.15.8-1
 - A chain that does not form within chain_form_timeout_ms (10 s) says why, once:
   chain_stalled <chain> <member> <step> <code>, the member, the step and the
