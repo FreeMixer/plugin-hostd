@@ -63,6 +63,8 @@ for an instrument, wired through the plugins in series into the playback ports.
 | `pianoteq` | Pianoteq 9 playing chords |
 | `kill1` | omx-comp, then `kill -9` of the process that holds it |
 | `cvp3`, `cvp8`, `cvp16`, `cvp24` | chains vs processes: N plugins cycling omx-comp, Calf Compressor, omx-delay, omx-drive |
+| `cvp24-lv2` | `cvp24` with the LV2 builds on every host, plugin-hostd and omx-clap-host through the LV2 adapter |
+| `tp10` | chains vs processes: ten third-party LV2 effects in series, the set of `tools/zynthian/matrix/plugins.json` |
 | `grp8`, `grp16` | grouping vs processes: N CLAP plugins cycling omx-comp, omx-drive, omx-delay, omx-drive, omx-comp, where omx-drive is pinned `isolated` |
 
 H1 and H2 take our plugins as CLAP and Calf through the LV2 adapter. H3 and H4 take the LV2 builds of our plugins,
@@ -74,7 +76,7 @@ Chains vs processes runs the same N plugins in each of these modes, one row per 
 |------|------|-----------|
 | `individual` | H2, no chain declared | the daemon and N workers |
 | `chain` | H2, `chain 1 <ids>` | the daemon and one worker |
-| `chain-add` | H2, each plugin added with `add <uri> <id> chain:1` (plugin-hostd#348): no worker per plugin and no move | the daemon and one worker |
+| `chain-add` | H2, each plugin added with `add <uri> <id> chain:1` (plugin-hostd#348): no worker per plugin and no move; a plugin the chain refuses (a width its head does not take) is added `own`, as Zynthian adds it, and the row says how many | the daemon and one worker, plus one per plugin added own |
 | `shared-process` | H1 | one omx-clap-host |
 | `shared-process` | H3 | one mod-host |
 | `individual` | H4 | N jalv processes |
