@@ -39,6 +39,8 @@ dummy JACK server, three repeats, medians ([all rows](benchmarks.md#current-vers
 | mod-host | 1 | 26 | 15.51 % | 112.1 MB |
 | jalv | 24 | 24 | 19.23 % | 993.6 MB |
 
+Time to add the 24, all on their LV2 builds, with the add into the chain: 530 ms, against mod-host's 733 ms ([rows](benchmarks.md#time-to-add-and-the-same-chain-with-the-add-into-the-chain)).
+
 Ten third-party plugins in a group share one worker and keep ten JACK clients. That saves memory (45.0 MB against
 89.3 MB under mod-host and 463.6 MB under jalv) ([rows](benchmarks.md#current-versions-chains-up-to-24-plugins)).
 

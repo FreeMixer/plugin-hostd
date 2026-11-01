@@ -61,8 +61,8 @@ Zynthian has no CLAP host: jalv and mod-host host LV2 only (every CLAP verdict u
 `hosting.clap.format-not-hosted` or a crash, benchmarks.md). plugin-hostd hosts CLAP in its worker, omx-clap-host, and LV2
 through the same worker's LV2 adapter.
 
-- Of the 247 CLAP plugins on the Pi, 71 are suitable for plugin-hostd's worker, 133 isolated (RT-safety violations in
-  the run) and 43 unsuitable (crashed or timed out in the probe). Every one of our 19 omx plugins
+- Of the 248 CLAP plugins on the Pi, about 189 are offered through plugin-hostd and 59 are not (qualification after the
+  rejudge, below). Every one of our 19 omx plugins
   sweeps clean.
 - The CLAP and LV2 builds of one plugin are not interchangeable in cost: at 192000 Hz and 512 frames the LV2 build of
   omx-chorus costs 592.2 ns per sample at the median against 0.8496 for the CLAP build (tables.md). The reason is not
@@ -83,6 +83,12 @@ Every plugin on the device is measured once by plugin-qualify, and plugin-hostd 
 - After the deep run and sync on plugin-qualify 0.16.1, the device's pin file holds 1187 pins `in-process`, 305 `refused` and 81 without a
   verdict. The files predate the decision that a plugin failing the sweep is isolated: of the 172 plugins the sync refused, 170 failed the sweep in the run and 2
   under notes, so all 172 are isolated, not unsuitable; the sync's 4 crashed plugins are the unsuitable ones.
+- After the rejudge, the Pi's pin file holds 1516 plugins: 1283 LV2 and 233 CLAP. Of the 1,283 LV2 plugins pinned on the Pi, 995 may share a worker and 176 run in one of their own; 105 carry no verdict because they are not offered (43 probe timeouts, 37 probe crashes, 11 silent under a note, 7 still owing the adapter run, 7 out of memory), and 7 are refused. The qualification records hold 248 distinct CLAP
+  plugins, of which about 189 are offered and 59 are not. Under our host the LV2 set reads 1033 suitable, 177 conditional, 6 unsuitable and 113 unknown; the same
+  plugins under mod-host read 781, 174, 279 and 95. 96 records are still owed. 148 records say "probe crashed": that is our
+  probe, which reused one instance across four sample rates, and LSP plugins crash when reactivated at a new rate. They are
+  being run again with a fresh instance per rate, so no plugin is called broken here. The counts below are from the run before
+  the rejudge.
 - LV2 suitability is the same under jalv, mod-host and plugin-hostd's worker (1059, 1058, 1059 of 1329): qualification
   does not shrink what Zynthian offers for LV2; it isolates the plugins it found allocating, locking or calling into
   the kernel in the audio thread (183 LV2 records) and leaves out the ones that crash or hang (79).
