@@ -227,8 +227,8 @@ def samples(pids):
 # ---------------------------------------------------------------- repeats
 
 MEASURED = ("dsp_load_avg", "dsp_load_max", "rss_mb", "add_ms", "recover_ms", "processes", "rss_mb_total",
-            "pss_mb_total", "cpu_pct", "ctx_switches", "ctx_involuntary", "xruns", "latency_frames", "jack_clients")
-COUNTS = ("processes", "ctx_switches", "ctx_involuntary", "xruns", "latency_frames", "samples", "jack_clients")
+            "pss_mb_total", "cpu_pct", "ctx_switches", "ctx_involuntary", "ctx_jackd", "ctx_jackd_involuntary", "xruns", "latency_frames", "jack_clients")
+COUNTS = ("processes", "ctx_switches", "ctx_involuntary", "ctx_jackd", "ctx_jackd_involuntary", "xruns", "latency_frames", "samples", "jack_clients")
 
 
 def aggregate(runs, wanted=None):
@@ -738,6 +738,7 @@ class Host:
     """one host program started for one scenario row"""
 
     def __init__(self, key, procs, env, workdir, port, conf=("require_pins 0",)):
+        self.own_fallback = set()
         self.key, self.procs, self.env, self.workdir, self.port = key, procs, env, workdir, port
         self.conf = conf
         self.proc = None
@@ -845,6 +846,12 @@ class Host:
             return client
         line = "add %s %d" % (uri, inst) + (" " + placement if placement else "")
         reply = self.ctl.cmd(line)
+        if placement and placement.startswith("chain:") and reply == "resp -501":
+            # the daemon will not put it in the chain (a width the chain's head does not take): the controller adds it
+            # in a worker of its own, as Zynthian does
+            self.own_fallback.add(inst)
+            line = "add %s %d own" % (uri, inst)
+            reply = self.ctl.cmd(line)
         if reply != "resp %d" % inst:
             raise Failed("%s answered '%s' to: %s" % (HOST_PROGRAM[self.key], reply, line))
         return client
@@ -1069,7 +1076,11 @@ class Runner:
                 # a daemon before plugin-hostd#348 reads chain:1 as a client name and gives each add a worker of its own
                 if host.ctl.cmd("chain_get 1").split()[1:2] != ["0"]:
                     raise Refused("this plugin-hostd has no add into a chain (plugin-hostd#348)")
-                self.chain_formed(host, insts)
+                members = [i for i in insts if i not in host.own_fallback]
+                if members:
+                    self.chain_formed(host, members)
+                if host.own_fallback:
+                    notes.append("%d added own: the chain's head does not take their width" % len(host.own_fallback))
             elif mode == "chain" and insts:
                 reply = host.ctl.cmd("chain 1 " + " ".join(map(str, insts)))
                 if reply != "resp 0":
@@ -1108,6 +1119,7 @@ class Runner:
 
             pids = host.pids()
             before = samples(pids)
+            jackd_before = samples([self.jackd.pid])
             t_start = time.monotonic()
             x_before = self.probe.count()
             self.jack_log_end = jack_log_xruns(self.jack_log, self.jack_log_end)[1]
@@ -1115,6 +1127,7 @@ class Runner:
             logged, self.jack_log_end = jack_log_xruns(self.jack_log, self.jack_log_end)
             r["xruns"] = window_xruns(self.probe.count() - x_before, logged)
             after = samples(pids)
+            jackd_after = samples([self.jackd.pid])
             span = time.monotonic() - t_start
             if not host.pids() or any(not alive(p) for p in pids):
                 raise Failed("a host process exited during the window")
@@ -1137,6 +1150,10 @@ class Runner:
             invol = sum(after[p]["invol"] - before[p]["invol"] for p in common)
             r["ctx_switches"] = vol + invol
             r["ctx_involuntary"] = invol
+            if self.jackd.pid in jackd_before and self.jackd.pid in jackd_after:
+                j0, j1 = jackd_before[self.jackd.pid], jackd_after[self.jackd.pid]
+                r["ctx_jackd"] = j1["vol"] - j0["vol"] + j1["invol"] - j0["invol"]
+                r["ctx_jackd_involuntary"] = j1["invol"] - j0["invol"]
             r["latency_frames"] = self.probe.latency_frames("system:playback_1")
             # the JACK clients the host put on the graph: every client there now that was not there before it started,
             # the source excepted

@@ -396,9 +396,86 @@ plugin-hostd 0.15.5, omx-clap-host 0.25.3, three repeats of 30 s at 48000 Hz and
 | mod-host | 1 | 12 | 6.23 | 89.3 | 0, 0, 0 |
 | jalv | 10 | 10 | 6.99 | 463.6 | 25, 5, 14 |
 
-The large gain is over one process per plugin, mainly in memory; mod-host stays close and adds faster. At 32 and 48 plugins the grouped chain did not form within 20 s on one repeat, and in one of four
+The large gain is over one process per plugin, mainly in memory; mod-host stays close in CPU. The time to add is in the next section. At 32 and 48 plugins the grouped chain did not form within 20 s on one repeat, and in one of four
 cells at 18 ([chain-omx-18](evidence/pi5-claims-2026-10-31/chain-omx-18-1/matrix.csv), a chain without omx-keyed-gate);
 the cause is not known yet.
+
+Time to add, and the same chain with the add into the chain
+-----------------------------------------------------------
+
+The rows above add each plugin as a worker of its own and then group them, which is why grouped read slowest to add. The
+daemon can now add a plugin into a chain's worker directly, with no worker and no JACK client of its own for the members
+after the first ([plugin-hostd#348](https://github.com/FreeMixer/plugin-hostd/issues/348)), and a repeat lookup of a pin's
+manifest reads one file ([#359](https://github.com/FreeMixer/plugin-hostd/pull/359)). These rows are measurement builds:
+plugin-hostd main with [#358](https://github.com/FreeMixer/plugin-hostd/pull/358) and #359, which is what 0.15.8 carries,
+and omx-clap-host 0.26.0 (versions in [versions.txt](evidence/add-time-2026-11-01/versions.txt)). Pi 5 running Zynthian,
+a private JACK server on the dummy driver, 48000 Hz, 256 frames, three repeats, medians with [min, max], read digitally at
+JACK ports, the daemon measured directly and not through Zynthian's engine. Time to add is from the first `add` until the
+last reply, the host already running. The full tables are in the
+[evidence README](evidence/add-time-2026-11-01/README.md); the rows come from
+[rpi5-20261101-2-like-for-like.json](evidence/add-time-2026-11-01/rpi5-20261101-2-like-for-like.json) and, for the ten
+third-party set, [rpi5-20261101-1.json](evidence/add-time-2026-11-01/rpi5-20261101-1.json).
+
+The earlier table of this section put CLAP builds of the omx plugins under our hosts and LV2 builds under mod-host and
+jalv, and called them the same builds; they were not, and its figures are replaced by the ones below.
+
+The 24 plugins are omx comp, delay and drive in turn and Calf Compressor, **LV2 builds on every host** (plugin-hostd and
+omx-clap-host run them through the LV2 adapter):
+
+| mode | add ms | JACK clients | PSS |
+|---|---|---|---|
+| plugin-hostd, grouped (the adapter, add into the chain) | 530 [523, 530] | 1 | 63 MB |
+| mod-host | 733 [732, 749] | 26 | 112 MB |
+| omx-clap-host, one process | 944 [944, 949] | 24 | 64 MB |
+| plugin-hostd, one worker each | 2460 [2428, 2471] | 24 | 190 MB |
+| jalv, a process each | 26689 [25756, 27402] | 24 | 1091 MB |
+
+Like for like, grouped plugin-hostd adds these 24 28 % faster than mod-host.
+
+The same 24 with **CLAP builds where a host can** (the omx plugins as CLAP, Calf as LV2). mod-host and jalv cannot run
+CLAP, so these rows are not comparable with mod-host:
+
+| mode | add ms |
+|---|---|
+| plugin-hostd, grouped | 428 [425, 434] |
+| omx-clap-host, one process | 849 [849, 870] |
+| plugin-hostd, one worker each | 2408 [2375, 2445] |
+
+Ten third-party plugins in series, **all LV2** ([list](../../tools/zynthian/matrix/plugins.json)):
+
+| mode | add ms | JACK clients | PSS |
+|---|---|---|---|
+| mod-host | 306 [306, 328] | 12 | 93 MB |
+| omx-clap-host, one process | 441 [436, 442] | 10 | 44 MB |
+| plugin-hostd, grouped (add into the chain) | 501 [496, 501] | 5 | 90 MB |
+| plugin-hostd, one worker each | 683 [678, 785] | 10 | 111 MB |
+| jalv, a process each | 10454 [10418, 10518] | 10 | 505 MB |
+
+On this set mod-host still adds faster warm. Six of the ten are stereo and form one chain; the four mono plugins (gx_flanger,
+ZamComp, ZamEQ2, ZamDelay) each get a worker of their own, as Zynthian adds them, so the host makes five clients and five
+processes where mod-host makes one. Running a mono plugin inside a stereo run is the change planned in
+[omx-clap-core#447](https://github.com/FreeMixer/omx-clap-core/issues/447), and the rows will be taken again after it.
+
+The bench's mode that adds every plugin in a worker of its own and then declares the chain (added, then moved) took 4602 ms
+on the CLAP row; on the LV2 row its chain did not form within 20 s, a fault of that path that the add into a chain does not
+take.
+
+From a cold host to a loaded snapshot, on the full plugin world (1336 LV2 plugins on the Pi), three repeats, medians with
+[min, max]: the host is started fresh and every plugin of the set added, timed from the start to the last reply. mod-host
+reads the whole LV2 world when it starts, and that start is part of its time
+([cold-to-snapshot.json](evidence/add-time-2026-11-01/cold-to-snapshot.json)).
+
+| snapshot | builds | plugin-hostd, grouped | omx-clap-host | mod-host | plugin-hostd, one worker each |
+|---|---|---|---|---|---|
+| 24 plugins | LV2 | 541 ms [538, 546] | 975 ms [955, 979] | 1683 ms [1600, 1701], of which 970 ms is its start | 2522 ms [2459, 2639] |
+| 24 plugins | CLAP | 441 ms [440, 446] | 873 ms [836, 877] | | |
+| ten third-party | LV2 | 532 ms [523, 543] | 473 ms [469, 478] | 1204 ms [1180, 1218], of which 870 ms is its start | 689 ms [688, 702] |
+
+From cold, on the 24 LV2 plugins, grouped plugin-hostd loads a snapshot 3.1 times faster than mod-host. On the ten
+third-party set it is 2.3 times faster than mod-host, and omx-clap-host is quicker than either. Warm adds, the tables above,
+are ahead of mod-host for the 24 and behind it on the ten third-party plugins until the mono change.
+
+Measured digitally at JACK ports on the dummy driver; nothing here is a claim about analog audio.
 
 Instruments on the cores
 ------------------------
