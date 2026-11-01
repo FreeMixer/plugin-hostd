@@ -1,0 +1,2 @@
+omx-clap-host	0.26.0
+plugin-hostd	0.15.8~meas20261101
