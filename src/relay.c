@@ -417,6 +417,7 @@ void relay_finish(void)
     {
         close(g_src[i].fd);
         free(g_src[i].buf);
+        free(g_src[i].abi);
         gestures_end(&g_src[i]);
     }
     g_nsrc = 0;
