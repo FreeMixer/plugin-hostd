@@ -149,6 +149,7 @@ The settings live in a file, `-c`, `$PLUGIN_HOSTD_CONF` or
 | `storm_window_ms` | 60000 ms | the window storm_deaths are counted in |
 | `suspect_window_ms` | 500 ms | a worker that dies this soon after a reply drops the verb it answered; 0 turns it off |
 | `checkpoint_ms` | 5000 ms | a quiet interval with a changed ledger writes a checkpoint |
+| `chain_form_timeout_ms` | 10000 ms | a chain or a plan's segment that has not formed in this long is said with chain_stalled; 0 turns it off |
 | `idle_ms` | 25 ms | the period of the idle tick: reap, respawn, checkpoint |
 | `pool_max` | 8 instances | instances in a pool before a sibling opens |
 | `history_window_s` | 60 s | the length of one history window: a worker's CPU and memory are read and folded into the history of its plugins once per window, and a window the plugin was up less than half of is not counted; 0 keeps no history |
@@ -494,6 +495,7 @@ Events on the feedback port, one NUL-terminated line each:
 | `instance_quarantined` | `<instance> <worker>` | the culprit of a pool or a chain death, placed own until cleared; a chain goes on without it |
 | `chain_formed` | `<chain> <worker> <instance>,...` | a chain's worker is up with these members, in this order, after its declaration, a respawn or a member's quarantine; - for none. <chain> is the number chain declared, or <plan>.<k> for segment k of a plan |
 | `chain_refused` | `<chain> <code>` | a chain's worker would not run the members as one chain, <code> its own answer, and its stderr says why: the chain is forgotten and each member runs in a worker of its own. <chain> as chain_formed names it |
+| `chain_stalled` | `<chain> <instance \| -> <step> <code>` | a chain, or a plan's segment, has not formed within chain_form_timeout_ms of its declaration: the member and the step that held it (spawn, add, pin, state, memory) and the code it answered, 0 for none, - for no one member; said once each time it is declared or gathered again, and the daemon goes on trying |
 | `plan_reason` | `<chain> <instance>:<reason>,...` | a plan of the chain changed: the reasons plan_get answers now, after the segments, - for none |
 | `supervisor_gave_up` | `<worker> <deaths> <window_ms>` | the storm bound is spent; respawning ends |
 | `pin_changed` | `<uri> files \| layout` | an add or a replay of a plugin was refused because its files, or the layout the worker found, differ from its pin; the pin is as it was until pin_accept or pin_set |
