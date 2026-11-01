@@ -86,7 +86,7 @@ Every `abort()` of a harness, of `fuzz/recorder.c` and of `fuzz/fuzz.h` is a che
 it: one or more pairs of lines
 
 ```
-mutant: src/relay.c:207 `> LINE_LIMIT` -> `>= LINE_LIMIT`
+mutant: src/relay.c:267 `> LINE_LIMIT` -> `>= LINE_LIMIT`
 input: line-at-the-limit
 ```
 

@@ -51,6 +51,11 @@ void relay_remove(int fd);
  * own, cumulative since it started. */
 int relay_xruns(int fd, unsigned long long *count);
 
+/* The instances the worker of this feedback socket said abi_clobber of (PHD_EVENT_ABI_CLOBBER) since the last call, read
+ * up to now: up to max into ids, their count returned; each is given once, and what did not fit waits for the next call.
+ * An instance removed meanwhile (relay_instance_gone) is not given. */
+int relay_abi_clobbers(int fd, int *ids, int max);
+
 /* An instance removed: every gesture it held is ended at the controller, once, whichever worker the instance was on. */
 void relay_instance_gone(int id);
 
