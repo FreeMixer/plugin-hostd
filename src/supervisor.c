@@ -966,6 +966,70 @@ static int chain_whole(const chain_t *c)
     return 1;
 }
 
+/* every member that is not quarantined runs in the chain's worker and was replayed there: the chain has formed */
+static int chain_running(const chain_t *c)
+{
+    int n;
+
+    if (!chain_whole(c))
+        return 0;
+    for (n = 0; n < c->n; n++)
+    {
+        instance_t *i = g_inst[c->ids[n]];
+
+        if (i && !meta_of(i->id)->quarantined && i->unreplayed)
+            return 0;
+    }
+    return 1;
+}
+
+/* a chain begins to form, or forms again: the time is kept from its first attempt until it has formed */
+static void chain_forming(chain_t *c)
+{
+    if (!c->forming_ms)
+    {
+        c->forming_ms = proc_now_ms();
+        c->stall_said = 0;
+    }
+    c->stall_member = -1;
+    c->stall_code = 0;
+    snprintf(c->stall_step, sizeof(c->stall_step), "spawn");
+}
+
+/* what holds a forming chain: the first member (-1 for none), step and code of this attempt that answered something
+ * other than the waiting for its worker; the ones after it follow from it and are not kept */
+static void chain_stall_note(chain_t *c, int member, const char *step, int code)
+{
+    if (!c || !c->forming_ms || c->stall_member >= 0 || c->stall_code != 0)
+        return;
+    c->stall_member = member;
+    c->stall_code = code;
+    snprintf(c->stall_step, sizeof(c->stall_step), "%s", step);
+}
+
+/* the tick: a chain still forming past chain_form_timeout_ms is said once, with what held it */
+static void chain_stall_check(chain_t *c, int64_t now)
+{
+    char word[24], member[16];
+
+    if (!c || !c->forming_ms || c->stall_said || !g_conf.chain_form_timeout_ms)
+        return;
+    if (chain_running(c))
+    {
+        c->forming_ms = 0;
+        return;
+    }
+    if (now - c->forming_ms < g_conf.chain_form_timeout_ms)
+        return;
+    chain_word(c, word, sizeof(word));
+    if (c->stall_member >= 0)
+        snprintf(member, sizeof(member), "%d", c->stall_member);
+    else
+        snprintf(member, sizeof(member), "%s", PHD_WORD_NONE);
+    event(PHD_EVENT_CHAIN_STALLED_FMT, word, member, c->stall_step, c->stall_code);
+    c->stall_said = 1;
+}
+
 /* ---------------------------------------------------------------- the running history */
 
 /* The history is kept by plugin binary: the first file its pin holds. A plugin with no pin (require_pins off, or never
@@ -1401,6 +1465,7 @@ static void replay_refused(worker_t *w, instance_t *i, const char *step, int cod
     event(PHD_EVENT_REPLAY_REFUSED_FMT, i->id, code);
     pin_changed_event(i->uri, code);
     i->unreplayed = 1;
+    chain_stall_note(w->chain, i->id, step, code);
 }
 
 /* the pin of a replayed add, checked again: a binary swapped while its worker was down is refused on respawn.
@@ -1547,6 +1612,8 @@ static void chain_formed(worker_t *w)
             used += snprintf(ids + used, sizeof(ids) - used, "%s%d", used ? "," : "", w->inst[n]->id);
     chain_word(w->chain, word, sizeof(word));
     event(PHD_EVENT_CHAIN_FORMED_FMT, word, w->k, used ? ids : PHD_WORD_NONE);
+    if (chain_running(w->chain))
+        w->chain->forming_ms = 0;
 }
 
 static void replay(worker_t *w, int64_t started)
@@ -1603,6 +1670,7 @@ static void respawn(worker_t *w)
 
     if (rc != SUCCESS)
     {
+        chain_stall_note(w->chain, -1, "spawn", rc);
         note_death(w->deaths, &w->ndeaths, started);
         schedule(w, started);
         return;
@@ -1717,6 +1785,16 @@ void sup_tick(void)
                 if (!chain_whole(g_plan[n]->seg[k]))
                     chain_form(g_plan[n]->seg[k]);
             }
+    }
+    /* a chain still forming past chain_form_timeout_ms is said once, with what held it */
+    for (n = 0; g_nchains && n < MAX_INSTANCE; n++)
+        chain_stall_check(g_chain[n], now);
+    for (n = 0; g_nplans && n < MAX_INSTANCE; n++)
+    {
+        int k;
+
+        for (k = 0; g_plan[n] && k < g_plan[n]->nseg; k++)
+            chain_stall_check(g_plan[n]->seg[k], now);
     }
     /* a worker that refused a chain on a respawn or a rejoin: no one is waiting for a reply, the event says it */
     for (n = 0; g_nchains && n < MAX_INSTANCE; n++)
@@ -3023,6 +3101,7 @@ static int chain_form(chain_t *c)
     worker_t *w = NULL;
     int n, wanted = 0, short_of_memory = 0;
 
+    chain_forming(c);
     chain_word(c, word, sizeof(word));
     snprintf(place, sizeof(place), PHD_PLACE_CHAIN_PREFIX "%s", word);
     for (n = 0; n < c->n; n++)
@@ -3037,6 +3116,7 @@ static int chain_form(chain_t *c)
         }
         if (!w)
         {
+            chain_stall_note(c, -1, "memory", ERR_MEMORY_ALLOCATION);
             c->rejoin = 1;
             return -1;
         }
@@ -3109,7 +3189,7 @@ static int chain_in_place(const chain_t *c)
 static int chain_update(chain_t *c)
 {
     worker_t *w = c->w;
-    instance_t **join = malloc(c->n * sizeof(instance_t *));
+    instance_t **join = (chain_forming(c), malloc(c->n * sizeof(instance_t *)));
     char msg[PATH_MAX + 16], dir[PATH_MAX];
     int k, n = 0, nj = 0, rc;
 

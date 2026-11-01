@@ -43,6 +43,8 @@
  *   pin_expect <n> <pin>        the layout pin of the next add of <n>: that add answers OMX_REPLY_HOST_PIN_LAYOUT_MISMATCH_RESP
  *                               when the fake's own layout differs (FAKE_NO_PIN_EXPECT: the verb is unknown, -902;
  *                               FAKE_PIN_EXPECT_HANG: it is never answered)
+ *   add (FAKE_REFUSE_ADD=<file>) every add answers -101 while the file exists, as a worker refuses a plugin it cannot
+ *                               load: made after the first adds, a chain's worker refuses its replay
  *   chain_expect <n> <chain>    the next add of <n> joins that chain: it answers -902 when FAKE_REFUSE_CHAIN_MEMBER names
  *                               <n>, as a worker does for a plugin not as wide as the head's output (FAKE_NO_CHAIN_EXPECT:
  *                               the verb is unknown, -902)
@@ -368,7 +370,7 @@ static void receive(msg_t *msg)
             fflush(stderr);
             answer(fd, "resp %d", ERR_HOST_INVALID_URI);
         }
-        else if (strstr(tok[1], "refuse"))
+        else if (strstr(tok[1], "refuse") || (getenv("FAKE_REFUSE_ADD") && access(getenv("FAKE_REFUSE_ADD"), F_OK) == 0))
             answer(fd, "resp -101");
         else if (expected && getenv("FAKE_REFUSE_CHAIN_MEMBER") && atoi(getenv("FAKE_REFUSE_CHAIN_MEMBER")) == id)
             answer(fd, "resp -902");
