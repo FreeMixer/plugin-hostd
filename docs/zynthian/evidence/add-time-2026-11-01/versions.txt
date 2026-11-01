@@ -1,2 +1,4 @@
-omx-clap-host	0.26.0
-plugin-hostd	0.15.8~meas20261101
+omx-clap-host	0.26.0 (built on the Pi from tag v0.26.0, a measurement build)
+plugin-hostd	0.15.8~meas20261101 (main with #358 and #359, built on the Pi, a measurement build)
+mod-host	Zynthian's own build, /usr/local/bin/mod-host v0.10.6-595-g6c1cdd8 (zynthian-sys install_mod-host.sh from upstream master)
+jalv	Zynthian's own build, /usr/local/bin/jalv
