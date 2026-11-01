@@ -47,4 +47,8 @@ int qualcost_cell(const char *dir, const char *id, int rate, int quantum, qualco
  * unknown and never 0. When several records hold them the largest of each stands. */
 int qualcost_memory(const char *dir, const char *id, int rate, int quantum, qualcost_memory_t *out);
 
+/* how many times the record lookups have listed a directory and parsed a record: what a test counts to see a repeat
+ * read answered from memory */
+extern unsigned long qualcost_dir_scans, qualcost_record_parses;
+
 #endif
