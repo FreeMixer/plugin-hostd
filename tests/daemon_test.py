@@ -3106,6 +3106,40 @@ def an_add_the_chain_worker_refuses_to_run_in_the_chain_is_refused_and_left_out(
 
 
 @test
+def a_chain_that_does_not_form_is_said_once_with_the_member_the_step_and_the_code_that_held_it():
+    """a chain whose worker will not take its members (every replayed add refused) never forms: after
+    chain_form_timeout_ms the daemon says chain_stalled once, naming the member, the step and the code it answered,
+    and goes on; a chain that forms says no such thing"""
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    refuse = tempfile.mktemp(prefix="plugin-hostd-refuse-add.")
+    d = daemon(env={"FAKE_LOG": log, "FAKE_REFUSE_ADD": refuse}, conf={"chain_form_timeout_ms": "800"})
+    try:
+        # a chain that forms: no stall
+        for i in (11, 12):
+            d.expect("add clap:fake#ok%d %d" % (i, i), "resp %d" % i)
+        mark = d.mark()
+        d.expect("chain 2 11 12", "resp 0")
+        d.wait_event("chain_formed 2 ", since=mark)
+        time.sleep(1.5)
+        check(not any(e.startswith("chain_stalled 2 ") for e in d.events[mark:]), "a chain that formed is not stalled")
+        # every add refused from now on: the chain's worker refuses each member's replay
+        for i in (1, 2, 3):
+            d.expect("add clap:fake#m%d %d" % (i, i), "resp %d" % i)
+        open(refuse, "w").close()
+        mark = d.mark()
+        d.expect("chain 1 1 2 3", "resp 0")
+        stalled = d.wait_event("chain_stalled 1 ", since=mark, timeout=6)
+        check(stalled == "chain_stalled 1 1 add -101", "the stall names the member, the step and the code: %s" % stalled)
+        time.sleep(1.5)
+        check(len([e for e in d.events[mark:] if e.startswith("chain_stalled 1 ")]) == 1, "said once: %s" % d.events[mark:])
+    finally:
+        d.close()
+        for f in (log, refuse):
+            if os.path.exists(f):
+                os.unlink(f)
+
+
+@test
 def under_require_pins_a_chain_of_lv2_members_runs_in_a_world_of_the_union_of_their_bundles():
     """an LV2 pin holds only in a world narrowed to the plugin's bundle: a chain's worker sees a world narrowed to the union
     of its members' bundles, each linked once, so a chain of pinned LV2 members forms under require_pins; a chain with a
