@@ -643,10 +643,12 @@ jobs:
 
       - uses: actions/checkout@v4
 
+      - name: The FreeMixer channel
+        uses: FreeMixer/.github/.github/actions/add-openmixer@v1
+
       - name: Install the daemon, the worker, its fixtures and the members from the FreeMixer channel
         run: |
           set -euo pipefail
-          dnf config-manager addrepo --setopt=retries=10 --from-repofile=https://freemixer.github.io/rpm/freemixer.repo
           dnf install -y --setopt=install_weak_deps=False --setopt=retries=10 plugin-hostd 'omx-clap-host >= 0.21.0' \
             omx-clap-host-tests omx-plugins-clap omx-plugins-lv2
           rpm -q plugin-hostd omx-clap-host omx-clap-host-tests omx-plugins-clap omx-plugins-lv2
