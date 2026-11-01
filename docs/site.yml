@@ -53,6 +53,10 @@ sections:
         title: "Try it: the image, its first boot, and installing on an existing system"
       - page: zynthian/captures.md
         title: "How to use it in Zynthian: the menus, the pages and the MOD GUIs"
+      - page: zynthian/examples.md
+        title: "Usage examples: a group, a channel strip as plugins, shared effects"
+      - page: zynthian/mixbus.md
+        title: Mixbus chains and effects sends
       - page: zynthian/instruments.md
         title: "Instruments: voices across the cores"
       - page: zynthian/benchmarks.md

@@ -33,7 +33,7 @@ def family_rows(doc):
 
 
 def order(row):
-    modes = {"individual": 0, "chain": 1, "plan": 2, "pool": 3}
+    modes = {"individual": 0, "chain": 1, "chain-add": 2, "plan": 3, "pool": 4}
     return (row["id"], row["rate"], row["frames"], row.get("stress", "none") != "none", row["host"] != "H2",
             modes.get(row["mode"], 4), row["host"])
 

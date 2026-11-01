@@ -65,6 +65,8 @@ for an instrument, wired through the plugins in series into the playback ports.
 | `cvp3`, `cvp8`, `cvp16`, `cvp24`, `cvp32`, `cvp48` | chains vs processes: N plugins cycling omx-comp, Calf Compressor, omx-delay, omx-drive |
 | `cvc3` to `cvc48` | the same with CLAP plugins only: omx-comp, omx-delay, omx-drive. Under plugin-hostd's chain they share one JACK client, which a chain with an LV2 member does not |
 | `cvl8`, `cvl16`, `cvl24` | the same with the LV2 builds on every host: plugin-hostd and omx-clap-host through its LV2 adapter, mod-host and jalv, like for like |
+| `cvp24-lv2` | `cvp24` with the LV2 builds on every host, plugin-hostd and omx-clap-host through the LV2 adapter |
+| `tp10` | chains vs processes: ten third-party LV2 effects in series, the set of `tools/zynthian/matrix/plugins.json` |
 | `grp8`, `grp16` | grouping vs processes: N CLAP plugins cycling omx-comp, omx-drive, omx-delay, omx-drive, omx-comp, where omx-drive is pinned `isolated` |
 
 H1 and H2 take our plugins as CLAP and Calf through the LV2 adapter. H3 and H4 take the LV2 builds of our plugins,
@@ -76,6 +78,7 @@ Chains vs processes runs the same N plugins in each of these modes, one row per 
 |------|------|-----------|
 | `individual` | H2, no chain declared | the daemon and N workers |
 | `chain` | H2, `chain 1 <ids>` | the daemon and one worker |
+| `chain-add` | H2, each plugin added with `add <uri> <id> chain:1` (plugin-hostd#348): no worker per plugin and no move; a plugin the chain refuses (a width its head does not take) is added `own`, as Zynthian adds it, and the row says how many | the daemon and one worker, plus one per plugin added own |
 | `shared-process` | H1 | one omx-clap-host |
 | `shared-process` | H3 | one mod-host |
 | `individual` | H4 | N jalv processes |
@@ -114,7 +117,7 @@ Reading the numbers
 | `cpu_pct` | utime plus stime of those processes over the window, in percent of one core |
 | `ctx_switches`, `ctx_involuntary` | context switches of all their threads over the window, and how many of them were involuntary |
 | `ctx_jackd`, `ctx_jackd_involuntary` | the same for the private JACK server over the same window, since a graph of more clients costs the server switches too |
-| `add_ms` | from the first `add` to the last reply; for H2 `chain` until the chain runs; for H4 until the last client is in the graph |
+| `add_ms` | from the first `add` to the last reply; for H2 `chain` and `chain-add` until the chain runs; for H4 until the last client is in the graph |
 | `recover_ms` | from `kill -9` of the worker until its client is back and wired as before |
 | `status` | `ok`; `unsupported` when the host cannot run the scenario; `failed` when it ran and broke; the note says why |
 

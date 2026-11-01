@@ -303,7 +303,7 @@ class Stress(unittest.TestCase):
             self.assertEqual({st for sc, _, _, st in rows if sc["id"] == "clap1"}, {False},
                              "a scenario that declares no stress never runs under it")
             self.assertEqual(sorted(m for sc, _, m, st in rows if sc["id"] == "cvp8" and st == want[0]),
-                             ["chain", "individual"])
+                             ["chain", "chain-add", "individual"])
 
 
 def run_row(**kw):
@@ -679,6 +679,44 @@ class Pins(unittest.TestCase):
                 f.write("new line\n")
             self.assertEqual(bench.log_since(d, "H2", end), "new line\n")
             self.assertEqual(bench.log_since(d, "none", 0), "")
+
+
+class GraphBeforeHost(unittest.TestCase):
+    """the graph a row counts from: a client of the host before it may still be leaving JACK, and counting it out of the
+    row's clients read 23 at 24 plugins and 46 at 48"""
+
+    def graphs(self, *seen):
+        calls = iter(seen)
+        real = bench.ports
+        bench.ports = lambda env: {c: {} for c in next(calls)}
+        self.addCleanup(setattr, bench, "ports", real)
+
+    def test_it_waits_for_the_last_hosts_clients_to_leave(self):
+        self.graphs(["system", "effect_23"], ["system", "effect_23"], ["system"])
+        self.assertEqual(bench.graph_before_host({}, poll_s=0), {"system"})
+
+    def test_a_client_that_never_leaves_stops_the_row(self):
+        self.graphs(*[["system", "effect_0"]] * 5)
+        with self.assertRaisesRegex(bench.Failed, "effect_0"):
+            bench.graph_before_host({}, limit_s=0, poll_s=0)
+
+
+class ChainNotFormed(unittest.TestCase):
+    """a chain that does not form says what the daemon holds: without it a failed row left nothing to read"""
+
+    def test_the_failure_names_what_the_daemon_answers(self):
+        class Ctl:
+            def cmd(self, line):
+                return {"chain_get 1": "resp 0 w3 0,1,2 0,2", "worker_list": "resp 2 w3:9:clap:up:1:q:chain:1:0,2"}[line]
+
+        class Host:
+            ctl = Ctl()
+
+        real = bench.READY_LIMIT_S
+        bench.READY_LIMIT_S = 0
+        self.addCleanup(setattr, bench, "READY_LIMIT_S", real)
+        with self.assertRaisesRegex(bench.Failed, r"did not form within 0 s.*chain_get: resp 0 w3 0,1,2 0,2.*worker_list: resp 2 w3"):
+            bench.Runner.chain_formed(None, Host(), [0, 1, 2])
 
 
 if __name__ == "__main__":

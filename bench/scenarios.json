@@ -4,6 +4,16 @@
     "delay":    { "name": "omx-delay", "clap": "omx-delay.clap#org.openmixer.delay", "lv2": "urn:openmixer:delay" },
     "drive":    { "name": "omx-drive", "clap": "omx-drive.clap#org.openmixer.drive", "lv2": "urn:openmixer:drive" },
     "calf":     { "name": "Calf Compressor", "lv2": "http://calf.sourceforge.net/plugins/Compressor" },
+    "dpf-3bandeq": { "name": "DISTRHO 3 Band EQ", "lv2": "http://distrho.sf.net/plugins/3BandEQ" },
+    "dpf-mverb":   { "name": "DISTRHO MVerb", "lv2": "http://distrho.sf.net/plugins/MVerb" },
+    "x42-fil4":    { "name": "x42 fil4 stereo", "lv2": "http://gareus.org/oss/lv2/fil4#stereo" },
+    "gx-flanger":  { "name": "Guitarix Flanger", "lv2": "http://guitarix.sourceforge.net/plugins/gx_flanger#_flanger" },
+    "gx-reverb":   { "name": "Guitarix Stereo Reverb", "lv2": "http://guitarix.sourceforge.net/plugins/gx_reverb_stereo#_reverb_stereo" },
+    "invada-comp": { "name": "Invada Compressor stereo", "lv2": "http://invadarecords.com/plugins/lv2/compressor/stereo" },
+    "invada-er":   { "name": "Invada Early Reflection Reverb sum", "lv2": "http://invadarecords.com/plugins/lv2/erreverb/sum" },
+    "zam-comp":    { "name": "ZamComp", "lv2": "urn:zamaudio:ZamComp" },
+    "zam-eq2":     { "name": "ZamEQ2", "lv2": "urn:zamaudio:ZamEQ2" },
+    "zam-delay":   { "name": "ZamDelay", "lv2": "urn:zamaudio:ZamDelay" },
     "pianoteq": { "name": "Pianoteq 9", "lv2": "https://www.modartt.com/lv2/Pianoteq9", "instrument": true, "needs": "pianoteq" }
   },
   "midi": {
@@ -32,6 +42,10 @@
     { "id": "cvl8", "title": "chains vs processes, 8 LV2 plugins on every host", "plugins": ["comp", "delay", "drive"], "format": "lv2", "count": 8, "stress": true, "family": "chains-vs-processes" },
     { "id": "cvl16", "title": "chains vs processes, 16 LV2 plugins on every host", "plugins": ["comp", "delay", "drive"], "format": "lv2", "count": 16, "stress": true, "family": "chains-vs-processes" },
     { "id": "cvl24", "title": "chains vs processes, 24 LV2 plugins on every host", "plugins": ["comp", "delay", "drive"], "format": "lv2", "count": 24, "stress": true, "family": "chains-vs-processes" },
+    { "id": "cvp24-lv2", "title": "chains vs processes, 24 plugins, the LV2 builds on every host", "plugins": ["comp", "calf", "delay", "drive"], "count": 24, "format": "lv2", "stress": true, "family": "chains-vs-processes" },
+    { "id": "tp10",  "title": "ten third-party LV2 effects in series (tools/zynthian/matrix/plugins.json)",
+      "plugins": ["dpf-3bandeq", "dpf-mverb", "x42-fil4", "gx-flanger", "gx-reverb", "invada-comp", "invada-er", "zam-comp", "zam-eq2", "zam-delay"],
+      "stress": true, "family": "chains-vs-processes" },
     { "id": "grp8",  "title": "grouping vs processes, 8 plugins, some of them pinned isolated",
       "plugins": ["comp", "drive", "delay", "drive", "comp"], "count": 8, "unshared": ["drive"], "stress": true,
       "family": "grouping-vs-processes" },
@@ -43,6 +57,7 @@
     "chains-vs-processes": [
       { "host": "H2", "mode": "individual" },
       { "host": "H2", "mode": "chain" },
+      { "host": "H2", "mode": "chain-add" },
       { "host": "H1", "mode": "shared-process" },
       { "host": "H3", "mode": "shared-process" },
       { "host": "H4", "mode": "individual" }

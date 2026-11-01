@@ -19,7 +19,7 @@
  */
 
 /* The declared syntax of include/plugin-hostd/protocol.h read as words, the way tools/protocol-gen.c writes it into
- * README.md and protocol/plugin-hostd.json: the arguments of a verb ("<uri> <instance> [own | pool:<name> | default]"),
+ * README.md and protocol/plugin-hostd.json: the arguments of a verb ("<uri> <instance> [own | pool:<name> | chain:<chain> | default]"),
  * the shape of its reply ("resp 0 <worker> <pid>"), and mod-host's command formats ("remove %i", "add %s %i ...").
  *
  * An item of a syntax is a run of characters with no space outside <...> and [...]. "a | b" at the top is one word

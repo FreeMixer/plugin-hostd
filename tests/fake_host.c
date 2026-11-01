@@ -43,6 +43,9 @@
  *   pin_expect <n> <pin>        the layout pin of the next add of <n>: that add answers OMX_REPLY_HOST_PIN_LAYOUT_MISMATCH_RESP
  *                               when the fake's own layout differs (FAKE_NO_PIN_EXPECT: the verb is unknown, -902;
  *                               FAKE_PIN_EXPECT_HANG: it is never answered)
+ *   chain_expect <n> <chain>    the next add of <n> joins that chain: it answers -902 when FAKE_REFUSE_CHAIN_MEMBER names
+ *                               <n>, as a worker does for a plugin not as wide as the head's output (FAKE_NO_CHAIN_EXPECT:
+ *                               the verb is unknown, -902)
  *   param_set <n> pages_changed <v>   v other than 0 writes "remote_pages_changed <n>" on the feedback port, as a CLAP
  *                               worker does when its plugin changes its remote pages
  *   param_get <n> xruns=<v>     writes "xruns <v>" on the feedback port, v as sent, as a worker does when the JACK xruns it
@@ -63,9 +66,9 @@
  *   note_on, note_off, all_notes_off <n> ...   "resp 0" for a synth, OMX_REPLY_HOST_NOTE_QUEUE_FULL_RESP for one whose uri holds
  *                               "synth_full", OMX_REPLY_HOST_NO_NOTE_INPUT_RESP for any other; the fake
  *                               plays nothing (FAKE_LOG shows what it was sent)
- *   chain <chain> <n> ...       "resp 0" when it holds every <n>, -3 when not, -902 with FAKE_REFUSE_CHAIN, as an
- *                               omx-clap-host that runs no chain answers it; the fake runs nothing in order (FAKE_LOG
- *                               shows what it was sent)
+ *   chain <chain> <n> ...       "resp 0" when it holds every <n>, -3 when not, -902 while the file FAKE_REFUSE_CHAIN
+ *                               names exists, as an omx-clap-host that will not run them as one answers it; the fake
+ *                               runs nothing in order (FAKE_LOG shows what it was sent)
  *   set_bpm, set_bpb, transport, transport_sync   "resp 0", as mod-host answers them, -902 with FAKE_REFUSE_SETTINGS, as
  *                               omx-clap-host answers them; the fake keeps nothing of them
  *   preset_load, preset_save, preset_show, bundle_add, bundle_remove, midi_learn, midi_map, midi_unmap, cv_map, cv_unmap
@@ -130,6 +133,8 @@ typedef struct INST_T {
 } inst_t;
 
 static char g_expect[MAX_INST][PHD_SHA256_HEX_LEN + 64];
+/* the chain chain_expect named for the next add of an instance, plus one: 0 when none */
+static int g_chain_expect[MAX_INST];
 
 static inst_t g_inst[MAX_INST];
 static struct { int inst; char sym[64]; long k; } g_out[MAX_OUTPUTS];
@@ -234,6 +239,17 @@ static void answer(int fd, const char *fmt, ...)
     socket_send(fd, buffer, strlen(buffer) + 1);
 }
 
+/* whether a chain line's members (from its third word) hold the instance */
+static int chain_holds(char **tok, int ntok, int instance)
+{
+    int k;
+
+    for (k = 2; k < ntok; k++)
+        if (atoi(tok[k]) == instance)
+            return 1;
+    return 0;
+}
+
 /* the hosting code omx-clap-host's LV2 adapter refuses a plugin with, by a word in its uri: "" for a refusal that
  * names none, NULL for a plugin it takes */
 static const char *adapter_refusal(const char *uri)
@@ -298,6 +314,13 @@ static void receive(msg_t *msg)
         snprintf(g_expect[n], sizeof(g_expect[n]), "%s", tok[2]);
         answer(fd, "resp 0");
     }
+    else if (verb_is(verb, OMX_VERB_CHAIN_EXPECT) && getenv("FAKE_NO_CHAIN_EXPECT"))
+        answer(fd, "resp -902");
+    else if (verb_is(verb, OMX_VERB_CHAIN_EXPECT) && ntok == 3 && n >= 0 && n < MAX_INST)
+    {
+        g_chain_expect[n] = atoi(tok[2]) + 1;
+        answer(fd, "resp 0");
+    }
     else if (verb_is(verb, OMX_VERB_PIN_LAYOUT) && getenv("FAKE_NO_PIN_LAYOUT"))
         answer(fd, "resp -902");
     else if (verb_is(verb, OMX_VERB_PIN_LAYOUT) && ntok == 2 && n >= 0 && n < MAX_INST && g_inst[n].exists)
@@ -309,10 +332,16 @@ static void receive(msg_t *msg)
     }
     else if (verb_is(verb, EFFECT_ADD) && ntok >= 3)
     {
-        int id = atoi(tok[2]);
+        int id = atoi(tok[2]), expected = 0;
         char mine[PHD_SHA256_HEX_LEN + 64];
 
         layout_pin(mine, sizeof(mine));
+        /* an expectation is spent by the add it was sent for */
+        if (id >= 0 && id < MAX_INST)
+        {
+            expected = g_chain_expect[id];
+            g_chain_expect[id] = 0;
+        }
         /* a plugin that aborts in instantiate on mod-host (a Qt body with no display): the adapter refuses it first */
         if (strstr(tok[1], "crash_on_add") || (strncmp(tok[1], "lv2:", 4) && strstr(tok[1], "abort_on_mod_host")))
             crash();
@@ -337,6 +366,8 @@ static void receive(msg_t *msg)
         }
         else if (strstr(tok[1], "refuse"))
             answer(fd, "resp -101");
+        else if (expected && getenv("FAKE_REFUSE_CHAIN_MEMBER") && atoi(getenv("FAKE_REFUSE_CHAIN_MEMBER")) == id)
+            answer(fd, "resp -902");
         else if (id >= 0 && id < MAX_INST && g_expect[id][0] && strcmp(g_expect[id], mine))
         {
             g_expect[id][0] = '\0';
@@ -372,7 +403,11 @@ static void receive(msg_t *msg)
                 g_out[k--] = g_out[--g_nout];
         answer(fd, "resp 0");
     }
-    else if (!strcmp(verb, OMX_VERB_CHAIN) && getenv("FAKE_REFUSE_CHAIN"))
+    else if (!strcmp(verb, OMX_VERB_CHAIN) && getenv("FAKE_REFUSE_CHAIN") && access(getenv("FAKE_REFUSE_CHAIN"), F_OK) == 0)
+        answer(fd, "resp -902");
+    /* FAKE_REFUSE_CHAIN_MEMBER=<instance>: a chain line holding that member is refused, as a worker refuses a member not
+     * as wide as the head's output, and every other chain line is taken */
+    else if (!strcmp(verb, OMX_VERB_CHAIN) && getenv("FAKE_REFUSE_CHAIN_MEMBER") && chain_holds(tok, ntok, atoi(getenv("FAKE_REFUSE_CHAIN_MEMBER"))))
         answer(fd, "resp -902");
     else if (!strcmp(verb, OMX_VERB_CHAIN))
     {

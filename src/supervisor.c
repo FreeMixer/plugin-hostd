@@ -18,6 +18,7 @@
  * Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
  */
 
+#include <ctype.h>
 #include <dirent.h>
 #include <ftw.h>
 #include <limits.h>
@@ -98,6 +99,8 @@ static plan_t *g_plan[MAX_INSTANCE];
 static int g_nplans;
 
 static int chain_form(chain_t *c);
+static void chain_refused(chain_t *c);
+static int plan_worker_refused(plan_t *p);
 static void plans_replan_for(int id);
 static void plans_regroup(int id, int64_t now, int arm);
 static void plan_again(int id);
@@ -1516,6 +1519,21 @@ static int replay_conns(worker_t *w, instance_t *i)
     return 0;
 }
 
+/* the order of a chain, to a worker that runs one in one client: the members it holds. Its refusal is kept on the chain,
+ * which ends as soon as nothing is being replayed. RPC_OK, or the worker's death for the caller to handle */
+static int chain_order_send(worker_t *w)
+{
+    char line[PATH_MAX + 16];
+    int rc, code;
+
+    if (!format_at(w->fmt)->native_chain || !chain_line(w, line, sizeof(line)))
+        return RPC_OK;
+    rc = replay_line_code(w, line, &code);
+    if (rc == RPC_OK && code < 0)
+        w->chain->refused = code;
+    return rc;
+}
+
 /* chain_formed: the order a chain's worker runs now, the members it holds and replayed */
 static void chain_formed(worker_t *w)
 {
@@ -1544,7 +1562,7 @@ static void replay(worker_t *w, int64_t started)
         any_ckpt |= added && w->inst[n]->has_ckpt;
     }
     /* the order of a chain, to a worker that runs one in one client, before the state: the members it holds */
-    if (w->chain && format_at(w->fmt)->native_chain && chain_line(w, msg, sizeof(msg)) && replay_line(w, msg) != RPC_OK)
+    if (w->chain && chain_order_send(w) != RPC_OK)
     {
         on_death(w, -1);
         return;
@@ -1574,7 +1592,7 @@ static void replay(worker_t *w, int64_t started)
     for (n = 0; n < w->ninst; n++)
         if (!w->inst[n]->unreplayed)
             event(PHD_EVENT_INSTANCE_RESTORED_FMT, w->inst[n]->id, w->k);
-    if (w->chain)
+    if (w->chain && !w->chain->refused)
         chain_formed(w);
 }
 
@@ -1657,6 +1675,13 @@ void sup_tick(void)
                     chain_form(g_plan[n]->seg[k]);
             }
     }
+    /* a worker that refused a chain on a respawn or a rejoin: no one is waiting for a reply, the event says it */
+    for (n = 0; g_nchains && n < MAX_INSTANCE; n++)
+        if (g_chain[n] && g_chain[n]->refused)
+            chain_refused(g_chain[n]);
+    for (n = 0; g_nplans && n < MAX_INSTANCE; n++)
+        if (g_plan[n])
+            plan_worker_refused(g_plan[n]);
 }
 
 /* ---------------------------------------------------------------- init and finish */
@@ -1790,6 +1815,25 @@ static void learn_layout(worker_t *w, int id, const char *uri)
 }
 
 static char *add(const char *uri, int id, const char *placement, const char *client, int row);
+static int chain_order_send(worker_t *w);
+static void chain_formed(worker_t *w);
+
+/* the chain an add names, chain:<number> (#348): its number, -2 when the placement names a chain that is no number, -1
+ * when it names none */
+static int add_chain_id(const char *placement)
+{
+    const char *p;
+    char *end;
+    long v;
+
+    if (!placement || strncmp(placement, PHD_PLACE_CHAIN_PREFIX, strlen(PHD_PLACE_CHAIN_PREFIX)))
+        return -1;
+    p = placement + strlen(PHD_PLACE_CHAIN_PREFIX);
+    if (!*p || !isdigit((unsigned char)*p))
+        return -2;
+    v = strtol(p, &end, 10);
+    return *end || v >= MAX_INSTANCE ? -2 : (int)v;
+}
 
 /* the adapter of a worker refused the add of `uri`, for the reason `why`: say so on the feedback port; under auto the plugin
  * goes to the lv2 row from now on and this add is made again there, otherwise the add answers OMX_REPLY_PLUGIN_HOSTD_LV2_ADAPTER_REFUSED_RESP */
@@ -1802,6 +1846,83 @@ static char *adapter_refused(const char *uri, const char *why, int id, const cha
         return sup_resp(OMX_REPLY_PLUGIN_HOSTD_LV2_ADAPTER_REFUSED_RESP);
     lv2_adapter_refused(uri);
     return sup_add(uri, id, placement, client);
+}
+
+/* the member an add put in a chain's worker joins the chain, at its end, and the worker is told the order. A worker that
+ * refuses the order (a member not as wide as the head's output) has the member taken out again and the order without it
+ * sent again; the add is then refused. 0, or -1 when the member was refused */
+static int add_to_chain(int chain_id, worker_t *w, instance_t *i)
+{
+    chain_t *c = g_chain[chain_id];
+    int *ids, rc;
+    char line[64], *gone = NULL;
+
+    if (!c)
+    {
+        c = calloc(1, sizeof(chain_t));
+        if (!c)
+            goto out_of_memory;
+        c->id = chain_id;
+        g_chain[chain_id] = c;
+        g_nchains++;
+    }
+    ids = realloc(c->ids, (c->n + 1) * sizeof(int));
+    if (!ids)
+        goto out_of_memory;
+    c->ids = ids;
+    c->ids[c->n++] = i->id;
+    i->chain = c;
+    c->w = w;
+    w->chain = c;
+    c->refused = 0;
+    rc = chain_order_send(w);
+    if (rc != RPC_OK)
+    {
+        on_death(w, -1);
+        return 0;
+    }
+    if (!c->refused)
+    {
+        chain_formed(w);
+        return 0;
+    }
+    /* refused: out of the worker and out of the chain, and the order as it was before it */
+    c->refused = 0;
+    c->n--;
+    i->chain = NULL;
+    snprintf(line, sizeof(line), EFFECT_REMOVE, i->id);
+    if (proc_rpc(&g_conf, w->pid, w->fd, line, &gone) != RPC_OK)
+    {
+        free(gone);
+        on_death(w, -1);
+        return -1;
+    }
+    free(gone);
+    worker_detach(w, i);
+    g_inst[i->id] = NULL;
+    instance_free(i);
+    if (c->n)
+    {
+        if (chain_order_send(w) != RPC_OK)
+            on_death(w, -1);
+        else if (c->refused)
+            chain_refused(c);   /* the order it took before is refused now too: the chain ends as a refused one does */
+    }
+    else
+    {
+        w->chain = NULL;
+        g_chain[chain_id] = NULL;
+        g_nchains--;
+        free(c->ids);
+        free(c);
+        if (w->ninst == 0)
+            worker_retire(w);
+    }
+    return -1;
+out_of_memory:
+    /* no memory to keep the chain's books: the member runs in the worker as a pool's member, outside any chain */
+    fprintf(stderr, "plugin-hostd: out of memory, instance %d is in chain %d's worker outside its order\n", i->id, chain_id);
+    return 0;
 }
 
 char *sup_add(const char *uri, int id, const char *placement, const char *client)
@@ -1820,8 +1941,10 @@ static char *add(const char *uri, int id, const char *placement, const char *cli
     worker_t *w = NULL;
     meta_t *m;
     int64_t now = proc_now_ms();
-    int rc, is_new = 0, full, unavailable, code = ERR_HOST_INSTANTIATION;
+    int rc, is_new = 0, full, unavailable, code = ERR_HOST_INSTANTIATION, expected = 0;
     instance_t *i;
+    int chain_id = add_chain_id(placement);
+    chain_t *c = chain_id >= 0 ? g_chain[chain_id] : NULL;
 
     /* the format may hand the uri to another row: which worker runs an LV2 plugin is a setting, not the uri's */
     fmt = row >= 0 ? row : format_route(&g_conf, fmt, fwd);
@@ -1835,8 +1958,17 @@ static char *add(const char *uri, int id, const char *placement, const char *cli
         return sup_resp(ERR_INSTANCE_ALREADY_EXISTS);
     /* a plugin upgraded since the pins were read is hosted by the pins as the file says now, not by a restart */
     sup_pins_poll();
-    if (placement && strcmp(placement, PHD_PLACE_DEFAULT) && !valid_place(placement))
+    if (chain_id == -2 || (placement && chain_id < 0 && strcmp(placement, PHD_PLACE_DEFAULT) && !valid_place(placement)))
         return sup_resp(OMX_REPLY_PLUGIN_HOSTD_PLACEMENT_INVALID_RESP);
+    /* into a chain's worker (#348): a planned chain is the planner's, a chain whose members run elsewhere is formed by
+     * chain, and a worker of another row cannot take the plugin; each is refused here, and the controller adds it own */
+    if (chain_id >= 0 && c)
+    {
+        if (c->planned || (c->n && (!c->w || c->w->state != W_UP)))
+            return sup_resp(OMX_REPLY_PLUGIN_HOSTD_PLACEMENT_INVALID_RESP);
+        if (c->n && !chain_rows_together(fmt, chain_row_of(c->ids, c->n)))
+            return sup_resp(OMX_REPLY_PLUGIN_HOSTD_CHAIN_MIXED_FORMAT_RESP);
+    }
     if (!placement || !strcmp(placement, PHD_PLACE_DEFAULT))
         snprintf(place, sizeof(place), "%s", g_policy[fmt]);
     else
@@ -1846,6 +1978,8 @@ static char *add(const char *uri, int id, const char *placement, const char *cli
     if ((!placement || !strcmp(placement, PHD_PLACE_DEFAULT)) && lv2_refused_under_auto(&g_conf, fmt, fwd))
         snprintf(place, sizeof(place), PHD_PLACE_OWN);
     m = meta_of(id);
+    if (chain_id >= 0 && (m->quarantined || lv2_refused_under_auto(&g_conf, fmt, fwd)))
+        return sup_resp(OMX_REPLY_PLUGIN_HOSTD_PLACEMENT_INVALID_RESP);
     if (m->quarantined)
         snprintf(place, sizeof(place), PHD_PLACE_OWN);
     if (!proc_have_binary(bin_of(fmt)))
@@ -1870,20 +2004,33 @@ static char *add(const char *uri, int id, const char *placement, const char *cli
         /* a pool's world holds every member's files: what a format pins holds only in a world of the plugin's own */
         if (format->pinned_own_only)
         {
-            if (placement && !strncmp(placement, PHD_PLACE_POOL_PREFIX, strlen(PHD_PLACE_POOL_PREFIX)))
+            if (chain_id >= 0 || (placement && !strncmp(placement, PHD_PLACE_POOL_PREFIX, strlen(PHD_PLACE_POOL_PREFIX))))
                 return sup_resp(OMX_REPLY_PLUGIN_HOSTD_PLACEMENT_INVALID_RESP);
             snprintf(place, sizeof(place), PHD_PLACE_OWN);
         }
         /* first-use: only a plugin qualified for a shared worker is placed in one */
         else if ((first_use && !pins_in_process(fwd)) || (format->thread_pool && pins_pool_cores(fwd)))
         {
-            if (placement && !strncmp(placement, PHD_PLACE_POOL_PREFIX, strlen(PHD_PLACE_POOL_PREFIX)))
+            if (chain_id >= 0 || (placement && !strncmp(placement, PHD_PLACE_POOL_PREFIX, strlen(PHD_PLACE_POOL_PREFIX))))
                 return sup_resp(OMX_REPLY_PLUGIN_HOSTD_PLACEMENT_INVALID_RESP);
             snprintf(place, sizeof(place), PHD_PLACE_OWN);
         }
     }
 
-    if (!strcmp(place, PHD_PLACE_OWN))
+    if (chain_id >= 0 && c && c->w)
+        w = c->w;
+    else if (chain_id >= 0)
+    {
+        /* the chain's first member starts its worker: a pool's, so its world is the whole search path until it has
+         * members (narrow_world), and the next members are found in it without a start */
+        snprintf(place, sizeof(place), PHD_PLACE_CHAIN_PREFIX "%d", chain_id);
+        w = worker_new(fmt, place);
+        if (!w)
+            return sup_resp(ERR_MEMORY_ALLOCATION);
+        w->pool = 1;
+        is_new = 1;
+    }
+    else if (!strcmp(place, PHD_PLACE_OWN))
     {
         w = worker_new(fmt, PHD_PLACE_OWN);
         if (!w)
@@ -1939,6 +2086,27 @@ static char *add(const char *uri, int id, const char *placement, const char *cli
             code = OMX_REPLY_PLUGIN_HOSTD_VERB_DROPPED_RESP;
         }
     }
+    /* a member after a chain's first joins the walk at its add, in the head's client, with no client of its own
+     * (chain_expect): a worker that refuses the verb takes the add and the order line instead, from then on */
+    if (rc == RPC_OK && !reply && c && c->n && c->w == w && !w->no_chain_expect)
+    {
+        char expect[64];
+
+        snprintf(expect, sizeof(expect), OMX_VERB_CHAIN_EXPECT " %d %d", id, chain_id);
+        rc = proc_rpc(&g_conf, w->pid, w->fd, expect, &reply);
+        if (rc == RPC_OK)
+        {
+            expected = resp_code(reply) >= 0;
+            w->no_chain_expect = !expected;
+            free(reply);
+            reply = NULL;
+        }
+        else
+        {
+            event(PHD_EVENT_VERB_DROPPED_FMT, id, expect);
+            code = OMX_REPLY_PLUGIN_HOSTD_VERB_DROPPED_RESP;
+        }
+    }
     if (format->worker_word)
         format->worker_word(fwd, word, sizeof(word));
     else
@@ -1965,6 +2133,13 @@ static char *add(const char *uri, int id, const char *placement, const char *cli
         }
         on_death(w, ATTRIBUTED);
         return sup_resp(code);
+    }
+    /* the worker could not put it in the chain (a plugin not as wide as the head's output): nothing of it is there, and
+     * the controller adds it own */
+    if (expected && resp_code(reply) == ERR_INVALID_OPERATION)
+    {
+        free(reply);
+        return sup_resp(OMX_REPLY_PLUGIN_HOSTD_PLACEMENT_INVALID_RESP);
     }
     if (resp_code(reply) < 0)
     {
@@ -2024,6 +2199,11 @@ static char *add(const char *uri, int id, const char *placement, const char *cli
     }
     g_inst[id] = i;
     worker_attach(w, i);
+    if (chain_id >= 0 && add_to_chain(chain_id, w, i) != 0)
+    {
+        free(reply);
+        return sup_resp(OMX_REPLY_PLUGIN_HOSTD_PLACEMENT_INVALID_RESP);
+    }
     return reply;
 }
 
@@ -2074,10 +2254,7 @@ static void chain_leave(instance_t *i)
 /* a chain's worker that is up and runs chains is told the order it holds now */
 static void chain_tell(worker_t *w)
 {
-    char line[1024];
-
-    if (w->state == W_UP && format_at(w->fmt)->native_chain && chain_line(w, line, sizeof(line)) &&
-        replay_line(w, line) != RPC_OK)
+    if (w->state == W_UP && chain_order_send(w) != RPC_OK)
         on_death(w, -1);
 }
 
@@ -2932,7 +3109,7 @@ static int chain_update(chain_t *c)
     for (k = 0; k < nj; k++)
         if (replay_add(w, join[k]) < 0)
             goto out;
-    if (format_at(w->fmt)->native_chain && chain_line(w, msg, sizeof(msg)) && replay_line(w, msg) != RPC_OK)
+    if (chain_order_send(w) != RPC_OK)
     {
         on_death(w, -1);
         goto out;
@@ -2960,7 +3137,8 @@ static int chain_update(chain_t *c)
             goto out;
         event(PHD_EVENT_INSTANCE_RESTORED_FMT, join[k]->id, w->k);
     }
-    chain_formed(w);
+    if (!c->refused)
+        chain_formed(w);
 out:
     free(join);
     return 0;
@@ -3023,7 +3201,7 @@ static int chain_world_found(const int *ids, int n)
 char *sup_chain(int id, const int *ids, int n)
 {
     chain_t *c = (id >= 0 && id < MAX_INSTANCE) ? g_chain[id] : NULL;
-    int *new_ids, k, m, found;
+    int *new_ids, k, m, found, rc;
 
     if (id < 0 || id >= MAX_INSTANCE || n < PHD_CHAIN_MEMBERS_MIN)
         return sup_resp(ERR_INVALID_OPERATION);
@@ -3084,16 +3262,22 @@ char *sup_chain(int id, const int *ids, int n)
     for (k = 0; k < n; k++)
         g_inst[ids[k]]->chain = c;
     /* a chain with no memory to form yet is the tick's to try again */
-    return sup_resp((chain_in_place(c) ? chain_update(c) : chain_form(c)) == 0 ? SUCCESS : ERR_MEMORY_ALLOCATION);
+    rc = (chain_in_place(c) ? chain_update(c) : chain_form(c)) == 0 ? SUCCESS : ERR_MEMORY_ALLOCATION;
+    /* the worker may have died forming it, and the chain have gone with its members */
+    c = g_chain[id];
+    if (c && c->refused)
+    {
+        chain_refused(c);
+        return sup_resp(OMX_REPLY_PLUGIN_HOSTD_PLACEMENT_INVALID_RESP);
+    }
+    return sup_resp(rc);
 }
 
-char *sup_chain_clear(int id)
+/* the chain is forgotten, each member in a worker of its own */
+static void chain_end(chain_t *c)
 {
-    chain_t *c = (id >= 0 && id < MAX_INSTANCE) ? g_chain[id] : NULL;
     int k;
 
-    if (!c)
-        return sup_resp(OMX_REPLY_PLUGIN_HOSTD_NO_SUCH_CHAIN_RESP);
     for (k = 0; k < c->n; k++)
     {
         instance_t *i = g_inst[c->ids[k]];
@@ -3106,6 +3290,28 @@ char *sup_chain_clear(int id)
             to_own(i);
     }
     chain_free(c);
+}
+
+/* the worker would not run the chain as one (its stderr says why): every member had a client of its own in it, which
+ * the chain's place does not say. So the chain ends as chain_clear ends it, and nothing is left to read as formed */
+static void chain_refused(chain_t *c)
+{
+    char word[24];
+
+    chain_word(c, word, sizeof(word));
+    fprintf(stderr, "plugin-hostd: chain %s: its worker refused it (resp %d); each member runs in a worker of its own\n", word,
+            c->refused);
+    event(PHD_EVENT_CHAIN_REFUSED_FMT, word, c->refused);
+    chain_end(c);
+}
+
+char *sup_chain_clear(int id)
+{
+    chain_t *c = (id >= 0 && id < MAX_INSTANCE) ? g_chain[id] : NULL;
+
+    if (!c)
+        return sup_resp(OMX_REPLY_PLUGIN_HOSTD_NO_SUCH_CHAIN_RESP);
+    chain_end(c);
     return sup_resp(SUCCESS);
 }
 
@@ -3129,7 +3335,7 @@ char *sup_chain_get(int id)
         put(&buf, &used, &cap, "%s%d", k ? "," : "", c->ids[k]);
     put(&buf, &used, &cap, " ");
     /* a worker waiting to restart runs none of its members */
-    for (k = 0; c->w && c->w->state == W_UP && k < c->w->ninst; k++)
+    for (k = 0; c->w && c->w->state == W_UP && !c->refused && k < c->w->ninst; k++)
         if (!c->w->inst[k]->unreplayed)
             put(&buf, &used, &cap, "%s%d", any++ ? "," : "", c->w->inst[k]->id);
     if (!any)
@@ -3403,6 +3609,42 @@ no_memory:
     return -1;
 }
 
+/* a worker refused a segment of the plan: the plan is refused as a whole, as a segment the daemon can see beforehand
+ * refuses it, but its members have moved, so every segment ends and each member runs in a worker of its own. The plan is
+ * kept to be read back, every member's reason plan-refused:<code>. The code, 0 when no worker refused. */
+static int plan_worker_refused(plan_t *p)
+{
+    const int code = OMX_REPLY_PLUGIN_HOSTD_PLACEMENT_INVALID_RESP;
+    size_t used = 0, cap = 64;
+    char *reasons;
+    int k, refused = 0;
+
+    for (k = 0; k < p->nseg; k++)
+        refused |= p->seg[k]->refused != 0;
+    if (!refused)
+        return 0;
+    while (p->nseg)
+    {
+        chain_t *c = p->seg[0];
+
+        if (c->refused)
+            chain_refused(c);
+        else
+            chain_end(c);
+    }
+    reasons = malloc(cap);
+    if (reasons)
+    {
+        reasons[0] = '\0';
+        for (k = 0; k < p->n; k++)
+            put(&reasons, &used, &cap, "%s%d:%s:%d", k ? "," : "", p->ids[k], planner_reason_word(PLANNER_REASON_PLAN_REFUSED), code);
+        free(p->reasons);
+        p->reasons = reasons;
+        event(PHD_EVENT_PLAN_REASON_FMT, p->id, p->reasons);
+    }
+    return code;
+}
+
 /* the planner's settings, the daemon's */
 static void plan_settings(planner_settings_t *s)
 {
@@ -3479,7 +3721,7 @@ static plan_t *plan_run(int id, const int *ids, int n, int *code)
     }
     else
         g_nplans++;
-    *code = refused;
+    *code = refused ? refused : plan_worker_refused(p);
     return p;
 }
 

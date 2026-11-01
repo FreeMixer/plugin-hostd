@@ -29,9 +29,8 @@ From `device.txt` and `packages.txt` of each run:
 | packages | plugin-hostd 0.13.1, plugin-qualify 0.16.1, omx-plugins 0.15.1, omx-plugins-lv2 0.15.1, omx-clap-host 0.23.2, omx-panel 0.6.0, omx-contract-data 3.4.0, calf-plugins 0.90.3-1kxstudio3, jackd2 1.9.22~dfsg-4 |
 | plugin-hostd settings | the image's `/zynthian/config/plugin-hostd.conf`: `lv2_worker auto`, `require_pins 1`, `pin_mode first-use`, `grouping` unset (off) |
 
-The device has no sound card. JACK runs on ALSA's `hw:Dummy` card, so nothing can be heard: the graph runs on a clock
-of its own and `system:capture` delivers silence. The run does not judge audio. CPU, memory, xruns, JACK's DSP load and
-build times are still the device's own.
+JACK runs on ALSA's `hw:Dummy` card in this run: the graph runs on a clock of its own and `system:capture` delivers
+silence. CPU, memory, xruns, JACK's DSP load and build times are the device's own.
 
 **Configuration.** This run measured the device as it was found. The fork's `scripts/update_zynthian_sys.sh` was
 **not** run on it, so the units and defaults it would install are not part of this run (see "Not measured"). Before
@@ -211,7 +210,7 @@ Not measured
 - MOD-UI captures: mod-ui was inactive throughout (`modui_active` in each level's JSON), and no browser was at hand on
   the laptop or on the device.
 - Captures of the chains in Zynthian's own views: the chains were not Zynthian chains (see Captures).
-- Sound, and cost that depends on the signal: no sound card, and the chains' input is the silence of `hw:Dummy`.
+- Cost that depends on the signal: the chains' input is the silence of `hw:Dummy`.
 - Whether the UI answers a touch or a knob: "answers" here is the process's state and a capture of the X server.
 - Any rate or quantum other than 48000 Hz and 256 frames, any clock other than 1500 MHz for the table, more than 16
   chains, chains of other lengths.
