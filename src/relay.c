@@ -19,7 +19,9 @@
  */
 
 #include <arpa/inet.h>
+#include <ctype.h>
 #include <errno.h>
+#include <limits.h>
 #include <fcntl.h>
 #include <netinet/in.h>
 #include <poll.h>
@@ -52,6 +54,10 @@ typedef struct SOURCE_T {
     /* the worker's last xruns line (PHD_EVENT_XRUNS), a cumulative count; counted is 0 until one was read */
     int counted;
     unsigned long long xruns;
+    /* the instances the worker said abi_clobber of (PHD_EVENT_ABI_CLOBBER), not yet taken by the supervisor: each once,
+     * as many as there are (a pool has no size limit by default) */
+    int *abi;
+    int nabi, capabi;
 } source_t;
 
 static pthread_mutex_t g_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -140,6 +146,38 @@ static void xruns_seen(source_t *s, const char *line)
         return;
     s->xruns = count;
     s->counted = 1;
+}
+
+/* an abi_clobber line the worker wrote: the word, a space and the instance number first; the rest is the controller's to
+ * read. The instance is kept for the supervisor until it takes it; past the table, none is kept */
+static void abi_seen(source_t *s, const char *line)
+{
+    size_t word = strlen(PHD_EVENT_ABI_CLOBBER);
+    const char *digits = line + word + 1;
+    long id;
+    char *end;
+
+    if (strncmp(line, PHD_EVENT_ABI_CLOBBER, word) || line[word] != ' ' || !isdigit((unsigned char)*digits))
+        return;
+    id = strtol(digits, &end, 10);
+    if (*end != ' ' || id > INT_MAX)
+        return;
+    for (int n = 0; n < s->nabi; n++)
+        if (s->abi[n] == (int)id)
+            return;
+    if (s->nabi == s->capabi)
+    {
+        int cap = s->capabi ? 2 * s->capabi : 16, *grown = realloc(s->abi, (size_t)cap * sizeof(int));
+
+        if (!grown)
+        {
+            fprintf(stderr, "plugin-hostd: out of memory: the abi_clobber of instance %ld is not kept, it is not isolated\n", id);
+            return;
+        }
+        s->abi = grown;
+        s->capabi = cap;
+    }
+    s->abi[s->nabi++] = (int)id;
 }
 
 /* the end of a held gesture, its line up to the last word and the word end, as one line of whatever length; g_lock is
@@ -233,6 +271,7 @@ static void drain(source_t *s)
                 send_line(start, nul - start + 1);
                 gesture_seen(s, start);
                 xruns_seen(s, start);
+                abi_seen(s, start);
             }
             start = nul + 1;
         }
@@ -379,6 +418,7 @@ void relay_finish(void)
     {
         close(g_src[i].fd);
         free(g_src[i].buf);
+        free(g_src[i].abi);
         gestures_end(&g_src[i]);
     }
     g_nsrc = 0;
@@ -482,6 +522,26 @@ int relay_xruns(int fd, unsigned long long *count)
     return counted;
 }
 
+int relay_abi_clobbers(int fd, int *ids, int max)
+{
+    int i, n = 0;
+
+    pthread_mutex_lock(&g_lock);
+    for (i = 0; i < g_nsrc; i++)
+        if (g_src[i].fd == fd)
+        {
+            /* the relay thread reads the worker; reading it here too would read a worker no controller listens to */
+            for (n = 0; n < g_src[i].nabi && n < max; n++)
+                ids[n] = g_src[i].abi[n];
+            /* what did not fit waits for the next call */
+            memmove(g_src[i].abi, g_src[i].abi + n, (size_t)(g_src[i].nabi - n) * sizeof(int));
+            g_src[i].nabi -= n;
+            break;
+        }
+    pthread_mutex_unlock(&g_lock);
+    return n;
+}
+
 void relay_instance_gone(int id)
 {
     int i;
@@ -492,6 +552,12 @@ void relay_instance_gone(int id)
         if (!g_src[i].eof)
             drain(&g_src[i]);
         gestures_end_instance(&g_src[i], id);
+        /* a report of the removed instance is not one of whatever takes its number next */
+        for (int n = 0; n < g_src[i].nabi; n++)
+            if (g_src[i].abi[n] == id)
+            {
+                g_src[i].abi[n--] = g_src[i].abi[--g_src[i].nabi];
+            }
     }
     pthread_mutex_unlock(&g_lock);
 }
@@ -510,6 +576,7 @@ void relay_remove(int fd)
                 drain(&g_src[i]);
             gestures_end(&g_src[i]);
             free(g_src[i].buf);
+            free(g_src[i].abi);
             g_src[i] = g_src[--g_nsrc];
             break;
         }

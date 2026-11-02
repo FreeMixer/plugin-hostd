@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.15.8
+Version: 0.15.9
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -33,14 +33,14 @@ BuildRequires: omx-clap-host-tests >= 0.25.0
 # the reader that holds the committed render of the daemon's verbs to data/verbs.json (make check-rendered)
 BuildRequires: omx-contract >= 3.4.0
 # the shared verbs and the reply.host.* codes data/verbs.json refers to (make check-rendered, test-verbs-declared)
-BuildRequires: omx-clap-core-contract >= 0.25.1
+BuildRequires: omx-clap-core-contract >= 0.26.2
 %endif
 # the format tables and the verbs, which readers read at run time
 Requires: %{name}-contract = %{version}-%{release}
 
 # the workers: a format whose worker is not installed refuses its adds (-503), the other format is unaffected
 Recommends: mod-host
-Recommends: omx-clap-host >= 0.21.0
+Recommends: omx-clap-host >= 0.26.2
 
 %description
 plugin-hostd keeps your effects and instruments running when one of them
@@ -67,7 +67,7 @@ Summary: plugin-hostd's format tables and verbs, for programs that read them at 
 BuildArch: noarch
 # verbs.json refuses with omx-clap-core's reply.host.* codes for the numbers both hosts answer: a reader of this
 # package reads that one too; a floor only
-Requires: omx-clap-core-contract >= 0.25.1
+Requires: omx-clap-core-contract >= 0.26.2
 # the tables live in omx-contract's contract directory and are read against its schema: 3.2.0 is the first whose
 # source field takes an index (omx_clap_panel_display.meter_ids[0]), so an older one never sits beside a table it
 # refuses; a floor only
@@ -160,6 +160,13 @@ make test-daemon check-generated check-rendered
 %{_datadir}/omx-contract/contract.d/3/plugin-hostd/
 
 %changelog
+* Mon Nov 02 2026 Pau Aliagas <linuxnow@gmail.com> - 0.15.9-1
+- A worker that says abi_clobber (omx-clap-host 0.26.2: a plugin returned from a call
+  with a callee-saved register changed) has that plugin quarantined: the history keeps
+  it alone from then on, and when it shares its worker or sits in a chain it moves to a
+  worker of its own with its state saved; the other members stay where they run (#366).
+- The packages require omx-clap-core-contract 0.26.2 and recommend omx-clap-host 0.26.2.
+
 * Sun Nov 01 2026 Pau Aliagas <linuxnow@gmail.com> - 0.15.8-1
 - A chain that does not form within chain_form_timeout_ms (10 s) says why, once:
   chain_stalled <chain> <member> <step> <code>, the member, the step and the
