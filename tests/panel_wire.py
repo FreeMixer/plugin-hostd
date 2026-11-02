@@ -97,10 +97,12 @@ def panel_get_answers_the_scans_panel_and_null_for_a_plugin_that_publishes_none(
         check(doc["panel"]["sections"] and isinstance(doc["panel"]["roles"], (list, dict)),
               "sections and roles: %d sections" % len(doc["panel"]["sections"]))
 
-        # fixed values of omx-delay 0.13.0, held here so the test does not rest on the scanner agreeing with itself:
-        # one section, "delay"; Time is parameter 0, a knob of section 0; Pingpong is parameter 4, a switch of section 0
+        # fixed values of omx-delay 0.17.0, held here so the test does not rest on the scanner agreeing with itself:
+        # two sections, "delay" and "taps" (the taps came in 0.17.0); Time is parameter 0, a knob of section 0;
+        # Pingpong is parameter 4, a switch of section 0
         sections = doc["panel"]["sections"]
-        check(len(sections) == 1 and sections[0]["key"] == "delay", "omx-delay has the one section 'delay': %s" % sections)
+        check([s["key"] for s in sections] == ["delay", "taps"], "omx-delay has the sections 'delay' and 'taps': %s"
+              % sections)
         by_param = {c["paramId"]: c for c in controls}
         check(by_param.get(0, {}).get("section") == 0 and by_param[0]["widget"] == "knob",
               "control 0 (Time) is a knob of section 0: %s" % by_param.get(0))
