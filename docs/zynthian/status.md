@@ -117,11 +117,13 @@ The Pi runs these or newer releases, so they are installed there; what is owed i
 Still open
 ----------
 
-- **The register guard, from omx-clap-core 0.26.2 and plugin-hostd 0.15.9.** Each plugin call saves, compares and restores the
-  registers a function must keep, at about 15 ns per call on the Pi; a plugin that changes one is run in a worker of its own and
-  offered only isolated. What closes it: the releases, and the 59 LSP crashes of the Pi's qualification (55 CLAP, 4 LV2)
-  qualified again under the guard. calf Wavetable and dexed crash for another reason, still being looked into. The Pi's last
-  qualification: 1403 qualified, 93 crashed, 45 hung, 28 unmeasured.
+- **The register guard, released in omx-clap-core 0.26.2 and plugin-hostd 0.15.9.** Each plugin call saves, compares and
+  restores the registers a function must keep, at about 15 ns per call on the Pi; a plugin that changes one is run in a worker
+  of its own and offered only isolated. The LSP CLAP bundle qualified again on the Pi under 0.26.2 with plugin-qualify 0.18.5:
+  95 suitable, 99 conditional, none crashed and no register changed. Its earlier crashes were the plugins failing when one
+  instance is activated again at another sample rate; plugin-qualify 0.18.5 measures each rate in an instance of its own. What
+  closes it: the 4 LV2 crashes of the same bundle qualified again, and calf Wavetable and dexed, which crash for another reason
+  that is still being looked into.
 
 - **Next: chains from the menu with grouping on.** The proof above drives the engine. What closes it: chains built from the menu
   on the Pi with the fork's tip, `worker_list` showing what shares a worker, and the same figures taken that way, and what a crash

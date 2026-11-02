@@ -517,10 +517,12 @@ change). The shared-process host, omx-clap-host, is still about 4 to 7 % heavier
 14.47 %, 6.67 % against 6.34 %).
 
 Qualification on the Pi, from the sync: 1403 plugins qualified, 93 crashed, 45 hung, 28 unmeasured. 59 of the crashes are LSP
-plugins (55 CLAP, 4 LV2), and they are being qualified again under the register guard below. calf Wavetable and dexed crash
+plugins (55 CLAP, 4 LV2). Qualified again under omx-clap-core 0.26.2 with plugin-qualify 0.18.5, the LSP CLAP bundle has
+none: 95 suitable, 99 conditional. Those crashes came from one instance being activated again at another sample rate, which
+the plugins do not survive; plugin-qualify 0.18.5 measures each rate in an instance of its own. calf Wavetable and dexed crash
 for a reason that is not the register guard; it is still being looked into.
 
-From omx-clap-core 0.26.2 and plugin-hostd 0.15.9, every plugin call saves the registers a function must keep (aarch64
+Since omx-clap-core 0.26.2 and plugin-hostd 0.15.9, every plugin call saves the registers a function must keep (aarch64
 x19 to x28, d8 to d15 and FPCR; x86-64 rbx, rbp, r12 to r15, MXCSR, the x87 control word and the direction flag), compares
 them on return and restores them. That costs about 15 ns per call on the Pi. A plugin that changes one is recorded once,
 without taking a lock or allocating in the audio thread; the worker says `abi_clobber`, and plugin-hostd quarantines the plugin
