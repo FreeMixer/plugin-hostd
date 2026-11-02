@@ -1,6 +1,10 @@
 Zynthian and plugin-hostd
 =========================
 
+On a Raspberry Pi 5, measured digitally, a chain in plugin-hostd uses 14 to 17 % less DSP and 41 to 49 % less memory than
+the same plugins in mod-host, with one JACK client for the chain and no xruns. A 24-plugin set is ready from cold in 0.55 s
+against 1.46 s, and of 1602 plugins tried on the device, 1385 qualified ([benchmarks](benchmarks.md#the-three-hosts-on-current-versions)).
+
 Where this stands, and what is still incomplete: [status.md](status.md). What was measured at JACK ports on the Pi 5, and what failed: [digital-proofs.md](digital-proofs.md).
 
 What it is
