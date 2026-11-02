@@ -1,3 +1,16 @@
+plugin-hostd (0.15.9) unstable; urgency=medium
+
+  * A worker that says abi_clobber (omx-clap-host 0.26.2: a plugin returned
+    from a call with a callee-saved register changed) has that plugin
+    quarantined: instance_quarantined, the history keeps it alone from then
+    on, and when it shares its worker or sits in a chain it moves to a worker
+    of its own with its state saved; the other members stay where they run.
+    One already alone is only marked (#366).
+  * The packages require omx-clap-core-contract 0.26.2 and recommend
+    omx-clap-host 0.26.2, which says abi_clobber.
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Mon, 02 Nov 2026 01:00:00 +0100
+
 plugin-hostd (0.15.8) unstable; urgency=medium
 
   * A chain that does not form within chain_form_timeout_ms (10 s) says why,
