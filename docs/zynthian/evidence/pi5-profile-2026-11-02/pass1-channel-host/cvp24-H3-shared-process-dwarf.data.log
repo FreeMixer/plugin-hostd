@@ -1,0 +1,2 @@
+[ perf record: Woken up 97 times to write data ]
+[ perf record: Captured and wrote 25.087 MB /root/omx-final-20261102/s7-profile/cvp24-H3-shared-process-dwarf.data (3064 samples) ]

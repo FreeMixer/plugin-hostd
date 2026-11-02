@@ -1,0 +1,11 @@
+    40.99%  omx-drive.so              
+    25.19%  libm.so.6                 
+    13.68%  calf.so                   
+     5.99%  omx-comp.so               
+     4.33%  libc.so.6                 
+     3.73%  omx-clap-host             
+     2.79%  omx-delay.so              
+     0.33%  [kernel.kallsyms]         
+     0.20%  libjack.so.0.1.0          
+     0.18%  libomx-clap-core.so.0.26.4
+     0.05%  [vdso]                    

@@ -1,0 +1,3 @@
+row cvp24 H3 shared-process, call graph fp, 48000 Hz / 256 frames, 30 s
+processes: 1116441 mod-host [no libomx-clap-core]
+argv: perf record -g -F 999 -p 1116441 -o /root/omx-final-20261102/s7-profile/cvp24-H3-shared-process-fp.data -- sleep 30
