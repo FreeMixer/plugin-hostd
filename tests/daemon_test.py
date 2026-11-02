@@ -1627,6 +1627,39 @@ def tempo_and_transport_are_handed_to_a_respawned_worker_before_its_add():
 
 
 @test
+def a_worker_lost_in_its_replay_of_the_tempo_keeps_no_socket_number_of_another_worker():
+    """the sockets of the worker that died on the tempo are closed once: the numbers go to the next worker, and retiring
+    the dead one leaves that worker alone"""
+    fd, die = tempfile.mkstemp(prefix="fake-die-on-settings-")
+    os.close(fd)
+    os.unlink(die)
+    d = daemon(conf={"storm_deaths": 2}, env={"FAKE_DIE_ON_SETTINGS": die})
+    try:
+        d.expect("set_bpm 99", "resp 0")
+        d.expect("add clap:fake#a 0", "resp 0")
+        k, w = d.holder(0)
+        mark = d.mark()
+        open(die, "w").close()
+        os.kill(w["pid"], signal.SIGKILL)
+        d.wait_event("supervisor_gave_up %s " % k, since=mark)
+        os.unlink(die)
+        d.expect("add clap:fake#b 1", "resp 1")
+        k1, w1 = d.wait_up(1)
+        mark = d.mark()
+        d.expect("remove 0", "resp 0")
+        d.expect("param_set 1 gain 0.2500", "resp 0")
+        time.sleep(0.2)
+        check(not [e for e in d.events[mark:] if e.startswith("worker_died %s " % k1)], "the other worker lives: %s" % d.events[mark:])
+        k2, w2 = d.wait_up(1)
+        check(k2 == k1 and w2["pid"] == w1["pid"], "the other worker has its process: %s against %s" % (w2, w1))
+        d.expect("param_get 1 gain", "resp 0 0.2500")
+    finally:
+        d.close()
+        if os.path.exists(die):
+            os.unlink(die)
+
+
+@test
 def a_tempo_the_worker_refuses_is_kept_written_and_the_worker_still_comes_back():
     log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log, "FAKE_REFUSE_SETTINGS": "1"})
