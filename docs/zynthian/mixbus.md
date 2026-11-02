@@ -74,8 +74,8 @@ of `worker_list` as they have been since plugin-hostd 0.14, and so it grouped no
 daemons from that change on.
 
 On the Pi, plugin-hostd 0.15.7, omx-clap-host 0.25.4, the same script passes 10 of 10; those ten hold no Mixbus row
-([log](evidence/pi5-claims-2026-10-31/engine-proof/proof.log)). Not measured yet: a Mixbus with Zynthian's own mixer in the path
-rather than script clients. The steps are below.
+([log](evidence/pi5-claims-2026-10-31/engine-proof/proof.log)). A Mixbus with Zynthian's own mixer in the path is measured
+below, under [Built from Zynthian's menu](#built-from-zynthians-menu).
 
 Example: one reverb and delay on a bus
 --------------------------------------
@@ -115,7 +115,46 @@ A group runs one audio width: a stereo reverb and a mono delay do not group. The
 reports the refusal, the engine ends a run at a change of width
 ([zynthian-ui#57](https://github.com/FreeMixer/zynthian-ui/pull/57)), and the plugins run one by one at the same level.
 
-These rows are not through Zynthian's own routing; a Mixbus built from its menu has not been measured on the Pi.
+These rows are not through Zynthian's own routing.
+
+### Built from Zynthian's menu
+
+The same scenario, built on the Pi from Zynthian's own menu and played through its mixer: four MDA ePiano chains, each with
+its send at 1.000 post fader and its fader at Zynthian's 0.800, and a Mixbus with omx reverb then omx delay, shared or a
+pair each. The rows are read on the device's own JACK server, a Pi 5 at 48000 Hz and 256 frames on its audio interface,
+at the main output after Zynthian's mixer. Every row rebuilds the whole set from the menu, from an empty mixer.
+
+- **plugin-hostd:** the chains as the menu offers them: MDA ePiano "(LV2 PH)", omx reverb and omx delay "(CLAP PH)", the
+  only builds the menu lists. Grouping is off, the shipped default, so each plugin has a worker of its own.
+- **mod-host:** Zynthian's mixer as above, with the same strips and sends, built from the menu as Audio Input chains with
+  no capture and Mixbus chains with no effect. One mod-host on the same server runs the four MDA ePiano and the omx reverb
+  and delay, LV2 builds, wired into those strips. In each Mixbus, the reverb and delay take the place of the link Zynthian
+  makes from the send to the Mixbus's strip.
+
+plugin-hostd 0.15.9, omx-clap-host 0.26.3, omx-plugins 0.17.0, zynthian-ui 369f4fc4, Zynthian's mod-host build; three
+repeats, medians; 0 xruns and the same level at main, -0.6 dBFS peak and -25.1 dBFS RMS, in all 12 rows
+([rows](evidence/pi5-mixbus-menu-2026-11-02/mixbus-menu.tsv), [versions](evidence/pi5-mixbus-menu-2026-11-02/versions.txt),
+[graphs](evidence/pi5-mixbus-menu-2026-11-02/graphs), [screens](evidence/pi5-mixbus-menu-2026-11-02/shots)):
+
+| | shared: JACK DSP | shared: PSS | shared: processes | a pair each: JACK DSP | a pair each: PSS | a pair each: processes |
+|---|---|---|---|---|---|---|
+| mod-host | 3.39 % | 75.7 MB | 1 | 4.30 % | 99.4 MB | 1 |
+| plugin-hostd, one worker each | 4.05 % | 74.4 MB | 7 | 5.65 % | 118.9 MB | 13 |
+
+PSS is the host's processes: mod-host's one, or plugin-hostd's daemon and its workers. JACK DSP is the whole server,
+Zynthian's mixer included. The repeats agree within 0.1 point of DSP and 0.1 MB.
+
+Through Zynthian's mixer, sharing still saves on both hosts: a pair each costs plugin-hostd 1.6 points of DSP and 44.5 MB
+more, and mod-host 0.9 points and 23.7 MB more. Shared, plugin-hostd uses 1.3 MB less memory than mod-host and 0.66 points more
+DSP; with a pair each, a worker per plugin shows, at 1.35 points and 19.5 MB more.
+
+The tools are `tools/zynthian/mixbus-menu-drive.py`, which builds each row from the menu on the device, and
+`tools/zynthian/mixbus-menu-bench.py`, which reads it. A mod-host row fails if Zynthian links a send straight to its Mixbus
+again during the window, which any action in the UI makes it do.
+
+On zynthian-ui f864d294 and before, building such a Mixbus logs `plugin-hostd plan <n> => invalid literal for int()`:
+that engine cannot read the reply of `plan` from plugin-hostd 0.15.9. The chains still run, one worker each, but grouping cannot
+be used. zynthian-ui#53 fixes it; on 369f4fc4 the same builds log no such error.
 
 What stays to integrate
 -----------------------

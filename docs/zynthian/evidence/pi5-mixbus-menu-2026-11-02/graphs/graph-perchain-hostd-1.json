@@ -1,0 +1,1182 @@
+{
+ "ports": {
+  "system:capture_1": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "system:capture_2": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "system:capture_3": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "system:capture_4": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "system:capture_5": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "system:capture_6": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "system:capture_7": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "system:capture_8": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "system:capture_9": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "system:capture_10": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "system:capture_11": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "system:capture_12": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "system:playback_1": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "system:playback_2": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "system:playback_3": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "system:playback_4": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "system:playback_5": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "system:playback_6": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "system:playback_7": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "system:playback_8": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "system:playback_9": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "system:playback_10": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "system:playback_11": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "system:playback_12": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "system:midi_capture_1": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "system:midi_playback_1": {
+   "dir": "input",
+   "type": "midi"
+  },
+  "system:midi_capture_2": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "system:midi_capture_3": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "system:midi_playback_2": {
+   "dir": "input",
+   "type": "midi"
+  },
+  "system:midi_playback_3": {
+   "dir": "input",
+   "type": "midi"
+  },
+  "ttymidi:MIDI_in": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "ttymidi:MIDI_out": {
+   "dir": "input",
+   "type": "midi"
+  },
+  "a2j:Midi Through [14] (capture): [0] Midi Through Port-0": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "a2j:Midi Through [14] (playback): [0] Midi Through Port-0": {
+   "dir": "input",
+   "type": "midi"
+  },
+  "ZynMidiRouter:dev0_in": {
+   "dir": "input",
+   "type": "midi"
+  },
+  "ZynMidiRouter:dev1_in": {
+   "dir": "input",
+   "type": "midi"
+  },
+  "ZynMidiRouter:dev2_in": {
+   "dir": "input",
+   "type": "midi"
+  },
+  "ZynMidiRouter:dev3_in": {
+   "dir": "input",
+   "type": "midi"
+  },
+  "ZynMidiRouter:dev4_in": {
+   "dir": "input",
+   "type": "midi"
+  },
+  "ZynMidiRouter:dev5_in": {
+   "dir": "input",
+   "type": "midi"
+  },
+  "ZynMidiRouter:dev6_in": {
+   "dir": "input",
+   "type": "midi"
+  },
+  "ZynMidiRouter:dev7_in": {
+   "dir": "input",
+   "type": "midi"
+  },
+  "ZynMidiRouter:dev8_in": {
+   "dir": "input",
+   "type": "midi"
+  },
+  "ZynMidiRouter:dev9_in": {
+   "dir": "input",
+   "type": "midi"
+  },
+  "ZynMidiRouter:dev10_in": {
+   "dir": "input",
+   "type": "midi"
+  },
+  "ZynMidiRouter:dev11_in": {
+   "dir": "input",
+   "type": "midi"
+  },
+  "ZynMidiRouter:dev12_in": {
+   "dir": "input",
+   "type": "midi"
+  },
+  "ZynMidiRouter:dev13_in": {
+   "dir": "input",
+   "type": "midi"
+  },
+  "ZynMidiRouter:dev14_in": {
+   "dir": "input",
+   "type": "midi"
+  },
+  "ZynMidiRouter:dev15_in": {
+   "dir": "input",
+   "type": "midi"
+  },
+  "ZynMidiRouter:dev16_in": {
+   "dir": "input",
+   "type": "midi"
+  },
+  "ZynMidiRouter:dev17_in": {
+   "dir": "input",
+   "type": "midi"
+  },
+  "ZynMidiRouter:dev18_in": {
+   "dir": "input",
+   "type": "midi"
+  },
+  "ZynMidiRouter:dev19_in": {
+   "dir": "input",
+   "type": "midi"
+  },
+  "ZynMidiRouter:dev20_in": {
+   "dir": "input",
+   "type": "midi"
+  },
+  "ZynMidiRouter:dev21_in": {
+   "dir": "input",
+   "type": "midi"
+  },
+  "ZynMidiRouter:dev22_in": {
+   "dir": "input",
+   "type": "midi"
+  },
+  "ZynMidiRouter:dev23_in": {
+   "dir": "input",
+   "type": "midi"
+  },
+  "ZynMidiRouter:seq_in": {
+   "dir": "input",
+   "type": "midi"
+  },
+  "ZynMidiRouter:step_in": {
+   "dir": "input",
+   "type": "midi"
+  },
+  "ZynMidiRouter:ctrl_in": {
+   "dir": "input",
+   "type": "midi"
+  },
+  "ZynMidiRouter:ch0_out": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "ZynMidiRouter:ch1_out": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "ZynMidiRouter:ch2_out": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "ZynMidiRouter:ch3_out": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "ZynMidiRouter:ch4_out": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "ZynMidiRouter:ch5_out": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "ZynMidiRouter:ch6_out": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "ZynMidiRouter:ch7_out": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "ZynMidiRouter:ch8_out": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "ZynMidiRouter:ch9_out": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "ZynMidiRouter:ch10_out": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "ZynMidiRouter:ch11_out": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "ZynMidiRouter:ch12_out": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "ZynMidiRouter:ch13_out": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "ZynMidiRouter:ch14_out": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "ZynMidiRouter:ch15_out": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "ZynMidiRouter:mod_out": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "ZynMidiRouter:step_out": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "ZynMidiRouter:ctrl_out": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "ZynMidiRouter:dev0_out": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "ZynMidiRouter:dev1_out": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "ZynMidiRouter:dev2_out": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "ZynMidiRouter:dev3_out": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "ZynMidiRouter:dev4_out": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "ZynMidiRouter:dev5_out": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "ZynMidiRouter:dev6_out": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "ZynMidiRouter:dev7_out": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "ZynMidiRouter:dev8_out": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "ZynMidiRouter:dev9_out": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "ZynMidiRouter:dev10_out": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "ZynMidiRouter:dev11_out": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "ZynMidiRouter:dev12_out": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "ZynMidiRouter:dev13_out": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "ZynMidiRouter:dev14_out": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "ZynMidiRouter:dev15_out": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "ZynMidiRouter:dev16_out": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "ZynMidiRouter:dev17_out": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "ZynMidiRouter:dev18_out": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "ZynMidiRouter:dev19_out": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "ZynMidiRouter:dev20_out": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "ZynMidiRouter:dev21_out": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "ZynMidiRouter:dev22_out": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "ZynMidiRouter:dev23_out": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "ZynMaster:midi_in": {
+   "dir": "input",
+   "type": "midi"
+  },
+  "zynmixer_chan:solo_a": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "zynmixer_chan:solo_b": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "zynmixer_chan:pfl_out_a": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "zynmixer_chan:pfl_out_b": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "zynmixer_bus:solo_a": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "zynmixer_bus:solo_b": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "zynmixer_bus:pfl_out_a": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "zynmixer_bus:pfl_out_b": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "zynmixer_bus:pfl_in_a": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "zynmixer_bus:pfl_in_b": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "zynmixer_bus:input_00a": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "zynmixer_bus:input_00b": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "zynmixer_bus:output_00a": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "zynmixer_bus:output_00b": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "zynmixer_bus:input_01a": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "zynmixer_bus:input_01b": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "zynmixer_bus:output_01a": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "zynmixer_bus:output_01b": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "zynseq:input": {
+   "dir": "input",
+   "type": "midi"
+  },
+  "zynseq:clock_in": {
+   "dir": "input",
+   "type": "midi"
+  },
+  "zynseq:output": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "zynseq:clock": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "zynseq:clippy": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "zynseq:metronome": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "zynsmf:midi_out": {
+   "dir": "output",
+   "type": "midi"
+  },
+  "zynsmf:midi_in": {
+   "dir": "input",
+   "type": "midi"
+  },
+  "audioplayer:out_00a": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "audioplayer:out_00b": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "effect_1000:out_1": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "effect_1000:out_2": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "effect_1000:midi_in": {
+   "dir": "input",
+   "type": "midi"
+  },
+  "zynmixer_chan:input_00a": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "zynmixer_chan:input_00b": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "zynmixer_chan:output_00a": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "zynmixer_chan:output_00b": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "effect_1001:out_1": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "effect_1001:out_2": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "effect_1001:midi_in": {
+   "dir": "input",
+   "type": "midi"
+  },
+  "zynmixer_chan:input_01a": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "zynmixer_chan:input_01b": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "zynmixer_chan:output_01a": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "zynmixer_chan:output_01b": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "effect_1002:out_1": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "effect_1002:out_2": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "effect_1002:midi_in": {
+   "dir": "input",
+   "type": "midi"
+  },
+  "zynmixer_chan:input_02a": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "zynmixer_chan:input_02b": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "zynmixer_chan:output_02a": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "zynmixer_chan:output_02b": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "effect_1003:out_1": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "effect_1003:out_2": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "effect_1003:midi_in": {
+   "dir": "input",
+   "type": "midi"
+  },
+  "zynmixer_chan:input_03a": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "zynmixer_chan:input_03b": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "zynmixer_chan:output_03a": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "zynmixer_chan:output_03b": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "effect_1004:in_1": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "effect_1004:in_2": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "effect_1004:out_1": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "effect_1004:out_2": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "zynmixer_bus:input_02a": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "zynmixer_bus:input_02b": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "zynmixer_bus:output_02a": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "zynmixer_bus:output_02b": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "zynmixer_chan:send_02a": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "zynmixer_chan:send_02b": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "effect_1005:in_1": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "effect_1005:in_2": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "effect_1005:out_1": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "effect_1005:out_2": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "effect_1006:in_1": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "effect_1006:in_2": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "effect_1006:out_1": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "effect_1006:out_2": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "zynmixer_bus:input_03a": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "zynmixer_bus:input_03b": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "zynmixer_bus:output_03a": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "zynmixer_bus:output_03b": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "zynmixer_chan:send_03a": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "zynmixer_chan:send_03b": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "effect_1007:in_1": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "effect_1007:in_2": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "effect_1007:out_1": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "effect_1007:out_2": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "effect_1008:in_1": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "effect_1008:in_2": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "effect_1008:out_1": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "effect_1008:out_2": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "zynmixer_bus:input_04a": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "zynmixer_bus:input_04b": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "zynmixer_bus:output_04a": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "zynmixer_bus:output_04b": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "zynmixer_chan:send_04a": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "zynmixer_chan:send_04b": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "effect_1009:in_1": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "effect_1009:in_2": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "effect_1009:out_1": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "effect_1009:out_2": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "effect_1010:in_1": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "effect_1010:in_2": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "effect_1010:out_1": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "effect_1010:out_2": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "zynmixer_bus:input_05a": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "zynmixer_bus:input_05b": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "zynmixer_bus:output_05a": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "zynmixer_bus:output_05b": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "zynmixer_chan:send_05a": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "zynmixer_chan:send_05b": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "effect_1011:in_1": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "effect_1011:in_2": {
+   "dir": "input",
+   "type": "audio"
+  },
+  "effect_1011:out_1": {
+   "dir": "output",
+   "type": "audio"
+  },
+  "effect_1011:out_2": {
+   "dir": "output",
+   "type": "audio"
+  }
+ },
+ "edges": [
+  [
+   "ZynMidiRouter:ch0_out",
+   "zynsmf:midi_in"
+  ],
+  [
+   "ZynMidiRouter:ch10_out",
+   "zynsmf:midi_in"
+  ],
+  [
+   "ZynMidiRouter:ch11_out",
+   "zynsmf:midi_in"
+  ],
+  [
+   "ZynMidiRouter:ch12_out",
+   "zynsmf:midi_in"
+  ],
+  [
+   "ZynMidiRouter:ch13_out",
+   "zynsmf:midi_in"
+  ],
+  [
+   "ZynMidiRouter:ch14_out",
+   "zynsmf:midi_in"
+  ],
+  [
+   "ZynMidiRouter:ch15_out",
+   "zynsmf:midi_in"
+  ],
+  [
+   "ZynMidiRouter:ch1_out",
+   "zynsmf:midi_in"
+  ],
+  [
+   "ZynMidiRouter:ch2_out",
+   "zynsmf:midi_in"
+  ],
+  [
+   "ZynMidiRouter:ch3_out",
+   "zynsmf:midi_in"
+  ],
+  [
+   "ZynMidiRouter:ch4_out",
+   "zynsmf:midi_in"
+  ],
+  [
+   "ZynMidiRouter:ch5_out",
+   "zynsmf:midi_in"
+  ],
+  [
+   "ZynMidiRouter:ch6_out",
+   "zynsmf:midi_in"
+  ],
+  [
+   "ZynMidiRouter:ch7_out",
+   "zynsmf:midi_in"
+  ],
+  [
+   "ZynMidiRouter:ch8_out",
+   "zynsmf:midi_in"
+  ],
+  [
+   "ZynMidiRouter:ch9_out",
+   "zynsmf:midi_in"
+  ],
+  [
+   "ZynMidiRouter:dev0_out",
+   "system:midi_playback_2"
+  ],
+  [
+   "ZynMidiRouter:dev1_out",
+   "system:midi_playback_3"
+  ],
+  [
+   "ZynMidiRouter:dev2_out",
+   "ttymidi:MIDI_out"
+  ],
+  [
+   "ZynMidiRouter:dev3_out",
+   "ZynMaster:midi_in"
+  ],
+  [
+   "ZynMidiRouter:dev4_out",
+   "ZynMidiRouter:seq_in"
+  ],
+  [
+   "ZynMidiRouter:step_out",
+   "zynseq:input"
+  ],
+  [
+   "audioplayer:out_00a",
+   "zynmixer_bus:input_01a"
+  ],
+  [
+   "audioplayer:out_00b",
+   "zynmixer_bus:input_01b"
+  ],
+  [
+   "effect_1000:out_1",
+   "zynmixer_chan:input_00a"
+  ],
+  [
+   "effect_1000:out_2",
+   "zynmixer_chan:input_00b"
+  ],
+  [
+   "effect_1001:out_1",
+   "zynmixer_chan:input_01a"
+  ],
+  [
+   "effect_1001:out_2",
+   "zynmixer_chan:input_01b"
+  ],
+  [
+   "effect_1002:out_1",
+   "zynmixer_chan:input_02a"
+  ],
+  [
+   "effect_1002:out_2",
+   "zynmixer_chan:input_02b"
+  ],
+  [
+   "effect_1003:out_1",
+   "zynmixer_chan:input_03a"
+  ],
+  [
+   "effect_1003:out_2",
+   "zynmixer_chan:input_03b"
+  ],
+  [
+   "effect_1004:out_1",
+   "effect_1005:in_1"
+  ],
+  [
+   "effect_1004:out_2",
+   "effect_1005:in_2"
+  ],
+  [
+   "effect_1005:out_1",
+   "zynmixer_bus:input_02a"
+  ],
+  [
+   "effect_1005:out_2",
+   "zynmixer_bus:input_02b"
+  ],
+  [
+   "effect_1006:out_1",
+   "effect_1007:in_1"
+  ],
+  [
+   "effect_1006:out_2",
+   "effect_1007:in_2"
+  ],
+  [
+   "effect_1007:out_1",
+   "zynmixer_bus:input_03a"
+  ],
+  [
+   "effect_1007:out_2",
+   "zynmixer_bus:input_03b"
+  ],
+  [
+   "effect_1008:out_1",
+   "effect_1009:in_1"
+  ],
+  [
+   "effect_1008:out_2",
+   "effect_1009:in_2"
+  ],
+  [
+   "effect_1009:out_1",
+   "zynmixer_bus:input_04a"
+  ],
+  [
+   "effect_1009:out_2",
+   "zynmixer_bus:input_04b"
+  ],
+  [
+   "effect_1010:out_1",
+   "effect_1011:in_1"
+  ],
+  [
+   "effect_1010:out_2",
+   "effect_1011:in_2"
+  ],
+  [
+   "effect_1011:out_1",
+   "zynmixer_bus:input_05a"
+  ],
+  [
+   "effect_1011:out_2",
+   "zynmixer_bus:input_05b"
+  ],
+  [
+   "system:midi_capture_2",
+   "ZynMidiRouter:dev0_in"
+  ],
+  [
+   "system:midi_capture_3",
+   "ZynMidiRouter:dev1_in"
+  ],
+  [
+   "ttymidi:MIDI_in",
+   "ZynMidiRouter:dev2_in"
+  ],
+  [
+   "zynmixer_bus:output_00a",
+   "system:playback_1"
+  ],
+  [
+   "zynmixer_bus:output_00b",
+   "system:playback_2"
+  ],
+  [
+   "zynmixer_chan:output_00a",
+   "zynmixer_bus:input_00a"
+  ],
+  [
+   "zynmixer_chan:output_00b",
+   "zynmixer_bus:input_00b"
+  ],
+  [
+   "zynmixer_chan:output_01a",
+   "zynmixer_bus:input_00a"
+  ],
+  [
+   "zynmixer_chan:output_01b",
+   "zynmixer_bus:input_00b"
+  ],
+  [
+   "zynmixer_chan:output_02a",
+   "zynmixer_bus:input_00a"
+  ],
+  [
+   "zynmixer_chan:output_02b",
+   "zynmixer_bus:input_00b"
+  ],
+  [
+   "zynmixer_chan:output_03a",
+   "zynmixer_bus:input_00a"
+  ],
+  [
+   "zynmixer_chan:output_03b",
+   "zynmixer_bus:input_00b"
+  ],
+  [
+   "zynmixer_chan:pfl_out_a",
+   "zynmixer_bus:pfl_in_a"
+  ],
+  [
+   "zynmixer_chan:pfl_out_b",
+   "zynmixer_bus:pfl_in_b"
+  ],
+  [
+   "zynmixer_chan:send_02a",
+   "effect_1004:in_1"
+  ],
+  [
+   "zynmixer_chan:send_02b",
+   "effect_1004:in_2"
+  ],
+  [
+   "zynmixer_chan:send_03a",
+   "effect_1006:in_1"
+  ],
+  [
+   "zynmixer_chan:send_03b",
+   "effect_1006:in_2"
+  ],
+  [
+   "zynmixer_chan:send_04a",
+   "effect_1008:in_1"
+  ],
+  [
+   "zynmixer_chan:send_04b",
+   "effect_1008:in_2"
+  ],
+  [
+   "zynmixer_chan:send_05a",
+   "effect_1010:in_1"
+  ],
+  [
+   "zynmixer_chan:send_05b",
+   "effect_1010:in_2"
+  ],
+  [
+   "zynmixer_chan:solo_a",
+   "zynmixer_bus:solo_a"
+  ],
+  [
+   "zynmixer_chan:solo_b",
+   "zynmixer_bus:solo_b"
+  ],
+  [
+   "zynseq:metronome",
+   "zynmixer_bus:input_01a"
+  ],
+  [
+   "zynseq:metronome",
+   "zynmixer_bus:input_01b"
+  ],
+  [
+   "zynseq:output",
+   "ZynMidiRouter:step_in"
+  ],
+  [
+   "zynsmf:midi_out",
+   "ZynMidiRouter:seq_in"
+  ]
+ ]
+}
