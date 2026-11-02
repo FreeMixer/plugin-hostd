@@ -1,0 +1,67 @@
+{
+ "what": "cold host to a loaded snapshot: the host started fresh, then every plugin of the set added; ms from the start",
+ "machine": "zynthian",
+ "rate": 48000,
+ "frames": 256,
+ "driver": "dummy",
+ "repeats": 3,
+ "rows": [
+  {
+   "set": "24 plugins",
+   "builds": "lv2",
+   "host": "plugin-hostd",
+   "plugins": 24,
+   "start_to_answering_ms": [
+    4.3,
+    2.6,
+    2.6
+   ],
+   "cold_to_loaded_ms": [
+    549.1,
+    580.3,
+    548.7
+   ],
+   "median_start_ms": 2.6,
+   "median_loaded_ms": 549.1,
+   "added_own": 0
+  },
+  {
+   "set": "24 plugins",
+   "builds": "clap (Calf has no CLAP build: LV2)",
+   "host": "plugin-hostd",
+   "plugins": 24,
+   "start_to_answering_ms": [
+    2.6,
+    2.6,
+    2.6
+   ],
+   "cold_to_loaded_ms": [
+    440.2,
+    444.2,
+    434.7
+   ],
+   "median_start_ms": 2.6,
+   "median_loaded_ms": 440.2,
+   "added_own": 0
+  },
+  {
+   "set": "ten third-party",
+   "builds": "lv2",
+   "host": "plugin-hostd",
+   "plugins": 10,
+   "start_to_answering_ms": [
+    2.8,
+    2.6,
+    2.6
+   ],
+   "cold_to_loaded_ms": [
+    251.2,
+    256.0,
+    255.2
+   ],
+   "median_start_ms": 2.6,
+   "median_loaded_ms": 255.2,
+   "added_own": 0
+  }
+ ]
+}

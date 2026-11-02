@@ -1,0 +1,2 @@
+[ perf record: Woken up 17 times to write data ]
+[ perf record: Captured and wrote 4.222 MB /root/omx-final-20261102/s7-profile/cvp24-H2-chain-add-dwarf.data (514 samples) ]

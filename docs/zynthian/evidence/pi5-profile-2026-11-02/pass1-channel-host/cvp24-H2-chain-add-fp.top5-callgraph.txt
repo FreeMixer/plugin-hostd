@@ -1,0 +1,110 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 8K of event 'cycles:P'
+# Event count (approx.): 9129142234
+#
+# Overhead  Shared Object               Symbol                                                                                                                         
+# ........  ..........................  ...............................................................................................................................
+#
+    14.19%  libm.so.6                   [.] __tanhf
+            |
+            ---__tanhf
+               |          
+                --14.15%--0x7fff7cd82dbf
+                          |          
+                          |--7.15%--0x7fff7cd83c40
+                          |          0x7fff7cd84e04
+                          |          omx_abi_call6f
+                          |          0x555602a2e34c
+                          |          0x555602a340a8
+                          |          0x555602a38ec0
+                          |          0x555602a3b678
+                          |          omx_clap_chain_process
+                          |          0x555602a3b7f0
+                          |          0x555602a3b820
+                          |          0x7fff7ec63ef4
+                          |          0x7fff7ec63b90
+                          |          0x7fff7ec84038
+                          |          start_thread
+                          |          thread_start
+                          |          
+                           --7.00%--0x7fff7cd83c14
+                                     0x7fff7cd84e04
+                                     omx_abi_call6f
+                                     0x555602a2e34c
+                                     0x555602a340a8
+                                     0x555602a38ec0
+                                     0x555602a3b678
+                                     omx_clap_chain_process
+                                     0x555602a3b7f0
+                                     0x555602a3b820
+                                     0x7fff7ec63ef4
+                                     0x7fff7ec63b90
+                                     0x7fff7ec84038
+                                     start_thread
+                                     thread_start
+
+     6.87%  calf.so                     [.] calf_plugins::gain_reduction_audio_module::process(float&, float&, float const*, float const*)
+            |
+            ---calf_plugins::gain_reduction_audio_module::process(float&, float&, float const*, float const*)
+               |          
+                --6.85%--calf_plugins::compressor_audio_module::process(unsigned int, unsigned int, unsigned int, unsigned int)
+                          0x7fff7d4771a8
+                          calf_plugins::lv2_instance::run(unsigned int, bool)
+                          0x555602a61880
+                          0x555602a60468
+                          0x555602a4e478
+                          omx_abi_call6f
+                          0x555602a2e34c
+                          0x555602a340a8
+                          0x555602a38ec0
+                          0x555602a3b678
+                          omx_clap_chain_process
+                          0x555602a3b7f0
+                          0x555602a3b820
+                          0x7fff7ec63ef4
+                          0x7fff7ec63b90
+                          0x7fff7ec84038
+                          start_thread
+                          thread_start
+
+     4.73%  omx-drive.clap              [.] 0x0000000000006a80
+            |
+            ---0x7fff7cd86a80
+
+     3.88%  libm.so.6                   [.] expf@@GLIBC_2.27
+            |
+            ---expf@@GLIBC_2.27
+               calf_plugins::gain_reduction_audio_module::process(float&, float&, float const*, float const*)
+               calf_plugins::compressor_audio_module::process(unsigned int, unsigned int, unsigned int, unsigned int)
+               0x7fff7d4771a8
+               calf_plugins::lv2_instance::run(unsigned int, bool)
+               0x555602a61880
+               0x555602a60468
+               0x555602a4e478
+               omx_abi_call6f
+               0x555602a2e34c
+               0x555602a340a8
+               0x555602a38ec0
+               0x555602a3b678
+               omx_clap_chain_process
+               0x555602a3b7f0
+               0x555602a3b820
+               0x7fff7ec63ef4
+               0x7fff7ec63b90
+               0x7fff7ec84038
+               start_thread
+               thread_start
+
+     3.85%  libm.so.6                   [.] powf@@GLIBC_2.27
+            |
+            ---powf@@GLIBC_2.27
+
+
+
+#
+# (Tip: To analyze cache line scalability issues use perf c2c record ... ; perf c2c report)
+#

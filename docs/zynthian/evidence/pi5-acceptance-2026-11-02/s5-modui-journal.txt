@@ -1,0 +1,11 @@
+# the mod-ui and mod-host journal on the Pi; one Python path is shortened to <mod-ui venv>, the virtual environment holding mod-ui's Python packages
+2026-11-02T16:46:06+00:00 zynthian systemd[1]: Starting mod-host.service - MOD-HOST: LV2 plugin server...
+2026-11-02T16:46:06+00:00 zynthian mod-host-backend.sh[1101806]: Starting plugin-hostd on port 5555 and 5556 with /zynthian/config/plugin-hostd.conf
+2026-11-02T16:46:06+00:00 zynthian systemd[1]: Started mod-host.service - MOD-HOST: LV2 plugin server.
+2026-11-02T16:46:06+00:00 zynthian systemd[1]: Started mod-ui.service - MOD-UI.
+2026-11-02T16:46:06+00:00 zynthian mod-ui.sh[1101824]: Exception ignored in: <object repr() failed>
+2026-11-02T16:46:06+00:00 zynthian mod-ui.sh[1101824]: Traceback (most recent call last):
+2026-11-02T16:46:06+00:00 zynthian mod-ui.sh[1101824]:   File "<mod-ui venv>/serial/serialposix.py", line 452, in close
+2026-11-02T16:46:06+00:00 zynthian mod-ui.sh[1101824]:     if self.is_open:
+2026-11-02T16:46:06+00:00 zynthian mod-ui.sh[1101824]: AttributeError: 'Serial' object has no attribute 'is_open'
+2026-11-02T16:46:20+00:00 zynthian mod-ui.sh[1101824]: ALSA lib confmisc.c:165:(snd_config_get_card) Cannot get card index for MODDUO
