@@ -1,0 +1,14 @@
+wait 300
+midi 90 30 64
+midi 90 34 64
+midi 90 37 64
+midi 90 3c 64
+wait 1500
+mark held
+wait 18000
+end
+midi 80 30 0
+midi 80 34 0
+midi 80 37 0
+midi 80 3c 0
+wait 300

@@ -1,0 +1,78 @@
+{
+ "roles": {
+  "p0": "effect_0",
+  "p1": "effect_1",
+  "p2": "effect_2",
+  "p3": "effect_3",
+  "rev0": "effect_4",
+  "dly0": "effect_5"
+ },
+ "links": [
+  [
+   "effect_0:left_out",
+   "zynmixer_chan:input_00a"
+  ],
+  [
+   "effect_0:right_out",
+   "zynmixer_chan:input_00b"
+  ],
+  [
+   "effect_1:left_out",
+   "zynmixer_chan:input_01a"
+  ],
+  [
+   "effect_1:right_out",
+   "zynmixer_chan:input_01b"
+  ],
+  [
+   "effect_2:left_out",
+   "zynmixer_chan:input_02a"
+  ],
+  [
+   "effect_2:right_out",
+   "zynmixer_chan:input_02b"
+  ],
+  [
+   "effect_3:left_out",
+   "zynmixer_chan:input_03a"
+  ],
+  [
+   "effect_3:right_out",
+   "zynmixer_chan:input_03b"
+  ],
+  [
+   "zynmixer_chan:send_02a",
+   "effect_4:in_l"
+  ],
+  [
+   "effect_4:out_l",
+   "effect_5:in_l"
+  ],
+  [
+   "effect_5:out_l",
+   "zynmixer_bus:input_02a"
+  ],
+  [
+   "zynmixer_chan:send_02b",
+   "effect_4:in_r"
+  ],
+  [
+   "effect_4:out_r",
+   "effect_5:in_r"
+  ],
+  [
+   "effect_5:out_r",
+   "zynmixer_bus:input_02b"
+  ]
+ ],
+ "cut": [
+  [
+   "zynmixer_chan:send_02a",
+   "zynmixer_bus:input_02a"
+  ],
+  [
+   "zynmixer_chan:send_02b",
+   "zynmixer_bus:input_02b"
+  ]
+ ]
+}

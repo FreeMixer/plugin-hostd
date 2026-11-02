@@ -1,0 +1,12 @@
+mixbus-menu: shared-hostd hostd rep 1: ok dsp 3.99 pss 74.4 clients 16 xruns 0 peak -0.6 
+mixbus-menu: shared-mod-host mod-host rep 1: ok dsp 3.39 pss 75.6 clients 18 xruns 0 peak -0.6 
+mixbus-menu: perchain-hostd hostd rep 1: ok dsp 5.72 pss 118.9 clients 22 xruns 0 peak -0.6 
+mixbus-menu: perchain-mod-host mod-host rep 1: ok dsp 4.3 pss 99.4 clients 24 xruns 0 peak -0.6 
+mixbus-menu: shared-hostd hostd rep 2: ok dsp 4.05 pss 74.3 clients 16 xruns 0 peak -0.6 
+mixbus-menu: shared-mod-host mod-host rep 2: ok dsp 3.38 pss 75.7 clients 18 xruns 0 peak -0.6 
+mixbus-menu: perchain-hostd hostd rep 2: ok dsp 5.61 pss 119.0 clients 22 xruns 0 peak -0.6 
+mixbus-menu: perchain-mod-host mod-host rep 2: ok dsp 4.3 pss 99.4 clients 24 xruns 0 peak -0.6 
+mixbus-menu: shared-hostd hostd rep 3: ok dsp 4.06 pss 74.4 clients 16 xruns 0 peak -0.6 
+mixbus-menu: shared-mod-host mod-host rep 3: ok dsp 3.4 pss 75.7 clients 18 xruns 0 peak -0.6 
+mixbus-menu: perchain-hostd hostd rep 3: ok dsp 5.65 pss 118.9 clients 22 xruns 0 peak -0.6 
+mixbus-menu: perchain-mod-host mod-host rep 3: ok dsp 4.38 pss 99.4 clients 24 xruns 0 peak -0.6 
