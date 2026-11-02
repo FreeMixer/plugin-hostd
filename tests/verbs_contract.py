@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # The daemon routes by instance the commands whose first argument is an instance number. That list is mod-host's
-# grammar, not ours: the "<verb> <instance_number>" lines of mod-host's README are the commands of verbs.c's table, no
+# grammar, not ours: the "<verb> <instance_number>" lines of mod-host's README (plugin-hostd-protocol's doc/protocol.md) are the commands of verbs.c's table, no
 # more and no fewer, and each one's format in mod-host.h takes a number first. The type alone does not make an
 # instance verb: "transport %i" and "monitor_midi_program %i" take a number that is not one. And no verb is spelled in the C sources: a verb of mod-host.h, of
 # include/plugin-hostd/protocol.h or of the daemon's declaration (data/verbs.json, rendered into
@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import modhost
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MOD_HOST_DIR = os.environ.get("MOD_HOST_DIR", os.path.join(ROOT, "..", "mod-host"))
+PROTOCOL_DIR = os.environ.get("PROTOCOL_DIR", os.path.join(ROOT, "..", "plugin-hostd-protocol"))
 # the C sources built against the declarations: the daemon, and the worker the tests run it with
 SOURCES = [os.path.join("src", f) for f in sorted(os.listdir(os.path.join(ROOT, "src"))) if f.endswith((".c", ".h"))]
 SOURCES += [os.path.join("tests", "fake_host.c"), os.path.join("tools", "protocol-gen.c")]
@@ -43,7 +43,7 @@ def spelled(text, verbs):
     return [(n, s) for n, s in strings(text) if re.split(r"[ \t%]", s, maxsplit=1)[0] in verbs]
 
 
-include = modhost.include_dir(MOD_HOST_DIR)
+include = modhost.include_dir(PROTOCOL_DIR)
 if not os.path.exists(os.path.join(include, "mod-host.h")):
     print("FAIL verbs contract: no mod-host.h in " + include)
     sys.exit(1)
@@ -110,9 +110,9 @@ if own_verbs < 10 or "OMX_VERB_CHAIN" not in block:
 if "OMX_VERB_CHAIN" in table or re.search(r"\bchain\b", " ".join(commands.values())):
     fail("chain is routed by instance, or mod-host.h has a command of that name")
 
-readme = os.path.join(MOD_HOST_DIR, "README.md")
+readme = os.environ.get("PROTOCOL_PAGE") or os.path.join(PROTOCOL_DIR, "doc", "protocol.md")
 if not os.path.exists(readme):
-    print("skip verbs contract: no mod-host README at " + readme)
+    print("skip verbs contract: no protocol page at " + readme)
 else:
     with open(readme) as f:
         grammar = set(re.findall(r"^\s{4}(\w+) <instance_number>", f.read(), re.M))

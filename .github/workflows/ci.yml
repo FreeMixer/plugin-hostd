@@ -4,7 +4,7 @@ name: ci
 # artifacts, on both architectures, and installed in a clean container. Nothing is signed or published
 # here: release.yml is a release, run from a version tag, and its dry run is the last job.
 #
-# The protocol library, the mod-host RPMs and the RPM build are the composite actions of
+# The RPM build and the channel are the composite actions of
 # FreeMixer/.github. The real CLAP worker the jack test drives, and its fixtures, are the omx-clap-host and
 # omx-clap-host-tests packages of the OpenMixer channel, installed by dnf builddep / apt-get build-dep from the
 # floor the spec and debian/control declare; nothing of omx-clap-core is checked out or built here.
@@ -103,11 +103,6 @@ jobs:
       - name: Install the build dependencies from the channel
         run: dnf builddep -y --setopt=retries=10 packaging/plugin-hostd.spec
 
-      # the library, corpus and README of mod-host with the patches FreeMixer/.github carries (packaging/mod-host),
-      # the same code as the mod-host-protocol packages: track_info, remote pages, param_info, NUL-framed commands
-      # at this commit until FreeMixer/.github moves v1 past #98: the protocol library that takes a bind address
-      - uses: FreeMixer/.github/.github/actions/mod-host-protocol@f462c98d0b84167b7a3838fe55abfa01ac0c2fd7
-
       - name: Build
         run: make
 
@@ -133,15 +128,14 @@ jobs:
           dnf install -y --setopt=retries=10 omx-plugins-clap
           make test-panel-wire
 
-      # mod-host itself, the LV2 worker, from the OpenMixer channel: the build the RPM job packages, with the patches
-      # FreeMixer/.github carries. The floor is the one the spec requires of the protocol library.
+      # mod-host itself, the LV2 worker, from the OpenMixer channel, with the patches FreeMixer/.github carries. The
+      # floor is the first build whose ports listen on 127.0.0.1 unless told otherwise (11.3).
       - name: Install mod-host from the channel
         run: |
           set -euo pipefail
           dnf install -y --setopt=retries=10 mod-host
-          rpm -q mod-host mod-host-protocol
-          floor=$(sed -n 's/^Requires:.*mod-host-protocol.*>=[[:space:]]*\([^[:space:]]*\).*/\1/p' packaging/plugin-hostd.spec | head -n 1)
-          test -n "$floor"
+          rpm -q mod-host
+          floor=0.10.6.f14a230-11.3
           have=$(rpm -q --qf '%{VERSION}-%{RELEASE}' mod-host)
           test "$(printf '%s\n%s\n' "$floor" "$have" | sort -V | head -n 1)" = "$floor" || { echo "mod-host $have is below the floor $floor"; exit 1; }
 
@@ -197,9 +191,6 @@ jobs:
       - name: Install the build dependencies from the channel
         run: dnf builddep -y --setopt=retries=10 packaging/plugin-hostd.spec
 
-      # at this commit until FreeMixer/.github moves v1 past #98: the protocol library that takes a bind address
-      - uses: FreeMixer/.github/.github/actions/mod-host-protocol@f462c98d0b84167b7a3838fe55abfa01ac0c2fd7
-
       - name: Build
         run: make
 
@@ -244,11 +235,6 @@ jobs:
       # the worker and the fixtures: omx-clap-host-tests Depends on omx-clap-host, so this installs both
       - name: Install the build dependencies from the channel
         run: apt-get build-dep -y --no-install-recommends ./
-
-      # the library, corpus and README of mod-host with the patches FreeMixer/.github carries (packaging/mod-host),
-      # the same code as the mod-host-protocol packages: track_info, remote pages, param_info, NUL-framed commands
-      # at this commit until FreeMixer/.github moves v1 past #98: the protocol library that takes a bind address
-      - uses: FreeMixer/.github/.github/actions/mod-host-protocol@f462c98d0b84167b7a3838fe55abfa01ac0c2fd7
 
       # the CLAP headers, which Debian does not package either: built and installed from the pin of
       # FreeMixer/.github, the same one the RPM and DEB builds of the CLAP worker use
@@ -305,8 +291,13 @@ jobs:
       - name: Add the OpenMixer channel
         uses: FreeMixer/.github/.github/actions/add-openmixer@v1
 
-      # at this commit until FreeMixer/.github moves v1 past #98: the protocol library that takes a bind address
-      - uses: FreeMixer/.github/.github/actions/mod-host-rpms@f462c98d0b84167b7a3838fe55abfa01ac0c2fd7
+      # the packages the clean root installs beside plugin-hostd's: the protocol library, and mod-host, which the
+      # daemon recommends, from the channel
+      - name: Fetch the protocol library and mod-host from the channel
+        run: |
+          set -euo pipefail
+          mkdir -p dep-rpms
+          dnf download -y --setopt=retries=10 --arch ${{ matrix.arch }} --destdir dep-rpms plugin-hostd-protocol mod-host mod-host-protocol
 
       - uses: FreeMixer/.github/.github/actions/build-rpm@v1
 
@@ -322,8 +313,8 @@ jobs:
               /usr/share/plugin-hostd/protocol.json /usr/share/plugin-hostd/mod-host.json | sort > expected.txt
             diff -u expected.txt files.txt
             rpm -qp --requires "$rpm" | tee requires.txt
-            grep -q 'libmod-host-protocol.so.0' requires.txt
-            grep -qx 'mod-host-protocol(.*) >= 0.10.6.f14a230-11.3' requires.txt
+            grep -q 'libplugin-hostd-protocol.so.0' requires.txt
+            grep -qx 'plugin-hostd-protocol(.*) >= 0.1.0' requires.txt
             grep -qx "plugin-hostd-contract = $(rpm -qp --qf '%{VERSION}-%{RELEASE}' "$rpm")" requires.txt
             rpm -qp --recommends "$rpm" | tee recommends.txt
             grep -q '^mod-host' recommends.txt
@@ -377,8 +368,9 @@ jobs:
       - uses: FreeMixer/.github/.github/actions/install-clean@v1
         with:
           rpms: |
-            mod-host-rpms/mod-host-[0-9]*.rpm
-            mod-host-rpms/mod-host-protocol-[0-9]*.rpm
+            dep-rpms/plugin-hostd-protocol-[0-9]*.rpm
+            dep-rpms/mod-host-[0-9]*.rpm
+            dep-rpms/mod-host-protocol-[0-9]*.rpm
             rpms/plugin-hostd-[0-9]*.${{ matrix.arch }}.rpm
             rpms/plugin-hostd-contract-[0-9]*.noarch.rpm
             rpms/plugin-hostd-tests-[0-9]*.${{ matrix.arch }}.rpm
@@ -392,7 +384,7 @@ jobs:
           grep -q "version: $version\$" v.txt
           chroot /tmp/clean-root ldd /usr/bin/plugin-hostd | tee ldd.txt
           ! grep -q 'not found' ldd.txt
-          grep -q 'libmod-host-protocol\.so\.0 => /' ldd.txt
+          grep -q 'libplugin-hostd-protocol\.so\.0 => /' ldd.txt
 
       # the readiness line, the placement, the crashes and the respawns, of the installed binary
       - name: The installed daemon against the fake worker
@@ -455,8 +447,10 @@ jobs:
       - name: Add the OpenMixer channel
         uses: FreeMixer/.github/.github/actions/add-openmixer@v1
 
-      # at this commit until FreeMixer/.github moves v1 past #98: the protocol library that takes a bind address
-      - uses: FreeMixer/.github/.github/actions/deb-deps@f462c98d0b84167b7a3838fe55abfa01ac0c2fd7
+      # the CLAP headers Debian does not package; the protocol library is the channel's
+      - uses: FreeMixer/.github/.github/actions/deb-deps@v1
+        with:
+          names: clap-headers
 
       - uses: FreeMixer/.github/.github/actions/build-deb@v1
 
@@ -466,7 +460,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dep-debs
-          (cd dep-debs && apt-get download omx-clap-core-contract omx-contract-data omx-contract)
+          (cd dep-debs && apt-get download libplugin-hostd-protocol0 omx-clap-core-contract omx-contract-data omx-contract)
 
       # what the smoke test runs the installed package against, built here for the architecture
       - name: Build the smoke test fixtures
@@ -482,7 +476,7 @@ jobs:
           name: plugin-hostd-ci-debs-${{ matrix.suite }}-${{ matrix.arch }}
           path: |
             debs/*.deb
-            dep-debs/libmod-host-protocol0_*.deb
+            dep-debs/libplugin-hostd-protocol0_*.deb
             dep-debs/omx-clap-core-contract_*.deb
             dep-debs/omx-contract-data_*.deb
             dep-debs/omx-contract_*.deb
@@ -515,7 +509,7 @@ jobs:
         run: |
           set -euo pipefail
           apt-get update -qq
-          apt-get install -y --no-install-recommends ./debs/plugin-hostd_*.deb ./debs/plugin-hostd-contract_*.deb ./debs/plugin-hostd-dev_*.deb ./debs/plugin-hostd-tests_*.deb ./dep-debs/libmod-host-protocol0_*.deb ./dep-debs/omx-clap-core-contract_*.deb ./dep-debs/omx-contract-data_*.deb ./dep-debs/omx-contract_*.deb python3
+          apt-get install -y --no-install-recommends ./debs/plugin-hostd_*.deb ./debs/plugin-hostd-contract_*.deb ./debs/plugin-hostd-dev_*.deb ./debs/plugin-hostd-tests_*.deb ./dep-debs/libplugin-hostd-protocol0_*.deb ./dep-debs/omx-clap-core-contract_*.deb ./dep-debs/omx-contract-data_*.deb ./dep-debs/omx-contract_*.deb python3
           dpkg -L plugin-hostd-dev | tee dev.txt
           grep -qx /usr/include/plugin-hostd/protocol.h dev.txt
           grep -qx /usr/include/plugin-hostd/plugin_hostd_host_verbs.h dev.txt
@@ -541,9 +535,9 @@ jobs:
           grep -qx /usr/libexec/plugin-hostd/tests/fake-host tests.txt
           grep -qx /usr/libexec/plugin-hostd/tests/lib/protocol.sh tests.txt
           grep -qx /usr/libexec/plugin-hostd/tests/lib/plugin_hostd_client.py tests.txt
-          dpkg -s libmod-host-protocol0 | grep '^Status: install ok installed'
+          dpkg -s libplugin-hostd-protocol0 | grep '^Status: install ok installed'
           dpkg-deb -f debs/plugin-hostd_*.deb Depends | tee depends.txt
-          grep -qF 'libmod-host-protocol0 (>= 0.1.0-8~omx)' depends.txt
+          grep -qF 'libplugin-hostd-protocol0 (>= 0.1.0~)' depends.txt
 
       - name: The installed fake worker prints its layout
         run: |
@@ -559,7 +553,7 @@ jobs:
           grep -q "version: ${version%%~*}\$" v.txt
           ldd /usr/bin/plugin-hostd | tee ldd.txt
           ! grep -q 'not found' ldd.txt
-          grep -q 'libmod-host-protocol\.so\.0 => /' ldd.txt
+          grep -q 'libplugin-hostd-protocol\.so\.0 => /' ldd.txt
 
       # the readiness line, the placement, the crashes and the respawns, of the installed binary
       - name: The installed daemon against the fake worker

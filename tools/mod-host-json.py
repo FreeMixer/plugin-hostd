@@ -5,7 +5,7 @@
 # mod-host's protocol, written out as JSON for readers that are not C: the command and feedback
 # templates of mod-host.h, the protocol_parse() refusals of protocol.h and the reply codes of
 # host-errors.h, read from the headers this daemon compiles against (the include directory given,
-# which the Makefile takes from pkg-config mod-host-protocol or MOD_HOST_DIR/src).
+# which the Makefile takes from pkg-config plugin-hostd-protocol or PROTOCOL_DIR/include).
 #
 #   tools/mod-host-json.py <include dir>      prints protocol/mod-host.json
 import json

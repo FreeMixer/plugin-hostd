@@ -23,22 +23,31 @@ PROBE_LOCK = plugin-hostd-probe-lock.so
 
 PKG_CONFIG ?= pkg-config
 
-# a mod-host checkout: the library when pkg-config has none, and always the scenario corpus of the jack test
-MOD_HOST_DIR ?= ../mod-host
+# a plugin-hostd-protocol checkout, used when pkg-config finds no installed plugin-hostd-protocol
+PROTOCOL_DIR ?= ../plugin-hostd-protocol
 
-# mod-host protocol library: pkg-config when it is installed, a mod-host checkout otherwise
-ifeq ($(shell $(PKG_CONFIG) --exists mod-host-protocol && echo true), true)
-PROTOCOL_CFLAGS = $(shell $(PKG_CONFIG) --cflags mod-host-protocol)
-PROTOCOL_LIBS = $(shell $(PKG_CONFIG) --libs mod-host-protocol)
+# the protocol library, plugin-hostd-protocol: pkg-config when it is installed, a checkout of it otherwise. Beside the
+# library: the scenario corpus and the source of its runner (the jack test), and the protocol page the verb table is
+# read from
+ifeq ($(shell $(PKG_CONFIG) --exists plugin-hostd-protocol && echo true), true)
+PROTOCOL_CFLAGS = $(shell $(PKG_CONFIG) --cflags plugin-hostd-protocol)
+PROTOCOL_LIBS = $(shell $(PKG_CONFIG) --libs plugin-hostd-protocol)
+PROTOCOL_SCENARIOS = $(shell $(PKG_CONFIG) --variable=scenarios plugin-hostd-protocol)
+PROTOCOL_RUNNER = $(shell $(PKG_CONFIG) --variable=runner plugin-hostd-protocol)
+PROTOCOL_PAGE = $(shell $(PKG_CONFIG) --variable=protocoldoc plugin-hostd-protocol)
 else
-PROTOCOL_LIB = $(MOD_HOST_DIR)/libmod-host-protocol.so
-PROTOCOL_CFLAGS = -I$(MOD_HOST_DIR)/src
+PROTOCOL_LIB = $(PROTOCOL_DIR)/libplugin-hostd-protocol.so
+PROTOCOL_CFLAGS = -I$(PROTOCOL_DIR)/include
 # the checkout's library is not installed: the binary finds it there through its rpath
-PROTOCOL_LIBS = -L$(MOD_HOST_DIR) -lmod-host-protocol -Wl,-rpath,$(abspath $(MOD_HOST_DIR))
+PROTOCOL_LIBS = -L$(PROTOCOL_DIR) -lplugin-hostd-protocol -Wl,-rpath,$(abspath $(PROTOCOL_DIR))
+PROTOCOL_SCENARIOS = $(PROTOCOL_DIR)/tests/host-scenarios.txt
+PROTOCOL_RUNNER = $(PROTOCOL_DIR)/tests/host_scenarios.c
+PROTOCOL_PAGE = $(PROTOCOL_DIR)/doc/protocol.md
 endif
 
 # the directory holding mod-host's protocol headers, which protocol/mod-host.json is written from: the -I of the
-# protocol's flags (mod-host-protocol.pc names <includedir>/mod-host), or MOD_HOST_INCLUDE=<dir> on the command line
+# protocol's flags (plugin-hostd-protocol.pc names <includedir>/plugin-hostd-protocol), or MOD_HOST_INCLUDE=<dir> on the
+# command line
 MOD_HOST_INCLUDE ?= $(patsubst -I%,%,$(firstword $(filter -I%,$(PROTOCOL_CFLAGS))))
 
 # omx-contract's C header (omx-contract-devel, libomx-contract-dev): the probe runner's default rates and the protocol's
@@ -80,7 +89,7 @@ all: $(PROG) $(PROBE) $(PROBE_LOCK)
 $(PROG): $(OBJ) $(PROTOCOL_LIB)
 	$(CC) $(OBJ) $(PROTOCOL_LIBS) $(LDFLAGS) -pthread -lm -o $@
 
-# the probe runner: it loads no plugin and links nothing of the daemon or of mod-host
+# the probe runner: it loads no plugin and links nothing of the daemon or of the protocol library
 # describe reads the installed table of a format by default (docs/formats.md)
 PROBE_SRC = src/probe.c src/probe_cgroup.c src/json.c src/describe.c src/transforms.c src/machine.c
 $(PROBE): $(PROBE_SRC) src/probe_cgroup.h src/json.h src/describe.h src/transforms.h src/machine.h src/probe_lock.h include/plugin-hostd/protocol.h $(RENDERED) include/plugin-hostd/pin.h
@@ -95,7 +104,7 @@ $(PROBE_LOCK): src/probe_lock.c src/probe_lock.h
 
 ifneq ($(PROTOCOL_LIB),)
 $(PROTOCOL_LIB):
-	$(MAKE) -C $(MOD_HOST_DIR) libmod-host-protocol.so
+	$(MAKE) -C $(PROTOCOL_DIR) libplugin-hostd-protocol.so
 endif
 
 # the declared protocol is compiled into every object
@@ -296,7 +305,7 @@ clean:
 # the daemon against workers that are not plugin hosts at all (tests/fake-host speaks the same protocol and can be
 # made to die on cue): placement, forwarding, ledger, replay, attribution, the storm bound; no jack, no plugin
 test: test-protocol-lib test-plan-refused test-sabotage-pool test-pin test-history test-proc test-conf test-own-host-probe-teardown test-planner test-placement test-transforms test-format-coverage test-describe test-relay test-alloc test-alloc-sweep test-format test-ready-connect test-ready-connect-sabotage test-bind test-bind-sabotage test-daemon test-verbs-declared check-rendered check-generated check-protocol-doc check-schema test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-mod-host-json test-socket check-verb-table check-preset-schema test-install-schemas check-contract-floor check-readme-facts test-pin-files
-	MOD_HOST_DIR=$(MOD_HOST_DIR) python3 tests/verbs_contract.py
+	PROTOCOL_DIR=$(PROTOCOL_DIR) PROTOCOL_PAGE=$(PROTOCOL_PAGE) python3 tests/verbs_contract.py
 
 # the protocol clients plugin-hostd-tests ships (tests/lib/), against a peer that frames by NUL, and their sabotage
 .PHONY: test-protocol-lib
@@ -325,7 +334,7 @@ test-bind: $(PROG) $(FAKE)
 test-bind-sabotage: $(PROG) $(FAKE)
 	python3 tests/bind_sabotage.py ./$(PROG) $(FAKE) "$(CC)" "$(CFLAGS) $(INCS)" "$(OBJ)" "$(PROTOCOL_LIBS) $(LDFLAGS)"
 
-# the same without the verb table, which is read from a mod-host checkout's README
+# the same without the verb table, which is read from the protocol page (PROTOCOL_PAGE)
 test-daemon: $(PROG) $(FAKE)
 	PLUGIN_HOSTD=./$(PROG) FAKE_HOST=./$(FAKE) python3 tests/daemon_test.py
 
@@ -484,7 +493,7 @@ tests/stress.clap: tests/stress_plugin.c
 
 # every guard broken on purpose, one at a time: its test must go red
 sabotage: $(PROG) $(FAKE) tests/probe-child tests/stress.clap tests/lv2-probe-child tests/rt_interpose.so $(LV2_FIXTURE)
-	MOD_HOST_DIR=$(MOD_HOST_DIR) FAKE_HOST=./$(FAKE) python3 tests/sabotage.py
+	PROTOCOL_DIR=$(PROTOCOL_DIR) FAKE_HOST=./$(FAKE) python3 tests/sabotage.py
 
 # the jack server the real-worker tests run over: pipewire's own jack implementation (default) or JACK2's jackd
 JACK_SERVER ?= pipewire
@@ -494,7 +503,7 @@ JACK_SERVER ?= pipewire
 # meter fixtures (FAKE_COMPRESSOR_CLAP, JACK_METER_SOURCE) the meters reach the controller through the daemon
 test-jack: $(PROG) tests/stress.clap tests/jack_levels tests/host_scenarios
 	JACK_SERVER=$(JACK_SERVER) PLUGIN_HOSTD=./$(PROG) STRESS_CLAP=$(abspath tests/stress.clap) JACK_LEVELS=$(abspath tests/jack_levels) \
-	HOST_SCENARIOS=$(abspath tests/host_scenarios) SCENARIOS=$(abspath $(MOD_HOST_DIR)/tests/host-scenarios.txt) ./tests/jack_e2e.sh
+	HOST_SCENARIOS=$(abspath tests/host_scenarios) SCENARIOS=$(abspath $(PROTOCOL_SCENARIOS)) ./tests/jack_e2e.sh
 
 # test-jack against JACK2's jackd (the server Zynthian runs) instead of pipewire's own jack implementation
 test-jack2:
@@ -523,8 +532,8 @@ lv2-adapter-e2e: $(PROG) tests/stress.clap tests/jack_levels $(LV2_FIXTURE)
 $(LV2_FIXTURE): tests/lv2_fixture.c
 	$(CC) $(shell $(PKG_CONFIG) --cflags lv2) $(CFLAGS) -Werror -shared -o $@ $<
 
-# mod-host's scenario corpus, the runner every host is tested with
-tests/host_scenarios: $(MOD_HOST_DIR)/tests/host_scenarios.c $(PROTOCOL_LIB)
+# the protocol's scenario corpus, the runner every host is tested with
+tests/host_scenarios: $(PROTOCOL_RUNNER) $(PROTOCOL_LIB)
 	$(CC) $(INCS) $(CFLAGS) -Werror -o $@ $< $(PROTOCOL_LIBS) -lpthread
 
 tests/jack_levels: tests/jack_levels.c
@@ -659,7 +668,7 @@ test-probe-schema:
 
 # the declaration is the one copy: change values in a scratch copy of it, regenerate, rebuild, and the daemon and the docs follow
 test-perturbation: $(PROG) $(FAKE) $(GEN)
-	MOD_HOST_DIR=$(MOD_HOST_DIR) FAKE_HOST=./$(FAKE) python3 tests/perturbation.py
+	PROTOCOL_DIR=$(PROTOCOL_DIR) FAKE_HOST=./$(FAKE) python3 tests/perturbation.py
 
 # a consumer compiles against the installed header alone, through pkg-config, as plain C
 test-consumer:
