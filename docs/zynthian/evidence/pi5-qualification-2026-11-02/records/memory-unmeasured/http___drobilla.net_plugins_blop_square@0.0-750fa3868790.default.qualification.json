@@ -1,0 +1,1045 @@
+{
+  "schema": "plugin-qualify.qualification-record/1",
+  "plugin": {
+    "format": "lv2",
+    "id": "http://drobilla.net/plugins/blop/square"
+  },
+  "testedVersion": "0.0",
+  "binary": {
+    "path": "square.so",
+    "sha256": "750fa3868790d8b6de4efd2fd8a72c14eaba3757601cabc1e346837fbd4d81d8",
+    "files": [
+      {
+        "path": "manifest.ttl",
+        "sha256": "db5eb05a53966632adb504b33e70cebf87d871ae914e9b36b5031e5c86d7c510"
+      },
+      {
+        "path": "square.so",
+        "sha256": "750fa3868790d8b6de4efd2fd8a72c14eaba3757601cabc1e346837fbd4d81d8"
+      },
+      {
+        "path": "square.ttl",
+        "sha256": "108649dcdcca633e7bb1ada7d3f8b0577c915849d932b0293daccbdda728f74a"
+      }
+    ],
+    "layout": {
+      "scheme": "omx-layout/1",
+      "sha256": "2ed5a5416e43e913ee27c4c5d5ad4f4656de808ffbf8762b5f5ff67df83f58cb"
+    }
+  },
+  "verdicts": [
+    {
+      "host": "omx-clap-host",
+      "measured": true,
+      "rating": "suitable",
+      "qualified": true,
+      "hosting": "isolated",
+      "arm": "run",
+      "reasons": [
+        {
+          "dimension": "rtSafety",
+          "rating": "suitable",
+          "code": "hosting.rt-safety.clean-under-sweep",
+          "params": {
+            "blocks": 8192
+          }
+        }
+      ]
+    },
+    {
+      "host": "openmixer-console",
+      "measured": true,
+      "rating": "unknown",
+      "qualified": false,
+      "hosting": "isolated",
+      "arm": "declaration",
+      "deciding": "hosting.memory.unmeasured",
+      "reasons": [
+        {
+          "dimension": "rtSafety",
+          "rating": "suitable",
+          "code": "hosting.rt-safety.clean-under-sweep",
+          "params": {
+            "blocks": 8192
+          }
+        },
+        {
+          "dimension": "memory",
+          "rating": "unknown",
+          "code": "hosting.memory.unmeasured",
+          "params": {
+            "rate": 96000,
+            "quantum": 1024
+          }
+        }
+      ]
+    },
+    {
+      "host": "mod-host",
+      "measured": true,
+      "rating": "suitable",
+      "qualified": true,
+      "hosting": "isolated",
+      "arm": "run",
+      "reasons": [
+        {
+          "dimension": "rtSafety",
+          "rating": "suitable",
+          "code": "hosting.rt-safety.clean-under-sweep",
+          "params": {
+            "blocks": 8192
+          }
+        }
+      ]
+    },
+    {
+      "host": "openmixer-pi-4gb",
+      "measured": true,
+      "rating": "conditional",
+      "qualified": false,
+      "hosting": "isolated",
+      "arm": "run",
+      "deciding": "hosting.memory.within-provisional-ceiling",
+      "reasons": [
+        {
+          "dimension": "rtSafety",
+          "rating": "suitable",
+          "code": "hosting.rt-safety.clean-under-sweep",
+          "params": {
+            "blocks": 8192
+          }
+        },
+        {
+          "dimension": "memory",
+          "rating": "conditional",
+          "code": "hosting.memory.within-provisional-ceiling",
+          "params": {
+            "perInstanceKb": 32,
+            "firstInstanceKb": 1040,
+            "ceilingKb": 393216,
+            "consoleCeilingKb": 3145728,
+            "provisional": "yes"
+          }
+        }
+      ]
+    },
+    {
+      "host": "openmixer-pi-8gb",
+      "measured": true,
+      "rating": "conditional",
+      "qualified": false,
+      "hosting": "isolated",
+      "arm": "run",
+      "deciding": "hosting.memory.within-provisional-ceiling",
+      "reasons": [
+        {
+          "dimension": "rtSafety",
+          "rating": "suitable",
+          "code": "hosting.rt-safety.clean-under-sweep",
+          "params": {
+            "blocks": 8192
+          }
+        },
+        {
+          "dimension": "memory",
+          "rating": "conditional",
+          "code": "hosting.memory.within-provisional-ceiling",
+          "params": {
+            "perInstanceKb": 32,
+            "firstInstanceKb": 1040,
+            "ceilingKb": 917504,
+            "consoleCeilingKb": 7340032,
+            "provisional": "yes"
+          }
+        }
+      ]
+    }
+  ],
+  "adapter": {
+    "host": "omx-clap-host",
+    "measured": true,
+    "admitted": true,
+    "params": {},
+    "versions": {
+      "omx-clap-host": "0.26.0",
+      "plugin-hostd": "0.15.7"
+    },
+    "measuredAt": "2026-11-01T03:03:09.634Z",
+    "cells": [
+      {
+        "rate": 48000,
+        "quantum": 128,
+        "measured": true,
+        "admitted": true,
+        "params": {}
+      },
+      {
+        "rate": 48000,
+        "quantum": 256,
+        "measured": true,
+        "admitted": true,
+        "params": {}
+      }
+    ]
+  },
+  "tiers": {
+    "inProcess": {
+      "host": "openmixer-console",
+      "measured": true,
+      "qualified": false,
+      "rating": "unknown",
+      "deciding": "hosting.memory.unmeasured"
+    },
+    "isolated": {
+      "host": "omx-clap-host",
+      "measured": true,
+      "qualified": true,
+      "rating": "suitable"
+    },
+    "offeredOn": [
+      "isolated"
+    ]
+  },
+  "cost": [
+    {
+      "host": "omx-clap-host",
+      "rate": 48000,
+      "quantum": 128,
+      "reasons": [
+        {
+          "dimension": "cost",
+          "rating": "suitable",
+          "code": "hosting.cost.within-ceiling",
+          "params": {
+            "coreFractionP95": 0.0012225024000000002,
+            "ceiling": 0.05
+          }
+        }
+      ]
+    },
+    {
+      "host": "openmixer-console",
+      "rate": 96000,
+      "quantum": 1024,
+      "reasons": [
+        {
+          "dimension": "cost",
+          "rating": "suitable",
+          "code": "hosting.cost.within-ceiling",
+          "params": {
+            "coreFractionP95": 0.0023749727999999998,
+            "ceiling": 0.05
+          }
+        }
+      ]
+    },
+    {
+      "host": "mod-host",
+      "rate": 48000,
+      "quantum": 128,
+      "reasons": [
+        {
+          "dimension": "cost",
+          "rating": "suitable",
+          "code": "hosting.cost.within-ceiling",
+          "params": {
+            "coreFractionP95": 0.0012225024000000002,
+            "ceiling": 0.05
+          }
+        }
+      ]
+    },
+    {
+      "host": "openmixer-pi-4gb",
+      "rate": 48000,
+      "quantum": 128,
+      "reasons": [
+        {
+          "dimension": "cost",
+          "rating": "suitable",
+          "code": "hosting.cost.within-ceiling",
+          "params": {
+            "coreFractionP95": 0.0012225024000000002,
+            "ceiling": 0.05
+          }
+        }
+      ]
+    },
+    {
+      "host": "openmixer-pi-8gb",
+      "rate": 48000,
+      "quantum": 128,
+      "reasons": [
+        {
+          "dimension": "cost",
+          "rating": "suitable",
+          "code": "hosting.cost.within-ceiling",
+          "params": {
+            "coreFractionP95": 0.0012225024000000002,
+            "ceiling": 0.05
+          }
+        }
+      ]
+    }
+  ],
+  "measurements": {
+    "grid": [
+      {
+        "rate": 48000,
+        "quantum": 128,
+        "outcome": "probe.ok",
+        "cost": {
+          "median": 25.3203,
+          "percentile": {
+            "p": 95,
+            "value": 25.4688
+          },
+          "blocks": 512,
+          "warmupBlocks": 64
+        },
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 0,
+          "locks": 0,
+          "syscalls": 0,
+          "events": []
+        },
+        "noteSweep": {
+          "applicable": false
+        },
+        "latency": {
+          "unmeasuredReason": "no-audio-in",
+          "code": "hosting.latency.unmeasured"
+        },
+        "memory": {
+          "afterInstantiateKb": 976,
+          "afterActivateKb": 976,
+          "atRestKb": 1040,
+          "secondInstanceKb": 32,
+          "firstInstanceKb": 1040,
+          "perInstanceKb": 32
+        }
+      },
+      {
+        "rate": 96000,
+        "quantum": 1024,
+        "outcome": "probe.ok",
+        "cost": {
+          "median": 24.6309,
+          "percentile": {
+            "p": 95,
+            "value": 24.7393
+          },
+          "blocks": 512,
+          "warmupBlocks": 64
+        },
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 0,
+          "locks": 0,
+          "syscalls": 0,
+          "events": []
+        },
+        "noteSweep": {
+          "applicable": false
+        },
+        "latency": {
+          "unmeasuredReason": "no-audio-in",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 44100,
+        "quantum": 512,
+        "outcome": "probe.ok",
+        "cost": {
+          "median": 24.7402,
+          "percentile": {
+            "p": 95,
+            "value": 24.8477
+          },
+          "blocks": 512,
+          "warmupBlocks": 64
+        },
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 0,
+          "locks": 0,
+          "syscalls": 0,
+          "events": []
+        },
+        "noteSweep": {
+          "applicable": false
+        },
+        "latency": {
+          "unmeasuredReason": "no-audio-in",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 48000,
+        "quantum": 512,
+        "outcome": "probe.ok",
+        "cost": {
+          "median": 24.7383,
+          "percentile": {
+            "p": 95,
+            "value": 24.8496
+          },
+          "blocks": 512,
+          "warmupBlocks": 64
+        },
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 0,
+          "locks": 0,
+          "syscalls": 0,
+          "events": []
+        },
+        "noteSweep": {
+          "applicable": false
+        },
+        "latency": {
+          "unmeasuredReason": "no-audio-in",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 96000,
+        "quantum": 512,
+        "outcome": "probe.ok",
+        "cost": {
+          "median": 24.7402,
+          "percentile": {
+            "p": 95,
+            "value": 24.9199
+          },
+          "blocks": 512,
+          "warmupBlocks": 64
+        },
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 0,
+          "locks": 0,
+          "syscalls": 0,
+          "events": []
+        },
+        "noteSweep": {
+          "applicable": false
+        },
+        "latency": {
+          "unmeasuredReason": "no-audio-in",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 192000,
+        "quantum": 512,
+        "outcome": "probe.ok",
+        "cost": {
+          "median": 24.7402,
+          "percentile": {
+            "p": 95,
+            "value": 24.8828
+          },
+          "blocks": 512,
+          "warmupBlocks": 64
+        },
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 0,
+          "locks": 0,
+          "syscalls": 0,
+          "events": []
+        },
+        "noteSweep": {
+          "applicable": false
+        },
+        "latency": {
+          "unmeasuredReason": "no-audio-in",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 44100,
+        "quantum": 128,
+        "outcome": "probe.ok",
+        "cost": {
+          "median": 25.3203,
+          "percentile": {
+            "p": 95,
+            "value": 25.4688
+          },
+          "blocks": 512,
+          "warmupBlocks": 64
+        },
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 0,
+          "locks": 0,
+          "syscalls": 0,
+          "events": []
+        },
+        "noteSweep": {
+          "applicable": false
+        },
+        "latency": {
+          "unmeasuredReason": "no-audio-in",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 44100,
+        "quantum": 256,
+        "outcome": "probe.ok",
+        "cost": {
+          "median": 24.957,
+          "percentile": {
+            "p": 95,
+            "value": 25.1016
+          },
+          "blocks": 512,
+          "warmupBlocks": 64
+        },
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 0,
+          "locks": 0,
+          "syscalls": 0,
+          "events": []
+        },
+        "noteSweep": {
+          "applicable": false
+        },
+        "latency": {
+          "unmeasuredReason": "no-audio-in",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 44100,
+        "quantum": 1024,
+        "outcome": "probe.ok",
+        "cost": {
+          "median": 24.6494,
+          "percentile": {
+            "p": 95,
+            "value": 24.7578
+          },
+          "blocks": 512,
+          "warmupBlocks": 64
+        },
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 0,
+          "locks": 0,
+          "syscalls": 0,
+          "events": []
+        },
+        "noteSweep": {
+          "applicable": false
+        },
+        "latency": {
+          "unmeasuredReason": "no-audio-in",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 48000,
+        "quantum": 256,
+        "outcome": "probe.ok",
+        "cost": {
+          "median": 24.957,
+          "percentile": {
+            "p": 95,
+            "value": 25.1016
+          },
+          "blocks": 512,
+          "warmupBlocks": 64
+        },
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 0,
+          "locks": 0,
+          "syscalls": 0,
+          "events": []
+        },
+        "noteSweep": {
+          "applicable": false
+        },
+        "latency": {
+          "unmeasuredReason": "no-audio-in",
+          "code": "hosting.latency.unmeasured"
+        },
+        "memory": {
+          "afterInstantiateKb": 976,
+          "afterActivateKb": 976,
+          "atRestKb": 1040,
+          "secondInstanceKb": 32,
+          "firstInstanceKb": 1040,
+          "perInstanceKb": 32
+        }
+      },
+      {
+        "rate": 48000,
+        "quantum": 1024,
+        "outcome": "probe.ok",
+        "cost": {
+          "median": 24.668,
+          "percentile": {
+            "p": 95,
+            "value": 24.7578
+          },
+          "blocks": 512,
+          "warmupBlocks": 64
+        },
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 0,
+          "locks": 0,
+          "syscalls": 0,
+          "events": []
+        },
+        "noteSweep": {
+          "applicable": false
+        },
+        "latency": {
+          "unmeasuredReason": "no-audio-in",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 96000,
+        "quantum": 128,
+        "outcome": "probe.ok",
+        "cost": {
+          "median": 25.3203,
+          "percentile": {
+            "p": 95,
+            "value": 25.4688
+          },
+          "blocks": 512,
+          "warmupBlocks": 64
+        },
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 0,
+          "locks": 0,
+          "syscalls": 0,
+          "events": []
+        },
+        "noteSweep": {
+          "applicable": false
+        },
+        "latency": {
+          "unmeasuredReason": "no-audio-in",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 96000,
+        "quantum": 256,
+        "outcome": "probe.ok",
+        "cost": {
+          "median": 24.957,
+          "percentile": {
+            "p": 95,
+            "value": 25.1016
+          },
+          "blocks": 512,
+          "warmupBlocks": 64
+        },
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 0,
+          "locks": 0,
+          "syscalls": 0,
+          "events": []
+        },
+        "noteSweep": {
+          "applicable": false
+        },
+        "latency": {
+          "unmeasuredReason": "no-audio-in",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 192000,
+        "quantum": 128,
+        "outcome": "probe.ok",
+        "cost": {
+          "median": 25.3125,
+          "percentile": {
+            "p": 95,
+            "value": 25.4688
+          },
+          "blocks": 512,
+          "warmupBlocks": 64
+        },
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 0,
+          "locks": 0,
+          "syscalls": 0,
+          "events": []
+        },
+        "noteSweep": {
+          "applicable": false
+        },
+        "latency": {
+          "unmeasuredReason": "no-audio-in",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 192000,
+        "quantum": 256,
+        "outcome": "probe.ok",
+        "cost": {
+          "median": 24.957,
+          "percentile": {
+            "p": 95,
+            "value": 25.1016
+          },
+          "blocks": 512,
+          "warmupBlocks": 64
+        },
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 0,
+          "locks": 0,
+          "syscalls": 0,
+          "events": []
+        },
+        "noteSweep": {
+          "applicable": false
+        },
+        "latency": {
+          "unmeasuredReason": "no-audio-in",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 192000,
+        "quantum": 1024,
+        "outcome": "probe.ok",
+        "cost": {
+          "median": 24.6484,
+          "percentile": {
+            "p": 95,
+            "value": 24.8115
+          },
+          "blocks": 512,
+          "warmupBlocks": 64
+        },
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 0,
+          "locks": 0,
+          "syscalls": 0,
+          "events": []
+        },
+        "noteSweep": {
+          "applicable": false
+        },
+        "latency": {
+          "unmeasuredReason": "no-audio-in",
+          "code": "hosting.latency.unmeasured"
+        }
+      }
+    ],
+    "behaviour": {
+      "lifecycle": {
+        "cycles": 30,
+        "instantiated": 30,
+        "failed": 0
+      },
+      "threads": {
+        "before": 1,
+        "afterFirstInstantiate": 1,
+        "afterAllFreed": 1
+      },
+      "features": {
+        "required": []
+      }
+    },
+    "unmeasured": [
+      {
+        "dimension": "latency",
+        "rate": 48000,
+        "quantum": 128,
+        "code": "hosting.latency.unmeasured",
+        "detail": "no-audio-in: no audio input to put an impulse in and no MIDI input to play"
+      },
+      {
+        "dimension": "latency",
+        "rate": 96000,
+        "quantum": 1024,
+        "code": "hosting.latency.unmeasured",
+        "detail": "no-audio-in: no audio input to put an impulse in and no MIDI input to play"
+      },
+      {
+        "dimension": "latency",
+        "rate": 44100,
+        "quantum": 512,
+        "code": "hosting.latency.unmeasured",
+        "detail": "no-audio-in: no audio input to put an impulse in and no MIDI input to play"
+      },
+      {
+        "dimension": "latency",
+        "rate": 48000,
+        "quantum": 512,
+        "code": "hosting.latency.unmeasured",
+        "detail": "no-audio-in: no audio input to put an impulse in and no MIDI input to play"
+      },
+      {
+        "dimension": "latency",
+        "rate": 96000,
+        "quantum": 512,
+        "code": "hosting.latency.unmeasured",
+        "detail": "no-audio-in: no audio input to put an impulse in and no MIDI input to play"
+      },
+      {
+        "dimension": "latency",
+        "rate": 192000,
+        "quantum": 512,
+        "code": "hosting.latency.unmeasured",
+        "detail": "no-audio-in: no audio input to put an impulse in and no MIDI input to play"
+      },
+      {
+        "dimension": "latency",
+        "rate": 44100,
+        "quantum": 128,
+        "code": "hosting.latency.unmeasured",
+        "detail": "no-audio-in: no audio input to put an impulse in and no MIDI input to play"
+      },
+      {
+        "dimension": "latency",
+        "rate": 44100,
+        "quantum": 256,
+        "code": "hosting.latency.unmeasured",
+        "detail": "no-audio-in: no audio input to put an impulse in and no MIDI input to play"
+      },
+      {
+        "dimension": "latency",
+        "rate": 44100,
+        "quantum": 1024,
+        "code": "hosting.latency.unmeasured",
+        "detail": "no-audio-in: no audio input to put an impulse in and no MIDI input to play"
+      },
+      {
+        "dimension": "latency",
+        "rate": 48000,
+        "quantum": 256,
+        "code": "hosting.latency.unmeasured",
+        "detail": "no-audio-in: no audio input to put an impulse in and no MIDI input to play"
+      },
+      {
+        "dimension": "latency",
+        "rate": 48000,
+        "quantum": 1024,
+        "code": "hosting.latency.unmeasured",
+        "detail": "no-audio-in: no audio input to put an impulse in and no MIDI input to play"
+      },
+      {
+        "dimension": "latency",
+        "rate": 96000,
+        "quantum": 128,
+        "code": "hosting.latency.unmeasured",
+        "detail": "no-audio-in: no audio input to put an impulse in and no MIDI input to play"
+      },
+      {
+        "dimension": "latency",
+        "rate": 96000,
+        "quantum": 256,
+        "code": "hosting.latency.unmeasured",
+        "detail": "no-audio-in: no audio input to put an impulse in and no MIDI input to play"
+      },
+      {
+        "dimension": "latency",
+        "rate": 192000,
+        "quantum": 128,
+        "code": "hosting.latency.unmeasured",
+        "detail": "no-audio-in: no audio input to put an impulse in and no MIDI input to play"
+      },
+      {
+        "dimension": "latency",
+        "rate": 192000,
+        "quantum": 256,
+        "code": "hosting.latency.unmeasured",
+        "detail": "no-audio-in: no audio input to put an impulse in and no MIDI input to play"
+      },
+      {
+        "dimension": "latency",
+        "rate": 192000,
+        "quantum": 1024,
+        "code": "hosting.latency.unmeasured",
+        "detail": "no-audio-in: no audio input to put an impulse in and no MIDI input to play"
+      }
+    ]
+  },
+  "notMeasured": [
+    {
+      "dimension": "stability",
+      "code": "hosting.stability.unsoaked"
+    },
+    {
+      "dimension": "memoryGrowth",
+      "code": "hosting.stability.unsoaked"
+    }
+  ],
+  "tool": {
+    "runner": "plugin-hostd-probe 0.15.0",
+    "child": "lv2_measure",
+    "interposer": "rt_interpose.so"
+  },
+  "measuredAt": "2026-10-29T23:48:09+00:00",
+  "probe": {
+    "file": "http___drobilla.net_plugins_blop_square@0.0-750fa3868790.default.probe.json",
+    "sha256": "f3e27db7d991a77158098d46b58ec539168880fb3e1dabce7a260d56aafef841",
+    "bytes": 32599,
+    "protocol": {
+      "name": "plugin-hostd.probe-protocol",
+      "version": 1
+    },
+    "reason": "on-request",
+    "outcome": "probe.ok",
+    "complete": true,
+    "machineClass": {
+      "arch": "aarch64",
+      "family": "arm",
+      "coreBand": "3-4",
+      "clockBand": "1.5-2.5GHz",
+      "preemptRt": false,
+      "cstatesLimited": false
+    },
+    "meetsProtocol": false
+  },
+  "memoryRun": {
+    "tool": {
+      "runner": "plugin-hostd-probe 0.15.4",
+      "child": "lv2_measure"
+    },
+    "measuredAt": "2026-10-31T06:32:09+00:00",
+    "runId": "20261031T063209Z-1dae6-7523dae6",
+    "cells": [
+      {
+        "rate": 48000,
+        "quantum": 128,
+        "outcome": "probe.ok"
+      },
+      {
+        "rate": 48000,
+        "quantum": 256,
+        "outcome": "probe.ok"
+      }
+    ]
+  },
+  "run": {
+    "id": "20261029T234809Z-5c311-d929b683",
+    "steps": [
+      {
+        "step": "scan",
+        "result": "ok"
+      },
+      {
+        "step": "describe",
+        "result": "ok"
+      },
+      {
+        "step": "probe",
+        "result": "probe.ok"
+      },
+      {
+        "step": "rt-safety",
+        "result": "unsafe"
+      },
+      {
+        "step": "isolated",
+        "result": "isolated",
+        "figures": {
+          "latencyFrames": 0,
+          "cpuPercent": 0.6666666666666666,
+          "xruns": 0,
+          "midiInputsLinked": 0
+        }
+      }
+    ]
+  },
+  "rejudged": {
+    "at": "2026-11-01T04:13:29.664Z",
+    "by": "plugin-qualify 0.18.4",
+    "figures": {
+      "tool": {
+        "runner": "plugin-hostd-probe 0.15.0",
+        "child": "lv2_measure",
+        "interposer": "rt_interpose.so"
+      },
+      "measuredAt": "2026-10-29T23:48:09+00:00",
+      "runId": "20261029T234809Z-5c311-d929b683",
+      "memory": {
+        "tool": {
+          "runner": "plugin-hostd-probe 0.15.4",
+          "child": "lv2_measure"
+        },
+        "measuredAt": "2026-10-31T06:32:09+00:00"
+      },
+      "adapter": {
+        "versions": {
+          "omx-clap-host": "0.26.0",
+          "plugin-hostd": "0.15.7"
+        },
+        "measuredAt": "2026-11-01T03:03:09.634Z"
+      }
+    }
+  }
+}

@@ -1,0 +1,1261 @@
+{
+  "schema": "plugin-qualify.qualification-record/1",
+  "plugin": {
+    "format": "lv2",
+    "id": "http://jpcima.sdf1.org/lv2/miniopl3"
+  },
+  "testedVersion": "0.1",
+  "binary": {
+    "path": "miniopl3_dsp.so",
+    "sha256": "08b381786e7603524ff36247ac81e2fb4854e32e0d95a351d2c01a415f3ace52",
+    "files": [
+      {
+        "path": "manifest.ttl",
+        "sha256": "e36dfb56884c99c1063d9980438f4ed73c4fd88dddab3bef62d629d8eb1e9e77"
+      },
+      {
+        "path": "miniopl3_dsp.so",
+        "sha256": "08b381786e7603524ff36247ac81e2fb4854e32e0d95a351d2c01a415f3ace52"
+      },
+      {
+        "path": "miniopl3_dsp.ttl",
+        "sha256": "fb4c354c1a4512aa4832aa0b248f0f6b953b627ce3f3739553e3db4ad0f9a6fc"
+      }
+    ],
+    "layout": {
+      "scheme": "omx-layout/1",
+      "sha256": "3f43a67880fbb60d84e0d817b54afdacac0add859adf03997d7d4dc35d25ca54"
+    }
+  },
+  "verdicts": [
+    {
+      "host": "omx-clap-host",
+      "measured": true,
+      "rating": "unknown",
+      "qualified": false,
+      "hosting": "isolated",
+      "arm": "run",
+      "deciding": "omx-clap-host.silent-under-note",
+      "reasons": [
+        {
+          "dimension": "hostAdmission",
+          "rating": "unknown",
+          "code": "omx-clap-host.silent-under-note",
+          "params": {
+            "peak": 0,
+            "notes": 30,
+            "rate": 48000,
+            "quantum": 128
+          }
+        },
+        {
+          "dimension": "rtSafety",
+          "rating": "conditional",
+          "code": "hosting.rt-safety.violations-in-run",
+          "params": {
+            "allocations": 1912128,
+            "syscalls": 0,
+            "locks": 73600
+          }
+        },
+        {
+          "dimension": "rtSafety",
+          "rating": "suitable",
+          "code": "hosting.rt-safety.clean-under-notes",
+          "params": {
+            "blocks": 8192,
+            "events": 0
+          }
+        }
+      ]
+    },
+    {
+      "host": "openmixer-console",
+      "measured": true,
+      "rating": "unknown",
+      "qualified": false,
+      "hosting": "isolated",
+      "arm": "declaration",
+      "deciding": "hosting.memory.unmeasured",
+      "reasons": [
+        {
+          "dimension": "rtSafety",
+          "rating": "conditional",
+          "code": "hosting.rt-safety.violations-in-run",
+          "params": {
+            "allocations": 1912128,
+            "syscalls": 0,
+            "locks": 73600
+          }
+        },
+        {
+          "dimension": "rtSafety",
+          "rating": "suitable",
+          "code": "hosting.rt-safety.clean-under-notes",
+          "params": {
+            "blocks": 8192,
+            "events": 0
+          }
+        },
+        {
+          "dimension": "memory",
+          "rating": "unknown",
+          "code": "hosting.memory.unmeasured",
+          "params": {
+            "rate": 96000,
+            "quantum": 1024
+          }
+        }
+      ]
+    },
+    {
+      "host": "mod-host",
+      "measured": true,
+      "rating": "conditional",
+      "qualified": false,
+      "hosting": "isolated",
+      "arm": "run",
+      "deciding": "hosting.rt-safety.violations-in-run",
+      "reasons": [
+        {
+          "dimension": "rtSafety",
+          "rating": "conditional",
+          "code": "hosting.rt-safety.violations-in-run",
+          "params": {
+            "allocations": 1912128,
+            "syscalls": 0,
+            "locks": 73600
+          }
+        },
+        {
+          "dimension": "rtSafety",
+          "rating": "suitable",
+          "code": "hosting.rt-safety.clean-under-notes",
+          "params": {
+            "blocks": 8192,
+            "events": 0
+          }
+        }
+      ]
+    },
+    {
+      "host": "openmixer-pi-4gb",
+      "measured": true,
+      "rating": "unknown",
+      "qualified": false,
+      "hosting": "isolated",
+      "arm": "run",
+      "deciding": "omx-clap-host.silent-under-note",
+      "reasons": [
+        {
+          "dimension": "hostAdmission",
+          "rating": "unknown",
+          "code": "omx-clap-host.silent-under-note",
+          "params": {
+            "peak": 0,
+            "notes": 30,
+            "rate": 48000,
+            "quantum": 128
+          }
+        },
+        {
+          "dimension": "rtSafety",
+          "rating": "conditional",
+          "code": "hosting.rt-safety.violations-in-run",
+          "params": {
+            "allocations": 1912128,
+            "syscalls": 0,
+            "locks": 73600
+          }
+        },
+        {
+          "dimension": "rtSafety",
+          "rating": "suitable",
+          "code": "hosting.rt-safety.clean-under-notes",
+          "params": {
+            "blocks": 8192,
+            "events": 0
+          }
+        },
+        {
+          "dimension": "memory",
+          "rating": "conditional",
+          "code": "hosting.memory.within-provisional-ceiling",
+          "params": {
+            "perInstanceKb": 704,
+            "firstInstanceKb": 3536,
+            "ceilingKb": 393216,
+            "consoleCeilingKb": 3145728,
+            "provisional": "yes"
+          }
+        }
+      ]
+    },
+    {
+      "host": "openmixer-pi-8gb",
+      "measured": true,
+      "rating": "unknown",
+      "qualified": false,
+      "hosting": "isolated",
+      "arm": "run",
+      "deciding": "omx-clap-host.silent-under-note",
+      "reasons": [
+        {
+          "dimension": "hostAdmission",
+          "rating": "unknown",
+          "code": "omx-clap-host.silent-under-note",
+          "params": {
+            "peak": 0,
+            "notes": 30,
+            "rate": 48000,
+            "quantum": 128
+          }
+        },
+        {
+          "dimension": "rtSafety",
+          "rating": "conditional",
+          "code": "hosting.rt-safety.violations-in-run",
+          "params": {
+            "allocations": 1912128,
+            "syscalls": 0,
+            "locks": 73600
+          }
+        },
+        {
+          "dimension": "rtSafety",
+          "rating": "suitable",
+          "code": "hosting.rt-safety.clean-under-notes",
+          "params": {
+            "blocks": 8192,
+            "events": 0
+          }
+        },
+        {
+          "dimension": "memory",
+          "rating": "conditional",
+          "code": "hosting.memory.within-provisional-ceiling",
+          "params": {
+            "perInstanceKb": 704,
+            "firstInstanceKb": 3536,
+            "ceilingKb": 917504,
+            "consoleCeilingKb": 7340032,
+            "provisional": "yes"
+          }
+        }
+      ]
+    }
+  ],
+  "adapter": {
+    "host": "omx-clap-host",
+    "measured": true,
+    "admitted": false,
+    "code": "omx-clap-host.silent-under-note",
+    "params": {
+      "peak": 0,
+      "notes": 30,
+      "rate": 48000,
+      "quantum": 128
+    },
+    "versions": {
+      "omx-clap-host": "0.26.0",
+      "plugin-hostd": "0.15.7"
+    },
+    "measuredAt": "2026-11-01T03:59:18.379Z",
+    "cells": [
+      {
+        "rate": 48000,
+        "quantum": 128,
+        "measured": true,
+        "admitted": false,
+        "code": "omx-clap-host.silent-under-note",
+        "params": {
+          "peak": 0,
+          "notes": 30
+        }
+      },
+      {
+        "rate": 48000,
+        "quantum": 256,
+        "measured": true,
+        "admitted": false,
+        "code": "omx-clap-host.silent-under-note",
+        "params": {
+          "peak": 0,
+          "notes": 30
+        }
+      }
+    ]
+  },
+  "tiers": {
+    "inProcess": {
+      "host": "openmixer-console",
+      "measured": true,
+      "qualified": false,
+      "rating": "unknown",
+      "deciding": "hosting.memory.unmeasured"
+    },
+    "isolated": {
+      "host": "omx-clap-host",
+      "measured": true,
+      "qualified": false,
+      "rating": "unknown",
+      "deciding": "omx-clap-host.silent-under-note"
+    },
+    "offeredOn": [],
+    "dimmed": "openmixer-console: hosting.memory.unmeasured; omx-clap-host: omx-clap-host.silent-under-note"
+  },
+  "cost": [
+    {
+      "host": "omx-clap-host",
+      "rate": 48000,
+      "quantum": 128,
+      "reasons": [
+        {
+          "dimension": "cost",
+          "rating": "unknown",
+          "code": "hosting.cost.unmeasured-at-rate-and-quantum",
+          "params": {
+            "rate": 48000,
+            "quantum": 128
+          }
+        }
+      ]
+    },
+    {
+      "host": "openmixer-console",
+      "rate": 96000,
+      "quantum": 1024,
+      "reasons": [
+        {
+          "dimension": "cost",
+          "rating": "unknown",
+          "code": "hosting.cost.unmeasured-at-rate-and-quantum",
+          "params": {
+            "rate": 96000,
+            "quantum": 1024
+          }
+        }
+      ]
+    },
+    {
+      "host": "mod-host",
+      "rate": 48000,
+      "quantum": 128,
+      "reasons": [
+        {
+          "dimension": "cost",
+          "rating": "unknown",
+          "code": "hosting.cost.unmeasured-at-rate-and-quantum",
+          "params": {
+            "rate": 48000,
+            "quantum": 128
+          }
+        }
+      ]
+    },
+    {
+      "host": "openmixer-pi-4gb",
+      "rate": 48000,
+      "quantum": 128,
+      "reasons": [
+        {
+          "dimension": "cost",
+          "rating": "unknown",
+          "code": "hosting.cost.unmeasured-at-rate-and-quantum",
+          "params": {
+            "rate": 48000,
+            "quantum": 128
+          }
+        }
+      ]
+    },
+    {
+      "host": "openmixer-pi-8gb",
+      "rate": 48000,
+      "quantum": 128,
+      "reasons": [
+        {
+          "dimension": "cost",
+          "rating": "unknown",
+          "code": "hosting.cost.unmeasured-at-rate-and-quantum",
+          "params": {
+            "rate": 48000,
+            "quantum": 128
+          }
+        }
+      ]
+    }
+  ],
+  "measurements": {
+    "grid": [
+      {
+        "rate": 48000,
+        "quantum": 128,
+        "outcome": "probe.ok",
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 119508,
+          "locks": 4600,
+          "syscalls": 0,
+          "events": [
+            "free ? ?",
+            "malloc libstdc++.so.6 _Znwm",
+            "mutex_lock ? ?"
+          ]
+        },
+        "noteSweep": {
+          "applicable": true,
+          "dialect": "midi",
+          "allocations": 0,
+          "locks": 0,
+          "syscalls": 0
+        },
+        "latency": {
+          "unmeasuredReason": "silent-output",
+          "code": "hosting.latency.unmeasured"
+        },
+        "memory": {
+          "afterInstantiateKb": 3504,
+          "afterActivateKb": 3536,
+          "atRestKb": 3536,
+          "notesHeldKb": 3536,
+          "secondInstanceKb": 704,
+          "basis": "probe",
+          "firstInstanceKb": 3536,
+          "perInstanceKb": 704
+        }
+      },
+      {
+        "rate": 96000,
+        "quantum": 1024,
+        "outcome": "probe.ok",
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 119508,
+          "locks": 4600,
+          "syscalls": 0,
+          "events": [
+            "free ? ?",
+            "malloc libstdc++.so.6 _Znwm",
+            "mutex_lock ? ?"
+          ]
+        },
+        "noteSweep": {
+          "applicable": true,
+          "dialect": "midi",
+          "allocations": 0,
+          "locks": 0,
+          "syscalls": 0
+        },
+        "latency": {
+          "unmeasuredReason": "silent-output",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 44100,
+        "quantum": 512,
+        "outcome": "probe.ok",
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 119508,
+          "locks": 4600,
+          "syscalls": 0,
+          "events": [
+            "free ? ?",
+            "malloc libstdc++.so.6 _Znwm",
+            "mutex_lock ? ?"
+          ]
+        },
+        "noteSweep": {
+          "applicable": true,
+          "dialect": "midi",
+          "allocations": 0,
+          "locks": 0,
+          "syscalls": 0
+        },
+        "latency": {
+          "unmeasuredReason": "silent-output",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 48000,
+        "quantum": 512,
+        "outcome": "probe.ok",
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 119508,
+          "locks": 4600,
+          "syscalls": 0,
+          "events": [
+            "free ? ?",
+            "malloc libstdc++.so.6 _Znwm",
+            "mutex_lock ? ?"
+          ]
+        },
+        "noteSweep": {
+          "applicable": true,
+          "dialect": "midi",
+          "allocations": 0,
+          "locks": 0,
+          "syscalls": 0
+        },
+        "latency": {
+          "unmeasuredReason": "silent-output",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 96000,
+        "quantum": 512,
+        "outcome": "probe.ok",
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 119508,
+          "locks": 4600,
+          "syscalls": 0,
+          "events": [
+            "free ? ?",
+            "malloc libstdc++.so.6 _Znwm",
+            "mutex_lock ? ?"
+          ]
+        },
+        "noteSweep": {
+          "applicable": true,
+          "dialect": "midi",
+          "allocations": 0,
+          "locks": 0,
+          "syscalls": 0
+        },
+        "latency": {
+          "unmeasuredReason": "silent-output",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 192000,
+        "quantum": 512,
+        "outcome": "probe.ok",
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 119508,
+          "locks": 4600,
+          "syscalls": 0,
+          "events": [
+            "free ? ?",
+            "malloc libstdc++.so.6 _Znwm",
+            "mutex_lock ? ?"
+          ]
+        },
+        "noteSweep": {
+          "applicable": true,
+          "dialect": "midi",
+          "allocations": 0,
+          "locks": 0,
+          "syscalls": 0
+        },
+        "latency": {
+          "unmeasuredReason": "silent-output",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 44100,
+        "quantum": 128,
+        "outcome": "probe.ok",
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 119508,
+          "locks": 4600,
+          "syscalls": 0,
+          "events": [
+            "free ? ?",
+            "malloc libstdc++.so.6 _Znwm",
+            "mutex_lock ? ?"
+          ]
+        },
+        "noteSweep": {
+          "applicable": true,
+          "dialect": "midi",
+          "allocations": 0,
+          "locks": 0,
+          "syscalls": 0
+        },
+        "latency": {
+          "unmeasuredReason": "silent-output",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 44100,
+        "quantum": 256,
+        "outcome": "probe.ok",
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 119508,
+          "locks": 4600,
+          "syscalls": 0,
+          "events": [
+            "free ? ?",
+            "malloc libstdc++.so.6 _Znwm",
+            "mutex_lock ? ?"
+          ]
+        },
+        "noteSweep": {
+          "applicable": true,
+          "dialect": "midi",
+          "allocations": 0,
+          "locks": 0,
+          "syscalls": 0
+        },
+        "latency": {
+          "unmeasuredReason": "silent-output",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 44100,
+        "quantum": 1024,
+        "outcome": "probe.ok",
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 119508,
+          "locks": 4600,
+          "syscalls": 0,
+          "events": [
+            "free ? ?",
+            "malloc libstdc++.so.6 _Znwm",
+            "mutex_lock ? ?"
+          ]
+        },
+        "noteSweep": {
+          "applicable": true,
+          "dialect": "midi",
+          "allocations": 0,
+          "locks": 0,
+          "syscalls": 0
+        },
+        "latency": {
+          "unmeasuredReason": "silent-output",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 48000,
+        "quantum": 256,
+        "outcome": "probe.ok",
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 119508,
+          "locks": 4600,
+          "syscalls": 0,
+          "events": [
+            "free ? ?",
+            "malloc libstdc++.so.6 _Znwm",
+            "mutex_lock ? ?"
+          ]
+        },
+        "noteSweep": {
+          "applicable": true,
+          "dialect": "midi",
+          "allocations": 0,
+          "locks": 0,
+          "syscalls": 0
+        },
+        "latency": {
+          "unmeasuredReason": "silent-output",
+          "code": "hosting.latency.unmeasured"
+        },
+        "memory": {
+          "afterInstantiateKb": 3520,
+          "afterActivateKb": 3552,
+          "atRestKb": 3552,
+          "notesHeldKb": 3552,
+          "secondInstanceKb": 704,
+          "basis": "probe",
+          "firstInstanceKb": 3552,
+          "perInstanceKb": 704
+        }
+      },
+      {
+        "rate": 48000,
+        "quantum": 1024,
+        "outcome": "probe.ok",
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 119508,
+          "locks": 4600,
+          "syscalls": 0,
+          "events": [
+            "free ? ?",
+            "malloc libstdc++.so.6 _Znwm",
+            "mutex_lock ? ?"
+          ]
+        },
+        "noteSweep": {
+          "applicable": true,
+          "dialect": "midi",
+          "allocations": 0,
+          "locks": 0,
+          "syscalls": 0
+        },
+        "latency": {
+          "unmeasuredReason": "silent-output",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 96000,
+        "quantum": 128,
+        "outcome": "probe.ok",
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 119508,
+          "locks": 4600,
+          "syscalls": 0,
+          "events": [
+            "free ? ?",
+            "malloc libstdc++.so.6 _Znwm",
+            "mutex_lock ? ?"
+          ]
+        },
+        "noteSweep": {
+          "applicable": true,
+          "dialect": "midi",
+          "allocations": 0,
+          "locks": 0,
+          "syscalls": 0
+        },
+        "latency": {
+          "unmeasuredReason": "silent-output",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 96000,
+        "quantum": 256,
+        "outcome": "probe.ok",
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 119508,
+          "locks": 4600,
+          "syscalls": 0,
+          "events": [
+            "free ? ?",
+            "malloc libstdc++.so.6 _Znwm",
+            "mutex_lock ? ?"
+          ]
+        },
+        "noteSweep": {
+          "applicable": true,
+          "dialect": "midi",
+          "allocations": 0,
+          "locks": 0,
+          "syscalls": 0
+        },
+        "latency": {
+          "unmeasuredReason": "silent-output",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 192000,
+        "quantum": 128,
+        "outcome": "probe.ok",
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 119508,
+          "locks": 4600,
+          "syscalls": 0,
+          "events": [
+            "free ? ?",
+            "malloc libstdc++.so.6 _Znwm",
+            "mutex_lock ? ?"
+          ]
+        },
+        "noteSweep": {
+          "applicable": true,
+          "dialect": "midi",
+          "allocations": 0,
+          "locks": 0,
+          "syscalls": 0
+        },
+        "latency": {
+          "unmeasuredReason": "silent-output",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 192000,
+        "quantum": 256,
+        "outcome": "probe.ok",
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 119508,
+          "locks": 4600,
+          "syscalls": 0,
+          "events": [
+            "free ? ?",
+            "malloc libstdc++.so.6 _Znwm",
+            "mutex_lock ? ?"
+          ]
+        },
+        "noteSweep": {
+          "applicable": true,
+          "dialect": "midi",
+          "allocations": 0,
+          "locks": 0,
+          "syscalls": 0
+        },
+        "latency": {
+          "unmeasuredReason": "silent-output",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 192000,
+        "quantum": 1024,
+        "outcome": "probe.ok",
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 119508,
+          "locks": 4600,
+          "syscalls": 0,
+          "events": [
+            "free ? ?",
+            "malloc libstdc++.so.6 _Znwm",
+            "mutex_lock ? ?"
+          ]
+        },
+        "noteSweep": {
+          "applicable": true,
+          "dialect": "midi",
+          "allocations": 0,
+          "locks": 0,
+          "syscalls": 0
+        },
+        "latency": {
+          "unmeasuredReason": "silent-output",
+          "code": "hosting.latency.unmeasured"
+        }
+      }
+    ],
+    "behaviour": {
+      "lifecycle": {
+        "cycles": 30,
+        "instantiated": 30,
+        "failed": 0
+      },
+      "threads": {
+        "before": 1,
+        "afterFirstInstantiate": 1,
+        "afterAllFreed": 1
+      },
+      "features": {
+        "required": [
+          "http://lv2plug.in/ns/ext/worker#schedule",
+          "http://lv2plug.in/ns/ext/urid#map",
+          "http://lv2plug.in/ns/ext/options#options"
+        ]
+      }
+    },
+    "unmeasured": [
+      {
+        "dimension": "latency",
+        "rate": 48000,
+        "quantum": 128,
+        "code": "hosting.latency.unmeasured",
+        "detail": "silent-output: the note never sounded within the declared latency and the tail"
+      },
+      {
+        "dimension": "cost",
+        "rate": 48000,
+        "quantum": 128,
+        "code": "hosting.cost.unmeasured-at-rate-and-quantum",
+        "detail": "voices-unknown: an instrument with no probe count (OMX_PROBE_NOTES) to hold: no note was held down"
+      },
+      {
+        "dimension": "latency",
+        "rate": 96000,
+        "quantum": 1024,
+        "code": "hosting.latency.unmeasured",
+        "detail": "silent-output: the note never sounded within the declared latency and the tail"
+      },
+      {
+        "dimension": "cost",
+        "rate": 96000,
+        "quantum": 1024,
+        "code": "hosting.cost.unmeasured-at-rate-and-quantum",
+        "detail": "voices-unknown: an instrument with no probe count (OMX_PROBE_NOTES) to hold: no note was held down"
+      },
+      {
+        "dimension": "latency",
+        "rate": 44100,
+        "quantum": 512,
+        "code": "hosting.latency.unmeasured",
+        "detail": "silent-output: the note never sounded within the declared latency and the tail"
+      },
+      {
+        "dimension": "cost",
+        "rate": 44100,
+        "quantum": 512,
+        "code": "hosting.cost.unmeasured-at-rate-and-quantum",
+        "detail": "voices-unknown: an instrument with no probe count (OMX_PROBE_NOTES) to hold: no note was held down"
+      },
+      {
+        "dimension": "latency",
+        "rate": 48000,
+        "quantum": 512,
+        "code": "hosting.latency.unmeasured",
+        "detail": "silent-output: the note never sounded within the declared latency and the tail"
+      },
+      {
+        "dimension": "cost",
+        "rate": 48000,
+        "quantum": 512,
+        "code": "hosting.cost.unmeasured-at-rate-and-quantum",
+        "detail": "voices-unknown: an instrument with no probe count (OMX_PROBE_NOTES) to hold: no note was held down"
+      },
+      {
+        "dimension": "latency",
+        "rate": 96000,
+        "quantum": 512,
+        "code": "hosting.latency.unmeasured",
+        "detail": "silent-output: the note never sounded within the declared latency and the tail"
+      },
+      {
+        "dimension": "cost",
+        "rate": 96000,
+        "quantum": 512,
+        "code": "hosting.cost.unmeasured-at-rate-and-quantum",
+        "detail": "voices-unknown: an instrument with no probe count (OMX_PROBE_NOTES) to hold: no note was held down"
+      },
+      {
+        "dimension": "latency",
+        "rate": 192000,
+        "quantum": 512,
+        "code": "hosting.latency.unmeasured",
+        "detail": "silent-output: the note never sounded within the declared latency and the tail"
+      },
+      {
+        "dimension": "cost",
+        "rate": 192000,
+        "quantum": 512,
+        "code": "hosting.cost.unmeasured-at-rate-and-quantum",
+        "detail": "voices-unknown: an instrument with no probe count (OMX_PROBE_NOTES) to hold: no note was held down"
+      },
+      {
+        "dimension": "latency",
+        "rate": 44100,
+        "quantum": 128,
+        "code": "hosting.latency.unmeasured",
+        "detail": "silent-output: the note never sounded within the declared latency and the tail"
+      },
+      {
+        "dimension": "cost",
+        "rate": 44100,
+        "quantum": 128,
+        "code": "hosting.cost.unmeasured-at-rate-and-quantum",
+        "detail": "voices-unknown: an instrument with no probe count (OMX_PROBE_NOTES) to hold: no note was held down"
+      },
+      {
+        "dimension": "latency",
+        "rate": 44100,
+        "quantum": 256,
+        "code": "hosting.latency.unmeasured",
+        "detail": "silent-output: the note never sounded within the declared latency and the tail"
+      },
+      {
+        "dimension": "cost",
+        "rate": 44100,
+        "quantum": 256,
+        "code": "hosting.cost.unmeasured-at-rate-and-quantum",
+        "detail": "voices-unknown: an instrument with no probe count (OMX_PROBE_NOTES) to hold: no note was held down"
+      },
+      {
+        "dimension": "latency",
+        "rate": 44100,
+        "quantum": 1024,
+        "code": "hosting.latency.unmeasured",
+        "detail": "silent-output: the note never sounded within the declared latency and the tail"
+      },
+      {
+        "dimension": "cost",
+        "rate": 44100,
+        "quantum": 1024,
+        "code": "hosting.cost.unmeasured-at-rate-and-quantum",
+        "detail": "voices-unknown: an instrument with no probe count (OMX_PROBE_NOTES) to hold: no note was held down"
+      },
+      {
+        "dimension": "latency",
+        "rate": 48000,
+        "quantum": 256,
+        "code": "hosting.latency.unmeasured",
+        "detail": "silent-output: the note never sounded within the declared latency and the tail"
+      },
+      {
+        "dimension": "cost",
+        "rate": 48000,
+        "quantum": 256,
+        "code": "hosting.cost.unmeasured-at-rate-and-quantum",
+        "detail": "voices-unknown: an instrument with no probe count (OMX_PROBE_NOTES) to hold: no note was held down"
+      },
+      {
+        "dimension": "latency",
+        "rate": 48000,
+        "quantum": 1024,
+        "code": "hosting.latency.unmeasured",
+        "detail": "silent-output: the note never sounded within the declared latency and the tail"
+      },
+      {
+        "dimension": "cost",
+        "rate": 48000,
+        "quantum": 1024,
+        "code": "hosting.cost.unmeasured-at-rate-and-quantum",
+        "detail": "voices-unknown: an instrument with no probe count (OMX_PROBE_NOTES) to hold: no note was held down"
+      },
+      {
+        "dimension": "latency",
+        "rate": 96000,
+        "quantum": 128,
+        "code": "hosting.latency.unmeasured",
+        "detail": "silent-output: the note never sounded within the declared latency and the tail"
+      },
+      {
+        "dimension": "cost",
+        "rate": 96000,
+        "quantum": 128,
+        "code": "hosting.cost.unmeasured-at-rate-and-quantum",
+        "detail": "voices-unknown: an instrument with no probe count (OMX_PROBE_NOTES) to hold: no note was held down"
+      },
+      {
+        "dimension": "latency",
+        "rate": 96000,
+        "quantum": 256,
+        "code": "hosting.latency.unmeasured",
+        "detail": "silent-output: the note never sounded within the declared latency and the tail"
+      },
+      {
+        "dimension": "cost",
+        "rate": 96000,
+        "quantum": 256,
+        "code": "hosting.cost.unmeasured-at-rate-and-quantum",
+        "detail": "voices-unknown: an instrument with no probe count (OMX_PROBE_NOTES) to hold: no note was held down"
+      },
+      {
+        "dimension": "latency",
+        "rate": 192000,
+        "quantum": 128,
+        "code": "hosting.latency.unmeasured",
+        "detail": "silent-output: the note never sounded within the declared latency and the tail"
+      },
+      {
+        "dimension": "cost",
+        "rate": 192000,
+        "quantum": 128,
+        "code": "hosting.cost.unmeasured-at-rate-and-quantum",
+        "detail": "voices-unknown: an instrument with no probe count (OMX_PROBE_NOTES) to hold: no note was held down"
+      },
+      {
+        "dimension": "latency",
+        "rate": 192000,
+        "quantum": 256,
+        "code": "hosting.latency.unmeasured",
+        "detail": "silent-output: the note never sounded within the declared latency and the tail"
+      },
+      {
+        "dimension": "cost",
+        "rate": 192000,
+        "quantum": 256,
+        "code": "hosting.cost.unmeasured-at-rate-and-quantum",
+        "detail": "voices-unknown: an instrument with no probe count (OMX_PROBE_NOTES) to hold: no note was held down"
+      },
+      {
+        "dimension": "latency",
+        "rate": 192000,
+        "quantum": 1024,
+        "code": "hosting.latency.unmeasured",
+        "detail": "silent-output: the note never sounded within the declared latency and the tail"
+      },
+      {
+        "dimension": "cost",
+        "rate": 192000,
+        "quantum": 1024,
+        "code": "hosting.cost.unmeasured-at-rate-and-quantum",
+        "detail": "voices-unknown: an instrument with no probe count (OMX_PROBE_NOTES) to hold: no note was held down"
+      }
+    ]
+  },
+  "notMeasured": [
+    {
+      "dimension": "stability",
+      "code": "hosting.stability.unsoaked"
+    },
+    {
+      "dimension": "memoryGrowth",
+      "code": "hosting.stability.unsoaked"
+    }
+  ],
+  "tool": {
+    "runner": "plugin-hostd-probe 0.15.1",
+    "child": "lv2_measure",
+    "interposer": "rt_interpose.so"
+  },
+  "measuredAt": "2026-10-30T07:31:21+00:00",
+  "probe": {
+    "file": "http___jpcima.sdf1.org_lv2_miniopl3@0.1-08b381786e76.default.probe.json",
+    "sha256": "acec7c0cf6a5c3796c769d5f9a9ef8e43bfdd01fca274ed413dfe008b7283a4e",
+    "bytes": 35056,
+    "protocol": {
+      "name": "plugin-hostd.probe-protocol",
+      "version": 1
+    },
+    "reason": "on-request",
+    "outcome": "probe.ok",
+    "complete": true,
+    "machineClass": {
+      "arch": "aarch64",
+      "family": "arm",
+      "coreBand": "3-4",
+      "clockBand": "1.5-2.5GHz",
+      "preemptRt": false,
+      "cstatesLimited": false
+    },
+    "meetsProtocol": false
+  },
+  "memoryRun": {
+    "tool": {
+      "runner": "plugin-hostd-probe 0.15.4",
+      "child": "lv2_measure"
+    },
+    "measuredAt": "2026-10-31T06:38:34+00:00",
+    "runId": "20261031T063834Z-1f54c-a6b742f7",
+    "cells": [
+      {
+        "rate": 48000,
+        "quantum": 128,
+        "outcome": "probe.ok"
+      },
+      {
+        "rate": 48000,
+        "quantum": 256,
+        "outcome": "probe.ok"
+      }
+    ]
+  },
+  "run": {
+    "id": "20261030T073121Z-8b53b-d2ecb4f0",
+    "steps": [
+      {
+        "step": "scan",
+        "result": "ok"
+      },
+      {
+        "step": "describe",
+        "result": "ok"
+      },
+      {
+        "step": "probe",
+        "result": "probe.ok"
+      },
+      {
+        "step": "rt-safety",
+        "result": "unsafe"
+      },
+      {
+        "step": "isolated",
+        "result": "refused",
+        "code": "isolated.silent-output",
+        "detail": "notes held on 1 MIDI input and a sine at its audio inputs",
+        "figures": {
+          "latencyFrames": 0,
+          "cpuPercent": 1,
+          "xruns": 0,
+          "midiInputsLinked": 1
+        }
+      }
+    ]
+  },
+  "rejudged": {
+    "at": "2026-11-01T04:13:29.664Z",
+    "by": "plugin-qualify 0.18.4",
+    "figures": {
+      "tool": {
+        "runner": "plugin-hostd-probe 0.15.1",
+        "child": "lv2_measure",
+        "interposer": "rt_interpose.so"
+      },
+      "measuredAt": "2026-10-30T07:31:21+00:00",
+      "runId": "20261030T073121Z-8b53b-d2ecb4f0",
+      "memory": {
+        "tool": {
+          "runner": "plugin-hostd-probe 0.15.4",
+          "child": "lv2_measure"
+        },
+        "measuredAt": "2026-10-31T06:38:34+00:00"
+      },
+      "adapter": {
+        "versions": {
+          "omx-clap-host": "0.26.0",
+          "plugin-hostd": "0.15.7"
+        },
+        "measuredAt": "2026-11-01T03:59:18.379Z"
+      }
+    },
+    "owes": [
+      {
+        "measurement": "isolated-step",
+        "code": "qualify.sync.isolated-step-owed"
+      }
+    ]
+  }
+}

@@ -1,0 +1,536 @@
+{
+  "schema": "plugin-qualify.qualification-record/1",
+  "plugin": {
+    "format": "lv2",
+    "id": "http://lsp-plug.in/plugins/lv2/slap_delay_stereo"
+  },
+  "testedVersion": "0.30",
+  "binary": {
+    "path": "lsp-plugins-lv2.so",
+    "sha256": "fcbc6693812bff50f62f50e626f165065608c306af1280b699dbbd7c52ba50e2",
+    "files": [
+      {
+        "path": "lsp-plugins-lv2.so",
+        "sha256": "fcbc6693812bff50f62f50e626f165065608c306af1280b699dbbd7c52ba50e2"
+      },
+      {
+        "path": "manifest.ttl",
+        "sha256": "f1fcff661658631ea5ba7c3f1b340d881db70c6bb15865260bc831dcdb9ad425"
+      },
+      {
+        "path": "slap_delay_stereo.ttl",
+        "sha256": "21af232d2d6b3a3604678b7eb13cdaad9bf454ba140806499d4f00f2f457b4cf"
+      }
+    ],
+    "layout": {
+      "scheme": "omx-layout/1",
+      "sha256": "c79538f94987a8a4a38a8e1288de66c92ac607dccde8923d2c597d0f2eb0974d"
+    }
+  },
+  "verdicts": [
+    {
+      "host": "omx-clap-host",
+      "measured": false,
+      "rating": "unknown",
+      "qualified": false,
+      "hosting": "isolated",
+      "arm": "declaration",
+      "deciding": "probe.oom",
+      "reasons": [
+        {
+          "dimension": "rtSafety",
+          "rating": "unknown",
+          "code": "probe.oom",
+          "params": {}
+        }
+      ]
+    },
+    {
+      "host": "openmixer-console",
+      "measured": false,
+      "rating": "unknown",
+      "qualified": false,
+      "hosting": "isolated",
+      "arm": "declaration",
+      "deciding": "probe.oom",
+      "reasons": [
+        {
+          "dimension": "rtSafety",
+          "rating": "unknown",
+          "code": "probe.oom",
+          "params": {}
+        }
+      ]
+    },
+    {
+      "host": "mod-host",
+      "measured": false,
+      "rating": "unknown",
+      "qualified": false,
+      "hosting": "isolated",
+      "arm": "declaration",
+      "deciding": "probe.oom",
+      "reasons": [
+        {
+          "dimension": "rtSafety",
+          "rating": "unknown",
+          "code": "probe.oom",
+          "params": {}
+        }
+      ]
+    },
+    {
+      "host": "openmixer-pi-4gb",
+      "measured": false,
+      "rating": "unknown",
+      "qualified": false,
+      "hosting": "isolated",
+      "arm": "declaration",
+      "deciding": "probe.oom",
+      "reasons": [
+        {
+          "dimension": "rtSafety",
+          "rating": "unknown",
+          "code": "probe.oom",
+          "params": {}
+        }
+      ]
+    },
+    {
+      "host": "openmixer-pi-8gb",
+      "measured": false,
+      "rating": "unknown",
+      "qualified": false,
+      "hosting": "isolated",
+      "arm": "declaration",
+      "deciding": "probe.oom",
+      "reasons": [
+        {
+          "dimension": "rtSafety",
+          "rating": "unknown",
+          "code": "probe.oom",
+          "params": {}
+        }
+      ]
+    }
+  ],
+  "adapter": {
+    "host": "omx-clap-host",
+    "measured": true,
+    "admitted": true,
+    "params": {}
+  },
+  "tiers": {
+    "inProcess": {
+      "host": "openmixer-console",
+      "measured": false,
+      "qualified": false,
+      "rating": "unknown",
+      "deciding": "probe.oom"
+    },
+    "isolated": {
+      "host": "omx-clap-host",
+      "measured": false,
+      "qualified": false,
+      "rating": "unknown",
+      "deciding": "probe.oom"
+    },
+    "offeredOn": [],
+    "dimmed": "openmixer-console: probe.oom; omx-clap-host: probe.oom"
+  },
+  "cost": [
+    {
+      "host": "omx-clap-host",
+      "rate": 48000,
+      "quantum": 128,
+      "reasons": [
+        {
+          "dimension": "cost",
+          "rating": "unknown",
+          "code": "probe.oom",
+          "params": {
+            "rate": 48000,
+            "quantum": 128,
+            "memoryLimitBytes": 2122874880,
+            "memoryLimitMechanism": "rlimit-data"
+          }
+        }
+      ]
+    },
+    {
+      "host": "openmixer-console",
+      "rate": 96000,
+      "quantum": 1024,
+      "reasons": [
+        {
+          "dimension": "cost",
+          "rating": "unknown",
+          "code": "probe.oom",
+          "params": {
+            "rate": 96000,
+            "quantum": 1024,
+            "memoryLimitBytes": 2122874880,
+            "memoryLimitMechanism": "rlimit-data"
+          }
+        }
+      ]
+    },
+    {
+      "host": "mod-host",
+      "rate": 48000,
+      "quantum": 128,
+      "reasons": [
+        {
+          "dimension": "cost",
+          "rating": "unknown",
+          "code": "probe.oom",
+          "params": {
+            "rate": 48000,
+            "quantum": 128,
+            "memoryLimitBytes": 2122874880,
+            "memoryLimitMechanism": "rlimit-data"
+          }
+        }
+      ]
+    },
+    {
+      "host": "openmixer-pi-4gb",
+      "rate": 48000,
+      "quantum": 128,
+      "reasons": [
+        {
+          "dimension": "cost",
+          "rating": "unknown",
+          "code": "probe.oom",
+          "params": {
+            "rate": 48000,
+            "quantum": 128,
+            "memoryLimitBytes": 2122874880,
+            "memoryLimitMechanism": "rlimit-data"
+          }
+        }
+      ]
+    },
+    {
+      "host": "openmixer-pi-8gb",
+      "rate": 48000,
+      "quantum": 128,
+      "reasons": [
+        {
+          "dimension": "cost",
+          "rating": "unknown",
+          "code": "probe.oom",
+          "params": {
+            "rate": 48000,
+            "quantum": 128,
+            "memoryLimitBytes": 2122874880,
+            "memoryLimitMechanism": "rlimit-data"
+          }
+        }
+      ]
+    }
+  ],
+  "measurements": {
+    "grid": [
+      {
+        "rate": 48000,
+        "quantum": 128,
+        "outcome": "probe.oom",
+        "memoryLimit": {
+          "bytes": 2122874880,
+          "mechanism": "rlimit-data"
+        },
+        "latency": {
+          "unmeasuredReason": "probe-error",
+          "code": "hosting.latency.unmeasured"
+        },
+        "memory": {
+          "afterInstantiateKb": 592544,
+          "afterActivateKb": 592544,
+          "atRestKb": 592624,
+          "secondInstanceKb": 579408,
+          "firstInstanceKb": 592624,
+          "perInstanceKb": 579408
+        }
+      },
+      {
+        "rate": 96000,
+        "quantum": 1024,
+        "outcome": "probe.oom",
+        "memoryLimit": {
+          "bytes": 2122874880,
+          "mechanism": "rlimit-data"
+        },
+        "latency": {
+          "unmeasuredReason": "probe-error",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 44100,
+        "quantum": 512,
+        "outcome": "probe.oom",
+        "memoryLimit": {
+          "bytes": 2122874880,
+          "mechanism": "rlimit-data"
+        },
+        "latency": {
+          "unmeasuredReason": "probe-error",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 48000,
+        "quantum": 512,
+        "outcome": "probe.oom",
+        "memoryLimit": {
+          "bytes": 2122874880,
+          "mechanism": "rlimit-data"
+        },
+        "latency": {
+          "unmeasuredReason": "probe-error",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 96000,
+        "quantum": 512,
+        "outcome": "probe.oom",
+        "memoryLimit": {
+          "bytes": 2122874880,
+          "mechanism": "rlimit-data"
+        },
+        "latency": {
+          "unmeasuredReason": "probe-error",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 192000,
+        "quantum": 512,
+        "outcome": "probe.oom",
+        "memoryLimit": {
+          "bytes": 2122874880,
+          "mechanism": "rlimit-data"
+        },
+        "latency": {
+          "unmeasuredReason": "probe-error",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 44100,
+        "quantum": 128,
+        "outcome": "probe.oom",
+        "memoryLimit": {
+          "bytes": 2122874880,
+          "mechanism": "rlimit-data"
+        },
+        "latency": {
+          "unmeasuredReason": "probe-error",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 44100,
+        "quantum": 256,
+        "outcome": "probe.oom",
+        "memoryLimit": {
+          "bytes": 2122874880,
+          "mechanism": "rlimit-data"
+        },
+        "latency": {
+          "unmeasuredReason": "probe-error",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 44100,
+        "quantum": 1024,
+        "outcome": "probe.oom",
+        "memoryLimit": {
+          "bytes": 2122874880,
+          "mechanism": "rlimit-data"
+        },
+        "latency": {
+          "unmeasuredReason": "probe-error",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 48000,
+        "quantum": 256,
+        "outcome": "probe.oom",
+        "memoryLimit": {
+          "bytes": 2122874880,
+          "mechanism": "rlimit-data"
+        },
+        "latency": {
+          "unmeasuredReason": "probe-error",
+          "code": "hosting.latency.unmeasured"
+        },
+        "memory": {
+          "afterInstantiateKb": 592544,
+          "afterActivateKb": 592544,
+          "atRestKb": 592624,
+          "secondInstanceKb": 579392,
+          "firstInstanceKb": 592624,
+          "perInstanceKb": 579392
+        }
+      },
+      {
+        "rate": 48000,
+        "quantum": 1024,
+        "outcome": "probe.oom",
+        "memoryLimit": {
+          "bytes": 2122874880,
+          "mechanism": "rlimit-data"
+        },
+        "latency": {
+          "unmeasuredReason": "probe-error",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 96000,
+        "quantum": 128,
+        "outcome": "probe.oom",
+        "memoryLimit": {
+          "bytes": 2122874880,
+          "mechanism": "rlimit-data"
+        },
+        "latency": {
+          "unmeasuredReason": "probe-error",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 96000,
+        "quantum": 256,
+        "outcome": "probe.oom",
+        "memoryLimit": {
+          "bytes": 2122874880,
+          "mechanism": "rlimit-data"
+        },
+        "latency": {
+          "unmeasuredReason": "probe-error",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 192000,
+        "quantum": 128,
+        "outcome": "probe.oom",
+        "memoryLimit": {
+          "bytes": 2122874880,
+          "mechanism": "rlimit-data"
+        },
+        "latency": {
+          "unmeasuredReason": "probe-error",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 192000,
+        "quantum": 256,
+        "outcome": "probe.oom",
+        "memoryLimit": {
+          "bytes": 2122874880,
+          "mechanism": "rlimit-data"
+        },
+        "latency": {
+          "unmeasuredReason": "probe-error",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 192000,
+        "quantum": 1024,
+        "outcome": "probe.oom",
+        "memoryLimit": {
+          "bytes": 2122874880,
+          "mechanism": "rlimit-data"
+        },
+        "latency": {
+          "unmeasuredReason": "probe-error",
+          "code": "hosting.latency.unmeasured"
+        }
+      }
+    ]
+  },
+  "notMeasured": [
+    {
+      "dimension": "stability",
+      "code": "hosting.stability.unsoaked"
+    },
+    {
+      "dimension": "memoryGrowth",
+      "code": "hosting.stability.unsoaked"
+    }
+  ],
+  "tool": {
+    "runner": "plugin-hostd-probe 0.15.1",
+    "child": "lv2_measure"
+  },
+  "measuredAt": "2026-10-30T05:14:21+00:00",
+  "probe": {
+    "file": "http___lsp-plug.in_plugins_lv2_slap_delay_stereo@0.30-fcbc6693812b.default.probe.json",
+    "sha256": "e6bd2de79bb545abe269eea8a7a13ef9a53fef166bfda768307668f69ba726f4",
+    "bytes": 13572,
+    "protocol": {
+      "name": "plugin-hostd.probe-protocol",
+      "version": 1
+    },
+    "reason": "on-request",
+    "outcome": "probe.oom",
+    "complete": false,
+    "machineClass": {
+      "arch": "aarch64",
+      "family": "arm",
+      "coreBand": "3-4",
+      "clockBand": "1.5-2.5GHz",
+      "preemptRt": false,
+      "cstatesLimited": false
+    },
+    "meetsProtocol": false
+  },
+  "memoryRun": {
+    "tool": {
+      "runner": "plugin-hostd-probe 0.15.4",
+      "child": "lv2_measure"
+    },
+    "measuredAt": "2026-10-31T06:35:06+00:00",
+    "runId": "20261031T063506Z-1e934-93b01104",
+    "cells": [
+      {
+        "rate": 48000,
+        "quantum": 128,
+        "outcome": "probe.ok"
+      },
+      {
+        "rate": 48000,
+        "quantum": 256,
+        "outcome": "probe.ok"
+      }
+    ]
+  },
+  "rejudged": {
+    "at": "2026-10-31T23:49:49.871Z",
+    "by": "plugin-qualify 0.18.4",
+    "figures": {
+      "tool": {
+        "runner": "plugin-hostd-probe 0.15.1",
+        "child": "lv2_measure"
+      },
+      "measuredAt": "2026-10-30T05:14:21+00:00",
+      "runId": "20261030T051421Z-7dd1b-f2f598f2",
+      "memory": {
+        "tool": {
+          "runner": "plugin-hostd-probe 0.15.4",
+          "child": "lv2_measure"
+        },
+        "measuredAt": "2026-10-31T06:35:06+00:00"
+      }
+    }
+  }
+}
