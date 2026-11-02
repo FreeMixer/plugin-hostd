@@ -17,7 +17,7 @@ permissions:
 jobs:
   bench:
     name: harness check and smoke run
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || vars.OMX_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 15
     container:
       image: debian:trixie
