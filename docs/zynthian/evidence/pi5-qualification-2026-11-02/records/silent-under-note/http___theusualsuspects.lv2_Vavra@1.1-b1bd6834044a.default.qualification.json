@@ -1,0 +1,1303 @@
+{
+  "schema": "plugin-qualify.qualification-record/1",
+  "plugin": {
+    "format": "lv2",
+    "id": "http://theusualsuspects.lv2/Vavra"
+  },
+  "testedVersion": "1.1",
+  "binary": {
+    "path": "libVavra.so",
+    "sha256": "b1bd6834044a8e7d134f4d4e0cdf7dabde484227348f9b5b78740b34fdbc02f4",
+    "files": [
+      {
+        "path": "dsp.ttl",
+        "sha256": "a158103728572e5750750e969af0fe325072bdf47f9c8b7b0309b67fc98c42f7"
+      },
+      {
+        "path": "libVavra.so",
+        "sha256": "b1bd6834044a8e7d134f4d4e0cdf7dabde484227348f9b5b78740b34fdbc02f4"
+      },
+      {
+        "path": "manifest.ttl",
+        "sha256": "3f28a0f3008c2ad2492998be9b73b3f660763cc7e3d7e32159e7904108869d54"
+      }
+    ],
+    "layout": {
+      "scheme": "omx-layout/1",
+      "sha256": "c14929b1641e2f00fcb5a04bb6b8d3908ab2620c8ee420fbf2e8528901127da2"
+    }
+  },
+  "verdicts": [
+    {
+      "host": "omx-clap-host",
+      "measured": true,
+      "rating": "unknown",
+      "qualified": false,
+      "hosting": "isolated",
+      "arm": "run",
+      "deciding": "omx-clap-host.silent-under-note",
+      "reasons": [
+        {
+          "dimension": "hostAdmission",
+          "rating": "unknown",
+          "code": "omx-clap-host.silent-under-note",
+          "params": {
+            "peak": 0,
+            "notes": 30,
+            "rate": 48000,
+            "quantum": 128
+          }
+        },
+        {
+          "dimension": "rtSafety",
+          "rating": "conditional",
+          "code": "hosting.rt-safety.violations-in-run",
+          "params": {
+            "allocations": 26326889,
+            "syscalls": 1936371,
+            "locks": 6434525
+          }
+        },
+        {
+          "dimension": "rtSafety",
+          "rating": "conditional",
+          "code": "hosting.rt-safety.violations-under-notes",
+          "params": {
+            "allocations": 13959,
+            "syscalls": 118,
+            "locks": 14110
+          }
+        }
+      ]
+    },
+    {
+      "host": "openmixer-console",
+      "measured": true,
+      "rating": "unknown",
+      "qualified": false,
+      "hosting": "isolated",
+      "arm": "declaration",
+      "deciding": "hosting.memory.unmeasured",
+      "reasons": [
+        {
+          "dimension": "rtSafety",
+          "rating": "conditional",
+          "code": "hosting.rt-safety.violations-in-run",
+          "params": {
+            "allocations": 26326889,
+            "syscalls": 1936371,
+            "locks": 6434525
+          }
+        },
+        {
+          "dimension": "rtSafety",
+          "rating": "conditional",
+          "code": "hosting.rt-safety.violations-under-notes",
+          "params": {
+            "allocations": 13959,
+            "syscalls": 118,
+            "locks": 14110
+          }
+        },
+        {
+          "dimension": "memory",
+          "rating": "unknown",
+          "code": "hosting.memory.unmeasured",
+          "params": {
+            "rate": 96000,
+            "quantum": 1024
+          }
+        }
+      ]
+    },
+    {
+      "host": "mod-host",
+      "measured": true,
+      "rating": "conditional",
+      "qualified": false,
+      "hosting": "isolated",
+      "arm": "run",
+      "deciding": "hosting.rt-safety.violations-in-run",
+      "reasons": [
+        {
+          "dimension": "rtSafety",
+          "rating": "conditional",
+          "code": "hosting.rt-safety.violations-in-run",
+          "params": {
+            "allocations": 26326889,
+            "syscalls": 1936371,
+            "locks": 6434525
+          }
+        },
+        {
+          "dimension": "rtSafety",
+          "rating": "conditional",
+          "code": "hosting.rt-safety.violations-under-notes",
+          "params": {
+            "allocations": 13959,
+            "syscalls": 118,
+            "locks": 14110
+          }
+        }
+      ]
+    },
+    {
+      "host": "openmixer-pi-4gb",
+      "measured": true,
+      "rating": "unknown",
+      "qualified": false,
+      "hosting": "isolated",
+      "arm": "run",
+      "deciding": "omx-clap-host.silent-under-note",
+      "reasons": [
+        {
+          "dimension": "hostAdmission",
+          "rating": "unknown",
+          "code": "omx-clap-host.silent-under-note",
+          "params": {
+            "peak": 0,
+            "notes": 30,
+            "rate": 48000,
+            "quantum": 128
+          }
+        },
+        {
+          "dimension": "rtSafety",
+          "rating": "conditional",
+          "code": "hosting.rt-safety.violations-in-run",
+          "params": {
+            "allocations": 26326889,
+            "syscalls": 1936371,
+            "locks": 6434525
+          }
+        },
+        {
+          "dimension": "rtSafety",
+          "rating": "conditional",
+          "code": "hosting.rt-safety.violations-under-notes",
+          "params": {
+            "allocations": 13959,
+            "syscalls": 118,
+            "locks": 14110
+          }
+        },
+        {
+          "dimension": "memory",
+          "rating": "conditional",
+          "code": "hosting.memory.within-provisional-ceiling",
+          "params": {
+            "perInstanceKb": 22528,
+            "firstInstanceKb": 39216,
+            "ceilingKb": 393216,
+            "consoleCeilingKb": 3145728,
+            "provisional": "yes"
+          }
+        }
+      ]
+    },
+    {
+      "host": "openmixer-pi-8gb",
+      "measured": true,
+      "rating": "unknown",
+      "qualified": false,
+      "hosting": "isolated",
+      "arm": "run",
+      "deciding": "omx-clap-host.silent-under-note",
+      "reasons": [
+        {
+          "dimension": "hostAdmission",
+          "rating": "unknown",
+          "code": "omx-clap-host.silent-under-note",
+          "params": {
+            "peak": 0,
+            "notes": 30,
+            "rate": 48000,
+            "quantum": 128
+          }
+        },
+        {
+          "dimension": "rtSafety",
+          "rating": "conditional",
+          "code": "hosting.rt-safety.violations-in-run",
+          "params": {
+            "allocations": 26326889,
+            "syscalls": 1936371,
+            "locks": 6434525
+          }
+        },
+        {
+          "dimension": "rtSafety",
+          "rating": "conditional",
+          "code": "hosting.rt-safety.violations-under-notes",
+          "params": {
+            "allocations": 13959,
+            "syscalls": 118,
+            "locks": 14110
+          }
+        },
+        {
+          "dimension": "memory",
+          "rating": "conditional",
+          "code": "hosting.memory.within-provisional-ceiling",
+          "params": {
+            "perInstanceKb": 22528,
+            "firstInstanceKb": 39216,
+            "ceilingKb": 917504,
+            "consoleCeilingKb": 7340032,
+            "provisional": "yes"
+          }
+        }
+      ]
+    }
+  ],
+  "adapter": {
+    "host": "omx-clap-host",
+    "measured": true,
+    "admitted": false,
+    "code": "omx-clap-host.silent-under-note",
+    "params": {
+      "peak": 0,
+      "notes": 30,
+      "rate": 48000,
+      "quantum": 128
+    },
+    "versions": {
+      "omx-clap-host": "0.26.0",
+      "plugin-hostd": "0.15.7"
+    },
+    "measuredAt": "2026-11-01T03:57:36.493Z",
+    "cells": [
+      {
+        "rate": 48000,
+        "quantum": 128,
+        "measured": true,
+        "admitted": false,
+        "code": "omx-clap-host.silent-under-note",
+        "params": {
+          "peak": 0,
+          "notes": 30
+        }
+      },
+      {
+        "rate": 48000,
+        "quantum": 256,
+        "measured": true,
+        "admitted": false,
+        "code": "omx-clap-host.silent-under-note",
+        "params": {
+          "peak": 0,
+          "notes": 30
+        }
+      }
+    ]
+  },
+  "tiers": {
+    "inProcess": {
+      "host": "openmixer-console",
+      "measured": true,
+      "qualified": false,
+      "rating": "unknown",
+      "deciding": "hosting.memory.unmeasured"
+    },
+    "isolated": {
+      "host": "omx-clap-host",
+      "measured": true,
+      "qualified": false,
+      "rating": "unknown",
+      "deciding": "omx-clap-host.silent-under-note"
+    },
+    "offeredOn": [],
+    "dimmed": "openmixer-console: hosting.memory.unmeasured; omx-clap-host: omx-clap-host.silent-under-note"
+  },
+  "cost": [
+    {
+      "host": "omx-clap-host",
+      "rate": 48000,
+      "quantum": 128,
+      "reasons": [
+        {
+          "dimension": "cost",
+          "rating": "unsuitable",
+          "code": "hosting.cost.above-ceiling",
+          "params": {
+            "coreFractionP95": 1.2077088,
+            "ceiling": 0.05
+          }
+        }
+      ]
+    },
+    {
+      "host": "openmixer-console",
+      "rate": 96000,
+      "quantum": 1024,
+      "reasons": [
+        {
+          "dimension": "cost",
+          "rating": "unsuitable",
+          "code": "hosting.cost.above-ceiling",
+          "params": {
+            "coreFractionP95": 0.32352384,
+            "ceiling": 0.05
+          }
+        }
+      ]
+    },
+    {
+      "host": "mod-host",
+      "rate": 48000,
+      "quantum": 128,
+      "reasons": [
+        {
+          "dimension": "cost",
+          "rating": "unsuitable",
+          "code": "hosting.cost.above-ceiling",
+          "params": {
+            "coreFractionP95": 1.2077088,
+            "ceiling": 0.05
+          }
+        }
+      ]
+    },
+    {
+      "host": "openmixer-pi-4gb",
+      "rate": 48000,
+      "quantum": 128,
+      "reasons": [
+        {
+          "dimension": "cost",
+          "rating": "unsuitable",
+          "code": "hosting.cost.above-ceiling",
+          "params": {
+            "coreFractionP95": 1.2077088,
+            "ceiling": 0.05
+          }
+        }
+      ]
+    },
+    {
+      "host": "openmixer-pi-8gb",
+      "rate": 48000,
+      "quantum": 128,
+      "reasons": [
+        {
+          "dimension": "cost",
+          "rating": "unsuitable",
+          "code": "hosting.cost.above-ceiling",
+          "params": {
+            "coreFractionP95": 1.2077088,
+            "ceiling": 0.05
+          }
+        }
+      ]
+    }
+  ],
+  "measurements": {
+    "grid": [
+      {
+        "rate": 48000,
+        "quantum": 128,
+        "outcome": "probe.ok",
+        "cost": {
+          "median": 11949.4,
+          "percentile": {
+            "p": 95,
+            "value": 25160.6
+          },
+          "blocks": 512,
+          "warmupBlocks": 64
+        },
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 1691026,
+          "locks": 403742,
+          "syscalls": 122604,
+          "events": [
+            "mutex_lock libVavra.so ?",
+            "mutex_lock libVavra.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "realloc libVavra.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "write libVavra.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "mutex_lock libVavra.so _ZN4juce23AudioProcessorParameter34sendValueChangedMessageToListenersEf"
+          ]
+        },
+        "noteSweep": {
+          "applicable": true,
+          "dialect": "midi",
+          "allocations": 13959,
+          "locks": 14110,
+          "syscalls": 118
+        },
+        "latency": {
+          "unmeasuredReason": "silent-output",
+          "code": "hosting.latency.unmeasured"
+        },
+        "memory": {
+          "afterInstantiateKb": 39216,
+          "afterActivateKb": 39216,
+          "atRestKb": 39216,
+          "secondInstanceKb": 22528,
+          "firstInstanceKb": 39216,
+          "perInstanceKb": 22528
+        }
+      },
+      {
+        "rate": 96000,
+        "quantum": 1024,
+        "outcome": "probe.ok",
+        "cost": {
+          "median": 1634.57,
+          "percentile": {
+            "p": 95,
+            "value": 3370.04
+          },
+          "blocks": 512,
+          "warmupBlocks": 64
+        },
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 1693716,
+          "locks": 404538,
+          "syscalls": 122959,
+          "events": [
+            "mutex_lock libVavra.so ?",
+            "mutex_lock libVavra.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "realloc libVavra.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "write libVavra.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "mutex_lock libVavra.so _ZN4juce23AudioProcessorParameter34sendValueChangedMessageToListenersEf"
+          ]
+        },
+        "noteSweep": {
+          "applicable": true,
+          "dialect": "midi",
+          "allocations": 15446,
+          "locks": 16996,
+          "syscalls": 518
+        },
+        "latency": {
+          "unmeasuredReason": "silent-output",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 44100,
+        "quantum": 512,
+        "outcome": "probe.ok",
+        "latency": {
+          "declaredFrames": 512,
+          "measuredFrames": 0
+        },
+        "cost": {
+          "median": 2682.06,
+          "percentile": {
+            "p": 95,
+            "value": 4114.93
+          },
+          "blocks": 512,
+          "warmupBlocks": 64
+        },
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 1504944,
+          "locks": 393541,
+          "syscalls": 113092,
+          "events": [
+            "mutex_lock libVavra.so ?",
+            "mutex_lock libVavra.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "realloc libVavra.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "write libVavra.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "mutex_lock libVavra.so _ZN4juce23AudioProcessorParameter34sendValueChangedMessageToListenersEf"
+          ]
+        },
+        "noteSweep": {
+          "applicable": true,
+          "dialect": "midi",
+          "allocations": 12547,
+          "locks": 13526,
+          "syscalls": 33
+        }
+      },
+      {
+        "rate": 48000,
+        "quantum": 512,
+        "outcome": "probe.ok",
+        "cost": {
+          "median": 3078.56,
+          "percentile": {
+            "p": 95,
+            "value": 6287.09
+          },
+          "blocks": 512,
+          "warmupBlocks": 64
+        },
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 1691493,
+          "locks": 405663,
+          "syscalls": 124376,
+          "events": [
+            "mutex_lock libVavra.so ?",
+            "mutex_lock libVavra.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "realloc libVavra.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "write libVavra.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "mutex_lock libVavra.so _ZN4juce23AudioProcessorParameter34sendValueChangedMessageToListenersEf"
+          ]
+        },
+        "noteSweep": {
+          "applicable": true,
+          "dialect": "midi",
+          "allocations": 14746,
+          "locks": 15434,
+          "syscalls": 299
+        },
+        "latency": {
+          "unmeasuredReason": "silent-output",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 96000,
+        "quantum": 512,
+        "outcome": "probe.ok",
+        "cost": {
+          "median": 3383.79,
+          "percentile": {
+            "p": 95,
+            "value": 6787.14
+          },
+          "blocks": 512,
+          "warmupBlocks": 64
+        },
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 1699740,
+          "locks": 408929,
+          "syscalls": 126514,
+          "events": [
+            "mutex_lock libVavra.so _ZN4juce6detail32dispatchNextMessageOnSystemQueueEb",
+            "nanosleep libVavra.so _ZN4juce6Thread5sleepEi",
+            "mutex_lock libVavra.so ?",
+            "mutex_lock libVavra.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "realloc libVavra.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "write libVavra.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "mutex_lock libVavra.so _ZN4juce23AudioProcessorParameter34sendValueChangedMessageToListenersEf"
+          ]
+        },
+        "noteSweep": {
+          "applicable": true,
+          "dialect": "midi",
+          "allocations": 14775,
+          "locks": 15498,
+          "syscalls": 310
+        },
+        "latency": {
+          "unmeasuredReason": "silent-output",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 192000,
+        "quantum": 512,
+        "outcome": "probe.ok",
+        "cost": {
+          "median": 3035.05,
+          "percentile": {
+            "p": 95,
+            "value": 6578.51
+          },
+          "blocks": 512,
+          "warmupBlocks": 64
+        },
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 1687162,
+          "locks": 401631,
+          "syscalls": 120566,
+          "events": [
+            "mutex_lock libVavra.so _ZN4juce6detail32dispatchNextMessageOnSystemQueueEb",
+            "nanosleep libVavra.so _ZN4juce6Thread5sleepEi",
+            "mutex_lock libVavra.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "realloc libVavra.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "write libVavra.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "mutex_lock libVavra.so _ZN4juce23AudioProcessorParameter34sendValueChangedMessageToListenersEf"
+          ]
+        },
+        "noteSweep": {
+          "applicable": true,
+          "dialect": "midi",
+          "allocations": 14770,
+          "locks": 15532,
+          "syscalls": 315
+        },
+        "latency": {
+          "unmeasuredReason": "silent-output",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 44100,
+        "quantum": 128,
+        "outcome": "probe.ok",
+        "latency": {
+          "declaredFrames": 128,
+          "measuredFrames": 0
+        },
+        "cost": {
+          "median": 11933.2,
+          "percentile": {
+            "p": 95,
+            "value": 17450.7
+          },
+          "blocks": 512,
+          "warmupBlocks": 64
+        },
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 1499255,
+          "locks": 394606,
+          "syscalls": 115253,
+          "events": [
+            "mutex_lock libVavra.so ?",
+            "mutex_lock libVavra.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "realloc libVavra.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "write libVavra.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "mutex_lock libVavra.so _ZN4juce23AudioProcessorParameter34sendValueChangedMessageToListenersEf"
+          ]
+        },
+        "noteSweep": {
+          "applicable": true,
+          "dialect": "midi",
+          "allocations": 12534,
+          "locks": 13506,
+          "syscalls": 27
+        }
+      },
+      {
+        "rate": 44100,
+        "quantum": 256,
+        "outcome": "probe.ok",
+        "latency": {
+          "declaredFrames": 256,
+          "measuredFrames": 0
+        },
+        "cost": {
+          "median": 5520.22,
+          "percentile": {
+            "p": 95,
+            "value": 8463.59
+          },
+          "blocks": 512,
+          "warmupBlocks": 64
+        },
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 1510277,
+          "locks": 396735,
+          "syscalls": 115653,
+          "events": [
+            "mutex_lock libVavra.so ?",
+            "mutex_lock libVavra.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "realloc libVavra.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "write libVavra.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "mutex_lock libVavra.so _ZN4juce23AudioProcessorParameter34sendValueChangedMessageToListenersEf"
+          ]
+        },
+        "noteSweep": {
+          "applicable": true,
+          "dialect": "midi",
+          "allocations": 12498,
+          "locks": 13501,
+          "syscalls": 29
+        }
+      },
+      {
+        "rate": 44100,
+        "quantum": 1024,
+        "outcome": "probe.ok",
+        "latency": {
+          "declaredFrames": 1024,
+          "measuredFrames": 0
+        },
+        "cost": {
+          "median": 1334.16,
+          "percentile": {
+            "p": 95,
+            "value": 2082.63
+          },
+          "blocks": 512,
+          "warmupBlocks": 64
+        },
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 1504507,
+          "locks": 392442,
+          "syscalls": 112232,
+          "events": [
+            "mutex_lock libVavra.so ?",
+            "mutex_lock libVavra.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "realloc libVavra.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "write libVavra.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "mutex_lock libVavra.so _ZN4juce23AudioProcessorParameter34sendValueChangedMessageToListenersEf"
+          ]
+        },
+        "noteSweep": {
+          "applicable": true,
+          "dialect": "midi",
+          "allocations": 12576,
+          "locks": 13537,
+          "syscalls": 34
+        }
+      },
+      {
+        "rate": 48000,
+        "quantum": 256,
+        "outcome": "probe.ok",
+        "cost": {
+          "median": 5881.44,
+          "percentile": {
+            "p": 95,
+            "value": 12056.9
+          },
+          "blocks": 512,
+          "warmupBlocks": 64
+        },
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 1690696,
+          "locks": 404137,
+          "syscalls": 123050,
+          "events": [
+            "mutex_lock libVavra.so ?",
+            "mutex_lock libVavra.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "realloc libVavra.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "write libVavra.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "mutex_lock libVavra.so _ZN4juce23AudioProcessorParameter34sendValueChangedMessageToListenersEf",
+            "mutex_lock libVavra.so _ZN4juce6detail32dispatchNextMessageOnSystemQueueEb"
+          ]
+        },
+        "noteSweep": {
+          "applicable": true,
+          "dialect": "midi",
+          "allocations": 14258,
+          "locks": 14606,
+          "syscalls": 184
+        },
+        "latency": {
+          "unmeasuredReason": "silent-output",
+          "code": "hosting.latency.unmeasured"
+        },
+        "memory": {
+          "afterInstantiateKb": 39232,
+          "afterActivateKb": 39232,
+          "atRestKb": 39232,
+          "secondInstanceKb": 22544,
+          "firstInstanceKb": 39232,
+          "perInstanceKb": 22544
+        }
+      },
+      {
+        "rate": 48000,
+        "quantum": 1024,
+        "outcome": "probe.ok",
+        "cost": {
+          "median": 1596.5,
+          "percentile": {
+            "p": 95,
+            "value": 3345.73
+          },
+          "blocks": 512,
+          "warmupBlocks": 64
+        },
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 1706534,
+          "locks": 408529,
+          "syscalls": 125024,
+          "events": [
+            "mutex_lock libVavra.so ?",
+            "mutex_lock libVavra.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "realloc libVavra.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "write libVavra.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "mutex_lock libVavra.so _ZN4juce23AudioProcessorParameter34sendValueChangedMessageToListenersEf"
+          ]
+        },
+        "noteSweep": {
+          "applicable": true,
+          "dialect": "midi",
+          "allocations": 15605,
+          "locks": 17303,
+          "syscalls": 555
+        },
+        "latency": {
+          "unmeasuredReason": "silent-output",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 96000,
+        "quantum": 128,
+        "outcome": "probe.ok",
+        "cost": {
+          "median": 11615.2,
+          "percentile": {
+            "p": 95,
+            "value": 23025.6
+          },
+          "blocks": 512,
+          "warmupBlocks": 64
+        },
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 1679902,
+          "locks": 398920,
+          "syscalls": 119509,
+          "events": [
+            "mutex_lock libVavra.so ?",
+            "mutex_lock libVavra.so _ZN4juce6detail32dispatchNextMessageOnSystemQueueEb",
+            "mutex_lock libVavra.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "mutex_lock libVavra.so _ZN4juce23AudioProcessorParameter34sendValueChangedMessageToListenersEf",
+            "realloc libVavra.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "write libVavra.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE"
+          ]
+        },
+        "noteSweep": {
+          "applicable": true,
+          "dialect": "midi",
+          "allocations": 13947,
+          "locks": 14066,
+          "syscalls": 111
+        },
+        "latency": {
+          "unmeasuredReason": "silent-output",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 96000,
+        "quantum": 256,
+        "outcome": "probe.ok",
+        "cost": {
+          "median": 5944.62,
+          "percentile": {
+            "p": 95,
+            "value": 12679.6
+          },
+          "blocks": 512,
+          "warmupBlocks": 64
+        },
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 1688656,
+          "locks": 404790,
+          "syscalls": 123989,
+          "events": [
+            "mutex_lock libVavra.so ?",
+            "mutex_lock libVavra.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "realloc libVavra.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "write libVavra.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "mutex_lock libVavra.so _ZN4juce23AudioProcessorParameter34sendValueChangedMessageToListenersEf"
+          ]
+        },
+        "noteSweep": {
+          "applicable": true,
+          "dialect": "midi",
+          "allocations": 14262,
+          "locks": 14608,
+          "syscalls": 188
+        },
+        "latency": {
+          "unmeasuredReason": "silent-output",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 192000,
+        "quantum": 128,
+        "outcome": "probe.ok",
+        "cost": {
+          "median": 12236,
+          "percentile": {
+            "p": 95,
+            "value": 25166.1
+          },
+          "blocks": 512,
+          "warmupBlocks": 64
+        },
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 1693347,
+          "locks": 406460,
+          "syscalls": 124830,
+          "events": [
+            "mutex_lock libVavra.so ?",
+            "mutex_lock libVavra.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "realloc libVavra.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "write libVavra.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "mutex_lock libVavra.so _ZN4juce23AudioProcessorParameter34sendValueChangedMessageToListenersEf"
+          ]
+        },
+        "noteSweep": {
+          "applicable": true,
+          "dialect": "midi",
+          "allocations": 13982,
+          "locks": 14119,
+          "syscalls": 120
+        },
+        "latency": {
+          "unmeasuredReason": "silent-output",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 192000,
+        "quantum": 256,
+        "outcome": "probe.ok",
+        "cost": {
+          "median": 5953.92,
+          "percentile": {
+            "p": 95,
+            "value": 12094
+          },
+          "blocks": 512,
+          "warmupBlocks": 64
+        },
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 1689797,
+          "locks": 403588,
+          "syscalls": 122700,
+          "events": [
+            "mutex_lock libVavra.so ?",
+            "mutex_lock libVavra.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "realloc libVavra.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "write libVavra.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "mutex_lock libVavra.so _ZN4juce23AudioProcessorParameter34sendValueChangedMessageToListenersEf"
+          ]
+        },
+        "noteSweep": {
+          "applicable": true,
+          "dialect": "midi",
+          "allocations": 14245,
+          "locks": 14611,
+          "syscalls": 183
+        },
+        "latency": {
+          "unmeasuredReason": "silent-output",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 192000,
+        "quantum": 1024,
+        "outcome": "probe.ok",
+        "cost": {
+          "median": 1580.56,
+          "percentile": {
+            "p": 95,
+            "value": 3360.49
+          },
+          "blocks": 512,
+          "warmupBlocks": 64
+        },
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 1695837,
+          "locks": 406274,
+          "syscalls": 124020,
+          "events": [
+            "mutex_lock libVavra.so ?",
+            "mutex_lock libVavra.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "realloc libVavra.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "write libVavra.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "mutex_lock libVavra.so _ZN4juce23AudioProcessorParameter34sendValueChangedMessageToListenersEf"
+          ]
+        },
+        "noteSweep": {
+          "applicable": true,
+          "dialect": "midi",
+          "allocations": 15554,
+          "locks": 17134,
+          "syscalls": 541
+        },
+        "latency": {
+          "unmeasuredReason": "silent-output",
+          "code": "hosting.latency.unmeasured"
+        }
+      }
+    ],
+    "behaviour": {
+      "lifecycle": {
+        "cycles": 30,
+        "instantiated": 30,
+        "failed": 0
+      },
+      "threads": {
+        "before": 1,
+        "afterFirstInstantiate": 3,
+        "afterAllFreed": 1
+      },
+      "features": {
+        "required": [
+          "http://lv2plug.in/ns/ext/options#options",
+          "http://lv2plug.in/ns/ext/urid#map",
+          "http://lv2plug.in/ns/ext/buf-size#boundedBlockLength"
+        ]
+      }
+    },
+    "unmeasured": [
+      {
+        "dimension": "latency",
+        "rate": 48000,
+        "quantum": 128,
+        "code": "hosting.latency.unmeasured",
+        "detail": "silent-output: the impulse never came out within the declared latency and the tail"
+      },
+      {
+        "dimension": "latency",
+        "rate": 96000,
+        "quantum": 1024,
+        "code": "hosting.latency.unmeasured",
+        "detail": "silent-output: the impulse never came out within the declared latency and the tail"
+      },
+      {
+        "dimension": "latency",
+        "rate": 48000,
+        "quantum": 512,
+        "code": "hosting.latency.unmeasured",
+        "detail": "silent-output: the impulse never came out within the declared latency and the tail"
+      },
+      {
+        "dimension": "latency",
+        "rate": 96000,
+        "quantum": 512,
+        "code": "hosting.latency.unmeasured",
+        "detail": "silent-output: the impulse never came out within the declared latency and the tail"
+      },
+      {
+        "dimension": "latency",
+        "rate": 192000,
+        "quantum": 512,
+        "code": "hosting.latency.unmeasured",
+        "detail": "silent-output: the impulse never came out within the declared latency and the tail"
+      },
+      {
+        "dimension": "latency",
+        "rate": 48000,
+        "quantum": 256,
+        "code": "hosting.latency.unmeasured",
+        "detail": "silent-output: the impulse never came out within the declared latency and the tail"
+      },
+      {
+        "dimension": "latency",
+        "rate": 48000,
+        "quantum": 1024,
+        "code": "hosting.latency.unmeasured",
+        "detail": "silent-output: the impulse never came out within the declared latency and the tail"
+      },
+      {
+        "dimension": "latency",
+        "rate": 96000,
+        "quantum": 128,
+        "code": "hosting.latency.unmeasured",
+        "detail": "silent-output: the impulse never came out within the declared latency and the tail"
+      },
+      {
+        "dimension": "latency",
+        "rate": 96000,
+        "quantum": 256,
+        "code": "hosting.latency.unmeasured",
+        "detail": "silent-output: the impulse never came out within the declared latency and the tail"
+      },
+      {
+        "dimension": "latency",
+        "rate": 192000,
+        "quantum": 128,
+        "code": "hosting.latency.unmeasured",
+        "detail": "silent-output: the impulse never came out within the declared latency and the tail"
+      },
+      {
+        "dimension": "latency",
+        "rate": 192000,
+        "quantum": 256,
+        "code": "hosting.latency.unmeasured",
+        "detail": "silent-output: the impulse never came out within the declared latency and the tail"
+      },
+      {
+        "dimension": "latency",
+        "rate": 192000,
+        "quantum": 1024,
+        "code": "hosting.latency.unmeasured",
+        "detail": "silent-output: the impulse never came out within the declared latency and the tail"
+      }
+    ]
+  },
+  "notMeasured": [
+    {
+      "dimension": "stability",
+      "code": "hosting.stability.unsoaked"
+    },
+    {
+      "dimension": "memoryGrowth",
+      "code": "hosting.stability.unsoaked"
+    }
+  ],
+  "tool": {
+    "runner": "plugin-hostd-probe 0.15.1",
+    "child": "lv2_measure",
+    "interposer": "rt_interpose.so"
+  },
+  "measuredAt": "2026-10-30T06:52:21+00:00",
+  "probe": {
+    "file": "http___theusualsuspects.lv2_Vavra@1.1-b1bd6834044a.default.probe.json",
+    "sha256": "dba2c871bf0f74d5a750bfd68e7d026348162ec2851044fdbbc1e7433f9774ca",
+    "bytes": 42683,
+    "protocol": {
+      "name": "plugin-hostd.probe-protocol",
+      "version": 1
+    },
+    "reason": "on-request",
+    "outcome": "probe.ok",
+    "complete": true,
+    "machineClass": {
+      "arch": "aarch64",
+      "family": "arm",
+      "coreBand": "3-4",
+      "clockBand": "1.5-2.5GHz",
+      "preemptRt": false,
+      "cstatesLimited": false
+    },
+    "meetsProtocol": false
+  },
+  "memoryRun": {
+    "tool": {
+      "runner": "plugin-hostd-probe 0.15.4",
+      "child": "lv2_measure"
+    },
+    "measuredAt": "2026-10-31T06:36:04+00:00",
+    "runId": "20261031T063604Z-1efd6-2a931d8d",
+    "cells": [
+      {
+        "rate": 48000,
+        "quantum": 128,
+        "outcome": "probe.ok"
+      },
+      {
+        "rate": 48000,
+        "quantum": 256,
+        "outcome": "probe.ok"
+      }
+    ]
+  },
+  "run": {
+    "id": "20261030T065221Z-86fdf-421c0aa1",
+    "steps": [
+      {
+        "step": "scan",
+        "result": "ok"
+      },
+      {
+        "step": "describe",
+        "result": "ok"
+      },
+      {
+        "step": "probe",
+        "result": "probe.ok"
+      },
+      {
+        "step": "rt-safety",
+        "result": "unsafe"
+      },
+      {
+        "step": "isolated",
+        "result": "refused",
+        "code": "isolated.silent-output",
+        "detail": "notes held on 1 MIDI input and a sine at its audio inputs",
+        "figures": {
+          "latencyFrames": 256,
+          "cpuPercent": 11.333333333333334,
+          "xruns": 0,
+          "midiInputsLinked": 1
+        }
+      }
+    ]
+  },
+  "rejudged": {
+    "at": "2026-11-01T04:13:29.664Z",
+    "by": "plugin-qualify 0.18.4",
+    "figures": {
+      "tool": {
+        "runner": "plugin-hostd-probe 0.15.1",
+        "child": "lv2_measure",
+        "interposer": "rt_interpose.so"
+      },
+      "measuredAt": "2026-10-30T06:52:21+00:00",
+      "runId": "20261030T065221Z-86fdf-421c0aa1",
+      "memory": {
+        "tool": {
+          "runner": "plugin-hostd-probe 0.15.4",
+          "child": "lv2_measure"
+        },
+        "measuredAt": "2026-10-31T06:36:04+00:00"
+      },
+      "adapter": {
+        "versions": {
+          "omx-clap-host": "0.26.0",
+          "plugin-hostd": "0.15.7"
+        },
+        "measuredAt": "2026-11-01T03:57:36.493Z"
+      }
+    },
+    "owes": [
+      {
+        "measurement": "isolated-step",
+        "code": "qualify.sync.isolated-step-owed"
+      }
+    ]
+  }
+}

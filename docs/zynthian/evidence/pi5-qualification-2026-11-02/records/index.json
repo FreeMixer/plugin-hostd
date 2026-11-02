@@ -1,0 +1,522 @@
+[
+ {
+  "group": "memory-unmeasured",
+  "uri": "http://drobilla.net/plugins/blop/adsr",
+  "outcome": "qualified",
+  "code": null,
+  "record": "http___drobilla.net_plugins_blop_adsr@0.0-fba60e7b84e1.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "memory-unmeasured",
+  "uri": "http://drobilla.net/plugins/blop/adsr_gt",
+  "outcome": "qualified",
+  "code": null,
+  "record": "http___drobilla.net_plugins_blop_adsr_gt@0.0-357844511976.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "memory-unmeasured",
+  "uri": "http://drobilla.net/plugins/blop/amp",
+  "outcome": "qualified",
+  "code": null,
+  "record": "http___drobilla.net_plugins_blop_amp@0.0-cde6e214bd49.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "memory-unmeasured",
+  "uri": "http://drobilla.net/plugins/blop/dahdsr",
+  "outcome": "qualified",
+  "code": null,
+  "record": "http___drobilla.net_plugins_blop_dahdsr@0.0-bee3360122fa.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "memory-unmeasured",
+  "uri": "http://drobilla.net/plugins/blop/fmod",
+  "outcome": "qualified",
+  "code": null,
+  "record": "http___drobilla.net_plugins_blop_fmod@0.0-8a7beb038f7d.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "memory-unmeasured",
+  "uri": "http://drobilla.net/plugins/blop/lp4pole",
+  "outcome": "qualified",
+  "code": null,
+  "record": "http___drobilla.net_plugins_blop_lp4pole@0.0-ae662d0fcccb.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "memory-unmeasured",
+  "uri": "http://drobilla.net/plugins/blop/pulse",
+  "outcome": "qualified",
+  "code": null,
+  "record": "http___drobilla.net_plugins_blop_pulse@0.0-1d728e938438.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "memory-unmeasured",
+  "uri": "http://drobilla.net/plugins/blop/quantiser_20",
+  "outcome": "qualified",
+  "code": null,
+  "record": "http___drobilla.net_plugins_blop_quantiser_20@0.0-e01bd0839748.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "memory-unmeasured",
+  "uri": "http://drobilla.net/plugins/blop/quantiser_50",
+  "outcome": "qualified",
+  "code": null,
+  "record": "http___drobilla.net_plugins_blop_quantiser_50@0.0-48dd13972e96.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "memory-unmeasured",
+  "uri": "http://drobilla.net/plugins/blop/quantiser_100",
+  "outcome": "qualified",
+  "code": null,
+  "record": "http___drobilla.net_plugins_blop_quantiser_100@0.0-abcafaeba049.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "memory-unmeasured",
+  "uri": "http://drobilla.net/plugins/blop/random",
+  "outcome": "qualified",
+  "code": null,
+  "record": "http___drobilla.net_plugins_blop_random@0.0-50185b54ad5b.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "memory-unmeasured",
+  "uri": "http://drobilla.net/plugins/blop/sawtooth",
+  "outcome": "qualified",
+  "code": null,
+  "record": "http___drobilla.net_plugins_blop_sawtooth@0.0-76fdb8d3af55.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "memory-unmeasured",
+  "uri": "http://drobilla.net/plugins/blop/sequencer_16",
+  "outcome": "qualified",
+  "code": null,
+  "record": "http___drobilla.net_plugins_blop_sequencer_16@0.0-99d909ac91c5.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "memory-unmeasured",
+  "uri": "http://drobilla.net/plugins/blop/sequencer_32",
+  "outcome": "qualified",
+  "code": null,
+  "record": "http___drobilla.net_plugins_blop_sequencer_32@0.0-62d61fd1a642.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "memory-unmeasured",
+  "uri": "http://drobilla.net/plugins/blop/sequencer_64",
+  "outcome": "qualified",
+  "code": null,
+  "record": "http___drobilla.net_plugins_blop_sequencer_64@0.0-ae8e6f3327ac.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "memory-unmeasured",
+  "uri": "http://drobilla.net/plugins/blop/square",
+  "outcome": "qualified",
+  "code": null,
+  "record": "http___drobilla.net_plugins_blop_square@0.0-750fa3868790.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "memory-unmeasured",
+  "uri": "http://drobilla.net/plugins/blop/sync_pulse",
+  "outcome": "qualified",
+  "code": null,
+  "record": "http___drobilla.net_plugins_blop_sync_pulse@0.0-ece371cc1a89.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "memory-unmeasured",
+  "uri": "http://drobilla.net/plugins/blop/sync_square",
+  "outcome": "qualified",
+  "code": null,
+  "record": "http___drobilla.net_plugins_blop_sync_square@0.0-0d61acd30bd3.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "memory-unmeasured",
+  "uri": "http://drobilla.net/plugins/blop/tracker",
+  "outcome": "qualified",
+  "code": null,
+  "record": "http___drobilla.net_plugins_blop_tracker@0.0-3f73567aa56d.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "memory-unmeasured",
+  "uri": "http://drobilla.net/plugins/blop/triangle",
+  "outcome": "qualified",
+  "code": null,
+  "record": "http___drobilla.net_plugins_blop_triangle@0.0-013c1357c27c.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "memory-unmeasured",
+  "uri": "http://open-music-kontrollers.ch/lv2/moony#c1xc1",
+  "outcome": "qualified",
+  "code": null,
+  "record": "http___open-music-kontrollers.ch_lv2_moony_c1xc1@40.0-4f726c728288.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "memory-unmeasured",
+  "uri": "http://open-music-kontrollers.ch/lv2/moony#c2xc2",
+  "outcome": "qualified",
+  "code": null,
+  "record": "http___open-music-kontrollers.ch_lv2_moony_c2xc2@40.0-4f726c728288.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "memory-unmeasured",
+  "uri": "http://open-music-kontrollers.ch/lv2/moony#c4xc4",
+  "outcome": "qualified",
+  "code": null,
+  "record": "http___open-music-kontrollers.ch_lv2_moony_c4xc4@40.0-4f726c728288.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "memory-unmeasured",
+  "uri": "http://open-music-kontrollers.ch/lv2/moony#a1xa1",
+  "outcome": "qualified",
+  "code": null,
+  "record": "http___open-music-kontrollers.ch_lv2_moony_a1xa1@40.0-4f726c728288.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "memory-unmeasured",
+  "uri": "http://open-music-kontrollers.ch/lv2/moony#a2xa2",
+  "outcome": "qualified",
+  "code": null,
+  "record": "http___open-music-kontrollers.ch_lv2_moony_a2xa2@40.0-4f726c728288.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "memory-unmeasured",
+  "uri": "http://open-music-kontrollers.ch/lv2/moony#a4xa4",
+  "outcome": "qualified",
+  "code": null,
+  "record": "http___open-music-kontrollers.ch_lv2_moony_a4xa4@40.0-4f726c728288.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "memory-unmeasured",
+  "uri": "http://open-music-kontrollers.ch/lv2/moony#c1a1xc1a1",
+  "outcome": "qualified",
+  "code": null,
+  "record": "http___open-music-kontrollers.ch_lv2_moony_c1a1xc1a1@40.0-4f726c728288.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "memory-unmeasured",
+  "uri": "http://open-music-kontrollers.ch/lv2/moony#c2a1xc2a1",
+  "outcome": "qualified",
+  "code": null,
+  "record": "http___open-music-kontrollers.ch_lv2_moony_c2a1xc2a1@40.0-4f726c728288.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "memory-unmeasured",
+  "uri": "http://open-music-kontrollers.ch/lv2/moony#c4a1xc4a1",
+  "outcome": "qualified",
+  "code": null,
+  "record": "http___open-music-kontrollers.ch_lv2_moony_c4a1xc4a1@40.0-4f726c728288.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "memory-unmeasured",
+  "uri": "http://gareus.org/oss/lv2/meters#EBUr128",
+  "outcome": "qualified",
+  "code": null,
+  "record": "http___gareus.org_oss_lv2_meters_EBUr128@2356.0-b22128c78ca7.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "memory-unmeasured",
+  "uri": "http://gareus.org/oss/lv2/meters#goniometer",
+  "outcome": "qualified",
+  "code": null,
+  "record": "http___gareus.org_oss_lv2_meters_goniometer@2356.0-b22128c78ca7.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "memory-unmeasured",
+  "uri": "http://gareus.org/oss/lv2/meters#SigDistHist",
+  "outcome": "qualified",
+  "code": null,
+  "record": "http___gareus.org_oss_lv2_meters_SigDistHist@2356.0-b22128c78ca7.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "memory-unmeasured",
+  "uri": "http://gareus.org/oss/lv2/meters#bitmeter",
+  "outcome": "qualified",
+  "code": null,
+  "record": "http___gareus.org_oss_lv2_meters_bitmeter@2356.0-b22128c78ca7.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "memory-unmeasured",
+  "uri": "http://gareus.org/oss/lv2/meters#surround3",
+  "outcome": "qualified",
+  "code": null,
+  "record": "http___gareus.org_oss_lv2_meters_surround3@2356.0-b22128c78ca7.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "memory-unmeasured",
+  "uri": "http://gareus.org/oss/lv2/sisco#Mono",
+  "outcome": "qualified",
+  "code": null,
+  "record": "http___gareus.org_oss_lv2_sisco_Mono@2326.0-e347f632731e.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "memory-unmeasured",
+  "uri": "http://gareus.org/oss/lv2/sisco#Stereo",
+  "outcome": "qualified",
+  "code": null,
+  "record": "http___gareus.org_oss_lv2_sisco_Stereo@2326.0-e347f632731e.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "memory-unmeasured",
+  "uri": "http://gareus.org/oss/lv2/sisco#3chan",
+  "outcome": "qualified",
+  "code": null,
+  "record": "http___gareus.org_oss_lv2_sisco_3chan@2326.0-e347f632731e.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "memory-unmeasured",
+  "uri": "http://gareus.org/oss/lv2/sisco#4chan",
+  "outcome": "qualified",
+  "code": null,
+  "record": "http___gareus.org_oss_lv2_sisco_4chan@2326.0-e347f632731e.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "probe-oom",
+  "uri": "http://github.com/blablack/beatslash-lv2/beatrepeater_mono",
+  "outcome": "unmeasured",
+  "code": "probe.oom",
+  "record": "http___github.com_blablack_beatslash-lv2_beatrepeater_mono@unversioned-44743eac329d.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "probe-oom",
+  "uri": "http://github.com/blablack/beatslash-lv2/beatrepeater_stereo",
+  "outcome": "unmeasured",
+  "code": "probe.oom",
+  "record": "http___github.com_blablack_beatslash-lv2_beatrepeater_stereo@unversioned-713385f93da8.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "probe-oom",
+  "uri": "http://github.com/blablack/beatslash-lv2/beatslicer_mono",
+  "outcome": "unmeasured",
+  "code": "probe.oom",
+  "record": "http___github.com_blablack_beatslash-lv2_beatslicer_mono@unversioned-6365b469b42d.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "probe-oom",
+  "uri": "http://github.com/blablack/beatslash-lv2/beatslicer_stereo",
+  "outcome": "unmeasured",
+  "code": "probe.oom",
+  "record": "http___github.com_blablack_beatslash-lv2_beatslicer_stereo@unversioned-be1fd8b0fe15.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "probe-oom",
+  "uri": "http://lsp-plug.in/plugins/lv2/art_delay_stereo",
+  "outcome": "unmeasured",
+  "code": "probe.oom",
+  "record": "http___lsp-plug.in_plugins_lv2_art_delay_stereo@0.30-fcbc6693812b.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "probe-oom",
+  "uri": "http://lsp-plug.in/plugins/lv2/slap_delay_mono",
+  "outcome": "unmeasured",
+  "code": "probe.oom",
+  "record": "http___lsp-plug.in_plugins_lv2_slap_delay_mono@0.30-fcbc6693812b.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "probe-oom",
+  "uri": "http://lsp-plug.in/plugins/lv2/slap_delay_stereo",
+  "outcome": "unmeasured",
+  "code": "probe.oom",
+  "record": "http___lsp-plug.in_plugins_lv2_slap_delay_stereo@0.30-fcbc6693812b.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "probe-oom",
+  "uri": "clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.slap_delay_mono",
+  "outcome": "unmeasured",
+  "code": "probe.oom",
+  "record": "in.lsp-plug.slap_delay_mono@unversioned-d5235d2f5f53.custom.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "probe-oom",
+  "uri": "clap:/usr/lib/clap/lsp-plugins.clap#in.lsp-plug.slap_delay_stereo",
+  "outcome": "unmeasured",
+  "code": "probe.oom",
+  "record": "in.lsp-plug.slap_delay_stereo@unversioned-d5235d2f5f53.custom.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "refused-instantiation",
+  "uri": "http://lvtoolkit.org/plugins/silence",
+  "outcome": "unmeasured",
+  "code": "probe.refused-instantiation",
+  "record": "http___lvtoolkit.org_plugins_silence@unversioned-0a2d8b70cf1d.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "rt-safety-unmeasured",
+  "uri": "http://drobilla.net/plugins/blop/branch",
+  "outcome": "unmeasured",
+  "code": "hosting.rt-safety.unmeasured",
+  "record": "http___drobilla.net_plugins_blop_branch@0.0-42db360ed020.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "rt-safety-unmeasured",
+  "uri": "http://drobilla.net/plugins/blop/difference",
+  "outcome": "unmeasured",
+  "code": "hosting.rt-safety.unmeasured",
+  "record": "http___drobilla.net_plugins_blop_difference@0.0-b392a89afa4e.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "rt-safety-unmeasured",
+  "uri": "http://drobilla.net/plugins/blop/interpolator",
+  "outcome": "unmeasured",
+  "code": "hosting.rt-safety.unmeasured",
+  "record": "http___drobilla.net_plugins_blop_interpolator@0.0-93f6423f3b36.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "rt-safety-unmeasured",
+  "uri": "http://drobilla.net/plugins/blop/product",
+  "outcome": "unmeasured",
+  "code": "hosting.rt-safety.unmeasured",
+  "record": "http___drobilla.net_plugins_blop_product@0.0-628325ba1597.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "rt-safety-unmeasured",
+  "uri": "http://drobilla.net/plugins/blop/ratio",
+  "outcome": "unmeasured",
+  "code": "hosting.rt-safety.unmeasured",
+  "record": "http___drobilla.net_plugins_blop_ratio@0.0-76ab4661af9d.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "rt-safety-unmeasured",
+  "uri": "http://drobilla.net/plugins/blop/sum",
+  "outcome": "unmeasured",
+  "code": "hosting.rt-safety.unmeasured",
+  "record": "http___drobilla.net_plugins_blop_sum@0.0-a5097bdfdead.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "silent-under-note",
+  "uri": "http://calf.sourceforge.net/plugins/Fluidsynth",
+  "outcome": "unmeasured",
+  "code": "omx-clap-host.silent-under-note",
+  "record": "http___calf.sourceforge.net_plugins_Fluidsynth@unversioned-3f3fd8198cde.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "silent-under-note",
+  "uri": "http://lsp-plug.in/plugins/lv2/multisampler_x12",
+  "outcome": "unmeasured",
+  "code": "omx-clap-host.silent-under-note",
+  "record": "http___lsp-plug.in_plugins_lv2_multisampler_x12@0.33-fcbc6693812b.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "silent-under-note",
+  "uri": "http://lsp-plug.in/plugins/lv2/multisampler_x12_do",
+  "outcome": "unmeasured",
+  "code": "omx-clap-host.silent-under-note",
+  "record": "http___lsp-plug.in_plugins_lv2_multisampler_x12_do@0.33-fcbc6693812b.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "silent-under-note",
+  "uri": "http://lsp-plug.in/plugins/lv2/sampler_mono",
+  "outcome": "unmeasured",
+  "code": "omx-clap-host.silent-under-note",
+  "record": "http___lsp-plug.in_plugins_lv2_sampler_mono@0.33-fcbc6693812b.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "silent-under-note",
+  "uri": "http://lsp-plug.in/plugins/lv2/sampler_stereo",
+  "outcome": "unmeasured",
+  "code": "omx-clap-host.silent-under-note",
+  "record": "http___lsp-plug.in_plugins_lv2_sampler_stereo@0.33-fcbc6693812b.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "silent-under-note",
+  "uri": "http://theusualsuspects.lv2/Osirus",
+  "outcome": "unmeasured",
+  "code": "omx-clap-host.silent-under-note",
+  "record": "http___theusualsuspects.lv2_Osirus@1.1-f5096d8592ff.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "silent-under-note",
+  "uri": "http://theusualsuspects.lv2/Vavra",
+  "outcome": "unmeasured",
+  "code": "omx-clap-host.silent-under-note",
+  "record": "http___theusualsuspects.lv2_Vavra@1.1-b1bd6834044a.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "silent-under-note",
+  "uri": "http://jpcima.sdf1.org/lv2/miniopl3",
+  "outcome": "unmeasured",
+  "code": "omx-clap-host.silent-under-note",
+  "record": "http___jpcima.sdf1.org_lv2_miniopl3@0.1-08b381786e76.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "silent-under-note",
+  "uri": "http://github.com/nicklan/drmr",
+  "outcome": "unmeasured",
+  "code": "omx-clap-host.silent-under-note",
+  "record": "http___github.com_nicklan_drmr@unversioned-3032ac0d7f5d.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "silent-under-note",
+  "uri": "http://www.openavproductions.com/fabla",
+  "outcome": "unmeasured",
+  "code": "omx-clap-host.silent-under-note",
+  "record": "http___www.openavproductions.com_fabla@3.2-99994af20175.default.qualification.json",
+  "copied": true
+ },
+ {
+  "group": "silent-under-note",
+  "uri": "https://github.com/giulioz/jv880_juce.git",
+  "outcome": "unmeasured",
+  "code": "omx-clap-host.silent-under-note",
+  "record": "https___github.com_giulioz_jv880_juce.git@0.0-9be6bbf1b6f2.default.qualification.json",
+  "copied": true
+ }
+]
