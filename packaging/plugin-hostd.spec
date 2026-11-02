@@ -13,16 +13,16 @@ BuildRequires: gcc
 BuildRequires: make
 BuildRequires: diffutils
 BuildRequires: python3
-# mod-host's protocol headers: param_info, remote_pages and track_info (mod-audio/mod-host#109) are in them from
-# release 11 on, and protocol/mod-host.json is generated from them; socket_set_bind_address() from 11.3; a floor only
-BuildRequires: mod-host-protocol-devel >= 0.10.6.f14a230-11.3
+# the protocol library's headers, mod-host's protocol (protocol/mod-host.json is generated from them): 0.1.0 is the
+# first plugin-hostd-protocol, the code of mod-host-protocol 0.10.6.f14a230-11.3 with plugin-hostd#371 and #372 fixed;
+# a floor only
+BuildRequires: plugin-hostd-protocol-devel >= 0.1.0
 # the probe runner's default rates, the protocol's parameter scales and the probe output's shared words are read from
 # omx-contract's C headers, the format tables are items of its schema 3, and the daemon's verbs are a verbs item
 # (3.3.0 is the first with the verbs kind, 3.4.0 the first that renders a reply code's resp); a floor only
 BuildRequires: omx-contract-devel >= 3.4.0
-# socket_set_bind_address(), and with it workers that listen on 127.0.0.1: FreeMixer's build carrying it (11.3.omx);
-# a floor only
-Requires: mod-host-protocol%{?_isa} >= 0.10.6.f14a230-11.3
+# the protocol library, ports on 127.0.0.1 unless told otherwise (socket_set_bind_address()); a floor only
+Requires: plugin-hostd-protocol%{?_isa} >= 0.1.0
 # omx-clap-core is a build dependency of the check stage only: the CLAP worker and the fixtures the real-worker
 # tests drive. A build with `--without check` needs nothing of omx-clap-core, so plugin-hostd and omx-clap-core
 # do not build-depend on each other. A floor only: the lowest release with what the tests need (omx-clap-core 0.21,

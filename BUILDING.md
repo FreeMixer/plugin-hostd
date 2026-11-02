@@ -1,14 +1,17 @@
 Building plugin-hostd
 =====================
 
-    make [MOD_HOST_DIR=<mod-host checkout>]
+    make [PROTOCOL_DIR=<plugin-hostd-protocol checkout>]
 
-The protocol is mod-host's `libmod-host-protocol.so`, from `pkg-config
-mod-host-protocol` when it is installed (mod-host's `make install-lib`, which
-FreeMixer/mod-host has from 0.10.7: 0.10.6 and earlier have no such target, so
-0.10.7 is the floor for this path),
-otherwise from `MOD_HOST_DIR`, a mod-host tree where the library is built if
-missing. The daemon needs libc and that library and nothing else.
+The protocol is `libplugin-hostd-protocol.so.0`, mod-host's text protocol as a
+library of its own (FreeMixer/plugin-hostd-protocol, 0.1.0 or later), from
+`pkg-config plugin-hostd-protocol` when it is installed (its `make install`, or
+the plugin-hostd-protocol-devel and libplugin-hostd-protocol-dev packages),
+otherwise from `PROTOCOL_DIR`, a plugin-hostd-protocol tree where the library is
+built if missing. The scenario corpus and runner of `make test-jack` and the
+protocol page the verb table is read from come with it: the `scenarios`,
+`runner` and `protocoldoc` variables of its pkg-config file, or `tests/` and
+`doc/protocol.md` of `PROTOCOL_DIR`. The daemon needs libc and that library and nothing else.
 
 The probe runner and the protocol generator also read omx-contract's C headers,
 `<omxcontract/omx_contract_limits.h>` and `<omxcontract/omx_vocabulary.h>`, from
@@ -45,7 +48,7 @@ Regenerating the protocol tables
 The tables in README.md marked `BEGIN GENERATED protocol:...`, the key list of the man page and
 `protocol/plugin-hostd.json` are generated from `include/plugin-hostd/protocol.h`: `make gen` rewrites them and
 `make check-generated` fails on any drift. `protocol/mod-host.json` is generated the same way from the mod-host
-headers the build compiles against (`pkg-config --cflags mod-host-protocol`, or `MOD_HOST_DIR/src`), by
+headers the build compiles against (`pkg-config --cflags plugin-hostd-protocol`, or `PROTOCOL_DIR/include`), by
 `tools/mod-host-json.py`; `make test-mod-host-json` checks that it follows them.
 
 The daemon's verbs

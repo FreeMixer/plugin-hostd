@@ -9,7 +9,7 @@ import sys as _s; _s.stdout.reconfigure(line_buffering=True)
 import os, re, shutil, subprocess, sys, tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MOD_HOST_DIR = os.path.abspath(os.environ.get("MOD_HOST_DIR", os.path.join(ROOT, "..", "mod-host")))
+PROTOCOL_DIR = os.path.abspath(os.environ.get("PROTOCOL_DIR", os.path.join(ROOT, "..", "plugin-hostd-protocol")))
 FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "fake-host")))
 
 
@@ -22,7 +22,7 @@ def behave(exe, protocol, gone):
     from harness import Daemon, check, resp
     conf = {c["key"]: c["default"] for c in harness.DECLARED["config"]}
     placement = harness.DECLARED["placement"]
-    code = modhost.errors(modhost.include_dir(MOD_HOST_DIR))
+    code = modhost.errors(modhost.include_dir(PROTOCOL_DIR))
 
     # the verb that takes an instance alone answers for it; the name the declaration does not have is no verb of the
     # daemon's, a mod-host command it broadcasts to no worker
@@ -95,7 +95,7 @@ def grep(pattern, *paths):
 
 
 def make(tree, *args):
-    return subprocess.run(["make", "-s", "MOD_HOST_DIR=" + MOD_HOST_DIR] + list(args), cwd=tree, capture_output=True, text=True)
+    return subprocess.run(["make", "-s", "PROTOCOL_DIR=" + PROTOCOL_DIR] + list(args), cwd=tree, capture_output=True, text=True)
 
 
 # (the definition in the header, the pattern to find it, its replacement, a pattern for an old copy that must be gone)
@@ -126,7 +126,7 @@ def perturb_modhost():
     """mod-host's headers copied, one verb of mod-host.h renamed, the daemon and the worker rebuilt against the copy"""
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     import modhost
-    include = modhost.include_dir(MOD_HOST_DIR)
+    include = modhost.include_dir(PROTOCOL_DIR)
     macro, suffix = MODHOST_EDIT
     before = modhost.commands(include)[macro]
     after = before + suffix

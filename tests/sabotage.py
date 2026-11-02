@@ -6,7 +6,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import sabotage_pool
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MOD_HOST_DIR = os.path.abspath(os.environ.get("MOD_HOST_DIR", os.path.join(ROOT, "..", "mod-host")))
+PROTOCOL_DIR = os.path.abspath(os.environ.get("PROTOCOL_DIR", os.path.join(ROOT, "..", "plugin-hostd-protocol")))
 FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "fake-host")))
 
 # (what is broken, file, text, replacement, the test that must go red[, "jack"]); a "jack" test runs in tests/jack_e2e.sh
@@ -431,7 +431,7 @@ SABOTAGE = [
      "a_pins_d_pin_admits_its_plugin_and_of_two_files_the_last_by_name_wins"),
     ("the build steps are back on the README", "README.md", "Building from source: see [BUILDING.md](BUILDING.md).",
      "Building from source:\n\n    make\n\nsee [BUILDING.md](BUILDING.md).", "README.md runs no build tool", "readme"),
-    ("BUILDING.md lost its build command", "BUILDING.md", "    make [MOD_HOST_DIR=<mod-host checkout>]\n", "",
+    ("BUILDING.md lost its build command", "BUILDING.md", "    make [PROTOCOL_DIR=<plugin-hostd-protocol checkout>]\n", "",
      "README.md runs no build tool", "readme"),
     ("the spec lost the floor of omx-clap-host-tests", "packaging/plugin-hostd.spec",
      "BuildRequires: omx-clap-host-tests >= 0.25.0\n", "", "no pin anywhere", "nopins"),
@@ -1513,13 +1513,13 @@ SABOTAGE = [
 
 
 def build(tree):
-    subprocess.run(["make", "-s", "MOD_HOST_DIR=" + MOD_HOST_DIR, "plugin-hostd"], cwd=tree, check=True,
+    subprocess.run(["make", "-s", "PROTOCOL_DIR=" + PROTOCOL_DIR, "plugin-hostd"], cwd=tree, check=True,
                    stdout=subprocess.DEVNULL)
 
 
 def build_probe(tree):
     # the probe has its own rule in the Makefile (its sources, -Isrc, the contract's flags and defines): build it there
-    subprocess.run(["make", "-s", "MOD_HOST_DIR=" + MOD_HOST_DIR, "plugin-hostd-probe"], cwd=tree, check=True,
+    subprocess.run(["make", "-s", "PROTOCOL_DIR=" + PROTOCOL_DIR, "plugin-hostd-probe"], cwd=tree, check=True,
                    stdout=subprocess.DEVNULL)
 
 
@@ -1538,7 +1538,7 @@ def run_format_test(tree):
     for f in os.listdir(os.path.join(tree, "src")):
         if f.endswith(".o"):
             os.unlink(os.path.join(tree, "src", f))
-    subprocess.run(["make", "-s", "MOD_HOST_DIR=" + MOD_HOST_DIR, "tests/format-test"], cwd=tree, check=True,
+    subprocess.run(["make", "-s", "PROTOCOL_DIR=" + PROTOCOL_DIR, "tests/format-test"], cwd=tree, check=True,
                    stdout=subprocess.DEVNULL)
     env = dict(os.environ, PLUGIN_HOSTD_FORMAT_TEST_DIR=tree)
     p = subprocess.run([os.path.join(tree, "tests", "format-test"), FAKE], env=env, capture_output=True, text=True, timeout=120)
@@ -1549,13 +1549,13 @@ def run_relay_test(tree):
     """tests/relay_test.c against the tree's src/relay.c; it prints "ok   relay_test" when no check failed"""
     os.makedirs(os.path.join(tree, "tests"), exist_ok=True)
     shutil.copy(os.path.join(ROOT, "tests", "relay_test.c"), os.path.join(tree, "tests"))
-    subprocess.run(["make", "-s", "-B", "MOD_HOST_DIR=" + MOD_HOST_DIR, "tests/relay-test"], cwd=tree, check=True,
+    subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, "tests/relay-test"], cwd=tree, check=True,
                    stdout=subprocess.DEVNULL)
     p = subprocess.run([os.path.join(tree, "tests", "relay-test")], capture_output=True, text=True, timeout=60)
     return p.returncode, p.stdout + ("ok   relay_test\n" if p.returncode == 0 else "")
 def run_contract_test(tree):
     """tests/contract_derived.py against the tree's probe runner and generator; "ok   contract" when it passes"""
-    subprocess.run(["make", "-s", "-B", "MOD_HOST_DIR=" + MOD_HOST_DIR, "plugin-hostd-probe"], cwd=tree, check=True,
+    subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, "plugin-hostd-probe"], cwd=tree, check=True,
                    stdout=subprocess.DEVNULL)
     p = subprocess.run([sys.executable, os.path.join(tree, "tests", "contract_derived.py")], cwd=tree, capture_output=True,
                        text=True, timeout=300, env=dict(os.environ, PROBE=os.path.join(tree, "plugin-hostd-probe")))
@@ -1572,7 +1572,7 @@ def run_history_test(tree):
     """tests/history_test.c against the tree's src/history.c; it prints "ok   <group>" for each group that passed"""
     os.makedirs(os.path.join(tree, "tests"), exist_ok=True)
     shutil.copy(os.path.join(ROOT, "tests", "history_test.c"), os.path.join(tree, "tests"))
-    subprocess.run(["make", "-s", "-B", "MOD_HOST_DIR=" + MOD_HOST_DIR, "tests/history-test"], cwd=tree, check=True,
+    subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, "tests/history-test"], cwd=tree, check=True,
                    stdout=subprocess.DEVNULL)
     p = subprocess.run([os.path.join(tree, "tests", "history-test")], capture_output=True, text=True, timeout=120)
     return p.returncode, p.stdout
@@ -1582,7 +1582,7 @@ def run_proc_test(tree):
     """tests/proc_test.c against the tree's src/proc.c; it prints "ok   proc_test" when no check failed"""
     os.makedirs(os.path.join(tree, "tests"), exist_ok=True)
     shutil.copy(os.path.join(ROOT, "tests", "proc_test.c"), os.path.join(tree, "tests"))
-    subprocess.run(["make", "-s", "-B", "MOD_HOST_DIR=" + MOD_HOST_DIR, "tests/proc-test"], cwd=tree, check=True,
+    subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, "tests/proc-test"], cwd=tree, check=True,
                    stdout=subprocess.DEVNULL)
     p = subprocess.run([os.path.join(tree, "tests", "proc-test")], capture_output=True, text=True, timeout=120)
     return p.returncode, p.stdout
@@ -1593,7 +1593,7 @@ def run_conf_test(tree):
     neither failed"""
     os.makedirs(os.path.join(tree, "tests"), exist_ok=True)
     shutil.copy(os.path.join(ROOT, "tests", "conf_test.c"), os.path.join(tree, "tests"))
-    subprocess.run(["make", "-s", "-B", "MOD_HOST_DIR=" + MOD_HOST_DIR, "tests/conf-test"], cwd=tree, check=True,
+    subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, "tests/conf-test"], cwd=tree, check=True,
                    stdout=subprocess.DEVNULL)
     p = subprocess.run([os.path.join(tree, "tests", "conf-test")], capture_output=True, text=True, timeout=60)
     q = subprocess.run([sys.executable, os.path.join(ROOT, "tests", "search_paths_once.py"), tree], capture_output=True,
@@ -1612,7 +1612,7 @@ def run_alloc_test(tree):
     for f in ("tests/gesture-alloc-test", "tests/lv2-alloc-test", "tests/lv2-alloc-lv2.o", "tests/verbs-alloc-test"):
         if os.path.exists(os.path.join(tree, f)):
             os.unlink(os.path.join(tree, f))
-    p = subprocess.run(["make", "-s", "MOD_HOST_DIR=" + MOD_HOST_DIR, "test-alloc"], cwd=tree, capture_output=True, text=True,
+    p = subprocess.run(["make", "-s", "PROTOCOL_DIR=" + PROTOCOL_DIR, "test-alloc"], cwd=tree, capture_output=True, text=True,
                        timeout=120)
     return p.returncode, p.stdout + p.stderr + ("ok   alloc_test\n" if p.returncode == 0 else "")
 
@@ -1622,7 +1622,7 @@ def run_verbs_test(tree, name):
     tests/verbs_contract.py over its sources ("ok   verbs_contract")"""
     if name == "verbs_contract":
         p = subprocess.run([sys.executable, os.path.join(tree, "tests", "verbs_contract.py")], capture_output=True,
-                           text=True, timeout=60, env=dict(os.environ, MOD_HOST_DIR=MOD_HOST_DIR))
+                           text=True, timeout=60, env=dict(os.environ, PROTOCOL_DIR=PROTOCOL_DIR))
     else:
         env = dict(os.environ, PLUGIN_HOSTD=os.path.join(tree, "plugin-hostd"), FAKE_HOST=FAKE,
                    PROBE=os.path.join(tree, "plugin-hostd-probe"), PLUGIN_HOSTD_VERBS=os.path.join(tree, "data", "verbs.json"))
@@ -1636,7 +1636,7 @@ def run_unit_test(tree, target, source, name):
     "ok   <name>" when it passes"""
     os.makedirs(os.path.join(tree, "tests"), exist_ok=True)
     shutil.copy(os.path.join(ROOT, "tests", source), os.path.join(tree, "tests"))
-    subprocess.run(["make", "-s", "-B", "MOD_HOST_DIR=" + MOD_HOST_DIR, target], cwd=tree, check=True,
+    subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, target], cwd=tree, check=True,
                    stdout=subprocess.DEVNULL)
     p = subprocess.run([os.path.join(tree, target), name], capture_output=True, text=True, timeout=60)
     return p.returncode, p.stdout + p.stderr
@@ -1840,7 +1840,7 @@ def arm(entry, tree):
     open(os.path.join(tree, path), "w").write(src.replace(text, repl))
     if path.startswith("data/"):
         # a changed declaration is rendered, as make render-verbs does, before the daemon is built from it
-        subprocess.run(["make", "-s", "MOD_HOST_DIR=" + MOD_HOST_DIR, "render-verbs"], cwd=tree, check=True,
+        subprocess.run(["make", "-s", "PROTOCOL_DIR=" + PROTOCOL_DIR, "render-verbs"], cwd=tree, check=True,
                        stdout=subprocess.DEVNULL)
     if jack == "probe":
         build_probe(tree)

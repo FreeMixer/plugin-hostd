@@ -3,7 +3,7 @@ Section: sound
 Priority: optional
 Maintainer: Pau Aliagas <linuxnow@gmail.com>
 Build-Depends: debhelper-compat (= 13),
-               libmod-host-protocol-dev (>= 0.1.0-8~omx),
+               libplugin-hostd-protocol-dev (>= 0.1.0~),
                libomx-contract-dev (>= 3.4.0~),
                omx-clap-core-contract (>= 0.26.2~) <!nocheck>,
                omx-clap-host-tests (>= 0.25.0~) <!nocheck>,
@@ -16,7 +16,7 @@ Rules-Requires-Root: no
 
 Package: plugin-hostd
 Architecture: any
-Depends: libmod-host-protocol0 (>= 0.1.0-8~omx), plugin-hostd-contract (= ${source:Version}), ${shlibs:Depends},
+Depends: libplugin-hostd-protocol0 (>= 0.1.0~), plugin-hostd-contract (= ${source:Version}), ${shlibs:Depends},
          ${misc:Depends}
 Recommends: omx-clap-host (>= 0.26.2)
 Suggests: mod-host
