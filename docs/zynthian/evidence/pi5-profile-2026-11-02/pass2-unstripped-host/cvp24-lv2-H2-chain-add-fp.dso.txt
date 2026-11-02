@@ -1,0 +1,25 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 2K of event 'cycles:P'
+# Event count (approx.): 9310844715
+#
+# Overhead  Command        Shared Object                
+# ........  .............  .............................
+#
+    40.99%  omx-clap-host  omx-drive.so                 
+    25.19%  omx-clap-host  libm.so.6                    
+    13.68%  omx-clap-host  calf.so                      
+     5.99%  omx-clap-host  omx-comp.so                  
+     4.64%  omx-clap-host  omx-clap-host                
+     4.54%  omx-clap-host  libc.so.6                    
+     2.79%  omx-clap-host  omx-delay.so                 
+     1.36%  omx-clap-host  libomx-clap-core.so.0.26.4   
+     0.51%  omx-clap-host  [kernel.kallsyms]            
+
+
+#
+# (Tip: Order by the overhead of source file name and line number: perf report -s srcline)
+#

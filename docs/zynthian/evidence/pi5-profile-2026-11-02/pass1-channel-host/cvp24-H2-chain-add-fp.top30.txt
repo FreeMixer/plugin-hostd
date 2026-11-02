@@ -1,0 +1,30 @@
+    14.19%  libm.so.6                   [.] __tanhf
+     6.87%  calf.so                     [.] calf_plugins::gain_reduction_audio_module::process(float&, float&, float const*, float const*)
+     4.73%  omx-drive.clap              [.] 0x0000000000006a80
+     3.88%  libm.so.6                   [.] expf@@GLIBC_2.27
+     3.85%  libm.so.6                   [.] powf@@GLIBC_2.27
+     3.16%  omx-drive.clap              [.] 0x0000000000006dac
+     2.98%  omx-drive.clap              [.] 0x0000000000006e1c
+     2.98%  omx-drive.clap              [.] 0x0000000000006e20
+     2.61%  libc.so.6                   [.] __memcpy_generic
+     2.55%  calf.so                     [.] 0x00000000000d35cc
+     2.48%  omx-drive.clap              [.] 0x0000000000006a78
+     2.40%  omx-drive.clap              [.] tanhf@plt
+     1.86%  libm.so.6                   [.] __log10f_finite@GLIBC_2.17
+     1.42%  omx-drive.clap              [.] 0x0000000000002ddc
+     1.36%  calf.so                     [.] 0x00000000000c66a8
+     1.31%  omx-drive.clap              [.] 0x0000000000006e18
+     1.26%  omx-drive.clap              [.] 0x0000000000006a7c
+     0.97%  omx-drive.clap              [.] 0x0000000000006e10
+     0.80%  omx-comp.clap               [.] 0x000000000000787c
+     0.77%  omx-drive.clap              [.] 0x0000000000006a94
+     0.76%  omx-drive.clap              [.] 0x0000000000006e3c
+     0.74%  libm.so.6                   [.] logf@@GLIBC_2.27
+     0.71%  libomx-clap-core.so.0.26.4  [.] omx_clap_host_tick
+     0.67%  omx-delay.clap              [.] 0x0000000000004438
+     0.58%  omx-drive.clap              [.] 0x0000000000006ae0
+     0.57%  calf.so                     [.] calf_plugins::compressor_audio_module::process(unsigned int, unsigned int, unsigned int, unsigned int)
+     0.51%  omx-comp.clap               [.] 0x0000000000007800
+     0.50%  calf.so                     [.] 0x00000000000c65e8
+     0.49%  omx-drive.clap              [.] 0x0000000000006a64
+     0.49%  omx-drive.clap              [.] 0x0000000000006da8

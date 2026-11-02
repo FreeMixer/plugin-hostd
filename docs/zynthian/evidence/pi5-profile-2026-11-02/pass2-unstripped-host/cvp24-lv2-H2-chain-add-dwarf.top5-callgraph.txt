@@ -1,0 +1,182 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 42  of event 'cycles:P'
+# Event count (approx.): 8259951728
+#
+# Overhead  Shared Object               Symbol                                                                                            
+# ........  ..........................  ..................................................................................................
+#
+    28.48%  libm.so.6                   [.] __tanhf
+            |
+            ---__tanhf
+               0x7fff28741677
+               |          
+               |--22.61%--0x7fff28742253
+               |          omx_lv2_abi_call6f
+               |          omx_abi_g (inlined)
+               |          lv2_instance_run
+               |          plugin_process
+               |          omx_abi_call6f
+               |          omx_abi_g (inlined)
+               |          omx_clap_run_plugin_status
+               |          omx_clap_run_locked_status (inlined)
+               |          omx_clap_run_transport_status (inlined)
+               |          omx_clap_host_run
+               |          omx_clap_host_run_io (inlined)
+               |          omx_clap_host_run_ports (inlined)
+               |          process_gated
+               |          chain_stage
+               |          omx_clap_chain_process
+               |          process (inlined)
+               |          process
+               |          0x7fff34ca3ef3
+               |          0x7fff34ca3b8f
+               |          0x7fff34cc4037
+               |          start_thread
+               |          thread_start
+               |          
+                --5.86%--0x7fff2874227f
+                          omx_lv2_abi_call6f
+                          omx_abi_g (inlined)
+                          lv2_instance_run
+                          plugin_process
+                          omx_abi_call6f
+                          omx_abi_g (inlined)
+                          omx_clap_run_plugin_status
+                          omx_clap_run_locked_status (inlined)
+                          omx_clap_run_transport_status (inlined)
+                          omx_clap_host_run
+                          omx_clap_host_run_io (inlined)
+                          omx_clap_host_run_ports (inlined)
+                          process_gated
+                          chain_stage
+                          omx_clap_chain_process
+                          process (inlined)
+                          process
+                          0x7fff34ca3ef3
+                          0x7fff34ca3b8f
+                          0x7fff34cc4037
+                          start_thread
+                          thread_start
+
+    16.75%  omx-drive.so                [.] 0x0000000000003580
+            |
+            ---0x7fff28743580
+               |          
+                --13.82%--0x7fff28741613
+                          |          
+                           --10.89%--0x7fff2874227f
+                                     omx_lv2_abi_call6f
+                                     omx_abi_g (inlined)
+                                     lv2_instance_run
+                                     plugin_process
+                                     omx_abi_call6f
+                                     omx_abi_g (inlined)
+                                     omx_clap_run_plugin_status
+                                     omx_clap_run_locked_status (inlined)
+                                     omx_clap_run_transport_status (inlined)
+                                     omx_clap_host_run
+                                     omx_clap_host_run_io (inlined)
+                                     omx_clap_host_run_ports (inlined)
+                                     process_gated
+                                     chain_stage
+                                     omx_clap_chain_process
+                                     process (inlined)
+                                     process
+                                     0x7fff34ca3ef3
+                                     0x7fff34ca3b8f
+                                     0x7fff34cc4037
+                                     start_thread
+                                     thread_start
+
+    10.89%  calf.so                     [.] 0x00000000000d35cc
+            |
+            ---0x7fff28e335cc
+               calf_plugins::gain_reduction_audio_module::process(float&, float&, float const*, float const*)
+               calf_plugins::compressor_audio_module::process(unsigned int, unsigned int, unsigned int, unsigned int)
+               0x7fff28e371a7
+               calf_plugins::lv2_instance::run(unsigned int, bool)
+               omx_lv2_abi_call6f
+               omx_abi_g (inlined)
+               lv2_instance_run
+               plugin_process
+               omx_abi_call6f
+               omx_abi_g (inlined)
+               omx_clap_run_plugin_status
+               omx_clap_run_locked_status (inlined)
+               omx_clap_run_transport_status (inlined)
+               omx_clap_host_run
+               omx_clap_host_run_io (inlined)
+               omx_clap_host_run_ports (inlined)
+               process_gated
+               chain_stage
+               omx_clap_chain_process
+               process (inlined)
+               process
+               0x7fff34ca3ef3
+               0x7fff34ca3b8f
+               0x7fff34cc4037
+               start_thread
+               thread_start
+
+     8.79%  omx-drive.so                [.] 0x000000000000391c
+            |
+            ---0x7fff2874391c
+               omx_oversampler_down
+               0x7fff287416e3
+               |          
+                --5.86%--0x7fff28742253
+                          omx_lv2_abi_call6f
+                          omx_abi_g (inlined)
+                          lv2_instance_run
+                          plugin_process
+                          omx_abi_call6f
+                          omx_abi_g (inlined)
+                          omx_clap_run_plugin_status
+                          omx_clap_run_locked_status (inlined)
+                          omx_clap_run_transport_status (inlined)
+                          omx_clap_host_run
+                          omx_clap_host_run_io (inlined)
+                          omx_clap_host_run_ports (inlined)
+                          process_gated
+                          chain_stage
+                          omx_clap_chain_process
+                          process (inlined)
+
+     5.86%  calf.so                     [.] calf_plugins::gain_reduction_audio_module::process(float&, float&, float const*, float const*)
+            |
+            ---calf_plugins::gain_reduction_audio_module::process(float&, float&, float const*, float const*)
+               calf_plugins::compressor_audio_module::process(unsigned int, unsigned int, unsigned int, unsigned int)
+               0x7fff28e371a7
+               calf_plugins::lv2_instance::run(unsigned int, bool)
+               omx_lv2_abi_call6f
+               omx_abi_g (inlined)
+               lv2_instance_run
+               plugin_process
+               omx_abi_call6f
+               omx_abi_g (inlined)
+               omx_clap_run_plugin_status
+               omx_clap_run_locked_status (inlined)
+               omx_clap_run_transport_status (inlined)
+               omx_clap_host_run
+               omx_clap_host_run_io (inlined)
+               omx_clap_host_run_ports (inlined)
+               process_gated
+               chain_stage
+               omx_clap_chain_process
+               process (inlined)
+               process
+               0x7fff34ca3ef3
+               0x7fff34ca3b8f
+               0x7fff34cc4037
+               start_thread
+               thread_start
+
+
+
+#
+# (Tip: To show time in nanoseconds in record/report add --ns)
+#

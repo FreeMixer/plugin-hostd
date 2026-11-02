@@ -1,0 +1,116 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 514  of event 'cycles:P'
+# Event count (approx.): 9192725943
+#
+# Overhead  Shared Object               Symbol                                                                                                                         
+# ........  ..........................  ...............................................................................................................................
+#
+    11.44%  libm.so.6                   [.] __tanhf
+            |
+            ---__tanhf
+               0x7fff24032dbf
+               |          
+               |--7.02%--0x7fff24033c13
+               |          0x7fff24034e03
+               |          omx_abi_call6f
+               |          0x55560638e34b
+               |          0x5556063940a7
+               |          0x555606398ebf
+               |          0x55560639b677
+               |          omx_clap_chain_process
+               |          0x55560639b7ef
+               |          0x55560639b81f
+               |          0x7fff25aa3ef3
+               |          0x7fff25aa3b8f
+               |          0x7fff25ac4037
+               |          start_thread
+               |          thread_start
+               |          
+                --4.43%--0x7fff24033c3f
+                          0x7fff24034e03
+                          omx_abi_call6f
+                          0x55560638e34b
+                          0x5556063940a7
+                          0x555606398ebf
+                          0x55560639b677
+                          omx_clap_chain_process
+                          0x55560639b7ef
+                          0x55560639b81f
+                          0x7fff25aa3ef3
+                          0x7fff25aa3b8f
+                          0x7fff25ac4037
+                          start_thread
+                          thread_start
+
+    11.35%  calf.so                     [.] 0x00000000000c66a8
+            |
+            ---0x7fff242966a8
+               calf_plugins::compressor_audio_module::process(unsigned int, unsigned int, unsigned int, unsigned int)
+               0x7fff242a71a7
+               calf_plugins::lv2_instance::run(unsigned int, bool)
+               0x5556063c187f
+               0x5556063c0467
+               0x5556063ae477
+               omx_abi_call6f
+               0x55560638e34b
+               0x5556063940a7
+               0x555606398ebf
+               0x55560639b677
+               omx_clap_chain_process
+               0x55560639b7ef
+               0x55560639b81f
+               0x7fff25aa3ef3
+               0x7fff25aa3b8f
+               0x7fff25ac4037
+               start_thread
+               thread_start
+
+     9.91%  omx-delay.clap              [.] 0x0000000000004438
+            |
+            ---0x7fff24064438
+               omx_abi_call6f
+               0x55560638e34b
+               0x5556063940a7
+               0x555606398ebf
+               0x55560639b677
+               omx_clap_chain_process
+               0x55560639b7ef
+               0x55560639b81f
+               0x7fff25aa3ef3
+               0x7fff25aa3b8f
+               0x7fff25ac4037
+               start_thread
+               thread_start
+
+     5.22%  calf.so                     [.] calf_plugins::gain_reduction_audio_module::process(float&, float&, float const*, float const*)
+            |
+            ---calf_plugins::gain_reduction_audio_module::process(float&, float&, float const*, float const*)
+               calf_plugins::compressor_audio_module::process(unsigned int, unsigned int, unsigned int, unsigned int)
+               0x7fff242a71a7
+               calf_plugins::lv2_instance::run(unsigned int, bool)
+               0x5556063c187f
+               0x5556063c0467
+               0x5556063ae477
+               omx_abi_call6f
+               0x55560638e34b
+               0x5556063940a7
+               0x555606398ebf
+               0x55560639b677
+               omx_clap_chain_process
+               0x55560639b7ef
+               0x55560639b81f
+               0x7fff25aa3ef3
+               0x7fff25aa3b8f
+               0x7fff25ac4037
+               start_thread
+               thread_start
+
+
+
+#
+# (Tip: To not accumulate CPU time of children symbols add --no-children)
+#
