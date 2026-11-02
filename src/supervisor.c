@@ -881,7 +881,9 @@ static int worker_start(worker_t *w, const char *uri)
     if (host_settings_replay(w) != 0)
     {
         close(w->fd);
+        w->fd = -1;
         close(w->fb_fd);
+        w->fb_fd = -1;
         proc_stop(w->pid);
         w->pid = 0;
         return OMX_REPLY_PLUGIN_HOSTD_WORKER_SPAWN_RESP;
