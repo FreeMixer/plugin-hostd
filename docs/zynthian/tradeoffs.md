@@ -48,6 +48,9 @@ Cons:
   1.50 to 10.16. On the Pi 185 of 1329 LV2 plugins and 133 of 247 CLAP plugins are isolated for plugin-hostd's worker.
 - Add time. A chain takes longer to form than the same plugins under mod-host (2507 ms against 434 ms for 16), and the
   same order as jalv. It is paid when a chain is built or changed.
+  That figure is for plugins added one worker each and then grouped. Added into a chain's worker (plugin-hostd 0.15.8 with
+  omx-clap-core 0.26.1), 24 plugins take 422 ms against mod-host's 717 ms, and ten third-party plugins 256 ms against 317 ms
+  ([rows](benchmarks.md#memory-cpu-and-add-time-against-mod-host-with-omx-clap-core-0261)).
 - On 0.12.0, mod-host was the cheapest in CPU at every N (9.54 % for 16) and close in PSS (76.4 MB). On 0.15.4, with the
   chain as one JACK client, the grouped chain reads lower (8.45 % DSP against 9.84 % at 16), on different builds of the
   plugins. Either way plugin-hostd's large gain is over jalv, Zynthian's default engine for LV2, not over mod-host.

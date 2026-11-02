@@ -453,8 +453,9 @@ Ten third-party plugins in series, **all LV2** ([list](../../tools/zynthian/matr
 
 On this set mod-host still adds faster warm. Six of the ten are stereo and form one chain; the four mono plugins (gx_flanger,
 ZamComp, ZamEQ2, ZamDelay) each get a worker of their own, as Zynthian adds them, so the host makes five clients and five
-processes where mod-host makes one. Running a mono plugin inside a stereo run is the change planned in
-[omx-clap-core#447](https://github.com/FreeMixer/omx-clap-core/issues/447), and the rows will be taken again after it.
+processes where mod-host makes one. Running a mono plugin inside a stereo run is the change in
+[omx-clap-core#447](https://github.com/FreeMixer/omx-clap-core/issues/447), released in 0.26.1; the rows taken again after
+it are in the next section.
 
 The bench's mode that adds every plugin in a worker of its own and then declares the chain (added, then moved) took 4602 ms
 on the CLAP row; on the LV2 row its chain did not form within 20 s, a fault of that path that the add into a chain does not
@@ -473,9 +474,59 @@ reads the whole LV2 world when it starts, and that start is part of its time
 
 From cold, on the 24 LV2 plugins, grouped plugin-hostd loads a snapshot 3.1 times faster than mod-host. On the ten
 third-party set it is 2.3 times faster than mod-host, and omx-clap-host is quicker than either. Warm adds, the tables above,
-are ahead of mod-host for the 24 and behind it on the ten third-party plugins until the mono change.
+were ahead of mod-host for the 24 and behind it on the ten third-party plugins before the mono change; with omx-clap-core 0.26.1 they are ahead on both (next section).
 
 Measured digitally at JACK ports on the dummy driver; nothing here is a claim about analog audio.
+
+Memory, CPU and add time against mod-host, with omx-clap-core 0.26.1
+--------------------------------------------------------------------
+
+The rows above were taken before a mono plugin could run inside a stereo chain and before the chain shared one JACK client
+per worker. omx-clap-core 0.26.1 has both ([#446](https://github.com/FreeMixer/omx-clap-core/issues/446),
+[#361](https://github.com/FreeMixer/omx-clap-core/issues/361)), so the four mono plugins of the ten third-party set now
+join the stereo chain and the run stays one worker. These rows are measurement builds, omx-clap-core 0.26.1 and
+plugin-hostd 0.15.8~meas, against Zynthian's mod-host (a build of September 2024). Pi 5, 48000 Hz, 256 frames, read
+digitally at JACK ports, 0 xruns in every row. Columns are JACK DSP load, RSS and time to add
+([record](evidence/pi5-bench-2026-11-01/README.md)).
+
+24 plugins, CLAP builds (mod-host cannot run CLAP, so its row is its LV2 build of the same chain):
+
+| mode | DSP % | RSS | add ms |
+|---|---|---|---|
+| mod-host | 14.47 | 192 MB | 717 |
+| omx-clap-host, one shared process | 15.12 | 145 MB | 886 |
+| plugin-hostd, added into a chain | 12.37 | 147 MB | 422 |
+| plugin-hostd, one worker each | 17.34 | 2684 MB | 1933 |
+| plugin-hostd, chain (added, then moved) | 12.32 | | 4586 |
+
+Ten third-party plugins, all LV2:
+
+| mode | DSP % | RSS | add ms |
+|---|---|---|---|
+| mod-host | 6.34 | 174 MB | 317 |
+| omx-clap-host, one shared process | 6.67 | 125 MB | 437 |
+| plugin-hostd, added into a chain | 5.57 | 128 MB | 256 |
+
+The same 24 on their LV2 builds, to be measured again: this run may have overlapped a build on the Pi, so no conclusion is
+drawn from it. mod-host 15.74 % / 193 MB / 754 ms; omx-clap-host shared 16.87 % / 144 MB / 1132 ms; plugin-hostd added into
+a chain 14.13 % / 145 MB / 555 ms.
+
+What it says. plugin-hostd uses about 45 MB less memory than mod-host (147 MB against 192 MB for the 24) and adds to a chain
+faster, on the 24 and now on the ten third-party plugins too (256 ms against 317 ms, where it was behind before the mono
+change). The shared-process host, omx-clap-host, is still about 4 to 7 % heavier on DSP than mod-host (15.12 % against
+14.47 %, 6.67 % against 6.34 %).
+
+Qualification on the Pi, from the sync: 1403 plugins qualified, 93 crashed, 45 hung, 28 unmeasured. 59 of the crashes are LSP
+plugins (55 CLAP, 4 LV2). Qualified again under omx-clap-core 0.26.2 with plugin-qualify 0.18.5, the LSP CLAP bundle has
+none: 95 suitable, 99 conditional. Those crashes came from one instance being activated again at another sample rate, which
+the plugins do not survive; plugin-qualify 0.18.5 measures each rate in an instance of its own. calf Wavetable and dexed crash
+for a reason that is not the register guard; it is still being looked into.
+
+Since omx-clap-core 0.26.2 and plugin-hostd 0.15.9, every plugin call saves the registers a function must keep (aarch64
+x19 to x28, d8 to d15 and FPCR; x86-64 rbx, rbp, r12 to r15, MXCSR, the x87 control word and the direction flag), compares
+them on return and restores them. That costs about 15 ns per call on the Pi. A plugin that changes one is recorded once,
+without taking a lock or allocating in the audio thread; the worker says `abi_clobber`, and plugin-hostd quarantines the plugin
+and runs it in a worker of its own. A plugin that does this is offered only isolated.
 
 Instruments on the cores
 ------------------------
