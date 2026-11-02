@@ -1,0 +1,115 @@
+=== perf 2026-11-02T19:34:03Z
+Reading package lists...
+Building dependency tree...
+Reading state information...
+The following additional packages will be installed:
+  libopencsd1 libtraceevent1
+Suggested packages:
+  linux-doc-6.18
+The following NEW packages will be installed:
+  libopencsd1 libtraceevent1 linux-perf
+0 upgraded, 3 newly installed, 0 to remove and 5 not upgraded.
+Need to get 3,244 kB of archives.
+After this operation, 11.9 MB of additional disk space will be used.
+Get:1 http://deb.debian.org/debian trixie/main arm64 libopencsd1 arm64 1.5.5-1 [179 kB]
+Get:2 http://archive.raspberrypi.com/debian trixie/main arm64 linux-perf arm64 1:6.18.50-1+rpt1 [3,012 kB]
+Get:3 http://deb.debian.org/debian trixie/main arm64 libtraceevent1 arm64 1:1.8.4-2 [53.3 kB]
+debconf: unable to initialize frontend: Dialog
+debconf: (TERM is not set, so the dialog frontend is not usable.)
+debconf: falling back to frontend: Readline
+debconf: unable to initialize frontend: Readline
+debconf: (This frontend requires a controlling tty.)
+debconf: falling back to frontend: Teletype
+debconf: unable to initialize frontend: Teletype
+debconf: (This frontend requires a controlling tty.)
+debconf: falling back to frontend: Noninteractive
+Fetched 3,244 kB in 0s (7,540 kB/s)
+Selecting previously unselected package libopencsd1:arm64.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 218372 files and directories currently installed.)
+Preparing to unpack .../libopencsd1_1.5.5-1_arm64.deb ...
+Unpacking libopencsd1:arm64 (1.5.5-1) ...
+Selecting previously unselected package libtraceevent1:arm64.
+Preparing to unpack .../libtraceevent1_1%3a1.8.4-2_arm64.deb ...
+Unpacking libtraceevent1:arm64 (1:1.8.4-2) ...
+Selecting previously unselected package linux-perf.
+Preparing to unpack .../linux-perf_1%3a6.18.50-1+rpt1_arm64.deb ...
+Adding 'diversion of /usr/bin/perf to /usr/bin/perf.wrapper by linux-perf'
+Adding 'diversion of /usr/share/bash-completion/completions/perf to /usr/share/bash-completion/completions/perf.wrapper by linux-perf'
+Adding 'diversion of /usr/share/man/man1/perf.1.gz to /usr/share/man/man1/perf.wrapper.1.gz by linux-perf'
+Unpacking linux-perf (1:6.18.50-1+rpt1) ...
+Setting up libopencsd1:arm64 (1.5.5-1) ...
+Setting up libtraceevent1:arm64 (1:1.8.4-2) ...
+Setting up linux-perf (1:6.18.50-1+rpt1) ...
+Processing triggers for man-db (2.13.1-1) ...
+Processing triggers for libc-bin (2.41-12+rpt1+deb13u4) ...
+added: libopencsd1 libtraceevent1 linux-perf 
+perf version 6.18.50
+DEBUGINFOD_URLS=
+Downloading debug info with build id e00eaaa9560ad3bf12fb36868ad5e1de8a97ac86
+Adding e00eaaa9560ad3bf12fb36868ad5e1de8a97ac86 /root/omx-final-20261102/symbols/x-0.26.4/usr/lib/debug/.build-id/e0/0eaaa9560ad3bf12fb36868ad5e1de8a97ac86.debug: Ok
+rebuilt library: e00eaaa9560ad3bf12fb36868ad5e1de8a97ac86
+channel library: 5b2e51f9bc9fa227da194957f2503a77c0dd3366
+=== rows 2026-11-02T19:34:08Z
+bench: profile cvp24 H2 chain-add fp: perf on 1116232 omx-clap-host [/root/omx-final-20261102/symbols/xs-0.26.4/usr/lib/aarch64-linux-gnu/libomx-clap-core.so.0.26.4]
+bench: cvp24    H2 chain-add       48000/256  ok          dsp 12.95% rss 146.7 MB add 593.9 ms xruns 2 
+bench: profile cvp24 H3 - fp: perf on 1116441 mod-host [no libomx-clap-core]
+bench: cvp24    H3 shared-process  48000/256  ok          dsp 16.81% rss 189.3 MB add 732.8 ms xruns 0 LV2 builds of omx-comp, omx-delay, omx-drive
+bench: profile cvp24 H2 chain-add dwarf: perf on 1116576 omx-clap-host [/root/omx-final-20261102/symbols/xs-0.26.4/usr/lib/aarch64-linux-gnu/libomx-clap-core.so.0.26.4]
+bench: cvp24    H2 chain-add       48000/256  ok          dsp 13.13% rss 146.7 MB add 434.6 ms xruns 0 
+bench: profile cvp24 H3 - dwarf: perf on 1116642 mod-host [no libomx-clap-core]
+bench: cvp24    H3 shared-process  48000/256  ok          dsp 16.64% rss 189.5 MB add 743.4 ms xruns 0 LV2 builds of omx-comp, omx-delay, omx-drive
+bench: profile cvp24-lv2 H2 chain-add fp: perf on 1116783 omx-clap-host [/root/omx-final-20261102/symbols/xs-0.26.4/usr/lib/aarch64-linux-gnu/libomx-clap-core.so.0.26.4]
+bench: cvp24-lv2 H2 chain-add       48000/256  ok          dsp 13.32% rss 145.8 MB add 550.8 ms xruns 0 
+bench: teardown: no host, no JACK server, no other process of this run is left
+/root/omx-final-20261102/s7-profile/rpi5-20261102-1.json
+=== reports 2026-11-02T19:36:59Z
+--- cvp24-H2-chain-add-dwarf: top 5 from 3.78%
+    11.44%  libm.so.6                   [.] __tanhf
+    11.35%  calf.so                     [.] 0x00000000000c66a8
+     9.91%  omx-delay.clap              [.] 0x0000000000004438
+     5.22%  calf.so                     [.] calf_plugins::gain_reduction_audio_module::process(float&, float&, float const*, float const*)
+     3.78%  libm.so.6                   [.] powf@@GLIBC_2.27
+     3.60%  omx-drive.clap              [.] 0x0000000000006e20
+     3.06%  omx-drive.clap              [.] 0x0000000000006a80
+     2.52%  libc.so.6                   [.] __memcpy_generic
+grep: write error: Broken pipe
+--- cvp24-H2-chain-add-fp: top 5 from 3.85%
+    14.19%  libm.so.6                   [.] __tanhf
+     6.87%  calf.so                     [.] calf_plugins::gain_reduction_audio_module::process(float&, float&, float const*, float const*)
+     4.73%  omx-drive.clap              [.] 0x0000000000006a80
+     3.88%  libm.so.6                   [.] expf@@GLIBC_2.27
+     3.85%  libm.so.6                   [.] powf@@GLIBC_2.27
+     3.16%  omx-drive.clap              [.] 0x0000000000006dac
+     2.98%  omx-drive.clap              [.] 0x0000000000006e1c
+     2.98%  omx-drive.clap              [.] 0x0000000000006e20
+grep: write error: Broken pipe
+--- cvp24-H3-shared-process-dwarf: top 5 from 4.33%
+    16.87%  libm.so.6          [.] __tanhf
+     7.85%  omx-drive.so       [.] 0x0000000000003580
+     7.84%  libm.so.6          [.] expf@@GLIBC_2.27
+     5.13%  omx-drive.so       [.] 0x0000000000003578
+     4.33%  omx-drive.so       [.] 0x0000000000003594
+     3.85%  omx-drive.so       [.] 0x000000000000391c
+     3.80%  omx-drive.so       [.] 0x00000000000038ac
+     3.58%  omx-drive.so       [.] 0x0000000000001694
+grep: write error: Broken pipe
+--- cvp24-H3-shared-process-fp: top 5 from 3.04%
+    15.05%  libm.so.6          [.] __tanhf
+     4.50%  omx-drive.so       [.] 0x0000000000003580
+     3.67%  calf.so            [.] 0x00000000000d35cc
+     3.54%  libm.so.6          [.] powf@@GLIBC_2.27
+     3.04%  calf.so            [.] calf_plugins::gain_reduction_audio_module::process(float&, float&, float const*, float const*)
+     2.70%  omx-drive.so       [.] 0x000000000000391c
+     2.65%  omx-drive.so       [.] 0x00000000000038ac
+     2.55%  omx-drive.so       [.] tanhf@plt
+grep: write error: Broken pipe
+--- cvp24-lv2-H2-chain-add-fp: top 5 from 3.87%
+    14.46%  libm.so.6                   [.] __tanhf
+     5.90%  calf.so                     [.] calf_plugins::gain_reduction_audio_module::process(float&, float&, float const*, float const*)
+     4.64%  omx-drive.so                [.] 0x0000000000003580
+     4.13%  libm.so.6                   [.] powf@@GLIBC_2.27
+     3.87%  libm.so.6                   [.] expf@@GLIBC_2.27
+     3.84%  libc.so.6                   [.] __memcpy_generic
+     3.29%  omx-drive.so                [.] 0x0000000000003920
+     3.24%  omx-drive.so                [.] 0x000000000000391c
+=== done 2026-11-02T19:37:03Z

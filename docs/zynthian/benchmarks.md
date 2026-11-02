@@ -24,10 +24,11 @@ Contents:
 5. [mod-ui's verbs: mod-host against plugin-hostd](#mod-uis-verbs-mod-host-against-plugin-hostd)
 6. [Voices across the cores](#voices-across-the-cores)
 7. [Current versions: chains up to 24 plugins](#current-versions-chains-up-to-24-plugins)
-8. [Instruments on the cores](#instruments-on-the-cores)
-9. [The matrix: every rate and quantum, single and grouped](#the-matrix-every-rate-and-quantum-single-and-grouped)
-10. [What is not measured yet](#what-is-not-measured-yet)
-11. [Reproducing](#reproducing)
+8. [The three hosts on current versions](#the-three-hosts-on-current-versions)
+9. [Instruments on the cores](#instruments-on-the-cores)
+10. [The matrix: every rate and quantum, single and grouped](#the-matrix-every-rate-and-quantum-single-and-grouped)
+11. [What is not measured yet](#what-is-not-measured-yet)
+12. [Reproducing](#reproducing)
 
 Grouped versus alone: plugin-hostd, jalv, mod-host
 --------------------------------------------------
@@ -508,7 +509,7 @@ Ten third-party plugins, all LV2:
 | plugin-hostd, added into a chain | 5.57 | 128 MB | 256 |
 
 The same 24 on their LV2 builds, to be measured again: this run may have overlapped a build on the Pi, so no conclusion is
-drawn from it. mod-host 15.74 % / 193 MB / 754 ms; omx-clap-host shared 16.87 % / 144 MB / 1132 ms; plugin-hostd added into
+drawn from it. Measured again with nothing else running: [The three hosts on current versions](#the-three-hosts-on-current-versions). mod-host 15.74 % / 193 MB / 754 ms; omx-clap-host shared 16.87 % / 144 MB / 1132 ms; plugin-hostd added into
 a chain 14.13 % / 145 MB / 555 ms.
 
 What it says. plugin-hostd uses about 45 MB less memory than mod-host (147 MB against 192 MB for the 24) and adds to a chain
@@ -527,6 +528,95 @@ x19 to x28, d8 to d15 and FPCR; x86-64 rbx, rbp, r12 to r15, MXCSR, the x87 cont
 them on return and restores them. That costs about 15 ns per call on the Pi. A plugin that changes one is recorded once,
 without taking a lock or allocating in the audio thread; the worker says `abi_clobber`, and plugin-hostd quarantines the plugin
 and runs it in a worker of its own. A plugin that does this is offered only isolated.
+
+The three hosts on current versions
+-----------------------------------
+
+The packages a Zynthian on the channel installs: plugin-hostd 0.15.9, omx-clap-core 0.26.4 (0.26.3 in the omx-clap-host
+rows), plugin-qualify 0.18.5, omx-plugins 0.17.0, zynthian-ui 369f4fc4, against the stock mod-host. Pi 5, a private JACK
+server on the dummy driver at 48000 Hz and 256 frames, the governor at performance, three repeats, medians; DSP is JACK's
+DSP load, PSS the host processes' proportional memory, xruns 0 in every repeat of every row below
+([matrix record](evidence/pi5-matrix-2026-11-02/README.md)).
+
+| scenario | plugin-hostd, added into one chain | omx-clap-host, one process | mod-host |
+|---|---|---|---|
+| 24 plugins, CLAP builds (Calf LV2; mod-host runs the LV2 builds) | 12.51 % / 64.1 MB | 15.31 % / 64.6 MB | 15.02 % / 109.4 MB |
+| the same 24, LV2 builds on every host | 12.73 % / 63.3 MB | 16.40 % / 63.9 MB | 15.43 % / 109.4 MB |
+| ten third-party LV2 plugins | 5.64 % / 45.2 MB | 6.87 % / 44.1 MB | 6.58 % / 89.5 MB |
+
+plugin-hostd's chain has the lowest DSP load of the three in every scenario and in every repeat (its highest repeat,
+12.55 %, is below mod-host's lowest, 14.88 %), and uses 41 to 49 % less PSS than mod-host, the same as omx-clap-host. One
+JACK client runs the whole chain, where mod-host puts one client per plugin on the graph. The other plugin-hostd modes:
+
+| scenario | chain built after the adds | one worker per plugin |
+|---|---|---|
+| 24 plugins, CLAP builds | 12.48 % / 65.8 MB | 17.76 % / 183.1 MB |
+| the same 24, LV2 builds | 12.74 % / 64.3 MB | 18.78 % / 189.6 MB |
+| ten third-party LV2 plugins | 5.50 % / 45.8 MB | 7.25 % / 111.2 MB |
+
+One worker per plugin is the expensive mode: 24 processes and 24 JACK clients, and the only rows with xruns (one cvp24
+repeat with 21 on 0.26.4; 59 and 117 on 0.26.3). It is not the default.
+
+On omx-clap-core 0.26.3 none of these chains formed: Calf and the DPF plugins set FPCR's flush-to-zero bit when their
+library is opened, and the register guard took it for theirs; 0.26.4 logs that change and no longer isolates the plugin
+([why](evidence/pi5-matrix-2026-11-02/README.md#why-the-chain-rows-failed-on-0263)).
+
+### Time to add
+
+Cold: the host started, then every plugin of the set added, until the last one runs; the median of three
+([record](evidence/pi5-add-times-2026-11-02/cold-to-snapshot-grouped.json)):
+
+| set | plugin-hostd, into a chain | plugin-hostd, one worker each | omx-clap-host | mod-host |
+|---|---|---|---|---|
+| 24 plugins, LV2 builds | 549 ms | 1976 ms | 948 ms | 1459 ms |
+| 24 plugins, CLAP builds (Calf LV2) | 440 ms | | 848 ms | |
+| ten third-party LV2 plugins | 255 ms | 497 ms | 458 ms | 1044 ms |
+
+Warm, chains of 2, 4 and 7 of omx comp, delay and drive, their LV2 builds, the host already running
+([record](evidence/pi5-add-times-2026-11-02/add-times-lv2.json)):
+
+| plugins | mod-host | plugin-hostd, into a chain | omx-clap-host | plugin-hostd, one worker each |
+|---|---|---|---|---|
+| 2 | 44.8 ms | 55.9 ms | 72.4 ms | 79.5 ms |
+| 4 | 98 ms | 73 ms | 137 ms | 154 ms |
+| 7 | 189 ms | 96 ms | 234 ms | 272 ms |
+
+mod-host is the fastest to add two plugins to a running host; from four on, the chain is. A worker of its own costs about
+40 ms a plugin, the process and its JACK client. mod-host's cold start is slow because it scans the whole LV2 world before it
+answers (800 to 945 ms for these sets).
+
+### Instruments
+
+One instance, 1, 8 and 16 notes, DSP % and PSS ([record](evidence/pi5-instruments-2026-11-02/voices-cores.tsv)):
+
+| instrument | plugin-hostd | mod-host |
+|---|---|---|
+| mda Piano | 0.6 / 2.0 / 3.5 %, 29 MB | 0.6 / 2.0 / 3.5 %, 72 MB |
+| Odin 2 | 3.6 / 11.8 / 21.3 %, 89 MB | 3.8 / 11.7 / 21.0 %, 132 MB |
+| Surge XT (CLAP on plugin-hostd, LV2 on mod-host) | 1.8 / 4.2 / 6.9 %, 68 MB | 2.0 / 4.1 / 6.9 %, 112 MB |
+
+The same DSP load on both hosts, 43 to 44 MB less memory on plugin-hostd. ZynAddSubFX and sfizz run as their own JACK
+programs, as Zynthian runs them, not through either host: ZynAddSubFX with Analog Pad 1 0.6 / 1.6 / 2.6 %, 90 MB; sfizz
+with the Salamander piano 0.9 / 2.9 / 5.1 %, 86 to 119 MB. None of the five offers a thread pool. One plugin-hostd repeat of
+Odin 2 at one note had one xrun.
+
+### Qualification and acceptance
+
+The device's qualification state on the records package 2026110101: 1602 plugins (1341 LV2, 261 CLAP); 1079 qualified
+in-process and 306 isolated; 93 crashed, 46 hung and 13 refused; 27 unmeasured, each with its reason
+([record](evidence/pi5-qualification-2026-11-02/README.md)). All 24 packages install from the channel and `dpkg -V`
+finds nothing changed; each of the five instruments above sounds under its notes (peak and RMS per row of its record); CA-72 0.3.0 plays at -11.6 dBFS, 5.4 % DSP, no xrun
+([record](evidence/pi5-acceptance-2026-11-02/)).
+
+### Where the chain's time goes
+
+perf on the worker's audio thread, 24 plugins in one chain ([profile](evidence/pi5-profile-2026-11-02/README.md), measured
+with libomx-clap-core and omx-clap-host 0.26.4 built on the Pi, because the shipped ones carry no symbols): the plugins and
+libm take 88 to 92 % of it. The host's own code and its copies take about 4 to 7 %: the LV2 adapter's copies (1.9 % when
+every plugin is LV2), the copies at the chain's input and output (about 1 %), the adapter's control and event work (about
+1 % on LV2), the stage's guards with the clamp (about 0.5 %). Kernel and libjack are 0.5 %, where mod-host on the same
+chain spends 10 to 14 % of its samples there, across its 24 JACK clients. The single heaviest symbol is `tanhf` in
+omx-drive, 14 to 15 %.
 
 Instruments on the cores
 ------------------------

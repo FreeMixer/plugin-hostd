@@ -1,0 +1,457 @@
+{
+  "schema": "plugin-qualify.qualification-record/1",
+  "plugin": {
+    "format": "lv2",
+    "id": "http://lvtoolkit.org/plugins/silence"
+  },
+  "binary": {
+    "path": "silence.so",
+    "sha256": "0a2d8b70cf1d031c08f3485af61a38385b3e90374a741a0379387da762f6df04",
+    "files": [
+      {
+        "path": "manifest.ttl",
+        "sha256": "5497690ab6c0db791371208305bc320f73a8a4ec04bcb9dae3e8a43f3a8624b7"
+      },
+      {
+        "path": "silence.so",
+        "sha256": "0a2d8b70cf1d031c08f3485af61a38385b3e90374a741a0379387da762f6df04"
+      },
+      {
+        "path": "silence.ttl",
+        "sha256": "da70996e1c185c4fd00aed5395f1434a048b2495cd4d453778387bd74d44918a"
+      }
+    ],
+    "layout": {
+      "scheme": "omx-layout/1",
+      "sha256": "77d04e2a2da3abd10a0faab24424dadbe40755cfa65f1ede2f05c1da9cdfe9d2"
+    }
+  },
+  "verdicts": [
+    {
+      "host": "omx-clap-host",
+      "measured": false,
+      "rating": "unknown",
+      "qualified": false,
+      "hosting": "isolated",
+      "arm": "declaration",
+      "deciding": "probe.refused-instantiation",
+      "reasons": [
+        {
+          "dimension": "rtSafety",
+          "rating": "unknown",
+          "code": "probe.refused-instantiation",
+          "params": {}
+        }
+      ]
+    },
+    {
+      "host": "openmixer-console",
+      "measured": false,
+      "rating": "unknown",
+      "qualified": false,
+      "hosting": "isolated",
+      "arm": "declaration",
+      "deciding": "probe.refused-instantiation",
+      "reasons": [
+        {
+          "dimension": "rtSafety",
+          "rating": "unknown",
+          "code": "probe.refused-instantiation",
+          "params": {}
+        }
+      ]
+    },
+    {
+      "host": "mod-host",
+      "measured": false,
+      "rating": "unknown",
+      "qualified": false,
+      "hosting": "isolated",
+      "arm": "declaration",
+      "deciding": "probe.refused-instantiation",
+      "reasons": [
+        {
+          "dimension": "rtSafety",
+          "rating": "unknown",
+          "code": "probe.refused-instantiation",
+          "params": {}
+        }
+      ]
+    },
+    {
+      "host": "openmixer-pi-4gb",
+      "measured": false,
+      "rating": "unknown",
+      "qualified": false,
+      "hosting": "isolated",
+      "arm": "declaration",
+      "deciding": "probe.refused-instantiation",
+      "reasons": [
+        {
+          "dimension": "rtSafety",
+          "rating": "unknown",
+          "code": "probe.refused-instantiation",
+          "params": {}
+        }
+      ]
+    },
+    {
+      "host": "openmixer-pi-8gb",
+      "measured": false,
+      "rating": "unknown",
+      "qualified": false,
+      "hosting": "isolated",
+      "arm": "declaration",
+      "deciding": "probe.refused-instantiation",
+      "reasons": [
+        {
+          "dimension": "rtSafety",
+          "rating": "unknown",
+          "code": "probe.refused-instantiation",
+          "params": {}
+        }
+      ]
+    }
+  ],
+  "adapter": {
+    "host": "omx-clap-host",
+    "measured": true,
+    "admitted": false,
+    "code": "omx-clap-host.resp-102",
+    "params": {
+      "step": "add",
+      "resp": -102
+    }
+  },
+  "tiers": {
+    "inProcess": {
+      "host": "openmixer-console",
+      "measured": false,
+      "qualified": false,
+      "rating": "unknown",
+      "deciding": "probe.refused-instantiation"
+    },
+    "isolated": {
+      "host": "omx-clap-host",
+      "measured": false,
+      "qualified": false,
+      "rating": "unknown",
+      "deciding": "probe.refused-instantiation"
+    },
+    "offeredOn": [],
+    "dimmed": "openmixer-console: probe.refused-instantiation; omx-clap-host: probe.refused-instantiation"
+  },
+  "cost": [
+    {
+      "host": "omx-clap-host",
+      "rate": 48000,
+      "quantum": 128,
+      "reasons": [
+        {
+          "dimension": "cost",
+          "rating": "unknown",
+          "code": "probe.refused-instantiation",
+          "params": {
+            "rate": 48000,
+            "quantum": 128
+          }
+        }
+      ]
+    },
+    {
+      "host": "openmixer-console",
+      "rate": 96000,
+      "quantum": 1024,
+      "reasons": [
+        {
+          "dimension": "cost",
+          "rating": "unknown",
+          "code": "probe.refused-instantiation",
+          "params": {
+            "rate": 96000,
+            "quantum": 1024
+          }
+        }
+      ]
+    },
+    {
+      "host": "mod-host",
+      "rate": 48000,
+      "quantum": 128,
+      "reasons": [
+        {
+          "dimension": "cost",
+          "rating": "unknown",
+          "code": "probe.refused-instantiation",
+          "params": {
+            "rate": 48000,
+            "quantum": 128
+          }
+        }
+      ]
+    },
+    {
+      "host": "openmixer-pi-4gb",
+      "rate": 48000,
+      "quantum": 128,
+      "reasons": [
+        {
+          "dimension": "cost",
+          "rating": "unknown",
+          "code": "probe.refused-instantiation",
+          "params": {
+            "rate": 48000,
+            "quantum": 128
+          }
+        }
+      ]
+    },
+    {
+      "host": "openmixer-pi-8gb",
+      "rate": 48000,
+      "quantum": 128,
+      "reasons": [
+        {
+          "dimension": "cost",
+          "rating": "unknown",
+          "code": "probe.refused-instantiation",
+          "params": {
+            "rate": 48000,
+            "quantum": 128
+          }
+        }
+      ]
+    }
+  ],
+  "measurements": {
+    "grid": [
+      {
+        "rate": 48000,
+        "quantum": 128,
+        "outcome": "probe.refused-instantiation",
+        "latency": {
+          "unmeasuredReason": "refused-instantiation",
+          "code": "hosting.latency.unmeasured"
+        },
+        "memory": {
+          "unmeasuredReason": "refused-instantiation",
+          "unmeasuredDetail": "the memory-only run ended probe.refused-instantiation"
+        }
+      },
+      {
+        "rate": 96000,
+        "quantum": 1024,
+        "outcome": "probe.refused-instantiation",
+        "latency": {
+          "unmeasuredReason": "refused-instantiation",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 44100,
+        "quantum": 512,
+        "outcome": "probe.refused-instantiation",
+        "latency": {
+          "unmeasuredReason": "refused-instantiation",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 48000,
+        "quantum": 512,
+        "outcome": "probe.refused-instantiation",
+        "latency": {
+          "unmeasuredReason": "refused-instantiation",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 96000,
+        "quantum": 512,
+        "outcome": "probe.refused-instantiation",
+        "latency": {
+          "unmeasuredReason": "refused-instantiation",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 192000,
+        "quantum": 512,
+        "outcome": "probe.refused-instantiation",
+        "latency": {
+          "unmeasuredReason": "refused-instantiation",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 44100,
+        "quantum": 128,
+        "outcome": "probe.refused-instantiation",
+        "latency": {
+          "unmeasuredReason": "refused-instantiation",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 44100,
+        "quantum": 256,
+        "outcome": "probe.refused-instantiation",
+        "latency": {
+          "unmeasuredReason": "refused-instantiation",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 44100,
+        "quantum": 1024,
+        "outcome": "probe.refused-instantiation",
+        "latency": {
+          "unmeasuredReason": "refused-instantiation",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 48000,
+        "quantum": 256,
+        "outcome": "probe.refused-instantiation",
+        "latency": {
+          "unmeasuredReason": "refused-instantiation",
+          "code": "hosting.latency.unmeasured"
+        },
+        "memory": {
+          "unmeasuredReason": "refused-instantiation",
+          "unmeasuredDetail": "the memory-only run ended probe.refused-instantiation"
+        }
+      },
+      {
+        "rate": 48000,
+        "quantum": 1024,
+        "outcome": "probe.refused-instantiation",
+        "latency": {
+          "unmeasuredReason": "refused-instantiation",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 96000,
+        "quantum": 128,
+        "outcome": "probe.refused-instantiation",
+        "latency": {
+          "unmeasuredReason": "refused-instantiation",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 96000,
+        "quantum": 256,
+        "outcome": "probe.refused-instantiation",
+        "latency": {
+          "unmeasuredReason": "refused-instantiation",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 192000,
+        "quantum": 128,
+        "outcome": "probe.refused-instantiation",
+        "latency": {
+          "unmeasuredReason": "refused-instantiation",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 192000,
+        "quantum": 256,
+        "outcome": "probe.refused-instantiation",
+        "latency": {
+          "unmeasuredReason": "refused-instantiation",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 192000,
+        "quantum": 1024,
+        "outcome": "probe.refused-instantiation",
+        "latency": {
+          "unmeasuredReason": "refused-instantiation",
+          "code": "hosting.latency.unmeasured"
+        }
+      }
+    ]
+  },
+  "notMeasured": [
+    {
+      "dimension": "stability",
+      "code": "hosting.stability.unsoaked"
+    },
+    {
+      "dimension": "memoryGrowth",
+      "code": "hosting.stability.unsoaked"
+    }
+  ],
+  "tool": {
+    "runner": "plugin-hostd-probe 0.15.1",
+    "child": "lv2_measure"
+  },
+  "measuredAt": "2026-10-30T07:06:28+00:00",
+  "probe": {
+    "file": "http___lvtoolkit.org_plugins_silence@unversioned-0a2d8b70cf1d.default.probe.json",
+    "sha256": "592c563f394a02ed252a58af35009d14ee61fc1d05a9b04d8d2bb3aa23926981",
+    "bytes": 15169,
+    "protocol": {
+      "name": "plugin-hostd.probe-protocol",
+      "version": 1
+    },
+    "reason": "on-request",
+    "outcome": "probe.refused-instantiation",
+    "complete": false,
+    "machineClass": {
+      "arch": "aarch64",
+      "family": "arm",
+      "coreBand": "3-4",
+      "clockBand": "1.5-2.5GHz",
+      "preemptRt": false,
+      "cstatesLimited": false
+    },
+    "meetsProtocol": false
+  },
+  "memoryRun": {
+    "tool": {
+      "runner": "plugin-hostd-probe 0.15.4",
+      "child": "lv2_measure"
+    },
+    "measuredAt": "2026-10-31T06:36:21+00:00",
+    "runId": "20261031T063621Z-1f101-399c8eb8",
+    "cells": [
+      {
+        "rate": 48000,
+        "quantum": 128,
+        "outcome": "probe.refused-instantiation"
+      },
+      {
+        "rate": 48000,
+        "quantum": 256,
+        "outcome": "probe.refused-instantiation"
+      }
+    ]
+  },
+  "rejudged": {
+    "at": "2026-10-31T23:49:49.871Z",
+    "by": "plugin-qualify 0.18.4",
+    "figures": {
+      "tool": {
+        "runner": "plugin-hostd-probe 0.15.1",
+        "child": "lv2_measure"
+      },
+      "measuredAt": "2026-10-30T07:06:28+00:00",
+      "runId": "20261030T070628Z-897ef-9473081b",
+      "memory": {
+        "tool": {
+          "runner": "plugin-hostd-probe 0.15.4",
+          "child": "lv2_measure"
+        },
+        "measuredAt": "2026-10-31T06:36:21+00:00"
+      }
+    }
+  }
+}

@@ -251,6 +251,9 @@ def wait_ports(srv, clients, end_s=90):
             audio = [n for n in names if "output" in ports[n] and "audio" in ports[n]]
             mnames = [n for n in ports if n.startswith(c["midi"] + ":")]
             midi = [n for n in mnames if "input" in ports[n] and "midi" in ports[n]]
+            # a program with more than one MIDI input takes its notes on the one named for them: ZynAddSubFX lists
+            # its OSC input (osc) before its note input (midi_input)
+            midi.sort(key=lambda n: "midi" not in n.split(":", 1)[1].lower())
             if audio and midi:
                 got[c["audio"]] = (audio[:2], midi[0])
         if len(got) == len(clients):

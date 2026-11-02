@@ -1,0 +1,2 @@
+[ perf record: Woken up 7 times to write data ]
+[ perf record: Captured and wrote 1.769 MB /root/omx-final-20261102/s7b-profile/cvp24-H2-chain-add-fp.data (8873 samples) ]

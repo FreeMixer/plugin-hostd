@@ -1,0 +1,1300 @@
+{
+  "schema": "plugin-qualify.qualification-record/1",
+  "plugin": {
+    "format": "lv2",
+    "id": "http://theusualsuspects.lv2/Osirus"
+  },
+  "testedVersion": "1.1",
+  "binary": {
+    "path": "libOsirus.so",
+    "sha256": "f5096d8592ff7935c868479006a7c4bccda6d1045846c1e41e072f3860cd7ef0",
+    "files": [
+      {
+        "path": "dsp.ttl",
+        "sha256": "38b27260514b0ec65a76fcbb28556388c76dcc45c8067b34e3ab2598b979ca38"
+      },
+      {
+        "path": "libOsirus.so",
+        "sha256": "f5096d8592ff7935c868479006a7c4bccda6d1045846c1e41e072f3860cd7ef0"
+      },
+      {
+        "path": "manifest.ttl",
+        "sha256": "f2e4b492d66ad8d1ac0cfc6f85275f8e789cec43a27dd0cda5b16f5dcc7c46bb"
+      }
+    ],
+    "layout": {
+      "scheme": "omx-layout/1",
+      "sha256": "c14929b1641e2f00fcb5a04bb6b8d3908ab2620c8ee420fbf2e8528901127da2"
+    }
+  },
+  "verdicts": [
+    {
+      "host": "omx-clap-host",
+      "measured": true,
+      "rating": "unknown",
+      "qualified": false,
+      "hosting": "isolated",
+      "arm": "run",
+      "deciding": "omx-clap-host.silent-under-note",
+      "reasons": [
+        {
+          "dimension": "hostAdmission",
+          "rating": "unknown",
+          "code": "omx-clap-host.silent-under-note",
+          "params": {
+            "peak": 0,
+            "notes": 30,
+            "rate": 48000,
+            "quantum": 128
+          }
+        },
+        {
+          "dimension": "rtSafety",
+          "rating": "conditional",
+          "code": "hosting.rt-safety.violations-in-run",
+          "params": {
+            "allocations": 44832031,
+            "syscalls": 2326185,
+            "locks": 9646852
+          }
+        },
+        {
+          "dimension": "rtSafety",
+          "rating": "conditional",
+          "code": "hosting.rt-safety.violations-under-notes",
+          "params": {
+            "allocations": 14192,
+            "syscalls": 179,
+            "locks": 14199
+          }
+        }
+      ]
+    },
+    {
+      "host": "openmixer-console",
+      "measured": true,
+      "rating": "unknown",
+      "qualified": false,
+      "hosting": "isolated",
+      "arm": "declaration",
+      "deciding": "hosting.memory.unmeasured",
+      "reasons": [
+        {
+          "dimension": "rtSafety",
+          "rating": "conditional",
+          "code": "hosting.rt-safety.violations-in-run",
+          "params": {
+            "allocations": 44832031,
+            "syscalls": 2326185,
+            "locks": 9646852
+          }
+        },
+        {
+          "dimension": "rtSafety",
+          "rating": "conditional",
+          "code": "hosting.rt-safety.violations-under-notes",
+          "params": {
+            "allocations": 14192,
+            "syscalls": 179,
+            "locks": 14199
+          }
+        },
+        {
+          "dimension": "memory",
+          "rating": "unknown",
+          "code": "hosting.memory.unmeasured",
+          "params": {
+            "rate": 96000,
+            "quantum": 1024
+          }
+        }
+      ]
+    },
+    {
+      "host": "mod-host",
+      "measured": true,
+      "rating": "conditional",
+      "qualified": false,
+      "hosting": "isolated",
+      "arm": "run",
+      "deciding": "hosting.rt-safety.violations-in-run",
+      "reasons": [
+        {
+          "dimension": "rtSafety",
+          "rating": "conditional",
+          "code": "hosting.rt-safety.violations-in-run",
+          "params": {
+            "allocations": 44832031,
+            "syscalls": 2326185,
+            "locks": 9646852
+          }
+        },
+        {
+          "dimension": "rtSafety",
+          "rating": "conditional",
+          "code": "hosting.rt-safety.violations-under-notes",
+          "params": {
+            "allocations": 14192,
+            "syscalls": 179,
+            "locks": 14199
+          }
+        }
+      ]
+    },
+    {
+      "host": "openmixer-pi-4gb",
+      "measured": true,
+      "rating": "unknown",
+      "qualified": false,
+      "hosting": "isolated",
+      "arm": "run",
+      "deciding": "omx-clap-host.silent-under-note",
+      "reasons": [
+        {
+          "dimension": "hostAdmission",
+          "rating": "unknown",
+          "code": "omx-clap-host.silent-under-note",
+          "params": {
+            "peak": 0,
+            "notes": 30,
+            "rate": 48000,
+            "quantum": 128
+          }
+        },
+        {
+          "dimension": "rtSafety",
+          "rating": "conditional",
+          "code": "hosting.rt-safety.violations-in-run",
+          "params": {
+            "allocations": 44832031,
+            "syscalls": 2326185,
+            "locks": 9646852
+          }
+        },
+        {
+          "dimension": "rtSafety",
+          "rating": "conditional",
+          "code": "hosting.rt-safety.violations-under-notes",
+          "params": {
+            "allocations": 14192,
+            "syscalls": 179,
+            "locks": 14199
+          }
+        },
+        {
+          "dimension": "memory",
+          "rating": "conditional",
+          "code": "hosting.memory.within-provisional-ceiling",
+          "params": {
+            "perInstanceKb": 14416,
+            "firstInstanceKb": 30720,
+            "ceilingKb": 393216,
+            "consoleCeilingKb": 3145728,
+            "provisional": "yes"
+          }
+        }
+      ]
+    },
+    {
+      "host": "openmixer-pi-8gb",
+      "measured": true,
+      "rating": "unknown",
+      "qualified": false,
+      "hosting": "isolated",
+      "arm": "run",
+      "deciding": "omx-clap-host.silent-under-note",
+      "reasons": [
+        {
+          "dimension": "hostAdmission",
+          "rating": "unknown",
+          "code": "omx-clap-host.silent-under-note",
+          "params": {
+            "peak": 0,
+            "notes": 30,
+            "rate": 48000,
+            "quantum": 128
+          }
+        },
+        {
+          "dimension": "rtSafety",
+          "rating": "conditional",
+          "code": "hosting.rt-safety.violations-in-run",
+          "params": {
+            "allocations": 44832031,
+            "syscalls": 2326185,
+            "locks": 9646852
+          }
+        },
+        {
+          "dimension": "rtSafety",
+          "rating": "conditional",
+          "code": "hosting.rt-safety.violations-under-notes",
+          "params": {
+            "allocations": 14192,
+            "syscalls": 179,
+            "locks": 14199
+          }
+        },
+        {
+          "dimension": "memory",
+          "rating": "conditional",
+          "code": "hosting.memory.within-provisional-ceiling",
+          "params": {
+            "perInstanceKb": 14416,
+            "firstInstanceKb": 30720,
+            "ceilingKb": 917504,
+            "consoleCeilingKb": 7340032,
+            "provisional": "yes"
+          }
+        }
+      ]
+    }
+  ],
+  "adapter": {
+    "host": "omx-clap-host",
+    "measured": true,
+    "admitted": false,
+    "code": "omx-clap-host.silent-under-note",
+    "params": {
+      "peak": 0,
+      "notes": 30,
+      "rate": 48000,
+      "quantum": 128
+    },
+    "versions": {
+      "omx-clap-host": "0.26.0",
+      "plugin-hostd": "0.15.7"
+    },
+    "measuredAt": "2026-11-01T03:57:26.402Z",
+    "cells": [
+      {
+        "rate": 48000,
+        "quantum": 128,
+        "measured": true,
+        "admitted": false,
+        "code": "omx-clap-host.silent-under-note",
+        "params": {
+          "peak": 0,
+          "notes": 30
+        }
+      },
+      {
+        "rate": 48000,
+        "quantum": 256,
+        "measured": true,
+        "admitted": false,
+        "code": "omx-clap-host.silent-under-note",
+        "params": {
+          "peak": 0,
+          "notes": 30
+        }
+      }
+    ]
+  },
+  "tiers": {
+    "inProcess": {
+      "host": "openmixer-console",
+      "measured": true,
+      "qualified": false,
+      "rating": "unknown",
+      "deciding": "hosting.memory.unmeasured"
+    },
+    "isolated": {
+      "host": "omx-clap-host",
+      "measured": true,
+      "qualified": false,
+      "rating": "unknown",
+      "deciding": "omx-clap-host.silent-under-note"
+    },
+    "offeredOn": [],
+    "dimmed": "openmixer-console: hosting.memory.unmeasured; omx-clap-host: omx-clap-host.silent-under-note"
+  },
+  "cost": [
+    {
+      "host": "omx-clap-host",
+      "rate": 48000,
+      "quantum": 128,
+      "reasons": [
+        {
+          "dimension": "cost",
+          "rating": "unsuitable",
+          "code": "hosting.cost.above-ceiling",
+          "params": {
+            "coreFractionP95": 1.010448,
+            "ceiling": 0.05
+          }
+        }
+      ]
+    },
+    {
+      "host": "openmixer-console",
+      "rate": 96000,
+      "quantum": 1024,
+      "reasons": [
+        {
+          "dimension": "cost",
+          "rating": "unsuitable",
+          "code": "hosting.cost.above-ceiling",
+          "params": {
+            "coreFractionP95": 0.28809216,
+            "ceiling": 0.05
+          }
+        }
+      ]
+    },
+    {
+      "host": "mod-host",
+      "rate": 48000,
+      "quantum": 128,
+      "reasons": [
+        {
+          "dimension": "cost",
+          "rating": "unsuitable",
+          "code": "hosting.cost.above-ceiling",
+          "params": {
+            "coreFractionP95": 1.010448,
+            "ceiling": 0.05
+          }
+        }
+      ]
+    },
+    {
+      "host": "openmixer-pi-4gb",
+      "rate": 48000,
+      "quantum": 128,
+      "reasons": [
+        {
+          "dimension": "cost",
+          "rating": "unsuitable",
+          "code": "hosting.cost.above-ceiling",
+          "params": {
+            "coreFractionP95": 1.010448,
+            "ceiling": 0.05
+          }
+        }
+      ]
+    },
+    {
+      "host": "openmixer-pi-8gb",
+      "rate": 48000,
+      "quantum": 128,
+      "reasons": [
+        {
+          "dimension": "cost",
+          "rating": "unsuitable",
+          "code": "hosting.cost.above-ceiling",
+          "params": {
+            "coreFractionP95": 1.010448,
+            "ceiling": 0.05
+          }
+        }
+      ]
+    }
+  ],
+  "measurements": {
+    "grid": [
+      {
+        "rate": 48000,
+        "quantum": 128,
+        "outcome": "probe.ok",
+        "cost": {
+          "median": 8410.16,
+          "percentile": {
+            "p": 95,
+            "value": 21051
+          },
+          "blocks": 512,
+          "warmupBlocks": 64
+        },
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 2910786,
+          "locks": 607324,
+          "syscalls": 148266,
+          "events": [
+            "mutex_lock libOsirus.so ?",
+            "mutex_lock libOsirus.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "realloc libOsirus.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "write libOsirus.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "mutex_lock libOsirus.so _ZN4juce23AudioProcessorParameter34sendValueChangedMessageToListenersEf"
+          ]
+        },
+        "noteSweep": {
+          "applicable": true,
+          "dialect": "midi",
+          "allocations": 14192,
+          "locks": 14199,
+          "syscalls": 179
+        },
+        "latency": {
+          "unmeasuredReason": "silent-output",
+          "code": "hosting.latency.unmeasured"
+        },
+        "memory": {
+          "afterInstantiateKb": 30720,
+          "afterActivateKb": 30720,
+          "atRestKb": 30720,
+          "secondInstanceKb": 14416,
+          "firstInstanceKb": 30720,
+          "perInstanceKb": 14416
+        }
+      },
+      {
+        "rate": 96000,
+        "quantum": 1024,
+        "outcome": "probe.ok",
+        "cost": {
+          "median": 1251.27,
+          "percentile": {
+            "p": 95,
+            "value": 3000.96
+          },
+          "blocks": 512,
+          "warmupBlocks": 64
+        },
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 2933985,
+          "locks": 616781,
+          "syscalls": 154324,
+          "events": [
+            "mutex_lock libOsirus.so ?",
+            "mutex_lock libOsirus.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "realloc libOsirus.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "write libOsirus.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "mutex_lock libOsirus.so _ZN4juce23AudioProcessorParameter34sendValueChangedMessageToListenersEf"
+          ]
+        },
+        "noteSweep": {
+          "applicable": true,
+          "dialect": "midi",
+          "allocations": 15889,
+          "locks": 17244,
+          "syscalls": 648
+        },
+        "latency": {
+          "unmeasuredReason": "silent-output",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 44100,
+        "quantum": 512,
+        "outcome": "probe.ok",
+        "latency": {
+          "declaredFrames": 512,
+          "measuredFrames": 0
+        },
+        "cost": {
+          "median": 1582.65,
+          "percentile": {
+            "p": 95,
+            "value": 2768.07
+          },
+          "blocks": 512,
+          "warmupBlocks": 64
+        },
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 2468213,
+          "locks": 583983,
+          "syscalls": 130140,
+          "events": [
+            "mutex_lock libOsirus.so ?",
+            "mutex_lock libOsirus.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "realloc libOsirus.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "write libOsirus.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "mutex_lock libOsirus.so _ZN4juce23AudioProcessorParameter34sendValueChangedMessageToListenersEf"
+          ]
+        },
+        "noteSweep": {
+          "applicable": true,
+          "dialect": "midi",
+          "allocations": 12540,
+          "locks": 13471,
+          "syscalls": 35
+        }
+      },
+      {
+        "rate": 48000,
+        "quantum": 512,
+        "outcome": "probe.ok",
+        "cost": {
+          "median": 2206.53,
+          "percentile": {
+            "p": 95,
+            "value": 4808.27
+          },
+          "blocks": 512,
+          "warmupBlocks": 64
+        },
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 2916379,
+          "locks": 610521,
+          "syscalls": 152400,
+          "events": [
+            "mutex_lock libOsirus.so _ZN4juce6detail32dispatchNextMessageOnSystemQueueEb",
+            "nanosleep libOsirus.so _ZN4juce6Thread5sleepEi",
+            "mutex_lock libOsirus.so ?",
+            "mutex_lock libOsirus.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "realloc libOsirus.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "write libOsirus.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "mutex_lock libOsirus.so _ZN4juce23AudioProcessorParameter34sendValueChangedMessageToListenersEf"
+          ]
+        },
+        "noteSweep": {
+          "applicable": true,
+          "dialect": "midi",
+          "allocations": 15116,
+          "locks": 15588,
+          "syscalls": 416
+        },
+        "latency": {
+          "unmeasuredReason": "silent-output",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 96000,
+        "quantum": 512,
+        "outcome": "probe.ok",
+        "cost": {
+          "median": 2288.1,
+          "percentile": {
+            "p": 95,
+            "value": 5242.94
+          },
+          "blocks": 512,
+          "warmupBlocks": 64
+        },
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 2917525,
+          "locks": 611235,
+          "syscalls": 152616,
+          "events": [
+            "mutex_lock libOsirus.so ?",
+            "mutex_lock libOsirus.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "realloc libOsirus.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "write libOsirus.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "mutex_lock libOsirus.so _ZN4juce23AudioProcessorParameter34sendValueChangedMessageToListenersEf",
+            "mutex_lock libOsirus.so _ZNSt17_Function_handlerIFviEZN4juce20InternalMessageQueueC4EvEUliE_E9_M_invokeERKSt9_Any_dataOi",
+            "malloc libOsirus.so _Znwm",
+            "? ? ?"
+          ]
+        },
+        "noteSweep": {
+          "applicable": true,
+          "dialect": "midi",
+          "allocations": 15090,
+          "locks": 15540,
+          "syscalls": 413
+        },
+        "latency": {
+          "unmeasuredReason": "silent-output",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 192000,
+        "quantum": 512,
+        "outcome": "probe.ok",
+        "cost": {
+          "median": 2291.38,
+          "percentile": {
+            "p": 95,
+            "value": 5716.02
+          },
+          "blocks": 512,
+          "warmupBlocks": 64
+        },
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 2924666,
+          "locks": 617985,
+          "syscalls": 159024,
+          "events": [
+            "mutex_lock libOsirus.so ?",
+            "mutex_lock libOsirus.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "realloc libOsirus.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "write libOsirus.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "mutex_lock libOsirus.so _ZN4juce23AudioProcessorParameter34sendValueChangedMessageToListenersEf"
+          ]
+        },
+        "noteSweep": {
+          "applicable": true,
+          "dialect": "midi",
+          "allocations": 15115,
+          "locks": 15613,
+          "syscalls": 419
+        },
+        "latency": {
+          "unmeasuredReason": "silent-output",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 44100,
+        "quantum": 128,
+        "outcome": "probe.ok",
+        "latency": {
+          "declaredFrames": 128,
+          "measuredFrames": 0
+        },
+        "cost": {
+          "median": 6182.65,
+          "percentile": {
+            "p": 95,
+            "value": 10505.2
+          },
+          "blocks": 512,
+          "warmupBlocks": 64
+        },
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 2458623,
+          "locks": 581450,
+          "syscalls": 129091,
+          "events": [
+            "mutex_lock libOsirus.so ?",
+            "mutex_lock libOsirus.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "realloc libOsirus.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "write libOsirus.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "mutex_lock libOsirus.so _ZN4juce23AudioProcessorParameter34sendValueChangedMessageToListenersEf"
+          ]
+        },
+        "noteSweep": {
+          "applicable": true,
+          "dialect": "midi",
+          "allocations": 12486,
+          "locks": 13422,
+          "syscalls": 35
+        }
+      },
+      {
+        "rate": 44100,
+        "quantum": 256,
+        "outcome": "probe.ok",
+        "latency": {
+          "declaredFrames": 256,
+          "measuredFrames": 0
+        },
+        "cost": {
+          "median": 3084.24,
+          "percentile": {
+            "p": 95,
+            "value": 5275.99
+          },
+          "blocks": 512,
+          "warmupBlocks": 64
+        },
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 2463205,
+          "locks": 584505,
+          "syscalls": 131413,
+          "events": [
+            "mutex_lock libOsirus.so ?",
+            "mutex_lock libOsirus.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "realloc libOsirus.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "write libOsirus.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "mutex_lock libOsirus.so _ZN4juce23AudioProcessorParameter34sendValueChangedMessageToListenersEf"
+          ]
+        },
+        "noteSweep": {
+          "applicable": true,
+          "dialect": "midi",
+          "allocations": 12526,
+          "locks": 13456,
+          "syscalls": 35
+        }
+      },
+      {
+        "rate": 44100,
+        "quantum": 1024,
+        "outcome": "probe.ok",
+        "latency": {
+          "declaredFrames": 1024,
+          "measuredFrames": 0
+        },
+        "cost": {
+          "median": 779.315,
+          "percentile": {
+            "p": 95,
+            "value": 1376.66
+          },
+          "blocks": 512,
+          "warmupBlocks": 64
+        },
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 2462029,
+          "locks": 582935,
+          "syscalls": 129392,
+          "events": [
+            "mutex_lock libOsirus.so _ZN4juce6detail32dispatchNextMessageOnSystemQueueEb",
+            "nanosleep libOsirus.so _ZN4juce6Thread5sleepEi",
+            "mutex_lock libOsirus.so ?",
+            "mutex_lock libOsirus.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "realloc libOsirus.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "write libOsirus.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "mutex_lock libOsirus.so _ZN4juce23AudioProcessorParameter34sendValueChangedMessageToListenersEf"
+          ]
+        },
+        "noteSweep": {
+          "applicable": true,
+          "dialect": "midi",
+          "allocations": 12583,
+          "locks": 13478,
+          "syscalls": 40
+        }
+      },
+      {
+        "rate": 48000,
+        "quantum": 256,
+        "outcome": "probe.ok",
+        "cost": {
+          "median": 4062.64,
+          "percentile": {
+            "p": 95,
+            "value": 9071.49
+          },
+          "blocks": 512,
+          "warmupBlocks": 64
+        },
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 2901764,
+          "locks": 603974,
+          "syscalls": 146997,
+          "events": [
+            "mutex_lock libOsirus.so ?",
+            "mutex_lock libOsirus.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "realloc libOsirus.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "write libOsirus.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "mutex_lock libOsirus.so _ZN4juce23AudioProcessorParameter34sendValueChangedMessageToListenersEf"
+          ]
+        },
+        "noteSweep": {
+          "applicable": true,
+          "dialect": "midi",
+          "allocations": 14495,
+          "locks": 14662,
+          "syscalls": 259
+        },
+        "latency": {
+          "unmeasuredReason": "silent-output",
+          "code": "hosting.latency.unmeasured"
+        },
+        "memory": {
+          "afterInstantiateKb": 30736,
+          "afterActivateKb": 30736,
+          "atRestKb": 30736,
+          "secondInstanceKb": 14432,
+          "firstInstanceKb": 30736,
+          "perInstanceKb": 14432
+        }
+      },
+      {
+        "rate": 48000,
+        "quantum": 1024,
+        "outcome": "probe.ok",
+        "cost": {
+          "median": 1201.99,
+          "percentile": {
+            "p": 95,
+            "value": 2719.3
+          },
+          "blocks": 512,
+          "warmupBlocks": 64
+        },
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 2924876,
+          "locks": 610682,
+          "syscalls": 150480,
+          "events": [
+            "mutex_lock libOsirus.so ?",
+            "mutex_lock libOsirus.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "realloc libOsirus.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "write libOsirus.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "mutex_lock libOsirus.so _ZN4juce23AudioProcessorParameter34sendValueChangedMessageToListenersEf"
+          ]
+        },
+        "noteSweep": {
+          "applicable": true,
+          "dialect": "midi",
+          "allocations": 15887,
+          "locks": 17275,
+          "syscalls": 649
+        },
+        "latency": {
+          "unmeasuredReason": "silent-output",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 96000,
+        "quantum": 128,
+        "outcome": "probe.ok",
+        "cost": {
+          "median": 8191.91,
+          "percentile": {
+            "p": 95,
+            "value": 18511.4
+          },
+          "blocks": 512,
+          "warmupBlocks": 64
+        },
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 2901376,
+          "locks": 601219,
+          "syscalls": 144527,
+          "events": [
+            "mutex_lock libOsirus.so _ZN4juce6detail32dispatchNextMessageOnSystemQueueEb",
+            "mutex_lock libOsirus.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "realloc libOsirus.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "write libOsirus.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "mutex_lock libOsirus.so _ZN4juce23AudioProcessorParameter34sendValueChangedMessageToListenersEf"
+          ]
+        },
+        "noteSweep": {
+          "applicable": true,
+          "dialect": "midi",
+          "allocations": 14129,
+          "locks": 14172,
+          "syscalls": 167
+        },
+        "latency": {
+          "unmeasuredReason": "silent-output",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 96000,
+        "quantum": 256,
+        "outcome": "probe.ok",
+        "cost": {
+          "median": 4335.29,
+          "percentile": {
+            "p": 95,
+            "value": 9916.47
+          },
+          "blocks": 512,
+          "warmupBlocks": 64
+        },
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 2911638,
+          "locks": 606395,
+          "syscalls": 147354,
+          "events": [
+            "mutex_lock libOsirus.so ?",
+            "mutex_lock libOsirus.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "realloc libOsirus.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "write libOsirus.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "mutex_lock libOsirus.so _ZN4juce23AudioProcessorParameter34sendValueChangedMessageToListenersEf",
+            "mutex_lock libOsirus.so _ZNSt17_Function_handlerIFviEZN4juce20InternalMessageQueueC4EvEUliE_E9_M_invokeERKSt9_Any_dataOi"
+          ]
+        },
+        "noteSweep": {
+          "applicable": true,
+          "dialect": "midi",
+          "allocations": 14503,
+          "locks": 14683,
+          "syscalls": 264
+        },
+        "latency": {
+          "unmeasuredReason": "silent-output",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 192000,
+        "quantum": 128,
+        "outcome": "probe.ok",
+        "cost": {
+          "median": 8277.2,
+          "percentile": {
+            "p": 95,
+            "value": 18394.9
+          },
+          "blocks": 512,
+          "warmupBlocks": 64
+        },
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 2910618,
+          "locks": 609565,
+          "syscalls": 150166,
+          "events": [
+            "mutex_lock libOsirus.so ?",
+            "mutex_lock libOsirus.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "realloc libOsirus.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "write libOsirus.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "mutex_lock libOsirus.so _ZN4juce23AudioProcessorParameter34sendValueChangedMessageToListenersEf"
+          ]
+        },
+        "noteSweep": {
+          "applicable": true,
+          "dialect": "midi",
+          "allocations": 14057,
+          "locks": 14105,
+          "syscalls": 165
+        },
+        "latency": {
+          "unmeasuredReason": "silent-output",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 192000,
+        "quantum": 256,
+        "outcome": "probe.ok",
+        "cost": {
+          "median": 4298.72,
+          "percentile": {
+            "p": 95,
+            "value": 10778.5
+          },
+          "blocks": 512,
+          "warmupBlocks": 64
+        },
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 2904788,
+          "locks": 607412,
+          "syscalls": 149929,
+          "events": [
+            "mutex_lock libOsirus.so ?",
+            "mutex_lock libOsirus.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "realloc libOsirus.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "write libOsirus.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "mutex_lock libOsirus.so _ZN4juce23AudioProcessorParameter34sendValueChangedMessageToListenersEf"
+          ]
+        },
+        "noteSweep": {
+          "applicable": true,
+          "dialect": "midi",
+          "allocations": 14606,
+          "locks": 14740,
+          "syscalls": 277
+        },
+        "latency": {
+          "unmeasuredReason": "silent-output",
+          "code": "hosting.latency.unmeasured"
+        }
+      },
+      {
+        "rate": 192000,
+        "quantum": 1024,
+        "outcome": "probe.ok",
+        "cost": {
+          "median": 1191.99,
+          "percentile": {
+            "p": 95,
+            "value": 2697.09
+          },
+          "blocks": 512,
+          "warmupBlocks": 64
+        },
+        "rtSafety": {
+          "interposer": true,
+          "swept": true,
+          "sweepApplicable": true,
+          "blocks": 512,
+          "allocations": 2921560,
+          "locks": 610886,
+          "syscalls": 150066,
+          "events": [
+            "mutex_lock libOsirus.so _ZN4juce6detail32dispatchNextMessageOnSystemQueueEb",
+            "nanosleep libOsirus.so _ZN4juce6Thread5sleepEi",
+            "mutex_lock libOsirus.so ?",
+            "mutex_lock libOsirus.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "realloc libOsirus.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "write libOsirus.so _ZN4juce14MessageManager24postMessageToSystemQueueEPNS0_11MessageBaseE",
+            "mutex_lock libOsirus.so _ZN4juce23AudioProcessorParameter34sendValueChangedMessageToListenersEf"
+          ]
+        },
+        "noteSweep": {
+          "applicable": true,
+          "dialect": "midi",
+          "allocations": 15961,
+          "locks": 17369,
+          "syscalls": 667
+        },
+        "latency": {
+          "unmeasuredReason": "silent-output",
+          "code": "hosting.latency.unmeasured"
+        }
+      }
+    ],
+    "behaviour": {
+      "lifecycle": {
+        "cycles": 30,
+        "instantiated": 30,
+        "failed": 0
+      },
+      "threads": {
+        "before": 1,
+        "afterFirstInstantiate": 3,
+        "afterAllFreed": 1
+      },
+      "features": {
+        "required": [
+          "http://lv2plug.in/ns/ext/options#options",
+          "http://lv2plug.in/ns/ext/urid#map",
+          "http://lv2plug.in/ns/ext/buf-size#boundedBlockLength"
+        ]
+      }
+    },
+    "unmeasured": [
+      {
+        "dimension": "latency",
+        "rate": 48000,
+        "quantum": 128,
+        "code": "hosting.latency.unmeasured",
+        "detail": "silent-output: the impulse never came out within the declared latency and the tail"
+      },
+      {
+        "dimension": "latency",
+        "rate": 96000,
+        "quantum": 1024,
+        "code": "hosting.latency.unmeasured",
+        "detail": "silent-output: the impulse never came out within the declared latency and the tail"
+      },
+      {
+        "dimension": "latency",
+        "rate": 48000,
+        "quantum": 512,
+        "code": "hosting.latency.unmeasured",
+        "detail": "silent-output: the impulse never came out within the declared latency and the tail"
+      },
+      {
+        "dimension": "latency",
+        "rate": 96000,
+        "quantum": 512,
+        "code": "hosting.latency.unmeasured",
+        "detail": "silent-output: the impulse never came out within the declared latency and the tail"
+      },
+      {
+        "dimension": "latency",
+        "rate": 192000,
+        "quantum": 512,
+        "code": "hosting.latency.unmeasured",
+        "detail": "silent-output: the impulse never came out within the declared latency and the tail"
+      },
+      {
+        "dimension": "latency",
+        "rate": 48000,
+        "quantum": 256,
+        "code": "hosting.latency.unmeasured",
+        "detail": "silent-output: the impulse never came out within the declared latency and the tail"
+      },
+      {
+        "dimension": "latency",
+        "rate": 48000,
+        "quantum": 1024,
+        "code": "hosting.latency.unmeasured",
+        "detail": "silent-output: the impulse never came out within the declared latency and the tail"
+      },
+      {
+        "dimension": "latency",
+        "rate": 96000,
+        "quantum": 128,
+        "code": "hosting.latency.unmeasured",
+        "detail": "silent-output: the impulse never came out within the declared latency and the tail"
+      },
+      {
+        "dimension": "latency",
+        "rate": 96000,
+        "quantum": 256,
+        "code": "hosting.latency.unmeasured",
+        "detail": "silent-output: the impulse never came out within the declared latency and the tail"
+      },
+      {
+        "dimension": "latency",
+        "rate": 192000,
+        "quantum": 128,
+        "code": "hosting.latency.unmeasured",
+        "detail": "silent-output: the impulse never came out within the declared latency and the tail"
+      },
+      {
+        "dimension": "latency",
+        "rate": 192000,
+        "quantum": 256,
+        "code": "hosting.latency.unmeasured",
+        "detail": "silent-output: the impulse never came out within the declared latency and the tail"
+      },
+      {
+        "dimension": "latency",
+        "rate": 192000,
+        "quantum": 1024,
+        "code": "hosting.latency.unmeasured",
+        "detail": "silent-output: the impulse never came out within the declared latency and the tail"
+      }
+    ]
+  },
+  "notMeasured": [
+    {
+      "dimension": "stability",
+      "code": "hosting.stability.unsoaked"
+    },
+    {
+      "dimension": "memoryGrowth",
+      "code": "hosting.stability.unsoaked"
+    }
+  ],
+  "tool": {
+    "runner": "plugin-hostd-probe 0.15.1",
+    "child": "lv2_measure",
+    "interposer": "rt_interpose.so"
+  },
+  "measuredAt": "2026-10-30T06:48:18+00:00",
+  "probe": {
+    "file": "http___theusualsuspects.lv2_Osirus@1.1-f5096d8592ff.default.probe.json",
+    "sha256": "8bb43febde9606aedd9958c38b9d4698f0553435621612642bbe96632f8daab1",
+    "bytes": 43153,
+    "protocol": {
+      "name": "plugin-hostd.probe-protocol",
+      "version": 1
+    },
+    "reason": "on-request",
+    "outcome": "probe.ok",
+    "complete": true,
+    "machineClass": {
+      "arch": "aarch64",
+      "family": "arm",
+      "coreBand": "3-4",
+      "clockBand": "1.5-2.5GHz",
+      "preemptRt": false,
+      "cstatesLimited": false
+    },
+    "meetsProtocol": false
+  },
+  "memoryRun": {
+    "tool": {
+      "runner": "plugin-hostd-probe 0.15.4",
+      "child": "lv2_measure"
+    },
+    "measuredAt": "2026-10-31T06:35:59+00:00",
+    "runId": "20261031T063559Z-1efc1-05891f3c",
+    "cells": [
+      {
+        "rate": 48000,
+        "quantum": 128,
+        "outcome": "probe.ok"
+      },
+      {
+        "rate": 48000,
+        "quantum": 256,
+        "outcome": "probe.ok"
+      }
+    ]
+  },
+  "run": {
+    "id": "20261030T064818Z-85f9b-89eee925",
+    "steps": [
+      {
+        "step": "scan",
+        "result": "ok"
+      },
+      {
+        "step": "describe",
+        "result": "ok"
+      },
+      {
+        "step": "probe",
+        "result": "probe.ok"
+      },
+      {
+        "step": "rt-safety",
+        "result": "unsafe"
+      },
+      {
+        "step": "isolated",
+        "result": "isolated",
+        "figures": {
+          "latencyFrames": 256,
+          "cpuPercent": 10.333333333333334,
+          "xruns": 2,
+          "midiInputsLinked": 1
+        }
+      }
+    ]
+  },
+  "rejudged": {
+    "at": "2026-11-01T04:13:29.664Z",
+    "by": "plugin-qualify 0.18.4",
+    "figures": {
+      "tool": {
+        "runner": "plugin-hostd-probe 0.15.1",
+        "child": "lv2_measure",
+        "interposer": "rt_interpose.so"
+      },
+      "measuredAt": "2026-10-30T06:48:18+00:00",
+      "runId": "20261030T064818Z-85f9b-89eee925",
+      "memory": {
+        "tool": {
+          "runner": "plugin-hostd-probe 0.15.4",
+          "child": "lv2_measure"
+        },
+        "measuredAt": "2026-10-31T06:35:59+00:00"
+      },
+      "adapter": {
+        "versions": {
+          "omx-clap-host": "0.26.0",
+          "plugin-hostd": "0.15.7"
+        },
+        "measuredAt": "2026-11-01T03:57:26.402Z"
+      }
+    }
+  }
+}

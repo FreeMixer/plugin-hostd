@@ -1,0 +1,49 @@
+=== Calf Compressor x24 in chain:1
+chain formed: 24/24 members: resp 0 w1 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23
+feedback lines: 25; about the guard: 0
+worker_list: resp 1 w1:1111644:lv2-clap:up:1:qualified:chain:1:0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23
+omx-clap-host: ['omx-clap-host version: 0.26.4']
+plugin-hostd: ['plugin-hostd version: 0.15.9']
+machine: aarch64
+=== http://calf.sourceforge.net/plugins/Compressor own
+add: resp 1
+feedback lines: 0; about the guard: 0
+worker_list: resp 1 w1:1111673:lv2-clap:up:1:qualified:own:1
+omx-clap-host: ['omx-clap-host version: 0.26.4']
+plugin-hostd: ['plugin-hostd version: 0.15.9']
+machine: aarch64
+=== urn:zamaudio:ZamComp own
+add: resp 1
+feedback lines: 0; about the guard: 0
+worker_list: resp 1 w1:1111692:lv2-clap:up:1:qualified:own:1
+omx-clap-host: ['omx-clap-host version: 0.26.4']
+plugin-hostd: ['plugin-hostd version: 0.15.9']
+machine: aarch64
+=== http://distrho.sf.net/plugins/3BandEQ own
+add: resp 1
+feedback lines: 0; about the guard: 0
+worker_list: resp 1 w1:1111711:lv2-clap:up:1:qualified:own:1
+omx-clap-host: ['omx-clap-host version: 0.26.4']
+plugin-hostd: ['plugin-hostd version: 0.15.9']
+machine: aarch64
+=== http://distrho.sf.net/plugins/MVerb own
+add: resp 1
+feedback lines: 0; about the guard: 0
+worker_list: resp 1 w1:1111730:lv2-clap:up:1:qualified:own:1
+omx-clap-host: ['omx-clap-host version: 0.26.4']
+plugin-hostd: ['plugin-hostd version: 0.15.9']
+machine: aarch64
+=== urn:zamaudio:ZamEQ2 own
+add: resp 1
+feedback lines: 0; about the guard: 0
+worker_list: resp 1 w1:1111748:lv2-clap:up:1:qualified:own:1
+omx-clap-host: ['omx-clap-host version: 0.26.4']
+plugin-hostd: ['plugin-hostd version: 0.15.9']
+machine: aarch64
+=== urn:zamaudio:ZamDelay own
+add: resp 1
+feedback lines: 0; about the guard: 0
+worker_list: resp 1 w1:1111767:lv2-clap:up:1:qualified:own:1
+omx-clap-host: ['omx-clap-host version: 0.26.4']
+plugin-hostd: ['plugin-hostd version: 0.15.9']
+machine: aarch64

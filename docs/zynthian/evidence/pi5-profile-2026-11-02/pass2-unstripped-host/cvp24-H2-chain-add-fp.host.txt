@@ -1,0 +1,48 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 8K of event 'cycles:P'
+# Event count (approx.): 9146054938
+#
+# Overhead  Shared Object               Symbol                        
+# ........  ..........................  ..............................
+#
+     2.67%  libc.so.6                   [.] __memcpy_generic
+     1.21%  omx-clap-host               [.] effects_idle
+     0.86%  omx-clap-host               [.] process_gated
+     0.67%  omx-clap-host               [.] omx_clap_host_run
+     0.43%  libomx-clap-core.so.0.26.4  [.] omx_clap_host_tick
+     0.30%  omx-clap-host               [.] plugin_process
+     0.26%  libomx-clap-core.so.0.26.4  [.] __aarch64_swp4_relax
+     0.24%  omx-clap-host               [.] omx_clap_run_plugin_status
+     0.21%  libomx-clap-core.so.0.26.4  [.] omx_clap_host_settle
+     0.18%  omx-clap-host               [.] lv2_instance_run
+     0.13%  omx-clap-host               [.] __aarch64_ldadd8_relax
+     0.09%  omx-clap-host               [.] chain_stage
+     0.07%  libomx-clap-core.so.0.26.4  [.] param_in_size
+     0.06%  omx-clap-host               [.] lv2_instance_time
+     0.03%  omx-clap-host               [.] omx_lv2_abi_call6f
+     0.03%  omx-clap-host               [.] process.part.0
+     0.03%  libomx-clap-core.so.0.26.4  [.] omx_clap_in_size
+     0.03%  libomx-clap-core.so.0.26.4  [.] omx_abi_call6f
+     0.03%  libomx-clap-core.so.0.26.4  [.] omx_clap_chain_process
+     0.03%  libc.so.6                   [.] __memset_zva64
+     0.02%  libc.so.6                   [.] __memmove_generic
+     0.01%  omx-clap-host               [.] jack_last_frame_time@plt
+     0.01%  libc.so.6                   [.] clock_gettime@@GLIBC_2.17
+     0.01%  omx-clap-host               [.] lv2_instance_counters
+     0.01%  omx-clap-host               [.] apply_events
+     0.01%  omx-clap-host               [.] omx_clap_chain_process@plt
+     0.01%  omx-clap-host               [.] jack_port_get_buffer@plt
+     0.01%  omx-clap-host               [.] process
+     0.01%  libc.so.6                   [.] syscall
+     0.01%  omx-clap-host               [.] lv2_instance_audio_in
+     0.01%  omx-clap-host               [.] omx_abi_call6@plt
+     0.01%  omx-clap-host               [.] lv2_instance_audio_out
+
+
+#
+# (Tip: Show individual samples with: perf script)
+#
