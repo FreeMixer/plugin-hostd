@@ -75,7 +75,8 @@
  *   chain <chain> <n> ...       "resp 0" when it holds every <n>, -3 when not, -902 while the file FAKE_REFUSE_CHAIN
  *                               names exists, as an omx-clap-host that will not run them as one answers it; the fake
  *                               runs nothing in order (FAKE_LOG shows what it was sent)
- *   set_bpm, set_bpb, transport, transport_sync   "resp 0", as mod-host answers them, -902 with FAKE_REFUSE_SETTINGS, as
+ *   set_bpm, set_bpb, transport, transport_sync   exit with no answer while the file FAKE_DIE_ON_SETTINGS names exists;
+ *                               else "resp 0", as mod-host answers them, -902 with FAKE_REFUSE_SETTINGS, as
  *                               omx-clap-host answers them; the fake keeps nothing of them
  *   preset_load, preset_save, preset_show, bundle_add, bundle_remove, midi_learn, midi_map, midi_unmap, cv_map, cv_unmap
  *                               with FAKE_PRESETS_LEARN=answer "resp 0" (-3 for an instance verb of an instance it does
@@ -425,7 +426,11 @@ static void receive(msg_t *msg)
     }
     else if (verb_is(verb, EFFECT_SET_BPM) || verb_is(verb, EFFECT_SET_BPB) || verb_is(verb, TRANSPORT) ||
              verb_is(verb, TRANSPORT_SYNC))
+    {
+        if (getenv("FAKE_DIE_ON_SETTINGS") && access(getenv("FAKE_DIE_ON_SETTINGS"), F_OK) == 0)
+            _exit(1);
         answer(fd, getenv("FAKE_REFUSE_SETTINGS") ? "resp -902" : "resp 0");
+    }
     else if (presets_learn && !strcmp(presets_learn, "answer") && verb_is(verb, EFFECT_PRESET_SHOW) && ntok == 3 &&
              isdigit((unsigned char)tok[1][0]))
         /* the instance form: one line of JSON, as docs/presets.md declares it (mod-host's form, a uri, answers resp 0) */
