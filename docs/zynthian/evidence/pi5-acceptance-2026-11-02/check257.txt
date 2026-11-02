@@ -1,0 +1,10 @@
+omx-plugins#257 on the Pi 5, zynthian-ui 369f4fc4, omx-plugins-lv2 0.17.0, in Zynthian's own Python (/zynthian/venv)
+with its LV2_PATH:
+
+    from zyngine import zynthian_lv2 as z
+    z.init_lilv()
+    p = z.get_plugin_ports("urn:openmixer:eq8")
+
+groups in port order: ['HPF', 'LPF', 'Band 1', 'Band 2', 'Band 3', 'Band 4', 'Band 5', 'Band 6', 'Band 7', 'Band 8']
+Band 1..8 in order: True
+first ports: [{"index": 4, "symbol": "hpf_on", "name": "HPF On", "group_name": "HPF", "group_symbol": "hpf"}, {"index": 5, "symbol": "hpf_freq", "name": "HPF Frequency", "group_name": "HPF", "group_symbol": "hpf"}, {"index": 6, "symbol": "hpf_slope", "name": "HPF Slope", "group_name": "HPF", "group_symbol": "hpf"}]

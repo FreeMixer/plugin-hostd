@@ -1,0 +1,72 @@
+=== step 3 begins 2026-11-02T16:39:00Z
+add-times: 2 mod-host one process
+add-times: 2 mod-host one process cold: 800.1 ms [798.3, 801.7]
+add-times: 2 mod-host one process warm: 44.8 ms [44.7, 49.9]
+add-times: 2 omx-clap-host one process
+add-times: 2 omx-clap-host one process cold: 75.3 ms [75.3, 75.8]
+add-times: 2 omx-clap-host one process warm: 72.4 ms [72.4, 72.4]
+add-times: 2 plugin-hostd grouped
+add-times: 2 plugin-hostd grouped cold: 61.8 ms [61.7, 62.2]
+add-times: 2 plugin-hostd grouped warm: 55.9 ms [55.4, 55.9]
+add-times: 2 plugin-hostd own
+add-times: 2 plugin-hostd own cold: 82.1 ms [81.9, 92.0]
+add-times: 2 plugin-hostd own warm: 79.5 ms [79.1, 89.6]
+add-times: 4 mod-host one process
+add-times: 4 mod-host one process cold: 866.1 ms [857.6, 876.8]
+add-times: 4 mod-host one process warm: 98.2 ms [98.2, 103.9]
+add-times: 4 omx-clap-host one process
+add-times: 4 omx-clap-host one process cold: 139.2 ms [139.1, 144.9]
+add-times: 4 omx-clap-host one process warm: 136.7 ms [136.7, 136.9]
+add-times: 4 plugin-hostd grouped
+add-times: 4 plugin-hostd grouped cold: 79.2 ms [73.7, 79.4]
+add-times: 4 plugin-hostd grouped warm: 73.0 ms [67.1, 73.7]
+add-times: 4 plugin-hostd own
+add-times: 4 plugin-hostd own cold: 167.7 ms [167.5, 172.8]
+add-times: 4 plugin-hostd own warm: 153.9 ms [148.8, 154.1]
+add-times: 7 mod-host one process
+add-times: 7 mod-host one process cold: 945.3 ms [933.9, 954.5]
+add-times: 7 mod-host one process warm: 189.0 ms [183.5, 189.3]
+add-times: 7 omx-clap-host one process
+add-times: 7 omx-clap-host one process cold: 236.2 ms [235.9, 241.4]
+add-times: 7 omx-clap-host one process warm: 233.7 ms [233.3, 243.7]
+add-times: 7 plugin-hostd grouped
+add-times: 7 plugin-hostd grouped cold: 103.2 ms [102.3, 103.4]
+add-times: 7 plugin-hostd grouped warm: 96.0 ms [91.9, 97.2]
+add-times: 7 plugin-hostd own
+add-times: 7 plugin-hostd own cold: 295.7 ms [285.1, 296.4]
+add-times: 7 plugin-hostd own warm: 272.0 ms [271.9, 282.8]
+add-times: 2 omx-clap-host one process
+add-times: 2 omx-clap-host one process cold: 69.6 ms [69.4, 71.3]
+add-times: 2 omx-clap-host one process warm: 66.9 ms [61.7, 67.3]
+add-times: 2 plugin-hostd grouped
+add-times: 2 plugin-hostd grouped cold: 48.2 ms [48.2, 50.2]
+add-times: 2 plugin-hostd grouped warm: 45.4 ms [40.0, 45.4]
+add-times: 2 plugin-hostd own
+add-times: 2 plugin-hostd own cold: 87.0 ms [86.9, 92.4]
+add-times: 2 plugin-hostd own warm: 84.2 ms [78.8, 84.2]
+add-times: 4 omx-clap-host one process
+add-times: 4 omx-clap-host one process cold: 112.6 ms [112.3, 117.9]
+add-times: 4 omx-clap-host one process warm: 115.0 ms [109.9, 120.5]
+add-times: 4 plugin-hostd grouped
+add-times: 4 plugin-hostd grouped cold: 55.4 ms [55.1, 56.7]
+add-times: 4 plugin-hostd grouped warm: 52.3 ms [47.0, 52.3]
+add-times: 4 plugin-hostd own
+add-times: 4 plugin-hostd own cold: 172.6 ms [172.6, 172.6]
+add-times: 4 plugin-hostd own warm: 159.0 ms [158.9, 159.1]
+add-times: 7 omx-clap-host one process
+add-times: 7 omx-clap-host one process cold: 197.9 ms [192.9, 198.1]
+add-times: 7 omx-clap-host one process warm: 195.4 ms [189.9, 195.4]
+add-times: 7 plugin-hostd grouped
+add-times: 7 plugin-hostd grouped cold: 67.7 ms [65.6, 74.5]
+add-times: 7 plugin-hostd grouped warm: 62.8 ms [62.5, 62.9]
+add-times: 7 plugin-hostd own
+add-times: 7 plugin-hostd own cold: 295.8 ms [290.2, 306.3]
+add-times: 7 plugin-hostd own warm: 287.3 ms [287.2, 314.8]
+24 plugins       lv2  mod-host         start to answering    748 ms | cold to loaded   1459 ms [1445, 1463]
+24 plugins       lv2  omx-clap-host    start to answering      3 ms | cold to loaded    948 ms [948, 970]
+24 plugins       lv2  plugin-hostd own start to answering      3 ms | cold to loaded   1976 ms [1968, 1976]
+24 plugins       clap omx-clap-host    start to answering      3 ms | cold to loaded    848 ms [841, 895]
+ten third-party  lv2  mod-host         start to answering    733 ms | cold to loaded   1044 ms [1029, 1125]
+ten third-party  lv2  omx-clap-host    start to answering      3 ms | cold to loaded    458 ms [445, 471]
+ten third-party  lv2  plugin-hostd own start to answering      3 ms | cold to loaded    497 ms [482, 500]
+=== step 3 ends 2026-11-02T16:40:59Z
