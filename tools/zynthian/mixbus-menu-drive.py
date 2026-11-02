@@ -104,8 +104,9 @@ def clean_all(u):
 def add_epiano(u, midi_chan):
     home(u)
     u.cuia("ADD_CHAIN")
-    u.click(180, 190)               # Instrument
-    u.click(40, 146)                # Piano
+    u.click(180, 190, wait=3)       # Instrument: the list takes a while the first time after a restart
+    u.click(40, 146, wait=2)        # Piano
+    u.shot("piano-%d" % midi_chan)
     u.click(350, 86, wait=4)        # MDA ePiano (LV2 PH)
     u.click(200, 116 + 30 * (midi_chan - 1), wait=6)
     u.shot("epiano-%d" % midi_chan)
@@ -163,8 +164,23 @@ def add_mixbus(u, column, effects):
     u.shot("mixbus-%d" % column)
 
 
-def check_build(arm, topology, g):
-    """four strips fed, and every Mixbus fed by what the arm puts there: the delay for hostd, the send for mod-host"""
+def hostd_worlds(since):
+    """the LV2 bundles of the plugin-hostd workers started since the time given (each worker has a world directory
+    named for its bundle under the daemon's state root; a CLAP member has none)"""
+    found = []
+    for d in glob.glob("/run/plugin-hostd/plugin-hostd/*/world-w*"):
+        if os.stat(d).st_mtime >= since:
+            found += [os.path.basename(b) for b in glob.glob(os.path.join(d, "*.lv2"))]
+    return sorted(found)
+
+
+def check_build(arm, topology, g, since):
+    """four strips fed, and every Mixbus fed by what the arm puts there: the delay for hostd, the send for mod-host;
+    for hostd, the four instruments are MDA ePiano (a tap that lands on another entry builds another instrument)"""
+    if arm == "hostd":
+        worlds = hostd_worlds(since)
+        if worlds != ["mod-mda-EPiano.lv2"] * 4:
+            raise SystemExit("the hostd build's LV2 workers hold %s, not four MDA ePiano" % worlds)
     buses = 1 if topology == "shared" else 4
     feeders = {s.split(":")[0] for s, d in g["edges"] if d.startswith("zynmixer_chan:input_") and not s.startswith("system")}
     into_bus = {d[:-1] for s, d in g["edges"] if d.startswith("zynmixer_bus:input_") and not d.startswith(("zynmixer_bus:input_00", "zynmixer_bus:input_01"))
@@ -243,9 +259,10 @@ def lv2_path():
 
 def run_row(a, u, arm, topology, rep):
     label = "%s-%s" % (topology, arm)
+    since = time.time()
     build(u, arm, topology)
     g = graph(a.out, "graph-built-%s-%d.json" % (label, rep))
-    check_build(arm, topology, g)
+    check_build(arm, topology, g, since)
     measure = [sys.executable, BENCH, "measure", "--out", a.out, "--label", label, "--host", arm, "--repeat", str(rep),
                "--window", str(a.window), "--instruments", "auto", "--graph-after", os.path.join(a.out, "graph-%s-%d.json" % (label, rep))]
     host = None
