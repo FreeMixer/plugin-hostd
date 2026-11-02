@@ -1,0 +1,1561 @@
+{
+  "schema": "omx-bench/1",
+  "id": "rpi5-20261101-1",
+  "machine": {
+    "class": "rpi5",
+    "model": "Raspberry Pi 5 Model B Rev 1.0",
+    "cpu": "Cortex-A76",
+    "cores": 4,
+    "ram_mb": 4049,
+    "os": "Debian 13",
+    "kernel": "6.18.50+rpt-rpi-2712",
+    "governor": "performance"
+  },
+  "software": {
+    "plugin-hostd": "0.15.8~meas20261101",
+    "omx-clap-host": "0.26.1",
+    "mod-host": "0.10.6-595-g6c1cdd8 (not packaged)",
+    "jalv": "1.6.9 (not packaged)",
+    "jack": "1.9.22~dfsg-4",
+    "omx-plugins-clap": "0.16.0",
+    "omx-plugins-lv2": "0.16.0",
+    "calf-plugins": "5:0.90.3-1kxstudio3"
+  },
+  "scenarios": [
+    {
+      "id": "cvp24",
+      "title": "chains vs processes, 24 plugins",
+      "host": "H2",
+      "rate": 48000,
+      "frames": 256,
+      "plugins": [
+        "omx-comp (CLAP)",
+        "Calf Compressor (LV2)",
+        "omx-delay (CLAP)",
+        "omx-drive (CLAP)",
+        "omx-comp (CLAP)",
+        "Calf Compressor (LV2)",
+        "omx-delay (CLAP)",
+        "omx-drive (CLAP)",
+        "omx-comp (CLAP)",
+        "Calf Compressor (LV2)",
+        "omx-delay (CLAP)",
+        "omx-drive (CLAP)",
+        "omx-comp (CLAP)",
+        "Calf Compressor (LV2)",
+        "omx-delay (CLAP)",
+        "omx-drive (CLAP)",
+        "omx-comp (CLAP)",
+        "Calf Compressor (LV2)",
+        "omx-delay (CLAP)",
+        "omx-drive (CLAP)",
+        "omx-comp (CLAP)",
+        "Calf Compressor (LV2)",
+        "omx-delay (CLAP)",
+        "omx-drive (CLAP)"
+      ],
+      "dsp_load_avg": 17.34,
+      "dsp_load_max": 17.45,
+      "samples": 10,
+      "rss_mb": 2684.2,
+      "add_ms": 1933.4,
+      "recover_ms": null,
+      "status": "ok",
+      "note": "",
+      "stress": "none",
+      "mode": "individual",
+      "xruns": 0,
+      "processes": 25,
+      "rss_mb_total": 2684.2,
+      "pss_mb_total": 183.7,
+      "cpu_pct": 24.0,
+      "ctx_switches": 67152,
+      "ctx_involuntary": 1744,
+      "latency_frames": 432,
+      "jack_clients": 24,
+      "repeats": 3,
+      "spread": {
+        "dsp_load_avg": [
+          17.22,
+          17.59
+        ],
+        "dsp_load_max": [
+          17.29,
+          19.41
+        ],
+        "rss_mb": [
+          2684.1,
+          2684.3
+        ],
+        "add_ms": [
+          1901.4,
+          1955.0
+        ],
+        "processes": [
+          25,
+          25
+        ],
+        "rss_mb_total": [
+          2684.1,
+          2684.3
+        ],
+        "pss_mb_total": [
+          183.7,
+          183.8
+        ],
+        "cpu_pct": [
+          23.91,
+          24.44
+        ],
+        "ctx_switches": [
+          67101,
+          67205
+        ],
+        "ctx_involuntary": [
+          1679,
+          1778
+        ],
+        "xruns": [
+          0,
+          0
+        ],
+        "latency_frames": [
+          432,
+          432
+        ],
+        "jack_clients": [
+          24,
+          24
+        ]
+      }
+    },
+    {
+      "id": "cvp24",
+      "title": "chains vs processes, 24 plugins",
+      "host": "H2",
+      "rate": 48000,
+      "frames": 256,
+      "plugins": [
+        "omx-comp (CLAP)",
+        "Calf Compressor (LV2)",
+        "omx-delay (CLAP)",
+        "omx-drive (CLAP)",
+        "omx-comp (CLAP)",
+        "Calf Compressor (LV2)",
+        "omx-delay (CLAP)",
+        "omx-drive (CLAP)",
+        "omx-comp (CLAP)",
+        "Calf Compressor (LV2)",
+        "omx-delay (CLAP)",
+        "omx-drive (CLAP)",
+        "omx-comp (CLAP)",
+        "Calf Compressor (LV2)",
+        "omx-delay (CLAP)",
+        "omx-drive (CLAP)",
+        "omx-comp (CLAP)",
+        "Calf Compressor (LV2)",
+        "omx-delay (CLAP)",
+        "omx-drive (CLAP)",
+        "omx-comp (CLAP)",
+        "Calf Compressor (LV2)",
+        "omx-delay (CLAP)",
+        "omx-drive (CLAP)"
+      ],
+      "dsp_load_avg": 12.32,
+      "dsp_load_max": 12.69,
+      "samples": 10,
+      "rss_mb": 148.0,
+      "add_ms": 4586.1,
+      "recover_ms": null,
+      "status": "ok",
+      "note": "",
+      "stress": "none",
+      "mode": "chain",
+      "xruns": 0,
+      "processes": 2,
+      "rss_mb_total": 148.0,
+      "pss_mb_total": 66.3,
+      "cpu_pct": 12.64,
+      "ctx_switches": 3200,
+      "ctx_involuntary": 51,
+      "latency_frames": 432,
+      "jack_clients": 1,
+      "repeats": 3,
+      "spread": {
+        "dsp_load_avg": [
+          12.32,
+          12.5
+        ],
+        "dsp_load_max": [
+          12.38,
+          12.76
+        ],
+        "rss_mb": [
+          148.0,
+          148.5
+        ],
+        "add_ms": [
+          4564.8,
+          4602.0
+        ],
+        "processes": [
+          2,
+          2
+        ],
+        "rss_mb_total": [
+          148.0,
+          148.5
+        ],
+        "pss_mb_total": [
+          66.3,
+          66.3
+        ],
+        "cpu_pct": [
+          12.55,
+          12.64
+        ],
+        "ctx_switches": [
+          3196,
+          3203
+        ],
+        "ctx_involuntary": [
+          45,
+          55
+        ],
+        "xruns": [
+          0,
+          0
+        ],
+        "latency_frames": [
+          432,
+          432
+        ],
+        "jack_clients": [
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "id": "cvp24",
+      "title": "chains vs processes, 24 plugins",
+      "host": "H2",
+      "rate": 48000,
+      "frames": 256,
+      "plugins": [
+        "omx-comp (CLAP)",
+        "Calf Compressor (LV2)",
+        "omx-delay (CLAP)",
+        "omx-drive (CLAP)",
+        "omx-comp (CLAP)",
+        "Calf Compressor (LV2)",
+        "omx-delay (CLAP)",
+        "omx-drive (CLAP)",
+        "omx-comp (CLAP)",
+        "Calf Compressor (LV2)",
+        "omx-delay (CLAP)",
+        "omx-drive (CLAP)",
+        "omx-comp (CLAP)",
+        "Calf Compressor (LV2)",
+        "omx-delay (CLAP)",
+        "omx-drive (CLAP)",
+        "omx-comp (CLAP)",
+        "Calf Compressor (LV2)",
+        "omx-delay (CLAP)",
+        "omx-drive (CLAP)",
+        "omx-comp (CLAP)",
+        "Calf Compressor (LV2)",
+        "omx-delay (CLAP)",
+        "omx-drive (CLAP)"
+      ],
+      "dsp_load_avg": 12.37,
+      "dsp_load_max": 12.6,
+      "samples": 10,
+      "rss_mb": 146.7,
+      "add_ms": 422.1,
+      "recover_ms": null,
+      "status": "ok",
+      "note": "",
+      "stress": "none",
+      "mode": "chain-add",
+      "xruns": 0,
+      "processes": 2,
+      "rss_mb_total": 146.7,
+      "pss_mb_total": 64.8,
+      "cpu_pct": 12.64,
+      "ctx_switches": 3183,
+      "ctx_involuntary": 34,
+      "latency_frames": 432,
+      "jack_clients": 1,
+      "repeats": 3,
+      "spread": {
+        "dsp_load_avg": [
+          12.31,
+          12.45
+        ],
+        "dsp_load_max": [
+          12.34,
+          12.62
+        ],
+        "rss_mb": [
+          146.3,
+          146.8
+        ],
+        "add_ms": [
+          419.2,
+          422.3
+        ],
+        "processes": [
+          2,
+          2
+        ],
+        "rss_mb_total": [
+          146.3,
+          146.8
+        ],
+        "pss_mb_total": [
+          64.7,
+          64.8
+        ],
+        "cpu_pct": [
+          12.55,
+          12.73
+        ],
+        "ctx_switches": [
+          3175,
+          3184
+        ],
+        "ctx_involuntary": [
+          25,
+          35
+        ],
+        "xruns": [
+          0,
+          0
+        ],
+        "latency_frames": [
+          432,
+          432
+        ],
+        "jack_clients": [
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "id": "cvp24",
+      "title": "chains vs processes, 24 plugins",
+      "host": "H1",
+      "rate": 48000,
+      "frames": 256,
+      "plugins": [
+        "omx-comp (CLAP)",
+        "Calf Compressor (LV2)",
+        "omx-delay (CLAP)",
+        "omx-drive (CLAP)",
+        "omx-comp (CLAP)",
+        "Calf Compressor (LV2)",
+        "omx-delay (CLAP)",
+        "omx-drive (CLAP)",
+        "omx-comp (CLAP)",
+        "Calf Compressor (LV2)",
+        "omx-delay (CLAP)",
+        "omx-drive (CLAP)",
+        "omx-comp (CLAP)",
+        "Calf Compressor (LV2)",
+        "omx-delay (CLAP)",
+        "omx-drive (CLAP)",
+        "omx-comp (CLAP)",
+        "Calf Compressor (LV2)",
+        "omx-delay (CLAP)",
+        "omx-drive (CLAP)",
+        "omx-comp (CLAP)",
+        "Calf Compressor (LV2)",
+        "omx-delay (CLAP)",
+        "omx-drive (CLAP)"
+      ],
+      "dsp_load_avg": 15.12,
+      "dsp_load_max": 15.31,
+      "samples": 10,
+      "rss_mb": 145.0,
+      "add_ms": 885.7,
+      "recover_ms": null,
+      "status": "ok",
+      "note": "",
+      "stress": "none",
+      "mode": "shared-process",
+      "xruns": 0,
+      "processes": 1,
+      "rss_mb_total": 145.0,
+      "pss_mb_total": 65.4,
+      "cpu_pct": 15.64,
+      "ctx_switches": 52016,
+      "ctx_involuntary": 87,
+      "latency_frames": 432,
+      "jack_clients": 24,
+      "repeats": 3,
+      "spread": {
+        "dsp_load_avg": [
+          14.93,
+          15.15
+        ],
+        "dsp_load_max": [
+          15.15,
+          15.35
+        ],
+        "rss_mb": [
+          144.7,
+          145.0
+        ],
+        "add_ms": [
+          826.7,
+          891.1
+        ],
+        "processes": [
+          1,
+          1
+        ],
+        "rss_mb_total": [
+          144.7,
+          145.0
+        ],
+        "pss_mb_total": [
+          65.4,
+          65.5
+        ],
+        "cpu_pct": [
+          15.46,
+          15.73
+        ],
+        "ctx_switches": [
+          52012,
+          52046
+        ],
+        "ctx_involuntary": [
+          84,
+          107
+        ],
+        "xruns": [
+          0,
+          0
+        ],
+        "latency_frames": [
+          432,
+          432
+        ],
+        "jack_clients": [
+          24,
+          24
+        ]
+      }
+    },
+    {
+      "id": "cvp24",
+      "title": "chains vs processes, 24 plugins",
+      "host": "H3",
+      "rate": 48000,
+      "frames": 256,
+      "plugins": [
+        "omx-comp (LV2)",
+        "Calf Compressor (LV2)",
+        "omx-delay (LV2)",
+        "omx-drive (LV2)",
+        "omx-comp (LV2)",
+        "Calf Compressor (LV2)",
+        "omx-delay (LV2)",
+        "omx-drive (LV2)",
+        "omx-comp (LV2)",
+        "Calf Compressor (LV2)",
+        "omx-delay (LV2)",
+        "omx-drive (LV2)",
+        "omx-comp (LV2)",
+        "Calf Compressor (LV2)",
+        "omx-delay (LV2)",
+        "omx-drive (LV2)",
+        "omx-comp (LV2)",
+        "Calf Compressor (LV2)",
+        "omx-delay (LV2)",
+        "omx-drive (LV2)",
+        "omx-comp (LV2)",
+        "Calf Compressor (LV2)",
+        "omx-delay (LV2)",
+        "omx-drive (LV2)"
+      ],
+      "dsp_load_avg": 14.47,
+      "dsp_load_max": 14.64,
+      "samples": 10,
+      "rss_mb": 192.1,
+      "add_ms": 717.0,
+      "recover_ms": null,
+      "status": "ok",
+      "note": "LV2 builds of omx-comp, omx-delay, omx-drive",
+      "stress": "none",
+      "mode": "shared-process",
+      "xruns": 0,
+      "processes": 1,
+      "rss_mb_total": 192.1,
+      "pss_mb_total": 113.2,
+      "cpu_pct": 15.02,
+      "ctx_switches": 55678,
+      "ctx_involuntary": 10,
+      "latency_frames": 0,
+      "jack_clients": 26,
+      "repeats": 3,
+      "spread": {
+        "dsp_load_avg": [
+          14.38,
+          14.63
+        ],
+        "dsp_load_max": [
+          14.61,
+          14.9
+        ],
+        "rss_mb": [
+          192.0,
+          193.0
+        ],
+        "add_ms": [
+          701.0,
+          738.7
+        ],
+        "processes": [
+          1,
+          1
+        ],
+        "rss_mb_total": [
+          192.0,
+          193.0
+        ],
+        "pss_mb_total": [
+          113.2,
+          113.2
+        ],
+        "cpu_pct": [
+          14.75,
+          15.02
+        ],
+        "ctx_switches": [
+          55673,
+          55678
+        ],
+        "ctx_involuntary": [
+          9,
+          13
+        ],
+        "xruns": [
+          0,
+          0
+        ],
+        "latency_frames": [
+          0,
+          0
+        ],
+        "jack_clients": [
+          26,
+          26
+        ]
+      }
+    },
+    {
+      "id": "tp10",
+      "title": "ten third-party LV2 plugins in series (tools/zynthian/matrix/plugins.json)",
+      "host": "H2",
+      "rate": 48000,
+      "frames": 256,
+      "plugins": [
+        "DISTRHO 3 Band EQ (LV2)",
+        "DISTRHO MVerb (LV2)",
+        "x42 fil4 stereo (LV2)",
+        "Guitarix Flanger (LV2)",
+        "Guitarix Stereo Reverb (LV2)",
+        "Invada Compressor stereo (LV2)",
+        "Invada Early Reflection Reverb sum (LV2)",
+        "ZamComp (LV2)",
+        "ZamEQ2 (LV2)",
+        "ZamDelay (LV2)"
+      ],
+      "dsp_load_avg": 7.41,
+      "dsp_load_max": 8.22,
+      "samples": 10,
+      "rss_mb": 1106.7,
+      "add_ms": 480.4,
+      "recover_ms": null,
+      "status": "ok",
+      "note": "",
+      "stress": "none",
+      "mode": "individual",
+      "xruns": 0,
+      "processes": 11,
+      "rss_mb_total": 1106.7,
+      "pss_mb_total": 112.2,
+      "cpu_pct": 9.9,
+      "ctx_switches": 28013,
+      "ctx_involuntary": 539,
+      "latency_frames": 0,
+      "jack_clients": 10,
+      "repeats": 3,
+      "spread": {
+        "dsp_load_avg": [
+          7.25,
+          7.46
+        ],
+        "dsp_load_max": [
+          7.33,
+          8.44
+        ],
+        "rss_mb": [
+          1106.6,
+          1106.7
+        ],
+        "add_ms": [
+          475.2,
+          576.8
+        ],
+        "processes": [
+          11,
+          11
+        ],
+        "rss_mb_total": [
+          1106.6,
+          1106.7
+        ],
+        "pss_mb_total": [
+          112.1,
+          112.2
+        ],
+        "cpu_pct": [
+          9.72,
+          10.16
+        ],
+        "ctx_switches": [
+          27987,
+          28039
+        ],
+        "ctx_involuntary": [
+          507,
+          544
+        ],
+        "xruns": [
+          0,
+          0
+        ],
+        "latency_frames": [
+          0,
+          0
+        ],
+        "jack_clients": [
+          10,
+          10
+        ]
+      }
+    },
+    {
+      "id": "tp10",
+      "title": "ten third-party LV2 plugins in series (tools/zynthian/matrix/plugins.json)",
+      "host": "H2",
+      "rate": 48000,
+      "frames": 256,
+      "plugins": [
+        "DISTRHO 3 Band EQ (LV2)",
+        "DISTRHO MVerb (LV2)",
+        "x42 fil4 stereo (LV2)",
+        "Guitarix Flanger (LV2)",
+        "Guitarix Stereo Reverb (LV2)",
+        "Invada Compressor stereo (LV2)",
+        "Invada Early Reflection Reverb sum (LV2)",
+        "ZamComp (LV2)",
+        "ZamEQ2 (LV2)",
+        "ZamDelay (LV2)"
+      ],
+      "dsp_load_avg": 5.54,
+      "dsp_load_max": 5.66,
+      "samples": 10,
+      "rss_mb": 128.8,
+      "add_ms": 1476.6,
+      "recover_ms": null,
+      "status": "ok",
+      "note": "",
+      "stress": "none",
+      "mode": "chain",
+      "xruns": 0,
+      "processes": 2,
+      "rss_mb_total": 128.8,
+      "pss_mb_total": 46.6,
+      "cpu_pct": 5.75,
+      "ctx_switches": 3199,
+      "ctx_involuntary": 52,
+      "latency_frames": 0,
+      "jack_clients": 1,
+      "repeats": 3,
+      "spread": {
+        "dsp_load_avg": [
+          5.48,
+          5.6
+        ],
+        "dsp_load_max": [
+          5.52,
+          5.72
+        ],
+        "rss_mb": [
+          128.8,
+          129.3
+        ],
+        "add_ms": [
+          1476.6,
+          1481.9
+        ],
+        "processes": [
+          2,
+          2
+        ],
+        "rss_mb_total": [
+          128.8,
+          129.3
+        ],
+        "pss_mb_total": [
+          46.6,
+          46.6
+        ],
+        "cpu_pct": [
+          5.66,
+          5.83
+        ],
+        "ctx_switches": [
+          3188,
+          3207
+        ],
+        "ctx_involuntary": [
+          37,
+          56
+        ],
+        "xruns": [
+          0,
+          0
+        ],
+        "latency_frames": [
+          0,
+          0
+        ],
+        "jack_clients": [
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "id": "tp10",
+      "title": "ten third-party LV2 plugins in series (tools/zynthian/matrix/plugins.json)",
+      "host": "H2",
+      "rate": 48000,
+      "frames": 256,
+      "plugins": [
+        "DISTRHO 3 Band EQ (LV2)",
+        "DISTRHO MVerb (LV2)",
+        "x42 fil4 stereo (LV2)",
+        "Guitarix Flanger (LV2)",
+        "Guitarix Stereo Reverb (LV2)",
+        "Invada Compressor stereo (LV2)",
+        "Invada Early Reflection Reverb sum (LV2)",
+        "ZamComp (LV2)",
+        "ZamEQ2 (LV2)",
+        "ZamDelay (LV2)"
+      ],
+      "dsp_load_avg": 5.57,
+      "dsp_load_max": 5.83,
+      "samples": 10,
+      "rss_mb": 127.8,
+      "add_ms": 256.3,
+      "recover_ms": null,
+      "status": "ok",
+      "note": "",
+      "stress": "none",
+      "mode": "chain-add",
+      "xruns": 0,
+      "processes": 2,
+      "rss_mb_total": 127.8,
+      "pss_mb_total": 46.1,
+      "cpu_pct": 5.92,
+      "ctx_switches": 3224,
+      "ctx_involuntary": 76,
+      "latency_frames": 0,
+      "jack_clients": 1,
+      "repeats": 3,
+      "spread": {
+        "dsp_load_avg": [
+          5.47,
+          5.69
+        ],
+        "dsp_load_max": [
+          5.53,
+          5.85
+        ],
+        "rss_mb": [
+          127.8,
+          128.3
+        ],
+        "add_ms": [
+          256.0,
+          257.0
+        ],
+        "processes": [
+          2,
+          2
+        ],
+        "rss_mb_total": [
+          127.8,
+          128.3
+        ],
+        "pss_mb_total": [
+          46.1,
+          46.1
+        ],
+        "cpu_pct": [
+          5.74,
+          5.92
+        ],
+        "ctx_switches": [
+          3208,
+          3225
+        ],
+        "ctx_involuntary": [
+          58,
+          77
+        ],
+        "xruns": [
+          0,
+          0
+        ],
+        "latency_frames": [
+          0,
+          0
+        ],
+        "jack_clients": [
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "id": "tp10",
+      "title": "ten third-party LV2 plugins in series (tools/zynthian/matrix/plugins.json)",
+      "host": "H1",
+      "rate": 48000,
+      "frames": 256,
+      "plugins": [
+        "DISTRHO 3 Band EQ (LV2)",
+        "DISTRHO MVerb (LV2)",
+        "x42 fil4 stereo (LV2)",
+        "Guitarix Flanger (LV2)",
+        "Guitarix Stereo Reverb (LV2)",
+        "Invada Compressor stereo (LV2)",
+        "Invada Early Reflection Reverb sum (LV2)",
+        "ZamComp (LV2)",
+        "ZamEQ2 (LV2)",
+        "ZamDelay (LV2)"
+      ],
+      "dsp_load_avg": 6.67,
+      "dsp_load_max": 6.89,
+      "samples": 10,
+      "rss_mb": 125.2,
+      "add_ms": 436.6,
+      "recover_ms": null,
+      "status": "ok",
+      "note": "",
+      "stress": "none",
+      "mode": "shared-process",
+      "xruns": 0,
+      "processes": 1,
+      "rss_mb_total": 125.2,
+      "pss_mb_total": 45.3,
+      "cpu_pct": 6.89,
+      "ctx_switches": 21999,
+      "ctx_involuntary": 41,
+      "latency_frames": 0,
+      "jack_clients": 10,
+      "repeats": 3,
+      "spread": {
+        "dsp_load_avg": [
+          6.6,
+          6.74
+        ],
+        "dsp_load_max": [
+          6.82,
+          7.74
+        ],
+        "rss_mb": [
+          124.7,
+          125.2
+        ],
+        "add_ms": [
+          436.2,
+          436.7
+        ],
+        "processes": [
+          1,
+          1
+        ],
+        "rss_mb_total": [
+          124.7,
+          125.2
+        ],
+        "pss_mb_total": [
+          45.3,
+          45.3
+        ],
+        "cpu_pct": [
+          6.81,
+          6.89
+        ],
+        "ctx_switches": [
+          21995,
+          22010
+        ],
+        "ctx_involuntary": [
+          40,
+          49
+        ],
+        "xruns": [
+          0,
+          0
+        ],
+        "latency_frames": [
+          0,
+          0
+        ],
+        "jack_clients": [
+          10,
+          10
+        ]
+      }
+    },
+    {
+      "id": "tp10",
+      "title": "ten third-party LV2 plugins in series (tools/zynthian/matrix/plugins.json)",
+      "host": "H3",
+      "rate": 48000,
+      "frames": 256,
+      "plugins": [
+        "DISTRHO 3 Band EQ (LV2)",
+        "DISTRHO MVerb (LV2)",
+        "x42 fil4 stereo (LV2)",
+        "Guitarix Flanger (LV2)",
+        "Guitarix Stereo Reverb (LV2)",
+        "Invada Compressor stereo (LV2)",
+        "Invada Early Reflection Reverb sum (LV2)",
+        "ZamComp (LV2)",
+        "ZamEQ2 (LV2)",
+        "ZamDelay (LV2)"
+      ],
+      "dsp_load_avg": 6.34,
+      "dsp_load_max": 6.53,
+      "samples": 10,
+      "rss_mb": 174.2,
+      "add_ms": 316.9,
+      "recover_ms": null,
+      "status": "ok",
+      "note": "",
+      "stress": "none",
+      "mode": "shared-process",
+      "xruns": 0,
+      "processes": 1,
+      "rss_mb_total": 174.2,
+      "pss_mb_total": 94.6,
+      "cpu_pct": 6.45,
+      "ctx_switches": 25698,
+      "ctx_involuntary": 6,
+      "latency_frames": 0,
+      "jack_clients": 12,
+      "repeats": 3,
+      "spread": {
+        "dsp_load_avg": [
+          6.34,
+          6.36
+        ],
+        "dsp_load_max": [
+          6.44,
+          6.67
+        ],
+        "rss_mb": [
+          174.1,
+          174.6
+        ],
+        "add_ms": [
+          311.4,
+          317.1
+        ],
+        "processes": [
+          1,
+          1
+        ],
+        "rss_mb_total": [
+          174.1,
+          174.6
+        ],
+        "pss_mb_total": [
+          94.6,
+          94.6
+        ],
+        "cpu_pct": [
+          6.45,
+          6.54
+        ],
+        "ctx_switches": [
+          25696,
+          25707
+        ],
+        "ctx_involuntary": [
+          5,
+          6
+        ],
+        "xruns": [
+          0,
+          0
+        ],
+        "latency_frames": [
+          0,
+          0
+        ],
+        "jack_clients": [
+          12,
+          12
+        ]
+      }
+    },
+    {
+      "id": "cvp24-lv2",
+      "title": "chains vs processes, 24 plugins, the LV2 builds on every host",
+      "host": "H2",
+      "rate": 48000,
+      "frames": 256,
+      "plugins": [
+        "omx-comp (LV2)",
+        "Calf Compressor (LV2)",
+        "omx-delay (LV2)",
+        "omx-drive (LV2)",
+        "omx-comp (LV2)",
+        "Calf Compressor (LV2)",
+        "omx-delay (LV2)",
+        "omx-drive (LV2)",
+        "omx-comp (LV2)",
+        "Calf Compressor (LV2)",
+        "omx-delay (LV2)",
+        "omx-drive (LV2)",
+        "omx-comp (LV2)",
+        "Calf Compressor (LV2)",
+        "omx-delay (LV2)",
+        "omx-drive (LV2)",
+        "omx-comp (LV2)",
+        "Calf Compressor (LV2)",
+        "omx-delay (LV2)",
+        "omx-drive (LV2)",
+        "omx-comp (LV2)",
+        "Calf Compressor (LV2)",
+        "omx-delay (LV2)",
+        "omx-drive (LV2)"
+      ],
+      "dsp_load_avg": 18.0,
+      "dsp_load_max": 18.06,
+      "samples": 10,
+      "rss_mb": 2695.9,
+      "add_ms": 1965.6,
+      "recover_ms": null,
+      "status": "ok",
+      "note": "",
+      "stress": "none",
+      "mode": "individual",
+      "xruns": 0,
+      "processes": 25,
+      "rss_mb_total": 2695.9,
+      "pss_mb_total": 190.0,
+      "cpu_pct": 25.06,
+      "ctx_switches": 67286,
+      "ctx_involuntary": 1867,
+      "latency_frames": 432,
+      "jack_clients": 24,
+      "repeats": 3,
+      "spread": {
+        "dsp_load_avg": [
+          17.98,
+          18.01
+        ],
+        "dsp_load_max": [
+          18.06,
+          18.19
+        ],
+        "rss_mb": [
+          2695.8,
+          2696.4
+        ],
+        "add_ms": [
+          1955.0,
+          2040.0
+        ],
+        "processes": [
+          25,
+          25
+        ],
+        "rss_mb_total": [
+          2695.8,
+          2696.4
+        ],
+        "pss_mb_total": [
+          190.0,
+          190.0
+        ],
+        "cpu_pct": [
+          24.79,
+          25.15
+        ],
+        "ctx_switches": [
+          67261,
+          67320
+        ],
+        "ctx_involuntary": [
+          1840,
+          1880
+        ],
+        "xruns": [
+          0,
+          0
+        ],
+        "latency_frames": [
+          432,
+          432
+        ],
+        "jack_clients": [
+          24,
+          24
+        ]
+      }
+    },
+    {
+      "id": "cvp24-lv2",
+      "title": "chains vs processes, 24 plugins, the LV2 builds on every host",
+      "host": "H2",
+      "rate": 48000,
+      "frames": 256,
+      "plugins": [
+        "omx-comp (LV2)",
+        "Calf Compressor (LV2)",
+        "omx-delay (LV2)",
+        "omx-drive (LV2)",
+        "omx-comp (LV2)",
+        "Calf Compressor (LV2)",
+        "omx-delay (LV2)",
+        "omx-drive (LV2)",
+        "omx-comp (LV2)",
+        "Calf Compressor (LV2)",
+        "omx-delay (LV2)",
+        "omx-drive (LV2)",
+        "omx-comp (LV2)",
+        "Calf Compressor (LV2)",
+        "omx-delay (LV2)",
+        "omx-drive (LV2)",
+        "omx-comp (LV2)",
+        "Calf Compressor (LV2)",
+        "omx-delay (LV2)",
+        "omx-drive (LV2)",
+        "omx-comp (LV2)",
+        "Calf Compressor (LV2)",
+        "omx-delay (LV2)",
+        "omx-drive (LV2)"
+      ],
+      "dsp_load_avg": 12.5,
+      "dsp_load_max": 12.83,
+      "samples": 10,
+      "rss_mb": 145.9,
+      "add_ms": 4698.5,
+      "recover_ms": null,
+      "status": "ok",
+      "note": "",
+      "stress": "none",
+      "mode": "chain",
+      "xruns": 0,
+      "processes": 2,
+      "rss_mb_total": 145.9,
+      "pss_mb_total": 64.5,
+      "cpu_pct": 12.81,
+      "ctx_switches": 3219,
+      "ctx_involuntary": 60,
+      "latency_frames": 432,
+      "jack_clients": 1,
+      "repeats": 3,
+      "spread": {
+        "dsp_load_avg": [
+          12.5,
+          12.61
+        ],
+        "dsp_load_max": [
+          12.6,
+          13.48
+        ],
+        "rss_mb": [
+          145.9,
+          146.4
+        ],
+        "add_ms": [
+          4666.4,
+          4799.4
+        ],
+        "processes": [
+          2,
+          2
+        ],
+        "rss_mb_total": [
+          145.9,
+          146.4
+        ],
+        "pss_mb_total": [
+          64.4,
+          64.5
+        ],
+        "cpu_pct": [
+          12.72,
+          12.82
+        ],
+        "ctx_switches": [
+          3211,
+          3221
+        ],
+        "ctx_involuntary": [
+          53,
+          72
+        ],
+        "xruns": [
+          0,
+          0
+        ],
+        "latency_frames": [
+          432,
+          432
+        ],
+        "jack_clients": [
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "id": "cvp24-lv2",
+      "title": "chains vs processes, 24 plugins, the LV2 builds on every host",
+      "host": "H2",
+      "rate": 48000,
+      "frames": 256,
+      "plugins": [
+        "omx-comp (LV2)",
+        "Calf Compressor (LV2)",
+        "omx-delay (LV2)",
+        "omx-drive (LV2)",
+        "omx-comp (LV2)",
+        "Calf Compressor (LV2)",
+        "omx-delay (LV2)",
+        "omx-drive (LV2)",
+        "omx-comp (LV2)",
+        "Calf Compressor (LV2)",
+        "omx-delay (LV2)",
+        "omx-drive (LV2)",
+        "omx-comp (LV2)",
+        "Calf Compressor (LV2)",
+        "omx-delay (LV2)",
+        "omx-drive (LV2)",
+        "omx-comp (LV2)",
+        "Calf Compressor (LV2)",
+        "omx-delay (LV2)",
+        "omx-drive (LV2)",
+        "omx-comp (LV2)",
+        "Calf Compressor (LV2)",
+        "omx-delay (LV2)",
+        "omx-drive (LV2)"
+      ],
+      "dsp_load_avg": 14.13,
+      "dsp_load_max": 17.02,
+      "samples": 10,
+      "rss_mb": 145.4,
+      "add_ms": 555.3,
+      "recover_ms": null,
+      "status": "ok",
+      "note": "",
+      "stress": "none",
+      "mode": "chain-add",
+      "xruns": 0,
+      "processes": 2,
+      "rss_mb_total": 145.4,
+      "pss_mb_total": 63.7,
+      "cpu_pct": 14.38,
+      "ctx_switches": 3260,
+      "ctx_involuntary": 99,
+      "latency_frames": 432,
+      "jack_clients": 1,
+      "repeats": 3,
+      "spread": {
+        "dsp_load_avg": [
+          13.9,
+          14.35
+        ],
+        "dsp_load_max": [
+          14.2,
+          17.21
+        ],
+        "rss_mb": [
+          145.4,
+          145.9
+        ],
+        "add_ms": [
+          520.0,
+          792.9
+        ],
+        "processes": [
+          2,
+          2
+        ],
+        "rss_mb_total": [
+          145.4,
+          145.9
+        ],
+        "pss_mb_total": [
+          63.7,
+          63.7
+        ],
+        "cpu_pct": [
+          14.14,
+          14.4
+        ],
+        "ctx_switches": [
+          3230,
+          3271
+        ],
+        "ctx_involuntary": [
+          77,
+          106
+        ],
+        "xruns": [
+          0,
+          0
+        ],
+        "latency_frames": [
+          432,
+          432
+        ],
+        "jack_clients": [
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "id": "cvp24-lv2",
+      "title": "chains vs processes, 24 plugins, the LV2 builds on every host",
+      "host": "H1",
+      "rate": 48000,
+      "frames": 256,
+      "plugins": [
+        "omx-comp (LV2)",
+        "Calf Compressor (LV2)",
+        "omx-delay (LV2)",
+        "omx-drive (LV2)",
+        "omx-comp (LV2)",
+        "Calf Compressor (LV2)",
+        "omx-delay (LV2)",
+        "omx-drive (LV2)",
+        "omx-comp (LV2)",
+        "Calf Compressor (LV2)",
+        "omx-delay (LV2)",
+        "omx-drive (LV2)",
+        "omx-comp (LV2)",
+        "Calf Compressor (LV2)",
+        "omx-delay (LV2)",
+        "omx-drive (LV2)",
+        "omx-comp (LV2)",
+        "Calf Compressor (LV2)",
+        "omx-delay (LV2)",
+        "omx-drive (LV2)",
+        "omx-comp (LV2)",
+        "Calf Compressor (LV2)",
+        "omx-delay (LV2)",
+        "omx-drive (LV2)"
+      ],
+      "dsp_load_avg": 16.87,
+      "dsp_load_max": 19.68,
+      "samples": 10,
+      "rss_mb": 143.7,
+      "add_ms": 1132.2,
+      "recover_ms": null,
+      "status": "ok",
+      "note": "",
+      "stress": "none",
+      "mode": "shared-process",
+      "xruns": 0,
+      "processes": 1,
+      "rss_mb_total": 143.7,
+      "pss_mb_total": 64.4,
+      "cpu_pct": 17.41,
+      "ctx_switches": 52059,
+      "ctx_involuntary": 105,
+      "latency_frames": 432,
+      "jack_clients": 24,
+      "repeats": 3,
+      "spread": {
+        "dsp_load_avg": [
+          15.46,
+          18.91
+        ],
+        "dsp_load_max": [
+          15.71,
+          21.86
+        ],
+        "rss_mb": [
+          143.2,
+          143.8
+        ],
+        "add_ms": [
+          918.0,
+          1174.9
+        ],
+        "processes": [
+          1,
+          1
+        ],
+        "rss_mb_total": [
+          143.2,
+          143.8
+        ],
+        "pss_mb_total": [
+          64.4,
+          64.4
+        ],
+        "cpu_pct": [
+          15.89,
+          19.6
+        ],
+        "ctx_switches": [
+          52025,
+          52409
+        ],
+        "ctx_involuntary": [
+          101,
+          148
+        ],
+        "xruns": [
+          0,
+          13
+        ],
+        "latency_frames": [
+          432,
+          432
+        ],
+        "jack_clients": [
+          24,
+          24
+        ]
+      }
+    },
+    {
+      "id": "cvp24-lv2",
+      "title": "chains vs processes, 24 plugins, the LV2 builds on every host",
+      "host": "H3",
+      "rate": 48000,
+      "frames": 256,
+      "plugins": [
+        "omx-comp (LV2)",
+        "Calf Compressor (LV2)",
+        "omx-delay (LV2)",
+        "omx-drive (LV2)",
+        "omx-comp (LV2)",
+        "Calf Compressor (LV2)",
+        "omx-delay (LV2)",
+        "omx-drive (LV2)",
+        "omx-comp (LV2)",
+        "Calf Compressor (LV2)",
+        "omx-delay (LV2)",
+        "omx-drive (LV2)",
+        "omx-comp (LV2)",
+        "Calf Compressor (LV2)",
+        "omx-delay (LV2)",
+        "omx-drive (LV2)",
+        "omx-comp (LV2)",
+        "Calf Compressor (LV2)",
+        "omx-delay (LV2)",
+        "omx-drive (LV2)",
+        "omx-comp (LV2)",
+        "Calf Compressor (LV2)",
+        "omx-delay (LV2)",
+        "omx-drive (LV2)"
+      ],
+      "dsp_load_avg": 15.74,
+      "dsp_load_max": 18.6,
+      "samples": 10,
+      "rss_mb": 192.7,
+      "add_ms": 754.1,
+      "recover_ms": null,
+      "status": "ok",
+      "note": "LV2 builds of omx-comp, omx-delay, omx-drive",
+      "stress": "none",
+      "mode": "shared-process",
+      "xruns": 0,
+      "processes": 1,
+      "rss_mb_total": 192.7,
+      "pss_mb_total": 113.1,
+      "cpu_pct": 16.25,
+      "ctx_switches": 55735,
+      "ctx_involuntary": 14,
+      "latency_frames": 0,
+      "jack_clients": 26,
+      "repeats": 3,
+      "spread": {
+        "dsp_load_avg": [
+          14.58,
+          17.0
+        ],
+        "dsp_load_max": [
+          14.79,
+          18.94
+        ],
+        "rss_mb": [
+          192.6,
+          193.1
+        ],
+        "add_ms": [
+          674.4,
+          808.0
+        ],
+        "processes": [
+          1,
+          1
+        ],
+        "rss_mb_total": [
+          192.6,
+          193.1
+        ],
+        "pss_mb_total": [
+          113.1,
+          113.1
+        ],
+        "cpu_pct": [
+          14.93,
+          17.66
+        ],
+        "ctx_switches": [
+          55704,
+          55735
+        ],
+        "ctx_involuntary": [
+          13,
+          19
+        ],
+        "xruns": [
+          0,
+          0
+        ],
+        "latency_frames": [
+          0,
+          0
+        ],
+        "jack_clients": [
+          26,
+          26
+        ]
+      }
+    }
+  ]
+}

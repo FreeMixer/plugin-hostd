@@ -69,6 +69,18 @@ Released, not proven on the device yet
 
 The Pi runs these or newer releases, so they are installed there; what is owed is the check of each on the device.
 
+- **omx-clap-core 0.26.1** ([release](https://github.com/FreeMixer/omx-clap-core/releases/tag/v0.26.1)): one JACK client per
+  worker, shared by its members, which saves about 24 ms of start and the shared memory per plugin on a Pi 5 ([#446](https://github.com/FreeMixer/omx-clap-core/issues/446));
+  a mono member runs inside a stereo chain, its input the sum of both channels and its output given to both, so the run stays
+  one worker ([#361](https://github.com/FreeMixer/omx-clap-core/issues/361), [#447](https://github.com/FreeMixer/omx-clap-core/issues/447));
+  `omx-clap-host --capabilities` lists `chain_expect` and `mono_in_stereo` for a planner; an unknown option is an error.
+- **plugin-hostd 0.15.8** ([release](https://github.com/FreeMixer/plugin-hostd/releases/tag/v0.15.8)): faster chain adds
+  ([#348](https://github.com/FreeMixer/plugin-hostd/issues/348)), a chain that does not form says why (`chain_stalled`), and
+  a repeat pin lookup reads one manifest.
+- **Against mod-host on omx-clap-core 0.26.1** (measurement builds, Pi 5): 0 xruns in every row; plugin-hostd uses about 45 MB
+  less memory and adds to a chain faster, 422 ms against 717 ms for 24 plugins and 256 ms against 317 ms for the ten
+  third-party set. The shared-process host is still about 4 to 7 % heavier on DSP than mod-host. One LV2 scenario is to be
+  measured again ([rows](benchmarks.md#memory-cpu-and-add-time-against-mod-host-with-omx-clap-core-0261)).
 - **Time to add, measured on builds that 0.15.8 carries.** Like for like, 24 plugins on the LV2 builds on every host (Pi 5,
   48000 Hz, 256 frames, three repeats): grouped plugin-hostd adds them in 530 ms with one JACK client and 63 MB, against
   mod-host's 733 ms, 26 clients and 112 MB, which is 28 % faster; from a cold host a snapshot of the 24 loads in 541 ms
@@ -105,14 +117,20 @@ The Pi runs these or newer releases, so they are installed there; what is owed i
 Still open
 ----------
 
+- **The register guard, released in omx-clap-core 0.26.2 and plugin-hostd 0.15.9.** Each plugin call saves, compares and
+  restores the registers a function must keep, at about 15 ns per call on the Pi; a plugin that changes one is run in a worker
+  of its own and offered only isolated. The LSP CLAP bundle qualified again on the Pi under 0.26.2 with plugin-qualify 0.18.5:
+  95 suitable, 99 conditional, none crashed and no register changed. Its earlier crashes were the plugins failing when one
+  instance is activated again at another sample rate; plugin-qualify 0.18.5 measures each rate in an instance of its own. What
+  closes it: the 4 LV2 crashes of the same bundle qualified again, and calf Wavetable and dexed, which crash for another reason
+  that is still being looked into.
+
 - **Next: chains from the menu with grouping on.** The proof above drives the engine. What closes it: chains built from the menu
   on the Pi with the fork's tip, `worker_list` showing what shares a worker, and the same figures taken that way, and what a crash
   does there.
 - **Ten third-party plugins in a group.** Since [plugin-hostd#339](https://github.com/FreeMixer/plugin-hostd/pull/339) they run,
-  single and grouped. With the add into the chain, six stereo members form one chain and the four mono ones each have a worker of
-  their own: five clients, and 501 ms to add against mod-host's 306 ms ([rows](benchmarks.md#time-to-add-and-the-same-chain-with-the-add-into-the-chain)).
-  What closes it: a mono plugin run inside a stereo chain ([omx-clap-core#447](https://github.com/FreeMixer/omx-clap-core/issues/447)),
-  then the rows again.
+  single and grouped. With omx-clap-core 0.26.1 the four mono members run inside the stereo chain, and the chain adds in 256 ms
+  against mod-host's 317 ms. What closes it: the same set through Zynthian's own engine.
 - **A chain that does not form.** On plugin-hostd 0.15.4 a grouped chain did not form within 20 s in one of four cells at 18
   plugins and on one repeat at 32 and at 48. On 0.15.5 it formed in all six cells at 18 and every repeat up to 24. What closes
   it: rows at 32 and 48 on current versions.
