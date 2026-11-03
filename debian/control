@@ -32,6 +32,8 @@ Description: run LV2 and CLAP plugins so that one crash cannot stop the show
  A format whose worker is not installed refuses its adds; the other format
  is unaffected. mod-host is not packaged by Debian: install it from source
  for LV2 plugins.
+ .
+ Its documentation is on openmixer.org.
 
 Package: plugin-hostd-tests
 Architecture: any
@@ -43,6 +45,8 @@ Description: stand-in plugin worker to test a program that drives plugin-hostd
  audio. Run it with -L to print the layout it reports. It is installed in
  /usr/libexec/plugin-hostd/tests, away from the directories programs run
  from.
+ .
+ Its documentation is on openmixer.org.
 
 Package: plugin-hostd-dev
 Section: libdevel
@@ -54,6 +58,8 @@ Description: C headers to drive plugin-hostd from your own controller
  controller speaks (the verbs, error codes, feedback events and settings) is
  declared in libplugin-hostd-protocol-dev, which this package depends on:
  pkg-config plugin-hostd gives the flags for both.
+ .
+ Its documentation is on openmixer.org.
 
 Package: plugin-hostd-contract
 Architecture: all
@@ -68,3 +74,5 @@ Description: plugin-hostd's format tables, read at run time
  reasons a plan gives for a plugin it leaves alone (grouping.json), under
  /usr/share/omx-contract/contract.d/3/plugin-hostd. A program that reads
  them at run time depends on this package, never on the development one.
+ .
+ Its documentation is on openmixer.org.

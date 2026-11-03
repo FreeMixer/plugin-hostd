@@ -51,6 +51,7 @@ each named group of plugins, in a worker process of its own: mod-host for LV2,
 omx-clap-host for CLAP. If a plugin crashes, only its worker goes down and the
 daemon brings it back. Audio never passes through the daemon, so it adds no
 latency: every worker is a JACK client.
+Its documentation is on openmixer.org.
 
 %package devel
 Summary: Talk to plugin-hostd from your own controller without retyping its protocol
@@ -65,6 +66,7 @@ and the schemas of the probe output and of a preset file. The protocol a
 controller speaks (the verbs, error codes, feedback events and settings) is
 declared in plugin-hostd-protocol-devel, which this package requires:
 pkg-config plugin-hostd gives the flags for both.
+Its documentation is on openmixer.org.
 
 %package contract
 Summary: plugin-hostd's format tables, for programs that read them at run time
@@ -86,6 +88,7 @@ running history (history.json) and the reasons a plan gives for a plugin it
 leaves alone (grouping.json), under
 share/omx-contract/contract.d/3/plugin-hostd. A program that reads them at run
 time requires this package, never the development one.
+Its documentation is on openmixer.org.
 
 %package tests
 Summary: A stand-in plugin worker to test a program that drives plugin-hostd
@@ -98,6 +101,7 @@ tested against a real daemon without a plugin, a JACK server or any audio.
 Run it with -L to print the layout it reports. It is installed in
 %{_libexecdir}/plugin-hostd/tests, away from the directories programs run
 from.
+Its documentation is on openmixer.org.
 
 %prep
 %autosetup
@@ -126,7 +130,6 @@ make test-daemon check-generated check-rendered
 
 %files
 %license COPYING
-%doc README.md
 %{_bindir}/plugin-hostd
 %{_bindir}/plugin-hostd-probe
 # the probe's lock preload, which the runner preloads into the measured child
