@@ -24,8 +24,8 @@ def read(rel):
         return f.read()
 
 
-def printed(*args):
-    env = dict(os.environ)
+def printed(*args, **extra):
+    env = dict(os.environ, **extra)
     env.pop("LV2_PATH", None)
     env.pop("CLAP_PATH", None)
     return subprocess.run([sys.executable, "-I", os.path.join(ROOT, "tools", "search-paths.py")] + list(args), env=env,
@@ -48,6 +48,15 @@ check(paths["CLAP"] == "~/.clap:/usr/lib/clap", "the CLAP list is ~/.clap, then 
 check(printed("lv2") == lv2, "tools/search-paths.py lv2 prints the header's list")
 check(printed("clap") == [os.path.expanduser(d) for d in paths["CLAP"].split(":")],
       "tools/search-paths.py clap prints the header's list")
+
+# where no pkg-config is installed (a Zynthian image, the benchmark's container) the tool reads a checkout at PROTOCOL_DIR
+if not os.path.exists(os.path.join(ROOT, "include", "plugin-hostd", "search_paths.h")):
+    import shutil, tempfile
+    with tempfile.TemporaryDirectory() as checkout:
+        os.makedirs(os.path.join(checkout, "include", "plugin-hostd"))
+        shutil.copy(protocol_files.header("search_paths.h", ROOT), os.path.join(checkout, "include", "plugin-hostd"))
+        check(printed("lv2", PKG_CONFIG=os.path.join(checkout, "no-pkg-config"), PROTOCOL_DIR=checkout) == lv2,
+              "tools/search-paths.py lv2 reads PROTOCOL_DIR where no pkg-config is installed")
 
 # the generated outputs carry the header's defaults; the protocol's JSON is plugin-hostd-protocol's, written from the
 # installed header, so it is held to it only when the header is not a scratch copy of this tree

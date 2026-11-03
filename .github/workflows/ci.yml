@@ -429,7 +429,7 @@ jobs:
       - name: Install the build tools
         run: |
           apt-get update -qq
-          apt-get install -y --no-install-recommends ca-certificates curl git dpkg-dev debhelper build-essential lintian
+          apt-get install -y --no-install-recommends ca-certificates curl git dpkg-dev debhelper build-essential lintian python3
 
       - uses: actions/checkout@v4
         with:
@@ -642,7 +642,9 @@ jobs:
           dnf install -y --setopt=install_weak_deps=False --setopt=retries=10 plugin-hostd 'omx-clap-host >= 0.21.0' \
             omx-clap-host-tests omx-plugins-clap omx-plugins-lv2
           rpm -q plugin-hostd omx-clap-host omx-clap-host-tests omx-plugins-clap omx-plugins-lv2
-          grep -q '"chain_get"' /usr/share/plugin-hostd-protocol/plugin-hostd.json || {
+          # the channel's daemon names its verbs in plugin-hostd-protocol's JSON from 0.16.0, in its own before
+          json=$(rpm -qla | grep -m1 -xE '/usr/share/(plugin-hostd-protocol/plugin-hostd|plugin-hostd/protocol)\.json')
+          grep -q '"chain_get"' "$json" || {
             echo "::error::the channel's plugin-hostd has no chain_get (#162)"; exit 1; }
           for f in /usr/libexec/omx-clap-host/tests/fault-14.clap /usr/libexec/omx-clap-host/tests/jack_identity \
                    /usr/lib/clap/omx-strip.clap /usr/lib/clap/omx-limiter.clap /usr/lib64/lv2/omx-delay.lv2/manifest.ttl; do

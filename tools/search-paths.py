@@ -17,9 +17,12 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 def header_path():
     dirs = [os.path.join(ROOT, "include")]
-    p = subprocess.run([os.environ.get("PKG_CONFIG", "pkg-config"), "--cflags-only-I", "plugin-hostd-protocol"],
-                       capture_output=True, text=True)
-    if p.returncode == 0:
+    try:
+        p = subprocess.run([os.environ.get("PKG_CONFIG", "pkg-config"), "--cflags-only-I", "plugin-hostd-protocol"],
+                           capture_output=True, text=True)
+    except FileNotFoundError:  # no pkg-config installed: the checkout below
+        p = None
+    if p is not None and p.returncode == 0:
         dirs += [f[2:] for f in p.stdout.split() if f.startswith("-I")]
     dirs.append(os.path.join(os.environ.get("PROTOCOL_DIR", os.path.join(ROOT, "..", "plugin-hostd-protocol")), "include"))
     for d in dirs:
