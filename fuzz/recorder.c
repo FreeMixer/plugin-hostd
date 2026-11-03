@@ -352,8 +352,8 @@ char *sup_broadcast(const char *line)
     return answer(c, REC_MOD_HOST_SHAPE, 1);
 }
 
-/* a broadcast whose answer is the LV2 worker's: to the harness, a broadcast */
-char *sup_broadcast_lv2(const char *line)
+/* preset_show, routed by its words as the worker reads them: to the harness, a broadcast */
+char *sup_preset_show(const char *line)
 {
     return sup_broadcast(line);
 }
