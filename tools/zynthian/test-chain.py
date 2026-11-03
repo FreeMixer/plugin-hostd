@@ -647,7 +647,7 @@ def audio_ports(client, output):
 
 
 def chain_lv2_path():
-    """CHAIN_LV2_PATH, else plugin-hostd's default list (include/plugin-hostd/search_paths.h)"""
+    """CHAIN_LV2_PATH, else plugin-hostd's default list (plugin-hostd-protocol's plugin-hostd/search_paths.h)"""
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "search-paths.py")
     return os.environ.get("CHAIN_LV2_PATH") or ":".join(subprocess.run(
         [sys.executable, "-I", path, "lv2", "--existing"], capture_output=True, text=True, check=True).stdout.split())

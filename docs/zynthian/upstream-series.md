@@ -168,7 +168,7 @@ declares in its own protocol file rather than for the port.
 - `tests/plugin-hostd-ready-check.sh` (no device, a stand-in daemon that opens no port): 0 failed. It also fails a
   wrong line, a silent daemon and a missing protocol file.
 - MOD-UI's verbs on both backends, from the spike's recorded session ([evidence/path-a/diff.txt](evidence/path-a/diff.txt),
-  [verbs.tsv](verbs.tsv)): 135 calls over 16 verbs, 5 replies differ: two `connect` to `mod-monitor` (plugin-hostd
+  [mod-ui-verbs.tsv](https://github.com/FreeMixer/plugin-hostd-protocol/blob/main/doc/evidence/mod-ui-verbs.tsv)): 135 calls over 16 verbs, 5 replies differ: two `connect` to `mod-monitor` (plugin-hostd
   had no mod-monitor client), one `feature_enable aggregated-midi` (mod-host -202, plugin-hostd 0) and two
   `preset_load` of a preset file (-105). Figure:
   [evidence/series/03-modhost-backend/verb-replies.svg](evidence/series/03-modhost-backend/verb-replies.svg), one

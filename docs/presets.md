@@ -92,4 +92,4 @@ A state file adds `"carries": "params+state"` and
    declared range, an unknown symbol ignored, as clap.state's load does.
 
 Parameter feedback (the `param_set` event a worker writes for a value the plugin moved by itself, a preset load
-included) is the declared event of protocol/plugin-hostd.json; a controller's own writes produce none.
+included) is the declared event of the protocol's JSON (plugin-hostd-protocol's `plugin-hostd.json`); a controller's own writes produce none.
