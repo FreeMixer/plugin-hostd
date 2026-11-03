@@ -3,6 +3,9 @@ src/*.o
 tests/fake-host
 tests/plugin-hostd-alloc-fail
 tests/alloc-fail-objs/
+tests/plan-refused-objs/
+tests/plugin-hostd-plan-refused
+tests/plan-refused.out
 tests/*.clap
 __pycache__/
 tests/jack_levels
