@@ -1507,6 +1507,13 @@ SABOTAGE = [
     ("a logarithmic port is answered linear", "src/lv2.c", 'p->logarithmic && p->min > 0 && p->max > 0 ? "log" : "linear"', '"linear"', "an_lv2_instance_answers_remote_pages_from_the_groups_of_its_bundle_and_param_info_from_its_ports"),
     ("a unit with no word is answered as none", "src/lv2.c", "(p->unit_named && !p->unit))", "0)", "an_lv2_instance_answers_remote_pages_from_the_groups_of_its_bundle_and_param_info_from_its_ports"),
     ("the bundle's ports are not read: the daemon asks mod-host", "src/lv2.c", "    ports = ports_of_instance(id);\n    if (ports != NULL)\n    {\n        p = port_named", "    ports = NULL;\n    if (ports != NULL)\n    {\n        p = port_named", "an_lv2_instance_answers_remote_pages_from_the_groups_of_its_bundle_and_param_info_from_its_ports"),
+    ("preset_show of an instance is broadcast, not sent to its holder", "src/verbs.c",
+     "        return number(tok[1], &id) ? sup_call(id, line) : sup_resp(ERR_INVALID_OPERATION);",
+     "        return number(tok[1], &id) ? sup_broadcast(line) : sup_resp(ERR_INVALID_OPERATION);",
+     "preset_show_of_an_instance_is_answered_by_the_worker_that_holds_it_whatever_another_worker_says"),
+    ("preset_show of a uri takes the first answer, not the LV2 worker's", "src/verbs.c",
+     "        return sup_broadcast_lv2(line);", "        return sup_broadcast(line);",
+     "preset_show_of_a_uri_is_answered_as_mod_host_answers_it_by_the_lv2_worker"),
     ("the handler of a declared verb is deleted: plan", "src/verbs.c",
      "    if (!strcmp(verb, OMX_VERB_PLAN))\n        return plan_words(tok, ntok);\n", "", "verbs_declared", "verbs"),
 ]
