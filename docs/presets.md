@@ -31,8 +31,11 @@ each state body's `bytes` replaced by its decoded `size`; for a listed preset (a
 and `location`. It is not `resp 0 <carries> <name>`: `carries` and `name` are fields of that object.
 
 A file path is absolute (it starts with `/`); any other word is a stable name of the plugin's own presets, the
-`load_key` of `preset_get`. The name of `preset_save` is the rest of the line, quoted when it holds a space. A
-`preset_show` whose first argument is no instance number is mod-host's form and goes to every worker as before.
+`load_key` of `preset_get`. The name of `preset_save` is the rest of the line, quoted when it holds a space.
+`preset_show` has two forms, told apart by their number of words: `preset_show <instance> <key>` goes to the worker
+that holds the instance alone, and `preset_show <uri>`, mod-host's form, goes to every worker and is answered as
+mod-host answers it, by the LV2 worker: the preset's state, with no `resp` before it (the first answer of the workers
+when no LV2 worker of mod-host's is up).
 `bundle_add` and `bundle_remove` stay as declared.
 
 ### Refusals

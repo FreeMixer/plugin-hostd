@@ -264,6 +264,9 @@ static char *handle(char *line, char **tok, int ntok)
     for (size_t n = 0; n < sizeof(g_instance_info_verbs) / sizeof(g_instance_info_verbs[0]); n++)
         if (!strcmp(verb, g_instance_info_verbs[n].name))
             return sup_instance_verb(line, g_instance_info_verbs[n].ledger);
+    /* preset_show's forms are told apart by their words as the worker reads them, which these tokens are not */
+    if (verb_is(verb, EFFECT_PRESET_SHOW))
+        return sup_preset_show(line);
     if (is_instance_verb(verb) && ntok > 1)
         return sup_call(atoi(tok[1]), line);
     if ((verb_is(verb, EFFECT_CONNECT) || verb_is(verb, EFFECT_DISCONNECT)) && ntok == 3)
