@@ -23,23 +23,40 @@ PROBE_LOCK = plugin-hostd-probe-lock.so
 
 PKG_CONFIG ?= pkg-config
 
-# a mod-host checkout: the library when pkg-config has none, and always the scenario corpus of the jack test
-MOD_HOST_DIR ?= ../mod-host
+# a plugin-hostd-protocol checkout, used when pkg-config finds no installed plugin-hostd-protocol
+PROTOCOL_DIR ?= ../plugin-hostd-protocol
 
-# mod-host protocol library: pkg-config when it is installed, a mod-host checkout otherwise
-ifeq ($(shell $(PKG_CONFIG) --exists mod-host-protocol && echo true), true)
-PROTOCOL_CFLAGS = $(shell $(PKG_CONFIG) --cflags mod-host-protocol)
-PROTOCOL_LIBS = $(shell $(PKG_CONFIG) --libs mod-host-protocol)
+# the protocol library, plugin-hostd-protocol: pkg-config when it is installed, a checkout of it otherwise. Beside the
+# library: the scenario corpus and the source of its runner (the jack test), and the protocol page the verb table is
+# read from
+ifeq ($(shell $(PKG_CONFIG) --exists plugin-hostd-protocol && echo true), true)
+PROTOCOL_CFLAGS = $(shell $(PKG_CONFIG) --cflags plugin-hostd-protocol)
+PROTOCOL_LIBS = $(shell $(PKG_CONFIG) --libs plugin-hostd-protocol)
+PROTOCOL_SCENARIOS = $(shell $(PKG_CONFIG) --variable=scenarios plugin-hostd-protocol)
+PROTOCOL_RUNNER = $(shell $(PKG_CONFIG) --variable=runner plugin-hostd-protocol)
+PROTOCOL_PAGE = $(shell $(PKG_CONFIG) --variable=protocoldoc plugin-hostd-protocol)
+PROTOCOL_JSON = $(shell $(PKG_CONFIG) --variable=protocoljson plugin-hostd-protocol)
+MODHOST_JSON = $(shell $(PKG_CONFIG) --variable=modhostjson plugin-hostd-protocol)
 else
-PROTOCOL_LIB = $(MOD_HOST_DIR)/libmod-host-protocol.so
-PROTOCOL_CFLAGS = -I$(MOD_HOST_DIR)/src
+PROTOCOL_LIB = $(PROTOCOL_DIR)/libplugin-hostd-protocol.so
+PROTOCOL_CFLAGS = -I$(PROTOCOL_DIR)/include
 # the checkout's library is not installed: the binary finds it there through its rpath
-PROTOCOL_LIBS = -L$(MOD_HOST_DIR) -lmod-host-protocol -Wl,-rpath,$(abspath $(MOD_HOST_DIR))
+PROTOCOL_LIBS = -L$(PROTOCOL_DIR) -lplugin-hostd-protocol -Wl,-rpath,$(abspath $(PROTOCOL_DIR))
+PROTOCOL_SCENARIOS = $(PROTOCOL_DIR)/tests/host-scenarios.txt
+PROTOCOL_RUNNER = $(PROTOCOL_DIR)/tests/host_scenarios.c
+PROTOCOL_PAGE = $(PROTOCOL_DIR)/doc/protocol.md
+PROTOCOL_JSON = $(PROTOCOL_DIR)/protocol/plugin-hostd.json
+MODHOST_JSON = $(PROTOCOL_DIR)/protocol/mod-host.json
 endif
 
-# the directory holding mod-host's protocol headers, which protocol/mod-host.json is written from: the -I of the
-# protocol's flags (mod-host-protocol.pc names <includedir>/mod-host), or MOD_HOST_INCLUDE=<dir> on the command line
-MOD_HOST_INCLUDE ?= $(patsubst -I%,%,$(firstword $(filter -I%,$(PROTOCOL_CFLAGS))))
+# The declared protocol is plugin-hostd-protocol's (0.2.0 or later), never this tree's: <plugin-hostd/protocol.h> and
+# the headers it includes are found through PROTOCOL_CFLAGS, after this tree's -Iinclude (which holds pin.h and the
+# vocabulary of data/, and in a scratch tree of tests/sabotage.py a changed copy of the protocol headers); the JSON of
+# protocol.h (PROTOCOL_JSON) and mod-host's (MODHOST_JSON) are its files. make check-no-protocol-copy fails when a copy
+# of any of them is back in this tree.
+PROTOCOL_INCLUDE = $(firstword $(foreach d,$(patsubst -I%,%,$(filter -I%,$(PROTOCOL_CFLAGS))),$(if $(wildcard $(d)/plugin-hostd/protocol.h),$(d))))
+# what is built from them depends on them, and on a scratch copy of them in include/plugin-hostd/ where one is
+PROTOCOL_HEADERS = $(wildcard include/plugin-hostd/*.h $(PROTOCOL_INCLUDE)/plugin-hostd/*.h)
 
 # omx-contract's C header (omx-contract-devel, libomx-contract-dev): the probe runner's default rates and the protocol's
 # parameter scales are read from it; CONTRACT_CFLAGS=-I<dir> for a header that is not installed
@@ -68,11 +85,9 @@ SRC = src/main.c src/conf.c src/proc.c src/supervisor.c src/verbs.c src/pins.c s
       src/descriptors.c src/describe.c src/transforms.c src/json.c src/fsutil.c src/machine.c src/history.c src/planner.c src/qualcost.c src/placement.c
 OBJ = $(SRC:.c=.o)
 
-# the C names of the daemon's verbs and reply codes, rendered from data/verbs.json (render-verbs below), and of the verbs
-# and reply codes it shares with omx-clap-host, rendered from omx-clap-core's package of the contract directory; protocol.h
-# includes them
-RENDERED = include/plugin-hostd/plugin_hostd_host_verbs.h include/plugin-hostd/plugin_hostd_vocabulary.h \
-           include/plugin-hostd/omx_clap_core_host_verbs.h include/plugin-hostd/omx_clap_core_vocabulary.h
+# the C names of the words of this tree's tables (data/grouping.json, data/history.json), rendered by omx-contract
+# (render-verbs below); the daemon's verbs and reply codes are rendered in plugin-hostd-protocol, beside protocol.h
+RENDERED = include/plugin-hostd/plugin_hostd_vocabulary.h
 
 # default build
 all: $(PROG) $(PROBE) $(PROBE_LOCK)
@@ -80,11 +95,11 @@ all: $(PROG) $(PROBE) $(PROBE_LOCK)
 $(PROG): $(OBJ) $(PROTOCOL_LIB)
 	$(CC) $(OBJ) $(PROTOCOL_LIBS) $(LDFLAGS) -pthread -lm -o $@
 
-# the probe runner: it loads no plugin and links nothing of the daemon or of mod-host
+# the probe runner: it loads no plugin and links nothing of the daemon or of the protocol library
 # describe reads the installed table of a format by default (docs/formats.md)
 PROBE_SRC = src/probe.c src/probe_cgroup.c src/json.c src/describe.c src/transforms.c src/machine.c
-$(PROBE): $(PROBE_SRC) src/probe_cgroup.h src/json.h src/describe.h src/transforms.h src/machine.h src/probe_lock.h include/plugin-hostd/protocol.h $(RENDERED) include/plugin-hostd/pin.h
-	$(CC) -Iinclude -Isrc $(CONTRACT_CFLAGS) $(CFLAGS) -D_GNU_SOURCE -DPROBE_VERSION='"$(VERSION)"' \
+$(PROBE): $(PROBE_SRC) src/probe_cgroup.h src/json.h src/describe.h src/transforms.h src/machine.h src/probe_lock.h $(PROTOCOL_HEADERS) $(RENDERED) include/plugin-hostd/pin.h
+	$(CC) -Iinclude $(PROTOCOL_CFLAGS) -Isrc $(CONTRACT_CFLAGS) $(CFLAGS) -D_GNU_SOURCE -DPROBE_VERSION='"$(VERSION)"' \
 	  -DPROBE_CONTRACTDIR='"$(CONTRACTDIR)"' -DPROBE_CONTRACT_MAJOR='"$(CONTRACT_SCHEMA_MAJOR)"' \
 	  -DPROBE_LOCK_PRELOAD='"$(LIBEXECDIR)/plugin-hostd/probe-lock.so"' -o $@ $(PROBE_SRC) -lm
 
@@ -95,11 +110,11 @@ $(PROBE_LOCK): src/probe_lock.c src/probe_lock.h
 
 ifneq ($(PROTOCOL_LIB),)
 $(PROTOCOL_LIB):
-	$(MAKE) -C $(MOD_HOST_DIR) libmod-host-protocol.so
+	$(MAKE) -C $(PROTOCOL_DIR) libplugin-hostd-protocol.so
 endif
 
 # the declared protocol is compiled into every object
-$(OBJ): include/plugin-hostd/protocol.h include/plugin-hostd/search_paths.h $(RENDERED) include/plugin-hostd/pin.h
+$(OBJ): $(PROTOCOL_HEADERS) $(RENDERED) include/plugin-hostd/pin.h
 
 # the host class of the history is the probe's machine class: the contract's band words
 src/machine.o: INCS += $(CONTRACT_CFLAGS)
@@ -127,27 +142,22 @@ install: $(PROG) $(PROBE) $(PROBE_LOCK) install_man install_protocol install_tes
 	install -d $(DESTDIR)$(LIBEXECDIR)/plugin-hostd
 	install -m 644 $(PROBE_LOCK) $(DESTDIR)$(LIBEXECDIR)/plugin-hostd/probe-lock.so
 
-# the declared protocol: the JSON for readers that are not C, which the package carries; the header, its pkg-config
-# file and the schema of the JSON, which the development package carries; and the pins_dir other packages drop their
-# pins in
+# what this tree declares beside the protocol (the protocol itself is plugin-hostd-protocol's): the schemas of the probe
+# output and of a preset file, the pin header and the vocabulary of data/, their pkg-config file, and the pins_dir other
+# packages drop their pins in
 install_protocol:
 	install -d $(DESTDIR)$(DATADIR)/plugin-hostd
-	install -m 644 protocol/plugin-hostd.json $(DESTDIR)$(DATADIR)/plugin-hostd/protocol.json
-	install -m 644 protocol/mod-host.json $(DESTDIR)$(DATADIR)/plugin-hostd/mod-host.json
-	install -m 644 protocol/plugin-hostd.schema.json $(DESTDIR)$(DATADIR)/plugin-hostd/protocol.schema.json
 	install -m 644 protocol/probe-output.schema.json $(DESTDIR)$(DATADIR)/plugin-hostd/probe-output.schema.json
 	install -m 644 protocol/preset.schema.json $(DESTDIR)$(DATADIR)/plugin-hostd/preset.schema.json
 	install -d $(DESTDIR)$(DATADIR)/plugin-hostd/pins.d
 	install -d $(DESTDIR)$(INCLUDEDIR)/plugin-hostd
-	install -m 644 include/plugin-hostd/protocol.h $(DESTDIR)$(INCLUDEDIR)/plugin-hostd/protocol.h
 	install -m 644 $(RENDERED) $(DESTDIR)$(INCLUDEDIR)/plugin-hostd/
-	install -m 644 include/plugin-hostd/search_paths.h $(DESTDIR)$(INCLUDEDIR)/plugin-hostd/search_paths.h
 	install -m 644 include/plugin-hostd/pin.h $(DESTDIR)$(INCLUDEDIR)/plugin-hostd/pin.h
 	install -d $(DESTDIR)$(DATADIR)/pkgconfig
 	sed -e 's,@PREFIX@,$(PREFIX),g' -e 's,@VERSION@,$(VERSION),g' protocol/plugin-hostd.pc.in > $(DESTDIR)$(DATADIR)/pkgconfig/plugin-hostd.pc
 	chmod 644 $(DESTDIR)$(DATADIR)/pkgconfig/plugin-hostd.pc
 
-# the format tables (data/formats/, docs/formats.md) and the verbs (data/verbs.json) this tree owns, installed as the
+# the format tables (data/formats/, docs/formats.md) and the grouping and history words this tree owns, installed as the
 # package plugin-hostd into omx-contract's contract directory, <contractdir>/<schema major>/plugin-hostd/, with a
 # MANIFEST.json naming this version and the tree they came from; plugin-hostd-contract ships them. contractdir and the
 # install script are omx-contract-devel's; a checkout of omx-contract (OMX_CONTRACT_DIR) stands in for the script when
@@ -171,10 +181,10 @@ check-contract-dir:
 	$(MAKE) --no-print-directory install-contract DESTDIR=$$tmp >/dev/null; \
 	OMX_CONTRACT_PATH=$$tmp$(CONTRACTDIR)$(if $(OMX_CONTRACT_PATH),:$(OMX_CONTRACT_PATH)):$(CONTRACTDIR) $(OMX_CONTRACT) validate --installed
 
-# the daemon's verbs and reply codes (data/verbs.json), rendered by omx-contract as the package installs them, beside
-# the packages of OMX_CONTRACT_PATH and of the installed contract directory: the C names every source and protocol.h
-# read (OMX_VERB_<VERB>, its _FMT, _REPLY and _CODES_INIT). `make render-verbs` writes them, `make check-rendered`
-# fails on any drift.
+# the words of this tree's tables (data/), rendered by omx-contract as the package installs them, beside the packages of
+# OMX_CONTRACT_PATH and of the installed contract directory: the C names the planner and the history read
+# (plugin_hostd_vocabulary.h). `make render-verbs` writes them, `make check-rendered` fails on any drift. The daemon's
+# verbs are plugin-hostd-protocol's, rendered there.
 OMX_CONTRACT ?= omx-contract
 .PHONY: render-verbs check-rendered
 render-verbs check-rendered:
@@ -183,12 +193,6 @@ render-verbs check-rendered:
 	sh $(INSTALL_CONTRACT_DIR) $(PROG) $(VERSION) $(CONTRACT_SCHEMA_MAJOR) data $$tmp data >/dev/null; \
 	OMX_CONTRACT_PATH=$$tmp$(if $(OMX_CONTRACT_PATH),:$(OMX_CONTRACT_PATH)):$(CONTRACTDIR) \
 	  $(OMX_CONTRACT) render --target c --package $(PROG) --installed --out include/plugin-hostd $(if $(filter check-rendered,$@),--check)
-	@set -e; tmp=$$(mktemp -d); trap 'rm -rf $$tmp' EXIT; \
-	OMX_CONTRACT_PATH=$(if $(OMX_CONTRACT_PATH),$(OMX_CONTRACT_PATH):)$(CONTRACTDIR) \
-	  $(OMX_CONTRACT) render --target c --package omx-clap-core --installed --out $$tmp; \
-	for f in omx_clap_core_host_verbs.h omx_clap_core_vocabulary.h; do \
-	  $(if $(filter check-rendered,$@),cmp -s $$tmp/$$f include/plugin-hostd/$$f || { echo "include/plugin-hostd/$$f is not the render of omx-clap-core's package" >&2; exit 1; },cp $$tmp/$$f include/plugin-hostd/$$f); \
-	done
 
 # the tables cover their format (tests/format_coverage.py, docs/formats.md#the-coverage-test): every term of
 # omx-contract's installed TERM files and every row with a from, once per format, each field one row; then its sabotage
@@ -210,10 +214,17 @@ install_man:
 	install -d $(DESTDIR)$(MANDIR)
 	install -m 644 doc/*.1 $(DESTDIR)$(MANDIR)
 
+# The declared protocol is plugin-hostd-protocol's: no copy of its tables, its JSON, its headers or their generators is
+# back in this tree, and no header here declares what protocol.h declares (tests/no_protocol_copy.py, with its
+# --self-test, which plants each kind of copy in a scratch tree and must see it red)
+check-no-protocol-copy:
+	python3 tests/no_protocol_copy.py
+	python3 tests/no_protocol_copy.py --self-test
+
 # No tracked file points into a private repository, issue, branch or path: FreeMixer/.github's private-refs check, from a
 # checkout of it (FREEMIXER_DOTGITHUB, else ../freemixer-dotgithub); CI runs it through the public-sources-check workflow.
 FREEMIXER_DOTGITHUB ?= ../freemixer-dotgithub
-.PHONY: private-refs check-verb-table
+.PHONY: private-refs check-no-protocol-copy
 private-refs:
 	$(FREEMIXER_DOTGITHUB)/.github/actions/private-refs-check/check.sh .
 
@@ -237,7 +248,7 @@ FUZZ_INCS      := -Iinclude -Isrc -Ifuzz $(PROTOCOL_CFLAGS)
 # reply harness includes src/relay.c itself
 FUZZ_SRC_command := src/verbs.c src/pin_words.c fuzz/recorder.c
 FUZZ_SRC_reply   :=
-FUZZ_DEPS        := src/pin_words.c fuzz/fuzz.h fuzz/syntax.h fuzz/recorder.h src/relay.c src/verbs.h include/plugin-hostd/protocol.h $(RENDERED)
+FUZZ_DEPS        := src/pin_words.c fuzz/fuzz.h fuzz/syntax.h fuzz/recorder.h src/relay.c src/verbs.h $(PROTOCOL_HEADERS) $(RENDERED)
 
 $(FUZZ_BUILD)/fuzz_%: fuzz/fuzz_%.c $(FUZZ_DEPS) $(FUZZ_SRC_command)
 	@mkdir -p $(dir $@)
@@ -277,14 +288,15 @@ fuzz-coverage: $(FUZZ_HARNESSES:%=$(FUZZ_COV_BUILD)/fuzz_%)
 	done
 	@LLVM_COV=$(LLVM_COV) fuzz/coverage.sh $(FUZZ_COV_BUILD) $(FUZZ_HARNESSES)
 
-# the seed corpus is written from protocol/plugin-hostd.json, protocol/mod-host.json and the send lines of README.md and
-# docs/own-host.md, never from a network, and committed; fuzz-corpus-check fails when it is not what they give
+# the seed corpus is written from plugin-hostd-protocol's JSON of the protocol and of mod-host's (PROTOCOL_JSON,
+# MODHOST_JSON) and the send lines of README.md and docs/own-host.md, never from a network, and committed;
+# fuzz-corpus-check fails when it is not what they give
 fuzz-corpus:
-	python3 fuzz/gen_corpus.py fuzz/corpus
+	PROTOCOL_JSON=$(PROTOCOL_JSON) MODHOST_JSON=$(MODHOST_JSON) python3 fuzz/gen_corpus.py fuzz/corpus
 
 fuzz-corpus-check:
 	@set -e; tmp=$$(mktemp -d); trap 'rm -rf $$tmp' EXIT; \
-	python3 fuzz/gen_corpus.py $$tmp; diff -r $$tmp fuzz/corpus; echo "the seed corpus is current"
+	PROTOCOL_JSON=$(PROTOCOL_JSON) MODHOST_JSON=$(MODHOST_JSON) python3 fuzz/gen_corpus.py $$tmp; diff -r $$tmp fuzz/corpus; echo "the seed corpus is current"
 
 .PHONY: fuzz fuzz-run fuzz-sabotage fuzz-records fuzz-coverage fuzz-corpus fuzz-corpus-check
 
@@ -295,8 +307,8 @@ clean:
 
 # the daemon against workers that are not plugin hosts at all (tests/fake-host speaks the same protocol and can be
 # made to die on cue): placement, forwarding, ledger, replay, attribution, the storm bound; no jack, no plugin
-test: test-protocol-lib test-plan-refused test-sabotage-pool test-pin test-history test-proc test-conf test-own-host-probe-teardown test-planner test-placement test-transforms test-format-coverage test-describe test-relay test-alloc test-alloc-sweep test-format test-ready-connect test-ready-connect-sabotage test-bind test-bind-sabotage test-daemon test-verbs-declared check-rendered check-generated check-protocol-doc check-schema test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-mod-host-json test-socket check-verb-table check-preset-schema test-install-schemas check-contract-floor check-readme-facts test-pin-files
-	MOD_HOST_DIR=$(MOD_HOST_DIR) python3 tests/verbs_contract.py
+test: test-protocol-lib test-plan-refused test-sabotage-pool test-pin test-history test-proc test-conf test-own-host-probe-teardown test-planner test-placement test-transforms test-format-coverage test-describe test-relay test-alloc test-alloc-sweep test-format test-ready-connect test-ready-connect-sabotage test-bind test-bind-sabotage test-daemon test-verbs-declared check-rendered check-generated check-no-protocol-copy test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-socket check-preset-schema test-install-schemas check-contract-floor check-readme-facts test-pin-files
+	PROTOCOL_DIR=$(PROTOCOL_DIR) PROTOCOL_PAGE=$(PROTOCOL_PAGE) python3 tests/verbs_contract.py
 
 # the protocol clients plugin-hostd-tests ships (tests/lib/), against a peer that frames by NUL, and their sabotage
 .PHONY: test-protocol-lib
@@ -325,7 +337,7 @@ test-bind: $(PROG) $(FAKE)
 test-bind-sabotage: $(PROG) $(FAKE)
 	python3 tests/bind_sabotage.py ./$(PROG) $(FAKE) "$(CC)" "$(CFLAGS) $(INCS)" "$(OBJ)" "$(PROTOCOL_LIBS) $(LDFLAGS)"
 
-# the same without the verb table, which is read from a mod-host checkout's README
+# the same without the verb table, which is read from the protocol page (PROTOCOL_PAGE)
 test-daemon: $(PROG) $(FAKE)
 	PLUGIN_HOSTD=./$(PROG) FAKE_HOST=./$(FAKE) python3 tests/daemon_test.py
 
@@ -366,15 +378,15 @@ test-pin: $(PIN_TEST)
 	./$(PIN_TEST)
 
 $(PIN_TEST): tests/pin_test.c include/plugin-hostd/pin.h
-	$(CC) -Iinclude $(CFLAGS) -Werror -o $@ tests/pin_test.c
+	$(CC) -Iinclude $(PROTOCOL_CFLAGS) $(CFLAGS) -Werror -o $@ tests/pin_test.c
 
 # the running history (src/history.c, the grouping-planner design note): its line grammar, its file, what its
 # counts and its summary come to, against records written out by hand; and the host class it is kept under (src/machine.c)
 test-history: $(HISTORY_TEST)
 	./$(HISTORY_TEST)
 
-$(HISTORY_TEST): tests/history_test.c src/history.c src/history.h src/fsutil.c src/fsutil.h src/machine.c src/machine.h include/plugin-hostd/protocol.h $(RENDERED)
-	$(CC) -Iinclude -Isrc $(CONTRACT_CFLAGS) $(CFLAGS) -Werror -o $@ tests/history_test.c src/history.c src/fsutil.c src/machine.c -lm
+$(HISTORY_TEST): tests/history_test.c src/history.c src/history.h src/fsutil.c src/fsutil.h src/machine.c src/machine.h $(PROTOCOL_HEADERS) $(RENDERED)
+	$(CC) -Iinclude $(PROTOCOL_CFLAGS) -Isrc $(CONTRACT_CFLAGS) $(CFLAGS) -Werror -o $@ tests/history_test.c src/history.c src/fsutil.c src/machine.c -lm
 
 # tests/own_host_lv2_probe.py closes its JACK client on every exit path: run against a fake libjack whose realtime thread
 # keeps firing the callback, a probe that skips the close dies with SIGSEGV at interpreter teardown
@@ -386,15 +398,15 @@ test-own-host-probe-teardown:
 test-proc: $(PROC_TEST)
 	./$(PROC_TEST)
 
-$(PROC_TEST): tests/proc_test.c src/proc.c src/proc.h src/conf.h include/plugin-hostd/protocol.h $(RENDERED)
+$(PROC_TEST): tests/proc_test.c src/proc.c src/proc.h src/conf.h $(PROTOCOL_HEADERS) $(RENDERED)
 	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -o $@ tests/proc_test.c src/proc.c -pthread -lm
 
-# the search settings (src/conf.c, include/plugin-hostd/search_paths.h): the default lists, $LV2_PATH, lv2_extra, $CLAP_PATH
+# the search settings (src/conf.c, plugin-hostd-protocol's plugin-hostd/search_paths.h): the default lists, $LV2_PATH, lv2_extra, $CLAP_PATH
 test-conf: $(CONF_TEST)
 	./$(CONF_TEST)
 	python3 tests/search_paths_once.py
 
-$(CONF_TEST): tests/conf_test.c src/conf.c src/conf.h include/plugin-hostd/protocol.h include/plugin-hostd/search_paths.h $(RENDERED)
+$(CONF_TEST): tests/conf_test.c src/conf.c src/conf.h $(PROTOCOL_HEADERS) $(RENDERED)
 	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -o $@ tests/conf_test.c src/conf.c
 
 # the grouping planner (src/planner.c, the grouping-planner design note), on its own: each reason it gives, the order its
@@ -406,8 +418,8 @@ test-planner: $(PLANNER_TEST) $(QUALCOST_TEST)
 $(QUALCOST_TEST): tests/qualcost_test.c src/qualcost.c src/qualcost.h src/json.c src/json.h
 	$(CC) -Isrc $(CFLAGS) -Werror -o $@ tests/qualcost_test.c src/qualcost.c src/json.c -lm
 
-$(PLANNER_TEST): tests/planner_test.c src/planner.c src/planner.h include/plugin-hostd/protocol.h $(RENDERED)
-	$(CC) -Iinclude -Isrc $(CFLAGS) -Werror -o $@ tests/planner_test.c src/planner.c
+$(PLANNER_TEST): tests/planner_test.c src/planner.c src/planner.h $(PROTOCOL_HEADERS) $(RENDERED)
+	$(CC) -Iinclude $(PROTOCOL_CFLAGS) -Isrc $(CFLAGS) -Werror -o $@ tests/planner_test.c src/planner.c
 
 # the core placement (src/placement.c, docs/placement.md), on its own: the cpu lists, the audio and reserved cores of a
 # mask, and the least-loaded rule
@@ -429,13 +441,13 @@ $(TRANSFORMS_TEST): tests/transforms_test.c src/transforms.c src/transforms.h
 test-relay: $(RELAY_TEST)
 	./$(RELAY_TEST)
 
-$(RELAY_TEST): tests/relay_test.c src/relay.c src/relay.h include/plugin-hostd/protocol.h $(RENDERED)
-	$(CC) -Iinclude $(CFLAGS) -Werror -Drealloc=relay_test_realloc -c -o tests/relay-test-relay.o src/relay.c
+$(RELAY_TEST): tests/relay_test.c src/relay.c src/relay.h $(PROTOCOL_HEADERS) $(RENDERED)
+	$(CC) -Iinclude $(PROTOCOL_CFLAGS) $(CFLAGS) -Werror -Drealloc=relay_test_realloc -c -o tests/relay-test-relay.o src/relay.c
 	$(CC) -Isrc $(CFLAGS) -Werror -o $@ tests/relay_test.c tests/relay-test-relay.o -pthread
 # the whole daemon when memory runs out: built with every allocation of its own sources going through tests/alloc_fail.c,
 # and the scenario of tests/alloc_sweep.py run with each allocation refused in turn
 ALLOC_SWEEP_DAEMON = tests/plugin-hostd-alloc-fail
-$(ALLOC_SWEEP_DAEMON): $(SRC) tests/alloc_fail.c tests/alloc_fail.h $(wildcard src/*.h) include/plugin-hostd/protocol.h $(RENDERED) $(PROTOCOL_LIB)
+$(ALLOC_SWEEP_DAEMON): $(SRC) tests/alloc_fail.c tests/alloc_fail.h $(wildcard src/*.h) $(PROTOCOL_HEADERS) $(RENDERED) $(PROTOCOL_LIB)
 	mkdir -p tests/alloc-fail-objs
 	for f in $(SRC); do $(CC) $(CFLAGS) $(INCS) $(CONTRACT_CFLAGS) -include tests/alloc_fail.h -c -o tests/alloc-fail-objs/$$(basename $$f .c).o $$f || exit 1; done
 	$(CC) $(CFLAGS) -c -o tests/alloc-fail-objs/alloc_fail.o tests/alloc_fail.c
@@ -443,7 +455,7 @@ $(ALLOC_SWEEP_DAEMON): $(SRC) tests/alloc_fail.c tests/alloc_fail.h $(wildcard s
 
 # a refused plan over a longer one: the daemon's joint world cannot be built, and a pointer array ends against a guard page
 PLAN_REFUSED_DAEMON = tests/plugin-hostd-plan-refused
-$(PLAN_REFUSED_DAEMON): $(SRC) tests/world_refuse.c tests/guard_calloc.c tests/guard_calloc.h $(wildcard src/*.h) include/plugin-hostd/protocol.h $(RENDERED) $(PROTOCOL_LIB)
+$(PLAN_REFUSED_DAEMON): $(SRC) tests/world_refuse.c tests/guard_calloc.c tests/guard_calloc.h $(wildcard src/*.h) $(PROTOCOL_HEADERS) $(RENDERED) $(PROTOCOL_LIB)
 	mkdir -p tests/plan-refused-objs
 	for f in $(SRC); do $(CC) $(CFLAGS) $(INCS) $(CONTRACT_CFLAGS) -include tests/guard_calloc.h -c -o tests/plan-refused-objs/$$(basename $$f .c).o $$f || exit 1; done
 	$(CC) $(CFLAGS) -c -o tests/plan-refused-objs/guard_calloc.o tests/guard_calloc.c
@@ -468,8 +480,8 @@ test-alloc: $(GESTURE_ALLOC_TEST) $(LV2_ALLOC_TEST) $(VERBS_ALLOC_TEST)
 	./$(LV2_ALLOC_TEST)
 	./$(VERBS_ALLOC_TEST)
 
-$(GESTURE_ALLOC_TEST): tests/gesture_alloc_test.c src/relay.c src/relay.h include/plugin-hostd/protocol.h $(RENDERED)
-	$(CC) -Iinclude -Isrc $(CFLAGS) -Werror -Drealloc=alloc_test_realloc -o $@ tests/gesture_alloc_test.c -pthread
+$(GESTURE_ALLOC_TEST): tests/gesture_alloc_test.c src/relay.c src/relay.h $(PROTOCOL_HEADERS) $(RENDERED)
+	$(CC) -Iinclude $(PROTOCOL_CFLAGS) -Isrc $(CFLAGS) -Werror -Drealloc=alloc_test_realloc -o $@ tests/gesture_alloc_test.c -pthread
 
 $(LV2_ALLOC_TEST): tests/lv2_alloc_test.c src/lv2.c src/formats.h
 	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -Drealloc=alloc_test_realloc -c -o tests/lv2-alloc-lv2.o src/lv2.c
@@ -484,7 +496,7 @@ tests/stress.clap: tests/stress_plugin.c
 
 # every guard broken on purpose, one at a time: its test must go red
 sabotage: $(PROG) $(FAKE) tests/probe-child tests/stress.clap tests/lv2-probe-child tests/rt_interpose.so $(LV2_FIXTURE)
-	MOD_HOST_DIR=$(MOD_HOST_DIR) FAKE_HOST=./$(FAKE) python3 tests/sabotage.py
+	PROTOCOL_DIR=$(PROTOCOL_DIR) FAKE_HOST=./$(FAKE) python3 tests/sabotage.py
 
 # the jack server the real-worker tests run over: pipewire's own jack implementation (default) or JACK2's jackd
 JACK_SERVER ?= pipewire
@@ -494,7 +506,7 @@ JACK_SERVER ?= pipewire
 # meter fixtures (FAKE_COMPRESSOR_CLAP, JACK_METER_SOURCE) the meters reach the controller through the daemon
 test-jack: $(PROG) tests/stress.clap tests/jack_levels tests/host_scenarios
 	JACK_SERVER=$(JACK_SERVER) PLUGIN_HOSTD=./$(PROG) STRESS_CLAP=$(abspath tests/stress.clap) JACK_LEVELS=$(abspath tests/jack_levels) \
-	HOST_SCENARIOS=$(abspath tests/host_scenarios) SCENARIOS=$(abspath $(MOD_HOST_DIR)/tests/host-scenarios.txt) ./tests/jack_e2e.sh
+	HOST_SCENARIOS=$(abspath tests/host_scenarios) SCENARIOS=$(abspath $(PROTOCOL_SCENARIOS)) ./tests/jack_e2e.sh
 
 # test-jack against JACK2's jackd (the server Zynthian runs) instead of pipewire's own jack implementation
 test-jack2:
@@ -523,35 +535,31 @@ lv2-adapter-e2e: $(PROG) tests/stress.clap tests/jack_levels $(LV2_FIXTURE)
 $(LV2_FIXTURE): tests/lv2_fixture.c
 	$(CC) $(shell $(PKG_CONFIG) --cflags lv2) $(CFLAGS) -Werror -shared -o $@ $<
 
-# mod-host's scenario corpus, the runner every host is tested with
-tests/host_scenarios: $(MOD_HOST_DIR)/tests/host_scenarios.c $(PROTOCOL_LIB)
+# the protocol's scenario corpus, the runner every host is tested with
+tests/host_scenarios: $(PROTOCOL_RUNNER) $(PROTOCOL_LIB)
 	$(CC) $(INCS) $(CFLAGS) -Werror -o $@ $< $(PROTOCOL_LIBS) -lpthread
 
 tests/jack_levels: tests/jack_levels.c
 	$(CC) $(shell $(PKG_CONFIG) --cflags jack) $(CFLAGS) -Werror -o $@ $< $(shell $(PKG_CONFIG) --libs jack) -lm
 
-# what include/plugin-hostd/protocol.h declares, written out: README.md and the man page between their markers, and
-# protocol/plugin-hostd.json, the same for readers that are not C; and protocol/mod-host.json, the protocol of the
-# worker this daemon serves LV2 with, read from the mod-host headers it compiles against
+# what <plugin-hostd/protocol.h> (plugin-hostd-protocol's) declares, written out in this tree's pages: README.md and the
+# man page between their markers, and the probe output's schema. The JSON of the protocol and mod-host's are
+# plugin-hostd-protocol's (PROTOCOL_JSON, MODHOST_JSON)
 GEN = tools/protocol-gen
-GENERATED = README.md doc/plugin-hostd.1 protocol/plugin-hostd.json protocol/mod-host.json protocol/probe-output.schema.json
+GENERATED = README.md doc/plugin-hostd.1 protocol/probe-output.schema.json
 
-$(GEN): tools/protocol-gen.c include/plugin-hostd/protocol.h include/plugin-hostd/search_paths.h $(RENDERED)
-	$(CC) -Wall -Wextra -Werror -std=gnu99 -Iinclude $(CONTRACT_CFLAGS) -o $@ tools/protocol-gen.c
+$(GEN): tools/protocol-gen.c $(PROTOCOL_HEADERS) $(RENDERED)
+	$(CC) -Wall -Wextra -Werror -std=gnu99 -Iinclude $(PROTOCOL_CFLAGS) $(CONTRACT_CFLAGS) -o $@ tools/protocol-gen.c
 
 gen: $(GEN)
-	$(GEN) json > protocol/plugin-hostd.json.new && mv protocol/plugin-hostd.json.new protocol/plugin-hostd.json
 	$(GEN) probe-schema protocol/probe-output.schema.in > protocol/probe-output.schema.json.new && mv protocol/probe-output.schema.json.new protocol/probe-output.schema.json
-	python3 tools/mod-host-json.py $(MOD_HOST_INCLUDE) > protocol/mod-host.json.new && mv protocol/mod-host.json.new protocol/mod-host.json
 	for f in README.md doc/plugin-hostd.1; do $(GEN) splice $$f > $$f.new && mv $$f.new $$f || exit 1; done
 
 # fails on any drift: every generated output must be byte-identical to a fresh generation, every region the generator
 # knows must be in a file
 check-generated: $(GEN)
 	@set -e; tmp=$$(mktemp -d); trap 'rm -rf $$tmp' EXIT; \
-	$(GEN) json > $$tmp/json; cmp $$tmp/json protocol/plugin-hostd.json; \
 	$(GEN) probe-schema protocol/probe-output.schema.in > $$tmp/probe; cmp $$tmp/probe protocol/probe-output.schema.json; \
-	python3 tools/mod-host-json.py $(MOD_HOST_INCLUDE) > $$tmp/mod-host.json; cmp $$tmp/mod-host.json protocol/mod-host.json; \
 	for f in README.md doc/plugin-hostd.1; do $(GEN) splice $$f > $$tmp/out; cmp $$tmp/out $$f; done; \
 	$(GEN) regions > $$tmp/regions; test -s $$tmp/regions; \
 	while read r; do grep -q "BEGIN GENERATED protocol:$$r\( .*\)\?$$" README.md doc/plugin-hostd.1 || { echo "region $$r is in no file"; exit 1; }; done < $$tmp/regions; \
@@ -560,16 +568,6 @@ check-generated: $(GEN)
 # the README sells the packages: no build command on it, and BUILDING.md carries the build
 check-readme:
 	python3 tests/readme_build.py
-
-# docs/protocol.md, the wire protocol for a reader of another host, written by tools/protocol-doc.py from the protocol
-# JSON, data/verbs.json, the rendered headers, the Makefile's install rule, the README's host-verbs region and the Path A
-# evidence (docs/zynthian/verbs.tsv). `make protocol-doc` writes it, `make check-protocol-doc` fails on any drift.
-.PHONY: protocol-doc check-protocol-doc
-protocol-doc:
-	python3 tools/protocol-doc.py > docs/protocol.md.tmp && mv docs/protocol.md.tmp docs/protocol.md
-
-check-protocol-doc:
-	python3 tools/protocol-doc.py --check
 
 # the prose beside the generated protocol tables: still the daemon's and its workers' verified behavior today
 check-readme-facts:
@@ -593,31 +591,18 @@ check-contract-floor:
 check-preset-schema:
 	python3 tests/preset_format.py
 
-# make install into a scratch DESTDIR carries all three schemas the development package ships (#145)
+# make install into a scratch DESTDIR carries both schemas the development package ships (#145); the protocol's is
+# plugin-hostd-protocol's
 test-install-schemas: all
 	@set -e; tmp=$$(mktemp -d); trap 'rm -rf $$tmp' EXIT; \
 	$(MAKE) --no-print-directory install DESTDIR=$$tmp PREFIX=/usr >/dev/null; \
-	for f in protocol.schema.json probe-output.schema.json preset.schema.json; do \
+	for f in probe-output.schema.json preset.schema.json; do \
 	  test -s $$tmp/usr/share/plugin-hostd/$$f || { echo "not installed: usr/share/plugin-hostd/$$f"; exit 1; }; \
 	done; \
-	echo "install carries the three schemas"
+	echo "install carries the two schemas"
 
 check-ci-guards:
 	python3 tests/ci_guards.py
-
-# mod-host.json follows its headers: a moved verb, code or message in a scratch copy moves the JSON, and a header it
-# cannot read is refused
-test-mod-host-json:
-	python3 tests/mod_host_json.py $(MOD_HOST_INCLUDE)
-
-# the host verb table has a row for every verb a controller sends the daemon, no more and no fewer, and requires of every
-# profile the verbs the daemon answers itself
-check-verb-table:
-	python3 tests/verb_table.py
-
-# the JSON against its schema, for which the jsonschema module is needed
-check-schema:
-	python3 tests/protocol_schema.py protocol/plugin-hostd.json protocol/plugin-hostd.schema.json
 
 # the probe output's words shared with omx-contract are the contract's: each enum the template takes from it matches the
 # installed omx-vocabulary.schema.json, and the template types none of the contract's lists by hand
@@ -631,7 +616,7 @@ test-probe: $(PROBE) $(PROBE_LOCK) tests/probe-child tests/stress.clap tests/lv2
 
 # lv2_measure's arguments and lines, with no lilv and no interposer: the LV2 tests of the runner load the fixture with it
 tests/lv2-probe-child: tests/lv2_probe_child.c include/plugin-hostd/pin.h
-	$(CC) -Iinclude $(shell $(PKG_CONFIG) --cflags lv2) $(CFLAGS) -Wall -Wextra -Werror -o $@ $< -ldl
+	$(CC) -Iinclude $(PROTOCOL_CFLAGS) $(shell $(PKG_CONFIG) --cflags lv2) $(CFLAGS) -Wall -Wextra -Werror -o $@ $< -ldl
 
 tests/rt_interpose.so: tests/rt_interpose_stub.c
 	$(CC) $(CFLAGS) -Werror -shared -o $@ $<
@@ -659,14 +644,15 @@ test-probe-schema:
 
 # the declaration is the one copy: change values in a scratch copy of it, regenerate, rebuild, and the daemon and the docs follow
 test-perturbation: $(PROG) $(FAKE) $(GEN)
-	MOD_HOST_DIR=$(MOD_HOST_DIR) FAKE_HOST=./$(FAKE) python3 tests/perturbation.py
+	PROTOCOL_DIR=$(PROTOCOL_DIR) FAKE_HOST=./$(FAKE) python3 tests/perturbation.py
 
 # a consumer compiles against the installed header alone, through pkg-config, as plain C
 test-consumer:
 	@set -e; tmp=$$(mktemp -d); trap 'rm -rf $$tmp' EXIT; \
 	$(MAKE) -s install_protocol PREFIX=$$tmp DESTDIR=; \
-	PKG_CONFIG_PATH=$$tmp/share/pkgconfig $(PKG_CONFIG) --exists plugin-hostd; \
-	$(CC) $$(PKG_CONFIG_PATH=$$tmp/share/pkgconfig $(PKG_CONFIG) --cflags plugin-hostd) -std=c99 -Wall -Wextra -Werror \
+	export PKG_CONFIG_PATH=$$tmp/share/pkgconfig$${PKG_CONFIG_PATH:+:$$PKG_CONFIG_PATH}; \
+	$(PKG_CONFIG) --exists plugin-hostd; \
+	$(CC) $$($(PKG_CONFIG) --cflags plugin-hostd) -std=c99 -Wall -Wextra -Werror \
 	  -o $$tmp/consumer tests/consumer.c; \
 	$$tmp/consumer
 

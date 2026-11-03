@@ -76,7 +76,7 @@ sections:
     title: Reference
     blurb: The wire protocol first, then the format tables, using plugin-hostd from your own host, the panel and presets a plugin publishes, core placement, and the qualification records and pins elsewhere.
     entries:
-      - page: protocol.md
+      - url: https://github.com/FreeMixer/plugin-hostd-protocol/blob/main/doc/protocol.md
         title: The wire protocol
       - page: formats.md
         title: "The format tables: how a scan becomes a descriptor"

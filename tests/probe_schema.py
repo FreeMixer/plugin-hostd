@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# The probe output (protocol/probe-output.schema.json, generated from include/plugin-hostd/protocol.h) against its four
+# The probe output (protocol/probe-output.schema.json, generated from <plugin-hostd/protocol.h>) against its four
 # fixtures, and against broken copies of the first and of the instrument's: a guard that refuses nothing is decoration, so each
 # copy must be refused, and at the path the schema names.
 #   probe_schema.py [tree]   tree holds the schema (default: this checkout); the fixtures are always this checkout's

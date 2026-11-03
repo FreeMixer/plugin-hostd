@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# The verbs plugin-hostd declares (data/verbs.json) and the ones omx-clap-core declares for both hosts, held to the
-# daemon on its socket:
+# The verbs plugin-hostd declares (plugin-hostd-protocol's verbs.json, read from its package of the contract directory)
+# and the ones omx-clap-core declares for both hosts, held to the daemon on its socket:
 #   - every verb the declarations give plugin-hostd as required or optional answers a well-formed line, one that its
 #     declared format takes, with its declared reply (an optional one may refuse with a code it declares), and a
 #     malformed line with a code it declares;
@@ -12,12 +12,14 @@
 #     code of plugin-hostd or of omx-clap-core, whose HOST_REPLY_CODES name the numbers both hosts answer.
 # omx-clap-core's declarations are read from its package in the contract directory: the first of OMX_CONTRACT_PATH
 # (directories that stand where contractdir stands) that holds 3/omx-clap-core, else pkg-config's contractdir. Without
-# one the run fails: data/verbs.json requires it. The run names which source it read.
+# one the run fails: verbs.json requires it. The run names which source it read. The headers are read as the compiler
+# reads them (tests/declared.py): a scratch tree's own copy first, else plugin-hostd-protocol's.
 # Usage: verbs_declared.py (PLUGIN_HOSTD, FAKE_HOST, PROTOCOL from the environment, or the tree's own).
 import json, os, re, socket, subprocess, sys, tempfile, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+import declared as protocol_files
 import harness
 import plugin_hostd_client
 import scan_fixture
@@ -26,7 +28,9 @@ from harness import Daemon, Fail, check, wait_for
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 EXE = os.path.abspath(os.environ.get("PLUGIN_HOSTD", os.path.join(ROOT, "plugin-hostd")))
 FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "fake-host")))
-OWN = os.environ.get("PLUGIN_HOSTD_VERBS", os.path.join(ROOT, "data", "verbs.json"))
+OWN = protocol_files.verbs_json()
+# the tree whose headers the daemon under test was built against (tests/sabotage.py builds in a scratch tree)
+TREE = os.path.dirname(EXE)
 MAJOR = "3"
 HOSTD, CLAP_HOST = "plugin-hostd", "omx-clap-host"
 failures = []
@@ -75,13 +79,12 @@ def check_one_name(own_docs, shared_docs):
     for resp, names in sorted(named.items()):
         if len(names) > 1:
             fail("%d has %d names: %s" % (resp, len(names), ", ".join(names)))
-    with open(os.path.join(ROOT, "include", "plugin-hostd", "protocol.h")) as f:
-        header = f.read()
+    header = protocol_files.read_header("protocol.h", TREE)
     # the numbers PHD_ERRORS answers are the rendered OMX_REPLY_*_RESP macros it names; the header defines none of its own
     rendered = {}
-    for name in ("omx_clap_core_vocabulary.h", "plugin_hostd_vocabulary.h"):
-        with open(os.path.join(ROOT, "include", "plugin-hostd", name)) as f:
-            rendered.update({m: int(n) for m, n in re.findall(r"^#define\s+(OMX_REPLY_\w+_RESP)\s+\((-[0-9]+)\)", f.read(), re.M)})
+    for name in ("omx_clap_core_vocabulary.h", "plugin_hostd_protocol_vocabulary.h"):
+        rendered.update({m: int(n) for m, n in re.findall(r"^#define\s+(OMX_REPLY_\w+_RESP)\s+\((-[0-9]+)\)",
+                                                          protocol_files.read_header(name, TREE), re.M)})
     if re.search(r"^#define\s+PHD_ERR_", header, re.M):
         fail("protocol.h defines a PHD_ERR_ number of its own")
     block = header[header.index("#define PHD_ERRORS(X)"):header.index("/* ---------------------------------------------------------------- verbs */")]
@@ -323,7 +326,7 @@ def answered_by_daemon(candidates):
 
 
 def check_answered(declared):
-    with open(os.path.join(ROOT, "protocol", "mod-host.json")) as f:
+    with open(protocol_files.variable("modhostjson")) as f:
         modhost = {c["verb"] for c in json.load(f)["commands"]}
     candidates = binary_words(EXE)
     ours = {v for v in declared if owes(declared[v], HOSTD)}
@@ -409,7 +412,7 @@ def main():
         own_docs = [json.load(f)]
     docs, source = package("omx-clap-core")
     if not docs:
-        fail("no omx-clap-core package in OMX_CONTRACT_PATH or the contract directory: data/verbs.json requires it "
+        fail("no omx-clap-core package in OMX_CONTRACT_PATH or the contract directory: verbs.json requires it "
              "(%s), its verbs refuse with its HOST_REPLY_CODES" % own_docs[0]["requires"].get("omx-clap-core"))
         return 1
     own = verbs_of(own_docs, own_docs + docs)
@@ -418,11 +421,11 @@ def main():
     dup = set(shared) & set(own)
     if dup:
         fail("declared by plugin-hostd and by omx-clap-core: %s" % sorted(dup))
-    declared = dict(shared, **own)
+    print("ok   plugin-hostd's verbs are read from %s" % OWN)
+    declared_verbs = dict(shared, **own)
     check_one_name(own_docs, docs)
     # the words and the formats protocol.h still names for both hosts are omx-clap-core's declarations
-    with open(os.path.join(ROOT, "include", "plugin-hostd", "protocol.h")) as f:
-        header = f.read()
+    header = protocol_files.read_header("protocol.h", TREE)
     word = dict(re.findall(r'^#define\s+(PHD_VERB_\w+)\s+"(\w+)"', header, re.M))
     named = 0
     for macro, verb_macro, rest in re.findall(r'^#define\s+(PHD_VERB_\w+)_FMT\s+(PHD_VERB_\w+) "([^"]*)"', header, re.M):
@@ -448,9 +451,9 @@ def main():
     print("plugin-hostd declares %d verbs, %d of them owed by plugin-hostd" %
           (len(own), len([v for v in own if owes(own[v], HOSTD)])))
 
-    check_verbs(declared)
-    check_answered(dict(shared, **declared))
-    check_both(declared)
+    check_verbs(declared_verbs)
+    check_answered(dict(shared, **declared_verbs))
+    check_both(declared_verbs)
 
     # positive controls of the shape and the format: a reply or a line that is not the declared one is seen
     for reply, decl, want in (("resp 0", "resp 0", True), ("resp 1", "resp 0", False),

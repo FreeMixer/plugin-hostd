@@ -4,7 +4,7 @@ name: ci
 # artifacts, on both architectures, and installed in a clean container. Nothing is signed or published
 # here: release.yml is a release, run from a version tag, and its dry run is the last job.
 #
-# The protocol library, the mod-host RPMs and the RPM build are the composite actions of
+# The RPM build and the channel are the composite actions of
 # FreeMixer/.github. The real CLAP worker the jack test drives, and its fixtures, are the omx-clap-host and
 # omx-clap-host-tests packages of the OpenMixer channel, installed by dnf builddep / apt-get build-dep from the
 # floor the spec and debian/control declare; nothing of omx-clap-core is checked out or built here.
@@ -60,17 +60,6 @@ jobs:
   public-sources:
     uses: FreeMixer/.github/.github/workflows/public-sources-check.yml@v1
 
-  # docs/protocol.md is written from the protocol data by tools/protocol-doc.py; red when it is not what the data gives
-  protocol-doc:
-    name: docs/protocol.md is the protocol data's
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: make check-protocol-doc
-        run: make check-protocol-doc
-
   test:
     name: build and test
     runs-on: ubuntu-latest
@@ -98,11 +87,6 @@ jobs:
       - name: Install the build dependencies from the channel
         run: dnf builddep -y --setopt=retries=10 packaging/plugin-hostd.spec
 
-      # the library, corpus and README of mod-host with the patches FreeMixer/.github carries (packaging/mod-host),
-      # the same code as the mod-host-protocol packages: track_info, remote pages, param_info, NUL-framed commands
-      # at this commit until FreeMixer/.github moves v1 past #98: the protocol library that takes a bind address
-      - uses: FreeMixer/.github/.github/actions/mod-host-protocol@f462c98d0b84167b7a3838fe55abfa01ac0c2fd7
-
       - name: Build
         run: make
 
@@ -128,15 +112,14 @@ jobs:
           dnf install -y --setopt=retries=10 omx-plugins-clap
           make test-panel-wire
 
-      # mod-host itself, the LV2 worker, from the OpenMixer channel: the build the RPM job packages, with the patches
-      # FreeMixer/.github carries. The floor is the one the spec requires of the protocol library.
+      # mod-host itself, the LV2 worker, from the OpenMixer channel, with the patches FreeMixer/.github carries. The
+      # floor is the first build whose ports listen on 127.0.0.1 unless told otherwise (11.3).
       - name: Install mod-host from the channel
         run: |
           set -euo pipefail
           dnf install -y --setopt=retries=10 mod-host
-          rpm -q mod-host mod-host-protocol
-          floor=$(sed -n 's/^Requires:.*mod-host-protocol.*>=[[:space:]]*\([^[:space:]]*\).*/\1/p' packaging/plugin-hostd.spec | head -n 1)
-          test -n "$floor"
+          rpm -q mod-host
+          floor=0.10.6.f14a230-11.3
           have=$(rpm -q --qf '%{VERSION}-%{RELEASE}' mod-host)
           test "$(printf '%s\n%s\n' "$floor" "$have" | sort -V | head -n 1)" = "$floor" || { echo "mod-host $have is below the floor $floor"; exit 1; }
 
@@ -192,9 +175,6 @@ jobs:
       - name: Install the build dependencies from the channel
         run: dnf builddep -y --setopt=retries=10 packaging/plugin-hostd.spec
 
-      # at this commit until FreeMixer/.github moves v1 past #98: the protocol library that takes a bind address
-      - uses: FreeMixer/.github/.github/actions/mod-host-protocol@f462c98d0b84167b7a3838fe55abfa01ac0c2fd7
-
       - name: Build
         run: make
 
@@ -239,11 +219,6 @@ jobs:
       # the worker and the fixtures: omx-clap-host-tests Depends on omx-clap-host, so this installs both
       - name: Install the build dependencies from the channel
         run: apt-get build-dep -y --no-install-recommends ./
-
-      # the library, corpus and README of mod-host with the patches FreeMixer/.github carries (packaging/mod-host),
-      # the same code as the mod-host-protocol packages: track_info, remote pages, param_info, NUL-framed commands
-      # at this commit until FreeMixer/.github moves v1 past #98: the protocol library that takes a bind address
-      - uses: FreeMixer/.github/.github/actions/mod-host-protocol@f462c98d0b84167b7a3838fe55abfa01ac0c2fd7
 
       # the CLAP headers, which Debian does not package either: built and installed from the pin of
       # FreeMixer/.github, the same one the RPM and DEB builds of the CLAP worker use
@@ -300,8 +275,15 @@ jobs:
       - name: Add the OpenMixer channel
         uses: FreeMixer/.github/.github/actions/add-openmixer@v1
 
-      # at this commit until FreeMixer/.github moves v1 past #98: the protocol library that takes a bind address
-      - uses: FreeMixer/.github/.github/actions/mod-host-rpms@f462c98d0b84167b7a3838fe55abfa01ac0c2fd7
+      # the packages the clean root installs beside plugin-hostd's: the protocol library, and mod-host, which the
+      # daemon recommends, from the channel
+      - name: Fetch the protocol library and mod-host from the channel
+        run: |
+          set -euo pipefail
+          mkdir -p dep-rpms
+          dnf download -y --setopt=retries=10 --arch ${{ matrix.arch }} --destdir dep-rpms plugin-hostd-protocol mod-host mod-host-protocol
+          # the daemon's verbs, which plugin-hostd-contract requires: plugin-hostd-protocol's package of the contract directory
+          dnf download -y --setopt=retries=10 --destdir dep-rpms 'plugin-hostd-protocol-contract >= 0.2.0'
 
       - uses: FreeMixer/.github/.github/actions/build-rpm@v1
 
@@ -313,28 +295,29 @@ jobs:
             rpm -qp --qf '[%{FILEMODES:perms} %{FILENAMES}\n]' "$rpm" | grep -v -e '^d' -e '/\.build-id/' | cut -d' ' -f2 | sort > files.txt
             printf '%s\n' /usr/bin/plugin-hostd /usr/bin/plugin-hostd-probe /usr/share/man/man1/plugin-hostd.1.gz \
               /usr/share/man/man1/plugin-hostd-probe.1.gz /usr/libexec/plugin-hostd/probe-lock.so \
-              /usr/share/doc/plugin-hostd/README.md /usr/share/licenses/plugin-hostd/COPYING \
-              /usr/share/plugin-hostd/protocol.json /usr/share/plugin-hostd/mod-host.json | sort > expected.txt
+              /usr/share/doc/plugin-hostd/README.md /usr/share/licenses/plugin-hostd/COPYING | sort > expected.txt
             diff -u expected.txt files.txt
             rpm -qp --requires "$rpm" | tee requires.txt
-            grep -q 'libmod-host-protocol.so.0' requires.txt
-            grep -qx 'mod-host-protocol(.*) >= 0.10.6.f14a230-11.3' requires.txt
+            grep -q 'libplugin-hostd-protocol.so.0' requires.txt
+            grep -qx 'plugin-hostd-protocol(.*) >= 0.2.0' requires.txt
             grep -qx "plugin-hostd-contract = $(rpm -qp --qf '%{VERSION}-%{RELEASE}' "$rpm")" requires.txt
             rpm -qp --recommends "$rpm" | tee recommends.txt
             grep -q '^mod-host' recommends.txt
             grep -q '^omx-clap-host' recommends.txt
           done
-          # the development package: the headers a consumer includes, its pkg-config file, the schema of the JSON
+          # the development package: the pin header and the vocabulary of data/, its pkg-config file, the schemas of the probe
+          # output and of a preset file; the protocol's headers and JSON are plugin-hostd-protocol's and never here
           for rpm in rpms/plugin-hostd-devel-[0-9]*.noarch.rpm; do
             rpm -qlp "$rpm"
             rpm -qp --qf '[%{FILEMODES:perms} %{FILENAMES}\n]' "$rpm" | grep -v '^d' | cut -d' ' -f2 | sort > files.txt
-            printf '%s\n' /usr/include/plugin-hostd/protocol.h /usr/include/plugin-hostd/pin.h /usr/include/plugin-hostd/search_paths.h /usr/share/pkgconfig/plugin-hostd.pc \
-              /usr/include/plugin-hostd/plugin_hostd_host_verbs.h /usr/include/plugin-hostd/plugin_hostd_vocabulary.h \
-              /usr/include/plugin-hostd/omx_clap_core_host_verbs.h /usr/include/plugin-hostd/omx_clap_core_vocabulary.h \
-              /usr/share/plugin-hostd/protocol.schema.json /usr/share/plugin-hostd/probe-output.schema.json /usr/share/plugin-hostd/preset.schema.json \
+            printf '%s\n' /usr/include/plugin-hostd/pin.h /usr/share/pkgconfig/plugin-hostd.pc \
+              /usr/include/plugin-hostd/plugin_hostd_vocabulary.h \
+              /usr/share/plugin-hostd/probe-output.schema.json /usr/share/plugin-hostd/preset.schema.json \
               /usr/share/licenses/plugin-hostd-devel/COPYING | sort > expected.txt
             diff -u expected.txt files.txt
-            rpm -qp --requires "$rpm" | grep -qx "plugin-hostd-contract = $(rpm -qp --qf '%{VERSION}-%{RELEASE}' "$rpm")"
+            rpm -qp --requires "$rpm" | tee requires.txt
+            grep -qx "plugin-hostd-contract = $(rpm -qp --qf '%{VERSION}-%{RELEASE}' "$rpm")" requires.txt
+            grep -qx 'plugin-hostd-protocol-devel >= 0.2.0' requires.txt
           done
           # the contract package: the contract directory's files, which readers read at run time, noarch
           for rpm in rpms/plugin-hostd-contract-[0-9]*.noarch.rpm; do
@@ -345,7 +328,6 @@ jobs:
               /usr/share/omx-contract/contract.d/3/plugin-hostd/formats/lv2.json \
               /usr/share/omx-contract/contract.d/3/plugin-hostd/history.json \
               /usr/share/omx-contract/contract.d/3/plugin-hostd/grouping.json \
-              /usr/share/omx-contract/contract.d/3/plugin-hostd/verbs.json \
               /usr/share/licenses/plugin-hostd-contract/COPYING | sort > expected.txt
             diff -u expected.txt files.txt
           done
@@ -372,8 +354,10 @@ jobs:
       - uses: FreeMixer/.github/.github/actions/install-clean@v1
         with:
           rpms: |
-            mod-host-rpms/mod-host-[0-9]*.rpm
-            mod-host-rpms/mod-host-protocol-[0-9]*.rpm
+            dep-rpms/plugin-hostd-protocol-[0-9]*.rpm
+            dep-rpms/plugin-hostd-protocol-contract-[0-9]*.noarch.rpm
+            dep-rpms/mod-host-[0-9]*.rpm
+            dep-rpms/mod-host-protocol-[0-9]*.rpm
             rpms/plugin-hostd-[0-9]*.${{ matrix.arch }}.rpm
             rpms/plugin-hostd-contract-[0-9]*.noarch.rpm
             rpms/plugin-hostd-tests-[0-9]*.${{ matrix.arch }}.rpm
@@ -387,7 +371,7 @@ jobs:
           grep -q "version: $version\$" v.txt
           chroot /tmp/clean-root ldd /usr/bin/plugin-hostd | tee ldd.txt
           ! grep -q 'not found' ldd.txt
-          grep -q 'libmod-host-protocol\.so\.0 => /' ldd.txt
+          grep -q 'libplugin-hostd-protocol\.so\.0 => /' ldd.txt
 
       # the readiness line, the placement, the crashes and the respawns, of the installed binary
       - name: The installed daemon against the fake worker
@@ -397,9 +381,9 @@ jobs:
           cp -r tests /tmp/clean-root/smoke/tests
           # the scan an add runs reads the format tables and the recorded field dumps beside the tests
           cp -r data /tmp/clean-root/smoke/data
-          # the tests read the declared protocol from the installed package's JSON
+          # the tests read the declared protocol from the installed library's JSON
           chroot /tmp/clean-root env PLUGIN_HOSTD=/usr/bin/plugin-hostd PROBE=/usr/bin/plugin-hostd-probe FAKE_HOST=/smoke/tests/fake-host \
-            PLUGIN_HOSTD_PROTOCOL=/usr/share/plugin-hostd/protocol.json python3 /smoke/tests/daemon_test.py
+            PLUGIN_HOSTD_PROTOCOL=/usr/share/plugin-hostd-protocol/plugin-hostd.json python3 /smoke/tests/daemon_test.py
 
       # the installed fake worker prints its layout and serves the daemon, as plugin-qualify drives it
       - name: The installed fake worker
@@ -411,7 +395,7 @@ jobs:
           chroot /tmp/clean-root bash -c '. /usr/libexec/plugin-hostd/tests/lib/protocol.sh && type protocol_send protocol_expect protocol_wait_ready send'
           chroot /tmp/clean-root python3 -c 'import sys; sys.path.insert(0, "/usr/libexec/plugin-hostd/tests/lib"); import plugin_hostd_client'
           chroot /tmp/clean-root env PLUGIN_HOSTD=/usr/bin/plugin-hostd PROBE=/usr/bin/plugin-hostd-probe FAKE_HOST=/usr/libexec/plugin-hostd/tests/fake-host \
-            PLUGIN_HOSTD_PROTOCOL=/usr/share/plugin-hostd/protocol.json python3 /smoke/tests/daemon_test.py
+            PLUGIN_HOSTD_PROTOCOL=/usr/share/plugin-hostd-protocol/plugin-hostd.json python3 /smoke/tests/daemon_test.py
 
       - uses: actions/upload-artifact@v4
         with:
@@ -440,7 +424,7 @@ jobs:
       - name: Install the build tools
         run: |
           apt-get update -qq
-          apt-get install -y --no-install-recommends ca-certificates curl git dpkg-dev debhelper build-essential lintian
+          apt-get install -y --no-install-recommends ca-certificates curl git dpkg-dev debhelper build-essential lintian python3
 
       - uses: actions/checkout@v4
         with:
@@ -450,8 +434,10 @@ jobs:
       - name: Add the OpenMixer channel
         uses: FreeMixer/.github/.github/actions/add-openmixer@v1
 
-      # at this commit until FreeMixer/.github moves v1 past #98: the protocol library that takes a bind address
-      - uses: FreeMixer/.github/.github/actions/deb-deps@f462c98d0b84167b7a3838fe55abfa01ac0c2fd7
+      # the CLAP headers Debian does not package; the protocol library is the channel's
+      - uses: FreeMixer/.github/.github/actions/deb-deps@v1
+        with:
+          names: clap-headers
 
       - uses: FreeMixer/.github/.github/actions/build-deb@v1
 
@@ -461,7 +447,8 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dep-debs
-          (cd dep-debs && apt-get download omx-clap-core-contract omx-contract-data omx-contract)
+          (cd dep-debs && apt-get download libplugin-hostd-protocol0 libplugin-hostd-protocol-dev plugin-hostd-protocol-contract \
+            omx-clap-core-contract omx-contract-data omx-contract)
 
       # what the smoke test runs the installed package against, built here for the architecture
       - name: Build the smoke test fixtures
@@ -477,7 +464,9 @@ jobs:
           name: plugin-hostd-ci-debs-${{ matrix.suite }}-${{ matrix.arch }}
           path: |
             debs/*.deb
-            dep-debs/libmod-host-protocol0_*.deb
+            dep-debs/libplugin-hostd-protocol0_*.deb
+            dep-debs/libplugin-hostd-protocol-dev_*.deb
+            dep-debs/plugin-hostd-protocol-contract_*.deb
             dep-debs/omx-clap-core-contract_*.deb
             dep-debs/omx-contract-data_*.deb
             dep-debs/omx-contract_*.deb
@@ -510,19 +499,18 @@ jobs:
         run: |
           set -euo pipefail
           apt-get update -qq
-          apt-get install -y --no-install-recommends ./debs/plugin-hostd_*.deb ./debs/plugin-hostd-contract_*.deb ./debs/plugin-hostd-dev_*.deb ./debs/plugin-hostd-tests_*.deb ./dep-debs/libmod-host-protocol0_*.deb ./dep-debs/omx-clap-core-contract_*.deb ./dep-debs/omx-contract-data_*.deb ./dep-debs/omx-contract_*.deb python3
+          apt-get install -y --no-install-recommends ./debs/plugin-hostd_*.deb ./debs/plugin-hostd-contract_*.deb ./debs/plugin-hostd-dev_*.deb ./debs/plugin-hostd-tests_*.deb ./dep-debs/libplugin-hostd-protocol0_*.deb ./dep-debs/libplugin-hostd-protocol-dev_*.deb ./dep-debs/plugin-hostd-protocol-contract_*.deb ./dep-debs/omx-clap-core-contract_*.deb ./dep-debs/omx-contract-data_*.deb ./dep-debs/omx-contract_*.deb python3
           dpkg -L plugin-hostd-dev | tee dev.txt
-          grep -qx /usr/include/plugin-hostd/protocol.h dev.txt
-          grep -qx /usr/include/plugin-hostd/plugin_hostd_host_verbs.h dev.txt
           grep -qx /usr/include/plugin-hostd/plugin_hostd_vocabulary.h dev.txt
           grep -qx /usr/include/plugin-hostd/pin.h dev.txt
-          grep -qx /usr/include/plugin-hostd/search_paths.h dev.txt
+          # the protocol's headers are plugin-hostd-protocol's: no copy here
+          ! grep -q '/usr/include/plugin-hostd/\(protocol\|search_paths\|plugin_hostd_host_verbs\|omx_clap_core_\)' dev.txt
           grep -qx /usr/share/pkgconfig/plugin-hostd.pc dev.txt
           ! grep -q /usr/share/omx-contract/ dev.txt
           # the contract directory's files are the noarch contract package's, which the daemon and the headers depend on
           test "$(dpkg-deb -f debs/plugin-hostd-contract_*.deb Architecture)" = all
           dpkg -L plugin-hostd-contract | tee contract.txt
-          for f in MANIFEST.json formats/clap.json formats/lv2.json grouping.json history.json verbs.json; do
+          for f in MANIFEST.json formats/clap.json formats/lv2.json grouping.json history.json; do
             grep -qx "/usr/share/omx-contract/contract.d/3/plugin-hostd/$f" contract.txt
           done
           dpkg-deb -f debs/plugin-hostd-contract_*.deb Breaks Replaces | tee breaks.txt
@@ -530,15 +518,17 @@ jobs:
           for p in plugin-hostd plugin-hostd-dev; do
             dpkg-deb -f debs/${p}_*.deb Depends | grep -q 'plugin-hostd-contract (= '
           done
-          dpkg -L plugin-hostd | grep -qx /usr/share/plugin-hostd/protocol.json
-          dpkg -L plugin-hostd | grep -qx /usr/share/plugin-hostd/mod-host.json
+          # the protocol's JSON and mod-host's are the library's, read at run time
+          ! dpkg -L plugin-hostd | grep -q '/usr/share/plugin-hostd/\(protocol\|mod-host\)\.json'
+          dpkg -L libplugin-hostd-protocol0 | grep -qx /usr/share/plugin-hostd-protocol/plugin-hostd.json
+          dpkg -L libplugin-hostd-protocol0 | grep -qx /usr/share/plugin-hostd-protocol/mod-host.json
           dpkg -L plugin-hostd-tests | tee tests.txt
           grep -qx /usr/libexec/plugin-hostd/tests/fake-host tests.txt
           grep -qx /usr/libexec/plugin-hostd/tests/lib/protocol.sh tests.txt
           grep -qx /usr/libexec/plugin-hostd/tests/lib/plugin_hostd_client.py tests.txt
-          dpkg -s libmod-host-protocol0 | grep '^Status: install ok installed'
+          dpkg -s libplugin-hostd-protocol0 | grep '^Status: install ok installed'
           dpkg-deb -f debs/plugin-hostd_*.deb Depends | tee depends.txt
-          grep -qF 'libmod-host-protocol0 (>= 0.1.0-8~omx)' depends.txt
+          grep -qF 'libplugin-hostd-protocol0 (>= 0.2.0~)' depends.txt
 
       - name: The installed fake worker prints its layout
         run: |
@@ -554,7 +544,7 @@ jobs:
           grep -q "version: ${version%%~*}\$" v.txt
           ldd /usr/bin/plugin-hostd | tee ldd.txt
           ! grep -q 'not found' ldd.txt
-          grep -q 'libmod-host-protocol\.so\.0 => /' ldd.txt
+          grep -q 'libplugin-hostd-protocol\.so\.0 => /' ldd.txt
 
       # the readiness line, the placement, the crashes and the respawns, of the installed binary
       - name: The installed daemon against the fake worker
@@ -563,7 +553,7 @@ jobs:
           # an artifact does not keep the executable bit
           chmod +x smoke/tests/fake-host
           PLUGIN_HOSTD=/usr/bin/plugin-hostd PROBE=/usr/bin/plugin-hostd-probe FAKE_HOST=$PWD/smoke/tests/fake-host \
-            PLUGIN_HOSTD_PROTOCOL=/usr/share/plugin-hostd/protocol.json python3 smoke/tests/daemon_test.py
+            PLUGIN_HOSTD_PROTOCOL=/usr/share/plugin-hostd-protocol/plugin-hostd.json python3 smoke/tests/daemon_test.py
 
   # docs/own-host.md, command by command, as a reader would type it: a clean Debian with nothing but what the page
   # lists, the published packages of the OpenMixer channel, on both architectures (arm64 is a native runner).
@@ -647,7 +637,9 @@ jobs:
           dnf install -y --setopt=install_weak_deps=False --setopt=retries=10 plugin-hostd 'omx-clap-host >= 0.21.0' \
             omx-clap-host-tests omx-plugins-clap omx-plugins-lv2
           rpm -q plugin-hostd omx-clap-host omx-clap-host-tests omx-plugins-clap omx-plugins-lv2
-          grep -q '"chain_get"' /usr/share/plugin-hostd/protocol.json || {
+          # the channel's daemon names its verbs in plugin-hostd-protocol's JSON from 0.16.0, in its own before
+          json=$(rpm -qla | grep -m1 -xE '/usr/share/(plugin-hostd-protocol/plugin-hostd|plugin-hostd/protocol)\.json')
+          grep -q '"chain_get"' "$json" || {
             echo "::error::the channel's plugin-hostd has no chain_get (#162)"; exit 1; }
           for f in /usr/libexec/omx-clap-host/tests/fault-14.clap /usr/libexec/omx-clap-host/tests/jack_identity \
                    /usr/lib/clap/omx-strip.clap /usr/lib/clap/omx-limiter.clap /usr/lib64/lv2/omx-delay.lv2/manifest.ttl; do
