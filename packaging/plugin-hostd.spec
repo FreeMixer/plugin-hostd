@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.15.9
+Version: 0.16.0
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -156,6 +156,18 @@ make test-daemon check-generated check-rendered
 %{_datadir}/omx-contract/contract.d/3/plugin-hostd/
 
 %changelog
+* Tue Nov 03 2026 Pau Aliagas <linuxnow@gmail.com> - 0.16.0-1
+- The protocol is plugin-hostd-protocol's (0.2.0 or later): protocol.h, the search
+  lists, the verb tables and the JSON of the protocol and of mod-host's are read from
+  the installed library, and this tree keeps no copy. plugin-hostd requires
+  plugin-hostd-protocol, plugin-hostd-devel requires plugin-hostd-protocol-devel, and
+  the JSON documents move to /usr/share/plugin-hostd-protocol/.
+- preset_show <instance> <key> goes to the worker that holds the instance alone, and
+  preset_show <uri> is answered as mod-host answers it, by the LV2 worker; a key or
+  uri in quotes that holds a space is told apart by the words the worker reads.
+- The shared checks of commit messages and private references run from
+  FreeMixer/.github, and no copy of them is kept here.
+
 * Mon Nov 02 2026 Pau Aliagas <linuxnow@gmail.com> - 0.15.9-1
 - A worker that says abi_clobber (omx-clap-host 0.26.2: a plugin returned from a call
   with a callee-saved register changed) has that plugin quarantined: the history keeps
