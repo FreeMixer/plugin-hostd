@@ -141,56 +141,6 @@ the process may use, at most 8), each in a directory of its own with its own ran
 order of the table; `SABOTAGE_JOBS=1` runs them one after the other. `SABOTAGE_KIND=<kind>` and `SABOTAGE_ONLY=<words>`
 run some of them.
 
-The documentation site
-----------------------
-
-`docs/` is published on GitHub Pages as the plugin-hostd technical manual, by `.github/workflows/pages.yml`, rendered
-by `tools/site/build.mjs` (Node 20 or later; markdown-it and yaml at the versions `tools/site/package-lock.json` pins).
-To build it locally:
-
-    (cd tools/site && npm ci && npm test)
-    node tools/site/build.mjs            # writes build/site/; open build/site/index.html
-
-`docs/site.yml` is the shape: the sections in navigation order, their entries, and the captures of the landing page
-(`docs/index.md`). A new page is one file under `docs/` and one entry there; an entry for a page that is not written
-yet carries `pending: true` and is shown as coming, without a link, and the build says when the flag can go. Every
-published page must be an entry or be linked from one. A figure or capture under `docs/` is copied when a page
-references it, and only then; the Evidence section lists every file under an `evidence/` directory with the pages
-that cite it. The design notes under `docs/` are never published. A reference to a file that does not exist, an image
-outside `docs/`, or anything in the design notes fails the build with the page and the target named. A link to a
-repository file outside `docs/` goes to that file on GitHub.
-
-How the daemon keeps and replays state
-======================================
-
-Per instance, in memory: the `add` line, then the state-changing verbs as
-sent, as text (`param_set`, `patch_set`, `preset_load`, `bypass`,
-`param_monitor`, `monitor_output`, the `midi_`, `cc_` and `cv_` maps), a repeat of the same
-setting replacing the earlier one, a `preset_load` dropping the parameter
-writes before it; and the `connect`s that name the instance's jack client.
-After a `preset_load` or `patch_set`, and after a quiet interval, it asks the
-worker for `state_save <dir>` into one checkpoint directory of its own and,
-for an instance whose state file is there, drops the verbs the state now
-holds.
-
-The tempo, the metre and the transport (`set_bpm`, `set_bpb`, `transport`, `transport_sync`) are the daemon's, not an
-instance's: the latest line of each is kept, and every worker is handed them before anything else, when it is first
-started and when it is respawned. Notes (`note_on` and the rest) are never kept.
-
-A worker that dies is respawned after a backoff, and each instance is put
-back: `add`, one `state_load` of the checkpoint directory, the verb tail,
-the connections (a connect the new client cannot make yet, because the peer's port has not reached it, is asked again by
-the idle tick for `connect_retry_ms`). What a plugin held in RAM and exposed through no verb (a
-reverb tail) is lost.
-
-Who is blamed: a death with a command on the wire names that command's
-instance. A death in a callback of a pool cannot be named from outside, so
-the pool is split, each member into a worker of its own, and the one that
-dies again is named (`instance_quarantined`) and stays own. In a worker of
-one instance the death is that instance's. `storm_deaths` deaths inside `storm_window_ms` end
-respawning for that placement only (`supervisor_gave_up`); its neighbours are
-not touched.
-
 The last verb is a suspect
 --------------------------
 

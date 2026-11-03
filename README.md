@@ -12,6 +12,15 @@ Raspberry Pi, and cannot let one bad plugin stop the show.
 - Audio never passes through the daemon; every worker is a JACK client, as in mod-host.
 - A plugin that keeps crashing is singled out and given up on without touching its neighbours.
 
+Three things it adds, each optional and taken or left on its own:
+
+- Plugin hosting: the LV2 and CLAP plugins hosted in workers, with a qualification on the device saying which are safe
+  to load and how.
+- Grouping: a controller's chain stays as it is; when several of its plugins may share one process, by their records,
+  they run in one worker, and the others alone.
+- Panels: a plugin's control pages and its MOD GUI drawn from its one description, with omx-panel; a plugin's own GUI
+  is kept.
+
 Install
 -------
 
@@ -66,12 +75,9 @@ you would a mod-host plugin. `man plugin-hostd` has the options; the full protoc
 Using it from your own host (Zynthian, a Raspberry Pi, any Debian): [docs/own-host.md](docs/own-host.md), nine commands from
 nothing to a plugin running.
 
-Under Zynthian on a Raspberry Pi 5: start at [docs/zynthian/README.md](docs/zynthian/README.md), which says what it is
-and how little it changes in Zynthian; [docs/zynthian/status.md](docs/zynthian/status.md) says what is proven and what is
-still open. The measurements are [docs/zynthian/benchmarks.md](docs/zynthian/benchmarks.md), the pros and cons for a
-reviewer [docs/zynthian/tradeoffs.md](docs/zynthian/tradeoffs.md), and the acceptance report
-[docs/zynthian/acceptance-report.md](docs/zynthian/acceptance-report.md). Everything measured there was measured
-digitally, at JACK ports, on one Pi 5.
+Under Zynthian on a Raspberry Pi 5: <https://openmixer.org/docs/zynthian> says what it changes, how to install and use
+it and where it stands; the measurements are at <https://openmixer.org/benchmarks>, and how they were taken, with the
+design of pins, chains and grouping, in the technical notes at <https://openmixer.org/notes>.
 
 Building from source: see [BUILDING.md](BUILDING.md). More about FreeMixer at <https://www.openmixer.org>.
 

@@ -599,7 +599,7 @@ jobs:
           test "$(dpkg --print-architecture)" = "${{ matrix.arch }}"
 
   # The spike's Zynthian engine (tools/zynthian/spike-engine.sh reads its patch from the commit it was last changed at;
-  # the engine that ships is FreeMixer/zynthian-ui's, docs/zynthian/README.md), applied to zynthian-ui at its pin,
+  # the engine that ships is FreeMixer/zynthian-ui's), applied to zynthian-ui at its pin,
   # declares a chain of three omx-plugins members (omx-strip and omx-limiter CLAP, omx-delay LV2 on the adapter row)
   # over the chain verb, and the real omx-clap-host runs it in a PipeWire of its own: each member's gain and delay
   # measured on the chain's output in the declared order, chain_get's read-back, a removal that forms the chain again
