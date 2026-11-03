@@ -3814,7 +3814,8 @@ static plan_t *plan_run(int id, const int *ids, int n, int *code)
     p->ids = malloc(n * sizeof(int));
     if (p->ids)
         memcpy(p->ids, ids, n * sizeof(int));
-    p->seg = calloc(pp.nseg, sizeof(chain_t *));
+    /* a plan that moves nothing keeps the segments of the one before it, which may be more than its own */
+    p->seg = calloc(old && old->nseg > pp.nseg ? old->nseg : pp.nseg, sizeof(chain_t *));
     p->segments = plan_text(segments_text, m, &pp, 0);
     p->reasons = plan_text(planner_format_reasons, m, &pp, refused);
 

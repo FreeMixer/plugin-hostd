@@ -5266,4 +5266,32 @@ def an_lv2_plugins_record_is_under_the_first_file_its_pin_holds():
         p.close()
 
 
+# only `make test-plan-refused` has the daemon whose joint world cannot be built (tests/world_refuse.c)
+if os.environ.get("PLUGIN_HOSTD_WORLD_REFUSE"):
+    @test
+    def a_refused_plan_shorter_than_the_one_before_it_keeps_every_segment():
+        programs = Programs()
+        p = Plugins()
+        d = p.daemon(conf=programs.conf(lv2_worker="omx-clap-host", pin_mode="first-use", grouping="on", group_max=2))
+        try:
+            for n in (1, 2, 3, 4):
+                d.expect(pin_n(p, n, "in-process"), "resp 0")
+                d.expect("add %s %d" % (clap_n(p, n), n), "resp %d" % n)
+            expect_plan(d, "plan 1 1 2 3 4", "resp 0 1,2;3,4")
+            d.wait_event("chain_formed 1.0 ")
+            d.wait_event("chain_formed 1.1 ")
+            d.expect(p.lv2_pin() + " verdict=in-process", "resp 0")
+            for i in (8, 9):
+                d.expect("add %s %d" % (LV2_URI, i), "resp %d" % i)
+            d.expect("plan 1 8 9", resp("PLACEMENT_INVALID"))
+            check(sorted(w["inst"] for w in plan_of(d, 1).values()) == [[1, 2], [3, 4]], "the segments that ran still run: %s" % d.workers())
+            r = d.send("plan_get 1")
+            check("8:plan-refused:" in r, "plan_get says why: %s" % r)
+            d.expect("plan_clear 1", "resp 0")
+        finally:
+            d.close()
+            p.close()
+            programs.close()
+
+
 sys.exit(run_tests(TESTS))
