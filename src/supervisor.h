@@ -157,9 +157,12 @@ char *sup_remove(int id);
 char *sup_remove_all(void);
 char *sup_connect(const char *verb, const char *line, const char *port_a, const char *port_b);
 char *sup_broadcast(const char *line);
-/* the same, but the answer is that of the first LV2 worker (mod-host) that is up, when one is: a line of mod-host's
- * own that only mod-host's LV2 world answers (preset_show <uri>) */
-char *sup_broadcast_lv2(const char *line);
+/* preset_show has two forms, told apart by their number of words as the worker reads them, a quoted word one word
+ * (the plugin-hostd protocol's verb table): preset_show <instance> <key>, plugin-hostd's, is the instance's worker's
+ * to answer; preset_show <uri>, mod-host's, names no instance and reaches every worker, and its answer is mod-host's
+ * own, the first LV2 worker's that is up, whatever a worker of another format says to a line of a form it does not
+ * take */
+char *sup_preset_show(const char *line);
 /* a command every worker shares: kept when it is one of PHD_HOST_SETTINGS and its words are its grammar */
 void sup_host_setting(const char *line, char **tok, int ntok);
 /* the instance's uri as it goes to a worker, and where its format's plugins are searched; NULL for no such instance */

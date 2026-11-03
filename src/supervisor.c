@@ -2588,7 +2588,9 @@ char *sup_broadcast(const char *line)
     return broadcast(line, -1);
 }
 
-char *sup_broadcast_lv2(const char *line)
+/* the same, but the answer is that of the first LV2 worker (mod-host) that is up, when one is: a line of mod-host's
+ * own that only mod-host's LV2 world answers (preset_show <uri>) */
+static char *broadcast_lv2(const char *line)
 {
     return broadcast(line, format_by_name(PHD_FORMAT_LV2));
 }
@@ -2649,6 +2651,32 @@ static char **words(char *copy, int *count)
     for (*count = 0; word && word[*count]; (*count)++)
         ;
     return word;
+}
+
+char *sup_preset_show(const char *line)
+{
+    char *copy = strdup(line), **word, *end, *reply;
+    int count;
+    long id;
+
+    if (!copy)
+        return sup_resp(ERR_MEMORY_ALLOCATION);
+    word = words(copy, &count);
+    if (!word)
+        reply = sup_resp(ERR_MEMORY_ALLOCATION);
+    else if (count == 3)
+    {
+        id = strtol(word[1], &end, 10);
+        reply = *end || end == word[1] || id < -1000000 || id > 1000000 ? sup_resp(ERR_INVALID_OPERATION)
+                                                                           : sup_call((int)id, line);
+    }
+    else if (count == 2)
+        reply = broadcast_lv2(line);
+    else
+        reply = sup_broadcast(line);
+    free(word);
+    free(copy);
+    return reply;
 }
 
 const char *sup_instance_uri(int id)
