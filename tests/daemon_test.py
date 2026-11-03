@@ -249,6 +249,45 @@ def preset_show_of_a_uri_is_answered_as_mod_host_answers_it_by_the_lv2_worker():
 
 
 @test
+def preset_show_counts_a_quoted_key_as_one_word_and_asks_the_holder_alone():
+    """a key that holds a space is quoted, and is one word as the worker reads it: preset_show <instance> "<key>" is
+    the instance form, the holder's to answer, not a line of four words every worker is sent"""
+    log = tempfile.mktemp(prefix="plugin-hostd-log.")
+    d = daemon(env={"FAKE_LOG": log, "FAKE_PRESETS_LEARN": "answer"})
+    try:
+        d.expect("add clap:fake#a 0", "resp 0")
+        d.expect("add clap:fake#b 1", "resp 1")
+        check(len(d.workers()) == 2, "two workers: %s" % d.workers())
+        for inst in (0, 1):
+            line = 'preset_show %d "warm pad"' % inst
+            got = d.send(line)
+            check(got.startswith("resp 0 {"), "%s is its holder's answer: %s" % (line, got))
+            holder = d.holder(inst)[1]["pid"]
+            asked = {w["pid"] for w in d.workers().values() if line in sent_to(log, w["pid"])}
+            check(asked == {holder}, "%s reaches the holder of %d only: %s" % (line, inst, sorted(asked)))
+        d.expect('preset_show x "warm pad"', "resp -902")
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
+
+
+@test
+def preset_show_counts_a_quoted_uri_as_one_word_and_answers_it_as_mod_host():
+    """a quoted uri with a space is one word: preset_show "<uri>" is mod-host's form, the LV2 worker's answer"""
+    d = daemon(env={"FAKE_PRESETS_LEARN": "state"})
+    try:
+        d.expect("add clap:fake#a 0", "resp 0")
+        d.expect("add fake:b 1", "resp 1")
+        lv2 = [w for w in d.workers().values() if w["fmt"] == "lv2"]
+        check(len(lv2) == 1 and len(d.workers()) == 2, "one CLAP and one LV2 worker: %s" % d.workers())
+        got = d.send('preset_show "urn:fake:preset#warm pad"')
+        check(got == "@prefix fake: <urn:fake:pid:%d> ." % lv2[0]["pid"], "the LV2 worker's answer, as it wrote it: %r" % got)
+    finally:
+        d.close()
+
+
+@test
 def remove_all_and_quit():
     d = daemon()
     try:
