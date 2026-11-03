@@ -1,24 +1,24 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # The daemon routes by instance the commands whose first argument is an instance number. That list is mod-host's
-# grammar, not ours: the "<verb> <instance_number>" lines of mod-host's README are the commands of verbs.c's table, no
+# grammar, not ours: the "<verb> <instance_number>" lines of mod-host's README (plugin-hostd-protocol's doc/protocol.md) are the commands of verbs.c's table, no
 # more and no fewer, and each one's format in mod-host.h takes a number first. The type alone does not make an
 # instance verb: "transport %i" and "monitor_midi_program %i" take a number that is not one. And no verb is spelled in the C sources: a verb of mod-host.h, of
-# include/plugin-hostd/protocol.h or of the daemon's declaration (data/verbs.json, rendered into
-# include/plugin-hostd/plugin_hostd_host_verbs.h) is read from its declaration, so a C string that starts with one, its
-# word or its format, is a copy; protocol.h spells none of the rendered ones.
+# plugin-hostd/protocol.h or of the daemon's declaration (plugin-hostd-protocol's verbs.json, rendered into
+# plugin-hostd/plugin_hostd_protocol_host_verbs.h) is read from its declaration, so a C string that starts with one, its
+# word or its format, is a copy. The declarations are plugin-hostd-protocol's (tests/declared.py).
 import os, re, sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import declared
 import modhost
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MOD_HOST_DIR = os.environ.get("MOD_HOST_DIR", os.path.join(ROOT, "..", "mod-host"))
+PROTOCOL_DIR = os.environ.get("PROTOCOL_DIR", os.path.join(ROOT, "..", "plugin-hostd-protocol"))
 # the C sources built against the declarations: the daemon, and the worker the tests run it with
 SOURCES = [os.path.join("src", f) for f in sorted(os.listdir(os.path.join(ROOT, "src"))) if f.endswith((".c", ".h"))]
 SOURCES += [os.path.join("tests", "fake_host.c"), os.path.join("tools", "protocol-gen.c")]
 # the fuzz harnesses type mod-host's words on purpose, as a controller does; the daemon's own they read rendered
 RENDERED_ONLY = [os.path.join("fuzz", f) for f in sorted(os.listdir(os.path.join(ROOT, "fuzz"))) if f.endswith((".c", ".h"))]
-RENDERED_ONLY.append(os.path.join("include", "plugin-hostd", "protocol.h"))
 failed = 0
 
 
@@ -43,17 +43,16 @@ def spelled(text, verbs):
     return [(n, s) for n, s in strings(text) if re.split(r"[ \t%]", s, maxsplit=1)[0] in verbs]
 
 
-include = modhost.include_dir(MOD_HOST_DIR)
+include = modhost.include_dir(PROTOCOL_DIR)
 if not os.path.exists(os.path.join(include, "mod-host.h")):
     print("FAIL verbs contract: no mod-host.h in " + include)
     sys.exit(1)
 commands = modhost.commands(include)
-with open(os.path.join(ROOT, "include", "plugin-hostd", "protocol.h")) as f:
-    own = set(re.findall(r'^#define\s+PHD_(?:VERB|EVENT)_\w+\s+"(\w+)"', f.read(), re.M))
-# the daemon's own verbs, declared in data/verbs.json and rendered: the word and the format of each are in the
-# rendered header and nowhere else, protocol.h included
-with open(os.path.join(ROOT, "include", "plugin-hostd", "plugin_hostd_host_verbs.h")) as f:
-    rendered = set(re.findall(r'^#define\s+OMX_VERB_[A-Z0-9_]+\s+"(\w+)"$', f.read(), re.M))
+own = set(re.findall(r'^#define\s+PHD_(?:VERB|EVENT)_\w+\s+"(\w+)"', declared.read_header("protocol.h"), re.M))
+# the daemon's own verbs, declared in verbs.json and rendered: the word and the format of each are in the rendered
+# header and nowhere else
+rendered = set(re.findall(r'^#define\s+OMX_VERB_[A-Z0-9_]+\s+"(\w+)"$',
+                          declared.read_header("plugin_hostd_protocol_host_verbs.h"), re.M))
 verbs = set(commands.values()) | own | rendered
 if len(commands) < 40 or len(own) < 15 or len(rendered) < 15:
     fail("found only %d commands in %s, %d verbs and events in protocol.h and %d rendered verbs"
@@ -72,7 +71,7 @@ for path in SOURCES:
 for path in RENDERED_ONLY:
     with open(os.path.join(ROOT, path)) as f:
         for n, s in spelled(f.read(), rendered):
-            fail('%s:%d spells "%s": read it from plugin_hostd_host_verbs.h' % (path, n, s))
+            fail('%s:%d spells "%s": read it from plugin_hostd_protocol_host_verbs.h' % (path, n, s))
 
 with open(os.path.join(ROOT, "src", "verbs.c")) as f:
     table = f.read()
@@ -91,9 +90,8 @@ for m in names:
 
 # every verb protocol.h adds that a controller sends is answered by verbs.c through its declaration; the ones the daemon
 # sends a worker are not. A chain's first argument is a chain, not an instance: no table routes it by instance
-with open(os.path.join(ROOT, "include", "plugin-hostd", "protocol.h")) as f:
-    declared = f.read()
-block = declared[declared.index("#define PHD_VERBS(X)"):]
+header_text = declared.read_header("protocol.h")
+block = header_text[header_text.index("#define PHD_VERBS(X)"):]
 block = block[:block.index("\n\n")]
 with open(os.path.join(ROOT, "src", "verbs.c")) as f:
     dispatch = f.read()
@@ -110,21 +108,19 @@ if own_verbs < 10 or "OMX_VERB_CHAIN" not in block:
 if "OMX_VERB_CHAIN" in table or re.search(r"\bchain\b", " ".join(commands.values())):
     fail("chain is routed by instance, or mod-host.h has a command of that name")
 
-readme = os.path.join(MOD_HOST_DIR, "README.md")
+readme = os.environ.get("PROTOCOL_PAGE") or declared.variable("protocoldoc")
 if not os.path.exists(readme):
-    print("skip verbs contract: no mod-host README at " + readme)
+    print("skip verbs contract: no protocol page at " + readme)
 else:
     with open(readme) as f:
         grammar = set(re.findall(r"^\s{4}(\w+) <instance_number>", f.read(), re.M))
     # protocol.h's PHD_INSTANCE_VERBS, routed by instance through verbs.c's table of them, and its events, which a
     # controller never sends
-    with open(os.path.join(ROOT, "include", "plugin-hostd", "protocol.h")) as f:
-        header = f.read()
+    header = declared.read_header("protocol.h")
     rows = header[header.index("#define PHD_INSTANCE_VERBS(X)"):]
     rows = rows[:rows.index("\n\n")]
-    for rendered in ("plugin_hostd_host_verbs.h", "omx_clap_core_host_verbs.h"):
-        with open(os.path.join(ROOT, "include", "plugin-hostd", rendered)) as f:
-            header += f.read()
+    for rendered in ("plugin_hostd_protocol_host_verbs.h", "omx_clap_core_host_verbs.h"):
+        header += declared.read_header(rendered)
     by_macro = dict(re.findall(r'^#define\s+((?:PHD_(?:VERB|EVENT)|OMX_VERB)_\w+)\s+"(\w+)"$', header, re.M))
     instance_info = {by_macro[m] for m in re.findall(r"X\(\w+, ((?:PHD|OMX)_VERB_\w+),", rows)}
     events = {v for m, v in by_macro.items() if m.startswith("PHD_EVENT_")}

@@ -6,11 +6,12 @@ import json, os, random, re, shutil, signal, socket, subprocess, sys, tempfile, 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 import plugin_hostd_client
 
-# The protocol the daemon declares, read from the file a consumer reads: the tree's own, or PLUGIN_HOSTD_PROTOCOL (the
-# installed package's /usr/share/plugin-hostd/protocol.json, in the smoke test of a package). No value of it is
+# The protocol the daemon declares, read from the file a consumer reads: PLUGIN_HOSTD_PROTOCOL, else
+# plugin-hostd-protocol's (pkg-config --variable=protocoljson plugin-hostd-protocol, or its checkout). No value of it is
 # spelled in a test.
-with open(os.environ.get("PLUGIN_HOSTD_PROTOCOL",
-                         os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "protocol", "plugin-hostd.json"))) as f:
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import declared as _declared
+with open(os.environ.get("PLUGIN_HOSTD_PROTOCOL") or _declared.variable("protocoljson")) as f:
     DECLARED = json.load(f)
 CODE = {e["name"]: e["code"] for e in DECLARED["errors"]}
 READY_LINE = DECLARED["readiness"]["daemon_line"]

@@ -30,7 +30,7 @@ pid=$!
 trap 'kill "$pid" 2>/dev/null; wait "$pid" 2>/dev/null; rm -rf "$log" "$state"' EXIT
 for _ in $(seq 50); do grep -q "ready" "$log" && break; sleep 0.1; done
 grep -q "ready" "$log" || { echo "plugin-hostd did not come up" >&2; cat "$log" >&2; exit 2; }
-echo "plugin-hostd on port $port, protocol library: $(grep -o '/[^ ]*libmod-host-protocol[^ ]*' /proc/$pid/maps | sort -u)"
+echo "plugin-hostd on port $port, protocol library: $(grep -o '/[^ ]*libplugin-hostd-protocol[^ ]*' /proc/$pid/maps | sort -u)"
 echo "conformance script: $script"
 
 # shellcheck disable=SC2086

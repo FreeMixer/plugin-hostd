@@ -331,7 +331,7 @@ From the spike ([spike-report.md](spike-report.md), x86_64 container, plugin-hos
 
 | measure | value | file |
 |---|---|---|
-| distinct verbs mod-ui's source sends | 33 (+2 commented out) | [verbs.tsv](verbs.tsv) |
+| distinct verbs mod-ui's source sends | 33 (+2 commented out) | [mod-ui-verbs.tsv](https://github.com/FreeMixer/plugin-hostd-protocol/blob/main/doc/evidence/mod-ui-verbs.tsv) |
 | commands in the driven session, both daemons | 135 of 16 verbs, the same 135 in the same order | [evidence/path-a/diff.txt](evidence/path-a/diff.txt) |
 | replies that differ | 5: `connect ... mod-monitor:in_N` x2 (0 against -902), `feature_enable aggregated-midi` (-202 against 0), `preset_load` of a user preset after a reload x2 (0 against -105) | diff.txt |
 | feedback lines that differ | `transport` 6 against 1, `data_finish` 3 against 1 (one per worker) | diff.txt |

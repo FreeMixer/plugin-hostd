@@ -78,24 +78,23 @@ Building from source: see [BUILDING.md](BUILDING.md). More about FreeMixer at <h
 Protocol
 --------
 
-The wire protocol for a reader of another host, mod-host's verbs on plugin-hostd and the verbs mod-host does not
-have, is [docs/protocol.md](docs/protocol.md), written from the declarations below by `tools/protocol-doc.py`; CI fails
-when it differs from them.
+The protocol is the plugin-hostd protocol, a superset of mod-host's text protocol: any mod-host client works unchanged.
+It is declared once, in [plugin-hostd-protocol](https://github.com/FreeMixer/plugin-hostd-protocol), the library the daemon answers its controllers with; the wire
+protocol for a reader of another host, mod-host's verbs on plugin-hostd and the verbs mod-host does not have, is its
+[doc/protocol.md](https://github.com/FreeMixer/plugin-hostd-protocol/blob/main/doc/protocol.md).
 
-The verbs the daemon adds are declared once in omx-contract's contract directory, with their formats, their replies,
-their refusal codes and what each host owes them: `/usr/share/omx-contract/contract.d/3/plugin-hostd/verbs.json`,
-package `plugin-hostd-contract`, beside the format tables. A refusal number omx-clap-host answers too carries
-omx-clap-core's `reply.host.*` code (package `omx-clap-core-contract`), the others plugin-hostd's
-`reply.plugin-hostd.*`: one name per number. The placement syntax, the error codes, the feedback events
-and the settings are declared once in `include/plugin-hostd/protocol.h`, which includes the verbs as
-`plugin_hostd_host_verbs.h` renders them; the tables here, the man page's key list and `protocol/plugin-hostd.json`
-are generated from both. A C program includes the installed header (`pkg-config --cflags plugin-hostd`, package
-`plugin-hostd-devel` or `plugin-hostd-dev`); anything else reads `/usr/share/plugin-hostd/protocol.json`. mod-host's own protocol, which the LV2 workers speak
-(its command and feedback templates, its parse refusals and its reply codes), is installed beside it as
-`/usr/share/plugin-hostd/mod-host.json`, written from the mod-host headers the daemon is built against.
-The development package installs the schemas beside them: `protocol.schema.json` for the protocol JSON,
-`probe-output.schema.json` for the probe's document and `preset.schema.json` for the org.openmixer.preset file
-(`protocoldir` in the pkg-config file is that directory).
+What it declares is installed with that library's development package (`plugin-hostd-protocol-devel`,
+`libplugin-hostd-protocol-dev`): the header `<plugin-hostd/protocol.h>` with the placement syntax, the error codes, the
+feedback events, the settings and the verbs (`pkg-config --cflags plugin-hostd-protocol`); the one verb table, its
+grammar, and the protocol and mod-host's as JSON (`pkg-config --variable=table`, `grammar`, `protocoljson` and
+`modhostjson` of `plugin-hostd-protocol`). The verbs the daemon adds are its package of omx-contract's contract
+directory (`plugin-hostd-protocol-contract`). A refusal number omx-clap-host answers too carries omx-clap-core's
+`reply.host.*` code (package `omx-clap-core-contract`), the others plugin-hostd's `reply.plugin-hostd.*`: one name per
+number. The tables here and the man page's key list are generated from that header; this tree keeps no copy of it.
+
+This tree's development package installs what it declares beside the protocol: the schemas `probe-output.schema.json`
+for the probe's document and `preset.schema.json` for the org.openmixer.preset file (`protocoldir` in the pkg-config
+file of `plugin-hostd` is that directory), and `<plugin-hostd/pin.h>`.
 
 Running
 -------

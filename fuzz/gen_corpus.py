@@ -2,8 +2,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 #
-# The seed corpus of the two fuzz harnesses (make fuzz-corpus), written from what the repository declares:
-# protocol/plugin-hostd.json and protocol/mod-host.json for the command harness, every verb with sample arguments, and
+# The seed corpus of the two fuzz harnesses (make fuzz-corpus), written from what is declared: plugin-hostd-protocol's
+# JSON of the protocol and of mod-host's (PROTOCOL_JSON and MODHOST_JSON, which the Makefile takes from pkg-config, or
+# tests/declared.py's lookup) for the command harness, every verb with sample arguments, and
 # the send lines of README.md and docs/own-host.md; and, for the reply harness, worker feedback cut every way the
 # reader has a branch for. Nothing is fetched and nothing is random: the same tree writes the same files.
 #
@@ -12,6 +13,8 @@ import json, os, re, shutil, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
+sys.path.insert(0, os.path.join(ROOT, "tests"))
+import declared  # noqa: E402
 
 # ---------------------------------------------------------------- the command harness: [flags] [u16 LE len] [bytes]
 
@@ -83,8 +86,8 @@ def message(text, flags=0):
 
 def command_corpus(out):
     seeds = {}
-    phd = json.load(open(os.path.join(ROOT, "protocol", "plugin-hostd.json")))
-    mod = json.load(open(os.path.join(ROOT, "protocol", "mod-host.json")))
+    phd = json.load(open(os.environ.get("PROTOCOL_JSON") or declared.variable("protocoljson")))
+    mod = json.load(open(os.environ.get("MODHOST_JSON") or declared.variable("modhostjson")))
     lines = []
     for v in phd["verbs"] + phd["instance_verbs"]:
         lines.append(("plugin-hostd-" + v["name"], [v["name"]] + sample(v["arguments"], False),

@@ -73,7 +73,7 @@ conventions decide against both:
 
 - Reply size. A message is at most `line_max`, 4096 bytes, the socket's buffer, and one panel table may hold 4096
   entries. A panel never fits a reply, so it is a file the reply names, as the descriptor is.
-- No optional reply words. Every reply of the protocol is one fixed grammar, word by word (`protocol.json`'s
+- No optional reply words. Every reply of the protocol is one fixed grammar, word by word (the protocol JSON's
   `reply`); what is optional is a verb, answered or refused with `-902`, never a field a client must guess the
   presence of. A second path in `descriptor_get`'s reply would change a `required` verb's grammar for every client
   that parses it. A new verb leaves `descriptor_get` as it is, and a daemon that predates `panel_get` answers it

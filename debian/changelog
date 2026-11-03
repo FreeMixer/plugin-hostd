@@ -1,3 +1,20 @@
+plugin-hostd (0.16.0) unstable; urgency=medium
+
+  * The protocol is plugin-hostd-protocol's (0.2.0 or later): protocol.h, the
+    search lists, the verb tables and the JSON of the protocol and of
+    mod-host's are read from the installed library, and this tree keeps no
+    copy. plugin-hostd depends on libplugin-hostd-protocol0, plugin-hostd-dev
+    on libplugin-hostd-protocol-dev, and the JSON documents move to
+    /usr/share/plugin-hostd-protocol/.
+  * preset_show <instance> <key> goes to the worker that holds the instance
+    alone, and preset_show <uri> is answered as mod-host answers it, by the
+    LV2 worker; a key or uri in quotes that holds a space is told apart by the
+    words the worker reads.
+  * The shared checks of commit messages and private references run from
+    FreeMixer/.github, and no copy of them is kept here.
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Tue, 03 Nov 2026 19:00:00 +0100
+
 plugin-hostd (0.15.9) unstable; urgency=medium
 
   * A worker that says abi_clobber (omx-clap-host 0.26.2: a plugin returned
