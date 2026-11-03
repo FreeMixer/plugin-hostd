@@ -640,8 +640,9 @@ jobs:
       - name: Install the daemon, the worker, its fixtures and the members from the FreeMixer channel
         run: |
           set -euo pipefail
+          # the scripts read the plugin search lists from plugin-hostd-protocol's header (tools/search-paths.py)
           dnf install -y --setopt=install_weak_deps=False --setopt=retries=10 plugin-hostd 'omx-clap-host >= 0.21.0' \
-            omx-clap-host-tests omx-plugins-clap omx-plugins-lv2
+            omx-clap-host-tests omx-plugins-clap omx-plugins-lv2 'plugin-hostd-protocol-devel >= 0.2.0' pkgconf-pkg-config
           rpm -q plugin-hostd omx-clap-host omx-clap-host-tests omx-plugins-clap omx-plugins-lv2
           # the channel's daemon names its verbs in plugin-hostd-protocol's JSON from 0.16.0, in its own before
           for json in /usr/share/plugin-hostd-protocol/plugin-hostd.json /usr/share/plugin-hostd/protocol.json; do
