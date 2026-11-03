@@ -352,6 +352,12 @@ char *sup_broadcast(const char *line)
     return answer(c, REC_MOD_HOST_SHAPE, 1);
 }
 
+/* a broadcast whose answer is the LV2 worker's: to the harness, a broadcast */
+char *sup_broadcast_lv2(const char *line)
+{
+    return sup_broadcast(line);
+}
+
 void sup_host_setting(const char *line, char **tok, int ntok)
 {
     struct rec_call *c = record(REC_HOST_SETTING);

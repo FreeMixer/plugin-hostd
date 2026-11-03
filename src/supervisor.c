@@ -2581,9 +2581,23 @@ char *sup_connect(const char *verb, const char *line, const char *port_a, const 
     return reply;
 }
 
+static char *broadcast(const char *line, int fmt);
+
 char *sup_broadcast(const char *line)
 {
-    char *first = NULL, *reply = NULL;
+    return broadcast(line, -1);
+}
+
+char *sup_broadcast_lv2(const char *line)
+{
+    return broadcast(line, format_by_name(PHD_FORMAT_LV2));
+}
+
+/* the line to every worker that is up; the answer is the first refusal, else the first answer, or, with fmt >= 0,
+ * that of the first worker of format fmt when one answered */
+static char *broadcast(const char *line, int fmt)
+{
+    char *first = NULL, *reply = NULL, *own = NULL;
     int n, rc, id;
     worker_t *list[1024];
     int count = g_nworkers < 1024 ? g_nworkers : 1024;
@@ -2601,13 +2615,21 @@ char *sup_broadcast(const char *line)
             on_death(w, -1);
             continue;
         }
-        if (!first || (resp_code(first) >= 0 && resp_code(reply) < 0))
+        /* the answer of the first worker of the format asked for is the answer, whatever the others say */
+        if (fmt >= 0 && w->fmt == fmt && !own)
+            own = reply;
+        else if (!first || (resp_code(first) >= 0 && resp_code(reply) < 0))
         {
             free(first);
             first = reply;
         }
         else
             free(reply);
+    }
+    if (own)
+    {
+        free(first);
+        first = own;
     }
     if (verb_is(line, STATE_LOAD) && first && resp_code(first) >= 0)
         for (id = 0; id < MAX_INSTANCE; id++)

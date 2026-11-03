@@ -207,7 +207,7 @@ __attribute__((noinline)) static void check_reply_answer(const struct words *w)
          * input: add-default
          * mutant: src/verbs.c:86 `return rc;` -> `return SUCCESS;`
          * input: plugin-hostd-pin_set-refused
-         * mutant: src/verbs.c:273 `return reply_text;` -> `return sup_resp(SUCCESS);`
+         * mutant: src/verbs.c:285 `return reply_text;` -> `return sup_resp(SUCCESS);`
          * input: mod-host-set_bpm-refused */
         if (strcmp(g_rec.reply, g_rec.answer))
             abort();
@@ -229,7 +229,7 @@ __attribute__((noinline)) static void check_reply(const struct words *w)
     int code;
 
     /* one reply, and nothing sent empty
-     * mutant: src/verbs.c:303 `reply(msg->sender_id, handle(line, tok, ntok));` -> `free(handle(line, tok, ntok));`
+     * mutant: src/verbs.c:315 `reply(msg->sender_id, handle(line, tok, ntok));` -> `free(handle(line, tok, ntok));`
      * input: add-default */
     if (g_rec.nreplies != 1 || g_rec.reply_size == 0)
         abort();
@@ -499,7 +499,7 @@ __attribute__((noinline)) static void check_round_trip(const struct words *w, ui
     free(line);
 
     /* the same calls with the same arguments
-     * mutant: src/verbs.c:297 `strtok_r(copy, " \t", &save)` -> `strtok_r(copy, " ", &save)`
+     * mutant: src/verbs.c:309 `strtok_r(copy, " \t", &save)` -> `strtok_r(copy, " ", &save)`
      * input: mod-host-add-tabs */
     if (!rec_calls_equal(first, nfirst, g_rec.calls, g_rec.ncalls))
         abort();

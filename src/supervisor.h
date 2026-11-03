@@ -157,6 +157,9 @@ char *sup_remove(int id);
 char *sup_remove_all(void);
 char *sup_connect(const char *verb, const char *line, const char *port_a, const char *port_b);
 char *sup_broadcast(const char *line);
+/* the same, but the answer is that of the first LV2 worker (mod-host) that is up, when one is: a line of mod-host's
+ * own that only mod-host's LV2 world answers (preset_show <uri>) */
+char *sup_broadcast_lv2(const char *line);
 /* a command every worker shares: kept when it is one of PHD_HOST_SETTINGS and its words are its grammar */
 void sup_host_setting(const char *line, char **tok, int ntok);
 /* the instance's uri as it goes to a worker, and where its format's plugins are searched; NULL for no such instance */

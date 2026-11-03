@@ -83,7 +83,9 @@
  *                               not hold), as a worker that builds them answers; with FAKE_PRESETS_LEARN=refuse
  *                               "resp -902", as the released omx-clap-host answers them; the fake keeps nothing of
  *                               them (FAKE_LOG shows what it was sent). Without it preset_load is the state verb below
- *                               and the others are unknown, -902
+ *                               and the others are unknown, -902. With FAKE_PRESETS_LEARN=state, preset_show <uri>
+ *                               answers as mod-host does, the preset's state as Turtle and no resp, here a line that
+ *                               names the fake's pid; preset_show <instance> <key> answers as with answer
  *   remote_pages <n>            "resp 2", and remote_page_get <n> <0|1> one page each, -902 for any other page
  *   param_info <n> <sym>        for the symbol 0 the worked vector of the param contract, for the symbol 1 -511 (a parameter
  *                               the worker holds no contract for, as the released omx-clap-host answers every one), -103 for any other
@@ -431,7 +433,16 @@ static void receive(msg_t *msg)
             _exit(1);
         answer(fd, getenv("FAKE_REFUSE_SETTINGS") ? "resp -902" : "resp 0");
     }
-    else if (presets_learn && !strcmp(presets_learn, "answer") && verb_is(verb, EFFECT_PRESET_SHOW) && ntok == 3 &&
+    else if (presets_learn && !strcmp(presets_learn, "state") && verb_is(verb, EFFECT_PRESET_SHOW) && ntok == 2)
+    {
+        /* mod-host's answer: the state lilv writes for the preset, with no resp before it */
+        char state[128];
+
+        snprintf(state, sizeof(state), "@prefix fake: <urn:fake:pid:%d> .", (int)getpid());
+        answer(fd, state);
+    }
+    else if (presets_learn && (!strcmp(presets_learn, "answer") || !strcmp(presets_learn, "state")) &&
+             verb_is(verb, EFFECT_PRESET_SHOW) && ntok == 3 &&
              isdigit((unsigned char)tok[1][0]))
         /* the instance form: one line of JSON, as docs/presets.md declares it (mod-host's form, a uri, answers resp 0) */
         answer(fd, n >= 0 && n < MAX_INST && g_inst[n].exists
