@@ -528,7 +528,8 @@ jobs:
           grep -qx /usr/libexec/plugin-hostd/tests/lib/plugin_hostd_client.py tests.txt
           dpkg -s libplugin-hostd-protocol0 | grep '^Status: install ok installed'
           dpkg-deb -f debs/plugin-hostd_*.deb Depends | tee depends.txt
-          grep -qF 'libplugin-hostd-protocol0 (>= 0.2.0~)' depends.txt
+          # dpkg-shlibdeps writes the library's own floor, (>= 0.2.0), over debian/control's (>= 0.2.0~)
+          grep -qE 'libplugin-hostd-protocol0 \(>= 0\.2\.0~?\)' depends.txt
 
       - name: The installed fake worker prints its layout
         run: |
@@ -638,7 +639,9 @@ jobs:
             omx-clap-host-tests omx-plugins-clap omx-plugins-lv2
           rpm -q plugin-hostd omx-clap-host omx-clap-host-tests omx-plugins-clap omx-plugins-lv2
           # the channel's daemon names its verbs in plugin-hostd-protocol's JSON from 0.16.0, in its own before
-          json=$(rpm -qla | grep -m1 -xE '/usr/share/(plugin-hostd-protocol/plugin-hostd|plugin-hostd/protocol)\.json')
+          for json in /usr/share/plugin-hostd-protocol/plugin-hostd.json /usr/share/plugin-hostd/protocol.json; do
+            [ ! -e "$json" ] || break
+          done
           grep -q '"chain_get"' "$json" || {
             echo "::error::the channel's plugin-hostd has no chain_get (#162)"; exit 1; }
           for f in /usr/libexec/omx-clap-host/tests/fault-14.clap /usr/libexec/omx-clap-host/tests/jack_identity \
