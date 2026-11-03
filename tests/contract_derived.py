@@ -80,8 +80,9 @@ PROBE_SRC = re.search(r"^PROBE_SRC = (.*)$", open(os.path.join(ROOT, "Makefile")
 
 
 def build_probe(include_first, out):
-    cmd = [CC, "-I" + include_first, "-I" + os.path.join(ROOT, "include")] + pkg("--cflags").split() + \
-          ["-I" + os.path.join(ROOT, "src"), "-O2", "-std=gnu99", "-D_GNU_SOURCE", "-DPROBE_VERSION=\"0\"", "-o", out] + \
+    cmd = [CC, "-I" + include_first, "-I" + os.path.join(ROOT, "include"), "-I" + declared_protocol.include_dir()] + \
+          pkg("--cflags").split() + ["-I" + os.path.join(ROOT, "src"), "-O2", "-std=gnu99", "-D_GNU_SOURCE",
+                                     "-DPROBE_VERSION=\"0\"", "-o", out] + \
           [os.path.join(ROOT, f) for f in PROBE_SRC] + ["-lm"]
     return subprocess.run(cmd, capture_output=True, text=True)
 
