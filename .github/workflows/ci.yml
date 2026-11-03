@@ -55,15 +55,10 @@ jobs:
             echo "packages=false" >> "$GITHUB_OUTPUT"
           fi
 
-  private-refs:
-    name: no tracked file points into a private repository
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: make private-refs
-        run: make private-refs
+  # the checks every FreeMixer repository runs on what it publishes: commit messages, private references, and no
+  # local copy of either (FreeMixer/.github's public-sources-check)
+  public-sources:
+    uses: FreeMixer/.github/.github/workflows/public-sources-check.yml@v1
 
   # docs/protocol.md is written from the protocol data by tools/protocol-doc.py; red when it is not what the data gives
   protocol-doc:
