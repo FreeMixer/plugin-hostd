@@ -210,12 +210,12 @@ install_man:
 	install -d $(DESTDIR)$(MANDIR)
 	install -m 644 doc/*.1 $(DESTDIR)$(MANDIR)
 
-# No tracked file points into a private repository, issue, branch or path (tools/private-refs-check.sh, with its
-# --self-test, which turns each kind of pointer red in each kind of file).
+# No tracked file points into a private repository, issue, branch or path: FreeMixer/.github's private-refs check, from a
+# checkout of it (FREEMIXER_DOTGITHUB, else ../freemixer-dotgithub); CI runs it through the public-sources-check workflow.
+FREEMIXER_DOTGITHUB ?= ../freemixer-dotgithub
 .PHONY: private-refs check-verb-table
 private-refs:
-	tools/private-refs-check.sh
-	tools/private-refs-check.sh --self-test
+	$(FREEMIXER_DOTGITHUB)/.github/actions/private-refs-check/check.sh .
 
 # libFuzzer harnesses (fuzz/README.md): the command parser and dispatcher, src/verbs.c with the mod-host side replaced by
 # a recorder, and the reply stream, src/relay.c with its sockets answered by the harness; clang with libFuzzer,
