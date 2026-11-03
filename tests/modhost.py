@@ -1,18 +1,18 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # mod-host's protocol as its headers declare it, for the tests that must not spell it: where the build takes the
-# headers from (pkg-config when mod-host-protocol is installed, a mod-host checkout otherwise, as the Makefile does),
+# headers from (pkg-config when plugin-hostd-protocol is installed, a checkout of it otherwise, as the Makefile does),
 # the verb of every command of mod-host.h and the codes of host-errors.h.
 import os, re, subprocess
 
 
 def include_dir(mod_host_dir):
-    p = subprocess.run([os.environ.get("PKG_CONFIG", "pkg-config"), "--cflags-only-I", "mod-host-protocol"],
+    p = subprocess.run([os.environ.get("PKG_CONFIG", "pkg-config"), "--cflags-only-I", "plugin-hostd-protocol"],
                        capture_output=True, text=True)
     if p.returncode == 0:
         for flag in p.stdout.split():
             if os.path.exists(os.path.join(flag[2:], "mod-host.h")):
                 return flag[2:]
-    return os.path.join(mod_host_dir, "src")
+    return os.path.join(mod_host_dir, "include")
 
 
 def formats(directory):

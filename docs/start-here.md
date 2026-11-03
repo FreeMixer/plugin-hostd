@@ -28,7 +28,7 @@ issue](https://github.com/FreeMixer/plugin-hostd/issues).
 MOD-UI, a mixing console, your own program) opens its socket and speaks mod-host's protocol: same ports, same verbs,
 same replies, plus the verbs plugin-hostd adds. A plugin that crashes takes down its own worker and nothing else, and
 the worker is put back with its settings. The [README](../README.md) has the verbs and the error codes; the
-[wire protocol](protocol.md) states every message.
+[wire protocol](https://github.com/FreeMixer/plugin-hostd-protocol/blob/main/doc/protocol.md) states every message.
 
 **What it hosts.** LV2 and CLAP plugins, side by side. CLAP plugins, and the LV2 plugins its adapter takes, run in
 omx-clap-host; the LV2 plugins the adapter refuses run in mod-host. How a plugin's own description becomes the

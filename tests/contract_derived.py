@@ -3,10 +3,18 @@
 # default rates are ORACLE_FLOOR_RATES, the parameter scales of the protocol are PARAM_SCALES, the same words in
 # the same order, and the probe output's shared enums are the words of omx_vocabulary.h. Checked twice: against the installed contract (its data and its C header), and against a scratch
 # copy of the header with the values changed, where the runner must follow and the generator must refuse to build.
+# The JSON of the protocol is written by plugin-hostd-protocol's generator (its installed source, protocolgen), built here
+# against the scratch copies; the probe schema by this tree's tools/protocol-gen.c.
 # Usage: contract_derived.py (run from the tree; CC, PKG_CONFIG and PROBE from the environment, or their defaults).
 import json, os, re, shutil, subprocess, sys, tempfile
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import declared as declared_protocol
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# the generator of the protocol's JSON, plugin-hostd-protocol's, and this tree's, which writes the probe schema
+JSON_GEN = declared_protocol.variable("protocolgen")
+OWN_GEN = os.path.join(ROOT, "tools", "protocol-gen.c")
 CC = os.environ.get("CC", "cc")
 PKG_CONFIG = os.environ.get("PKG_CONFIG", "pkg-config")
 PROBE = os.path.abspath(os.environ.get("PROBE", os.path.join(ROOT, "plugin-hostd-probe")))
@@ -72,15 +80,16 @@ PROBE_SRC = re.search(r"^PROBE_SRC = (.*)$", open(os.path.join(ROOT, "Makefile")
 
 
 def build_probe(include_first, out):
-    cmd = [CC, "-I" + include_first, "-I" + os.path.join(ROOT, "include")] + pkg("--cflags").split() + \
-          ["-I" + os.path.join(ROOT, "src"), "-O2", "-std=gnu99", "-D_GNU_SOURCE", "-DPROBE_VERSION=\"0\"", "-o", out] + \
+    cmd = [CC, "-I" + include_first, "-I" + os.path.join(ROOT, "include"), "-I" + declared_protocol.include_dir()] + \
+          pkg("--cflags").split() + ["-I" + os.path.join(ROOT, "src"), "-O2", "-std=gnu99", "-D_GNU_SOURCE",
+                                     "-DPROBE_VERSION=\"0\"", "-o", out] + \
           [os.path.join(ROOT, f) for f in PROBE_SRC] + ["-lm"]
     return subprocess.run(cmd, capture_output=True, text=True)
 
 
-def build_gen(include_first, out):
-    cmd = [CC, "-I" + include_first, "-I" + os.path.join(ROOT, "include")] + pkg("--cflags").split() + \
-          ["-std=gnu99", "-o", out, os.path.join(ROOT, "tools", "protocol-gen.c")]
+def build_gen(include_first, out, source=JSON_GEN):
+    cmd = [CC, "-I" + include_first, "-I" + os.path.join(ROOT, "include"), "-I" + declared_protocol.include_dir()] + \
+          pkg("--cflags").split() + ["-std=gnu99", "-o", out, source]
     return subprocess.run(cmd, capture_output=True, text=True)
 
 
@@ -101,7 +110,7 @@ def gen_methods(gen):
 def main():
     floor = ",".join(str(r) for r in contract_data("ORACLE_FLOOR_RATES")["values"])
     scales = contract_data("PARAM_SCALES")["ids"]
-    with open(os.path.join(ROOT, "protocol", "plugin-hostd.json")) as f:
+    with open(declared_protocol.variable("protocoljson")) as f:
         declared = [s["name"] for s in json.load(f)["param_scales"]]
     check(declared == scales, "the protocol's parameter scales %s are omx-contract's PARAM_SCALES %s" % (declared, scales))
 
@@ -133,29 +142,34 @@ def main():
             rc, out, err = gen_json(os.path.join(tmp, "gen"))
             check(rc == 0 and [x["name"] for x in json.loads(out)["param_scales"]] == scales,
                   "positive control: the generator writes the contract's scales: rc %d %s" % (rc, err[-200:]))
-        own = os.path.join(tmp, "own")
-        shutil.copytree(os.path.join(ROOT, "include"), own)
+        # protocol.h is plugin-hostd-protocol's: a changed copy of its headers, read before the installed ones
+        own = os.path.dirname(declared_protocol.overlay(os.path.join(tmp, "own")))
         proto = os.path.join(own, "plugin-hostd", "protocol.h")
         ptext = open(proto).read()
         renamed = ptext.replace('X(LOG, "log", ', 'X(LOG, "logarithmic", ')
         check(renamed != ptext, "positive control: the scratch protocol.h's word was changed")
         with open(proto, "w") as f:
             f.write(renamed)
-        built = build_gen(own, os.path.join(tmp, "gen-renamed"))
-        if built.returncode == 0:
-            rc, out, err = gen_json(os.path.join(tmp, "gen-renamed"))
-            check(rc != 0 and "PARAM_SCALES" in err and out == "",
-                  "the generator writes nothing for a scale word that is not the contract's: rc %d %r" % (rc, err[-200:]))
-        else:
-            check(0, "the generator builds with a renamed word, to refuse it when it runs: %s" % built.stderr[-300:])
+        # both generators: plugin-hostd-protocol's of the JSON, and this tree's of its pages
+        for source, mode in ((JSON_GEN, "json"), (OWN_GEN, "regions")):
+            exe = os.path.join(tmp, "gen-renamed-" + mode)
+            built = build_gen(own, exe, source)
+            if built.returncode == 0:
+                p = subprocess.run([exe, mode], capture_output=True, text=True, timeout=30)
+                check(p.returncode != 0 and "PARAM_SCALES" in p.stderr and p.stdout == "",
+                      "%s writes nothing for a scale word that is not the contract's: rc %d %r"
+                      % (source, p.returncode, p.stderr[-200:]))
+            else:
+                check(0, "%s builds with a renamed word, to refuse it when it runs: %s" % (source, built.stderr[-300:]))
         swapped = text.replace("OMX_PARAM_SCALES_LOG = 1", "OMX_PARAM_SCALES_LOG = 2").replace(
             "OMX_PARAM_SCALES_STEPPED = 2", "OMX_PARAM_SCALES_STEPPED = 1")
         check(swapped != text, "positive control: the scratch header's scales were swapped")
         with open(os.path.join(scratch, "omxcontract", "omx_contract_limits.h"), "w") as f:
             f.write(swapped)
-        built = build_gen(scratch, os.path.join(tmp, "gen-swapped"))
-        check(built.returncode != 0 and "PARAM_SCALES" in built.stderr,
-              "the generator refuses scales the contract orders otherwise: rc %d %s" % (built.returncode, built.stderr[-300:]))
+        for source in (JSON_GEN, OWN_GEN):
+            built = build_gen(scratch, os.path.join(tmp, "gen-swapped"), source)
+            check(built.returncode != 0 and "PARAM_SCALES" in built.stderr,
+                  "%s refuses scales the contract orders otherwise: rc %d %s" % (source, built.returncode, built.stderr[-300:]))
 
         # a scratch vocabulary whose latency methods have a word more: the probe schema the generator writes has it
         # too, and a word list longer than its count does not build
@@ -169,7 +183,7 @@ def main():
                          lambda m: "%s%du" % (m.group(1), int(m.group(2)) + 1), grown)
         with open(os.path.join(vocab, "omxcontract", "omx_vocabulary.h"), "w") as f:
             f.write(counted)
-        built = build_gen(vocab, os.path.join(tmp, "gen-vocab"))
+        built = build_gen(vocab, os.path.join(tmp, "gen-vocab"), OWN_GEN)
         check(built.returncode == 0, "the generator builds against the scratch vocabulary: %s" % built.stderr[-400:])
         if built.returncode == 0:
             methods = gen_methods(os.path.join(tmp, "gen-vocab"))
@@ -177,7 +191,7 @@ def main():
                   "a word the contract adds to the latency methods is in the probe schema: %s" % methods)
         with open(os.path.join(vocab, "omxcontract", "omx_vocabulary.h"), "w") as f:
             f.write(grown)
-        built = build_gen(vocab, os.path.join(tmp, "gen-vocab-uncounted"))
+        built = build_gen(vocab, os.path.join(tmp, "gen-vocab-uncounted"), OWN_GEN)
         check(built.returncode != 0 and "MEASUREMENT_LATENCY_METHODS" in built.stderr,
               "the generator refuses a word list that is not its count: rc %d %s" % (built.returncode, built.stderr[-300:]))
     finally:

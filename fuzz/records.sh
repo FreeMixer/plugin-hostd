@@ -12,6 +12,10 @@
 # To tell which abort() fired, the harness is built with a header that makes abort() name its file and line on
 # standard error before it aborts; nothing else of the harness changes.
 #
+# A record may change a header of the declared protocol, plugin-hostd-protocol's (include/plugin-hostd/protocol.h): it
+# is applied to a copy of the installed headers in the build directory, which the harness is built against before the
+# installed ones; the copy is the installed one again after each record.
+#
 # Usage: FUZZ_BUILD=build/fuzz FUZZ_CC=clang PROTOCOL_CFLAGS=... records.sh
 set -u
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
@@ -32,6 +36,19 @@ harness_of() {
 }
 CHECKED="fuzz/fuzz_command.c fuzz/recorder.c fuzz/fuzz_reply.c fuzz/fuzz.h"
 
+# the copy of the declared protocol's headers a record may change: the directory of PROTOCOL_CFLAGS that holds
+# plugin-hostd/protocol.h
+OVERLAY=$B/overlay
+rm -rf "$OVERLAY"
+mkdir -p "$OVERLAY/include"
+for flag in ${PROTOCOL_CFLAGS:-}; do
+    case $flag in
+    -I*) [ -f "${flag#-I}/plugin-hostd/protocol.h" ] && cp -r "${flag#-I}/plugin-hostd" "$OVERLAY/include/" && break ;;
+    esac
+done
+[ -f "$OVERLAY/include/plugin-hostd/protocol.h" ] ||
+    { echo "make fuzz-records: RED -- no plugin-hostd/protocol.h in PROTOCOL_CFLAGS (${PROTOCOL_CFLAGS:-})"; exit 1; }
+
 cat >"$B/abort-at.h" <<'EOF'
 /* make fuzz-records: abort() names where it was called, then aborts */
 #include <stdio.h>
@@ -51,7 +68,7 @@ build() {   # build <harness> <output>
     *) extra= ;;
     esac
     # shellcheck disable=SC2086
-    "$CC" -O0 -g -std=c11 -D_GNU_SOURCE -fsanitize=fuzzer -include "$B/abort-at.h" -Iinclude -Isrc -Ifuzz \
+    "$CC" -O0 -g -std=c11 -D_GNU_SOURCE -fsanitize=fuzzer -include "$B/abort-at.h" -Iinclude -I"$OVERLAY/include" -Isrc -Ifuzz \
         ${PROTOCOL_CFLAGS:-} "fuzz/fuzz_$1.c" $extra -pthread -o "$2"
 }
 
@@ -109,6 +126,8 @@ while IFS="$us" read -r file at path line old new input; do
     h=$(harness_of "$file")
     seed=fuzz/corpus/$h/$input
     [ -n "$h" ] && [ -f "$seed" ] || continue
+    # a header of the declared protocol is changed in its copy
+    [ ! -f "$path" ] && [ -f "$OVERLAY/$path" ] && path=$OVERLAY/$path
     if [ ! -f "$path" ]; then
         echo "$file:$at: $path is not a file of the tree"
         red="$red $file:$at"

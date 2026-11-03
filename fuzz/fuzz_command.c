@@ -40,7 +40,7 @@
  *     Mutant: fuzz/sabotage/command-reply.patch, the reply sent without its NUL.
  *     Mutant: fuzz/sabotage/command-reply-answer.patch, a pin_set the pins refused replied "resp 0".
  *   - arity: a verb the daemon parses itself (PHD_VERBS, the rows tools/protocol-gen.c writes into
- *     protocol/plugin-hostd.json, and mod-host's remove, connect, disconnect and quit) is acted on, by its own call
+ *     the protocol's JSON, and mod-host's remove, connect, disconnect and quit) is acted on, by its own call
  *     or by a broadcast to every worker, only with an argument count its declared syntax allows; a word past
  *     PHD_LINE_WORDS_MAX is not read. The broadcast of pin_layout, pin_expect, and connect or disconnect of another
  *     count is the workers' to refuse (passed_on).
@@ -207,7 +207,7 @@ __attribute__((noinline)) static void check_reply_answer(const struct words *w)
          * input: add-default
          * mutant: src/verbs.c:86 `return rc;` -> `return SUCCESS;`
          * input: plugin-hostd-pin_set-refused
-         * mutant: src/verbs.c:273 `return reply_text;` -> `return sup_resp(SUCCESS);`
+         * mutant: src/verbs.c:276 `return reply_text;` -> `return sup_resp(SUCCESS);`
          * input: mod-host-set_bpm-refused */
         if (strcmp(g_rec.reply, g_rec.answer))
             abort();
@@ -229,7 +229,7 @@ __attribute__((noinline)) static void check_reply(const struct words *w)
     int code;
 
     /* one reply, and nothing sent empty
-     * mutant: src/verbs.c:303 `reply(msg->sender_id, handle(line, tok, ntok));` -> `free(handle(line, tok, ntok));`
+     * mutant: src/verbs.c:306 `reply(msg->sender_id, handle(line, tok, ntok));` -> `free(handle(line, tok, ntok));`
      * input: add-default */
     if (g_rec.nreplies != 1 || g_rec.reply_size == 0)
         abort();
@@ -499,7 +499,7 @@ __attribute__((noinline)) static void check_round_trip(const struct words *w, ui
     free(line);
 
     /* the same calls with the same arguments
-     * mutant: src/verbs.c:297 `strtok_r(copy, " \t", &save)` -> `strtok_r(copy, " ", &save)`
+     * mutant: src/verbs.c:300 `strtok_r(copy, " \t", &save)` -> `strtok_r(copy, " ", &save)`
      * input: mod-host-add-tabs */
     if (!rec_calls_equal(first, nfirst, g_rec.calls, g_rec.ncalls))
         abort();
