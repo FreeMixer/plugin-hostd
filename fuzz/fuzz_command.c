@@ -40,7 +40,7 @@
  *     Mutant: fuzz/sabotage/command-reply.patch, the reply sent without its NUL.
  *     Mutant: fuzz/sabotage/command-reply-answer.patch, a pin_set the pins refused replied "resp 0".
  *   - arity: a verb the daemon parses itself (PHD_VERBS, the rows tools/protocol-gen.c writes into
- *     protocol/plugin-hostd.json, and mod-host's remove, connect, disconnect and quit) is acted on, by its own call
+ *     the protocol's JSON, and mod-host's remove, connect, disconnect and quit) is acted on, by its own call
  *     or by a broadcast to every worker, only with an argument count its declared syntax allows; a word past
  *     PHD_LINE_WORDS_MAX is not read. The broadcast of pin_layout, pin_expect, and connect or disconnect of another
  *     count is the workers' to refuse (passed_on).

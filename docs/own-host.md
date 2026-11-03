@@ -82,8 +82,9 @@ a later `add` of a changed file is refused with a `pin_changed` event. A host th
 See Pins in the [README](../README.md).
 
 What to read next: `man plugin-hostd`; the verbs and error codes in the README; `remote_pages` and `remote_page_get` for
-the plugin's own pages of controls; the machine-readable protocol at `/usr/share/plugin-hostd/protocol.json`; a C
-consumer can include `plugin-hostd/protocol.h` (`pkg-config --cflags plugin-hostd`, package `plugin-hostd-dev`).
+the plugin's own pages of controls; the machine-readable protocol at
+`/usr/share/plugin-hostd-protocol/plugin-hostd.json`; a C consumer can include `plugin-hostd/protocol.h`
+(`pkg-config --cflags plugin-hostd-protocol`, package `libplugin-hostd-protocol-dev`).
 
 Measuring plugins at real-time priority
 ---------------------------------------

@@ -3,7 +3,7 @@ Zynthian spike: plugin-hostd and plugin-qualify in Zynthian
 
 FreeMixer/plugin-hostd#124, run in a cluster pod (Fedora 44 container, x86_64, 4 CPUs, no root, no
 container runtime, no qemu-system). Nothing was sent to Zynthian and no Zynthian repository was written to. The plan
-built on these results is [offer.md](offer.md); the verb table is [verbs.tsv](verbs.tsv); the spike's engine was
+built on these results is [offer.md](offer.md); the verb table is [mod-ui-verbs.tsv](https://github.com/FreeMixer/plugin-hostd-protocol/blob/main/doc/evidence/mod-ui-verbs.tsv); the spike's engine was
 a patch against zynthian-ui, since superseded by the FreeMixer/zynthian-ui fork ([README.md](README.md)). Every number below names the file or command it came
 from; the raw logs are under [evidence/](evidence/).
 

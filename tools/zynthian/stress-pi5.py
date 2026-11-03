@@ -63,7 +63,7 @@ def lv2_path():
             m = re.match(r'^export LV2_PATH="?([^"\n]*)"?', line)
             if m:
                 return m.group(1)
-    # the plugin-hostd default (include/plugin-hostd/search_paths.h), when the image has no envars file
+    # the plugin-hostd default (plugin-hostd-protocol's plugin-hostd/search_paths.h), when the image has no envars file
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "search-paths.py")
     return subprocess.run([sys.executable, "-I", path, "lv2"], capture_output=True, text=True, check=True).stdout.replace("\n", ":").strip(":")
 

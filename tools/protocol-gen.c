@@ -18,9 +18,9 @@
  * Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
  */
 
-/* Everything generated from include/plugin-hostd/protocol.h, compiled against it, so the values are the header's own:
+/* Everything this tree generates from <plugin-hostd/protocol.h> (plugin-hostd-protocol's), compiled against it, so the
+ * values are the header's own; the protocol's JSON is plugin-hostd-protocol's, written by its own generator:
  *
- *   protocol-gen json          protocol/plugin-hostd.json on stdout
  *   protocol-gen regions       the name of every region, one per line
  *   protocol-gen probe-schema TEMPLATE   TEMPLATE on stdout with each @PHD_PROBE_...@ token replaced by that list of the header,
  *                              and each @OMX_<ITEM>@ token by the words of omx-contract's <ITEM> (omx_vocabulary.h)
@@ -71,8 +71,7 @@ static int scales_are_the_contracts(void)
 
 #define PATH_MAX_DOC 512
 
-/* ---------------------------------------------------------------- json */
-
+/* a JSON string, for the probe schema's lists */
 static void jstr(const char *s)
 {
     putchar('"');
@@ -83,201 +82,6 @@ static void jstr(const char *s)
         putchar(*s);
     }
     putchar('"');
-}
-
-static void json(void)
-{
-    const char *sep;
-
-    printf("{\n  \"protocol\": \"plugin-hostd\",\n  \"version\": %d,\n", PLUGIN_HOSTD_PROTOCOL_VERSION);
-    printf("  \"readiness\": {\"daemon_line\": ");
-    jstr(PHD_READY_LINE);
-    printf(", \"worker_marker\": ");
-    jstr(PHD_WORKER_READY_MARKER);
-    printf("},\n  \"constants\": [");
-    sep = "\n";
-#define X(name, value, unit, meaning) \
-    printf("%s    {\"name\": \"" #name "\", \"value\": %d, \"unit\": \"" unit "\", \"meaning\": ", sep, value); \
-    jstr(meaning); \
-    printf("}"); \
-    sep = ",\n";
-    PHD_CONSTANTS(X)
-#undef X
-    printf("\n  ],\n  \"placement\": {\n    \"own\": ");
-    jstr(PHD_PLACE_OWN);
-    printf(",\n    \"default\": ");
-    jstr(PHD_PLACE_DEFAULT);
-    printf(",\n    \"pool_prefix\": ");
-    jstr(PHD_PLACE_POOL_PREFIX);
-    printf(",\n    \"pool_sibling_separator\": ");
-    jstr(PHD_POOL_SIBLING_SEPARATOR);
-    printf(",\n    \"syntax\": ");
-    jstr(PHD_PLACEMENT_SYNTAX);
-    printf(",\n    \"pool_name\": {\"pattern\": ");
-    jstr(PHD_POOL_NAME_PATTERN);
-    printf(", \"class\": ");
-    jstr(PHD_POOL_NAME_CLASS);
-    printf(", \"min\": %d, \"max\": %d}\n  },\n", PHD_POOL_NAME_MIN, PHD_POOL_NAME_MAX);
-    printf("  \"formats\": [");
-    sep = "";
-#define X(id, name) printf("%s\"%s\"", sep, name); sep = ", ";
-    PHD_FORMATS(X)
-#undef X
-    printf("],\n  \"words\": {\"all\": ");
-    jstr(PHD_WORD_ALL);
-    printf(", \"none\": ");
-    jstr(PHD_WORD_NONE);
-    printf(", \"any_format\": ");
-    jstr(PHD_FORMAT_ANY);
-    printf("},\n  \"worker_states\": [");
-    sep = "\n";
-#define X(id, name, meaning) \
-    printf("%s    {\"name\": \"%s\", \"meaning\": ", sep, name); \
-    jstr(meaning); \
-    printf("}"); \
-    sep = ",\n";
-    PHD_WORKER_STATES(X)
-#undef X
-    printf("\n  ],\n  \"errors\": [");
-    sep = "\n";
-#define X(id, resp, meaning) \
-    printf("%s    {\"name\": \"" #id "\", \"macro\": \"" #resp "\", \"code\": %d, \"meaning\": ", sep, resp); \
-    jstr(meaning); \
-    printf("}"); \
-    sep = ",\n";
-    PHD_ERRORS(X)
-#undef X
-    printf("\n  ],\n  \"verbs\": [");
-    sep = "\n";
-#define X(id, name, args, reply, meaning) \
-    printf("%s    {\"name\": ", sep); \
-    jstr(name); \
-    printf(", \"arguments\": "); \
-    jstr(args); \
-    printf(", \"reply\": "); \
-    jstr(reply); \
-    printf(", \"meaning\": "); \
-    jstr(meaning); \
-    printf("}"); \
-    sep = ",\n";
-    PHD_VERBS(X)
-#undef X
-    printf("\n  ],\n  \"instance_verbs\": [");
-    sep = "\n";
-#define X(id, name, args, reply, ledger, meaning) \
-    printf("%s    {\"name\": ", sep); \
-    jstr(name); \
-    printf(", \"arguments\": "); \
-    jstr(args); \
-    printf(", \"reply\": "); \
-    jstr(reply); \
-    printf(", \"ledger\": \"%s\", \"meaning\": ", PHD_LEDGER_##ledger == PHD_LEDGER_REPLACE ? "replace" : "none"); \
-    jstr(meaning); \
-    printf("}"); \
-    sep = ",\n";
-    PHD_INSTANCE_VERBS(X)
-#undef X
-    printf("\n  ],\n  \"host_profiles\": [");
-    sep = "\n";
-#define X(id, name, meaning) \
-    printf("%s    {\"name\": ", sep); \
-    jstr(name); \
-    printf(", \"meaning\": "); \
-    jstr(meaning); \
-    printf("}"); \
-    sep = ",\n";
-    PHD_HOST_PROFILES(X)
-#undef X
-    printf("\n  ],\n  \"host_verbs\": [");
-    sep = "\n";
-#define X(name, source, lv2, clap, console, zynthian) \
-    printf("%s    {\"name\": ", sep); \
-    jstr(name); \
-    printf(", \"source\": "); \
-    jstr(PHD_HOST_VERB_SOURCE_##source); \
-    printf(", \"levels\": {\"lv2-worker\": \"%s\", \"clap-worker\": \"%s\", \"console\": \"%s\", \"zynthian\": \"%s\"}}", \
-           PHD_LEVEL_##lv2, PHD_LEVEL_##clap, PHD_LEVEL_##console, PHD_LEVEL_##zynthian); \
-    sep = ",\n";
-    PHD_HOST_VERBS(X)
-#undef X
-    printf("\n  ],\n  \"track_kinds\": [");
-    sep = "";
-#define X(id, name) printf("%s\"%s\"", sep, name); sep = ", ";
-    PHD_TRACK_KINDS(X)
-#undef X
-    printf("],\n  \"param_scales\": [");
-    sep = "\n";
-#define X(id, name, meaning) \
-    printf("%s    {\"name\": \"%s\", \"meaning\": ", sep, name); \
-    jstr(meaning); \
-    printf("}"); \
-    sep = ",\n";
-    PHD_PARAM_SCALES(X)
-#undef X
-    printf("\n  ],\n  \"remote_page_slots\": %d,\n  \"string_max\": %d,\n  \"events\": [", PHD_REMOTE_PAGE_SLOTS,
-           PHD_STRING_MAX);
-    sep = "\n";
-#define X(name, fields, meaning) \
-    printf("%s    {\"name\": ", sep); \
-    jstr(name); \
-    printf(", \"fields\": "); \
-    jstr(fields); \
-    printf(", \"meaning\": "); \
-    jstr(meaning); \
-    printf("}"); \
-    sep = ",\n";
-    PHD_EVENTS(X)
-#undef X
-    printf("\n  ],\n  \"pin_limits\": [");
-    sep = "\n";
-#define X(id, meaning) \
-    printf("%s    {\"name\": \"" #id "\", \"meaning\": ", sep); \
-    jstr(meaning); \
-    printf("}"); \
-    sep = ",\n";
-    PHD_PIN_LIMITS(X)
-#undef X
-    printf("\n  ],\n  \"relay\": {\n    \"worker_arguments\": ");
-    jstr(PHD_WORKER_ARGUMENTS);
-    printf(",\n    \"rules\": [");
-    sep = "\n";
-#define X(id, meaning) \
-    printf("%s      {\"name\": \"" #id "\", \"meaning\": ", sep); \
-    jstr(meaning); \
-    printf("}"); \
-    sep = ",\n";
-    PHD_RELAY(X)
-#undef X
-    printf("\n    ]\n  },\n  \"host_settings\": [");
-    sep = "\n";
-#define X(id, meaning) \
-    printf("%s    {\"name\": \"" #id "\", \"meaning\": ", sep); \
-    jstr(meaning); \
-    printf("}"); \
-    sep = ",\n";
-    PHD_HOST_SETTINGS(X)
-#undef X
-    printf("\n  ],\n  \"config\": [");
-    sep = "\n";
-#define X(key, size, def, env, meaning) \
-    printf("%s    {\"key\": \"" #key "\", \"type\": \"string\", \"default\": ", sep); \
-    jstr(def); \
-    printf(", \"env\": "); \
-    jstr(env); \
-    printf(", \"meaning\": "); \
-    jstr(meaning); \
-    printf("}"); \
-    sep = ",\n";
-    PHD_CONF_STRINGS(X)
-#undef X
-#define X(key, def, unit, meaning) \
-    printf("%s    {\"key\": \"" #key "\", \"type\": \"int\", \"default\": %d, \"unit\": \"" unit "\", \"meaning\": ", sep, def); \
-    jstr(meaning); \
-    printf("}"); \
-    sep = ",\n";
-    PHD_CONF_INTS(X)
-#undef X
-    printf("\n  ]\n}\n");
 }
 
 /* ---------------------------------------------------------------- regions */
@@ -783,11 +587,6 @@ int main(int argc, char **argv)
 {
     if (!scales_are_the_contracts())
         return 1;
-    if (argc == 2 && !strcmp(argv[1], "json"))
-    {
-        json();
-        return 0;
-    }
     if (argc == 3 && !strcmp(argv[1], "splice"))
         return splice(argv[2]);
     if (argc == 3 && !strcmp(argv[1], "probe-schema"))
@@ -800,6 +599,6 @@ int main(int argc, char **argv)
             puts(REGIONS[n].name);
         return 0;
     }
-    fprintf(stderr, "usage: protocol-gen json | regions | splice FILE | probe-schema TEMPLATE\n");
+    fprintf(stderr, "usage: protocol-gen regions | splice FILE | probe-schema TEMPLATE\n");
     return 2;
 }
