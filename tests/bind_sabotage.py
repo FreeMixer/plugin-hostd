@@ -3,6 +3,9 @@
 # this the test could pass by not reaching anything.
 import os, shlex, shutil, subprocess, sys, tempfile
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import declared
+
 exe, fake, cc, cflags, objs, libs = sys.argv[1:7]
 
 ARMS = [
@@ -24,8 +27,10 @@ failures = 0
 for name, edits in ARMS:
     tmp = tempfile.mkdtemp(prefix="plugin-hostd-bind-sabotage.")
     changed, header = set(), False
-    # the sabotaged header is found first, and the headers beside it with it
+    # the sabotaged header is found first, and the headers beside it with it: this tree's, and a copy of
+    # plugin-hostd-protocol's, whose protocol.h holds the default
     shutil.copytree("include", os.path.join(tmp, "include"))
+    declared.overlay(tmp)
     for path, old, new in edits:
         target = os.path.join(tmp, path)
         os.makedirs(os.path.dirname(target), exist_ok=True)

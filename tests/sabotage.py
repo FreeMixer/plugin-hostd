@@ -3,10 +3,11 @@
 # pass the same test first, or a red proves nothing. A guard whose sabotage leaves its test green is decoration.
 import os, shutil, subprocess, sys, tempfile
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import declared
 import sabotage_pool
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MOD_HOST_DIR = os.path.abspath(os.environ.get("MOD_HOST_DIR", os.path.join(ROOT, "..", "mod-host")))
+PROTOCOL_DIR = os.path.abspath(os.environ.get("PROTOCOL_DIR", os.path.join(ROOT, "..", "plugin-hostd-protocol")))
 FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "fake-host")))
 
 # (what is broken, file, text, replacement, the test that must go red[, "jack"]); a "jack" test runs in tests/jack_e2e.sh
@@ -17,9 +18,31 @@ FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "
 # tests/readme_build.py, with no daemon to build; "probeschema" breaks protocol/probe-output.schema.json and runs
 # tests/probe_schema.py; "relay" breaks src/relay.c and runs tests/relay_test.c; "history" breaks src/history.c or src/fsutil.c and runs tests/history_test.c; "proc" breaks src/proc.c and runs tests/proc_test.c; "conf" breaks src/conf.c, src/main.c, the search lists or a reader of them and runs tests/conf_test.c and tests/search_paths_once.py; "alloc" breaks src/relay.c, src/lv2.c or src/verbs.c and runs make test-alloc; "contract" breaks the probe runner or the generator and runs tests/contract_derived.py; "consumer" breaks the header and compiles tests/consumer.c against it; "probe" breaks src/probe.c and runs tests/probe_test.py; "nopins" breaks the packaging or a workflow and runs tests/no_pins.py; "ciguards" breaks a workflow and runs tests/ci_guards.py;
 # "vocabulary" breaks the probe schema, its template or a copy of omx-contract's omx-vocabulary.schema.json and runs
-# tests/vocabulary_derived.py; "verbtable" breaks the header and runs tests/verb_table.py; "presetschema" breaks
+# tests/vocabulary_derived.py; "presetschema" breaks
 # protocol/preset.schema.json and runs tests/preset_format.py; "pool" breaks tests/sabotage_pool.py or the port range of
 # tests/harness.py and runs tests/sabotage_pool_test.py; "placement" breaks src/placement.c and runs tests/placement_test.c
+# The declared protocol is plugin-hostd-protocol's. An arm that breaks one of its headers (include/plugin-hostd/ and a
+# name of PROTOCOL_HEADERS below) breaks a copy of the installed headers in the arm's tree, which -Iinclude finds before
+# the installed ones (tests/declared.py, overlay); an arm that breaks protocol-data/verbs.json breaks a copy of the
+# installed verbs.json and renders it into that copy, as plugin-hostd-protocol renders it.
+PROTOCOL_HEADERS = set(declared.headers())
+PROTOCOL_VERBS = "protocol-data/verbs.json"
+
+
+def protocol_overlay(tree, path):
+    """the copy of the declared protocol an arm on path breaks, made in tree; True when one was made"""
+    if path == PROTOCOL_VERBS:
+        declared.overlay(tree)
+        os.makedirs(os.path.join(tree, "protocol-data"), exist_ok=True)
+        shutil.copy(declared.verbs_json(), os.path.join(tree, PROTOCOL_VERBS))
+        declared.render_overlay(tree, os.path.join(tree, PROTOCOL_VERBS))
+        return True
+    if path.startswith("include/plugin-hostd/") and os.path.basename(path) in PROTOCOL_HEADERS:
+        declared.overlay(tree)
+        return True
+    return False
+
+
 SABOTAGE = [
     # core placement (docs/placement.md)
     ('a new worker is not pinned to its core', 'src/supervisor.c',
@@ -431,7 +454,7 @@ SABOTAGE = [
      "a_pins_d_pin_admits_its_plugin_and_of_two_files_the_last_by_name_wins"),
     ("the build steps are back on the README", "README.md", "Building from source: see [BUILDING.md](BUILDING.md).",
      "Building from source:\n\n    make\n\nsee [BUILDING.md](BUILDING.md).", "README.md runs no build tool", "readme"),
-    ("BUILDING.md lost its build command", "BUILDING.md", "    make [MOD_HOST_DIR=<mod-host checkout>]\n", "",
+    ("BUILDING.md lost its build command", "BUILDING.md", "    make [PROTOCOL_DIR=<plugin-hostd-protocol checkout>]\n", "",
      "README.md runs no build tool", "readme"),
     ("the spec lost the floor of omx-clap-host-tests", "packaging/plugin-hostd.spec",
      "BuildRequires: omx-clap-host-tests >= 0.25.0\n", "", "no pin anywhere", "nopins"),
@@ -789,19 +812,6 @@ SABOTAGE = [
      '    if (i->chain && !chain_whole(i->chain))\n        i->chain->rejoin = 1;\n',
      '',
      "a_chain_that_dies_naming_no_culprit_is_split_and_rejoins_without_the_one_that_dies_again"),
-    ("a row of the host verb table is dropped", "include/plugin-hostd/protocol.h",
-     '    X("cpu_load", MOD_UI, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \\\n', "", "verb table", "verbtable"),
-    ("a verb is added to the daemon with no row in the host verb table", "include/plugin-hostd/protocol.h",
-     '    X(CHAIN_CLEAR, OMX_VERB_CHAIN_CLEAR, "<chain>", OMX_VERB_CHAIN_CLEAR_REPLY, \\\n',
-     '    X(SABOTAGE, "verb_table_sabotage", "", "resp 0", "a verb with no row") \\\n'
-     '    X(CHAIN_CLEAR, OMX_VERB_CHAIN_CLEAR, "<chain>", OMX_VERB_CHAIN_CLEAR_REPLY, \\\n', "verb table", "verbtable"),
-    ("a verb the daemon answers itself is absent from a profile", "include/plugin-hostd/protocol.h",
-     "    X(OMX_VERB_CHAIN, DAEMON, REQUIRED, REQUIRED, REQUIRED, REQUIRED) \\\n",
-     "    X(OMX_VERB_CHAIN, DAEMON, REQUIRED, REQUIRED, ABSENT, REQUIRED) \\\n", "verb table", "verbtable"),
-    ("a verb mod-host never had is required of a profile", "include/plugin-hostd/protocol.h",
-     '    X("set_midi_program_change_pedalboard_bank_channel", MOD_UI, ABSENT, ABSENT, ABSENT, ABSENT) \\\n',
-     '    X("set_midi_program_change_pedalboard_bank_channel", MOD_UI, ABSENT, REQUIRED, ABSENT, ABSENT) \\\n',
-     "verb table", "verbtable"),
     ("the declared floor of a chain is two again", "include/plugin-hostd/protocol.h",
      "#define PHD_CHAIN_MEMBERS_MIN    1\n", "#define PHD_CHAIN_MEMBERS_MIN    2\n",
      "a_chain_of_one_runs_in_a_worker_of_its_own_and_a_chain_of_none_is_refused"),
@@ -877,12 +887,12 @@ SABOTAGE = [
      '"then": {"required": ["params", "state"]}', '"then": {"required": ["params"]}',
      "params+state with the state body dropped is refused", "presetschema"),
     # the declared verbs (data/verbs.json) against the daemon on its socket, and the sources against the declaration
-    ("a declared format is not the grammar the daemon answers", "data/verbs.json",
+    ("a declared format is not the grammar the daemon answers", PROTOCOL_VERBS,
      '"format": "chain_get %i",', '"format": "chain_get %i %i",', "verbs_declared", "verbs"),
-    ("a rendered code is not the one declared, so not the one the daemon answers", "include/plugin-hostd/plugin_hostd_vocabulary.h",
+    ("a rendered code is not the one declared, so not the one the daemon answers", "include/plugin-hostd/plugin_hostd_protocol_vocabulary.h",
      "#define OMX_REPLY_PLUGIN_HOSTD_NO_SUCH_CHAIN_RESP (-522)", "#define OMX_REPLY_PLUGIN_HOSTD_NO_SUCH_CHAIN_RESP (-101)",
      "verbs_declared", "verbs"),
-    ("a number omx-clap-core names is named again by plugin-hostd", "data/verbs.json",
+    ("a number omx-clap-core names is named again by plugin-hostd", PROTOCOL_VERBS,
      '    "codes": {\n      "placementInvalid": {',
      '    "codes": {\n      "invalidOperation": {\n        "code": "reply.plugin-hostd.invalid-operation",\n'
      '        "resp": -902,\n        "doc": "a second name for -902"\n      },\n      "placementInvalid": {',
@@ -1512,20 +1522,34 @@ SABOTAGE = [
 ]
 
 
+def rebuild(tree, jack):
+    """the tree's daemon and probe, built again from scratch where the arm's setup built them"""
+    if not os.path.isdir(os.path.join(tree, "src")):
+        return
+    for f in os.listdir(os.path.join(tree, "src")):
+        if f.endswith(".o"):
+            os.unlink(os.path.join(tree, "src", f))
+    if jack in ("verbs", False) or jack == "jack" or os.path.exists(os.path.join(tree, "plugin-hostd")):
+        build(tree)
+    if jack in ("verbs", "probe") or os.path.exists(os.path.join(tree, "plugin-hostd-probe")):
+        subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, "plugin-hostd-probe"], cwd=tree, check=True,
+                       stdout=subprocess.DEVNULL)
+
+
 def build(tree):
-    subprocess.run(["make", "-s", "MOD_HOST_DIR=" + MOD_HOST_DIR, "plugin-hostd"], cwd=tree, check=True,
+    subprocess.run(["make", "-s", "PROTOCOL_DIR=" + PROTOCOL_DIR, "plugin-hostd"], cwd=tree, check=True,
                    stdout=subprocess.DEVNULL)
 
 
 def build_probe(tree):
     # the probe has its own rule in the Makefile (its sources, -Isrc, the contract's flags and defines): build it there
-    subprocess.run(["make", "-s", "MOD_HOST_DIR=" + MOD_HOST_DIR, "plugin-hostd-probe"], cwd=tree, check=True,
+    subprocess.run(["make", "-s", "PROTOCOL_DIR=" + PROTOCOL_DIR, "plugin-hostd-probe"], cwd=tree, check=True,
                    stdout=subprocess.DEVNULL)
 
 
 def run_pin_test(tree):
     exe = os.path.join(tree, "pin-test")
-    subprocess.run(["cc", "-I" + os.path.join(tree, "include"), "-std=gnu99", "-o", exe,
+    subprocess.run(["cc", "-I" + os.path.join(tree, "include"), "-I" + declared.include_dir(), "-std=gnu99", "-o", exe,
                     os.path.join(ROOT, "tests", "pin_test.c")], check=True)
     p = subprocess.run([exe], capture_output=True, text=True, timeout=60)
     return p.returncode, p.stdout
@@ -1538,7 +1562,7 @@ def run_format_test(tree):
     for f in os.listdir(os.path.join(tree, "src")):
         if f.endswith(".o"):
             os.unlink(os.path.join(tree, "src", f))
-    subprocess.run(["make", "-s", "MOD_HOST_DIR=" + MOD_HOST_DIR, "tests/format-test"], cwd=tree, check=True,
+    subprocess.run(["make", "-s", "PROTOCOL_DIR=" + PROTOCOL_DIR, "tests/format-test"], cwd=tree, check=True,
                    stdout=subprocess.DEVNULL)
     env = dict(os.environ, PLUGIN_HOSTD_FORMAT_TEST_DIR=tree)
     p = subprocess.run([os.path.join(tree, "tests", "format-test"), FAKE], env=env, capture_output=True, text=True, timeout=120)
@@ -1549,13 +1573,13 @@ def run_relay_test(tree):
     """tests/relay_test.c against the tree's src/relay.c; it prints "ok   relay_test" when no check failed"""
     os.makedirs(os.path.join(tree, "tests"), exist_ok=True)
     shutil.copy(os.path.join(ROOT, "tests", "relay_test.c"), os.path.join(tree, "tests"))
-    subprocess.run(["make", "-s", "-B", "MOD_HOST_DIR=" + MOD_HOST_DIR, "tests/relay-test"], cwd=tree, check=True,
+    subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, "tests/relay-test"], cwd=tree, check=True,
                    stdout=subprocess.DEVNULL)
     p = subprocess.run([os.path.join(tree, "tests", "relay-test")], capture_output=True, text=True, timeout=60)
     return p.returncode, p.stdout + ("ok   relay_test\n" if p.returncode == 0 else "")
 def run_contract_test(tree):
     """tests/contract_derived.py against the tree's probe runner and generator; "ok   contract" when it passes"""
-    subprocess.run(["make", "-s", "-B", "MOD_HOST_DIR=" + MOD_HOST_DIR, "plugin-hostd-probe"], cwd=tree, check=True,
+    subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, "plugin-hostd-probe"], cwd=tree, check=True,
                    stdout=subprocess.DEVNULL)
     p = subprocess.run([sys.executable, os.path.join(tree, "tests", "contract_derived.py")], cwd=tree, capture_output=True,
                        text=True, timeout=300, env=dict(os.environ, PROBE=os.path.join(tree, "plugin-hostd-probe")))
@@ -1563,8 +1587,8 @@ def run_contract_test(tree):
 def run_consumer_test(tree):
     """tests/consumer.c against the tree's header, as a consumer compiles it; "ok   consumer" when it passes"""
     exe = os.path.join(tree, "consumer")
-    subprocess.run(["cc", "-I" + os.path.join(tree, "include"), "-std=c99", "-Wall", "-Wextra", "-o", exe,
-                    os.path.join(ROOT, "tests", "consumer.c")], check=True)
+    subprocess.run(["cc", "-I" + os.path.join(tree, "include"), "-I" + declared.include_dir(), "-std=c99", "-Wall",
+                    "-Wextra", "-o", exe, os.path.join(ROOT, "tests", "consumer.c")], check=True)
     p = subprocess.run([exe], capture_output=True, text=True, timeout=60)
     return p.returncode, p.stdout + ("ok   consumer\n" if p.returncode == 0 else "")
 
@@ -1572,7 +1596,7 @@ def run_history_test(tree):
     """tests/history_test.c against the tree's src/history.c; it prints "ok   <group>" for each group that passed"""
     os.makedirs(os.path.join(tree, "tests"), exist_ok=True)
     shutil.copy(os.path.join(ROOT, "tests", "history_test.c"), os.path.join(tree, "tests"))
-    subprocess.run(["make", "-s", "-B", "MOD_HOST_DIR=" + MOD_HOST_DIR, "tests/history-test"], cwd=tree, check=True,
+    subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, "tests/history-test"], cwd=tree, check=True,
                    stdout=subprocess.DEVNULL)
     p = subprocess.run([os.path.join(tree, "tests", "history-test")], capture_output=True, text=True, timeout=120)
     return p.returncode, p.stdout
@@ -1582,7 +1606,7 @@ def run_proc_test(tree):
     """tests/proc_test.c against the tree's src/proc.c; it prints "ok   proc_test" when no check failed"""
     os.makedirs(os.path.join(tree, "tests"), exist_ok=True)
     shutil.copy(os.path.join(ROOT, "tests", "proc_test.c"), os.path.join(tree, "tests"))
-    subprocess.run(["make", "-s", "-B", "MOD_HOST_DIR=" + MOD_HOST_DIR, "tests/proc-test"], cwd=tree, check=True,
+    subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, "tests/proc-test"], cwd=tree, check=True,
                    stdout=subprocess.DEVNULL)
     p = subprocess.run([os.path.join(tree, "tests", "proc-test")], capture_output=True, text=True, timeout=120)
     return p.returncode, p.stdout
@@ -1593,7 +1617,7 @@ def run_conf_test(tree):
     neither failed"""
     os.makedirs(os.path.join(tree, "tests"), exist_ok=True)
     shutil.copy(os.path.join(ROOT, "tests", "conf_test.c"), os.path.join(tree, "tests"))
-    subprocess.run(["make", "-s", "-B", "MOD_HOST_DIR=" + MOD_HOST_DIR, "tests/conf-test"], cwd=tree, check=True,
+    subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, "tests/conf-test"], cwd=tree, check=True,
                    stdout=subprocess.DEVNULL)
     p = subprocess.run([os.path.join(tree, "tests", "conf-test")], capture_output=True, text=True, timeout=60)
     q = subprocess.run([sys.executable, os.path.join(ROOT, "tests", "search_paths_once.py"), tree], capture_output=True,
@@ -1612,7 +1636,7 @@ def run_alloc_test(tree):
     for f in ("tests/gesture-alloc-test", "tests/lv2-alloc-test", "tests/lv2-alloc-lv2.o", "tests/verbs-alloc-test"):
         if os.path.exists(os.path.join(tree, f)):
             os.unlink(os.path.join(tree, f))
-    p = subprocess.run(["make", "-s", "MOD_HOST_DIR=" + MOD_HOST_DIR, "test-alloc"], cwd=tree, capture_output=True, text=True,
+    p = subprocess.run(["make", "-s", "PROTOCOL_DIR=" + PROTOCOL_DIR, "test-alloc"], cwd=tree, capture_output=True, text=True,
                        timeout=120)
     return p.returncode, p.stdout + p.stderr + ("ok   alloc_test\n" if p.returncode == 0 else "")
 
@@ -1622,10 +1646,12 @@ def run_verbs_test(tree, name):
     tests/verbs_contract.py over its sources ("ok   verbs_contract")"""
     if name == "verbs_contract":
         p = subprocess.run([sys.executable, os.path.join(tree, "tests", "verbs_contract.py")], capture_output=True,
-                           text=True, timeout=60, env=dict(os.environ, MOD_HOST_DIR=MOD_HOST_DIR))
+                           text=True, timeout=60, env=dict(os.environ, PROTOCOL_DIR=PROTOCOL_DIR))
     else:
         env = dict(os.environ, PLUGIN_HOSTD=os.path.join(tree, "plugin-hostd"), FAKE_HOST=FAKE,
-                   PROBE=os.path.join(tree, "plugin-hostd-probe"), PLUGIN_HOSTD_VERBS=os.path.join(tree, "data", "verbs.json"))
+                   PROBE=os.path.join(tree, "plugin-hostd-probe"))
+        if os.path.exists(os.path.join(tree, PROTOCOL_VERBS)):
+            env["PLUGIN_HOSTD_VERBS"] = os.path.join(tree, PROTOCOL_VERBS)
         p = subprocess.run([sys.executable, os.path.join(tree, "tests", "verbs_declared.py")], env=env, capture_output=True,
                            text=True, timeout=300)
     return p.returncode, p.stdout + p.stderr + ("ok   %s\n" % name if p.returncode == 0 else "")
@@ -1636,7 +1662,7 @@ def run_unit_test(tree, target, source, name):
     "ok   <name>" when it passes"""
     os.makedirs(os.path.join(tree, "tests"), exist_ok=True)
     shutil.copy(os.path.join(ROOT, "tests", source), os.path.join(tree, "tests"))
-    subprocess.run(["make", "-s", "-B", "MOD_HOST_DIR=" + MOD_HOST_DIR, target], cwd=tree, check=True,
+    subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, target], cwd=tree, check=True,
                    stdout=subprocess.DEVNULL)
     p = subprocess.run([os.path.join(tree, target), name], capture_output=True, text=True, timeout=60)
     return p.returncode, p.stdout + p.stderr
@@ -1686,10 +1712,6 @@ def run_test(tree, name, jack=False):
         p = subprocess.run([sys.executable, os.path.join(ROOT, "tests", "vocabulary_derived.py"), tree], capture_output=True,
                            text=True, timeout=60, env=dict(os.environ, OMX_VOCABULARY=os.path.join(tree, "omx-vocabulary.schema.json")))
         return p.returncode, p.stdout
-    if jack == "verbtable":
-        p = subprocess.run([sys.executable, os.path.join(ROOT, "tests", "verb_table.py"), tree], capture_output=True,
-                           text=True, timeout=60)
-        return p.returncode, p.stdout
     if jack == "presetschema":
         p = subprocess.run([sys.executable, os.path.join(ROOT, "tests", "preset_format.py"), tree], capture_output=True,
                            text=True, timeout=60)
@@ -1715,6 +1737,9 @@ def selected(entry):
     what, path, text, repl, name = entry[:5]
     # SABOTAGE_ONLY=<words>: the arms whose test name holds them, for a change that touches a few guards
     if os.environ.get("SABOTAGE_ONLY") and os.environ["SABOTAGE_ONLY"] not in name:
+        return ""
+    # SABOTAGE_FILE=<path>: the arms that break files whose path starts with it (protocol-data/, include/plugin-hostd/)
+    if os.environ.get("SABOTAGE_FILE") and not path.startswith(os.environ["SABOTAGE_FILE"]):
         return ""
     jack = entry[5] if len(entry) > 5 else False
     # SABOTAGE_KIND=<kind>: only the arms of that kind ("history", "pin", ...)
@@ -1796,7 +1821,8 @@ def arm(entry, tree):
         for d in ("src", "include", "tools", "protocol"):
             shutil.copytree(os.path.join(ROOT, d), os.path.join(tree, d))
         os.makedirs(os.path.join(tree, "tests"))
-        shutil.copy(os.path.join(ROOT, "tests", "contract_derived.py"), os.path.join(tree, "tests"))
+        for f in ("contract_derived.py", "declared.py"):
+            shutil.copy(os.path.join(ROOT, "tests", f), os.path.join(tree, "tests"))
         for f in ("Makefile",):
             shutil.copy(os.path.join(ROOT, f), tree)
         os.makedirs(os.path.join(tree, "packaging"))
@@ -1805,17 +1831,15 @@ def arm(entry, tree):
         shutil.copytree(os.path.join(ROOT, "src"), os.path.join(tree, "src"))
         shutil.copytree(os.path.join(ROOT, "include"), os.path.join(tree, "include"))
         shutil.copy(os.path.join(ROOT, "Makefile"), tree)
-    elif jack in ("consumer", "verbtable"):
+    elif jack == "consumer":
         shutil.copytree(os.path.join(ROOT, "include"), os.path.join(tree, "include"))
     elif jack == "nopins":
         for f in ("packaging/plugin-hostd.spec", "debian/control", ".github/workflows/ci.yml"):
             os.makedirs(os.path.dirname(os.path.join(tree, f)), exist_ok=True)
             shutil.copy(os.path.join(ROOT, f), os.path.join(tree, f))
     elif jack == "pool":
-        os.makedirs(os.path.join(tree, "protocol"))
-        shutil.copy(os.path.join(ROOT, "protocol", "plugin-hostd.json"), os.path.join(tree, "protocol"))
         shutil.copytree(os.path.join(ROOT, "tests", "lib"), os.path.join(tree, "tests", "lib"))
-        for f in ("sabotage_pool.py", "sabotage_pool_test.py", "harness.py"):
+        for f in ("sabotage_pool.py", "sabotage_pool_test.py", "harness.py", "declared.py"):
             shutil.copy(os.path.join(ROOT, "tests", f), os.path.join(tree, "tests"))
     elif jack == "ciguards":
         shutil.copytree(os.path.join(ROOT, ".github", "workflows"), os.path.join(tree, ".github", "workflows"))
@@ -1831,6 +1855,9 @@ def arm(entry, tree):
         shutil.copytree(os.path.join(ROOT, "include"), os.path.join(tree, "include"))
         shutil.copy(os.path.join(ROOT, "Makefile"), tree)
         build(tree)
+    if protocol_overlay(tree, path):
+        # the tree is built again against the copy of the declared protocol, as it will be against the broken copy
+        rebuild(tree, jack)
     code, out = run_test(tree, name, jack)
     if code != 0 or "ok   " + name not in out:
         return ("FAIL control: %s does not pass on the unbroken daemon:\n%s" % (name, out), 1)
@@ -1838,10 +1865,9 @@ def arm(entry, tree):
     if src.count(text) != 1:
         return ("FAIL %s: the text to break occurs %d times in %s" % (what, src.count(text), path), 1)
     open(os.path.join(tree, path), "w").write(src.replace(text, repl))
-    if path.startswith("data/"):
-        # a changed declaration is rendered, as make render-verbs does, before the daemon is built from it
-        subprocess.run(["make", "-s", "MOD_HOST_DIR=" + MOD_HOST_DIR, "render-verbs"], cwd=tree, check=True,
-                       stdout=subprocess.DEVNULL)
+    if path == PROTOCOL_VERBS:
+        # a changed declaration is rendered, as plugin-hostd-protocol renders it, before the daemon is built from it
+        declared.render_overlay(tree, os.path.join(tree, PROTOCOL_VERBS))
     if jack == "probe":
         build_probe(tree)
     elif jack not in ("readme", "nopins", "ciguards", "format", "relay", "history", "proc", "conf", "contract", "consumer", "probeschema", "presetschema", "vocabulary", "alloc",

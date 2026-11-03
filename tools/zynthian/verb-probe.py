@@ -2,7 +2,7 @@
 """Send each of the 33 verbs mod-ui sends once, well formed, to a daemon holding one plugin; print the replies.
 
 Covers the verbs a two-pedalboard session does not reach (MIDI learn and maps, Control Chain, CV, HMI, patch, monitor
-output, external UI). Each line follows the argument formats of protocol/mod-host.json, the way mod-ui writes it
+output, external UI). Each line follows the argument formats of mod-host.json (plugin-hostd-protocol's), the way mod-ui writes it
 (zynthian/mod-ui mod/host.py). Output: TSV verb, command, reply code.
 
 Usage: MH_PORT=5555 verb-probe.py --uri <plugin> --sym <control input> --osym <control output> --dir <scratch dir>

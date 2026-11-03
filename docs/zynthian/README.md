@@ -38,7 +38,7 @@ syncs; those can be disabled, and the first sync on a device with many plugins i
 Three things to do with it, with their steps and limits: [examples.md](examples.md).
 
 What this directory holds: the spike that put plugin-hostd under Zynthian ([spike-report.md](spike-report.md)), the
-plan built on it ([offer.md](offer.md)), mod-ui's verbs on mod-host and on plugin-hostd ([verbs.tsv](verbs.tsv)), one
+plan built on it ([offer.md](offer.md)), mod-ui's verbs on mod-host and on plugin-hostd ([mod-ui-verbs.tsv](https://github.com/FreeMixer/plugin-hostd-protocol/blob/main/doc/evidence/mod-ui-verbs.tsv)), one
 Zynthian chain written as a strip profile ([chain-profile.md](chain-profile.md)), what the jalv and mod-ui engines
 give a chain ([engine-gaps.md](engine-gaps.md)), Mixbus chains, effects sends and parallel slots ([mixbus.md](mixbus.md)), instruments through the engine with Surge XT on the Pi 5
 ([instruments.md](instruments.md)), the order the work is offered upstream in, step by step

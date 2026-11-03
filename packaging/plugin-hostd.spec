@@ -13,16 +13,16 @@ BuildRequires: gcc
 BuildRequires: make
 BuildRequires: diffutils
 BuildRequires: python3
-# mod-host's protocol headers: param_info, remote_pages and track_info (mod-audio/mod-host#109) are in them from
-# release 11 on, and protocol/mod-host.json is generated from them; socket_set_bind_address() from 11.3; a floor only
-BuildRequires: mod-host-protocol-devel >= 0.10.6.f14a230-11.3
+# the protocol library and the declared protocol: <plugin-hostd/protocol.h> and the headers it includes, the protocol's
+# JSON and mod-host's. 0.2.0 is the first that holds them (they were this tree's before); a floor only
+BuildRequires: plugin-hostd-protocol-devel >= 0.2.0
 # the probe runner's default rates, the protocol's parameter scales and the probe output's shared words are read from
-# omx-contract's C headers, the format tables are items of its schema 3, and the daemon's verbs are a verbs item
-# (3.3.0 is the first with the verbs kind, 3.4.0 the first that renders a reply code's resp); a floor only
+# omx-contract's C headers, and the format tables are items of its schema 3 (3.4.0 the first that renders a reply
+# code's resp, which plugin_hostd_vocabulary.h is checked against); a floor only
 BuildRequires: omx-contract-devel >= 3.4.0
-# socket_set_bind_address(), and with it workers that listen on 127.0.0.1: FreeMixer's build carrying it (11.3.omx);
-# a floor only
-Requires: mod-host-protocol%{?_isa} >= 0.10.6.f14a230-11.3
+# the protocol library, ports on 127.0.0.1 unless told otherwise (socket_set_bind_address()); the daemon is built
+# against the declared protocol of 0.2.0; a floor only
+Requires: plugin-hostd-protocol%{?_isa} >= 0.2.0
 # omx-clap-core is a build dependency of the check stage only: the CLAP worker and the fixtures the real-worker
 # tests drive. A build with `--without check` needs nothing of omx-clap-core, so plugin-hostd and omx-clap-core
 # do not build-depend on each other. A floor only: the lowest release with what the tests need (omx-clap-core 0.21,
@@ -30,12 +30,14 @@ Requires: mod-host-protocol%{?_isa} >= 0.10.6.f14a230-11.3
 # ships fault-14.clap and jack_identity; 0.25 for param_info answered from clap.params when a plugin has no contract)
 %if %{with check}
 BuildRequires: omx-clap-host-tests >= 0.25.0
-# the reader that holds the committed render of the daemon's verbs to data/verbs.json (make check-rendered)
+# the reader that holds the committed render of data/ (make check-rendered)
 BuildRequires: omx-contract >= 3.4.0
-# the shared verbs and the reply.host.* codes data/verbs.json refers to (make check-rendered, test-verbs-declared)
+# the daemon's verbs (plugin-hostd-protocol's package of the contract directory) and the shared verbs and the
+# reply.host.* codes they refer to (make test-verbs-declared)
+BuildRequires: plugin-hostd-protocol-contract >= 0.2.0
 BuildRequires: omx-clap-core-contract >= 0.26.2
 %endif
-# the format tables and the verbs, which readers read at run time
+# the format tables, which readers read at run time
 Requires: %{name}-contract = %{version}-%{release}
 
 # the workers: a format whose worker is not installed refuses its adds (-503), the other format is unaffected
@@ -54,19 +56,22 @@ latency: every worker is a JACK client.
 Summary: Talk to plugin-hostd from your own controller without retyping its protocol
 BuildArch: noarch
 Requires: %{name}-contract = %{version}-%{release}
+# the declared protocol, <plugin-hostd/protocol.h>, which plugin-hostd.pc requires; a floor only
+Requires: plugin-hostd-protocol-devel >= 0.2.0
 
 %description devel
-The C header that declares everything a controller needs to drive plugin-hostd:
-the verbs it adds to mod-host's protocol, error codes, feedback events and
-settings. Include it instead of copying the values, and pkg-config plugin-hostd
-gives the flags. The same declaration as JSON, for tools not written in C, ships
-in the plugin-hostd package.
+The pin header, the words of the grouping planner and the running history,
+and the schemas of the probe output and of a preset file. The protocol a
+controller speaks (the verbs, error codes, feedback events and settings) is
+declared in plugin-hostd-protocol-devel, which this package requires:
+pkg-config plugin-hostd gives the flags for both.
 
 %package contract
-Summary: plugin-hostd's format tables and verbs, for programs that read them at run time
+Summary: plugin-hostd's format tables, for programs that read them at run time
 BuildArch: noarch
-# verbs.json refuses with omx-clap-core's reply.host.* codes for the numbers both hosts answer: a reader of this
-# package reads that one too; a floor only
+# the daemon's verbs are plugin-hostd-protocol's package of the contract directory since 0.2.0 (they were this
+# package's before): a reader of this package reads that one too; a floor only
+Requires: plugin-hostd-protocol-contract >= 0.2.0
 Requires: omx-clap-core-contract >= 0.26.2
 # the tables live in omx-contract's contract directory and are read against its schema: 3.2.0 is the first whose
 # source field takes an index (omx_clap_panel_display.meter_ids[0]), so an older one never sits beside a table it
@@ -75,9 +80,8 @@ Requires: omx-contract >= 3.2.0
 
 %description contract
 plugin-hostd's package of omx-contract's contract directory: the format tables
-a scan maps a CLAP or LV2 plugin through (formats/clap.json, formats/lv2.json)
-and the verbs the daemon adds to mod-host's protocol, with their replies,
-their refusals and what each host owes them (verbs.json), the keys of the
+a scan maps a CLAP or LV2 plugin through (formats/clap.json, formats/lv2.json),
+the keys of the
 running history (history.json) and the reasons a plan gives for a plugin it
 leaves alone (grouping.json), under
 share/omx-contract/contract.d/3/plugin-hostd. A program that reads them at run
@@ -111,7 +115,7 @@ sed -i 's,LDFLAGS += -s,LDFLAGS +=,g' Makefile
 %install
 
 %make_install PREFIX=%{_prefix}
-# the format tables and the verbs, as the package plugin-hostd of omx-contract's contract directory (docs/formats.md)
+# the format tables, as the package plugin-hostd of omx-contract's contract directory (docs/formats.md)
 %make_build install-contract DESTDIR=%{buildroot} PREFIX=%{_prefix}
 
 # the verb table is checked against mod-host's README, which a build does not have
@@ -130,8 +134,6 @@ make test-daemon check-generated check-rendered
 %{_libexecdir}/plugin-hostd/probe-lock.so
 %{_mandir}/man1/plugin-hostd.1*
 %{_mandir}/man1/plugin-hostd-probe.1*
-%{_datadir}/plugin-hostd/protocol.json
-%{_datadir}/plugin-hostd/mod-host.json
 # the read-only pins of packages: a package that ships pins co-owns it with %dir
 %dir %{_datadir}/plugin-hostd/pins.d
 
@@ -143,15 +145,9 @@ make test-daemon check-generated check-rendered
 
 %files devel
 %license COPYING
-%{_includedir}/plugin-hostd/protocol.h
-%{_includedir}/plugin-hostd/search_paths.h
-%{_includedir}/plugin-hostd/plugin_hostd_host_verbs.h
-%{_includedir}/plugin-hostd/omx_clap_core_host_verbs.h
-%{_includedir}/plugin-hostd/omx_clap_core_vocabulary.h
 %{_includedir}/plugin-hostd/plugin_hostd_vocabulary.h
 %{_includedir}/plugin-hostd/pin.h
 %{_datadir}/pkgconfig/plugin-hostd.pc
-%{_datadir}/plugin-hostd/protocol.schema.json
 %{_datadir}/plugin-hostd/probe-output.schema.json
 %{_datadir}/plugin-hostd/preset.schema.json
 

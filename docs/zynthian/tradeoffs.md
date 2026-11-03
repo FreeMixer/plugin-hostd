@@ -109,7 +109,7 @@ mod-host protocol compatibility
 -------------------------------
 
 plugin-hostd speaks mod-host's protocol on its port, so mod-ui and Zynthian code written for mod-host talk to it
-unchanged. [verbs.tsv](verbs.tsv) lists the 33 verbs mod-ui sends and what each does under plugin-hostd.
+unchanged. [mod-ui-verbs.tsv](https://github.com/FreeMixer/plugin-hostd-protocol/blob/main/doc/evidence/mod-ui-verbs.tsv) lists the 33 verbs mod-ui sends and what each does under plugin-hostd.
 
 - In the driven session (spike, plugin-hostd 0.6.0) 130 of 135 replies are identical. The 5 that differ:
   `connect` to `mod-monitor` (no worker owns it), `feature_enable aggregated-midi` (a later worker never hears it), and

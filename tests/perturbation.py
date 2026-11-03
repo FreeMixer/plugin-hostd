@@ -1,15 +1,20 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# The declaration is the one copy: change values in a scratch copy of include/plugin-hostd/protocol.h, and a verb in
-# one of data/verbs.json, the daemon's verbs that omx-contract renders, render and regenerate,
+# The declaration is the one copy: change values in a scratch copy of plugin-hostd/protocol.h, and a verb in one of
+# verbs.json, the daemon's verbs that omx-contract renders (both plugin-hostd-protocol's, copied from the installed
+# library into a scratch tree, where -Iinclude finds them first), render and regenerate,
 import sys as _s; _s.stdout.reconfigure(line_buffering=True)
 # rebuild, and the daemon's behaviour and the docs follow, with no other copy of an old value left in src/, the README
-# or the man page. The same behaviour test runs on the tree as it is, so it reads every value from the declared JSON and
+# or the man page. The protocol's JSON is written again by plugin-hostd-protocol's generator (its installed source),
+# built against the scratch copy. The same behaviour test runs on the tree as it is, so it reads every value from the declared JSON and
 # spells none. Then the same for mod-host's vocabulary: a verb renamed in a scratch copy of mod-host.h is the verb the
 # daemon routes and the worker answers, and the old name is no command. Nothing but the scratch copies is edited.
 import os, re, shutil, subprocess, sys, tempfile
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import declared
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MOD_HOST_DIR = os.path.abspath(os.environ.get("MOD_HOST_DIR", os.path.join(ROOT, "..", "mod-host")))
+PROTOCOL_DIR = os.path.abspath(os.environ.get("PROTOCOL_DIR", os.path.join(ROOT, "..", "plugin-hostd-protocol")))
 FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "fake-host")))
 
 
@@ -22,7 +27,7 @@ def behave(exe, protocol, gone):
     from harness import Daemon, check, resp
     conf = {c["key"]: c["default"] for c in harness.DECLARED["config"]}
     placement = harness.DECLARED["placement"]
-    code = modhost.errors(modhost.include_dir(MOD_HOST_DIR))
+    code = modhost.errors(modhost.include_dir(PROTOCOL_DIR))
 
     # the verb that takes an instance alone answers for it; the name the declaration does not have is no verb of the
     # daemon's, a mod-host command it broadcasts to no worker
@@ -95,7 +100,7 @@ def grep(pattern, *paths):
 
 
 def make(tree, *args):
-    return subprocess.run(["make", "-s", "MOD_HOST_DIR=" + MOD_HOST_DIR] + list(args), cwd=tree, capture_output=True, text=True)
+    return subprocess.run(["make", "-s", "PROTOCOL_DIR=" + PROTOCOL_DIR] + list(args), cwd=tree, capture_output=True, text=True)
 
 
 # (the definition in the header, the pattern to find it, its replacement, a pattern for an old copy that must be gone)
@@ -106,11 +111,11 @@ EDITS = [
     ("the pool name limit", r"(#define PHD_POOL_NAME_MAX )32\b", r"\g<1>5", None),
     ("the readiness line", r'(#define PHD_READY_LINE )"plugin-hostd ready!"', r'\g<1>"plugin-hostd is up!"', r"plugin.hostd ready!"),
 ]
-# a verb of the daemon is declared in data/verbs.json and rendered: (what, pattern, replacement, old) on that file
+# a verb of the daemon is declared in verbs.json and rendered: (what, pattern, replacement, old) on that file
 DATA_EDITS = [
     ("a verb", r'"instance_info( %i)?"', lambda m: '"instance_where%s"' % (m.group(1) or ""), r"\binstance_info\b"),
 ]
-# a reply code's number is declared in data/verbs.json and rendered as OMX_REPLY_<CODE>_RESP, which the daemon, the README
+# a reply code's number is declared in verbs.json and rendered as OMX_REPLY_<CODE>_RESP, which the daemon, the README
 # and the man page follow: (what, pattern, replacement, old) on that file, one match
 CODE_EDITS = [
     ("an error code", r'("resp": )-505\b', r"\g<1>-595", r"\b505\b"),
@@ -126,12 +131,12 @@ def perturb_modhost():
     """mod-host's headers copied, one verb of mod-host.h renamed, the daemon and the worker rebuilt against the copy"""
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     import modhost
-    include = modhost.include_dir(MOD_HOST_DIR)
+    include = modhost.include_dir(PROTOCOL_DIR)
     macro, suffix = MODHOST_EDIT
     before = modhost.commands(include)[macro]
     after = before + suffix
     assert after not in modhost.commands(include).values(), "%s is already a command of mod-host.h" % after
-    protocol = os.path.join(ROOT, "protocol", "plugin-hostd.json")
+    protocol = declared.variable("protocoljson")
 
     subprocess.run([sys.executable, __file__, "behave-modhost", os.path.join(ROOT, "plugin-hostd"), FAKE, include, after],
                    check=True, env=dict(os.environ, PLUGIN_HOSTD_PROTOCOL=protocol))
@@ -163,6 +168,17 @@ def perturb_modhost():
         shutil.rmtree(work, ignore_errors=True)
 
 
+def protocol_json(tree, out):
+    """the protocol's JSON written by plugin-hostd-protocol's generator, built against the tree's copy of the headers"""
+    gen = os.path.join(tree, "protocol-gen-json")
+    cflags = subprocess.run(["pkg-config", "--cflags", "omx-contract"], capture_output=True, text=True).stdout.split()
+    subprocess.run(["cc", "-std=gnu99", "-I" + os.path.join(tree, "include"), "-I" + declared.include_dir()] + cflags +
+                   ["-o", gen, declared.variable("protocolgen")], check=True)
+    with open(out, "w") as f:
+        subprocess.run([gen, "json"], stdout=f, check=True)
+    return out
+
+
 def main():
     if len(sys.argv) == 5 and sys.argv[1] == "behave":
         behave(*sys.argv[2:])
@@ -171,8 +187,7 @@ def main():
         behave_modhost(*sys.argv[2:])
         return 0
     exe = os.path.join(ROOT, "plugin-hostd")
-    subprocess.run([sys.executable, __file__, "behave", exe, os.path.join(ROOT, "protocol", "plugin-hostd.json"),
-                    VERB_AFTER], check=True)
+    subprocess.run([sys.executable, __file__, "behave", exe, declared.variable("protocoljson"), VERB_AFTER], check=True)
 
     work = tempfile.mkdtemp(prefix="plugin-hostd-perturbation.")
     try:
@@ -180,10 +195,15 @@ def main():
         os.mkdir(tree)
         for name in ("data", "include", "src", "tools", "protocol", "doc", "packaging", "tests", "Makefile", "README.md"):
             src = os.path.join(ROOT, name)
-            (shutil.copytree if os.path.isdir(src) else shutil.copy)(src, os.path.join(tree, name))
+            (shutil.copytree if os.path.isdir(src) else shutil.copy)(src, os.path.join(tree, name),
+                                                                       **({"ignore": shutil.ignore_patterns("*.o")} if os.path.isdir(src) else {}))
+        # the declaration, plugin-hostd-protocol's: a copy of its headers and of its verbs.json in the scratch tree
+        declared.overlay(tree)
         header = os.path.join(tree, "include", "plugin-hostd", "protocol.h")
         text = open(header).read()
-        declaration = os.path.join(tree, "data", "verbs.json")
+        os.makedirs(os.path.join(tree, "protocol-data"))
+        declaration = os.path.join(tree, "protocol-data", "verbs.json")
+        shutil.copy(declared.verbs_json(), declaration)
         verbs = open(declaration).read()
 
         # positive control: the greps find the old values where they are declared and documented
@@ -191,10 +211,13 @@ def main():
             if old:
                 found = grep(old, os.path.join(tree, "include"), os.path.join(tree, "README.md"), os.path.join(tree, "doc"))
                 assert found, "control: the grep for the old value of %s finds nothing where it is declared" % what
-        # and the generated files are current before anything is touched
-        for target in ("check-generated", "check-rendered"):
-            r = make(tree, target)
-            assert r.returncode == 0, "the scratch copy is not current before the edit: " + r.stdout + r.stderr
+        # and the generated files are current before anything is touched: this tree's pages, and the JSON the copy
+        # gives is the installed one
+        r = make(tree, "check-generated")
+        assert r.returncode == 0, "the scratch copy is not current before the edit: " + r.stdout + r.stderr
+        before = protocol_json(tree, os.path.join(work, "before.json"))
+        assert open(before).read() == open(declared.variable("protocoljson")).read(), \
+            "control: the JSON the copy of the headers gives is not the installed one"
 
         for what, pattern, repl, _ in EDITS:
             text, n = re.subn(pattern, repl, text)
@@ -207,6 +230,7 @@ def main():
             verbs, n = re.subn(pattern, repl, verbs)
             assert n == 1, "the edit of %s matched %d times" % (what, n)
         open(declaration, "w").write(verbs)
+        declared.render_overlay(tree, declaration)
         # the render names a verb's macro after its word, so a renamed verb renames its C name, which every reader of it
         # follows; a reader of the old name does not compile
         for base, _, files in os.walk(tree):
@@ -217,28 +241,27 @@ def main():
                     if "OMX_VERB_INSTANCE_INFO" in old:
                         open(path, "w").write(old.replace("OMX_VERB_INSTANCE_INFO", "OMX_VERB_INSTANCE_WHERE"))
 
-        # the guards: a header changed and not regenerated is drift, and so is a declaration not rendered
+        # the guard: a header changed and the pages not written again is drift
         r = make(tree, "check-generated")
         assert r.returncode != 0, "check-generated passed over a changed declaration"
-        r = make(tree, "check-rendered")
-        assert r.returncode != 0, "check-rendered passed over a changed verbs declaration"
-        print("ok   check-generated and check-rendered fail on a changed declaration that was not regenerated")
+        print("ok   check-generated fails on a changed declaration whose pages were not written again")
 
-        for target in ("render-verbs", "gen", "check-generated", "check-rendered", "plugin-hostd"):
+        for target in ("gen", "check-generated", "plugin-hostd"):
             r = make(tree, target)
             assert r.returncode == 0, "make %s in the scratch copy: %s%s" % (target, r.stdout, r.stderr)
+        after = protocol_json(tree, os.path.join(tree, "protocol", "plugin-hostd.json"))
 
         for what, _, _, old in EDITS + DATA_EDITS + CODE_EDITS:
             if old:
                 left = grep(old, os.path.join(tree, "src"), os.path.join(tree, "README.md"), os.path.join(tree, "doc"))
                 assert not left, "a copy of the old value of %s remains:\n%s" % (what, "\n".join(left))
         for new in (r"\b731\b", r"\(?-595\b", "plugin-hostd is up!", r"\binstance_where\b"):
-            assert grep(new, os.path.join(tree, "README.md"), os.path.join(tree, "doc"), os.path.join(tree, "protocol")), \
+            assert grep(new, os.path.join(tree, "README.md"), os.path.join(tree, "doc"), after), \
                 "the docs did not move to " + new
         print("ok   the docs moved and no copy of an old value remains in src/, README.md or the man page")
 
-        subprocess.run([sys.executable, __file__, "behave", os.path.join(tree, "plugin-hostd"),
-                        os.path.join(tree, "protocol", "plugin-hostd.json"), VERB_BEFORE], check=True)
+        subprocess.run([sys.executable, __file__, "behave", os.path.join(tree, "plugin-hostd"), after, VERB_BEFORE],
+                       check=True)
     finally:
         shutil.rmtree(work, ignore_errors=True)
     perturb_modhost()

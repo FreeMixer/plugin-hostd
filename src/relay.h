@@ -22,7 +22,7 @@
 #define RELAY_H
 
 /* The daemon's feedback port, and the workers' feedback read on a thread of its own and written to it (PHD_RELAY in
- * include/plugin-hostd/protocol.h). The daemon's own events and the workers' lines share one writer, so no two lines
+ * <plugin-hostd/protocol.h>). The daemon's own events and the workers' lines share one writer, so no two lines
  * are ever cut into each other. */
 
 /* Listen on `port`, 0 for none, and start the thread that reads the workers. */
