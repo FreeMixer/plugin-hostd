@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# The README sells the packages and BUILDING.md carries the build: no command of the README, in a code block or a
+# The README and the guide sell the packages and BUILDING.md carries the build: no command of either, in a code block or a
 # code span, runs a build tool, and BUILDING.md runs a plain make. Prose ("make sure") is not a command and is not read.
 import os, re, sys
 
@@ -38,11 +38,11 @@ def is_build(cmd):
 
 def main():
     failed = 0
-    readme = open(os.path.join(ROOT, "README.md")).read()
-    for n, cmd in commands(readme):
-        if is_build(cmd):
-            print("FAIL README.md:%d runs a build: %s (the build steps belong in BUILDING.md)" % (n, cmd))
-            failed += 1
+    for page in ("README.md", os.path.join("docs", "guide.md")):
+        for n, cmd in commands(open(os.path.join(ROOT, page)).read()):
+            if is_build(cmd):
+                print("FAIL %s:%d runs a build: %s (the build steps belong in BUILDING.md)" % (page, n, cmd))
+                failed += 1
     path = os.path.join(ROOT, "BUILDING.md")
     building = open(path).read() if os.path.exists(path) else ""
     # the build itself, make with no target; make test or make gen alone does not say how to build
@@ -50,7 +50,7 @@ def main():
         print("FAIL BUILDING.md carries no plain make: the build steps are documented nowhere")
         failed += 1
     if not failed:
-        print("ok   README.md runs no build tool and BUILDING.md carries the build")
+        print("ok   README.md runs no build tool, nor docs/guide.md, and BUILDING.md carries the build")
     return 1 if failed else 0
 
 

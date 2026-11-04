@@ -1791,14 +1791,16 @@ def arm(entry, tree):
     shutil.rmtree(tree, ignore_errors=True)
     if jack == "readme":
         os.makedirs(tree)
-        for f in ("README.md", "BUILDING.md"):
-            shutil.copy(os.path.join(ROOT, f), tree)
+        os.makedirs(os.path.join(tree, "docs"))
+        for f in ("README.md", "BUILDING.md", os.path.join("docs", "guide.md")):
+            shutil.copy(os.path.join(ROOT, f), os.path.join(tree, f))
     elif jack == "conf":
         # the daemon's sources and the readers of the lists, to the files the checks of tests/search_paths_once.py open
         for d in ("src", "include", "tools", "protocol", "bench"):
             shutil.copytree(os.path.join(ROOT, d), os.path.join(tree, d), ignore=shutil.ignore_patterns("*.o", "*.pyc", "__pycache__"))
         shutil.copy(os.path.join(ROOT, "Makefile"), tree)
-        shutil.copy(os.path.join(ROOT, "README.md"), tree)
+        os.makedirs(os.path.join(tree, "docs"))
+        shutil.copy(os.path.join(ROOT, "docs", "guide.md"), os.path.join(tree, "docs"))
     elif jack in ("history", "proc"):
         for d in ("src", "include"):
             shutil.copytree(os.path.join(ROOT, d), os.path.join(tree, d), ignore=shutil.ignore_patterns("*.o"))

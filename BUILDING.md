@@ -47,7 +47,7 @@ check-no-pins` fails if a build dependency on omx-clap-core appears outside the 
 Regenerating the protocol tables
 --------------------------------
 
-The tables in README.md marked `BEGIN GENERATED protocol:...`, the key list of the man page and the probe output's
+The tables in docs/guide.md marked `BEGIN GENERATED protocol:...`, the key list of the man page and the probe output's
 schema are generated from `<plugin-hostd/protocol.h>`, plugin-hostd-protocol's: `make gen` rewrites them and `make
 check-generated` fails on any drift. The protocol's JSON, mod-host's, the verb table and the protocol page are
 plugin-hostd-protocol's, generated and checked there; `make check-no-protocol-copy` fails when a copy of any of them,

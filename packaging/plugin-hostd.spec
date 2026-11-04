@@ -130,6 +130,7 @@ make test-daemon check-generated check-rendered
 
 %files
 %license COPYING
+%doc README.md
 %{_bindir}/plugin-hostd
 %{_bindir}/plugin-hostd-probe
 # the probe's lock preload, which the runner preloads into the measured child
@@ -142,12 +143,14 @@ make test-daemon check-generated check-rendered
 
 %files tests
 %license COPYING
+%doc README.md
 %{_libexecdir}/plugin-hostd/tests/fake-host
 %{_libexecdir}/plugin-hostd/tests/lib/protocol.sh
 %{_libexecdir}/plugin-hostd/tests/lib/plugin_hostd_client.py
 
 %files devel
 %license COPYING
+%doc README.md
 %{_includedir}/plugin-hostd/plugin_hostd_vocabulary.h
 %{_includedir}/plugin-hostd/pin.h
 %{_datadir}/pkgconfig/plugin-hostd.pc
@@ -156,6 +159,7 @@ make test-daemon check-generated check-rendered
 
 %files contract
 %license COPYING
+%doc README.md
 %{_datadir}/omx-contract/contract.d/3/plugin-hostd/
 
 %changelog
