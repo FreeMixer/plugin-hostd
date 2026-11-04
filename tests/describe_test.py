@@ -160,6 +160,13 @@ def main():
         bad["PLUGIN_HOSTD_CLAP_MAP"]["rows"]["clap_param_info.module"]["word"]["transform"] = "module-path"
         refused("a transform outside TRANSFORMS(X)", CASES["clap-controls"], clap, "module-path", bad)
 
+        # a malformed document is refused whole, with the table's own words: text after the value, an unfinished value, no value
+        for what, doc in (("text after the document", json.dumps(table) + " x"), ("a document cut short", json.dumps(table)[:-5]),
+                          ("an empty document", ""), ("a document that is no object", "[1, 2]")):
+            r = describe(CASES["clap-controls"], scratch(tmp, "dump.tsv", clap), scratch(tmp, "malformed.json", doc))
+            check(r.returncode == 2 and "the table is not one JSON object" in r.stderr and not r.stdout,
+                  "%s in the table: refused, exit 2, as no JSON object (%d: %s)" % (what, r.returncode, r.stderr.strip()))
+
         # the panel description of omx-clap-scan 0.20.0's dump: every field dropped, the descriptor as without it
         panel_dump = open(os.path.join(FIELDS, "clap-panel.tsv")).read()
         r = describe(CASES["clap-controls"], scratch(tmp, "panel.tsv", clap + panel_dump))
