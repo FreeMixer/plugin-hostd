@@ -383,8 +383,6 @@ SABOTAGE = [
      "clap_track_info_and_remote_pages_reach_the_plugin_through_the_daemon", "info"),
     ("meters behind the daemon never reach the controller", "src/supervisor.c", "    if (relay_add(w->fb_fd) != 0)\n", "    if (0)\n",
      "clap_meters_reach_the_controller_through_the_daemon_and_survive_a_kill", "meters"),
-    ("a SHA-256 round constant is wrong", "include/plugin-hostd/pin.h", "0x428a2f98, 0x71374491", "0x428a2f98, 0x71374490",
-     "pin.h", "pin"),
     ("a tab in a name is not escaped", "include/plugin-hostd/pin.h", "*s == '\\t' ? \"\\\\t\" : ", "", "pin.h", "pin"),
     ("an LV2 port's properties are not sorted", "include/plugin-hostd/pin.h",
      "            qsort(props, p->nproperties, sizeof(*props), phd_layout_bytewise);\n", "", "pin.h", "pin"),
@@ -1561,11 +1559,15 @@ def build_probe(tree):
                    stdout=subprocess.DEVNULL)
 
 
+def crypto_libs():
+    """pin.h's SHA-256 is libcrypto's: every program that includes it links it"""
+    return subprocess.run([os.environ.get("PKG_CONFIG", "pkg-config"), "--libs", "libcrypto"], capture_output=True,
+                          text=True, check=True).stdout.split()
+
+
 def run_pin_test(tree):
     exe = os.path.join(tree, "pin-test")
-    # pin.h's SHA-256 is libcrypto's
-    crypto = subprocess.run([os.environ.get("PKG_CONFIG", "pkg-config"), "--libs", "libcrypto"], capture_output=True,
-                            text=True, check=True).stdout.split()
+    crypto = crypto_libs()
     subprocess.run(["cc", "-I" + os.path.join(tree, "include"), "-I" + declared.include_dir(), "-std=gnu99", "-o", exe,
                     os.path.join(ROOT, "tests", "pin_test.c")] + crypto, check=True)
     p = subprocess.run([exe], capture_output=True, text=True, timeout=60)
@@ -1605,7 +1607,7 @@ def run_consumer_test(tree):
     """tests/consumer.c against the tree's header, as a consumer compiles it; "ok   consumer" when it passes"""
     exe = os.path.join(tree, "consumer")
     subprocess.run(["cc", "-I" + os.path.join(tree, "include"), "-I" + declared.include_dir(), "-std=c99", "-Wall",
-                    "-Wextra", "-o", exe, os.path.join(ROOT, "tests", "consumer.c")], check=True)
+                    "-Wextra", "-o", exe, os.path.join(ROOT, "tests", "consumer.c")] + crypto_libs(), check=True)
     p = subprocess.run([exe], capture_output=True, text=True, timeout=60)
     return p.returncode, p.stdout + ("ok   consumer\n" if p.returncode == 0 else "")
 
