@@ -79,9 +79,9 @@ def help_rates(probe):
 PROBE_SRC = re.search(r"^PROBE_SRC = (.*)$", open(os.path.join(ROOT, "Makefile")).read(), re.M).group(1).split()
 
 
-# <plugin-pin/pin.h>: what every build that includes it asks of plugin-pin.pc
-PIN_CFLAGS = subprocess.run([PKG_CONFIG, "--cflags", "plugin-pin"], capture_output=True, text=True, check=True).stdout.split()
-PIN_LIBS = subprocess.run([PKG_CONFIG, "--libs", "plugin-pin"], capture_output=True, text=True, check=True).stdout.split()
+# <plugin-db/pin.h>: what every build that includes it asks of plugin-db.pc
+PIN_CFLAGS = subprocess.run([PKG_CONFIG, "--cflags", "plugin-db"], capture_output=True, text=True, check=True).stdout.split()
+PIN_LIBS = subprocess.run([PKG_CONFIG, "--libs", "plugin-db"], capture_output=True, text=True, check=True).stdout.split()
 
 
 def build_probe(include_first, out):

@@ -75,9 +75,9 @@ else
    LDFLAGS += -s
 endif
 
-# <plugin-pin/pin.h>: the pins, the layout digests, and what its SHA-256 links (plugin-pin.pc requires libcrypto)
-PIN_CFLAGS := $(shell $(PKG_CONFIG) --cflags plugin-pin)
-PIN_LIBS := $(shell $(PKG_CONFIG) --libs plugin-pin)
+# <plugin-db/pin.h>: the pins, the layout digests, and what its SHA-256 links (plugin-db.pc requires libcrypto)
+PIN_CFLAGS := $(shell $(PKG_CONFIG) --cflags plugin-db)
+PIN_LIBS := $(shell $(PKG_CONFIG) --libs plugin-db)
 INCS = -Iinclude $(PROTOCOL_CFLAGS) $(PIN_CFLAGS)
 
 LDFLAGS += -Wl,--no-undefined
@@ -308,7 +308,7 @@ clean:
 
 # the daemon against workers that are not plugin hosts at all (tests/fake-host speaks the same protocol and can be
 # made to die on cue): placement, forwarding, ledger, replay, attribution, the storm bound; no jack, no plugin
-# SHA-256 is libcrypto's (plugin-pin's pin.h, EVP_Digest): no tracked C source or header carries one of its own, found by the first
+# SHA-256 is libcrypto's (plugin-db's pin.h, EVP_Digest): no tracked C source or header carries one of its own, found by the first
 # of FIPS 180-4's round constants; the sabotage arm runs the same search over a planted copy, which must find it
 SHA256_K0 = 0x428a2f98
 .PHONY: test-no-sha256-copy

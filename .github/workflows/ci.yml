@@ -296,7 +296,7 @@ jobs:
           mkdir -p dep-rpms
           dnf download -y --setopt=retries=10 --arch ${{ matrix.arch }} --destdir dep-rpms plugin-hostd-protocol mod-host-protocol
           # the daemon's verbs, which plugin-hostd-contract requires: plugin-hostd-protocol's package of the contract directory
-          dnf download -y --setopt=retries=10 --destdir dep-rpms 'plugin-hostd-protocol-contract >= 0.2.0' plugin-pin-devel
+          dnf download -y --setopt=retries=10 --destdir dep-rpms 'plugin-hostd-protocol-contract >= 0.2.0' plugin-db-devel
 
       - uses: FreeMixer/.github/.github/actions/build-rpm@v1
 
@@ -334,7 +334,7 @@ jobs:
             rpm -qp --requires "$rpm" | tee requires.txt
             grep -qx "plugin-hostd-contract = $(rpm -qp --qf '%{VERSION}-%{RELEASE}' "$rpm")" requires.txt
             grep -qx 'plugin-hostd-protocol-devel >= 0.2.0' requires.txt
-            grep -qx 'plugin-pin-devel >= 0.1.0' requires.txt
+            grep -qx 'plugin-db-devel >= 0.1.0' requires.txt
           done
           # the contract package: the contract directory's files, which readers read at run time, noarch
           for rpm in rpms/plugin-hostd-contract-[0-9]*.noarch.rpm; do
@@ -373,7 +373,7 @@ jobs:
           rpms: |
             dep-rpms/plugin-hostd-protocol-[0-9]*.rpm
             dep-rpms/plugin-hostd-protocol-contract-[0-9]*.noarch.rpm
-            dep-rpms/plugin-pin-devel-[0-9]*.noarch.rpm
+            dep-rpms/plugin-db-devel-[0-9]*.noarch.rpm
             dep-rpms/mod-host-protocol-[0-9]*.rpm
             rpms/plugin-hostd-[0-9]*.${{ matrix.arch }}.rpm
             rpms/plugin-hostd-contract-[0-9]*.noarch.rpm
@@ -470,7 +470,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dep-debs
-          (cd dep-debs && apt-get download libplugin-hostd-protocol0 libplugin-hostd-protocol-dev plugin-hostd-protocol-contract plugin-pin-dev \
+          (cd dep-debs && apt-get download libplugin-hostd-protocol0 libplugin-hostd-protocol-dev plugin-hostd-protocol-contract plugin-db-dev \
             omx-clap-core-contract omx-contract-data omx-contract)
 
       # what the smoke test runs the installed package against, built here for the architecture
@@ -490,7 +490,7 @@ jobs:
             dep-debs/libplugin-hostd-protocol0_*.deb
             dep-debs/libplugin-hostd-protocol-dev_*.deb
             dep-debs/plugin-hostd-protocol-contract_*.deb
-            dep-debs/plugin-pin-dev_*.deb
+            dep-debs/plugin-db-dev_*.deb
             dep-debs/omx-clap-core-contract_*.deb
             dep-debs/omx-contract-data_*.deb
             dep-debs/omx-contract_*.deb

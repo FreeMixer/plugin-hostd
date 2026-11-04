@@ -1565,8 +1565,8 @@ def build_probe(tree):
 
 
 def pin_flags(which):
-    """what <plugin-pin/pin.h> asks of a program that includes it: plugin-pin.pc's --cflags or --libs"""
-    return subprocess.run([os.environ.get("PKG_CONFIG", "pkg-config"), which, "plugin-pin"], capture_output=True,
+    """what <plugin-db/pin.h> asks of a program that includes it: plugin-db.pc's --cflags or --libs"""
+    return subprocess.run([os.environ.get("PKG_CONFIG", "pkg-config"), which, "plugin-db"], capture_output=True,
                           text=True, check=True).stdout.split()
 
 

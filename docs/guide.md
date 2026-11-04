@@ -100,7 +100,7 @@ number. The tables here and the man page's key list are generated from that head
 
 This tree's development package installs what it declares beside the protocol: the schemas `probe-output.schema.json`
 for the probe's document and `preset.schema.json` for the org.openmixer.preset file (`protocoldir` in the pkg-config
-file of `plugin-hostd` is that directory). `<plugin-pin/pin.h>` is plugin-pin's, which that pkg-config file requires.
+file of `plugin-hostd` is that directory). `<plugin-db/pin.h>` is plugin-db's, which that pkg-config file requires.
 
 Running
 -------
@@ -684,7 +684,7 @@ Pins are the controller's policy, like `policy_set`: not in the ledger, gone wit
 that reconnects. A replayed `add` is checked again, so a file swapped while a worker was down is refused on respawn:
 the daemon emits `instance_replay_refused <instance> <code>` with the refusal's own code (the pin's, or the worker's
 when it refuses the replayed `pin_expect` or `add`), writes `PHD_ERR_REPLAY`, the step and that code to stderr, and
-the worker does not hold that instance until a later replay passes. The hashing and the layout serialisation are plugin-pin's `<plugin-pin/pin.h>`, for the hosts that check a layout.
+the worker does not hold that instance until a later replay passes. The hashing and the layout serialisation are plugin-db's `<plugin-db/pin.h>`, for the hosts that check a layout.
 
 The running history
 -------------------

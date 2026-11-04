@@ -5,6 +5,6 @@ protocoldir=${prefix}/share/plugin-hostd
 Name: plugin-hostd
 Description: What plugin-hostd declares beside its protocol: pins, the planner's words, the probe and preset schemas
 Version: @VERSION@
-# <plugin-pin/pin.h>, and through it libcrypto
-Requires: plugin-hostd-protocol >= 0.2.0, plugin-pin >= 0.1.0
+# <plugin-db/pin.h>, and through it libcrypto
+Requires: plugin-hostd-protocol >= 0.2.0, plugin-db >= 0.1.0
 Cflags: -I${includedir}
