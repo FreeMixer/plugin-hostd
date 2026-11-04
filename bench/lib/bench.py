@@ -28,6 +28,10 @@ TAG = "omx-bench-%d" % os.getpid()
 RECOVER_LIMIT_S = 30.0
 READY_LIMIT_S = 20.0
 POOL_MAX = 8  # plugin-hostd's pool_max: a full pool opens a second one, which these rows do not read
+# the private JACK server's real-time priority, as Zynthian's jack2.service (-P 70): above the IRQ threads (50), its
+# clients at 65. JACK's default, 10, puts the bench under every IRQ thread and under a live JACK graph, and the rows
+# then count their work as the hosts' xruns.
+JACK_PRIORITY = 70
 
 
 def log(msg):
@@ -913,6 +917,50 @@ def wire(host, env, clients, instrument):
 # ---------------------------------------------------------------- the runner
 
 
+def jackd_argv(server, rate, frames, priority):
+    return ["jackd", "-P", str(priority), "-n", server, "-d", "dummy", "-r", str(rate), "-p", str(frames)]
+
+
+def rt_threads(proc="/proc"):
+    """[(pid, comm, rt_priority)] of every SCHED_FIFO or SCHED_RR thread on the machine"""
+    out = []
+    for pid in os.listdir(proc):
+        if not pid.isdigit():
+            continue
+        try:
+            tids = os.listdir(os.path.join(proc, pid, "task"))
+        except OSError:
+            continue
+        for tid in tids:
+            try:
+                with open(os.path.join(proc, pid, "task", tid, "stat")) as f:
+                    st = f.read()
+            except OSError:
+                continue
+            comm = st[st.index("(") + 1:st.rindex(")")]
+            rest = st[st.rindex(")") + 2:].split()
+            prio, policy = int(rest[37]), int(rest[38])  # stat fields 40 (rt_priority) and 41 (policy)
+            if policy in (1, 2):
+                out.append((int(pid), comm, prio))
+    return out
+
+
+def priority_refusal(threads, priority, own=()):
+    """why the run must not start at this priority, or None: a JACK server of someone else above it, or an IRQ thread
+    at or above it"""
+    for pid, comm, prio in sorted(threads, key=lambda t: -t[2]):
+        if pid in own:
+            continue
+        if comm.startswith("jackd") and prio > priority:
+            return ("%s (pid %d) runs at real-time priority %d, above the bench's %d: its graph would preempt the "
+                    "rows. Stop that JACK server (on Zynthian: systemctl stop zynthian jack2) or pass a higher "
+                    "--jack-priority" % (comm, pid, prio, priority))
+        if comm.startswith("irq/") and prio >= priority:
+            return ("the IRQ thread %s (pid %d) runs at real-time priority %d, at or above the bench's %d: pass a "
+                    "higher --jack-priority" % (comm, pid, prio, priority))
+    return None
+
+
 class Runner:
     def __init__(self, args, table):
         self.args = args
@@ -964,7 +1012,7 @@ class Runner:
 
     def jack_start(self, rate, frames):
         self.jack_stop()
-        self.jackd = self.procs.spawn(["jackd", "-n", self.server, "-d", "dummy", "-r", str(rate), "-p", str(frames)],
+        self.jackd = self.procs.spawn(jackd_argv(self.server, rate, frames, self.args.jack_priority),
                                       "jackd-%d-%d" % (rate, frames))
         end = time.monotonic() + READY_LIMIT_S
         while "system" not in ports(self.env):
@@ -1408,6 +1456,9 @@ def main():
     ap.add_argument("--qualify", action="store_true", help="also time plugin-qualify --all --isolate")
     ap.add_argument("--keep-governor", action="store_true", help="leave the CPU governor as it is")
     ap.add_argument("--logs", default=None, help="keep the host logs in this directory")
+    ap.add_argument("--jack-priority", type=int, default=JACK_PRIORITY,
+                    help="real-time priority of the private JACK server (default %d); the run refuses to start under "
+                    "a JACK server or an IRQ thread at a higher one" % JACK_PRIORITY)
     args = ap.parse_args()
     if args.repeats < 1:
         ap.error("--repeats takes 1 or more")
@@ -1420,6 +1471,9 @@ def main():
     for prog in ("jackd", "jack_cpu_load", "jack_simple_client", "jack_lsp", "jack_connect"):
         if not shutil.which(prog):
             ap.error(prog + " is needed (packages jackd2 and jack-example-tools)")
+    why = priority_refusal(rt_threads(), args.jack_priority)
+    if why:
+        sys.exit("bench: " + why)
 
     # orphans of the hosts come back to the runner, which reaps them and sees them in the last check
     try:

@@ -34,10 +34,12 @@ It needs the OpenMixer channel's `plugin-hostd`, `omx-clap-host`, `omx-plugins-c
 | `--qualify` | also time `plugin-qualify --all --isolate` at the first rate and frame count |
 | `--keep-governor` | leave the CPU governor alone |
 | `--logs DIR` | keep every program's output there |
+| `--jack-priority N` | the private JACK server's real-time priority, 70 by default (its clients run 5 below) |
 
 By default the run sets the CPU governor to `performance` and puts the old one back at the end, which needs root or
-`sudo`. Every rate and frame count gets a private JACK server, `jackd -n bench<pid> -d dummy -r <rate> -p <frames>`, and
+`sudo`. Every rate and frame count gets a private JACK server, `jackd -P 70 -n bench<pid> -d dummy -r <rate> -p <frames>`, and
 every program of the run talks to that server only, so a JACK server already running on the machine is never touched.
+The run refuses to start while another JACK server runs above that priority or an IRQ thread at or above it (on Zynthian, stop `zynthian` and `jack2` first): at JACK's default of 10 the live graph and the IRQ threads preempt the rows, and their work is counted as the hosts' xruns.
 Each row starts its host fresh on a port of its own and stops it after. The run ends by checking that no process it
 started is left, whatever happened, and exits 3 if one was.
 
