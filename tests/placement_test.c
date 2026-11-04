@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /*
  * The core placement (src/placement.c, docs/placement.md) on its own, against answers worked out by hand: the cpu lists
- * it reads, the audio and reserved cores it makes of a mask and of audio_cores, and the core it picks for a new worker by
- * the least-loaded rule. tests/sabotage.py breaks a rule and names the test that must go red.
+ * it reads and the audio and reserved cores it makes of a mask and of audio_cores. Every worker is pinned to all the
+ * audio cores, which tests/daemon_test.py checks on the processes. tests/sabotage.py breaks a rule and names the test
+ * that must go red.
  *
  * Usage: placement-test [<test name>]   one test, or all of them; "ok   <name>" for each that passes, exit 1 if one fails
  */
@@ -98,60 +99,6 @@ static void audio_cores_names_the_audio_cores_inside_the_mask_and_the_rest_is_re
     CHECK(placement_cores(&allowed, "two", &audio, &reserved) != 0, "a word that is no list refuses");
 }
 
-/* ---------------------------------------------------------------- the pick */
-
-static placement_load_t load(int core, int workers, double cost, int unknown)
-{
-    placement_load_t l = { core, workers, cost, unknown };
-
-    return l;
-}
-
-static void with_no_cost_known_the_core_with_the_fewest_workers_is_picked_the_lowest_of_a_tie(void)
-{
-    placement_load_t l[3] = { load(1, 0, 0, 0), load(2, 0, 0, 0), load(3, 0, 0, 0) };
-    int k, want[] = { 1, 2, 3, 1, 2, 3, 1 };
-
-    /* four workers on a 4-core mask: 1, 2, 3, then 1 again; the next three follow round */
-    for (k = 0; k < 7; k++)
-    {
-        int at = placement_pick(l, 3);
-
-        CHECK(at >= 0 && l[at].core == want[k], "worker %d on core %d, wanted %d", k, at >= 0 ? l[at].core : -1, want[k]);
-        l[at].workers++;
-        l[at].unknown++;
-    }
-    CHECK(placement_pick(l, 0) == -1, "no core, no pick");
-}
-
-static void with_every_cost_known_the_cheapest_core_is_picked_whatever_it_holds(void)
-{
-    /* 60 % on core 1, 10 % on 2 and on 3: the next goes to 2, the count would say 1 */
-    placement_load_t l[3] = { load(1, 1, 0.6, 0), load(2, 1, 0.1, 0), load(3, 1, 0.1, 0) };
-
-    CHECK(l[placement_pick(l, 3)].core == 2, "the cheapest, the lowest of a tie: %d", l[placement_pick(l, 3)].core);
-    l[1].workers++;
-    l[1].cost += 0.1;
-    CHECK(l[placement_pick(l, 3)].core == 3, "then the other cheap one: %d", l[placement_pick(l, 3)].core);
-    /* two workers of 5 % weigh less than one of 20 % */
-    l[0] = load(1, 2, 0.1, 0);
-    l[1] = load(2, 1, 0.2, 0);
-    l[2] = load(3, 1, 0.2, 0);
-    CHECK(l[placement_pick(l, 3)].core == 1, "by cost, not count: %d", l[placement_pick(l, 3)].core);
-}
-
-static void one_placed_worker_of_unknown_cost_makes_the_count_decide(void)
-{
-    placement_load_t l[3] = { load(1, 1, 0.1, 0), load(2, 2, 0.0, 2), load(3, 2, 0.1, 1) };
-
-    CHECK(l[placement_pick(l, 3)].core == 1, "the fewest workers: %d", l[placement_pick(l, 3)].core);
-    /* a tie of the count goes to the cheaper known cost, then to the lower core */
-    l[0] = load(1, 2, 0.3, 0);
-    l[1] = load(2, 2, 0.1, 1);
-    l[2] = load(3, 2, 0.1, 1);
-    CHECK(l[placement_pick(l, 3)].core == 2, "a tie of the count: %d", l[placement_pick(l, 3)].core);
-}
-
 /* ---------------------------------------------------------------- the run */
 
 static const struct {
@@ -162,9 +109,6 @@ static const struct {
     T(a_cpu_list_is_read_as_the_kernel_writes_it_and_anything_else_is_refused),
     T(the_default_audio_cores_are_the_mask_less_its_lowest_cpu_which_is_reserved),
     T(audio_cores_names_the_audio_cores_inside_the_mask_and_the_rest_is_reserved),
-    T(with_no_cost_known_the_core_with_the_fewest_workers_is_picked_the_lowest_of_a_tie),
-    T(with_every_cost_known_the_cheapest_core_is_picked_whatever_it_holds),
-    T(one_placed_worker_of_unknown_cost_makes_the_count_decide),
 #undef T
 };
 
