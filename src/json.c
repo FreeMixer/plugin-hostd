@@ -18,6 +18,8 @@
 
 #include "json.h"
 
+#include <omxcontract/omx_json_write.h>
+
 /* ---------------------------------------------------------------- strings that grow */
 
 static void sb_out_of_memory(sb_t *b)
@@ -87,23 +89,19 @@ void sb_printf(sb_t *b, const char *fmt, ...)
     }
 }
 
-/* a JSON string: the bytes of a valid UTF-8 text as they are, a control character or a byte that is not UTF-8 escaped */
+/* a JSON string: the bytes of a valid UTF-8 text as they are, each one spelled by omx-contract's one JSON writer
+ * (<omxcontract/omx_json_write.h>: a quote and a backslash backslashed, a control character \n or \u00XX, 0x7f and every
+ * byte above it as it is); a byte that is not UTF-8 becomes U+FFFD, so the document stays a UTF-8 text */
 void sb_str(sb_t *b, const char *s)
 {
     const unsigned char *p = (const unsigned char *)s;
+    char esc[OMX_JSON_ESCAPE_MAX];
 
     sb_put(b, "\"", 1);
     for (; *p; p++)
     {
-        if (*p == '"' || *p == '\\')
-        {
-            sb_put(b, "\\", 1);
-            sb_put(b, (const char *)p, 1);
-        }
-        else if (*p < 0x20 || *p == 0x7f)
-            sb_printf(b, "\\u%04x", *p);
-        else if (*p < 0x80)
-            sb_put(b, (const char *)p, 1);
+        if (*p < 0x80)
+            sb_put(b, esc, omx_json_escape_byte(*p, esc));
         else
         {
             int n = *p >= 0xf0 ? 4 : *p >= 0xe0 ? 3 : *p >= 0xc0 ? 2 : 0, k, ok = n > 0;
@@ -116,7 +114,7 @@ void sb_str(sb_t *b, const char *s)
                 p += n - 1;
             }
             else
-                sb_printf(b, "\\u%04x", *p);
+                sb_put(b, "\xef\xbf\xbd", 3);
         }
     }
     sb_put(b, "\"", 1);

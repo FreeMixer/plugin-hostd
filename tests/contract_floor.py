@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# The package that ships plugin-hostd's package of omx-contract's contract directory (contract.d/3/plugin-hostd)
+# The package that ships plugin-hostd's package of omx-contract's contract directory (contract.d/<major>/plugin-hostd:
+# %{omx_contract_dir}/plugin-hostd in the spec, the literal path in debian/*.install, which expands no macro)
 # requires omx-contract at run time, at a floor no lower than the first release whose schema takes every row key of
 # the tables: 3.2.0, the first whose source field takes an index (omx_clap_panel_display.meter_ids[0], #150), so an
 # older omx-contract never sits beside a table it refuses (#165). The RPM spec's Requires and debian/control's Depends
@@ -10,7 +11,8 @@ import os, re, sys
 ROOT = sys.argv[1] if len(sys.argv) > 1 else os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEP = "omx-contract"
 FLOOR = (3, 2, 0)
-SHIPS = "omx-contract/contract.d/3/plugin-hostd"
+SHIPS = "%{omx_contract_dir}/plugin-hostd"
+SHIPS_DEB = "omx-contract/contract.d/3/plugin-hostd"
 
 
 def version(s):
@@ -65,7 +67,7 @@ def problems(spec, control, deb_install):
     elif version(floors[0]) < FLOOR:
         bad.append("%s: Requires %s >= %s, below %s" % (where, DEP, floors[0], ".".join(map(str, FLOOR))))
     if len(deb_install) != 1:
-        return bad + ["debian: %d *.install files ship %s (one is the rule)" % (len(deb_install), SHIPS)]
+        return bad + ["debian: %d *.install files ship %s (one is the rule)" % (len(deb_install), SHIPS_DEB)]
     pkg = deb_install[0]
     floors = control_floors(control, pkg)
     if len(floors) != 1:
@@ -78,10 +80,10 @@ def problems(spec, control, deb_install):
 def deb_shippers(root):
     d = os.path.join(root, "debian")
     return [f[:-len(".install")] for f in sorted(os.listdir(d))
-            if f.endswith(".install") and SHIPS in open(os.path.join(d, f)).read()]
+            if f.endswith(".install") and SHIPS_DEB in open(os.path.join(d, f)).read()]
 
 
-SPEC_OK = "%package contract\nRequires: omx-contract >= 3.2.0\n%description contract\nx\n%files contract\n%{_datadir}/omx-contract/contract.d/3/plugin-hostd/\n"
+SPEC_OK = "%package contract\nRequires: omx-contract >= 3.2.0\n%description contract\nx\n%files contract\n%{omx_contract_dir}/plugin-hostd/\n"
 CTL_OK = "Package: p-contract\nArchitecture: all\nDepends: omx-clap-core-contract (>= 0.23.0~),\n omx-contract (>= 3.2.0~), ${misc:Depends}\n"
 
 
@@ -94,13 +96,14 @@ def main():
         ("the Requires on another subpackage", "%package devel\nRequires: omx-contract >= 3.2.0\n" + SPEC_OK.replace("Requires: omx-contract >= 3.2.0\n", ""), CTL_OK, 1),
         ("no Depends in debian/control", SPEC_OK, CTL_OK.replace(" omx-contract (>= 3.2.0~),", ""), 1),
         ("a 3.1.0 Depends in debian/control", SPEC_OK, CTL_OK.replace("3.2.0~", "3.1.0~"), 1),
+        ("a %files that types the major", SPEC_OK.replace("%{omx_contract_dir}", "%{_datadir}/omx-contract/contract.d/3"), CTL_OK, 1),
     ]
     for what, spec, ctl, want in arms:
         got = problems(spec, ctl, ["p-contract"])
         if len(got) != want:
             print("FAIL the floor check on %s: want %d findings, got %s" % (what, want, got))
             return 1
-    print("ok   the floor check sees a missing, a low and a misplaced omx-contract floor in the spec and debian/control")
+    print("ok   the floor check sees a missing, a low and a misplaced omx-contract floor in the spec and debian/control, and a typed major")
     spec = open(os.path.join(ROOT, "packaging", "plugin-hostd.spec")).read()
     ctl = open(os.path.join(ROOT, "debian", "control")).read()
     bad = problems(spec, ctl, deb_shippers(ROOT))

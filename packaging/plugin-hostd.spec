@@ -18,9 +18,10 @@ BuildRequires: pkgconfig(libcrypto)
 # JSON and mod-host's. 0.2.0 is the first that holds them (they were this tree's before); a floor only
 BuildRequires: plugin-hostd-protocol-devel >= 0.2.0
 # the probe runner's default rates, the protocol's parameter scales and the probe output's shared words are read from
-# omx-contract's C headers, and the format tables are items of its schema 3 (3.4.0 the first that renders a reply
-# code's resp, which plugin_hostd_vocabulary.h is checked against); a floor only
-BuildRequires: omx-contract-devel >= 3.4.0
+# omx-contract's C headers, its JSON string literals are spelled by omx-contract's one writer
+# (<omxcontract/omx_json_write.h>), and the format tables are items of its schema (3.9.0 the first with the writer, the
+# schema_major of its pkg-config file and the %%{omx_contract_dir} macro this spec names its files by); a floor only
+BuildRequires: omx-contract-devel >= 3.9.0
 # the protocol library, ports on 127.0.0.1 unless told otherwise (socket_set_bind_address()); the daemon is built
 # against the declared protocol of 0.2.0; a floor only
 Requires: plugin-hostd-protocol%{?_isa} >= 0.2.0
@@ -94,7 +95,7 @@ a scan maps a CLAP or LV2 plugin through (formats/clap.json, formats/lv2.json),
 the keys of the
 running history (history.json) and the reasons a plan gives for a plugin it
 leaves alone (grouping.json), under
-share/omx-contract/contract.d/3/plugin-hostd. A program that reads them at run
+%{omx_contract_dir}/plugin-hostd. A program that reads them at run
 time requires this package, never the development one.
 Its documentation is on openmixer.org.
 
@@ -168,7 +169,7 @@ make test-daemon check-generated check-rendered
 %files contract
 %license COPYING
 %doc README.md
-%{_datadir}/omx-contract/contract.d/3/plugin-hostd/
+%{omx_contract_dir}/plugin-hostd/
 
 %changelog
 * Tue Nov 03 2026 Pau Aliagas <linuxnow@gmail.com> - 0.16.0-1

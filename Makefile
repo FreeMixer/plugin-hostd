@@ -119,8 +119,9 @@ endif
 # the declared protocol is compiled into every object
 $(OBJ): $(PROTOCOL_HEADERS) $(RENDERED) include/plugin-hostd/pin.h
 
-# the host class of the history is the probe's machine class: the contract's band words
-src/machine.o: INCS += $(CONTRACT_CFLAGS)
+# the host class of the history is the probe's machine class: the contract's band words; the JSON string literals of the
+# daemon and the probe are spelled by omx-contract's one writer, <omxcontract/omx_json_write.h> (check-no-json-escape-loop)
+src/machine.o src/json.o src/transforms.o: INCS += $(CONTRACT_CFLAGS)
 
 src/descriptors.o: src/descriptors.h src/describe.h src/json.h src/formats.h src/supervisor.h
 
@@ -164,8 +165,11 @@ install_protocol:
 # package plugin-hostd into omx-contract's contract directory, <contractdir>/<schema major>/plugin-hostd/, with a
 # MANIFEST.json naming this version and the tree they came from; plugin-hostd-contract ships them. contractdir and the
 # install script are omx-contract-devel's; a checkout of omx-contract (OMX_CONTRACT_DIR) stands in for the script when
-# it is not installed.
-CONTRACT_SCHEMA_MAJOR = 3
+# it is not installed. The schema major is omx-contract's, read from its pkg-config file (schema_major, omx-contract 3.9.0
+# or later) and never typed here: a recipe that needs it fails naming the missing variable when no omx-contract-devel
+# answers, while a target that does not need it (fuzz, the checks) still runs without one.
+CONTRACT_SCHEMA_MAJOR_PC := $(shell $(PKG_CONFIG) --variable=schema_major omx-contract 2>/dev/null)
+CONTRACT_SCHEMA_MAJOR = $(or $(CONTRACT_SCHEMA_MAJOR_PC),$(error CONTRACT_SCHEMA_MAJOR: pkg-config names no schema_major of omx-contract: install omx-contract-devel 3.9.0 or later))
 CONTRACTDIR = $(or $(shell $(PKG_CONFIG) --variable=contractdir omx-contract 2>/dev/null),$(DATADIR)/omx-contract/contract.d)
 INSTALL_CONTRACT_DIR = $(firstword $(wildcard $(shell $(PKG_CONFIG) --variable=datadir omx-contract 2>/dev/null)/install-contract-dir.sh) $(wildcard $(OMX_CONTRACT_DIR)/tools/install-contract-dir.sh))
 .PHONY: install-contract
@@ -224,10 +228,17 @@ check-no-protocol-copy:
 	python3 tests/no_protocol_copy.py
 	python3 tests/no_protocol_copy.py --self-test
 
+# The JSON string literals of the daemon and the probe are spelled by omx-contract's one writer,
+# <omxcontract/omx_json_write.h>: no C file of this tree carries an escape loop of its own (tests/no_json_escape_loop.py,
+# with its --self-test, which plants each shape of loop in a scratch tree and must see it red)
+check-no-json-escape-loop:
+	python3 tests/no_json_escape_loop.py
+	python3 tests/no_json_escape_loop.py --self-test
+
 # No tracked file points into a private repository, issue, branch or path: FreeMixer/.github's private-refs check, from a
 # checkout of it (FREEMIXER_DOTGITHUB, else ../freemixer-dotgithub); CI runs it through the public-sources-check workflow.
 FREEMIXER_DOTGITHUB ?= ../freemixer-dotgithub
-.PHONY: private-refs check-no-protocol-copy
+.PHONY: private-refs check-no-protocol-copy check-no-json-escape-loop
 private-refs:
 	$(FREEMIXER_DOTGITHUB)/.github/actions/private-refs-check/check.sh .
 
@@ -321,7 +332,7 @@ test-no-sha256-copy:
 	  echo "FAIL the sabotage arm: a planted SHA-256 is not found"; exit 1; fi
 	@echo "ok   SHA-256 is libcrypto's, and a planted copy is found"
 
-test: test-no-sha256-copy test-protocol-lib test-plan-refused test-sabotage-pool test-pin test-history test-proc test-conf test-own-host-probe-teardown test-planner test-placement test-transforms test-format-coverage test-describe test-relay test-alloc test-alloc-sweep test-format test-ready-connect test-ready-connect-sabotage test-bind test-bind-sabotage test-daemon test-verbs-declared check-rendered check-generated check-no-protocol-copy test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-socket check-preset-schema test-install-schemas check-contract-floor check-readme-facts test-pin-files
+test: test-no-sha256-copy test-protocol-lib test-plan-refused test-sabotage-pool test-pin test-history test-proc test-conf test-own-host-probe-teardown test-planner test-placement test-transforms test-format-coverage test-describe test-relay test-alloc test-alloc-sweep test-format test-ready-connect test-ready-connect-sabotage test-bind test-bind-sabotage test-daemon test-verbs-declared check-rendered check-generated check-no-protocol-copy check-no-json-escape-loop test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-socket check-preset-schema test-install-schemas check-contract-floor check-readme-facts test-pin-files
 	PROTOCOL_DIR=$(PROTOCOL_DIR) PROTOCOL_PAGE=$(PROTOCOL_PAGE) python3 tests/verbs_contract.py
 
 # the protocol clients plugin-hostd-tests ships (tests/lib/), against a peer that frames by NUL, and their sabotage
@@ -430,7 +441,7 @@ test-planner: $(PLANNER_TEST) $(QUALCOST_TEST)
 	./$(QUALCOST_TEST)
 
 $(QUALCOST_TEST): tests/qualcost_test.c src/qualcost.c src/qualcost.h src/json.c src/json.h
-	$(CC) -Isrc $(CFLAGS) -Werror -o $@ tests/qualcost_test.c src/qualcost.c src/json.c $(CRYPTO_LIBS) -lm
+	$(CC) -Isrc $(CONTRACT_CFLAGS) $(CFLAGS) -Werror -o $@ tests/qualcost_test.c src/qualcost.c src/json.c $(CRYPTO_LIBS) -lm
 
 $(PLANNER_TEST): tests/planner_test.c src/planner.c src/planner.h $(PROTOCOL_HEADERS) $(RENDERED)
 	$(CC) -Iinclude $(PROTOCOL_CFLAGS) -Isrc $(CFLAGS) -Werror -o $@ tests/planner_test.c src/planner.c $(CRYPTO_LIBS)
@@ -449,7 +460,7 @@ test-transforms: $(TRANSFORMS_TEST)
 	./$(TRANSFORMS_TEST)
 
 $(TRANSFORMS_TEST): tests/transforms_test.c src/transforms.c src/transforms.h
-	$(CC) -Isrc $(CFLAGS) -Werror -o $@ tests/transforms_test.c src/transforms.c $(CRYPTO_LIBS) -lm
+	$(CC) -Isrc $(CONTRACT_CFLAGS) $(CFLAGS) -Werror -o $@ tests/transforms_test.c src/transforms.c $(CRYPTO_LIBS) -lm
 
 # src/relay.c when memory runs out: built here with its realloc calls renamed, so the test picks the one that fails
 test-relay: $(RELAY_TEST)
@@ -595,7 +606,7 @@ check-own-host-page:
 check-no-pins:
 	python3 tests/no_pins.py
 
-# the package that ships contract.d/3/plugin-hostd requires omx-contract 3.2.0 or later at run time, in the spec and
+# the package that ships contract.d/<major>/plugin-hostd requires omx-contract 3.2.0 or later at run time, in the spec and
 # debian/control: the first whose schema takes every row key of the tables (#165)
 check-contract-floor:
 	python3 tests/contract_floor.py

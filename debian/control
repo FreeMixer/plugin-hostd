@@ -4,7 +4,7 @@ Priority: optional
 Maintainer: Pau Aliagas <linuxnow@gmail.com>
 Build-Depends: debhelper-compat (= 13),
                libplugin-hostd-protocol-dev (>= 0.2.0~),
-               libomx-contract-dev (>= 3.4.0~),
+               libomx-contract-dev (>= 3.9.0~),
                omx-clap-core-contract (>= 0.26.2~) <!nocheck>,
                omx-clap-host-tests (>= 0.25.0~) <!nocheck>,
                omx-contract (>= 3.4.0~) <!nocheck>,
