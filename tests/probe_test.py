@@ -494,6 +494,19 @@ def an_lv2_latency_the_child_could_not_take_is_a_step_with_its_hosting_code_and_
 
 
 @test
+def an_lv2_instrument_whose_note_did_not_sound_keeps_the_latency_it_declares():
+    code, doc, _, _, err = run_lv2(env={"PROBE_CHILD_LATENCY": "silent-note,64"})
+    check(doc is not None, "no document: exit %d %s" % (code, err))
+    valid(doc)
+    point = doc["grid"][0]
+    check(point.get("latency") == {"declaredFrames": 64, "method": "declared-port"},
+          "the declared figure, and no measured one: %s" % point)
+    step = [s for s in doc["steps"] if s["step"] == "latency"][0]
+    check(step["outcome"] == "probe.not-attempted" and step["detail"].startswith("silent-output: "),
+          "the step still says the note was not heard: %s" % step)
+
+
+@test
 def an_lv2_child_that_prints_no_latency_gets_no_latency_step():
     code, doc, _, _, err = run_lv2()
     check(doc is not None, "no document: exit %d %s" % (code, err))
