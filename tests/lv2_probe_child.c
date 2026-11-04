@@ -270,8 +270,9 @@ int main(int argc, char **argv)
     else
         printf(",\"noteSweep\":{\"applicable\":false}");
     printf("}");
-    /* the latency and cost lv2_measure prints at the run's rate: PROBE_CHILD_LATENCY "declared,measured", or "silent" for a
-     * response that never came; the cost is the same fixed figures in the CLAP prober's shape */
+    /* the latency and cost lv2_measure prints at the run's rate: PROBE_CHILD_LATENCY "declared,measured", "silent" for a
+     * response that never came, or "silent-note,declared" for an instrument whose note did not sound and that declares a
+     * latency on its port; the cost is the same fixed figures in the CLAP prober's shape */
     if (getenv("PROBE_CHILD_LATENCY"))
     {
         const char *l = getenv("PROBE_CHILD_LATENCY");
@@ -279,6 +280,9 @@ int main(int argc, char **argv)
 
         if (sscanf(l, "%u,%u", &decl, &meas) == 2)
             printf(",\"latency\":{\"%.0f\":{\"declaredFrames\":%u,\"declaredFrom\":\"port\",\"measuredFrames\":%u}}", rate, decl, meas);
+        else if (sscanf(l, "silent-note,%u", &decl) == 1)
+            printf(",\"latency\":{\"%.0f\":{\"declaredFrames\":%u,\"declaredFrom\":\"port\",\"from\":\"note\",\"unmeasuredReason\":"
+                   "\"silent-output\",\"unmeasuredDetail\":\"the note never sounded within the declared latency and the tail\"}}", rate, decl);
         else
             printf(",\"latency\":{\"%.0f\":{\"declaredFrames\":0,\"declaredFrom\":\"none\",\"unmeasuredReason\":\"silent-output\","
                    "\"unmeasuredDetail\":\"the impulse never came out\"}}", rate);
