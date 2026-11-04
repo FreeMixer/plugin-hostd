@@ -440,8 +440,8 @@ $(QUALCOST_TEST): tests/qualcost_test.c src/qualcost.c src/qualcost.h src/json.c
 $(PLANNER_TEST): tests/planner_test.c src/planner.c src/planner.h $(PROTOCOL_HEADERS) $(RENDERED)
 	$(CC) -Iinclude $(PROTOCOL_CFLAGS) -Isrc $(CFLAGS) -Werror -o $@ tests/planner_test.c src/planner.c $(CRYPTO_LIBS)
 
-# the core placement (src/placement.c, docs/placement.md), on its own: the cpu lists, the audio and reserved cores of a
-# mask, and the least-loaded rule
+# the core placement (src/placement.c, docs/placement.md), on its own: the cpu lists and the audio and reserved cores of
+# a mask
 test-placement: $(PLACEMENT_TEST)
 	./$(PLACEMENT_TEST)
 

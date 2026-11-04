@@ -88,7 +88,13 @@ break_unit stress-xruns lib/validate.py 'and s.get("status") == "ok" and "xruns"
 break_unit spread-repeats lib/validate.py 'if s.get("repeats", 1) < 2:' 'if False:' Schema.test_a_spread_of_one_run_is_red
 break_unit probe-count lib/bench.py 'self.total += 1' 'self.total += 0' Xruns.test_the_probe_counts_what_jack_reports
 break_unit probe-server lib/bench.py 'self.NO_START | self.SERVER_NAME' 'self.SERVER_NAME' Xruns.test_the_probe_joins_the_private_server_only
-break_unit probe-deaf lib/bench.py 'if counted == 0 and logged > 0:' 'if False:' Xruns.test_a_deaf_probe_is_failed_not_zero
+break_unit probe-deaf lib/bench.py 'return max(counted, logged), note' 'return counted, note' Xruns.test_a_deaf_probe_is_not_zero_and_not_a_failure
+break_unit xrun-note lib/bench.py 'if not xrun_sources_agree(counted, logged):' 'if False:' Xruns.test_a_windows_xruns_are_the_larger_of_the_probe_and_the_log
+break_unit xrun-tolerance lib/bench.py 'max(XRUN_TOLERANCE, max(counted, logged) // 10)' 'max(XRUN_TOLERANCE, max(counted, logged) // 5)' Xruns.test_a_windows_xruns_are_the_larger_of_the_probe_and_the_log
+break_unit log-burst lib/bench.py 'if named and not in_burst:' 'if named:' Xruns.test_the_servers_log_counts_new_xrun_events_only
+break_unit dsp-warmup lib/bench.py '        return vals[1:]' '        return vals[:seconds]' Xruns.test_the_dsp_load_is_read_from_the_server_by_the_probe_and_the_first_reading_is_dropped
+break_unit dsp-client lib/bench.py '        if not self.client:
+            raise Failed("the probe has no JACK client to read the DSP load from")' '        pass' Xruns.test_a_probe_without_a_client_cannot_read_the_dsp_load
 break_unit probe-latency lib/bench.py 'return int(rng.max)' 'return int(rng.min)' Xruns.test_the_latency_is_the_longest_of_the_range
 break_unit log-offset lib/bench.py 'f.seek(offset)' 'f.seek(0)' Xruns.test_the_servers_log_counts_new_xrun_lines_only
 break_unit stress-pin lib/bench.py 'os.sched_setaffinity(0, {int(sys.argv[1])})' 'pass' Stress.test_a_busy_loop_runs_on_its_core_only
