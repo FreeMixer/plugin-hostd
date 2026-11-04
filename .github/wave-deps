@@ -1,5 +1,8 @@
-# The siblings plugin-hostd builds on, inside out: on a pull request into dedupe/all, or a push to it, CI builds each
-# from its own dedupe/all and installs from those builds instead of the channel's releases (FreeMixer/.github's
-# wave-deps). The protocol's dedupe/all carries the verbs the daemon answers (hello, param get/set many).
-omx-contract
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
+#
+# The siblings plugin-hostd builds on that are not released yet: on a pull request into dedupe/all, or a push to it, CI
+# builds each from its own dedupe/all and installs from those builds instead of the channel's releases (FreeMixer/.github's
+# wave-deps). The protocol's dedupe/all carries the verbs the daemon answers (hello, param get/set many). omx-contract and
+# plugin-db are released and come from the channel.
 plugin-hostd-protocol
