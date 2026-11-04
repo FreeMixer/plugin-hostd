@@ -390,10 +390,10 @@ void descriptors_add(const char *uri)
 }
 
 /* the scan's stdout as a document of its stage, or NULL: read back, fsync'd */
-static jnode_t *scan_output(scan_t *s)
+static cJSON *scan_output(scan_t *s)
 {
     sb_t text = { .keep_going = 1 };
-    jnode_t *doc;
+    cJSON *doc;
     int fd;
 
     if ((fd = open(s->tmp, O_RDONLY | O_CLOEXEC)) >= 0)
@@ -409,9 +409,9 @@ static jnode_t *scan_output(scan_t *s)
     }
     doc = text.len ? jparse(text.s) : NULL;
     free(text.s);
-    if (doc && (doc->type != J_OBJ || !jget(doc, "plugin") || (s->panel && !jget(doc, "panel"))))
+    if (doc && (!cJSON_IsObject(doc) || !jget(doc, "plugin") || (s->panel && !jget(doc, "panel"))))
     {
-        jfree(doc);
+        cJSON_Delete(doc);
         doc = NULL;
     }
     return doc;
@@ -453,7 +453,7 @@ static void scan_ended(scan_t *s, int status)
 {
     char final[PATH_MAX], enc_id[PATH_MAX / 2], enc_version[256], why[64];
     const char *dir = g_conf->descriptor_dir;
-    jnode_t *doc;
+    cJSON *doc;
     const char *version;
 
     s->pid = 0;
@@ -473,7 +473,7 @@ static void scan_ended(scan_t *s, int status)
     }
     if (s->panel)
     {
-        jfree(doc);
+        cJSON_Delete(doc);
         panel_path(s->name, final, sizeof(final));
         if (scan_file(s, final) == 0)
             s->panel_code = SUCCESS;
@@ -482,7 +482,7 @@ static void scan_ended(scan_t *s, int status)
     version = jstr(jget(doc, "plugin"), "version");
     encode(s->id, enc_id, sizeof(enc_id));
     encode(version && *version ? version : PHD_DESCRIPTOR_NO_VERSION, enc_version, sizeof(enc_version));
-    jfree(doc);
+    cJSON_Delete(doc);
     snprintf(s->name, sizeof(s->name), "%s@%s-%s.json", enc_id, enc_version, s->hash);
     snprintf(final, sizeof(final), "%s/%s", dir, s->name);
     if (scan_file(s, final) != 0)
