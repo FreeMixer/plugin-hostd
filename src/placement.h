@@ -35,9 +35,16 @@ int placement_parse(const char *list, cpu_set_t *set);
 /* the list of a set, "0-2,5", "" for none; the length the text needs, truncated to size like snprintf */
 size_t placement_list_text(const cpu_set_t *set, char *buf, size_t size);
 
+/* The capacity of each cpu of `allowed` into capacity[0..CPU_SETSIZE), read under `dir` (/sys/devices/system/cpu):
+ * cpu<n>/cpu_capacity when every cpu of allowed has one, else cpu<n>/cpufreq/cpuinfo_max_freq when every one has that;
+ * 1 when one was read, else 0 with every capacity 0 (unknown). */
+int placement_capacities(const char *dir, const cpu_set_t *allowed, long *capacity);
+
 /* The audio cores and the reserved ones of a daemon whose cpus are `allowed`: audio_cores when it is not empty, which
- * must be a list inside allowed, else allowed less its lowest cpu; reserved is the rest of allowed. 0, or -1 for an
- * audio_cores that is no list or names a cpu outside allowed. */
-int placement_cores(const cpu_set_t *allowed, const char *audio_cores, cpu_set_t *audio, cpu_set_t *reserved);
+ * must be a list inside allowed, else allowed less one cpu, the one of least capacity (capacity[cpu], NULL or all equal
+ * for none known), the lowest of a tie; reserved is the rest of allowed. 0, or -1 for an audio_cores that is no list or
+ * names a cpu outside allowed. */
+int placement_cores(const cpu_set_t *allowed, const char *audio_cores, const long *capacity, cpu_set_t *audio,
+                    cpu_set_t *reserved);
 
 #endif
