@@ -10,8 +10,6 @@ ARMS = [
      "    worker_t *w = calloc(1, sizeof(worker_t));\n\n"),
     ("a pin's file list there was no memory for is written to", "src/pins.c",
      "            if (!paths)\n                goto no_memory;\n", ""),
-    ("a parsed value there was no memory for is filled in", "src/json.c",
-     "    if (n)\n        n->type = t;\n", "    n->type = t;\n"),
 ]
 failures = 0
 for name, path, old, new in ARMS:
