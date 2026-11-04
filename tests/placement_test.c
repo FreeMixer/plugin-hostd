@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /*
  * The core placement (src/placement.c, docs/placement.md) on its own, against answers worked out by hand: the cpu lists
- * it reads, the audio and reserved cores it makes of a mask and of audio_cores, and the core it picks for a new worker by
- * the least-loaded rule. tests/sabotage.py breaks a rule and names the test that must go red.
+ * it reads and the audio and reserved cores it makes of a mask and of audio_cores. Every worker is pinned to all the
+ * audio cores, which tests/daemon_test.py checks on the processes. tests/sabotage.py breaks a rule and names the test
+ * that must go red.
  *
  * Usage: placement-test [<test name>]   one test, or all of them; "ok   <name>" for each that passes, exit 1 if one fails
  */
@@ -11,6 +12,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 
 #include "placement.h"
 
@@ -69,17 +71,17 @@ static void the_default_audio_cores_are_the_mask_less_its_lowest_cpu_which_is_re
 {
     cpu_set_t allowed = set_of("0-3"), audio, reserved;
 
-    CHECK(placement_cores(&allowed, "", &audio, &reserved) == 0, "a 4-core mask");
+    CHECK(placement_cores(&allowed, "", NULL, &audio, &reserved) == 0, "a 4-core mask");
     CHECK(!strcmp(text_of(&audio), "1-3") && !strcmp(text_of(&reserved), "0"), "audio %s, reserved %s",
           text_of(&audio), text_of(&reserved));
     /* a mask a taskset or a cgroup gave: its own lowest cpu */
     allowed = set_of("4-7,12");
-    CHECK(placement_cores(&allowed, "", &audio, &reserved) == 0, "a mask from 4");
+    CHECK(placement_cores(&allowed, "", NULL, &audio, &reserved) == 0, "a mask from 4");
     CHECK(!strcmp(text_of(&audio), "5-7,12") && !strcmp(text_of(&reserved), "4"), "audio %s, reserved %s",
           text_of(&audio), text_of(&reserved));
     /* one cpu: no audio core is left */
     allowed = set_of("2");
-    CHECK(placement_cores(&allowed, "", &audio, &reserved) == 0, "one cpu");
+    CHECK(placement_cores(&allowed, "", NULL, &audio, &reserved) == 0, "one cpu");
     CHECK(CPU_COUNT(&audio) == 0 && !strcmp(text_of(&reserved), "2"), "audio %s, reserved %s", text_of(&audio), text_of(&reserved));
 }
 
@@ -87,69 +89,122 @@ static void audio_cores_names_the_audio_cores_inside_the_mask_and_the_rest_is_re
 {
     cpu_set_t allowed = set_of("0-3"), audio, reserved;
 
-    CHECK(placement_cores(&allowed, "2,3", &audio, &reserved) == 0, "two of four");
+    CHECK(placement_cores(&allowed, "2,3", NULL, &audio, &reserved) == 0, "two of four");
     CHECK(!strcmp(text_of(&audio), "2-3") && !strcmp(text_of(&reserved), "0-1"), "audio %s, reserved %s",
           text_of(&audio), text_of(&reserved));
     /* every cpu: nothing is reserved */
-    CHECK(placement_cores(&allowed, "0-3", &audio, &reserved) == 0, "all four");
+    CHECK(placement_cores(&allowed, "0-3", NULL, &audio, &reserved) == 0, "all four");
     CHECK(!strcmp(text_of(&audio), "0-3") && CPU_COUNT(&reserved) == 0, "audio %s, reserved %s", text_of(&audio),
           text_of(&reserved));
-    CHECK(placement_cores(&allowed, "3-4", &audio, &reserved) != 0, "a cpu outside the mask refuses");
-    CHECK(placement_cores(&allowed, "two", &audio, &reserved) != 0, "a word that is no list refuses");
+    CHECK(placement_cores(&allowed, "3-4", NULL, &audio, &reserved) != 0, "a cpu outside the mask refuses");
+    CHECK(placement_cores(&allowed, "two", NULL, &audio, &reserved) != 0, "a word that is no list refuses");
 }
 
-/* ---------------------------------------------------------------- the pick */
+/* ---------------------------------------------------------------- the capacity of the cpus */
 
-static placement_load_t load(int core, int workers, double cost, int unknown)
+/* a fake /sys/devices/system/cpu: for cpu n, files[n] of `name` holding values[n] (0 writes none); its path */
+static char *fake_sysfs(const char *name, const long *values, int n)
 {
-    placement_load_t l = { core, workers, cost, unknown };
+    static char dir[64];
+    char path[256], sub[256];
+    int c;
+    FILE *f;
 
-    return l;
-}
-
-static void with_no_cost_known_the_core_with_the_fewest_workers_is_picked_the_lowest_of_a_tie(void)
-{
-    placement_load_t l[3] = { load(1, 0, 0, 0), load(2, 0, 0, 0), load(3, 0, 0, 0) };
-    int k, want[] = { 1, 2, 3, 1, 2, 3, 1 };
-
-    /* four workers on a 4-core mask: 1, 2, 3, then 1 again; the next three follow round */
-    for (k = 0; k < 7; k++)
+    snprintf(dir, sizeof(dir), "/tmp/placement-test.XXXXXX");
+    if (!mkdtemp(dir))
+        return NULL;
+    for (c = 0; c < n; c++)
     {
-        int at = placement_pick(l, 3);
-
-        CHECK(at >= 0 && l[at].core == want[k], "worker %d on core %d, wanted %d", k, at >= 0 ? l[at].core : -1, want[k]);
-        l[at].workers++;
-        l[at].unknown++;
+        snprintf(path, sizeof(path), "%s/cpu%d", dir, c);
+        mkdir(path, 0755);
+        snprintf(sub, sizeof(sub), "%s/cpufreq", path);
+        mkdir(sub, 0755);
+        if (!values[c])
+            continue;
+        snprintf(path, sizeof(path), "%s/cpu%d/%s", dir, c, name);
+        if ((f = fopen(path, "w")))
+        {
+            fprintf(f, "%ld\n", values[c]);
+            fclose(f);
+        }
     }
-    CHECK(placement_pick(l, 0) == -1, "no core, no pick");
+    return dir;
 }
 
-static void with_every_cost_known_the_cheapest_core_is_picked_whatever_it_holds(void)
+static void add_file(const char *dir, int c, const char *name, long value)
 {
-    /* 60 % on core 1, 10 % on 2 and on 3: the next goes to 2, the count would say 1 */
-    placement_load_t l[3] = { load(1, 1, 0.6, 0), load(2, 1, 0.1, 0), load(3, 1, 0.1, 0) };
+    char path[256];
+    FILE *f;
 
-    CHECK(l[placement_pick(l, 3)].core == 2, "the cheapest, the lowest of a tie: %d", l[placement_pick(l, 3)].core);
-    l[1].workers++;
-    l[1].cost += 0.1;
-    CHECK(l[placement_pick(l, 3)].core == 3, "then the other cheap one: %d", l[placement_pick(l, 3)].core);
-    /* two workers of 5 % weigh less than one of 20 % */
-    l[0] = load(1, 2, 0.1, 0);
-    l[1] = load(2, 1, 0.2, 0);
-    l[2] = load(3, 1, 0.2, 0);
-    CHECK(l[placement_pick(l, 3)].core == 1, "by cost, not count: %d", l[placement_pick(l, 3)].core);
+    snprintf(path, sizeof(path), "%s/cpu%d/%s", dir, c, name);
+    if ((f = fopen(path, "w")))
+    {
+        fprintf(f, "%ld\n", value);
+        fclose(f);
+    }
 }
 
-static void one_placed_worker_of_unknown_cost_makes_the_count_decide(void)
+static void rm_tree(const char *dir)
 {
-    placement_load_t l[3] = { load(1, 1, 0.1, 0), load(2, 2, 0.0, 2), load(3, 2, 0.1, 1) };
+    char cmd[300];
 
-    CHECK(l[placement_pick(l, 3)].core == 1, "the fewest workers: %d", l[placement_pick(l, 3)].core);
-    /* a tie of the count goes to the cheaper known cost, then to the lower core */
-    l[0] = load(1, 2, 0.3, 0);
-    l[1] = load(2, 2, 0.1, 1);
-    l[2] = load(3, 2, 0.1, 1);
-    CHECK(l[placement_pick(l, 3)].core == 2, "a tie of the count: %d", l[placement_pick(l, 3)].core);
+    snprintf(cmd, sizeof(cmd), "rm -rf '%s'", dir);
+    if (system(cmd) != 0)
+        fprintf(stderr, "could not remove %s\n", dir);
+}
+
+static void on_a_hybrid_cpu_the_reserved_core_is_the_one_of_least_capacity(void)
+{
+    /* two performance cores of 1000 and two efficiency cores of 765, as cpu_capacity says on an Intel hybrid */
+    long values[4] = { 1000, 1000, 765, 765 }, capacity[CPU_SETSIZE];
+    cpu_set_t allowed = set_of("0-3"), audio, reserved;
+    char *dir = fake_sysfs("cpu_capacity", values, 4);
+
+    CHECK(dir, "a fake sysfs");
+    CHECK(placement_capacities(dir, &allowed, capacity) == 1, "the capacities are read");
+    rm_tree(dir);
+    CHECK(placement_cores(&allowed, "", capacity, &audio, &reserved) == 0, "a hybrid 4-core mask");
+    CHECK(!strcmp(text_of(&reserved), "2") && !strcmp(text_of(&audio), "0-1,3"),
+          "the lowest efficiency core is reserved, every performance core is audio: audio %s, reserved %s",
+          text_of(&audio), text_of(&reserved));
+}
+
+static void with_no_cpu_capacity_the_maximum_frequency_decides_and_a_partial_capacity_is_not_read(void)
+{
+    /* cpu_capacity on three cpus only, so it is not read; the maximum frequencies name cpu 3 the least */
+    long caps[4] = { 1024, 1024, 979, 0 }, capacity[CPU_SETSIZE];
+    cpu_set_t allowed = set_of("0-3"), audio, reserved;
+    char *dir = fake_sysfs("cpu_capacity", caps, 4);
+
+    CHECK(dir, "a fake sysfs");
+    add_file(dir, 0, "cpufreq/cpuinfo_max_freq", 5300000);
+    add_file(dir, 1, "cpufreq/cpuinfo_max_freq", 5300000);
+    add_file(dir, 2, "cpufreq/cpuinfo_max_freq", 5300000);
+    add_file(dir, 3, "cpufreq/cpuinfo_max_freq", 4700000);
+    CHECK(placement_capacities(dir, &allowed, capacity) == 1 && capacity[2] == 5300000, "the frequencies are read");
+    rm_tree(dir);
+    CHECK(placement_cores(&allowed, "", capacity, &audio, &reserved) == 0 && !strcmp(text_of(&reserved), "3"),
+          "the slowest cpu is reserved: %s", text_of(&reserved));
+}
+
+static void on_a_homogeneous_cpu_or_with_nothing_read_the_lowest_cpu_is_reserved_as_before(void)
+{
+    long values[4] = { 1024, 1024, 1024, 1024 }, capacity[CPU_SETSIZE];
+    cpu_set_t allowed = set_of("0-3"), audio, reserved;
+    char *dir = fake_sysfs("cpu_capacity", values, 4);
+
+    CHECK(dir, "a fake sysfs");
+    CHECK(placement_capacities(dir, &allowed, capacity) == 1, "the capacities are read");
+    rm_tree(dir);
+    CHECK(placement_cores(&allowed, "", capacity, &audio, &reserved) == 0 && !strcmp(text_of(&reserved), "0"),
+          "a tie keeps the lowest cpu: %s", text_of(&reserved));
+    CHECK(placement_capacities("/nonexistent", &allowed, capacity) == 0 && capacity[0] == 0, "no sysfs, nothing read");
+    CHECK(placement_cores(&allowed, "", capacity, &audio, &reserved) == 0 && !strcmp(text_of(&reserved), "0"),
+          "nothing known keeps the lowest cpu: %s", text_of(&reserved));
+    /* audio_cores, when given, is the list whatever the capacities */
+    capacity[2] = -1;
+    CHECK(placement_cores(&allowed, "1-3", capacity, &audio, &reserved) == 0 && !strcmp(text_of(&reserved), "0"),
+          "audio_cores decides: %s", text_of(&reserved));
 }
 
 /* ---------------------------------------------------------------- the run */
@@ -162,9 +217,9 @@ static const struct {
     T(a_cpu_list_is_read_as_the_kernel_writes_it_and_anything_else_is_refused),
     T(the_default_audio_cores_are_the_mask_less_its_lowest_cpu_which_is_reserved),
     T(audio_cores_names_the_audio_cores_inside_the_mask_and_the_rest_is_reserved),
-    T(with_no_cost_known_the_core_with_the_fewest_workers_is_picked_the_lowest_of_a_tie),
-    T(with_every_cost_known_the_cheapest_core_is_picked_whatever_it_holds),
-    T(one_placed_worker_of_unknown_cost_makes_the_count_decide),
+    T(on_a_hybrid_cpu_the_reserved_core_is_the_one_of_least_capacity),
+    T(with_no_cpu_capacity_the_maximum_frequency_decides_and_a_partial_capacity_is_not_read),
+    T(on_a_homogeneous_cpu_or_with_nothing_read_the_lowest_cpu_is_reserved_as_before),
 #undef T
 };
 

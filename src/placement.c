@@ -23,9 +23,6 @@
 
 #include "placement.h"
 
-/* two costs this close are equal: they are sums of a few fractions read from text */
-#define COST_EPSILON 1e-9
-
 /* a whole number of one or more digits at *p, below CPU_SETSIZE; the end in *p; -1 for none */
 static int number(const char **p)
 {
@@ -96,9 +93,49 @@ size_t placement_list_text(const cpu_set_t *set, char *buf, size_t size)
     return used;
 }
 
-int placement_cores(const cpu_set_t *allowed, const char *audio_cores, cpu_set_t *audio, cpu_set_t *reserved)
+/* a whole number in the file dir/cpu<c>/<name>, above 0; 0 for none */
+static long read_cpu_number(const char *dir, int c, const char *name)
 {
-    int c;
+    char path[512];
+    long v = 0;
+    FILE *f;
+
+    snprintf(path, sizeof(path), "%s/cpu%d/%s", dir, c, name);
+    if (!(f = fopen(path, "r")))
+        return 0;
+    if (fscanf(f, "%ld", &v) != 1 || v < 0)
+        v = 0;
+    fclose(f);
+    return v;
+}
+
+int placement_capacities(const char *dir, const cpu_set_t *allowed, long *capacity)
+{
+    static const char *const source[] = { "cpu_capacity", "cpufreq/cpuinfo_max_freq" };
+    size_t k;
+    int c, all;
+
+    for (k = 0; k < sizeof(source) / sizeof(source[0]); k++)
+    {
+        all = 1;
+        for (c = 0; c < CPU_SETSIZE; c++)
+        {
+            capacity[c] = CPU_ISSET(c, allowed) ? read_cpu_number(dir, c, source[k]) : 0;
+            if (CPU_ISSET(c, allowed) && capacity[c] <= 0)
+                all = 0;
+        }
+        if (all)
+            return 1;
+    }
+    for (c = 0; c < CPU_SETSIZE; c++)
+        capacity[c] = 0;
+    return 0;
+}
+
+int placement_cores(const cpu_set_t *allowed, const char *audio_cores, const long *capacity, cpu_set_t *audio,
+                    cpu_set_t *reserved)
+{
+    int c, least = -1;
 
     if (audio_cores && *audio_cores)
     {
@@ -112,43 +149,15 @@ int placement_cores(const cpu_set_t *allowed, const char *audio_cores, cpu_set_t
     }
     else
     {
+        /* the reserved cpu is the one of least capacity, the lowest of a tie: on a hybrid cpu an efficiency core, so
+         * every performance core is left to the audio; with no capacity known, or all equal, the lowest cpu */
         *audio = *allowed;
         for (c = 0; c < CPU_SETSIZE; c++)
-            if (CPU_ISSET(c, audio))
-            {
-                CPU_CLR(c, audio);
-                break;
-            }
+            if (CPU_ISSET(c, audio) && (least < 0 || (capacity && capacity[c] < capacity[least])))
+                least = c;
+        if (least >= 0)
+            CPU_CLR(least, audio);
     }
     CPU_XOR(reserved, allowed, audio);
     return 0;
-}
-
-/* whether a is less loaded than b: the first measure, then the other */
-static int lighter(const placement_load_t *a, const placement_load_t *b, int by_cost)
-{
-    if (by_cost)
-    {
-        if (a->cost < b->cost - COST_EPSILON || a->cost > b->cost + COST_EPSILON)
-            return a->cost < b->cost;
-        return a->workers < b->workers;
-    }
-    if (a->workers != b->workers)
-        return a->workers < b->workers;
-    return a->cost < b->cost - COST_EPSILON;
-}
-
-int placement_pick(const placement_load_t *loads, int n)
-{
-    int k, best = 0, by_cost = 1;
-
-    if (n < 1)
-        return -1;
-    for (k = 0; k < n; k++)
-        if (loads[k].unknown)
-            by_cost = 0;
-    for (k = 1; k < n; k++)
-        if (lighter(&loads[k], &loads[best], by_cost))
-            best = k;
-    return best;
 }
