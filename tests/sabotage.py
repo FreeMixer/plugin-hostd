@@ -13,8 +13,7 @@ FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "
 # (what is broken, file, text, replacement, the test that must go red[, "jack"]); a "jack" test runs in tests/jack_e2e.sh
 # over the real workers and is skipped when OMX_CLAP_HOST is not set; "meters" is a jack test that also needs
 # omx-clap-host's FAKE_COMPRESSOR_CLAP and JACK_METER_SOURCE and is skipped without them; "info" one that needs its FAKE_CLAP; "lv2" is a jack test that also needs mod-host and
-# an LV2 bundle (MOD_HOST, LV2_DIR, LV2_URI, LV2_BUNDLE, LV2_PARAM) and is skipped without them; "pin" breaks
-# include/plugin-hostd/pin.h and runs tests/pin_test.c; "readme" breaks README.md or BUILDING.md and runs
+# an LV2 bundle (MOD_HOST, LV2_DIR, LV2_URI, LV2_BUNDLE, LV2_PARAM) and is skipped without them; "readme" breaks README.md or BUILDING.md and runs
 # tests/readme_build.py, with no daemon to build; "probeschema" breaks protocol/probe-output.schema.json and runs
 # tests/probe_schema.py; "relay" breaks src/relay.c and runs tests/relay_test.c; "history" breaks src/history.c or src/fsutil.c and runs tests/history_test.c; "proc" breaks src/proc.c and runs tests/proc_test.c; "conf" breaks src/conf.c, src/main.c, the search lists or a reader of them and runs tests/conf_test.c and tests/search_paths_once.py; "alloc" breaks src/relay.c, src/lv2.c or src/verbs.c and runs make test-alloc; "contract" breaks the probe runner or the generator and runs tests/contract_derived.py; "consumer" breaks the header and compiles tests/consumer.c against it; "probe" breaks src/probe.c and runs tests/probe_test.py; "nopins" breaks the packaging or a workflow and runs tests/no_pins.py; "ciguards" breaks a workflow and runs tests/ci_guards.py;
 # "vocabulary" breaks the probe schema, its template or a copy of omx-contract's omx-vocabulary.schema.json and runs
@@ -394,11 +393,6 @@ SABOTAGE = [
      "clap_track_info_and_remote_pages_reach_the_plugin_through_the_daemon", "info"),
     ("meters behind the daemon never reach the controller", "src/supervisor.c", "    if (relay_add(w->fb_fd) != 0)\n", "    if (0)\n",
      "clap_meters_reach_the_controller_through_the_daemon_and_survive_a_kill", "meters"),
-    ("a tab in a name is not escaped", "include/plugin-hostd/pin.h", "*s == '\\t' ? \"\\\\t\" : ", "", "pin.h", "pin"),
-    ("an LV2 port's properties are not sorted", "include/plugin-hostd/pin.h",
-     "            qsort(props, p->nproperties, sizeof(*props), phd_layout_bytewise);\n", "", "pin.h", "pin"),
-    ("a number declared by no port is written as its bits", "include/plugin-hostd/pin.h",
-     "    if (!declared)\n", "    if (0)\n", "pin.h", "pin"),
     ("a plugin the adapter refused goes where the policy says", "src/supervisor.c",
      "&& lv2_refused_under_auto(&g_conf, fmt, fwd))", "&& 0)",
      "under_auto_a_refused_plugin_that_kills_mod_host_on_add_costs_only_its_own_worker"),
@@ -1570,19 +1564,10 @@ def build_probe(tree):
                    stdout=subprocess.DEVNULL)
 
 
-def crypto_libs():
-    """pin.h's SHA-256 is libcrypto's: every program that includes it links it"""
-    return subprocess.run([os.environ.get("PKG_CONFIG", "pkg-config"), "--libs", "libcrypto"], capture_output=True,
+def pin_flags(which):
+    """what <plugin-pin/pin.h> asks of a program that includes it: plugin-pin.pc's --cflags or --libs"""
+    return subprocess.run([os.environ.get("PKG_CONFIG", "pkg-config"), which, "plugin-pin"], capture_output=True,
                           text=True, check=True).stdout.split()
-
-
-def run_pin_test(tree):
-    exe = os.path.join(tree, "pin-test")
-    crypto = crypto_libs()
-    subprocess.run(["cc", "-I" + os.path.join(tree, "include"), "-I" + declared.include_dir(), "-std=gnu99", "-o", exe,
-                    os.path.join(ROOT, "tests", "pin_test.c")] + crypto, check=True)
-    p = subprocess.run([exe], capture_output=True, text=True, timeout=60)
-    return p.returncode, p.stdout
 
 
 def run_format_test(tree):
@@ -1618,7 +1603,7 @@ def run_consumer_test(tree):
     """tests/consumer.c against the tree's header, as a consumer compiles it; "ok   consumer" when it passes"""
     exe = os.path.join(tree, "consumer")
     subprocess.run(["cc", "-I" + os.path.join(tree, "include"), "-I" + declared.include_dir(), "-std=c99", "-Wall",
-                    "-Wextra", "-o", exe, os.path.join(ROOT, "tests", "consumer.c")] + crypto_libs(), check=True)
+                    "-Wextra", "-o", exe, os.path.join(ROOT, "tests", "consumer.c")] + pin_flags("--cflags") + pin_flags("--libs"), check=True)
     p = subprocess.run([exe], capture_output=True, text=True, timeout=60)
     return p.returncode, p.stdout + ("ok   consumer\n" if p.returncode == 0 else "")
 
@@ -1723,8 +1708,6 @@ def run_test(tree, name, jack=False):
         return run_conf_test(tree)
     if jack == "contract":
         return run_contract_test(tree)
-    if jack == "pin":
-        return run_pin_test(tree)
     if jack == "readme":
         p = subprocess.run([sys.executable, os.path.join(ROOT, "tests", "readme_build.py"), tree], capture_output=True,
                            text=True, timeout=60)

@@ -44,7 +44,7 @@
 #include <unistd.h>
 
 #include <lv2/core/lv2.h>
-#include <plugin-hostd/pin.h>
+#include <plugin-pin/pin.h>
 
 #define FILES_MAX 16
 

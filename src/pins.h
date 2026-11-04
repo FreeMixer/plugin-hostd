@@ -21,7 +21,7 @@
 #ifndef PINS_H
 #define PINS_H
 
-#include <plugin-hostd/pin.h>
+#include <plugin-pin/pin.h>
 
 #include "formats.h"
 

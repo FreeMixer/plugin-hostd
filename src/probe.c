@@ -78,7 +78,7 @@
 
 #include <omxcontract/omx_contract_limits.h>
 #include <omxcontract/omx_vocabulary.h>
-#include <plugin-hostd/pin.h>
+#include <plugin-pin/pin.h>
 #include <plugin-hostd/protocol.h>
 
 #define RUNNER_NAME "plugin-hostd-probe"

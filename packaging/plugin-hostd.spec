@@ -13,7 +13,8 @@ BuildRequires: gcc
 BuildRequires: make
 BuildRequires: diffutils
 BuildRequires: python3
-BuildRequires: pkgconfig(libcrypto)
+# <plugin-pin/pin.h>, and through it libcrypto; a floor only
+BuildRequires: pkgconfig(plugin-pin) >= 0.1.0
 # the protocol library and the declared protocol: <plugin-hostd/protocol.h> and the headers it includes, the protocol's
 # JSON and mod-host's. 0.2.0 is the first that holds them (they were this tree's before); a floor only
 BuildRequires: plugin-hostd-protocol-devel >= 0.2.0
@@ -65,8 +66,8 @@ BuildArch: noarch
 Requires: %{name}-contract = %{version}-%{release}
 # the declared protocol, <plugin-hostd/protocol.h>, which plugin-hostd.pc requires; a floor only
 Requires: plugin-hostd-protocol-devel >= 0.2.0
-# pin.h's SHA-256 is libcrypto's, which plugin-hostd.pc requires
-Requires: pkgconfig(libcrypto)
+# <plugin-pin/pin.h>, which plugin-hostd.pc requires; a floor only
+Requires: plugin-pin-devel >= 0.1.0
 
 %description devel
 The pin header, the words of the grouping planner and the running history,
@@ -160,7 +161,6 @@ make test-daemon check-generated check-rendered
 %license COPYING
 %doc README.md
 %{_includedir}/plugin-hostd/plugin_hostd_vocabulary.h
-%{_includedir}/plugin-hostd/pin.h
 %{_datadir}/pkgconfig/plugin-hostd.pc
 %{_datadir}/plugin-hostd/probe-output.schema.json
 %{_datadir}/plugin-hostd/preset.schema.json

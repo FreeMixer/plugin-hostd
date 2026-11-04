@@ -23,7 +23,7 @@
 
 #include <stddef.h>
 
-#include <plugin-hostd/pin.h>
+#include <plugin-pin/pin.h>
 
 /* The running history: what each plugin did on this machine, per plugin, per binary and per host class
  * (the grouping-planner design note, The history record). One line per <uri> <binary digest> <host

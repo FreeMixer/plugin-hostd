@@ -33,7 +33,7 @@
 #include <unistd.h>
 
 #include <host-errors.h>
-#include <plugin-hostd/pin.h>
+#include <plugin-pin/pin.h>
 #include <plugin-hostd/protocol.h>
 
 #include "formats.h"
@@ -153,26 +153,6 @@ static int held(const pin_t *p, const char *path)
     return -1;
 }
 
-static int verdict_valid(const char *verdict)
-{
-    int ok = 0;
-
-#define X(id, name, meaning) ok |= !strcmp(verdict, name);
-    PHD_PIN_VERDICTS(X)
-#undef X
-    return ok;
-}
-
-static int pool_valid(const char *pool)
-{
-    int ok = 0;
-
-#define X(id, name, meaning) ok |= !strcmp(pool, name);
-    PHD_PIN_POOLS(X)
-#undef X
-    return ok;
-}
-
 /* a pin from its words; the pin is not in the table yet. `unknown_ok` lets the layout be PHD_PIN_LAYOUT_UNKNOWN */
 static int pin_build(pin_t *pin, const char *uri, const char *files, const char *layout, const char *verdict,
                      const char *pool, int unknown_ok)
@@ -186,9 +166,9 @@ static int pin_build(pin_t *pin, const char *uri, const char *files, const char 
         ;
     else if (phd_pin_layout_parse(layout, pin->scheme, sizeof(pin->scheme), hex) != 0)
         goto invalid;
-    if (verdict && (!verdict_valid(verdict) || strlen(verdict) >= sizeof(pin->verdict)))
+    if (verdict && (!phd_pin_verdict_valid(verdict) || strlen(verdict) >= sizeof(pin->verdict)))
         goto invalid;
-    if (pool && (!pool_valid(pool) || strlen(pool) >= sizeof(pin->pool)))
+    if (pool && (!phd_pin_pool_valid(pool) || strlen(pool) >= sizeof(pin->pool)))
         goto invalid;
     for (item = strtok_r(copy, PHD_PIN_FILE_SEPARATOR, &save); item; item = strtok_r(NULL, PHD_PIN_FILE_SEPARATOR, &save))
     {

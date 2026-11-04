@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <plugin-hostd/pin.h>
+#include <plugin-pin/pin.h>
 #include <plugin-hostd/protocol.h>
 
 static int failures;

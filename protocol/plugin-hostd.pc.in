@@ -5,6 +5,6 @@ protocoldir=${prefix}/share/plugin-hostd
 Name: plugin-hostd
 Description: What plugin-hostd declares beside its protocol: pins, the planner's words, the probe and preset schemas
 Version: @VERSION@
-# pin.h's SHA-256 is libcrypto's (EVP_Digest): a program that includes it links libcrypto
-Requires: plugin-hostd-protocol >= 0.2.0, libcrypto
+# <plugin-pin/pin.h>, and through it libcrypto
+Requires: plugin-hostd-protocol >= 0.2.0, plugin-pin >= 0.1.0
 Cflags: -I${includedir}

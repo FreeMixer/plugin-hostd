@@ -34,7 +34,7 @@
 #include <unistd.h>
 
 #include <host-errors.h>
-#include <plugin-hostd/pin.h>
+#include <plugin-pin/pin.h>
 #include <plugin-hostd/protocol.h>
 
 #include "conf.h"
