@@ -791,9 +791,11 @@ with a capability missing and says which. a test registers a third format in the
 Who runs an LV2 plugin
 ----------------------
 
-`lv2_worker` chooses the program that runs LV2 plugins: `auto` (the default: the adapter first, mod-host for a plugin the
-adapter refuses, and for every add while omx-clap-host is not installed), `omx-clap-host` (the `clap_host` program, through
-its LV2 adapter, a plugin it cannot run refused with a code) or `mod-host` (the `mod_host` program). `lv2_worker_set <uri> <mod-host|omx-clap-host|auto|->` overrides it for one plugin from then on, and `-` takes
+`lv2_worker` chooses the program that runs LV2 plugins: `omx-clap-host` (the default: the `clap_host` program, through its
+LV2 adapter, a plugin it cannot run refused with a code), `auto` (the adapter first, mod-host for a plugin the adapter
+refuses, and for every add while omx-clap-host is not installed) or `mod-host` (the `mod_host` program). mod-host runs a
+plugin only when one of these names it, and the packages only suggest it: without it the daemon says once at its start that
+it is not installed, and an add that asks for it answers `-502` (`NO_BACKEND`). `lv2_worker_set <uri> <mod-host|omx-clap-host|auto|->` overrides it for one plugin from then on, and `-` takes
 the override back. The two programs are two rows of the table, `lv2` and `lv2-clap`, so `policy_set`, `worker_env` and
 `worker_list` name them like any format. The adapter row differs from the mod-host row in these ways, each held by a test:
 

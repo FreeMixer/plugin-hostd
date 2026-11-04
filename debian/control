@@ -21,18 +21,20 @@ Architecture: any
 Depends: libplugin-hostd-protocol0 (>= 0.2.0~), plugin-hostd-contract (= ${source:Version}), ${shlibs:Depends},
          ${misc:Depends}
 Recommends: omx-clap-host (>= 0.26.2)
+# mod-host runs an LV2 plugin only when lv2_worker or lv2_worker_set names it, and it is the reference host H3 of the
+# benchmark (bench/run.sh), measured when it is installed. Nothing else uses it, so it is only suggested; a machine that
+# runs a published benchmark installs mod-host (and jalv) itself.
 Suggests: mod-host
 Description: run LV2 and CLAP plugins so that one crash cannot stop the show
  plugin-hostd keeps your effects and instruments running when one of them
  misbehaves. It gives a controller one mod-host socket and starts each plugin,
- or each named group of plugins, in a worker process of its own: mod-host for
- LV2, omx-clap-host for CLAP. If a plugin crashes, only its worker goes down
- and the daemon brings it back. Audio never passes through the daemon, so it
- adds no latency: every worker is a JACK client.
+ or each named group of plugins, in a worker process of its own: omx-clap-host
+ for CLAP and, through its LV2 adapter, for LV2. If a plugin crashes, only its
+ worker goes down and the daemon brings it back. Audio never passes through the
+ daemon, so it adds no latency: every worker is a JACK client.
  .
- A format whose worker is not installed refuses its adds; the other format
- is unaffected. mod-host is not packaged by Debian: install it from source
- for LV2 plugins.
+ A format whose worker is not installed refuses its adds; the other formats
+ are unaffected. mod-host runs LV2 plugins only when you ask for it.
  .
  Its documentation is on openmixer.org.
 
