@@ -1563,8 +1563,11 @@ def build_probe(tree):
 
 def run_pin_test(tree):
     exe = os.path.join(tree, "pin-test")
+    # pin.h's SHA-256 is libcrypto's
+    crypto = subprocess.run([os.environ.get("PKG_CONFIG", "pkg-config"), "--libs", "libcrypto"], capture_output=True,
+                            text=True, check=True).stdout.split()
     subprocess.run(["cc", "-I" + os.path.join(tree, "include"), "-I" + declared.include_dir(), "-std=gnu99", "-o", exe,
-                    os.path.join(ROOT, "tests", "pin_test.c")], check=True)
+                    os.path.join(ROOT, "tests", "pin_test.c")] + crypto, check=True)
     p = subprocess.run([exe], capture_output=True, text=True, timeout=60)
     return p.returncode, p.stdout
 
