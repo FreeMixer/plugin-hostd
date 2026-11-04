@@ -573,7 +573,9 @@ and 3 swept rt-safety runs. It runs under plugin-qualify's interposer (`rt_inter
 other preload dropped as for clap-qualify) and the noise stimulus. The document's binary is the plugin's library, with every pinned file of the bundle listed. The rate's grid
 point carries what run() did under the interposer and, for a plugin with a MIDI input, its note sweep (what run() did
 while notes played), and `behaviour` carries the lifecycles, the threads and the features
-the plugin requires. A plugin no bundle holds exits 3 with no document. A plugin of which nothing could be pinned exits 2
+the plugin requires. The point's latency is the impulse's onset, or for an instrument the onset of a note; when the
+response never came (a note that did not sound), the point has no measured figure, and keeps the latency the plugin
+declares on its port as `{"declaredFrames": N, "method": "declared-port"}`. A plugin no bundle holds exits 3 with no document. A plugin of which nothing could be pinned exits 2
 with no document, because the document has no binary to name. Its refusal is a code on stderr: `<plugin>: <code>: <why>`,
 `probe.unpinnable` for a bundle the pin cannot cover. Version 1 runs the quick measurement only: the deep lifecycle pass
 and the soak stay plugin-qualify's until the probe protocol says which plugins get them and for how long.

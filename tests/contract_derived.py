@@ -17,6 +17,11 @@ JSON_GEN = declared_protocol.variable("protocolgen")
 OWN_GEN = os.path.join(ROOT, "tools", "protocol-gen.c")
 CC = os.environ.get("CC", "cc")
 PKG_CONFIG = os.environ.get("PKG_CONFIG", "pkg-config")
+# cJSON's flags are the Makefile's (CJSON_CFLAGS, CJSON_LIBS); run by hand, pkg-config libcjson says the same
+CJSON_CFLAGS = os.environ["CJSON_CFLAGS"] if "CJSON_CFLAGS" in os.environ else \
+    subprocess.run([PKG_CONFIG, "--cflags", "libcjson"], capture_output=True, text=True, check=True).stdout
+CJSON_LIBS = os.environ["CJSON_LIBS"] if "CJSON_LIBS" in os.environ else \
+    subprocess.run([PKG_CONFIG, "--libs", "libcjson"], capture_output=True, text=True, check=True).stdout
 PROBE = os.path.abspath(os.environ.get("PROBE", os.path.join(ROOT, "plugin-hostd-probe")))
 failures = 0
 
@@ -85,9 +90,9 @@ CRYPTO_LIBS = subprocess.run([PKG_CONFIG, "--libs", "libcrypto"], capture_output
 
 def build_probe(include_first, out):
     cmd = [CC, "-I" + include_first, "-I" + os.path.join(ROOT, "include"), "-I" + declared_protocol.include_dir()] + \
-          pkg("--cflags").split() + ["-I" + os.path.join(ROOT, "src"), "-O2", "-std=gnu99", "-D_GNU_SOURCE",
+          pkg("--cflags").split() + CJSON_CFLAGS.split() + ["-I" + os.path.join(ROOT, "src"), "-O2", "-std=gnu99", "-D_GNU_SOURCE",
                                      "-DPROBE_VERSION=\"0\"", "-o", out] + \
-          [os.path.join(ROOT, f) for f in PROBE_SRC] + CRYPTO_LIBS + ["-lm"]
+          [os.path.join(ROOT, f) for f in PROBE_SRC] + CRYPTO_LIBS + ["-lm"] + CJSON_LIBS.split()
     return subprocess.run(cmd, capture_output=True, text=True)
 
 

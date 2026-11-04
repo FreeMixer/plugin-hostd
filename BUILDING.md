@@ -15,6 +15,9 @@ protocol page the verb table is read from come with it: the `scenarios`,
 `runner` and `protocoldoc` variables of its pkg-config file, or `tests/` and
 `doc/protocol.md` of `PROTOCOL_DIR`. The daemon needs libc and that library and nothing else.
 
+JSON is read with the system cJSON, from `pkg-config libcjson` (`cjson-devel`,
+`libcjson-dev`).
+
 The probe runner and the page generator also read omx-contract's C headers,
 `<omxcontract/omx_contract_limits.h>` and `<omxcontract/omx_vocabulary.h>`, from
 `pkg-config omx-contract` (`omx-contract-devel`, `libomx-contract-dev`, 3.4.0 or

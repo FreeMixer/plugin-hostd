@@ -96,23 +96,23 @@ typedef struct
 } table_t;
 
 /* a JSON value as the literal a transform reads and writes */
-static char *literal(const jnode_t *v)
+static char *literal(const cJSON *v)
 {
     sb_t b = { 0 };
 
-    if (v->type == J_STR)
-        sb_str(&b, v->str);
-    else if (v->type == J_BOOL)
-        sb_printf(&b, "%s", v->boolean ? "true" : "false");
-    else if (v->type == J_NUM)
+    if (cJSON_IsString(v))
+        sb_str(&b, v->valuestring);
+    else if (cJSON_IsBool(v))
+        sb_printf(&b, "%s", cJSON_IsTrue(v) ? "true" : "false");
+    else if (cJSON_IsNumber(v))
     {
         int prec;
         char tmp[40];
 
         for (prec = 15; prec <= 17; prec++)
         {
-            snprintf(tmp, sizeof(tmp), "%.*g", prec, v->num);
-            if (strtod(tmp, NULL) == v->num)
+            snprintf(tmp, sizeof(tmp), "%.*g", prec, v->valuedouble);
+            if (strtod(tmp, NULL) == v->valuedouble)
                 break;
         }
         sb_printf(&b, "%s", tmp);
@@ -124,31 +124,31 @@ static char *literal(const jnode_t *v)
 
 static int load_table(const char *text, table_t *t)
 {
-    jnode_t *doc = jparse(text), *item = NULL, *rows;
+    cJSON *doc = jparse(text), *item = NULL, *rows;
     size_t i, k;
 
-    if (doc == NULL || doc->type != J_OBJ)
+    if (doc == NULL || !cJSON_IsObject(doc))
         return refuse("the table is not one JSON object");
-    for (i = 0; i < doc->n && item == NULL; i++)
-        if (doc->kid[i]->type == J_OBJ && jstr(doc->kid[i], "kind") && !strcmp(jstr(doc->kid[i], "kind"), "formatMap"))
-            item = doc->kid[i];
-    if (item == NULL || (rows = jget(item, "rows")) == NULL || rows->type != J_OBJ)
+    for (i = 0; i < jcount(doc) && item == NULL; i++)
+        if (cJSON_IsObject(jkid(doc, i)) && jstr(jkid(doc, i), "kind") && !strcmp(jstr(jkid(doc, i), "kind"), "formatMap"))
+            item = jkid(doc, i);
+    if (item == NULL || (rows = jget(item, "rows")) == NULL || !cJSON_IsObject(rows))
         return refuse("the table holds no formatMap item with rows");
     t->format = jstr(item, "format");
     if (t->format == NULL || (strcmp(t->format, "clap") && strcmp(t->format, "lv2")))
         return refuse("the table's format is neither clap nor lv2");
-    t->rows = calloc(rows->n, sizeof(row_t));
-    t->n = rows->n;
-    for (i = 0; i < rows->n; i++)
+    t->rows = calloc(jcount(rows), sizeof(row_t));
+    t->n = jcount(rows);
+    for (i = 0; i < jcount(rows); i++)
     {
         row_t *r = &t->rows[i];
-        const jnode_t *row = rows->kid[i], *w = jget(row, "word");
+        const cJSON *row = jkid(rows, i), *w = jget(row, "word");
 
-        r->key = rows->key[i];
+        r->key = jkey(rows, i);
         if (w != NULL)
         {
             const char *word = jstr(w, "word"), *tr = jstr(w, "transform");
-            const jnode_t *values = jget(w, "values");
+            const cJSON *values = jget(w, "values");
             double factor;
 
             r->cls = C_WORD;
@@ -159,17 +159,17 @@ static int load_table(const char *text, table_t *t)
             r->d.key = r->key;
             if (jnum(w, "factor", &factor))
                 r->d.factor = factor;
-            if (values != NULL && values->type == J_OBJ)
+            if (values != NULL && cJSON_IsObject(values))
             {
-                const char **from = calloc(values->n, sizeof(char *)), **to = calloc(values->n, sizeof(char *));
+                const char **from = calloc(jcount(values), sizeof(char *)), **to = calloc(jcount(values), sizeof(char *));
 
-                for (k = 0; k < values->n; k++)
+                for (k = 0; k < jcount(values); k++)
                 {
-                    from[k] = values->key[k];
-                    if ((to[k] = literal(values->kid[k])) == NULL)
+                    from[k] = jkey(values, k);
+                    if ((to[k] = literal(jkid(values, k))) == NULL)
                         return refuse("row %s: a lookup value is no string, number or boolean", r->key);
                 }
-                r->d.from = from, r->d.to = to, r->d.n = values->n;
+                r->d.from = from, r->d.to = to, r->d.n = jcount(values);
                 if (transforms_lookup_check(&r->d) != 0)
                     return refuse("row %s: a lookup whose values are not one to one", r->key);
             }
@@ -378,8 +378,13 @@ static int apply(scan_t *s, entry_t *e, const row_t *r, const char *field, const
             e->latency = 1;
     }
     else if (e->kind == 'g')
-        return refuse("%s %s: %s is a control's or a port's word, and the scope is the plugin", e->scope, field,
-                      WORDS[r->word].word);
+    {
+        /* a field whose row is a control's or a port's word, said of the plugin: lv2:symbol on the plugin is lv2core's
+         * own (mda Piano's `lv2:symbol "Piano"`), and no control or port is meant. Carried as the plugin's extension */
+        free(v);
+        carry(s, e->scope, field, value);
+        return 0;
+    }
     if (!strcmp(r->key, "pg:subGroupOf"))
     {
         /* one level above the group read so far: the path is read outermost first */
@@ -550,8 +555,8 @@ static int list_has(const entry_t *e, const char *word, const char *lit)
  * segment, and the symbol */
 static void put_link(sb_t *b, const char *path_lit, const char *symbol)
 {
-    jnode_t *v = jparse(path_lit);
-    const char *p = v && v->type == J_STR ? v->str : "";
+    cJSON *v = jparse(path_lit);
+    const char *p = v && cJSON_IsString(v) ? v->valuestring : "";
     int seg = 0, any = 0;
 
     SBL(b, "\"");
@@ -606,10 +611,10 @@ static int put_control(sb_t *b, const entry_t *e, const char *format, const char
     for (i = 0; i < e->n && np < 256; i++)
         if (e->a[i].word == w)
         {
-            jnode_t *p = jparse(e->a[i].value);
+            cJSON *p = jparse(e->a[i].value);
 
-            if (p && p->type == J_ARR && p->n == 2 && p->kid[0]->type == J_NUM && p->kid[1]->type == J_STR)
-                pts[np].v = p->kid[0]->num, pts[np++].label = p->kid[1]->str;
+            if (p && cJSON_IsArray(p) && jcount(p) == 2 && cJSON_IsNumber(jkid(p, 0)) && cJSON_IsString(jkid(p, 1)))
+                pts[np].v = jkid(p, 0)->valuedouble, pts[np++].label = jkid(p, 1)->valuestring;
         }
     if (np)
         kind = "\"choice\"";
@@ -690,10 +695,10 @@ static int put_control(sb_t *b, const entry_t *e, const char *format, const char
         sb_printf(b, ", \"automatable\": true");
     if (!strcmp(format, "lv2"))
     {
-        jnode_t *sym = jparse(id);
+        cJSON *sym = jparse(id);
 
         SBL(b, ", \"source\": {\"from\": ");
-        put_link(b, from, sym && sym->type == J_STR ? sym->str : "port");
+        put_link(b, from, sym && cJSON_IsString(sym) ? sym->valuestring : "port");
         SBL(b, "}");
     }
     SBL(b, "}");
@@ -726,9 +731,9 @@ static int put_port(sb_t *b, entry_t *const *run, size_t n, int first)
         sb_printf(b, "%s", name);
     else if (group)
     {
-        jnode_t *g = jparse(group);
+        cJSON *g = jparse(group);
 
-        sb_str(b, g && g->type == J_ARR && g->n ? g->kid[g->n - 1]->str : "port");
+        sb_str(b, g && cJSON_IsArray(g) && jcount(g) ? jkid(g, jcount(g) - 1)->valuestring : "port");
     }
     else
         sb_printf(b, "%s", id[0] == '"' ? id : "\"port\"");
@@ -982,24 +987,29 @@ int describe_dump(const char *table_text, const char *dump_text, const char *tar
 }
 
 /* the plugin of the scan's files whose id is the target's: files[].plugins[], or NULL */
-static const jnode_t *scanned_plugin(const jnode_t *scan, const char *id)
+static const cJSON *scanned_plugin(const cJSON *scan, const char *id, size_t *file, size_t *plugin)
 {
-    const jnode_t *files = jget(scan, "files"), *plugins;
+    const cJSON *files = jget(scan, "files"), *plugins;
     const char *pid;
     size_t f, p;
 
-    for (f = 0; files && files->type == J_ARR && f < files->n; f++)
-        for (p = 0, plugins = jget(files->kid[f], "plugins"); plugins && plugins->type == J_ARR && p < plugins->n; p++)
-            if ((pid = jstr(plugins->kid[p], "id")) != NULL && !strcmp(pid, id))
-                return plugins->kid[p];
+    for (f = 0; files && cJSON_IsArray(files) && f < jcount(files); f++)
+        for (p = 0, plugins = jget(jkid(files, f), "plugins"); plugins && cJSON_IsArray(plugins) && p < jcount(plugins); p++)
+            if ((pid = jstr(jkid(plugins, p), "id")) != NULL && !strcmp(pid, id))
+            {
+                *file = f, *plugin = p;
+                return jkid(plugins, p);
+            }
     return NULL;
 }
 
 int describe_panel(const char *scan_json, const char *target, sb_t *out, char *why, size_t why_size)
 {
     const char *format = describe_format(target), *id = describe_id(target), *error;
-    const jnode_t *plugin, *panel;
-    jnode_t *scan;
+    const cJSON *plugin, *panel;
+    cJSON *scan;
+    size_t file = 0, nth = 0, len = 0;
+    const char *raw;
 
     g_why = why, g_why_size = why_size;
     if (format == NULL)
@@ -1015,25 +1025,35 @@ int describe_panel(const char *scan_json, const char *target, sb_t *out, char *w
         SBL(out, "null}\n");
         return 0;
     }
-    if ((scan = jparse(scan_json)) == NULL || scan->type != J_OBJ)
+    if ((scan = jparse(scan_json)) == NULL || !cJSON_IsObject(scan))
     {
-        jfree(scan);
+        cJSON_Delete(scan);
         return refuse("the scan's output is no JSON object");
     }
-    if ((plugin = scanned_plugin(scan, id)) == NULL)
+    if ((plugin = scanned_plugin(scan, id, &file, &nth)) == NULL)
     {
-        jfree(scan);
+        cJSON_Delete(scan);
         return refuse("the scan lists no plugin %s", id);
     }
     if ((panel = jget(plugin, "panel")) == NULL)
     {
         error = jstr(plugin, "error");
         refuse("the scan states no panel for %s (%s)", id, error ? error : "a scanner before omx-clap-scan 0.20.0");
-        jfree(scan);
+        cJSON_Delete(scan);
         return -1;
     }
-    sb_put(out, panel->at, panel->len);
+    /* the panel's bytes as the scan wrote them */
+    {
+        const jstep_t path[] = { { "files", 0 }, { NULL, file }, { "plugins", 0 }, { NULL, nth }, { "panel", 0 } };
+
+        if ((raw = jraw(scan_json, path, sizeof(path) / sizeof(path[0]), &len)) == NULL)
+        {
+            cJSON_Delete(scan);
+            return refuse("the scan's panel of %s is not where it was read", id);
+        }
+    }
+    sb_put(out, raw, len);
     SBL(out, "}\n");
-    jfree(scan);
+    cJSON_Delete(scan);
     return 0;
 }

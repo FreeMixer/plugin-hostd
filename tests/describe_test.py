@@ -120,6 +120,16 @@ def main():
             check(scales.get("ratio") == "log", "a travel with lv2:integer and pprops:logarithmic, %s, is log (%s)"
                   % (order, scales.get("ratio") or r.stderr.strip()))
 
+        # an LV2 plugin may carry its own lv2:symbol (mda Piano: lv2:symbol "Piano" on the plugin, plugin-hostd#269): a
+        # control's word said of the plugin is carried as its extension, and the descriptor is otherwise the recorded one
+        eq = open(os.path.join(FIELDS, "lv2-eq.tsv")).read()
+        r = describe(CASES["lv2-eq"], scratch(tmp, "plugin-symbol.tsv", eq + "plugin\tlv2:symbol\tEq\n"))
+        doc = json.loads(r.stdout or "{}") if r.returncode == 0 else {}
+        carried = doc.get("extensions", {}).get("lv2", {}).pop("lv2:symbol", None)
+        check(r.returncode == 0 and carried in ("Eq", ["Eq"]) and doc == json.load(open(os.path.join(FIELDS, "lv2-eq.json"))),
+              "a plugin's own lv2:symbol is carried as its extension and is no control (%d: %s, %s)"
+              % (r.returncode, carried, r.stderr.strip()))
+
         # refusals: each exits 2 and names what it refuses
         lv2 = open(os.path.join(FIELDS, "lv2-compressor.tsv")).read()
         clap = open(os.path.join(FIELDS, "clap-controls.tsv")).read()
@@ -149,6 +159,13 @@ def main():
         bad = json.loads(json.dumps(table))
         bad["PLUGIN_HOSTD_CLAP_MAP"]["rows"]["clap_param_info.module"]["word"]["transform"] = "module-path"
         refused("a transform outside TRANSFORMS(X)", CASES["clap-controls"], clap, "module-path", bad)
+
+        # a malformed document is refused whole, with the table's own words: text after the value, an unfinished value, no value
+        for what, doc in (("text after the document", json.dumps(table) + " x"), ("a document cut short", json.dumps(table)[:-5]),
+                          ("an empty document", ""), ("a document that is no object", "[1, 2]")):
+            r = describe(CASES["clap-controls"], scratch(tmp, "dump.tsv", clap), scratch(tmp, "malformed.json", doc))
+            check(r.returncode == 2 and "the table is not one JSON object" in r.stderr and not r.stdout,
+                  "%s in the table: refused, exit 2, as no JSON object (%d: %s)" % (what, r.returncode, r.stderr.strip()))
 
         # the panel description of omx-clap-scan 0.20.0's dump: every field dropped, the descriptor as without it
         panel_dump = open(os.path.join(FIELDS, "clap-panel.tsv")).read()

@@ -74,7 +74,7 @@ jobs:
     steps:
       - name: Install the build tools
         run: |
-          dnf install -y --setopt=install_weak_deps=False git dnf5-plugins gcc make python3 pkgconf-pkg-config openssl-devel clap-devel lv2-devel \
+          dnf install -y --setopt=install_weak_deps=False git dnf5-plugins gcc make python3 pkgconf-pkg-config openssl-devel cjson-devel clap-devel lv2-devel \
             pipewire-jack-audio-connection-kit-devel pipewire pipewire-utils iproute util-linux procps-ng diffutils python3-jsonschema
 
       - uses: actions/checkout@v4
@@ -164,7 +164,7 @@ jobs:
     steps:
       - name: Install the build tools
         run: |
-          dnf install -y --setopt=install_weak_deps=False git dnf5-plugins gcc make python3 pkgconf-pkg-config openssl-devel clap-devel lv2-devel \
+          dnf install -y --setopt=install_weak_deps=False git dnf5-plugins gcc make python3 pkgconf-pkg-config openssl-devel cjson-devel clap-devel lv2-devel \
             iproute util-linux procps-ng diffutils python3-jsonschema
 
       - uses: actions/checkout@v4
@@ -206,7 +206,7 @@ jobs:
       - name: Install the build tools
         run: |
           apt-get update -qq
-          apt-get install -y --no-install-recommends ca-certificates curl git gcc make python3 pkg-config libssl-dev cmake \
+          apt-get install -y --no-install-recommends ca-certificates curl git gcc make python3 pkg-config libssl-dev libcjson-dev cmake \
             dpkg-dev debhelper build-essential lintian jackd2 libjack-jackd2-dev jack-example-tools \
             iproute2 util-linux procps
 
@@ -265,7 +265,7 @@ jobs:
       options: --cap-add SYS_ADMIN --security-opt seccomp=unconfined --security-opt apparmor=unconfined --security-opt systempaths=unconfined
     steps:
       - name: Install the build tools
-        run: dnf install -y --setopt=install_weak_deps=False git rpm-build dnf5-plugins gcc make tar gzip python3 pipewire-jack-audio-connection-kit-devel
+        run: dnf install -y --setopt=install_weak_deps=False git rpm-build dnf5-plugins gcc make openssl-devel cjson-devel tar gzip python3 pipewire-jack-audio-connection-kit-devel
 
       - uses: actions/checkout@v4
         with:

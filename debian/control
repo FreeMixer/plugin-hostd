@@ -10,6 +10,7 @@ Build-Depends: debhelper-compat (= 13),
                omx-contract (>= 3.4.0~) <!nocheck>,
                plugin-hostd-protocol-contract (>= 0.2.0~) <!nocheck>,
                libssl-dev,
+               libcjson-dev,
                pkgconf,
                python3
 Standards-Version: 4.6.2
@@ -20,7 +21,7 @@ Package: plugin-hostd
 Architecture: any
 Depends: libplugin-hostd-protocol0 (>= 0.2.0~), plugin-hostd-contract (= ${source:Version}), ${shlibs:Depends},
          ${misc:Depends}
-Recommends: omx-clap-host (>= 0.26.2)
+Recommends: omx-clap-host (>= 0.28.0)
 # mod-host runs an LV2 plugin only when lv2_worker or lv2_worker_set names it, and it is the reference host H3 of the
 # benchmark (bench/run.sh), measured when it is installed. Nothing else uses it, so it is only suggested; a machine that
 # runs a published benchmark installs mod-host (and jalv) itself.
