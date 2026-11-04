@@ -1,3 +1,16 @@
+plugin-hostd (0.17.0) unstable; urgency=medium
+
+  * An LV2 worker's world holds the plugin's preset bundles: every bundle on
+    lv2_path whose manifest names the plugin and holds no binary (the
+    user's presets, the ones Zynthian ships) is linked beside the plugin's
+    own, and they are walked for once, not at every spawn (#387, #269).
+  * A plugin that gives itself its own lv2:symbol, as mda Piano does, is
+    described instead of refused, so it gets a descriptor (#387, #269).
+  * The packages recommend omx-clap-host 0.28.0, which loads those preset
+    bundles into its LV2 world and lists their presets.
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Wed, 04 Nov 2026 09:30:00 +0100
+
 plugin-hostd (0.16.0) unstable; urgency=medium
 
   * The protocol is plugin-hostd-protocol's (0.2.0 or later): protocol.h, the
