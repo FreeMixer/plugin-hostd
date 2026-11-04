@@ -17,8 +17,8 @@ That is 14 to 17 % less DSP and 41 to 49 % less memory, with one JACK client for
 - **A set ready sooner.** 24 plugins are running 0.55 s after a cold start, against 1.46 s
   ([time to add](zynthian/benchmarks.md#time-to-add)).
 - **Instruments that cost less memory.** mda Piano, Odin 2 and Surge XT take the same CPU as under mod-host and about
-  43 MB less memory each ([instruments](zynthian/benchmarks.md#instruments)). The cores are used by placement: one pinned
-  worker per instrument or chain.
+  43 MB less memory each ([instruments](zynthian/benchmarks.md#instruments)). The cores are used by placement: one worker
+  per instrument or chain, all of them on the audio cores and the daemon kept off them.
 - **What a plugin costs, in the menu.** All 1602 plugins on a Pi 5 went through qualification on the device, and 1385
   qualified: 1079 in-process and 306 in a worker of their own. Another 38 rate suitable but have no memory figure yet, 152
   crashed, hung or were refused, and 27 could not be measured ([qualification](zynthian/benchmarks.md#qualification-and-acceptance)). The
