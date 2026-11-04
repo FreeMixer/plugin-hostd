@@ -15,15 +15,15 @@ BuildRequires: diffutils
 BuildRequires: python3
 BuildRequires: pkgconfig(libcrypto)
 # the protocol library and the declared protocol: <plugin-hostd/protocol.h> and the headers it includes, the protocol's
-# JSON and mod-host's. 0.2.0 is the first that holds them (they were this tree's before); a floor only
-BuildRequires: plugin-hostd-protocol-devel >= 0.2.0
+# JSON and mod-host's. 0.3.0 is the first that declares hello and the bulk verbs the sources use; a floor only
+BuildRequires: plugin-hostd-protocol-devel >= 0.3.0
 # the probe runner's default rates, the protocol's parameter scales and the probe output's shared words are read from
 # omx-contract's C headers, and the format tables are items of its schema 3 (3.4.0 the first that renders a reply
 # code's resp, which plugin_hostd_vocabulary.h is checked against); a floor only
 BuildRequires: omx-contract-devel >= 3.4.0
 # the protocol library, ports on 127.0.0.1 unless told otherwise (socket_set_bind_address()); the daemon is built
-# against the declared protocol of 0.2.0; a floor only
-Requires: plugin-hostd-protocol%{?_isa} >= 0.2.0
+# against the declared protocol of 0.3.0; a floor only
+Requires: plugin-hostd-protocol%{?_isa} >= 0.3.0
 # omx-clap-core is a build dependency of the check stage only: the CLAP worker and the fixtures the real-worker
 # tests drive. A build with `--without check` needs nothing of omx-clap-core, so plugin-hostd and omx-clap-core
 # do not build-depend on each other. A floor only: the lowest release with what the tests need (omx-clap-core 0.21,
@@ -35,7 +35,7 @@ BuildRequires: omx-clap-host-tests >= 0.25.0
 BuildRequires: omx-contract >= 3.4.0
 # the daemon's verbs (plugin-hostd-protocol's package of the contract directory) and the shared verbs and the
 # reply.host.* codes they refer to (make test-verbs-declared)
-BuildRequires: plugin-hostd-protocol-contract >= 0.2.0
+BuildRequires: plugin-hostd-protocol-contract >= 0.3.0
 BuildRequires: omx-clap-core-contract >= 0.26.2
 %endif
 # the format tables, which readers read at run time
@@ -64,7 +64,7 @@ Summary: Talk to plugin-hostd from your own controller without retyping its prot
 BuildArch: noarch
 Requires: %{name}-contract = %{version}-%{release}
 # the declared protocol, <plugin-hostd/protocol.h>, which plugin-hostd.pc requires; a floor only
-Requires: plugin-hostd-protocol-devel >= 0.2.0
+Requires: plugin-hostd-protocol-devel >= 0.3.0
 # pin.h's SHA-256 is libcrypto's, which plugin-hostd.pc requires
 Requires: pkgconfig(libcrypto)
 
@@ -81,7 +81,7 @@ Summary: plugin-hostd's format tables, for programs that read them at run time
 BuildArch: noarch
 # the daemon's verbs are plugin-hostd-protocol's package of the contract directory since 0.2.0 (they were this
 # package's before): a reader of this package reads that one too; a floor only
-Requires: plugin-hostd-protocol-contract >= 0.2.0
+Requires: plugin-hostd-protocol-contract >= 0.3.0
 Requires: omx-clap-core-contract >= 0.26.2
 # the tables live in omx-contract's contract directory and are read against its schema: 3.2.0 is the first whose
 # source field takes an index (omx_clap_panel_display.meter_ids[0]), so an older one never sits beside a table it
