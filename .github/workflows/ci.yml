@@ -74,7 +74,7 @@ jobs:
     steps:
       - name: Install the build tools
         run: |
-          dnf install -y --setopt=install_weak_deps=False git dnf5-plugins gcc make python3 pkgconf-pkg-config clap-devel lv2-devel \
+          dnf install -y --setopt=install_weak_deps=False git dnf5-plugins gcc make python3 pkgconf-pkg-config openssl-devel clap-devel lv2-devel \
             pipewire-jack-audio-connection-kit-devel pipewire pipewire-utils iproute util-linux procps-ng diffutils python3-jsonschema
 
       - uses: actions/checkout@v4
@@ -164,7 +164,7 @@ jobs:
     steps:
       - name: Install the build tools
         run: |
-          dnf install -y --setopt=install_weak_deps=False git dnf5-plugins gcc make python3 pkgconf-pkg-config clap-devel lv2-devel \
+          dnf install -y --setopt=install_weak_deps=False git dnf5-plugins gcc make python3 pkgconf-pkg-config openssl-devel clap-devel lv2-devel \
             iproute util-linux procps-ng diffutils python3-jsonschema
 
       - uses: actions/checkout@v4
@@ -206,7 +206,7 @@ jobs:
       - name: Install the build tools
         run: |
           apt-get update -qq
-          apt-get install -y --no-install-recommends ca-certificates curl git gcc make python3 pkg-config cmake \
+          apt-get install -y --no-install-recommends ca-certificates curl git gcc make python3 pkg-config libssl-dev cmake \
             dpkg-dev debhelper build-essential lintian jackd2 libjack-jackd2-dev jack-example-tools \
             iproute2 util-linux procps
 
@@ -316,7 +316,7 @@ jobs:
             printf '%s\n' /usr/include/plugin-hostd/pin.h /usr/share/pkgconfig/plugin-hostd.pc \
               /usr/include/plugin-hostd/plugin_hostd_vocabulary.h \
               /usr/share/plugin-hostd/probe-output.schema.json /usr/share/plugin-hostd/preset.schema.json \
-              /usr/share/licenses/plugin-hostd-devel/COPYING | sort > expected.txt
+              /usr/share/doc/plugin-hostd-devel/README.md /usr/share/licenses/plugin-hostd-devel/COPYING | sort > expected.txt
             diff -u expected.txt files.txt
             rpm -qp --requires "$rpm" | tee requires.txt
             grep -qx "plugin-hostd-contract = $(rpm -qp --qf '%{VERSION}-%{RELEASE}' "$rpm")" requires.txt
@@ -331,7 +331,7 @@ jobs:
               /usr/share/omx-contract/contract.d/3/plugin-hostd/formats/lv2.json \
               /usr/share/omx-contract/contract.d/3/plugin-hostd/history.json \
               /usr/share/omx-contract/contract.d/3/plugin-hostd/grouping.json \
-              /usr/share/licenses/plugin-hostd-contract/COPYING | sort > expected.txt
+              /usr/share/doc/plugin-hostd-contract/README.md /usr/share/licenses/plugin-hostd-contract/COPYING | sort > expected.txt
             diff -u expected.txt files.txt
           done
           ls rpms/plugin-hostd-contract-[0-9]*.noarch.rpm
@@ -340,7 +340,7 @@ jobs:
             rpm -qlp "$rpm"
             rpm -qp --qf '[%{FILEMODES:perms} %{FILENAMES}\n]' "$rpm" | grep -v -e '^d' -e '/\.build-id/' | cut -d' ' -f2 | sort > files.txt
             printf '%s\n' /usr/libexec/plugin-hostd/tests/fake-host /usr/libexec/plugin-hostd/tests/lib/protocol.sh /usr/libexec/plugin-hostd/tests/lib/plugin_hostd_client.py \
-              /usr/share/licenses/plugin-hostd-tests/COPYING | sort > expected.txt
+              /usr/share/doc/plugin-hostd-tests/README.md /usr/share/licenses/plugin-hostd-tests/COPYING | sort > expected.txt
             diff -u expected.txt files.txt
             # tied to the same build: the requirement names the exact version-release and the isa of this very package
             case "${{ matrix.arch }}" in x86_64) isa=x86-64 ;; aarch64) isa=aarch-64 ;; *) echo "no isa for ${{ matrix.arch }}"; exit 1 ;; esac
