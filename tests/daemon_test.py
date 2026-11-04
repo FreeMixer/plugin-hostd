@@ -3127,10 +3127,13 @@ def the_adapter_row_keeps_the_pin_rules_of_the_lv2_row_and_checks_no_layout():
               "the world is narrowed to the bundle: %s %s" % (program, world))
         check(os.listdir(world) == ["pinned.lv2"], "and holds nothing else: %s" % os.listdir(world))
         # the plugin's presets in bundles of their own (the user's, a distribution's) are in its world, so they list and
-        # load (plugin-hostd#269); a preset bundle of another plugin is not
+        # load (plugin-hostd#269); a preset bundle of another plugin is not, nor a bundle that names it and holds a binary
         mine = os.path.join(p.dir, "presets", "pinned.lv2")
         for bundle, applies, extra in ((mine, LV2_URI, ""), (os.path.join(p.lv2_dir, "user-pinned.lv2"), LV2_URI, ""),
-                                       (os.path.join(p.lv2_dir, "other.lv2"), "urn:test:other", "")):
+                                       (os.path.join(p.lv2_dir, "other.lv2"), "urn:test:other", ""),
+                                       (os.path.join(os.path.dirname(mine), "zz-addon.lv2"), LV2_URI,
+                                        " .\n<urn:test:addon> a <http://lv2plug.in/ns/lv2core#Plugin> ; "
+                                        "<http://lv2plug.in/ns/lv2core#binary> <addon.so>")):
             os.makedirs(bundle)
             write(os.path.join(bundle, "manifest.ttl"),
                   ("<urn:test:preset:%s> a <http://lv2plug.in/ns/ext/presets#Preset> ; "
