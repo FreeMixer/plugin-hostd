@@ -1770,7 +1770,9 @@ static void put_lv2_measure(sb_t *b, const jnode_t *m, long rate, unsigned quant
     snprintf(key, sizeof(key), "%ld", rate);
     lat = jget(jget(m, "latency"), key);
     sb_printf(b, ",\n  \"grid\": [\n    {\"rate\": %ld, \"quantum\": %u, \"outcome\": \"%s\"", rate, quantum, OUT_OK);
-    /* the figures under the CLAP point's field names: latency (declared, and measured by the impulse or from a note), cost */
+    /* the figures under the CLAP point's field names: latency (declared, and measured by the impulse or from a note), cost.
+     * A response that never came (an instrument whose note did not sound) has no measured figure; what the plugin
+     * declares on its latency port is still its own figure, and is kept as such (declared-port), never as a measurement. */
     if (jnum(lat, "declaredFrames", &decl) && jnum(lat, "measuredFrames", &meas))
     {
         int from_note = jstr(lat, "from") && !strcmp(jstr(lat, "from"), "note");
@@ -1779,6 +1781,8 @@ static void put_lv2_measure(sb_t *b, const jnode_t *m, long rate, unsigned quant
                   from_note ? OMX_MEASUREMENT_LATENCY_METHODS_NOTE_ONSET : OMX_MEASUREMENT_LATENCY_METHODS_IMPULSE_ONSET,
                   from_note ? ", \"heard\": true" : "");
     }
+    else if (jnum(lat, "declaredFrames", &decl) && jstr(lat, "declaredFrom") && !strcmp(jstr(lat, "declaredFrom"), "port"))
+        sb_printf(b, ", \"latency\": {\"declaredFrames\": %.0f, \"method\": \"%s\"}", decl, OMX_MEASUREMENT_LATENCY_METHODS_DECLARED_PORT);
     put_cost(b, jget(m, "cost"), key);
     put_memory(b, jget(m, "cost"), key);
     if (rt)
