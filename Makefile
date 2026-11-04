@@ -641,7 +641,7 @@ test-describe: $(PROBE)
 # what is omx-contract's is read from it: the runner's default rates, the protocol's parameter scales and the probe
 # schema's latency methods follow a scratch copy of its headers with other values
 test-contract: $(PROBE)
-	PROBE=./$(PROBE) python3 tests/contract_derived.py
+	PROBE=./$(PROBE) CJSON_CFLAGS='$(CJSON_CFLAGS)' CJSON_LIBS='$(CJSON_LIBS)' python3 tests/contract_derived.py
 
 # the probe output: its three fixtures validate and five broken copies of the first are refused
 test-probe-schema:
