@@ -48,6 +48,63 @@ def a_word_past_the_grammar_of_a_daemon_verb_is_refused():
         d.close()
 
 
+def worker_answers(lines):
+    """what a fake worker, built on the protocol library, answers each line on its own socket, no daemon between"""
+    import socket
+    port, _ = harness.port_pair()
+    w = subprocess.Popen([FAKE, "-n", "-p", str(port)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        c = None
+        end = time.monotonic() + 10
+        while c is None:
+            try:
+                c = socket.create_connection(("127.0.0.1", port), timeout=5)
+            except OSError:
+                if time.monotonic() > end:
+                    raise Fail("the fake worker never listened on %d" % port)
+                time.sleep(0.05)
+        out = []
+        for line in lines:
+            c.sendall(line.encode() + b"\0")
+            buf = b""
+            while not buf.endswith(b"\0"):
+                got = c.recv(4096)
+                if not got:
+                    raise Fail("the fake worker closed on " + line)
+                buf += got
+            out.append(buf[:-1].decode())
+        c.close()
+        return out
+    finally:
+        w.kill()
+        w.wait()
+
+
+@test
+def hello_and_a_tagged_line_are_answered_by_the_daemon_and_never_reach_a_worker():
+    # the control: a worker built on the protocol library answers hello and reads a tag once granted
+    got = worker_answers(["hello 1 tags", "@t1 quit_not_a_verb"])
+    check(got == ["resp 0 1 tags", "@t1 not found"], "the fake worker answers hello as the library does: %r" % got)
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(env={"FAKE_LOG": log})
+    try:
+        d.expect("add fake:a 0", "resp 0")
+        # the daemon grants nothing: hello is refused, and a line that starts with "@" names no verb
+        d.expect("hello 1 tags errors", "resp -902")
+        d.expect("hello 1", "resp -902")
+        d.expect("@t1 param_get 0 gain", "not found")
+        d.expect("@t1", "not found")
+        d.expect("param_set 0 gain 0.2500", "resp 0")
+        d.expect("param_get 0 gain", "resp 0 0.2500")
+        with open(log) as f:
+            sent = [l.split(" ", 1)[1] for l in f.read().splitlines()]
+        check("param_get 0 gain" in sent, "the log holds what the worker was sent: %r" % sent)
+        check(not [l for l in sent if l.startswith("hello") or l.startswith("@")],
+              "no worker is sent hello or a tagged line: %r" % sent)
+    finally:
+        d.close()
+
+
 @test
 def the_whitespace_that_ends_a_command_is_not_part_of_its_last_word():
     log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")

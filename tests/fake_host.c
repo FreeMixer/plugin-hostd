@@ -120,6 +120,7 @@
 #include <mod-host.h>
 #include <plugin-hostd/pin.h>
 #include <plugin-hostd/protocol.h>
+#include <protocol.h>
 #include <socket.h>
 #include <utils.h>
 
@@ -312,6 +313,12 @@ static void receive(msg_t *msg)
         goto out;
     }
     verb = tok[0];
+    /* hello and a tagged line are answered by the protocol library, as a worker built on it answers them */
+    if (verb_is(verb, OMX_VERB_HELLO) || verb[0] == '@')
+    {
+        protocol_parse(msg);
+        goto out;
+    }
     n = ntok > 1 ? atoi(tok[1]) : -1;
 
     if (verb_is(verb, OMX_VERB_PIN_EXPECT) && getenv("FAKE_NO_PIN_EXPECT"))
@@ -799,6 +806,7 @@ int main(int argc, char **argv)
     if (socket_start(port, fb_port, 4096) < 0)
         return EXIT_FAILURE;
     socket_set_receive_cb(receive);
+    protocol_add_hello();
     socket_set_idle_cb(idle);
     socket_set_idle_interval(20);
     memset(&sig, 0, sizeof(sig));

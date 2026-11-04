@@ -7,7 +7,8 @@
 #   - the verbs the daemon answers itself are the declared ones and mod-host's: a word of the binary that the daemon
 #     answers without relaying it to its worker, and that no declaration and no mod-host command holds, is red;
 #   - a verb both hosts owe answers the same line in the same shape from the daemon and from a worker that speaks for
-#     omx-clap-host (tests/fake-host, the worker every test of this tree runs);
+#     omx-clap-host (tests/fake-host, the worker every test of this tree runs), or, where it is optional of a host, a
+#     refusal it declares from that host;
 #   - one name per number: no refusal number is named by two codes, and each number protocol.h answers is named by a
 #     code of plugin-hostd or of omx-clap-core, whose HOST_REPLY_CODES name the numbers both hosts answer.
 # omx-clap-core's declarations are read from its package in the contract directory: the first of OMX_CONTRACT_PATH
@@ -156,11 +157,15 @@ def token_rx(token):
 
 
 def shaped(reply, declared):
-    """whether reply is declared's shape: its literal words, one word per placeholder; a count in second place
-    (resp <n> or resp <count>) is a whole number and the words after it are that many records"""
+    """whether reply is declared's shape: its literal words, one word per placeholder, and a last ... the placeholder
+    before it again none or more times; a count in second place (resp <n> or resp <count>) is a whole number and the
+    words after it are that many records"""
     got, want = words(reply), declared.split()
     if len(got) < 2 or got[0] != want[0]:
         return False
+    # a last ... repeats the placeholder before it none or more times (hello's extensions)
+    if want[-1] == "...":
+        want = want[:-2] + want[-2:-1] * max(0, len(got) - (len(want) - 2))
     if want[1].startswith("<"):
         if not re.fullmatch(r"[0-9]+", got[1]):
             return False
@@ -198,6 +203,7 @@ def code(reply):
 # pin_accept takes the first-use pin before pin_set replaces it with one of verdict in-process, which lets the members
 # share the chain's worker; chain_get and chain_clear read and forget what chain declared; pin_clear runs last.
 LINES = {
+    "hello": ("1 tags", "x", ("0 tags",)),
     "pin_accept": ("{uri}", "", ()),
     "pin_set": ("{uri} controls.clap={sha} {layout} verdict=in-process", "{uri}", ()),
     "worker_list": ("", "x", ()),
@@ -393,8 +399,14 @@ def check_both(declared):
             good = line(verb, LINES[verb][0], ctx)
             a, b = d.send(good), w.send(good)
             same = (shaped(a, decl["reply"]) and shaped(b, decl["reply"])) or (code(a) is not None and code(a) == code(b))
+            # a verb optional of a host may be refused by it with a code it declares, while the other answers it: the
+            # session verbs (hello), which each host answers for its own connection, are such
+            def refused(r, host):
+                return decl["implementedBy"].get(host) == "optional" and code(r) is not None and code(r) in decl["codes"]
             if same:
                 print("ok   %-16s the same shape from both hosts: %s | %s" % (verb, a[:40], b[:40]))
+            elif (shaped(a, decl["reply"]) or refused(a, HOSTD)) and (shaped(b, decl["reply"]) or refused(b, CLAP_HOST)):
+                print("ok   %-16s each host's declared answer: %s | %s (optional: a declared refusal)" % (verb, a[:40], b[:40]))
             else:
                 fail("%s: %r answers %r from plugin-hostd and %r from the worker, not one declared shape" % (verb, good, a, b))
     except Fail as e:
