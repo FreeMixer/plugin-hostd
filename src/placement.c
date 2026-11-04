@@ -93,9 +93,49 @@ size_t placement_list_text(const cpu_set_t *set, char *buf, size_t size)
     return used;
 }
 
-int placement_cores(const cpu_set_t *allowed, const char *audio_cores, cpu_set_t *audio, cpu_set_t *reserved)
+/* a whole number in the file dir/cpu<c>/<name>, above 0; 0 for none */
+static long read_cpu_number(const char *dir, int c, const char *name)
 {
-    int c;
+    char path[512];
+    long v = 0;
+    FILE *f;
+
+    snprintf(path, sizeof(path), "%s/cpu%d/%s", dir, c, name);
+    if (!(f = fopen(path, "r")))
+        return 0;
+    if (fscanf(f, "%ld", &v) != 1 || v < 0)
+        v = 0;
+    fclose(f);
+    return v;
+}
+
+int placement_capacities(const char *dir, const cpu_set_t *allowed, long *capacity)
+{
+    static const char *const source[] = { "cpu_capacity", "cpufreq/cpuinfo_max_freq" };
+    size_t k;
+    int c, all;
+
+    for (k = 0; k < sizeof(source) / sizeof(source[0]); k++)
+    {
+        all = 1;
+        for (c = 0; c < CPU_SETSIZE; c++)
+        {
+            capacity[c] = CPU_ISSET(c, allowed) ? read_cpu_number(dir, c, source[k]) : 0;
+            if (CPU_ISSET(c, allowed) && capacity[c] <= 0)
+                all = 0;
+        }
+        if (all)
+            return 1;
+    }
+    for (c = 0; c < CPU_SETSIZE; c++)
+        capacity[c] = 0;
+    return 0;
+}
+
+int placement_cores(const cpu_set_t *allowed, const char *audio_cores, const long *capacity, cpu_set_t *audio,
+                    cpu_set_t *reserved)
+{
+    int c, least = -1;
 
     if (audio_cores && *audio_cores)
     {
@@ -109,13 +149,14 @@ int placement_cores(const cpu_set_t *allowed, const char *audio_cores, cpu_set_t
     }
     else
     {
+        /* the reserved cpu is the one of least capacity, the lowest of a tie: on a hybrid cpu an efficiency core, so
+         * every performance core is left to the audio; with no capacity known, or all equal, the lowest cpu */
         *audio = *allowed;
         for (c = 0; c < CPU_SETSIZE; c++)
-            if (CPU_ISSET(c, audio))
-            {
-                CPU_CLR(c, audio);
-                break;
-            }
+            if (CPU_ISSET(c, audio) && (least < 0 || (capacity && capacity[c] < capacity[least])))
+                least = c;
+        if (least >= 0)
+            CPU_CLR(least, audio);
     }
     CPU_XOR(reserved, allowed, audio);
     return 0;
