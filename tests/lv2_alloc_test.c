@@ -78,6 +78,15 @@ char *proc_find_lv2_bundle(const char *lv2_path, const char *uri)
     return NULL;
 }
 
+int proc_lv2_preset_bundles(const char *lv2_path, const char *uri, int (*fn)(void *ctx, const char *bundle), void *ctx)
+{
+    (void)lv2_path;
+    (void)uri;
+    (void)fn;
+    (void)ctx;
+    return 0;
+}
+
 const char *sup_instance_uri(int id)
 {
     (void)id;

@@ -584,6 +584,187 @@ char *proc_find_lv2_bundle(const char *lv2_path, const char *uri)
     return named;
 }
 
+/* the data bundles of a plugin by search path and uri, as the last walk found them, with the time each directory of the
+ * path was last changed then: a bundle added to or removed from a directory changes it, so while none has changed the
+ * walk would find the same bundles, and no manifest is read. A memo that cannot be kept is no memo: the next call walks. */
+#define PRESET_MEMO_MAX 1024
+static struct preset_memo
+{
+    char *path, *uri;
+    char **bundles;
+    int n;
+    struct timespec *dirs;      // each directory of the path, in order: its st_mtim, or tv_sec -1 when it is not there
+    int ndirs;
+} g_preset_memo[PRESET_MEMO_MAX];
+static int g_preset_memos;
+
+/* the change times of the directories of lv2_path into *out (malloc'd), their count, or -1 short of memory */
+static int path_dir_times(const char *lv2_path, struct timespec **out)
+{
+    char *copy = strdup(lv2_path), *dir, *save = NULL;
+    struct timespec *t = NULL, *grown;
+    int n = 0;
+
+    if (!copy)
+        return -1;
+    for (dir = strtok_r(copy, ":", &save); dir; dir = strtok_r(NULL, ":", &save))
+    {
+        struct stat st;
+
+        if (!(grown = realloc(t, (n + 1) * sizeof(*t))))
+        {
+            free(t);
+            free(copy);
+            return -1;
+        }
+        t = grown;
+        if (stat(dir, &st) == 0)
+            t[n] = st.st_mtim;
+        else
+            t[n].tv_sec = -1, t[n].tv_nsec = 0;
+        n++;
+    }
+    free(copy);
+    *out = t;
+    return n;
+}
+
+static void preset_memo_clear(struct preset_memo *m)
+{
+    int k;
+
+    for (k = 0; k < m->n; k++)
+        free(m->bundles[k]);
+    free(m->bundles);
+    free(m->dirs);
+    m->bundles = NULL;
+    m->dirs = NULL;
+    m->n = m->ndirs = 0;
+}
+
+struct preset_walk
+{
+    char **bundles;
+    int n, short_of_memory;
+};
+
+static int preset_walk_keep(void *ctx, const char *bundle)
+{
+    struct preset_walk *w = ctx;
+    char **grown = realloc(w->bundles, (w->n + 1) * sizeof(char *));
+
+    if (!grown || !(grown[w->n] = strdup(bundle)))
+    {
+        if (grown)
+            w->bundles = grown;
+        w->short_of_memory = 1;
+        return 1;
+    }
+    w->bundles = grown;
+    w->n++;
+    return 0;
+}
+
+/* every bundle of LV2_PATH whose manifest names the plugin and holds no binary, by a walk of the path */
+static int preset_bundles_walk(const char *lv2_path, const char *uri, int (*fn)(void *ctx, const char *bundle), void *ctx)
+{
+    char *copy = strdup(lv2_path), *dir, *save = NULL;
+    int found = 0, stop = 0;
+
+    if (!copy)
+        return -1;
+    for (dir = strtok_r(copy, ":", &save); dir && !stop; dir = strtok_r(NULL, ":", &save))
+    {
+        DIR *d = opendir(dir);
+        struct dirent *entry;
+
+        if (!d)
+            continue;
+        while (!stop && (entry = readdir(d)))
+        {
+            size_t n = strlen(entry->d_name);
+            char bundle[PATH_MAX];
+
+            if (n < 5 || strcmp(entry->d_name + n - 4, ".lv2") != 0)
+                continue;
+            snprintf(bundle, sizeof(bundle), "%s/%s", dir, entry->d_name);
+            /* a manifest that names the plugin and holds no binary: presets, a MOD GUI, data for it; never code */
+            if (manifest_names(bundle, uri) == MANIFEST_NAMES)
+            {
+                found++;
+                stop = fn(ctx, bundle) != 0;
+            }
+        }
+        closedir(d);
+    }
+    free(copy);
+    return stop ? -1 : found;
+}
+
+int proc_lv2_preset_bundles(const char *lv2_path, const char *uri, int (*fn)(void *ctx, const char *bundle), void *ctx)
+{
+    struct preset_memo *m = NULL;
+    struct preset_walk w = { NULL, 0, 0 };
+    struct timespec *now = NULL;
+    int ndirs = path_dir_times(lv2_path, &now), k, same;
+
+    for (k = 0; k < g_preset_memos && !m; k++)
+        if (!strcmp(g_preset_memo[k].uri, uri) && !strcmp(g_preset_memo[k].path, lv2_path))
+            m = &g_preset_memo[k];
+    same = m && m->dirs && ndirs == m->ndirs;
+    for (k = 0; same && k < ndirs; k++)
+        same = now[k].tv_sec == m->dirs[k].tv_sec && now[k].tv_nsec == m->dirs[k].tv_nsec;
+    if (same)
+    {
+        free(now);
+        for (k = 0; k < m->n; k++)
+            if (fn(ctx, m->bundles[k]) != 0)
+                return -1;
+        return m->n;
+    }
+    if (preset_bundles_walk(lv2_path, uri, preset_walk_keep, &w) < 0 || w.short_of_memory)
+    {
+        for (k = 0; k < w.n; k++)
+            free(w.bundles[k]);
+        free(w.bundles);
+        free(now);
+        /* no memory for the list: the walk again, handing each bundle on as it is found */
+        return preset_bundles_walk(lv2_path, uri, fn, ctx);
+    }
+    if (!m && g_preset_memos < PRESET_MEMO_MAX && ndirs >= 0)
+    {
+        m = &g_preset_memo[g_preset_memos];
+        memset(m, 0, sizeof(*m));
+        if ((m->path = strdup(lv2_path)) && (m->uri = strdup(uri)))
+            g_preset_memos++;
+        else
+        {
+            free(m->path);
+            m = NULL;
+        }
+    }
+    if (m)
+    {
+        preset_memo_clear(m);
+        m->bundles = w.bundles;
+        m->n = w.n;
+        m->dirs = ndirs >= 0 ? now : NULL;
+        m->ndirs = ndirs >= 0 ? ndirs : 0;
+        now = NULL;
+    }
+    for (k = 0; k < w.n && fn(ctx, w.bundles[k]) == 0; k++)
+        ;
+    same = k < w.n ? -1 : w.n;
+    if (!m)
+    {
+        for (k = 0; k < w.n; k++)
+            free(w.bundles[k]);
+        free(w.bundles);
+    }
+    free(now);
+    return same;
+}
+
 int proc_parse_stat(const char *text, long long *utime, long long *stime)
 {
     const char *p = strrchr(text, ')');

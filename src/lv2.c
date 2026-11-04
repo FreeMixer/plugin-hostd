@@ -22,6 +22,7 @@
 /* The LV2 format: how a bundle's files are found for a pin, how a worker's world is narrowed to one bundle, and what the
  * daemon answers for the instance verbs mod-host does not have. */
 
+#include <dirent.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <stdio.h>
@@ -426,27 +427,67 @@ int lv2_binary(const char *uri, const char *search, char *path, size_t size)
     return rc;
 }
 
+/* a link to `bundle` in the world `dir`, named as the bundle unless that name already links elsewhere (a preset bundle
+ * may share its plugin bundle's name in another directory of LV2_PATH); once per bundle. 0, or -1 when no link is made */
+static int world_link(const char *dir, const char *bundle)
+{
+    const char *base = strrchr(bundle, '/');
+    char link_path[PATH_MAX], target[PATH_MAX];
+    int k;
+
+    base = base ? base + 1 : bundle;
+    for (k = 0; k < 100; k++)
+    {
+        ssize_t n;
+
+        if (k == 0)
+            snprintf(link_path, sizeof(link_path), "%s/%s", dir, base);
+        else
+            snprintf(link_path, sizeof(link_path), "%s/%d-%s", dir, k, base);
+        n = readlink(link_path, target, sizeof(target) - 1);
+        if (n < 0)
+            return symlink(bundle, link_path) == 0 ? 0 : -1;
+        target[n] = '\0';
+        if (!strcmp(target, bundle))
+            return 0;
+    }
+    return -1;
+}
+
+static int world_link_preset(void *ctx, const char *bundle)
+{
+    return world_link(ctx, bundle) != 0;
+}
+
 /* an own LV2 worker sees a world of one bundle, a chain's worker the union of its members': a directory holding a link
- * to each bundle that names one of the URIs, once; NULL when a URI's bundle is not found */
+ * to each bundle that holds one of the URIs, once, and to each bundle of LV2_PATH that names one of them with no binary
+ * (its presets: the bundle's own, the user's, a distribution's), so every preset of the plugin lists and loads; NULL when
+ * a URI's bundle is not found */
 char *lv2_narrow_world(const conf_t *conf, const char *dir, const char *const *uris, int n)
 {
-    char link_path[PATH_MAX];
+    DIR *d;
+    struct dirent *e;
     int k;
 
     mkdir(dir, 0755);
+    /* the world is made again whole: a link of an earlier one (a bundle since moved, a member since gone) goes */
+    if ((d = opendir(dir)) != NULL)
+    {
+        while ((e = readdir(d)) != NULL)
+            if (e->d_name[0] != '.')
+                unlinkat(dirfd(d), e->d_name, 0);
+        closedir(d);
+    }
     for (k = 0; k < n; k++)
     {
-        char *bundle = proc_find_lv2_bundle(conf->lv2_path, uris[k]), *base;
+        char *bundle = proc_find_lv2_bundle(conf->lv2_path, uris[k]);
         int ok;
 
         if (!bundle)
             return NULL;
-        base = strrchr(bundle, '/');
-        snprintf(link_path, sizeof(link_path), "%s/%s", dir, base ? base + 1 : bundle);
-        unlink(link_path);
-        ok = symlink(bundle, link_path) == 0;
+        ok = world_link(dir, bundle) == 0;
         free(bundle);
-        if (!ok)
+        if (!ok || proc_lv2_preset_bundles(conf->lv2_path, uris[k], world_link_preset, (void *)dir) < 0)
             return NULL;
     }
     return strdup(dir);

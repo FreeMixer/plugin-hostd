@@ -120,6 +120,16 @@ def main():
             check(scales.get("ratio") == "log", "a travel with lv2:integer and pprops:logarithmic, %s, is log (%s)"
                   % (order, scales.get("ratio") or r.stderr.strip()))
 
+        # an LV2 plugin may carry its own lv2:symbol (mda Piano: lv2:symbol "Piano" on the plugin, plugin-hostd#269): a
+        # control's word said of the plugin is carried as its extension, and the descriptor is otherwise the recorded one
+        eq = open(os.path.join(FIELDS, "lv2-eq.tsv")).read()
+        r = describe(CASES["lv2-eq"], scratch(tmp, "plugin-symbol.tsv", eq + "plugin\tlv2:symbol\tEq\n"))
+        doc = json.loads(r.stdout or "{}") if r.returncode == 0 else {}
+        carried = doc.get("extensions", {}).get("lv2", {}).pop("lv2:symbol", None)
+        check(r.returncode == 0 and carried in ("Eq", ["Eq"]) and doc == json.load(open(os.path.join(FIELDS, "lv2-eq.json"))),
+              "a plugin's own lv2:symbol is carried as its extension and is no control (%d: %s, %s)"
+              % (r.returncode, carried, r.stderr.strip()))
+
         # refusals: each exits 2 and names what it refuses
         lv2 = open(os.path.join(FIELDS, "lv2-compressor.tsv")).read()
         clap = open(os.path.join(FIELDS, "clap-controls.tsv")).read()

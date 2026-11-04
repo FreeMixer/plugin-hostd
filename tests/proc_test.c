@@ -133,6 +133,48 @@ static void test_bundle_lookup_remembers(void)
     free(found);
 }
 
+/* the data bundles of a plugin are walked for once: while no directory of the path changes no manifest is read again,
+ * and a bundle added is found */
+static int count_bundle(void *ctx, const char *bundle)
+{
+    (void)bundle;
+    (*(int *)ctx)++;
+    return 0;
+}
+
+static void test_preset_bundles_remembered(void)
+{
+    static const char *const uri = "http://example.org/piano";
+    static const char *const plugin = "<http://example.org/piano> a lv2:Plugin ; lv2:binary <piano.so> .\n";
+    static const char *const preset =
+        "<p.ttl> a <http://lv2plug.in/ns/ext/presets#Preset> ; lv2:appliesTo <http://example.org/piano> .\n";
+    static const char *const other = "<http://example.org/other> a lv2:Plugin ; lv2:binary <o.so> .\n";
+    char root[] = "/tmp/proc_test.XXXXXX", dir[PATH_MAX], name[64];
+    unsigned long reads;
+    int k, seen = 0;
+
+    check(mkdtemp(root) != NULL, "a scratch directory");
+    snprintf(dir, sizeof(dir), "%s/lv2", root);
+    mkdir(dir, 0755);
+    for (k = 0; k < 40; k++)
+    {
+        snprintf(name, sizeof(name), "other%02d.lv2", k);
+        write_manifest(dir, name, other);
+    }
+    write_manifest(dir, "piano.lv2", plugin);
+    write_manifest(dir, "piano-presets.lv2", preset);
+    check(proc_lv2_preset_bundles(dir, uri, count_bundle, &seen) == 1 && seen == 1,
+          "one data bundle among forty-one, the plugin's own bundle not one of them");
+    reads = proc_manifest_reads;
+    seen = 0;
+    check(proc_lv2_preset_bundles(dir, uri, count_bundle, &seen) == 1 && seen == 1 && proc_manifest_reads == reads,
+          "found again with no manifest read while the directory is unchanged");
+    write_manifest(dir, "user-presets.lv2", preset);
+    seen = 0;
+    check(proc_lv2_preset_bundles(dir, uri, count_bundle, &seen) == 2 && seen == 2,
+          "a bundle added to the directory is found: the walk is made again");
+}
+
 int main(void)
 {
     long long u = -1, s = -1, kb = -1;
@@ -142,6 +184,7 @@ int main(void)
 
     test_bundle_lookup();
     test_bundle_lookup_remembers();
+    test_preset_bundles_remembered();
     check(proc_parse_stat("1234 (plain) S 1 1234 1234 0 -1 4194560 100 0 0 0 7 3 0 0 20 0 1 0 100 1000000 50\n", &u, &s) == 0 &&
           u == 7 && s == 3, "utime 7 and stime 3 of a plain stat line");
     u = s = -1;
