@@ -1,4 +1,4 @@
-Breaks the check of fuzz/fuzz_command.c:294 (acted on, by its own call or by a broadcast, with an argument count the declaration allows).
+Breaks the check of fuzz/fuzz_command.c:321 (acted on, by its own call or by a broadcast, with an argument count the declaration allows).
 Caught by the seed input "mod-host-remove-extra" of fuzz_command.
 
 diff --git a/src/verbs.c b/src/verbs.c

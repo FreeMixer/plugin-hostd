@@ -1,4 +1,4 @@
-Breaks the check of fuzz/fuzz_command.c:213 (a call answered: the reply is its answer, as it answered it).
+Breaks the check of fuzz/fuzz_command.c:217 (a call answered: the reply is its answer, as it answered it).
 Caught by the seed input "plugin-hostd-pin_set-refused" of fuzz_command.
 
 diff --git a/src/verbs.c b/src/verbs.c
