@@ -149,6 +149,18 @@ class Daemon:
             self.fb.settimeout(None)   # silence on the feedback port is not an error
             threading.Thread(target=self._read_feedback, daemon=True).start()
 
+    def reconnect(self):
+        """the controller goes and another connects: new command and feedback connections, nothing granted"""
+        self.sock.close()
+        if self.fb:
+            self.fb.close()
+        self.sock = socket.create_connection(("127.0.0.1", self.cmd_port), timeout=10)
+        self.client = plugin_hostd_client.Client(self.sock)
+        if self.fb:
+            self.fb = socket.create_connection(("127.0.0.1", self.fb_port), timeout=10)
+            self.fb.settimeout(None)
+            threading.Thread(target=self._read_feedback, daemon=True).start()
+
     def log(self):
         self.out.flush()
         with open(self.out.name) as f:

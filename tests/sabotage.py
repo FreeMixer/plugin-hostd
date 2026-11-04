@@ -212,10 +212,17 @@ SABOTAGE = [
     ("a pin's path may hold a separator of pin_set's words", "src/pins.c",
      "if (!*path || *path == '/' || strpbrk(path, PHD_PIN_PATH_EXCLUDED))", "if (!*path || *path == '/')",
      "what_cannot_be_pinned_is_refused_and_never_pinned_in_part"),
-    ("hello reaches the workers", "src/verbs.c", "    if (!strcmp(verb, OMX_VERB_HELLO))\n", "    if (0)\n",
-     "hello_and_a_tagged_line_are_answered_by_the_daemon_and_never_reach_a_worker"),
-    ("a tagged line reaches the workers", "src/verbs.c", "    if (verb[0] == '@')\n", "    if (0)\n",
-     "hello_and_a_tagged_line_are_answered_by_the_daemon_and_never_reach_a_worker"),
+    ("hello reaches the workers", "src/verbs.c", "    if (!strcmp(verb, OMX_VERB_HELLO))\n", "    if (0)\n", "hello_opens_a_session_the_daemon_grants_and_no_worker_hears"),
+    ("a tagged line reaches the workers", "src/verbs.c", "    if (verb[0] == '@')\n", "    if (0)\n", "hello_opens_a_session_the_daemon_grants_and_no_worker_hears"),
+    ("a refusal goes out without its error word", "src/session.c", "        text = with_word(text);\n", "        (void)with_word;\n", "hello_opens_a_session_the_daemon_grants_and_no_worker_hears"),
+    ("an answer goes out without its tag", "src/session.c", "    if (!tag)\n        return text;\n", "    return text;\n", "hello_opens_a_session_the_daemon_grants_and_no_worker_hears"),
+    ("a hello that grants seq does not start the numbers again", "src/session.c",
+     "    __atomic_store_n(&g_seq, 0, __ATOMIC_SEQ_CST);\n    pos = snprintf", "    pos = snprintf",
+     "seq_numbers_every_feedback_line_of_the_session_from_one"),
+    ("a feedback line goes out without its number", "src/session.c", "    n = __atomic_add_fetch(&g_seq, 1, __ATOMIC_SEQ_CST);\n",
+     "    n = 0;\n", "seq_numbers_every_feedback_line_of_the_session_from_one"),
+    ("a new controller inherits the last one's session", "src/main.c", "        session_reset();\n", "",
+     "a_new_controller_starts_with_nothing_granted"),
     ("the bulk verbs reach every worker", "src/verbs.c",
      "        return ntok > 2 ? sup_call(atoi(tok[1]), line) : sup_resp(ERR_INVALID_OPERATION);\n",
      "        return ntok > 2 ? sup_broadcast(line) : sup_resp(ERR_INVALID_OPERATION);\n",
@@ -1559,7 +1566,14 @@ def rebuild(tree, jack):
                        stdout=subprocess.DEVNULL)
 
 
+def reply_words_generator(tree):
+    """src/reply_words.h is written at build time (Makefile): the scratch tree holds the generator that writes it"""
+    os.makedirs(os.path.join(tree, "tools"), exist_ok=True)
+    shutil.copy(os.path.join(ROOT, "tools", "reply-words.py"), os.path.join(tree, "tools"))
+
+
 def build(tree):
+    reply_words_generator(tree)
     subprocess.run(["make", "-s", "PROTOCOL_DIR=" + PROTOCOL_DIR, "plugin-hostd"], cwd=tree, check=True,
                    stdout=subprocess.DEVNULL)
 

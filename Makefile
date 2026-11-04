@@ -90,12 +90,19 @@ LDFLAGS += -Wl,--no-undefined
 
 # source and object files
 SRC = src/main.c src/conf.c src/proc.c src/supervisor.c src/verbs.c src/pins.c src/pin_words.c src/relay.c src/formats.c src/lv2.c \
-      src/descriptors.c src/describe.c src/transforms.c src/json.c src/fsutil.c src/machine.c src/history.c src/planner.c src/qualcost.c src/placement.c
+      src/descriptors.c src/describe.c src/transforms.c src/json.c src/fsutil.c src/machine.c src/history.c src/planner.c src/qualcost.c src/placement.c src/session.c
 OBJ = $(SRC:.c=.o)
 
 # the C names of the words of this tree's tables (data/grouping.json, data/history.json), rendered by omx-contract
 # (render-verbs below); the daemon's verbs and reply codes are rendered in plugin-hostd-protocol, beside protocol.h
 RENDERED = include/plugin-hostd/plugin_hostd_vocabulary.h
+
+# the error words of the extension errors: every refusal number the protocol declares a code for, written at build time
+# from plugin-hostd-protocol's JSON of the protocol (beside PROTOCOL_JSON) and never committed (src/session.c)
+.DEFAULT_GOAL := all
+REPLY_WORDS = src/reply_words.h
+$(REPLY_WORDS): $(dir $(PROTOCOL_JSON))plugin-hostd-protocol.json tools/reply-words.py
+	python3 tools/reply-words.py $< > $@.tmp && mv $@.tmp $@
 
 # default build
 all: $(PROG) $(PROBE) $(PROBE_LOCK)
@@ -122,7 +129,7 @@ $(PROTOCOL_LIB):
 endif
 
 # the declared protocol is compiled into every object
-$(OBJ): $(PROTOCOL_HEADERS) $(RENDERED) include/plugin-hostd/pin.h
+$(OBJ): $(PROTOCOL_HEADERS) $(RENDERED) $(REPLY_WORDS) include/plugin-hostd/pin.h
 
 # the host class of the history is the probe's machine class: the contract's band words
 src/machine.o: INCS += $(CONTRACT_CFLAGS)
@@ -310,7 +317,7 @@ fuzz-corpus-check:
 
 # clean rule
 clean:
-	@rm -f src/*.o $(PROG) $(PROBE) $(PROBE_LOCK) tests/probe-child tests/lv2-probe-child tests/rt_interpose.so tests/sched-refuse.so tests/plugin-hostd-plan-refused tests/plan-refused.out $(FAKE) $(PIN_TEST) $(HISTORY_TEST) $(PROC_TEST) $(CONF_TEST) $(PLANNER_TEST) $(QUALCOST_TEST) $(RELAY_TEST) tests/relay-test-relay.o $(FORMAT_TEST) tests/plugin-hostd-alloc-fail $(GESTURE_ALLOC_TEST) $(LV2_ALLOC_TEST) tests/lv2-alloc-lv2.o $(VERBS_ALLOC_TEST) $(TRANSFORMS_TEST) $(GEN) tests/stress.clap tests/jack_levels tests/host_scenarios $(LV2_FIXTURE) $(PLACEMENT_TEST)
+	@rm -f src/*.o $(REPLY_WORDS) $(PROG) $(PROBE) $(PROBE_LOCK) tests/probe-child tests/lv2-probe-child tests/rt_interpose.so tests/sched-refuse.so tests/plugin-hostd-plan-refused tests/plan-refused.out $(FAKE) $(PIN_TEST) $(HISTORY_TEST) $(PROC_TEST) $(CONF_TEST) $(PLANNER_TEST) $(QUALCOST_TEST) $(RELAY_TEST) tests/relay-test-relay.o $(FORMAT_TEST) tests/plugin-hostd-alloc-fail $(GESTURE_ALLOC_TEST) $(LV2_ALLOC_TEST) tests/lv2-alloc-lv2.o $(VERBS_ALLOC_TEST) $(TRANSFORMS_TEST) $(GEN) tests/stress.clap tests/jack_levels tests/host_scenarios $(LV2_FIXTURE) $(PLACEMENT_TEST)
 	@rm -rf build tests/alloc-fail-objs tests/plan-refused-objs
 
 # the daemon against workers that are not plugin hosts at all (tests/fake-host speaks the same protocol and can be
