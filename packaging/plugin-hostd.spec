@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.16.0
+Version: 0.17.0
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -42,7 +42,7 @@ Requires: %{name}-contract = %{version}-%{release}
 
 # the workers: a format whose worker is not installed refuses its adds (-503), the other format is unaffected
 Recommends: mod-host
-Recommends: omx-clap-host >= 0.26.2
+Recommends: omx-clap-host >= 0.28.0
 
 %description
 plugin-hostd keeps your effects and instruments running when one of them
@@ -156,6 +156,16 @@ make test-daemon check-generated check-rendered
 %{_datadir}/omx-contract/contract.d/3/plugin-hostd/
 
 %changelog
+* Wed Nov 04 2026 Pau Aliagas <linuxnow@gmail.com> - 0.17.0-1
+- An LV2 worker's world holds the plugin's preset bundles: every bundle on lv2_path
+  whose manifest names the plugin and holds no binary (the user's presets, the ones
+  Zynthian ships) is linked beside the plugin's own, and they are walked for once, not
+  at every spawn (#387, #269).
+- A plugin that gives itself its own lv2:symbol, as mda Piano does, is described
+  instead of refused, so it gets a descriptor (#387, #269).
+- The packages recommend omx-clap-host 0.28.0, which loads those preset bundles into
+  its LV2 world and lists their presets.
+
 * Tue Nov 03 2026 Pau Aliagas <linuxnow@gmail.com> - 0.16.0-1
 - The protocol is plugin-hostd-protocol's (0.2.0 or later): protocol.h, the search
   lists, the verb tables and the JSON of the protocol and of mod-host's are read from
