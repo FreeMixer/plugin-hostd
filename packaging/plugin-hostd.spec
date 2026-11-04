@@ -41,16 +41,21 @@ BuildRequires: omx-clap-core-contract >= 0.26.2
 # the format tables, which readers read at run time
 Requires: %{name}-contract = %{version}-%{release}
 
-# the workers: a format whose worker is not installed refuses its adds (-503), the other format is unaffected
-Recommends: mod-host
+# the workers: a format whose worker is not installed refuses its adds (-502, no-backend), the other formats are
+# unaffected. omx-clap-host runs CLAP plugins and, through its LV2 adapter, LV2 plugins.
 Recommends: omx-clap-host >= 0.26.2
+# mod-host runs an LV2 plugin only when lv2_worker or lv2_worker_set names it, and it is the reference host H3 of the
+# benchmark (bench/run.sh), measured when it is installed. Nothing else uses it, so it is only suggested; a machine that
+# runs a published benchmark installs mod-host (and jalv) itself.
+Suggests: mod-host
 
 %description
 plugin-hostd keeps your effects and instruments running when one of them
 misbehaves. It gives a controller one mod-host socket and starts each plugin, or
-each named group of plugins, in a worker process of its own: mod-host for LV2,
-omx-clap-host for CLAP. If a plugin crashes, only its worker goes down and the
-daemon brings it back. Audio never passes through the daemon, so it adds no
+each named group of plugins, in a worker process of its own: omx-clap-host for
+CLAP and, through its LV2 adapter, for LV2. mod-host runs LV2 plugins only when
+you ask for it. If a plugin crashes, only its worker goes down and the daemon
+brings it back. Audio never passes through the daemon, so it adds no
 latency: every worker is a JACK client.
 Its documentation is on openmixer.org.
 
