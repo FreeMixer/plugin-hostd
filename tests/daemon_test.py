@@ -96,9 +96,16 @@ def hello_and_a_tagged_line_are_answered_by_the_daemon_and_never_reach_a_worker(
         d.expect("@t1", "not found")
         d.expect("param_set 0 gain 0.2500", "resp 0")
         d.expect("param_get 0 gain", "resp 0 0.2500")
+        # param_get_many is a verb like any other: the worker that holds the instance answers it
+        d.expect("bypass 0 1", "resp 0")
+        d.expect("param_get_many 0 gain :bypass", "resp 0 0.2500 1")
+        d.expect("param_get_many 0 gain nope", "resp -103")
+        d.expect("param_get_many 7 gain", "resp -3")
+        d.expect("param_get_many", "resp -902")
         with open(log) as f:
             sent = [l.split(" ", 1)[1] for l in f.read().splitlines()]
-        check("param_get 0 gain" in sent, "the log holds what the worker was sent: %r" % sent)
+        check("param_get 0 gain" in sent and "param_get_many 0 gain :bypass" in sent,
+              "the log holds what the worker was sent: %r" % sent)
         check(not [l for l in sent if l.startswith("hello") or l.startswith("@")],
               "no worker is sent hello or a tagged line: %r" % sent)
     finally:

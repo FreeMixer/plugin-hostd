@@ -204,6 +204,7 @@ def code(reply):
 # share the chain's worker; chain_get and chain_clear read and forget what chain declared; pin_clear runs last.
 LINES = {
     "hello": ("1 tags", "x", ("0 tags",)),
+    "param_get_many": ("1 :bypass", "", ("99 gain",)),
     "pin_accept": ("{uri}", "", ()),
     "pin_set": ("{uri} controls.clap={sha} {layout} verdict=in-process", "{uri}", ()),
     "worker_list": ("", "x", ()),
