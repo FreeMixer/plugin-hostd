@@ -64,7 +64,7 @@ jobs:
     steps:
       - name: Install clang, libFuzzer and llvm-cov
         run: |
-          dnf install -y --setopt=install_weak_deps=False git dnf5-plugins clang compiler-rt llvm make gawk diffutils \
+          dnf install -y --setopt=install_weak_deps=False git dnf5-plugins clang compiler-rt llvm make gawk diffutils openssl-devel \
             python3 pkgconf-pkg-config
 
       - uses: actions/checkout@v4
