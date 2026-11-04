@@ -2426,17 +2426,37 @@ static int record(instance_t *i, const char *line, char **tok, int ntok)
     return 0;
 }
 
+/* the ledger keeps param_set_many as the param_set of each of its pairs, so a replay sets each value as a param_set
+ * does, and a later param_set of one of them compacts it as it compacts its own */
+static int ledger_set_many(instance_t *i, char **tok, int ntok)
+{
+    char verb[32], one[PHD_LINE_MAX], *words[4];
+    size_t n = strcspn(EFFECT_PARAM_SET, " ");
+    int k, rc = 0;
+
+    snprintf(verb, sizeof(verb), "%.*s", (int)n, EFFECT_PARAM_SET);
+    for (k = 2; k + 1 < ntok && rc == 0; k += 2)
+    {
+        snprintf(one, sizeof(one), "%s %s %s %s", verb, tok[1], tok[k], tok[k + 1]);
+        words[0] = verb, words[1] = tok[1], words[2] = tok[k], words[3] = tok[k + 1];
+        rc = record(i, one, words, 4);
+    }
+    return rc;
+}
+
 /* the ledger takes the verb of one forwarded line, if it is one it keeps; 0, or -1 when memory runs out */
 static int ledger_verb(instance_t *i, const char *line)
 {
-    char *save = NULL, *t, *copy = strdup(line), *tok[16];
+    char *save = NULL, *t, *copy = strdup(line), *tok[PHD_LINE_WORDS_MAX];
     int ntok = 0, rc = 0;
 
     if (!copy)
         return -1;
-    for (t = strtok_r(copy, " \t", &save); t && ntok < 16; t = strtok_r(NULL, " \t", &save))
+    for (t = strtok_r(copy, " \t", &save); t && ntok < PHD_LINE_WORDS_MAX; t = strtok_r(NULL, " \t", &save))
         tok[ntok++] = t;
-    if (ntok)
+    if (ntok && !strcmp(tok[0], OMX_VERB_PARAM_SET_MANY))
+        rc = ledger_set_many(i, tok, ntok);
+    else if (ntok)
         rc = record(i, line, tok, ntok);
     free(copy);
     return rc;
