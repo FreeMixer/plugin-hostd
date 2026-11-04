@@ -13,8 +13,8 @@ BuildRequires: gcc
 BuildRequires: make
 BuildRequires: diffutils
 BuildRequires: python3
-# <plugin-db/pin.h>, and through it libcrypto; a floor only
-BuildRequires: pkgconfig(plugin-db) >= 0.1.0
+# <plugin-db/pin.h>, and through it libcrypto; a floor and the next minor
+BuildRequires: (pkgconfig(plugin-db) >= 0.1.0 with pkgconfig(plugin-db) < 0.2)
 # the protocol library and the declared protocol: <plugin-hostd/protocol.h> and the headers it includes, the protocol's
 # JSON and mod-host's. 0.2.0 is the first that holds them (they were this tree's before); a floor only
 BuildRequires: plugin-hostd-protocol-devel >= 0.2.0
@@ -66,8 +66,8 @@ BuildArch: noarch
 Requires: %{name}-contract = %{version}-%{release}
 # the declared protocol, <plugin-hostd/protocol.h>, which plugin-hostd.pc requires; a floor only
 Requires: plugin-hostd-protocol-devel >= 0.2.0
-# <plugin-db/pin.h>, which plugin-hostd.pc requires; a floor only
-Requires: plugin-db-devel >= 0.1.0
+# <plugin-db/pin.h>, which plugin-hostd.pc requires; a floor and the next minor
+Requires: (plugin-db-devel >= 0.1.0 with plugin-db-devel < 0.2)
 
 %description devel
 The pin header, the words of the grouping planner and the running history,
