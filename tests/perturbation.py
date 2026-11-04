@@ -3,7 +3,7 @@
 # verbs.json, the daemon's verbs that omx-contract renders (both plugin-hostd-protocol's, copied from the installed
 # library into a scratch tree, where -Iinclude finds them first), render and regenerate,
 import sys as _s; _s.stdout.reconfigure(line_buffering=True)
-# rebuild, and the daemon's behaviour and the docs follow, with no other copy of an old value left in src/, the README
+# rebuild, and the daemon's behaviour and the docs follow, with no other copy of an old value left in src/, docs/guide.md
 # or the man page. The protocol's JSON is written again by plugin-hostd-protocol's generator (its installed source),
 # built against the scratch copy. The same behaviour test runs on the tree as it is, so it reads every value from the declared JSON and
 # spells none. Then the same for mod-host's vocabulary: a verb renamed in a scratch copy of mod-host.h is the verb the
@@ -193,7 +193,7 @@ def main():
     try:
         tree = os.path.join(work, "t")
         os.mkdir(tree)
-        for name in ("data", "include", "src", "tools", "protocol", "doc", "packaging", "tests", "Makefile", "README.md"):
+        for name in ("data", "include", "src", "tools", "protocol", "doc", "packaging", "tests", "docs", "Makefile"):
             src = os.path.join(ROOT, name)
             (shutil.copytree if os.path.isdir(src) else shutil.copy)(src, os.path.join(tree, name),
                                                                        **({"ignore": shutil.ignore_patterns("*.o")} if os.path.isdir(src) else {}))
@@ -209,7 +209,7 @@ def main():
         # positive control: the greps find the old values where they are declared and documented
         for what, pattern, _, old in EDITS + DATA_EDITS + CODE_EDITS:
             if old:
-                found = grep(old, os.path.join(tree, "include"), os.path.join(tree, "README.md"), os.path.join(tree, "doc"))
+                found = grep(old, os.path.join(tree, "include"), os.path.join(tree, "docs", "guide.md"), os.path.join(tree, "doc"))
                 assert found, "control: the grep for the old value of %s finds nothing where it is declared" % what
         # and the generated files are current before anything is touched: this tree's pages, and the JSON the copy
         # gives is the installed one
@@ -253,12 +253,12 @@ def main():
 
         for what, _, _, old in EDITS + DATA_EDITS + CODE_EDITS:
             if old:
-                left = grep(old, os.path.join(tree, "src"), os.path.join(tree, "README.md"), os.path.join(tree, "doc"))
+                left = grep(old, os.path.join(tree, "src"), os.path.join(tree, "docs", "guide.md"), os.path.join(tree, "doc"))
                 assert not left, "a copy of the old value of %s remains:\n%s" % (what, "\n".join(left))
         for new in (r"\b731\b", r"\(?-595\b", "plugin-hostd is up!", r"\binstance_where\b"):
-            assert grep(new, os.path.join(tree, "README.md"), os.path.join(tree, "doc"), after), \
+            assert grep(new, os.path.join(tree, "docs", "guide.md"), os.path.join(tree, "doc"), after), \
                 "the docs did not move to " + new
-        print("ok   the docs moved and no copy of an old value remains in src/, README.md or the man page")
+        print("ok   the docs moved and no copy of an old value remains in src/, docs/guide.md or the man page")
 
         subprocess.run([sys.executable, __file__, "behave", os.path.join(tree, "plugin-hostd"), after, VERB_BEFORE],
                        check=True)

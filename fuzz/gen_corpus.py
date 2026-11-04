@@ -5,7 +5,7 @@
 # The seed corpus of the two fuzz harnesses (make fuzz-corpus), written from what is declared: plugin-hostd-protocol's
 # JSON of the protocol and of mod-host's (PROTOCOL_JSON and MODHOST_JSON, which the Makefile takes from pkg-config, or
 # tests/declared.py's lookup) for the command harness, every verb with sample arguments, and
-# the send lines of README.md and docs/own-host.md; and, for the reply harness, worker feedback cut every way the
+# the send lines of docs/guide.md and docs/own-host.md; and, for the reply harness, worker feedback cut every way the
 # reader has a branch for. Nothing is fetched and nothing is random: the same tree writes the same files.
 #
 # Usage: gen_corpus.py <dir>   (writes <dir>/command/ and <dir>/reply/)
@@ -127,8 +127,8 @@ def command_corpus(out):
     seeds["quit-refused-then-quit"] = message("quit now") + message("quit")
     # a command the daemon acts on whose line is not its words joined by one space, with no supervisor call
     seeds["quit-leading-space"] = message("  quit")
-    # the send lines of the README and of the own-host page, each alone and as one session
-    for doc, tag in (("README.md", "readme"), (os.path.join("docs", "own-host.md"), "own-host")):
+    # the send lines of the guide and of the own-host page, each alone and as one session
+    for doc, tag in ((os.path.join("docs", "guide.md"), "readme"), (os.path.join("docs", "own-host.md"), "own-host")):
         sends = re.findall(r'^\s*send "([^"]*)"', open(os.path.join(ROOT, doc)).read(), re.M)
         for n, line in enumerate(sends):
             seeds["%s-%d" % (tag, n + 1)] = message(line)

@@ -236,7 +236,7 @@ private-refs:
 #   make fuzz-sabotage         each mutant of fuzz/sabotage/ must make its harness abort on a seed, in its own property
 #   make fuzz-records          each check's mutant: record must make that check abort on its input: seed
 #   make fuzz-coverage         the coverage witness: llvm-cov over the corpus, held to fuzz/coverage-floor.txt
-#   make fuzz-corpus           write fuzz/corpus/ again from the declared protocol and the README examples
+#   make fuzz-corpus           write fuzz/corpus/ again from the declared protocol and the guide's examples
 FUZZ_CC        ?= clang
 FUZZ_TIME      ?= 60
 FUZZ_BUILD     := build/fuzz
@@ -289,7 +289,7 @@ fuzz-coverage: $(FUZZ_HARNESSES:%=$(FUZZ_COV_BUILD)/fuzz_%)
 	@LLVM_COV=$(LLVM_COV) fuzz/coverage.sh $(FUZZ_COV_BUILD) $(FUZZ_HARNESSES)
 
 # the seed corpus is written from plugin-hostd-protocol's JSON of the protocol and of mod-host's (PROTOCOL_JSON,
-# MODHOST_JSON) and the send lines of README.md and docs/own-host.md, never from a network, and committed;
+# MODHOST_JSON) and the send lines of docs/guide.md and docs/own-host.md, never from a network, and committed;
 # fuzz-corpus-check fails when it is not what they give
 fuzz-corpus:
 	PROTOCOL_JSON=$(PROTOCOL_JSON) MODHOST_JSON=$(MODHOST_JSON) python3 fuzz/gen_corpus.py fuzz/corpus
@@ -542,30 +542,30 @@ tests/host_scenarios: $(PROTOCOL_RUNNER) $(PROTOCOL_LIB)
 tests/jack_levels: tests/jack_levels.c
 	$(CC) $(shell $(PKG_CONFIG) --cflags jack) $(CFLAGS) -Werror -o $@ $< $(shell $(PKG_CONFIG) --libs jack) -lm
 
-# what <plugin-hostd/protocol.h> (plugin-hostd-protocol's) declares, written out in this tree's pages: README.md and the
+# what <plugin-hostd/protocol.h> (plugin-hostd-protocol's) declares, written out in this tree's pages: docs/guide.md and the
 # man page between their markers, and the probe output's schema. The JSON of the protocol and mod-host's are
 # plugin-hostd-protocol's (PROTOCOL_JSON, MODHOST_JSON)
 GEN = tools/protocol-gen
-GENERATED = README.md doc/plugin-hostd.1 protocol/probe-output.schema.json
+GENERATED = docs/guide.md doc/plugin-hostd.1 protocol/probe-output.schema.json
 
 $(GEN): tools/protocol-gen.c $(PROTOCOL_HEADERS) $(RENDERED)
 	$(CC) -Wall -Wextra -Werror -std=gnu99 -Iinclude $(PROTOCOL_CFLAGS) $(CONTRACT_CFLAGS) -o $@ tools/protocol-gen.c
 
 gen: $(GEN)
 	$(GEN) probe-schema protocol/probe-output.schema.in > protocol/probe-output.schema.json.new && mv protocol/probe-output.schema.json.new protocol/probe-output.schema.json
-	for f in README.md doc/plugin-hostd.1; do $(GEN) splice $$f > $$f.new && mv $$f.new $$f || exit 1; done
+	for f in docs/guide.md doc/plugin-hostd.1; do $(GEN) splice $$f > $$f.new && mv $$f.new $$f || exit 1; done
 
 # fails on any drift: every generated output must be byte-identical to a fresh generation, every region the generator
 # knows must be in a file
 check-generated: $(GEN)
 	@set -e; tmp=$$(mktemp -d); trap 'rm -rf $$tmp' EXIT; \
 	$(GEN) probe-schema protocol/probe-output.schema.in > $$tmp/probe; cmp $$tmp/probe protocol/probe-output.schema.json; \
-	for f in README.md doc/plugin-hostd.1; do $(GEN) splice $$f > $$tmp/out; cmp $$tmp/out $$f; done; \
+	for f in docs/guide.md doc/plugin-hostd.1; do $(GEN) splice $$f > $$tmp/out; cmp $$tmp/out $$f; done; \
 	$(GEN) regions > $$tmp/regions; test -s $$tmp/regions; \
-	while read r; do grep -q "BEGIN GENERATED protocol:$$r\( .*\)\?$$" README.md doc/plugin-hostd.1 || { echo "region $$r is in no file"; exit 1; }; done < $$tmp/regions; \
+	while read r; do grep -q "BEGIN GENERATED protocol:$$r\( .*\)\?$$" docs/guide.md doc/plugin-hostd.1 || { echo "region $$r is in no file"; exit 1; }; done < $$tmp/regions; \
 	echo "generated files are current"
 
-# the README sells the packages: no build command on it, and BUILDING.md carries the build
+# the README and the guide sell the packages: no build command on them, and BUILDING.md carries the build
 check-readme:
 	python3 tests/readme_build.py
 
