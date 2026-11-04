@@ -73,7 +73,8 @@ void proc_env_report(pid_t pid, const worker_env_t *env);
 char *proc_find_lv2_bundle(const char *lv2_path, const char *uri);
 /* Every bundle of LV2_PATH whose manifest names `uri` and holds no binary (a preset bundle, the user's or one a
  * distribution ships, a MOD GUI), each handed to `fn` until it answers non-zero; how many, or -1 when stopped or short of
- * memory. */
+ * memory. The walk is remembered by search path and uri, and while no directory of the path has changed since (no bundle
+ * added or removed) the bundles it found are handed on again with no manifest read. */
 int proc_lv2_preset_bundles(const char *lv2_path, const char *uri, int (*fn)(void *ctx, const char *bundle), void *ctx);
 /* how many manifests the lookups have read: what a test counts to see the path not walked again */
 extern unsigned long proc_manifest_reads;
