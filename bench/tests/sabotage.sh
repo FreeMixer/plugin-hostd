@@ -101,6 +101,14 @@ break_unit rep-spread lib/bench.py 'spread[key] = [min(vals), max(vals)]' 'sprea
 break_unit rep-failed lib/bench.py 'if row["status"] == "failed" and (wanted or len(runs)) > 1:' 'if False:' Repeats.test_a_failed_repeat_fails_the_row_and_names_it
 break_unit rep-stop lib/bench.py 'if runs[-1]["status"] != "ok":' 'if False:' Repeats.test_the_runner_stops_repeating_at_the_first_row_that_is_not_ok
 break_unit rep-count lib/bench.py 'for _ in range(self.args.repeats):' 'for _ in range(1):' Repeats.test_the_runner_runs_the_row_as_many_times_as_asked
+break_unit jack-hang lib/bench.py '    except subprocess.TimeoutExpired:
+        raise JackUnanswered' '    except OSError:
+        raise JackUnanswered' JackUnanswered.test_a_jack_tool_that_hangs_is_a_failed_row_naming_it
+break_unit jack-restart lib/bench.py '        if isinstance(e, JackUnanswered):
+            self.jack_dirty = True' '        pass' JackUnanswered.test_the_run_goes_on_and_jack_starts_again_after_a_row_it_did_not_answer
+break_unit jack-nostart lib/bench.py '                except JackUnanswered as e:
+                    self.jack_stop()' '                except ZeroDivisionError as e:
+                    self.jack_stop()' JackUnanswered.test_a_jack_that_does_not_start_again_fails_each_row_and_the_run_still_ends
 break_unit plan-one lib/bench.py 'if len(segments) < 2:' 'if False:' Grouping.test_a_plan_of_one_segment_fails_the_row
 break_unit plan-reply lib/bench.py 'words[:2] != ["resp", "0"]' 'False' Grouping.test_a_refused_plan_is_failed_with_the_daemons_words
 break_unit pool-alone lib/bench.py 'and seg[0] not in alone]' 'and True]' Grouping.test_the_pool_takes_the_shareable_members_the_plan_left_alone
