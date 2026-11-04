@@ -190,7 +190,8 @@ def takes(fmt, line):
 
 
 def code(reply):
-    m = re.fullmatch(r"resp (-[0-9]+)", reply)
+    """the refusal number of a reply; param_set_many's carries the position of the pair it refused after it"""
+    m = re.fullmatch(r"resp (-[0-9]+)(?: [1-9][0-9]*)?", reply)
     return int(m.group(1)) if m else None
 
 
@@ -205,6 +206,7 @@ def code(reply):
 LINES = {
     "hello": ("1 tags", "x", ("0 tags",)),
     "param_get_many": ("1 :bypass", "", ("99 gain",)),
+    "param_set_many": ("1 gain 0.5", "", ("99 gain 0.5", "1 gain loud")),
     "pin_accept": ("{uri}", "", ()),
     "pin_set": ("{uri} controls.clap={sha} {layout} verdict=in-process", "{uri}", ()),
     "worker_list": ("", "x", ()),

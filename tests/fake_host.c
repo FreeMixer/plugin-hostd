@@ -596,6 +596,28 @@ static void receive(msg_t *msg)
         else
             answer(fd, "%s", out);
     }
+    else if (!strcmp(verb, OMX_VERB_PARAM_SET_MANY) && ntok > 2)
+    {
+        /* all or nothing, as a worker built on the library sets them: every pair checked first (a symbol starting
+         * with "nope" is one the plugin does not have), then every value set */
+        char *end;
+
+        for (k = 2; k < ntok; k += 2)
+        {
+            if (!strncmp(tok[k], "nope", 4))
+                break;
+            if (k + 1 >= ntok || (strtod(tok[k + 1], &end), *end != '\0'))
+                break;
+        }
+        if (k < ntok)
+            answer(fd, "resp %d %d", !strncmp(tok[k], "nope", 4) ? -103 : -902, (k - 2) / 2 + 1);
+        else
+        {
+            for (k = 2; k + 1 < ntok; k += 2)
+                set_param(&g_inst[n], tok[k], tok[k + 1]);
+            answer(fd, "resp 0");
+        }
+    }
     else if (verb_is(verb, EFFECT_BYPASS) && ntok == 3)
     {
         set_param(&g_inst[n], ":bypass", tok[2]);
