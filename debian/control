@@ -5,8 +5,8 @@ Maintainer: Pau Aliagas <linuxnow@gmail.com>
 Build-Depends: debhelper-compat (= 13),
                libplugin-hostd-protocol-dev (>= 0.3.0~), libplugin-hostd-protocol-dev (<< 0.4~),
                libomx-contract-dev (>= 3.4.0~),
-               omx-clap-core-contract (>= 0.26.2~) <!nocheck>,
-               omx-clap-host-tests (>= 0.25.0~) <!nocheck>,
+               omx-clap-core-contract (>= 0.26.2~), omx-clap-core-contract (<< 0.30~) <!nocheck>,
+               omx-clap-host-tests (>= 0.25.0~), omx-clap-host-tests (<< 0.30~) <!nocheck>,
                omx-contract (>= 3.4.0~) <!nocheck>,
                plugin-hostd-protocol-contract (>= 0.3.0~), plugin-hostd-protocol-contract (<< 0.4~) <!nocheck>,
                libssl-dev,
@@ -21,7 +21,7 @@ Package: plugin-hostd
 Architecture: any
 Depends: libplugin-hostd-protocol0 (>= 0.3.0~), libplugin-hostd-protocol0 (<< 0.4~), plugin-hostd-contract (= ${source:Version}), ${shlibs:Depends},
          ${misc:Depends}
-Recommends: omx-clap-host (>= 0.29.0)
+Recommends: omx-clap-host (>= 0.29.0), omx-clap-host (<< 0.30~)
 # mod-host runs an LV2 plugin only when lv2_worker or lv2_worker_set names it, and it is the reference host H3 of the
 # benchmark (bench/run.sh), measured when it is installed. Nothing else uses it, so it is only suggested; a machine that
 # runs a published benchmark installs mod-host (and jalv) itself.
@@ -67,7 +67,7 @@ Description: C headers to drive plugin-hostd from your own controller
 
 Package: plugin-hostd-contract
 Architecture: all
-Depends: omx-clap-core-contract (>= 0.26.2~), omx-contract (>= 3.2.0~), plugin-hostd-protocol-contract (>= 0.3.0~), plugin-hostd-protocol-contract (<< 0.4~),
+Depends: omx-clap-core-contract (>= 0.26.2~), omx-clap-core-contract (<< 0.30~), omx-contract (>= 3.2.0~), plugin-hostd-protocol-contract (>= 0.3.0~), plugin-hostd-protocol-contract (<< 0.4~),
          ${misc:Depends}
 Breaks: plugin-hostd-dev (<< ${source:Version})
 Replaces: plugin-hostd-dev (<< ${source:Version})
