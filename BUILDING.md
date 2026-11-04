@@ -4,7 +4,7 @@ Building plugin-hostd
     make [PROTOCOL_DIR=<plugin-hostd-protocol checkout>]
 
 The protocol is `libplugin-hostd-protocol.so.0`, the plugin-hostd protocol as a
-library of its own (FreeMixer/plugin-hostd-protocol, 0.3.0 or later), with the
+library of its own (FreeMixer/plugin-hostd-protocol, 0.3.0 or later, before 0.4), with the
 declared protocol beside it (`<plugin-hostd/protocol.h>` and the headers it
 includes, the protocol's JSON and mod-host's, the verb table), from
 `pkg-config plugin-hostd-protocol` when it is installed (its `make install`, or
