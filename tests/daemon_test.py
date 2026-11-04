@@ -2751,14 +2751,20 @@ def lv2_worker_mod_host_runs_an_lv2_plugin_on_the_lv2_row():
         programs.close()
 
 
+def declared_lv2_worker():
+    """the daemon's own lv2_worker, as plugin-hostd-protocol declares it: no default is spelled in a test"""
+    return [c for c in harness.DECLARED["config"] if c["key"] == "lv2_worker"][0]["default"]
+
+
 @test
-def lv2_worker_defaults_to_auto_the_adapter_row_first():
+def lv2_worker_default_sends_a_found_plugin_to_the_adapter_row():
     # None leaves lv2_worker out of the settings file: the daemon's own default holds
+    check(declared_lv2_worker() in ("omx-clap-host", "auto"), "the default is omx-clap-host, or auto: %s" % declared_lv2_worker())
     d, programs, log = lv2_run(lv2_worker=None)
     try:
         d.expect("add lv2:urn:test:a 0", "resp 0")
         _, w = d.holder(0)
-        check(w["fmt"] == "lv2-clap", "the default sends an LV2 plugin to the adapter row first: %s" % w)
+        check(w["fmt"] == "lv2-clap", "the default sends an LV2 plugin to the adapter row: %s" % w)
         check(programs.of(w["pid"])[0] == "omx-clap-host", "omx-clap-host runs it, not %s" % programs.of(w["pid"])[0])
         check(adds_of(log, w["pid"]) == ["add lv2:urn:test:a 0"], "the adapter's worker is given the lv2: uri: %s" % adds_of(log, w["pid"]))
     finally:
@@ -2767,17 +2773,52 @@ def lv2_worker_defaults_to_auto_the_adapter_row_first():
 
 
 @test
-def lv2_worker_default_without_the_adapter_worker_installed_is_the_lv2_row():
-    # auto with no clap_host program on the system: the add is the lv2 row's, mod-host runs it, nothing is refused
+def lv2_worker_default_without_the_adapter_worker_installed():
+    # with no clap_host program on the system: the default omx-clap-host has no backend and never starts mod-host (mod-host
+    # only when asked); under auto the add is the lv2 row's, and mod-host runs it
     d, programs, log = lv2_run(lv2_worker=None, clap_host=os.path.join(tempfile.gettempdir(), "no-such-omx-clap-host"))
     try:
-        d.expect("add lv2:urn:test:a 0", "resp 0")
-        _, w = d.holder(0)
-        check(w["fmt"] == "lv2", "no adapter worker installed: the lv2 row: %s" % w)
-        check(programs.of(w["pid"])[0] == "mod-host", "mod-host runs it, not %s" % programs.of(w["pid"])[0])
+        if declared_lv2_worker() == "omx-clap-host":
+            d.expect("add lv2:urn:test:a 0", resp("NO_BACKEND"))
+            check(d.workers() == {}, "no worker starts, mod-host least of all: %s" % d.workers())
+        else:
+            d.expect("add lv2:urn:test:a 0", "resp 0")
+            _, w = d.holder(0)
+            check(w["fmt"] == "lv2", "no adapter worker installed: the lv2 row: %s" % w)
+            check(programs.of(w["pid"])[0] == "mod-host", "mod-host runs it, not %s" % programs.of(w["pid"])[0])
     finally:
         d.close()
         programs.close()
+
+
+@test
+def without_mod_host_installed_the_daemon_runs_and_says_mod_host_is_not_installed():
+    """mod-host is only suggested: a system without it runs every LV2 plugin on omx-clap-host's adapter and every CLAP
+    plugin, says once that mod-host is not installed, and answers an add asked of mod-host no-backend, never a crash"""
+    programs = Programs()
+    log = os.path.join(programs.dir, "commands.log")
+    # mod_host by its name, on a PATH that holds no mod-host, whatever the machine has installed
+    empty = tempfile.mkdtemp(prefix="plugin-hostd-no-mod-host.")
+    d = Daemon(EXE, FAKE, conf=programs.conf(mod_host="mod-host", lv2_worker="omx-clap-host"), env={"FAKE_LOG": log, "PATH": empty})
+    try:
+        said = [l for l in d.log().splitlines() if "mod-host is not installed" in l]
+        check(len(said) == 1 and "the lv2 row answers its adds %d" % harness.CODE["NO_BACKEND"] in said[0],
+              "the daemon says once that mod-host is not installed: %r" % d.log())
+        check("omx-clap-host is not installed" not in d.log(), "and nothing of the program that is: %r" % d.log())
+        d.expect("add lv2:urn:test:a 0", "resp 0")
+        _, w = d.holder(0)
+        check(w["fmt"] == "lv2-clap" and programs.of(w["pid"])[0] == "omx-clap-host", "omx-clap-host runs the LV2 plugin: %s" % w)
+        d.expect("add clap:fake#c 1", "resp 1")
+        # asked of mod-host, by the setting of one plugin: no backend, and the daemon and its instances carry on
+        d.expect("lv2_worker_set urn:test:b mod-host", "resp 0")
+        d.expect("add lv2:urn:test:b 2", resp("NO_BACKEND"))
+        check(alive(d.proc.pid), "the daemon is up")
+        check(sorted(i for v in d.workers().values() for i in v["inst"]) == [0, 1], "the instances it holds are untouched: %s" % d.workers())
+        d.expect("param_set 0 gain 0.5000", "resp 0")
+    finally:
+        d.close()
+        programs.close()
+        shutil.rmtree(empty, ignore_errors=True)
 
 
 @test

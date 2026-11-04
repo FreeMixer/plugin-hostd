@@ -275,13 +275,13 @@ jobs:
       - name: Add the OpenMixer channel
         uses: FreeMixer/.github/.github/actions/add-openmixer@v1
 
-      # the packages the clean root installs beside plugin-hostd's: the protocol library, and mod-host, which the
-      # daemon recommends, from the channel
-      - name: Fetch the protocol library and mod-host from the channel
+      # the packages the clean root installs beside plugin-hostd's: the protocol library and mod-host's protocol library,
+      # from the channel. mod-host itself is only suggested, so the clean root runs the daemon without it
+      - name: Fetch the protocol library from the channel
         run: |
           set -euo pipefail
           mkdir -p dep-rpms
-          dnf download -y --setopt=retries=10 --arch ${{ matrix.arch }} --destdir dep-rpms plugin-hostd-protocol mod-host mod-host-protocol
+          dnf download -y --setopt=retries=10 --arch ${{ matrix.arch }} --destdir dep-rpms plugin-hostd-protocol mod-host-protocol
           # the daemon's verbs, which plugin-hostd-contract requires: plugin-hostd-protocol's package of the contract directory
           dnf download -y --setopt=retries=10 --destdir dep-rpms 'plugin-hostd-protocol-contract >= 0.2.0'
 
@@ -302,8 +302,11 @@ jobs:
             grep -qx 'plugin-hostd-protocol(.*) >= 0.2.0' requires.txt
             grep -qx "plugin-hostd-contract = $(rpm -qp --qf '%{VERSION}-%{RELEASE}' "$rpm")" requires.txt
             rpm -qp --recommends "$rpm" | tee recommends.txt
-            grep -q '^mod-host' recommends.txt
             grep -q '^omx-clap-host' recommends.txt
+            # mod-host runs LV2 only when lv2_worker names it, and is the benchmark's H3: suggested, never recommended
+            if grep -q mod-host recommends.txt requires.txt; then echo "plugin-hostd needs or recommends mod-host"; exit 1; fi
+            rpm -qp --suggests "$rpm" | tee suggests.txt
+            grep -qx mod-host suggests.txt
           done
           # the development package: the pin header and the vocabulary of data/, its pkg-config file, the schemas of the probe
           # output and of a preset file; the protocol's headers and JSON are plugin-hostd-protocol's and never here
@@ -356,7 +359,6 @@ jobs:
           rpms: |
             dep-rpms/plugin-hostd-protocol-[0-9]*.rpm
             dep-rpms/plugin-hostd-protocol-contract-[0-9]*.noarch.rpm
-            dep-rpms/mod-host-[0-9]*.rpm
             dep-rpms/mod-host-protocol-[0-9]*.rpm
             rpms/plugin-hostd-[0-9]*.${{ matrix.arch }}.rpm
             rpms/plugin-hostd-contract-[0-9]*.noarch.rpm
@@ -367,6 +369,9 @@ jobs:
         run: |
           set -euo pipefail
           version=$(rpm --root /tmp/clean-root -q --qf '%{VERSION}' plugin-hostd)
+          # the clean root has no mod-host: the daemon and its tests below run without it
+          if rpm --root /tmp/clean-root -q mod-host; then echo "the clean root holds mod-host"; exit 1; fi
+          ! chroot /tmp/clean-root sh -c 'command -v mod-host'
           chroot /tmp/clean-root plugin-hostd -V | tee v.txt
           grep -q "version: $version\$" v.txt
           chroot /tmp/clean-root ldd /usr/bin/plugin-hostd | tee ldd.txt
@@ -530,6 +535,9 @@ jobs:
           dpkg-deb -f debs/plugin-hostd_*.deb Depends | tee depends.txt
           # dpkg-shlibdeps writes the library's own floor, (>= 0.2.0), over debian/control's (>= 0.2.0~)
           grep -qE 'libplugin-hostd-protocol0 \(>= 0\.2\.0~?\)' depends.txt
+          # mod-host is only suggested: never a Depends or a Recommends of the deb
+          test "$(dpkg-deb -f debs/plugin-hostd_*.deb Suggests)" = mod-host
+          if dpkg-deb -f debs/plugin-hostd_*.deb Depends Recommends | grep -qw mod-host; then echo "plugin-hostd needs or recommends mod-host"; exit 1; fi
 
       - name: The installed fake worker prints its layout
         run: |
