@@ -21,7 +21,7 @@ BuildRequires: plugin-hostd-protocol-devel >= 0.2.0
 # omx-contract's C headers, its JSON string literals are spelled by omx-contract's one writer
 # (<omxcontract/omx_json_write.h>), and the format tables are items of its schema (3.9.0 the first with the writer, the
 # schema_major of its pkg-config file and the %%{omx_contract_dir} macro this spec names its files by); a floor only
-BuildRequires: omx-contract-devel >= 3.9.0
+BuildRequires: (omx-contract-devel >= 3.9.0 with omx-contract-devel < 4)
 # the protocol library, ports on 127.0.0.1 unless told otherwise (socket_set_bind_address()); the daemon is built
 # against the declared protocol of 0.2.0; a floor only
 Requires: plugin-hostd-protocol%{?_isa} >= 0.2.0
@@ -33,7 +33,7 @@ Requires: plugin-hostd-protocol%{?_isa} >= 0.2.0
 %if %{with check}
 BuildRequires: omx-clap-host-tests >= 0.25.0
 # the reader that holds the committed render of data/ (make check-rendered)
-BuildRequires: omx-contract >= 3.4.0
+BuildRequires: (omx-contract >= 3.4.0 with omx-contract < 4)
 # the daemon's verbs (plugin-hostd-protocol's package of the contract directory) and the shared verbs and the
 # reply.host.* codes they refer to (make test-verbs-declared)
 BuildRequires: plugin-hostd-protocol-contract >= 0.2.0
@@ -87,7 +87,7 @@ Requires: omx-clap-core-contract >= 0.26.2
 # the tables live in omx-contract's contract directory and are read against its schema: 3.2.0 is the first whose
 # source field takes an index (omx_clap_panel_display.meter_ids[0]), so an older one never sits beside a table it
 # refuses; a floor only
-Requires: omx-contract >= 3.2.0
+Requires: (omx-contract >= 3.2.0 with omx-contract < 4)
 
 %description contract
 plugin-hostd's package of omx-contract's contract directory: the format tables

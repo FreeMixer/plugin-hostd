@@ -4,10 +4,10 @@ Priority: optional
 Maintainer: Pau Aliagas <linuxnow@gmail.com>
 Build-Depends: debhelper-compat (= 13),
                libplugin-hostd-protocol-dev (>= 0.2.0~),
-               libomx-contract-dev (>= 3.9.0~),
+               libomx-contract-dev (>= 3.9.0~), libomx-contract-dev (<< 4~),
                omx-clap-core-contract (>= 0.26.2~) <!nocheck>,
                omx-clap-host-tests (>= 0.25.0~) <!nocheck>,
-               omx-contract (>= 3.4.0~) <!nocheck>,
+               omx-contract (>= 3.4.0~), omx-contract (<< 4~) <!nocheck>,
                plugin-hostd-protocol-contract (>= 0.2.0~) <!nocheck>,
                libssl-dev,
                pkgconf,
@@ -66,7 +66,7 @@ Description: C headers to drive plugin-hostd from your own controller
 
 Package: plugin-hostd-contract
 Architecture: all
-Depends: omx-clap-core-contract (>= 0.26.2~), omx-contract (>= 3.2.0~), plugin-hostd-protocol-contract (>= 0.2.0~),
+Depends: omx-clap-core-contract (>= 0.26.2~), omx-contract (>= 3.2.0~), omx-contract (<< 4~), plugin-hostd-protocol-contract (>= 0.2.0~),
          ${misc:Depends}
 Breaks: plugin-hostd-dev (<< ${source:Version})
 Replaces: plugin-hostd-dev (<< ${source:Version})
