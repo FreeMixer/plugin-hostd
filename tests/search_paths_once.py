@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # The plugin search lists are written once, in plugin-hostd/search_paths.h (#212), a header of plugin-hostd-protocol:
-# the settings' defaults (its JSON of the protocol, this README.md) and the readers of the list (tools/search-paths.py,
+# the settings' defaults (its JSON of the protocol, docs/guide.md) and the readers of the list (tools/search-paths.py,
 # the benchmark, the Zynthian scripts) show what the header says, and no source spells a list of its own. The header is
 # read where the compiler finds it (tests/declared.py): the tree's own copy first. Usage: search_paths_once.py [tree]
 import json, os, re, subprocess, sys
@@ -64,7 +64,7 @@ if not os.path.exists(os.path.join(ROOT, "include", "plugin-hostd", "search_path
     text = open(protocol_files.variable("protocoljson")).read()
     check('"default": "%s"' % paths["LV2"] in text, "the protocol's JSON holds the header's LV2 default")
     check('"default": "%s"' % paths["CLAP"] in text, "the protocol's JSON holds the header's CLAP default")
-check("`%s`" % paths["LV2"] in read("README.md"), "README.md holds the header's LV2 default")
+check("`%s`" % paths["LV2"] in read("docs/guide.md"), "docs/guide.md holds the header's LV2 default")
 
 # no other source keeps a list of its own
 for rel in ("bench/lib/bench.py", "tools/zynthian/test-chain.py", "tools/zynthian/stress-pi5.py", "tools/zynthian/image-inspect.sh"):

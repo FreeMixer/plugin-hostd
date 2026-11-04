@@ -1,3 +1,0 @@
-zynthian active
-xruns_zynthian_total XRUN! =>count: 1
-dir_kb 320

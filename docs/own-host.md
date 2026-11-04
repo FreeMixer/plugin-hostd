@@ -79,9 +79,9 @@ Ratio to 1: the output peak must be 1.995 times the input's.
 Pins need nothing from you. A plugin has to be pinned (its files' hashes and its parameter layout) before the daemon
 lets it run; in the default `first-use` mode the first `add` records the pin in `$XDG_STATE_HOME/plugin-hostd/pins`, and
 a later `add` of a changed file is refused with a `pin_changed` event. A host that pins by itself sets `pin_mode strict`.
-See Pins in the [README](../README.md).
+See Pins in the [guide](guide.md#pins).
 
-What to read next: `man plugin-hostd`; the verbs and error codes in the README; `remote_pages` and `remote_page_get` for
+What to read next: `man plugin-hostd`; the verbs and error codes in the [guide](guide.md); `remote_pages` and `remote_page_get` for
 the plugin's own pages of controls; the machine-readable protocol at
 `/usr/share/plugin-hostd-protocol/plugin-hostd.json`; a C consumer can include `plugin-hostd/protocol.h`
 (`pkg-config --cflags plugin-hostd-protocol`, package `libplugin-hostd-protocol-dev`).

@@ -361,6 +361,9 @@ SABOTAGE = [
      "    if (format_at(fmt)->adapter && !proc_have_binary(bin_of(fmt)) && lv2_worker_is_auto(&g_conf, fwd))",
      "    if (0 && format_at(fmt)->adapter && !proc_have_binary(bin_of(fmt)) && lv2_worker_is_auto(&g_conf, fwd))",
      "under_auto_a_plugin_the_adapter_refuses_runs_on_mod_host_and_the_adapter_is_not_asked_again"),
+    ("a worker program that is not installed is not said at the start", "src/supervisor.c",
+     "        if (!proc_have_binary(bin_of(f)))\n            fprintf(stderr,", "        if (0)\n            fprintf(stderr,",
+     "without_mod_host_installed_the_daemon_runs_and_says_mod_host_is_not_installed"),
     ("lv2_worker takes any word", "src/conf.c", "ok |= !strcmp(conf->lv2_worker, name);", "ok |= 1;",
      "lv2_worker_must_be_one_of_the_declared_values"),
     ("a routed row that claims uris by a prefix is registered", "src/formats.c",
@@ -391,8 +394,6 @@ SABOTAGE = [
      "clap_track_info_and_remote_pages_reach_the_plugin_through_the_daemon", "info"),
     ("meters behind the daemon never reach the controller", "src/supervisor.c", "    if (relay_add(w->fb_fd) != 0)\n", "    if (0)\n",
      "clap_meters_reach_the_controller_through_the_daemon_and_survive_a_kill", "meters"),
-    ("a SHA-256 round constant is wrong", "include/plugin-hostd/pin.h", "0x428a2f98, 0x71374491", "0x428a2f98, 0x71374490",
-     "pin.h", "pin"),
     ("a tab in a name is not escaped", "include/plugin-hostd/pin.h", "*s == '\\t' ? \"\\\\t\" : ", "", "pin.h", "pin"),
     ("an LV2 port's properties are not sorted", "include/plugin-hostd/pin.h",
      "            qsort(props, p->nproperties, sizeof(*props), phd_layout_bytewise);\n", "", "pin.h", "pin"),
@@ -1569,10 +1570,17 @@ def build_probe(tree):
                    stdout=subprocess.DEVNULL)
 
 
+def crypto_libs():
+    """pin.h's SHA-256 is libcrypto's: every program that includes it links it"""
+    return subprocess.run([os.environ.get("PKG_CONFIG", "pkg-config"), "--libs", "libcrypto"], capture_output=True,
+                          text=True, check=True).stdout.split()
+
+
 def run_pin_test(tree):
     exe = os.path.join(tree, "pin-test")
+    crypto = crypto_libs()
     subprocess.run(["cc", "-I" + os.path.join(tree, "include"), "-I" + declared.include_dir(), "-std=gnu99", "-o", exe,
-                    os.path.join(ROOT, "tests", "pin_test.c")], check=True)
+                    os.path.join(ROOT, "tests", "pin_test.c")] + crypto, check=True)
     p = subprocess.run([exe], capture_output=True, text=True, timeout=60)
     return p.returncode, p.stdout
 
@@ -1610,7 +1618,7 @@ def run_consumer_test(tree):
     """tests/consumer.c against the tree's header, as a consumer compiles it; "ok   consumer" when it passes"""
     exe = os.path.join(tree, "consumer")
     subprocess.run(["cc", "-I" + os.path.join(tree, "include"), "-I" + declared.include_dir(), "-std=c99", "-Wall",
-                    "-Wextra", "-o", exe, os.path.join(ROOT, "tests", "consumer.c")], check=True)
+                    "-Wextra", "-o", exe, os.path.join(ROOT, "tests", "consumer.c")] + crypto_libs(), check=True)
     p = subprocess.run([exe], capture_output=True, text=True, timeout=60)
     return p.returncode, p.stdout + ("ok   consumer\n" if p.returncode == 0 else "")
 
@@ -1802,14 +1810,16 @@ def arm(entry, tree):
     shutil.rmtree(tree, ignore_errors=True)
     if jack == "readme":
         os.makedirs(tree)
-        for f in ("README.md", "BUILDING.md"):
-            shutil.copy(os.path.join(ROOT, f), tree)
+        os.makedirs(os.path.join(tree, "docs"))
+        for f in ("README.md", "BUILDING.md", os.path.join("docs", "guide.md")):
+            shutil.copy(os.path.join(ROOT, f), os.path.join(tree, f))
     elif jack == "conf":
         # the daemon's sources and the readers of the lists, to the files the checks of tests/search_paths_once.py open
         for d in ("src", "include", "tools", "protocol", "bench"):
             shutil.copytree(os.path.join(ROOT, d), os.path.join(tree, d), ignore=shutil.ignore_patterns("*.o", "*.pyc", "__pycache__"))
         shutil.copy(os.path.join(ROOT, "Makefile"), tree)
-        shutil.copy(os.path.join(ROOT, "README.md"), tree)
+        os.makedirs(os.path.join(tree, "docs"))
+        shutil.copy(os.path.join(ROOT, "docs", "guide.md"), os.path.join(tree, "docs"))
     elif jack in ("history", "proc"):
         for d in ("src", "include"):
             shutil.copytree(os.path.join(ROOT, d), os.path.join(tree, d), ignore=shutil.ignore_patterns("*.o"))
