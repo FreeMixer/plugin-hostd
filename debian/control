@@ -9,6 +9,7 @@ Build-Depends: debhelper-compat (= 13),
                omx-clap-host-tests (>= 0.25.0~) <!nocheck>,
                omx-contract (>= 3.4.0~) <!nocheck>,
                plugin-hostd-protocol-contract (>= 0.2.0~) <!nocheck>,
+               libcjson-dev,
                pkgconf,
                python3
 Standards-Version: 4.6.2
