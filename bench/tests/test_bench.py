@@ -390,6 +390,74 @@ class Repeats(unittest.TestCase):
         self.assertEqual(row["spread"]["xruns"], [1, 3])
 
 
+class JackUnanswered(unittest.TestCase):
+    """a JACK that stops answering (a wedged server: jack_lsp hangs) fails the row it was in with that reason, the
+    server is started again for the next row, and the run goes on to its document"""
+
+    def setUp(self):
+        keep = getattr(bench, "JACK_TOOL_TIMEOUT_S", None)
+        bench.JACK_TOOL_TIMEOUT_S = 0.5
+        self.addCleanup(setattr, bench, "JACK_TOOL_TIMEOUT_S", keep)
+        self.bin = tempfile.mkdtemp()
+        self.addCleanup(lambda: subprocess.run(["rm", "-rf", self.bin]))
+        with open(os.path.join(self.bin, "jack_lsp"), "w") as f:
+            f.write("#!/bin/sh\nexec sleep 30\n")
+        os.chmod(os.path.join(self.bin, "jack_lsp"), 0o755)
+        self.env = dict(os.environ, PATH=self.bin + os.pathsep + os.environ.get("PATH", ""))
+
+    def test_a_jack_tool_that_hangs_is_a_failed_row_naming_it(self):
+        t0 = time.monotonic()
+        with self.assertRaises(bench.Failed) as e:
+            bench.ports(self.env)
+        self.assertLess(time.monotonic() - t0, 5)
+        self.assertIn("JACK did not answer: jack_lsp timed out", str(e.exception))
+
+    def test_the_run_goes_on_and_jack_starts_again_after_a_row_it_did_not_answer(self):
+        import types
+        starts, rows = [], []
+        fake = types.SimpleNamespace(args=types.SimpleNamespace(repeats=1), jack_dirty=False)
+        fake.jack_stop = lambda: None
+
+        def jack_start(rate, frames):
+            starts.append((rate, frames))
+
+        def row(s, hkey, mode, rate, frames, stress=False):
+            rows.append(s["id"])
+            if s["id"] == "wedged":
+                return bench.Runner.row_failed_by(fake, bench.JackUnanswered("JACK did not answer: jack_lsp timed out"),
+                                                  bench.Runner.blank_row(fake, s, hkey, mode, rate, frames, stress))
+            return run_row(id=s["id"])
+
+        fake.jack_start = jack_start
+        fake.row = row
+        fake.measure = lambda *a: bench.Runner.measure(fake, *a)
+        fake.blank_row = lambda *a: bench.Runner.blank_row(fake, *a)
+        fake.row_failed_by = lambda e, r: bench.Runner.row_failed_by(fake, e, r)
+        plan = [({"id": i, "title": i}, "H2", "individual", False) for i in ("first", "wedged", "after")]
+        out = bench.Runner.run_cell(fake, 96000, 64, plan)
+        self.assertEqual(rows, ["first", "wedged", "after"])
+        self.assertEqual([r["status"] for r in out], ["ok", "failed", "ok"])
+        self.assertIn("JACK did not answer: jack_lsp timed out", out[1]["note"])
+        self.assertEqual(starts, [(96000, 64), (96000, 64)], "one start for the cell and one after the wedged row")
+
+    def test_a_jack_that_does_not_start_again_fails_each_row_and_the_run_still_ends(self):
+        import types
+        fake = types.SimpleNamespace(args=types.SimpleNamespace(repeats=1), jack_dirty=False)
+        fake.jack_stop = lambda: None
+
+        def jack_start(rate, frames):
+            raise bench.JackUnanswered("JACK did not start at %d Hz / %d frames" % (rate, frames))
+
+        fake.jack_start = jack_start
+        fake.row = lambda *a: self.fail("no row runs without a JACK server")
+        fake.blank_row = lambda *a: bench.Runner.blank_row(fake, *a)
+        fake.row_failed_by = lambda e, r: bench.Runner.row_failed_by(fake, e, r)
+        plan = [({"id": i, "title": i}, "H2", "individual", False) for i in ("a", "b")]
+        out = bench.Runner.run_cell(fake, 96000, 64, plan)
+        self.assertEqual([(r["id"], r["status"]) for r in out], [("a", "failed"), ("b", "failed")])
+        self.assertIn("JACK did not start", out[0]["note"])
+
+
 class FakeDaemon:
     """plugin-hostd as far as the plan and pool modes talk to it, on a socket, NUL-framed like the real one: add,
     remove, plan, worker_list. Its planner is the simplest honest one: runs of consecutive members that are not

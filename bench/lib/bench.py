@@ -42,6 +42,11 @@ class Failed(Exception):
     """a row that ran and broke: status failed, the message is the note"""
 
 
+class JackUnanswered(Failed):
+    """JACK did not answer one of its tools, or did not start: the row fails with that reason, and the server is
+    started again for the next row, so a wedged server never ends the run"""
+
+
 # ---------------------------------------------------------------- processes
 
 
@@ -292,9 +297,20 @@ def stress_argvs(cores, mem_mb=STRESS_MEM_MB):
 # ---------------------------------------------------------------- JACK
 
 
-def run(argv, env, timeout=10):
-    return subprocess.run(argv, env=env, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True,
-                          timeout=timeout).stdout
+# how long a JACK tool (jack_lsp, jack_connect, jack_disconnect) may take before the server counts as not answering
+JACK_TOOL_TIMEOUT_S = 10
+
+
+def run(argv, env, timeout=None):
+    """the output of a JACK tool; JackUnanswered when it hangs past JACK_TOOL_TIMEOUT_S or cannot run"""
+    timeout = JACK_TOOL_TIMEOUT_S if timeout is None else timeout
+    try:
+        return subprocess.run(argv, env=env, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True,
+                              timeout=timeout).stdout
+    except subprocess.TimeoutExpired:
+        raise JackUnanswered("JACK did not answer: %s timed out after %g s" % (argv[0], timeout))
+    except OSError as e:
+        raise JackUnanswered("JACK did not answer: %s could not run (%s)" % (argv[0], e.strerror))
 
 
 def ports(env):
@@ -858,7 +874,7 @@ class Host:
 
     def connect(self, a, b):
         if self.key == "H4":
-            subprocess.run(["jack_connect", a, b], env=self.env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            run(["jack_connect", a, b], self.env)
             return
         reply = self.ctl.cmd("connect %s %s" % (a, b))
         if reply != "resp 0":
@@ -916,6 +932,7 @@ class Runner:
         self.saved_governor = {}
         self.jackd = None
         self.probe = None
+        self.jack_dirty = True
         self.learned = {}
         self.jack_log = None
         self.jack_log_end = 0
@@ -952,8 +969,7 @@ class Runner:
         end = time.monotonic() + READY_LIMIT_S
         while "system" not in ports(self.env):
             if self.jackd.poll() is not None or time.monotonic() > end:
-                raise SystemExit("bench: the private JACK server did not start at %d Hz / %d frames (see %s)"
-                                 % (rate, frames, self.logdir))
+                raise JackUnanswered("JACK did not start at %d Hz / %d frames (see %s)" % (rate, frames, self.logdir))
             time.sleep(0.1)
         self.probe = JackProbe(self.server)
         self.jack_log = os.path.join(self.logdir, "jackd-%d-%d.log" % (rate, frames))
@@ -1010,14 +1026,26 @@ class Runner:
             keys = keys * s["repeat"]
         return keys
 
-    def row(self, s, hkey, mode, rate, frames, stress=False):
-        cores = stress_cores()
+    def blank_row(self, s, hkey, mode, rate, frames, stress=False):
+        """a row before it runs: failed, no measure"""
         r = {"id": s["id"], "title": s["title"], "host": hkey, "rate": rate, "frames": frames, "plugins": [],
              "dsp_load_avg": None, "dsp_load_max": None, "samples": 0, "rss_mb": None, "add_ms": None,
              "recover_ms": None, "status": "failed", "note": "",
-             "stress": stress_profile(cores) if stress else "none"}
+             "stress": stress_profile(stress_cores()) if stress else "none"}
         if mode:
             r["mode"] = mode
+        return r
+
+    def row_failed_by(self, e, r):
+        """r failed with the reason e; a JACK that did not answer is started again before the next row"""
+        r["status"], r["note"] = "failed", str(e)
+        if isinstance(e, JackUnanswered):
+            self.jack_dirty = True
+        return r
+
+    def row(self, s, hkey, mode, rate, frames, stress=False):
+        cores = stress_cores()
+        r = self.blank_row(s, hkey, mode, rate, frames, stress)
         host = None
         sources = []
         try:
@@ -1065,8 +1093,7 @@ class Runner:
                     raise Failed("the %s source did not start" % want)
                 time.sleep(0.05)
             for k in range(2):
-                subprocess.run(["jack_disconnect", "sine:output%d" % (k + 1), "system:playback_%d" % (k + 1)],
-                               env=self.env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                run(["jack_disconnect", "sine:output%d" % (k + 1), "system:playback_%d" % (k + 1)], self.env)
 
             insts = list(range(len(picks)))
             placement = {"individual": "own", "chain-add": "chain:1"}.get(mode) if hkey == "H2" else None
@@ -1166,7 +1193,7 @@ class Runner:
         except Refused as e:
             r["status"], r["note"] = "unsupported", str(e)
         except Failed as e:
-            r["status"], r["note"] = "failed", str(e)
+            self.row_failed_by(e, r)
         finally:
             if host:
                 host.stop()
@@ -1291,6 +1318,33 @@ class Runner:
         return {"plugins": len(recs), "files": len({x["binary"]["path"] for x in recs}), "seconds": round(secs, 1),
                 "rates": [rates[0]], "quanta": [frames[0]], "suitable": good, "unsuitable": len(recs) - good}
 
+    def run_cell(self, rate, frames, rows):
+        """the rows at one rate and frame count on a JACK server of their own. A row in which JACK did not answer fails
+        with that reason and the server is started again for the next row; when it does not start, that row fails too
+        and the next one tries again. One wedged server never ends the run"""
+        out = []
+        self.jack_dirty = True
+        for s, h, mode, stress in rows:
+            r = None
+            if self.jack_dirty:
+                try:
+                    self.jack_start(rate, frames)
+                    self.jack_dirty = False
+                except JackUnanswered as e:
+                    self.jack_stop()
+                    r = self.row_failed_by(e, self.blank_row(s, h, mode, rate, frames, stress))
+            if r is None:
+                try:
+                    r = self.measure(s, h, mode, rate, frames, stress)
+                except JackUnanswered as e:
+                    r = self.row_failed_by(e, self.blank_row(s, h, mode, rate, frames, stress))
+            log("%-8s %s %-14s %6d/%-4d %-11s dsp %s%% rss %s MB add %s ms xruns %s %s%s" % (
+                r["id"], h, r.get("mode", "-"), rate, frames, r["status"], r["dsp_load_avg"], r["rss_mb"],
+                r["add_ms"], r.get("xruns"), "" if r["stress"] == "none" else r["stress"] + " ", r["note"]))
+            out.append(r)
+        self.jack_stop()
+        return out
+
     def doc_id(self):
         day = datetime.date.today().strftime("%Y%m%d")
         os.makedirs(self.args.out, exist_ok=True)
@@ -1306,14 +1360,7 @@ class Runner:
         rows = self.plan()
         for rate in self.args.rates:
             for frames in self.args.frames:
-                self.jack_start(rate, frames)
-                for s, h, mode, stress in rows:
-                    r = self.measure(s, h, mode, rate, frames, stress)
-                    log("%-8s %s %-14s %6d/%-4d %-11s dsp %s%% rss %s MB add %s ms xruns %s %s%s" % (
-                        r["id"], h, r.get("mode", "-"), rate, frames, r["status"], r["dsp_load_avg"], r["rss_mb"],
-                        r["add_ms"], r.get("xruns"), "" if r["stress"] == "none" else r["stress"] + " ", r["note"]))
-                    doc["scenarios"].append(r)
-                self.jack_stop()
+                doc["scenarios"].extend(self.run_cell(rate, frames, rows))
         if self.args.qualify:
             doc["qualification"] = self.qualify(self.args.rates, self.args.frames)
         path = os.path.join(self.args.out, doc["id"] + ".json")
