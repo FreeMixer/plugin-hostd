@@ -79,17 +79,21 @@ def help_rates(probe):
 PROBE_SRC = re.search(r"^PROBE_SRC = (.*)$", open(os.path.join(ROOT, "Makefile")).read(), re.M).group(1).split()
 
 
+# pin.h's SHA-256 is libcrypto's: every build that includes it links it
+CRYPTO_LIBS = subprocess.run([PKG_CONFIG, "--libs", "libcrypto"], capture_output=True, text=True, check=True).stdout.split()
+
+
 def build_probe(include_first, out):
     cmd = [CC, "-I" + include_first, "-I" + os.path.join(ROOT, "include"), "-I" + declared_protocol.include_dir()] + \
           pkg("--cflags").split() + ["-I" + os.path.join(ROOT, "src"), "-O2", "-std=gnu99", "-D_GNU_SOURCE",
                                      "-DPROBE_VERSION=\"0\"", "-o", out] + \
-          [os.path.join(ROOT, f) for f in PROBE_SRC] + ["-lm"]
+          [os.path.join(ROOT, f) for f in PROBE_SRC] + CRYPTO_LIBS + ["-lm"]
     return subprocess.run(cmd, capture_output=True, text=True)
 
 
 def build_gen(include_first, out, source=JSON_GEN):
     cmd = [CC, "-I" + include_first, "-I" + os.path.join(ROOT, "include"), "-I" + declared_protocol.include_dir()] + \
-          pkg("--cflags").split() + ["-std=gnu99", "-o", out, source]
+          pkg("--cflags").split() + ["-std=gnu99", "-o", out, source] + CRYPTO_LIBS
     return subprocess.run(cmd, capture_output=True, text=True)
 
 
