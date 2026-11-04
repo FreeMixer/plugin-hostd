@@ -21,9 +21,14 @@
 #ifndef RELAY_H
 #define RELAY_H
 
+#include <stddef.h>
+
 /* The daemon's feedback port, and the workers' feedback read on a thread of its own and written to it (PHD_RELAY in
  * <plugin-hostd/protocol.h>). The daemon's own events and the workers' lines share one writer, so no two lines
  * are ever cut into each other. */
+
+/* What every feedback line starts with, written NUL-terminated in buf (the session's "#<n> " under seq); none until set. */
+void relay_set_prefix(size_t (*prefix)(char *buf, size_t size));
 
 /* Listen on `port`, 0 for none, and start the thread that reads the workers. */
 int relay_start(int port, const char *address);

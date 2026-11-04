@@ -102,6 +102,26 @@ This tree's development package installs what it declares beside the protocol: t
 for the probe's document and `preset.schema.json` for the org.openmixer.preset file (`protocoldir` in the pkg-config
 file of `plugin-hostd` is that directory), and `<plugin-hostd/pin.h>`.
 
+Sessions: hello, tags, error words, sequence numbers
+-----------------------------------------------------
+
+A controller that never sends `hello` is answered as mod-host answers it. The daemon answers `hello` itself, once per
+controller connection, and grants the three extensions of protocol version 1 (the daemon is the controller's one
+endpoint: its workers are always spoken to in mod-host's way, and no worker is sent a `hello` or a tagged line):
+
+    hello 1 tags errors seq   ->  resp 0 1 tags errors seq
+
+- `tags`: a request may start with `@<tag>` (letters, digits, `-`, `_`, `.`); its answer starts with the same tag.
+  `@t1 param_get 0 gain` is answered `@t1 resp 0 0.2500`.
+- `errors`: a refusal that is a number alone is followed by its stable word: `resp -3 reply.host.instance-non-exists`.
+- `seq`: every line on the feedback port starts with `#<n> `, 1 for the first after the `hello` that granted it, one
+  more for each, so a gap is a line missed. A line the daemon could not send keeps its number.
+
+An extension asked for that the daemon does not know is not granted and is no error; each `hello` replaces the one before
+it (`hello 1` alone is mod-host mode again), a version that is not a whole number of 1 or more is refused with -902, and a
+new controller starts with nothing granted. The bulk verbs `param_get_many` and `param_set_many` need no `hello`: the
+worker that holds the instance answers them, and a `param_set_many` is replayed after a respawn as `param_set` is.
+
 Running
 -------
 

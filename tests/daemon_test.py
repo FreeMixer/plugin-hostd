@@ -81,7 +81,7 @@ def worker_answers(lines):
 
 
 @test
-def hello_and_a_tagged_line_are_answered_by_the_daemon_and_never_reach_a_worker():
+def hello_opens_a_session_the_daemon_grants_and_no_worker_hears():
     # the control: a worker built on the protocol library answers hello and reads a tag once granted
     got = worker_answers(["hello 1 tags", "@t1 quit_not_a_verb"])
     check(got == ["resp 0 1 tags", "@t1 not found"], "the fake worker answers hello as the library does: %r" % got)
@@ -89,18 +89,43 @@ def hello_and_a_tagged_line_are_answered_by_the_daemon_and_never_reach_a_worker(
     d = daemon(env={"FAKE_LOG": log})
     try:
         d.expect("add fake:a 0", "resp 0")
-        # the daemon grants nothing: hello is refused, and a line that starts with "@" names no verb
-        d.expect("hello 1 tags errors", "resp -902")
-        d.expect("hello 1", "resp -902")
+        # no hello: mod-host mode, a line that starts with "@" names no verb, and a refusal is a number alone
         d.expect("@t1 param_get 0 gain", "not found")
-        d.expect("@t1", "not found")
-        d.expect("param_set 0 gain 0.2500", "resp 0")
+        d.expect("param_get 7 gain", "resp -3")
+        # hello grants what is asked for, once each and in the declared order; what is unknown is no error
+        d.expect("hello 1 seq errors tags nonsense", "resp 0 1 tags errors seq")
+        d.expect("hello 1 errors", "resp 0 1 errors")
+        d.expect("hello 1", "resp 0 1")
+        d.expect("hello 0 tags", "resp -902")
+        d.expect("hello x", "resp -902")
+        d.expect("hello", "few arguments")
+        # a refused hello changes nothing: errors was dropped by "hello 1", and stays dropped
+        d.expect("param_get 7 gain", "resp -3")
+        # tags: the answer carries the tag; a tag alone is answered not found; "@" alone is a verb that is no verb
+        d.expect("hello 1 tags", "resp 0 1 tags")
+        d.expect("@t1 param_set 0 gain 0.2500", "@t1 resp 0")
+        d.expect("@t1 param_get 0 gain", "@t1 resp 0 0.2500")
+        d.expect("@t2 param_get 7 gain", "@t2 resp -3")
+        d.expect("@t3 worker_list w1", "@t3 resp -902")
+        d.expect("@t4 nonsense_verb", "@t4 resp -902")
+        d.expect("@t5", "@t5 not found")
+        d.expect("@", "not found")
+        d.expect("@a/b param_get 0 gain", "not found")
         d.expect("param_get 0 gain", "resp 0 0.2500")
-        # param_get_many is a verb like any other: the worker that holds the instance answers it
+        d.expect("@h1 hello 1 tags errors", "@h1 resp 0 1 tags errors")
+        # errors: a refusal alone is followed by its word; a success and a reply with a value after its number are not
+        d.expect("param_get 7 gain", "resp -3 reply.host.instance-non-exists")
+        d.expect("@e1 param_get 7 gain", "@e1 resp -3 reply.host.instance-non-exists")
+        d.expect("param_get 0 gain", "resp 0 0.2500")
+        d.expect("param_get_many 7 gain", "resp -3 reply.host.instance-non-exists")
+        d.expect("param_get_many 0 gain nope", "resp -103 reply.host.param-symbol-invalid")
+        d.expect("param_get_many 0 gain", "resp 0 0.2500")
+        d.expect("worker_list w1", "resp -902 reply.host.invalid-operation")
+        d.expect("hello 1", "resp 0 1")
+        # param_get_many and param_set_many are verbs like any other and need no hello
         d.expect("bypass 0 1", "resp 0")
         d.expect("param_get_many 0 gain :bypass", "resp 0 0.2500 1")
         d.expect("param_get_many 0 gain nope", "resp -103")
-        d.expect("param_get_many 7 gain", "resp -3")
         d.expect("param_get_many", "resp -902")
         with open(log) as f:
             sent = [l.split(" ", 1)[1] for l in f.read().splitlines()]
@@ -108,6 +133,54 @@ def hello_and_a_tagged_line_are_answered_by_the_daemon_and_never_reach_a_worker(
               "the log holds what the worker was sent: %r" % sent)
         check(not [l for l in sent if l.startswith("hello") or l.startswith("@")],
               "no worker is sent hello or a tagged line: %r" % sent)
+    finally:
+        d.close()
+
+
+def kill_and_collect(d, inst):
+    """kill the worker that holds `inst` and answer the feedback lines the daemon wrote about it"""
+    key, w = d.holder(inst)
+    mark = d.mark()
+    os.kill(w["pid"], signal.SIGKILL)
+    wait_for(lambda: d.holder(inst)[1]["pid"] != w["pid"], "instance %d respawned" % inst)
+    wait_for(lambda: any("instance_restored" in e for e in d.events[mark:]), "instance %d restored" % inst)
+    time.sleep(0.3)
+    return list(d.events[mark:])
+
+
+@test
+def seq_numbers_every_feedback_line_of_the_session_from_one():
+    d = daemon()
+    try:
+        d.expect("add fake:a 0", "resp 0")
+        bare = kill_and_collect(d, 0)
+        check(bare and not [e for e in bare if e.startswith("#")], "no hello: the lines carry no number: %s" % bare)
+        d.expect("hello 1 seq", "resp 0 1 seq")
+        got = kill_and_collect(d, 0)
+        nums = [int(e.split(" ", 1)[0][1:]) for e in got if re.match(r"#[1-9][0-9]* ", e)]
+        check(len(nums) == len(got) and len(got) >= 2, "every line of the session is numbered: %s" % got)
+        check(nums == list(range(1, len(nums) + 1)), "from 1, one more for each line: %s" % got)
+        check(any(e.split(" ", 1)[1].startswith("instance_restored 0 ") for e in got), "the line follows its number: %s" % got)
+        # a hello that grants seq again starts again at 1; one that does not drops the numbers
+        d.expect("hello 1 seq", "resp 0 1 seq")
+        again = kill_and_collect(d, 0)
+        check(again and again[0].startswith("#1 "), "a new hello starts at 1: %s" % again)
+        d.expect("hello 1 tags", "resp 0 1 tags")
+        dropped = kill_and_collect(d, 0)
+        check(dropped and not [e for e in dropped if e.startswith("#")], "seq dropped, no number: %s" % dropped)
+    finally:
+        d.close()
+
+
+@test
+def a_new_controller_starts_with_nothing_granted():
+    d = daemon()
+    try:
+        d.expect("hello 1 tags errors", "resp 0 1 tags errors")
+        d.expect("@a param_get 7 gain", "@a resp -3 reply.host.instance-non-exists")
+        d.reconnect()
+        d.expect("@a param_get 7 gain", "not found")
+        d.expect("param_get 7 gain", "resp -3")
     finally:
         d.close()
 

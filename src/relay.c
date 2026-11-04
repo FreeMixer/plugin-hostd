@@ -71,13 +71,39 @@ static int g_wake[2] = { -1, -1 };
 static source_t *g_src;
 static int g_nsrc, g_capsrc;
 
-/* one NUL-terminated line to the controller, whole or not at all; g_lock is held */
+static size_t (*g_prefix)(char *buf, size_t size);
+
+void relay_set_prefix(size_t (*prefix)(char *buf, size_t size))
+{
+    g_prefix = prefix;
+}
+
+/* one NUL-terminated line to the controller, whole or not at all; g_lock is held. Under the session's seq every line
+ * is numbered, also one that could not be sent: the gap is how the controller knows */
 static void send_line(const char *line, size_t len)
 {
     size_t sent = 0;
+    char head[32];
+    size_t head_len = 0;
 
+    if (g_prefix)
+        head_len = g_prefix(head, sizeof(head));
     if (g_client < 0 || g_client_broken)
         return;
+    while (sent < head_len)
+    {
+        ssize_t n = send(g_client, head + sent, head_len - sent, MSG_NOSIGNAL);
+
+        if (n < 0 && errno == EINTR)
+            continue;
+        if (n <= 0)
+        {
+            g_client_broken = 1;
+            return;
+        }
+        sent += n;
+    }
+    sent = 0;
     while (sent < len)
     {
         ssize_t n = send(g_client, line + sent, len - sent, MSG_NOSIGNAL);

@@ -137,7 +137,7 @@ int main(void)
     check(!g_quitting, "a quit with no memory for its words does not quit");
     check(!held(), "a message with no memory for its words frees its line");
 
-    reply(g_sv[1], NULL);
+    reply(g_sv[1], NULL, NULL, 0);
     check(answered("resp -901"), "an answer there was no memory for is sent once, as -901");
 
     receive(" \t\r\n", -1);
