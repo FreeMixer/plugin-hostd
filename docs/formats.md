@@ -39,6 +39,10 @@ A table's `rows` are keyed by the source field, and each row has exactly one cla
 | `extension` | `true` | carried verbatim into the descriptor's `extensions.<format>.<field>` (a record of a control's or a port's scope under `<scope>/<field>`) |
 | `dropped` | `{ ruling }` | left out, by the decision it names: a spec path and section, or the TERM's own `out-of-scope` mark |
 
+A record of the plugin's scope whose row is a control's or a port's word (`controls[].*`, `ports[].*`) says that field of
+the plugin, not of a control: LV2 lets a plugin carry its own `lv2:symbol`, and mda Piano does. It is carried as an
+extension (`extensions.lv2.lv2:symbol`), never refused and never read as a control.
+
 Each row names what it covers, one of two: `term`, a TERM of omx-contract's format files (`LV2_UNITS_TERMS#unit`), or
 `from`, the header or specification link of a field no TERM file lists (the CLAP struct fields and `clap_entry`,
 `rdf:type`, `rdfs:comment`, `rdfs:seeAlso`, `doap:name`, `doap:license`).

@@ -378,8 +378,13 @@ static int apply(scan_t *s, entry_t *e, const row_t *r, const char *field, const
             e->latency = 1;
     }
     else if (e->kind == 'g')
-        return refuse("%s %s: %s is a control's or a port's word, and the scope is the plugin", e->scope, field,
-                      WORDS[r->word].word);
+    {
+        /* a field whose row is a control's or a port's word, said of the plugin: lv2:symbol on the plugin is lv2core's
+         * own (mda Piano's `lv2:symbol "Piano"`), and no control or port is meant. Carried as the plugin's extension */
+        free(v);
+        carry(s, e->scope, field, value);
+        return 0;
+    }
     if (!strcmp(r->key, "pg:subGroupOf"))
     {
         /* one level above the group read so far: the path is read outermost first */
