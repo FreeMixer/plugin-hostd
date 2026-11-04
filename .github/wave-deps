@@ -4,5 +4,5 @@
 # The siblings plugin-hostd builds on, inside out: on a pull request into dedupe/all, or a push to it, CI builds each from
 # its own dedupe/all and installs from those builds instead of the channel's releases (FreeMixer/.github's wave-deps).
 omx-contract
-plugin-pin
+plugin-db
 plugin-hostd-protocol
