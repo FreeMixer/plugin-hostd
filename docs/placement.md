@@ -13,12 +13,13 @@ The policy
 ----------
 
 - **Audio cores.** `audio_cores` is a cpu list (`1-3`, `2,3`). Empty, the default, is every cpu the daemon may run on
-  when it starts (its affinity, so a `taskset` or a cgroup is honoured) except the lowest one. A list that names a cpu
-  outside that set refuses the start.
-- **The reserved cores** are the daemon's cpus that are not audio cores: the lowest one by default. The daemon pins
-  itself and all its threads there at start. The processes it starts that are not workers, the descriptor scans and
-  probes, are forked from it and inherit that mask. The UI is the system's to pin there (`taskset -c 0`, or
-  `CPUAffinity=0` in its unit). With no reserved core left (`audio_cores` names every cpu) the daemon is not pinned, and stderr says so.
+  when it starts (its affinity, so a `taskset` or a cgroup is honoured) except one: the cpu of least capacity, the
+  lowest of a tie. A list that names a cpu outside that set refuses the start.
+- **The reserved cores** are the daemon's cpus that are not audio cores: by default the one of least capacity
+  (below). The daemon pins itself and all its threads there at start. The processes it starts that are not workers,
+  the descriptor scans and probes, are forked from it and inherit that mask. The UI is the system's to pin there (`taskset -c <cpu>`, or
+  `CPUAffinity=<cpu>` in its unit; stderr names the cpu at start). With no reserved core left (`audio_cores` names
+  every cpu) the daemon is not pinned, and stderr says so.
 - **Each new worker** is pinned (`sched_setaffinity`, in the child before it runs the worker program, so every thread
   it creates, its JACK or PipeWire thread included, inherits the mask) to all the audio cores, never to one core of
   them. The kernel then places the threads: workers that run side by side spread over the audio cores, and workers
@@ -38,7 +39,7 @@ The configuration
 In the settings file (`-c`, or `$XDG_CONFIG_HOME/plugin-hostd.conf`):
 
     placement spread        # or none
-    audio_cores 1-3         # empty: every cpu the daemon may use but the lowest
+    audio_cores 1-3         # empty: every cpu the daemon may use but the one of least capacity
 
 and on the command line, over the file: `plugin-hostd --placement=none`.
 
@@ -72,6 +73,20 @@ or fewer the hops were too few to show.
 With the whole audio set the kernel may keep a series chain on the core that woke it, and still spreads workers that run
 side by side. A chain declared as one worker is the cheapest of all and stays the way to run many plugins in series.
 
+Which core is reserved
+----------------------
+
+The daemon and the UI need little, so the core kept for them is the weakest one, and the audio keeps the strong ones.
+The capacity of each cpu is read from `/sys/devices/system/cpu/cpu<n>/cpu_capacity`, which the kernel writes on hybrid
+and big.LITTLE machines; where a cpu lacks it, from `cpufreq/cpuinfo_max_freq`; where both are missing, nothing is
+known. The reserved core is the cpu of least capacity, the lowest of a tie, so a machine whose cpus are all alike (a
+Raspberry Pi 5) keeps cpu 0 as before.
+
+Reserving cpu 0 on a hybrid cpu takes a performance core from the audio. On the Intel Core Ultra 9 275HX of the desk
+benchmark, cpus 0-7 are performance cores (`cpu_capacity` 1000) and 8-23 efficiency cores (765): with cpu 0 reserved,
+48 workers had 7 performance cores where `placement none` gave them 8, and `none` had fewer xruns in three of four
+cells at 96 kHz/64. Now the daemon sits on cpu 8 and the workers keep all eight performance cores.
+
 What reports the core
 ---------------------
 
@@ -104,5 +119,5 @@ Measured
 On a Pi 5 (docs/evidence/placement-pi5-2026-10-29/): two and three LV2 instruments (Obxd, Monique) in
 workers of their own, 60 s each, under the first `spread` (one core each). The workers sat on cores 1-3 and the daemon
 on 0, and core 0 fell from 7-9 % busy to under 2 %; the sum over the cores was 2-3 points lower. Neither mode had an
-xrun at that load: the instruments use a fraction of one core. The gain on core 0 is the daemon's reserved core, which
-the audio set keeps. The desk measurement of series chains is above, under Why not one core per worker.
+xrun at that load: the instruments use a fraction of one core. Core 0 is the reserved core there still, since the Pi's
+cores are all alike. The desk measurement of series chains is above, under Why not one core per worker.

@@ -736,6 +736,7 @@ static void pin_self(const cpu_set_t *set)
 
 int sup_placement_init(void)
 {
+    static long capacity[CPU_SETSIZE];
     cpu_set_t allowed, audio, reserved;
     char a[512], r[512];
 
@@ -747,7 +748,8 @@ int sup_placement_init(void)
         perror("placement spread: sched_getaffinity");
         return -1;
     }
-    if (placement_cores(&allowed, g_conf.audio_cores, &audio, &reserved) != 0)
+    placement_capacities("/sys/devices/system/cpu", &allowed, capacity);
+    if (placement_cores(&allowed, g_conf.audio_cores, capacity, &audio, &reserved) != 0)
     {
         placement_list_text(&allowed, a, sizeof(a));
         fprintf(stderr, "audio_cores '%s' is not a cpu list inside the cpus the daemon may run on, %s\n", g_conf.audio_cores, a);
