@@ -584,6 +584,41 @@ char *proc_find_lv2_bundle(const char *lv2_path, const char *uri)
     return named;
 }
 
+int proc_lv2_preset_bundles(const char *lv2_path, const char *uri, int (*fn)(void *ctx, const char *bundle), void *ctx)
+{
+    char *copy = strdup(lv2_path), *dir, *save = NULL;
+    int found = 0, stop = 0;
+
+    if (!copy)
+        return -1;
+    for (dir = strtok_r(copy, ":", &save); dir && !stop; dir = strtok_r(NULL, ":", &save))
+    {
+        DIR *d = opendir(dir);
+        struct dirent *entry;
+
+        if (!d)
+            continue;
+        while (!stop && (entry = readdir(d)))
+        {
+            size_t n = strlen(entry->d_name);
+            char bundle[PATH_MAX];
+
+            if (n < 5 || strcmp(entry->d_name + n - 4, ".lv2") != 0)
+                continue;
+            snprintf(bundle, sizeof(bundle), "%s/%s", dir, entry->d_name);
+            /* a manifest that names the plugin and holds no binary: presets, a MOD GUI, data for it; never code */
+            if (manifest_names(bundle, uri) == MANIFEST_NAMES)
+            {
+                found++;
+                stop = fn(ctx, bundle) != 0;
+            }
+        }
+        closedir(d);
+    }
+    free(copy);
+    return stop ? -1 : found;
+}
+
 int proc_parse_stat(const char *text, long long *utime, long long *stime)
 {
     const char *p = strrchr(text, ')');

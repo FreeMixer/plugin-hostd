@@ -3126,6 +3126,25 @@ def the_adapter_row_keeps_the_pin_rules_of_the_lv2_row_and_checks_no_layout():
         check(program == "omx-clap-host" and world != p.lv2_dir and os.path.exists(os.path.join(world, "pinned.lv2", "manifest.ttl")),
               "the world is narrowed to the bundle: %s %s" % (program, world))
         check(os.listdir(world) == ["pinned.lv2"], "and holds nothing else: %s" % os.listdir(world))
+        # the plugin's presets in bundles of their own (the user's, a distribution's) are in its world, so they list and
+        # load (plugin-hostd#269); a preset bundle of another plugin is not
+        mine = os.path.join(p.dir, "presets", "pinned.lv2")
+        for bundle, applies, extra in ((mine, LV2_URI, ""), (os.path.join(p.lv2_dir, "user-pinned.lv2"), LV2_URI, ""),
+                                       (os.path.join(p.lv2_dir, "other.lv2"), "urn:test:other", "")):
+            os.makedirs(bundle)
+            write(os.path.join(bundle, "manifest.ttl"),
+                  ("<urn:test:preset:%s> a <http://lv2plug.in/ns/ext/presets#Preset> ; "
+                   "<http://lv2plug.in/ns/lv2core#appliesTo> <%s>%s .\n" % (os.path.basename(bundle), applies, extra)).encode())
+        d.close()
+        d = p.daemon(conf=programs.conf(lv2_worker="omx-clap-host", lv2_path=p.lv2_dir + ":" + os.path.dirname(mine)))
+        d.expect(p.lv2_pin(), "resp 0")
+        d.expect("add %s 4" % LV2_URI, "resp 4")
+        _, w = d.holder(4)
+        _, world = programs.of(w["pid"])
+        links = {n: os.readlink(os.path.join(world, n)) for n in os.listdir(world)}
+        check(links == {"pinned.lv2": p.bundle, "user-pinned.lv2": os.path.join(p.lv2_dir, "user-pinned.lv2"),
+                        "1-pinned.lv2": mine},
+              "the world holds the plugin's bundle and its preset bundles, a name taken twice told apart: %s" % links)
         # the pin is checked on every add as it is for the lv2 row
         write(os.path.join(p.bundle, "pinned.so"), b"swapped")
         d.expect("add %s 3" % LV2_URI, resp("PIN_BINARY_MISMATCH"))
