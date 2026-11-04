@@ -402,6 +402,7 @@ class JackProbe:
                 ("jack_activate", ci, [vp]),
                 ("jack_deactivate", ci, [vp]),
                 ("jack_client_close", ci, [vp]),
+                ("jack_cpu_load", ctypes.c_float, [vp]),
                 ("jack_port_by_name", vp, [vp, ctypes.c_char_p]),
                 ("jack_recompute_total_latencies", ci, [vp]),
                 ("jack_port_get_latency_range", None, [vp, ci, ctypes.POINTER(self.Range)])):
@@ -418,6 +419,13 @@ class JackProbe:
     def count(self):
         """xruns since the probe opened"""
         return self.total
+
+    def cpu_load(self):
+        """the server's DSP load in percent as it computes it, read from its shared memory: what the jack_cpu_load
+        tool prints, with no process of its own to schedule and no pipe to lose"""
+        if not self.client:
+            raise Failed("the probe has no JACK client to read the DSP load from")
+        return float(self.lib.jack_cpu_load(self.client))
 
     def latency_frames(self, port):
         """the capture latency JACK reports at an input port, in frames, the longest of its range: the delay from
@@ -455,22 +463,41 @@ def log_since(logdir, name, start):
 
 
 def jack_log_xruns(path, offset):
-    """lines of the JACK server's own log from offset on that name an xrun, and the new end of the file"""
+    """the xrun events the JACK server's own log names from offset on, and the new end of the file. The server
+    writes one XRun line per client that missed the cycle, all of them together, so a run of consecutive lines that
+    name an xrun is one event, whatever the number of clients late in it"""
     try:
         with open(path, "rb") as f:
             f.seek(offset)
             raw = f.read()
     except OSError:
         return 0, offset
-    return sum(1 for line in raw.decode(errors="replace").splitlines() if "xrun" in line.lower()), offset + len(raw)
+    events, in_burst = 0, False
+    for line in raw.decode(errors="replace").splitlines():
+        named = "xrun" in line.lower()
+        if named and not in_burst:
+            events += 1
+        in_burst = named
+    return events, offset + len(raw)
+
+
+# the two sources of a window's xruns agree when they differ by no more than this, or a tenth of the larger
+XRUN_TOLERANCE = 2
+
+
+def xrun_sources_agree(counted, logged):
+    return abs(counted - logged) <= max(XRUN_TOLERANCE, max(counted, logged) // 10)
 
 
 def window_xruns(counted, logged):
-    """the xruns of one window: what the probe counted, unless the server's own log names xruns the probe never
-    heard, which would mean the probe is deaf and every row would read 0"""
-    if counted == 0 and logged > 0:
-        raise Failed("jackd logged %d xrun line(s) in the window and the probe counted none" % logged)
-    return counted
+    """(xruns, note) of one window from its two sources: what the probe's callback counted (the driver's overrun of
+    the period, sent to every client) and the events the server's own log names (a client that missed the cycle,
+    sent to that client alone, which the probe never hears). The row's count is the larger, so a deaf probe or a
+    quiet log never understates; when the two disagree past XRUN_TOLERANCE the note carries both"""
+    note = ""
+    if not xrun_sources_agree(counted, logged):
+        note = "xruns: the probe counted %d, jackd logged %d event(s)" % (counted, logged)
+    return max(counted, logged), note
 
 
 # ---------------------------------------------------------------- the protocol
@@ -1031,19 +1058,16 @@ class Runner:
             self.procs.stop(self.jackd)
             self.jackd = None
 
-    def dsp_window(self, seconds):
-        """jack_cpu_load's one line a second for seconds+1 s; the first is the warm-up and is dropped"""
-        p = subprocess.Popen(["jack_cpu_load"], env=self.env, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-                             text=True, start_new_session=True)
-        time.sleep(seconds + 1.3)
-        p.send_signal(signal.SIGINT)
-        try:
-            out, _ = p.communicate(timeout=5)
-        except subprocess.TimeoutExpired:
-            p.kill()
-            out, _ = p.communicate()
-        vals = [float(m) for m in re.findall(r"DSP load\s+([0-9.]+)", out)]
-        return vals[1:seconds + 1]
+    def dsp_window(self, seconds, pace=1.0):
+        """the server's DSP load read by the probe once a second (every `pace` s) for seconds+1 s; the first reading
+        is the warm-up and is dropped. The probe reads the server's shared memory, so a machine every core of which
+        is busy still answers: the jack_cpu_load tool, a process of its own, was starved under that load and its
+        buffered lines were lost with it"""
+        vals = []
+        for _ in range(seconds + 1):
+            time.sleep(pace)
+            vals.append(self.probe.cpu_load())
+        return vals[1:]
 
     # -- rows
 
@@ -1200,14 +1224,18 @@ class Runner:
             self.jack_log_end = jack_log_xruns(self.jack_log, self.jack_log_end)[1]
             loads = self.dsp_window(self.args.window)
             logged, self.jack_log_end = jack_log_xruns(self.jack_log, self.jack_log_end)
-            r["xruns"] = window_xruns(self.probe.count() - x_before, logged)
+            r["xruns"], xrun_note = window_xruns(self.probe.count() - x_before, logged)
+            if xrun_note:
+                notes.append(xrun_note)
             after = samples(pids)
             jackd_after = samples([self.jackd.pid])
             span = time.monotonic() - t_start
             if not host.pids() or any(not alive(p) for p in pids):
                 raise Failed("a host process exited during the window")
             if not loads:
-                raise Failed("jack_cpu_load gave no reading")
+                raise Failed("the DSP load was not read: the window is empty")
+            if all(v == 0.0 for v in loads):
+                notes.append("the DSP load read 0.0 on every sample")
             r["dsp_load_avg"] = round(sum(loads) / len(loads), 2)
             r["dsp_load_max"] = round(max(loads), 2)
             r["samples"] = len(loads)
@@ -1468,7 +1496,7 @@ def main():
     known = {s["id"] for s in table["scenarios"]}
     if args.scenarios and set(args.scenarios) - known:
         ap.error("unknown scenario: " + ", ".join(sorted(set(args.scenarios) - known)))
-    for prog in ("jackd", "jack_cpu_load", "jack_simple_client", "jack_lsp", "jack_connect"):
+    for prog in ("jackd", "jack_simple_client", "jack_lsp", "jack_connect"):
         if not shutil.which(prog):
             ap.error(prog + " is needed (packages jackd2 and jack-example-tools)")
     why = priority_refusal(rt_threads(), args.jack_priority)

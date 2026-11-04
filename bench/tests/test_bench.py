@@ -167,6 +167,14 @@ class FakeJack:
     def jack_port_by_name(self, client, name):
         return 7 if name.decode() in self.ports else 0
 
+    loads = ()
+
+    def jack_cpu_load(self, client):
+        """the loads the test scripted, one a call, the last one again when they run out"""
+        self.calls.append("cpu_load")
+        n = self.calls.count("cpu_load") - 1
+        return self.loads[min(n, len(self.loads) - 1)] if self.loads else 0.0
+
     def jack_recompute_total_latencies(self, client):
         self.calls.append("recompute")
         return 0
@@ -202,7 +210,7 @@ class Xruns(unittest.TestCase):
         lib.xrun(4)
         before = probe.count()
         lib.xrun(2)
-        self.assertEqual(bench.window_xruns(probe.count() - before, 0), 2)
+        self.assertEqual(bench.window_xruns(probe.count() - before, 0), (2, ""))
 
     def test_the_latency_is_the_longest_of_the_range(self):
         lib = FakeJack(ports={"system:playback_1": 512})
@@ -216,13 +224,24 @@ class Xruns(unittest.TestCase):
         bench.JackProbe("bench1", lib=lib).close()
         self.assertEqual(lib.calls[-2:], ["deactivate", "close"])
 
-    def test_a_deaf_probe_is_failed_not_zero(self):
-        with self.assertRaisesRegex(bench.Failed, "logged 2 xrun line"):
-            bench.window_xruns(0, 2)
-        self.assertEqual(bench.window_xruns(0, 0), 0)
-        self.assertEqual(bench.window_xruns(3, 1), 3)
+    def test_a_windows_xruns_are_the_larger_of_the_probe_and_the_log(self):
+        """a client that misses its cycle is an xrun the server logs and tells that client alone; the probe hears the
+        driver's overruns only. Neither source may understate the other"""
+        self.assertEqual(bench.window_xruns(0, 13), (13, "xruns: the probe counted 0, jackd logged 13 event(s)"))
+        self.assertEqual(bench.window_xruns(50, 10), (50, "xruns: the probe counted 50, jackd logged 10 event(s)"))
+        self.assertEqual(bench.window_xruns(0, 0), (0, ""))
+        self.assertEqual(bench.window_xruns(3, 1), (3, ""), "within the tolerance: no note")
+        self.assertEqual(bench.window_xruns(100, 92), (100, ""), "a tenth of the larger: no note")
+        self.assertEqual(bench.window_xruns(100, 88), (100, "xruns: the probe counted 100, jackd logged 88 event(s)"))
 
-    def test_the_servers_log_counts_new_xrun_lines_only(self):
+    def test_a_deaf_probe_is_not_zero_and_not_a_failure(self):
+        self.assertEqual(bench.window_xruns(0, 2), (2, ""), "two events the probe missed: the log's count, inside the tolerance")
+        xruns, note = bench.window_xruns(0, 13)
+        self.assertEqual(xruns, 13)
+        self.assertIn("counted 0", note)
+
+    def test_the_servers_log_counts_new_xrun_events_only(self):
+        """the server writes one XRun line per client late in the cycle, together: a burst is one event"""
         with tempfile.TemporaryDirectory() as d:
             path = os.path.join(d, "jackd.log")
             with open(path, "w") as f:
@@ -230,11 +249,31 @@ class Xruns(unittest.TestCase):
             n, end = bench.jack_log_xruns(path, 0)
             self.assertEqual(n, 1)
             with open(path, "a") as f:
-                f.write("started\nJackEngine::XRun: client = b\nan XRUN again\n")
+                f.write("JackEngine::XRun: client = b was not finished\nJackEngine::XRun: client = c was not finished\n"
+                        "JackAudioDriver::ProcessGraphAsyncMaster: Process error\n"
+                        "JackEngine::XRun: client = b was not finished\nan XRUN again\n"
+                        "JackAudioDriver::ProcessGraphAsyncMaster: Process error\n")
             n2, end2 = bench.jack_log_xruns(path, end)
-            self.assertEqual(n2, 2)
+            self.assertEqual(n2, 2, "two bursts of late clients, 4 lines, are two events")
             self.assertEqual(bench.jack_log_xruns(path, end2), (0, end2))
             self.assertEqual(bench.jack_log_xruns(os.path.join(d, "none"), 5), (0, 5))
+
+    def test_the_dsp_load_is_read_from_the_server_by_the_probe_and_the_first_reading_is_dropped(self):
+        import types
+        lib = FakeJack()
+        lib.loads = (0.0, 12.5, 13.5, 11.0)
+        probe = bench.JackProbe("bench1", lib=lib)
+        fake = types.SimpleNamespace(probe=probe)
+        loads = bench.Runner.dsp_window(fake, 3, pace=0.01)
+        self.assertEqual(loads, [12.5, 13.5, 11.0])
+        self.assertEqual(lib.calls.count("cpu_load"), 4, "one reading a second over seconds+1, the first the warm-up")
+
+    def test_a_probe_without_a_client_cannot_read_the_dsp_load(self):
+        lib = FakeJack()
+        probe = bench.JackProbe("bench1", lib=lib)
+        probe.close()
+        with self.assertRaisesRegex(bench.Failed, "no JACK client"):
+            probe.cpu_load()
 
 
 def proc_field(pid, key):

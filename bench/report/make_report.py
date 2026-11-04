@@ -348,7 +348,7 @@ def host_cell(s):
 
 def sec_measure(doc, facts, rpi, earlier, results_dir, ci_docs):
     doc.h2("3. Measurements")
-    doc.p("DSP load is the JACK DSP load read with jack_cpu_load; memory is resident (RSS) and proportional (PSS) from /proc.")
+    doc.p("DSP load is the JACK DSP load as the server computes it, read by the probe client; memory is resident (RSS) and proportional (PSS) from /proc.")
     if rpi is None:
         doc.p("No omx-bench/1 run of class rpi5 exists yet.")
         if ci_docs:

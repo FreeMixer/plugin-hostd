@@ -74,6 +74,9 @@ jobs:
       - name: Add the OpenMixer channel
         uses: FreeMixer/.github/.github/actions/add-openmixer@v1
 
+      # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until FreeMixer/.github moves v1 past it
+      - uses: FreeMixer/.github/.github/actions/wave-deps@main
+
       - name: Install the protocol headers from the OpenMixer channel
         run: |
           set -euo pipefail
