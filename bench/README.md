@@ -104,9 +104,9 @@ Reading the numbers
 
 | Field | Meaning |
 |-------|---------|
-| `dsp_load_avg`, `dsp_load_max` | JACK's DSP load in percent, one `jack_cpu_load` reading a second over the window, the first dropped |
+| `dsp_load_avg`, `dsp_load_max` | JACK's DSP load in percent as the server computes it, read from its shared memory by the probe client (`jack_cpu_load` of `libjack`) once a second over the window, the first reading dropped. A reading of 0.0 on every sample is noted |
 | `samples` | how many readings |
-| `xruns` | JACK's xrun callbacks over the window, counted by a client of the run's private server (`libjack` through ctypes, no port and no process callback, so it adds no work to the cycle). If the server's own log names xruns in the window and the probe counted none, the row is `failed`: a deaf probe reads 0 on every row |
+| `xruns` | JACK's xrun callbacks over the window, counted by a client of the run's private server (`libjack` through ctypes, no port and no process callback, so it adds no work to the cycle). That callback is the driver's overrun of the period, sent to every client; a client that missed its cycle is an xrun the server logs and tells that client alone, so the server's own log is read too, one event per burst of XRun lines. The row's count is the larger of the two, and when they differ by more than 2 or a tenth of the larger, the note carries both numbers |
 | `latency_frames` | the capture latency JACK reports at `system:playback_1`, the longest of its range: what the clients on the path declared, not a measurement of the audio; a host that declares none contributes none |
 | `jack_clients` | the JACK clients the host put on the graph: every client with ports there after the plugins are wired that was not there before the host started, the source excepted |
 | `stress` | `none`, or `busy<cores>+mem<MiB>`: one busy loop pinned to each core the host may use, and a process that keeps touching 256 MiB, running beside the host for the whole window. The same name on the same machine is the same load. The same scenario with and without stress is two rows |
