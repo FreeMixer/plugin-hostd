@@ -93,16 +93,16 @@ static char *slurp(const char *path)
 }
 
 /* the grid point of the record at the rate and quantum, NULL for none; the record must name the id */
-static const jnode_t *point_at(const jnode_t *record, const char *id, int rate, int quantum, size_t *from)
+static const cJSON *point_at(const cJSON *record, const char *id, int rate, int quantum, size_t *from)
 {
-    const jnode_t *plugin = jget(record, "plugin"), *grid = jget(jget(record, "measurements"), "grid");
+    const cJSON *plugin = jget(record, "plugin"), *grid = jget(jget(record, "measurements"), "grid");
     const char *got = plugin ? jstr(plugin, "id") : NULL;
 
-    if (!got || !same_id(got, id) || !grid || grid->type != J_ARR)
+    if (!got || !same_id(got, id) || !grid || !cJSON_IsArray(grid))
         return NULL;
-    for (; *from < grid->n; (*from)++)
+    for (; *from < jcount(grid); (*from)++)
     {
-        const jnode_t *point = grid->kid[*from];
+        const cJSON *point = jkid(grid, *from);
         double r, q;
 
         if (!point || !jnum(point, "rate", &r) || !jnum(point, "quantum", &q) || r != rate || q != quantum)
@@ -114,7 +114,7 @@ static const jnode_t *point_at(const jnode_t *record, const char *id, int rate, 
 }
 
 /* whether the record names the id */
-static int names(const jnode_t *record, const char *id)
+static int names(const cJSON *record, const char *id)
 {
     const char *got = jget(record, "plugin") ? jstr(jget(record, "plugin"), "id") : NULL;
 
@@ -122,14 +122,14 @@ static int names(const jnode_t *record, const char *id)
 }
 
 /* the fraction of one core of the record's grid point, or -1.0 */
-static double point_of(const jnode_t *record, const char *id, int rate, int quantum)
+static double point_of(const cJSON *record, const char *id, int rate, int quantum)
 {
-    const jnode_t *point;
+    const cJSON *point;
     size_t k = 0;
 
     while ((point = point_at(record, id, rate, quantum, &k)) != NULL)
     {
-        const jnode_t *percentile = jget(jget(point, "cost"), "percentile");
+        const cJSON *percentile = jget(jget(point, "cost"), "percentile");
         double ns;
 
         if (percentile && jnum(percentile, "value", &ns) && ns >= 0)
@@ -148,7 +148,7 @@ typedef struct
     char *path;
     struct timespec mtime;
     off_t size;
-    jnode_t *record;
+    cJSON *record;
 } memo_file_t;
 static struct record_memo
 {
@@ -164,10 +164,10 @@ static int same_time(struct timespec a, struct timespec b)
     return a.tv_sec == b.tv_sec && a.tv_nsec == b.tv_nsec;
 }
 
-static jnode_t *parse_file(const char *path)
+static cJSON *parse_file(const char *path)
 {
     char *text = slurp(path);
-    jnode_t *record;
+    cJSON *record;
 
     if (!text)
         return NULL;
@@ -184,7 +184,7 @@ static void memo_files_free(memo_file_t *files, int n)
     for (k = 0; k < n; k++)
     {
         free(files[k].path);
-        jfree(files[k].record);
+        cJSON_Delete(files[k].record);
     }
     free(files);
 }
@@ -213,7 +213,7 @@ static memo_file_t *list_records(const char *dir, const char *id, int *n)
     {
         size_t len = strlen(e->d_name);
         struct stat st;
-        jnode_t *record;
+        cJSON *record;
 
         if (len <= slen || (strncmp(e->d_name, prefix, plen) && strncmp(e->d_name, plain, plain_len)) ||
             len <= (strncmp(e->d_name, prefix, plen) ? plain_len : plen) + slen || strcmp(e->d_name + len - slen, RECORD_SUFFIX))
@@ -224,7 +224,7 @@ static memo_file_t *list_records(const char *dir, const char *id, int *n)
         grown = realloc(files, (*n + 1) * sizeof(*files));
         if (!grown || !(grown[*n].path = strdup(path)))
         {
-            jfree(record);
+            cJSON_Delete(record);
             files = grown ? grown : files;
             continue;
         }
@@ -249,7 +249,7 @@ static struct record_memo *record_memo_find(const char *dir, const char *id)
 }
 
 /* calls each(record, ctx) for every record of qualification_dir whose file name is the id's */
-static void each_record(const char *dir, const char *id, void (*each)(const jnode_t *, void *), void *ctx)
+static void each_record(const char *dir, const char *id, void (*each)(const cJSON *, void *), void *ctx)
 {
     struct record_memo *m;
     struct stat st;
@@ -269,11 +269,11 @@ static void each_record(const char *dir, const char *id, void (*each)(const jnod
                 break;
             if (!same_time(fs.st_mtim, m->files[k].mtime) || fs.st_size != m->files[k].size)
             {
-                jnode_t *record = parse_file(m->files[k].path);
+                cJSON *record = parse_file(m->files[k].path);
 
                 if (!record)
                     break;
-                jfree(m->files[k].record);
+                cJSON_Delete(m->files[k].record);
                 m->files[k].record = record;
                 m->files[k].mtime = fs.st_mtim;
                 m->files[k].size = fs.st_size;
@@ -322,7 +322,7 @@ struct cost_ctx {
     double best;
 };
 
-static void cost_of(const jnode_t *record, void *ctx)
+static void cost_of(const cJSON *record, void *ctx)
 {
     struct cost_ctx *c = ctx;
     double v = point_of(record, c->id, c->rate, c->quantum);
@@ -346,10 +346,10 @@ struct cell_ctx {
     qualcost_cell_t cell;
 };
 
-static void cell_of(const jnode_t *record, void *ctx)
+static void cell_of(const cJSON *record, void *ctx)
 {
     struct cell_ctx *c = ctx;
-    const jnode_t *point;
+    const cJSON *point;
     size_t k = 0;
 
     if (!names(record, c->id))
@@ -358,7 +358,7 @@ static void cell_of(const jnode_t *record, void *ctx)
         c->status = QUALCOST_CELL_NO_POINT;
     while ((point = point_at(record, c->id, c->rate, c->quantum, &k)) != NULL)
     {
-        const jnode_t *latency = jget(point, "latency");
+        const cJSON *latency = jget(point, "latency");
         double median, frames;
 
         if (!jnum(jget(point, "cost"), "median", &median) || median < 0 ||
@@ -393,15 +393,15 @@ struct memory_ctx {
     qualcost_memory_t memory;
 };
 
-static void memory_of(const jnode_t *record, void *ctx)
+static void memory_of(const cJSON *record, void *ctx)
 {
     struct memory_ctx *c = ctx;
-    const jnode_t *point;
+    const cJSON *point;
     size_t k = 0;
 
     while ((point = point_at(record, c->id, c->rate, c->quantum, &k)) != NULL)
     {
-        const jnode_t *mem = jget(point, "memory");
+        const cJSON *mem = jget(point, "memory");
         double first, per;
 
         if (!jnum(mem, "firstInstanceKb", &first) || !jnum(mem, "perInstanceKb", &per) || first < 0 || per < 0)

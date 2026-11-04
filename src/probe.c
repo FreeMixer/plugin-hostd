@@ -1100,7 +1100,7 @@ static void take_step_records(run_t *r)
         return;
     while ((end = memchr(line, '\n', r->steps.len - used)))
     {
-        jnode_t *n;
+        cJSON *n;
         const char *name, *outcome;
         double rate = 0, quantum = 0, elapsed = 0;
 
@@ -1108,7 +1108,7 @@ static void take_step_records(run_t *r)
         n = *line ? jparse(line) : NULL;
         name = jstr(n, "step");
         outcome = jstr(n, "outcome");
-        if (n == NULL || n->type != J_OBJ || name == NULL || outcome == NULL || !step_known(name) || !outcome_known(outcome))
+        if (n == NULL || !cJSON_IsObject(n) || name == NULL || outcome == NULL || !step_known(name) || !outcome_known(outcome))
             r->protocol_error = 1;
         else
         {
@@ -1573,7 +1573,7 @@ static const char *no_interposer_reason(void)
     return text;
 }
 
-static jnode_t *first_line(sb_t *out)
+static cJSON *first_line(sb_t *out)
 {
     if (out->len == 0)
         return NULL;
@@ -1591,7 +1591,7 @@ static int has_suffix(const char *s, const char *suffix)
 /* The percentile a prober's cost reports: the figures are read from the keys named for the 95th (nsPerSampleP95), so a
  * document that says another percentile is refused, never read as if it were the 95th. Returns the other percentile, or
  * 95 when the document says 95 or says none. */
-static double cost_percentile_other(const jnode_t *cost)
+static double cost_percentile_other(const cJSON *cost)
 {
     double percentile;
 
@@ -1601,7 +1601,7 @@ static double cost_percentile_other(const jnode_t *cost)
 }
 
 /* the step that says why a run carries no cost: the prober reported a percentile this runner does not read */
-static void add_cost_percentile_refusal(const jnode_t *cost)
+static void add_cost_percentile_refusal(const cJSON *cost)
 {
     step_t *s = add_step("cost", OUT_CHILD_PROTOCOL, 0);
 
@@ -1611,10 +1611,10 @@ static void add_cost_percentile_refusal(const jnode_t *cost)
 /* The step of a figure lv2_measure took at `rate` (its `latency` map, its cost's `perRate`): ok when the child measured
  * it, else not attempted, with the hosting code and the child's reason and words. A child whose line has no such map
  * (an older lv2_measure) was not asked for the figure and gets no step. */
-static void add_lv2_figure_step(const char *name, const jnode_t *map, long rate, unsigned quantum, const char *hosting_code)
+static void add_lv2_figure_step(const char *name, const cJSON *map, long rate, unsigned quantum, const char *hosting_code)
 {
     char key[24];
-    const jnode_t *at;
+    const cJSON *at;
     double v;
     step_t *s;
 
@@ -1641,10 +1641,10 @@ static void add_lv2_figure_step(const char *name, const jnode_t *map, long rate,
  * clock. 3 when no bundle holds the plugin (no document); else 0, with *library the pinned file that is the plugin's
  * library, NULL when nothing was pinned. */
 static int run_lv2(const options_t *o, const char *uri, long rate, const cpu_set_t *pinned, int pin_option, long deadline, run_t *r,
-                   jnode_t **pin, jnode_t **measure, const jnode_t **library, const char **outcome, int *complete)
+                   cJSON **pin, cJSON **measure, const cJSON **library, const char **outcome, int *complete)
 {
     char *argv[8], rate_s[24], block_s[24], cycles_s[24], repeats_s[24];
-    const jnode_t *integrity, *files;
+    const cJSON *integrity, *files;
     size_t k;
 
     argv[0] = (char *)o->child;
@@ -1662,10 +1662,10 @@ static int run_lv2(const options_t *o, const char *uri, long rate, const cpu_set
     *outcome = child_end("hash", o, r, complete);
     integrity = jget(*pin, "integrity");
     files = jget(integrity, "files");
-    for (k = 0; files && files->type == J_ARR && k < files->n; k++)
-        if (jstr(files->kid[k], "path") && !has_suffix(jstr(files->kid[k], "path"), ".ttl"))
+    for (k = 0; files && cJSON_IsArray(files) && k < jcount(files); k++)
+        if (jstr(jkid(files, k), "path") && !has_suffix(jstr(jkid(files, k), "path"), ".ttl"))
         {
-            *library = files->kid[k];
+            *library = jkid(files, k);
             break;
         }
     if (!strcmp(*outcome, OUT_OK) && *library == NULL)
@@ -1699,7 +1699,7 @@ static int run_lv2(const options_t *o, const char *uri, long rate, const cpu_set
     *measure = first_line(&r->out);
     if (*measure && jbool(*measure, "instantiated", 0))
     {
-        const jnode_t *rt = jget(*measure, "rtSafety");
+        const cJSON *rt = jget(*measure, "rtSafety");
         step_t *s = add_step("instantiate", OUT_OK, 0);
 
         set_detail(s, "read from the child's line");
@@ -1724,7 +1724,7 @@ static int run_lv2(const options_t *o, const char *uri, long rate, const cpu_set
     return 0;
 }
 
-static void put_count(sb_t *b, const jnode_t *o, const char *from, const char *to)
+static void put_count(sb_t *b, const cJSON *o, const char *from, const char *to)
 {
     double v;
 
@@ -1734,7 +1734,7 @@ static void put_count(sb_t *b, const jnode_t *o, const char *from, const char *t
 
 /* a prober's note sweep, as a point carries it: whether it applied, the dialect it played in, and what process() or run()
  * did while it played when the interposer counted; a sweep the interposer did not count carries no counts */
-static void put_note_sweep(sb_t *b, const jnode_t *ns)
+static void put_note_sweep(sb_t *b, const cJSON *ns)
 {
     sb_printf(b, ", \"noteSweep\": {\"applicable\": %s", jbool(ns, "applicable", 0) ? "true" : "false");
     if (jstr(ns, "dialect"))
@@ -1754,17 +1754,17 @@ static void put_note_sweep(sb_t *b, const jnode_t *ns)
 /* lv2_measure's measurement line: the grid point of its rate and block, with what run() did under the interposer, and
  * its note sweep, and the plugin's behaviour over the pass (lifecycles, threads, the features it requires); a
  * translation, no judgement */
-static void put_cost(sb_t *b, const jnode_t *cost, const char *rate);
-static void put_memory(sb_t *b, const jnode_t *cost, const char *rate);
+static void put_cost(sb_t *b, const cJSON *cost, const char *rate);
+static void put_memory(sb_t *b, const cJSON *cost, const char *rate);
 
-static void put_lv2_measure(sb_t *b, const jnode_t *m, long rate, unsigned quantum)
+static void put_lv2_measure(sb_t *b, const cJSON *m, long rate, unsigned quantum)
 {
-    const jnode_t *rt = jget(m, "rtSafety"), *ev = jget(rt, "events"), *life = jget(m, "lifecycle"), *th = jget(m, "threads"),
+    const cJSON *rt = jget(m, "rtSafety"), *ev = jget(rt, "events"), *life = jget(m, "lifecycle"), *th = jget(m, "threads"),
                   *req = jget(m, "requiredFeatures");
     size_t k;
 
     char key[24];
-    const jnode_t *lat;
+    const cJSON *lat;
     double decl, meas;
 
     snprintf(key, sizeof(key), "%ld", rate);
@@ -1790,13 +1790,13 @@ static void put_lv2_measure(sb_t *b, const jnode_t *m, long rate, unsigned quant
         put_count(b, rt, "allocationsInRun", "allocations");
         put_count(b, rt, "locksInRun", "locks");
         put_count(b, rt, "syscallsInRun", "syscalls");
-        if (ev && ev->type == J_ARR)
+        if (ev && cJSON_IsArray(ev))
         {
             sb_printf(b, ", \"events\": [");
-            for (k = 0; k < ev->n; k++)
+            for (k = 0; k < jcount(ev); k++)
             {
                 char text[512];
-                const char *kind = jstr(ev->kid[k], "kind"), *module = jstr(ev->kid[k], "module"), *symbol = jstr(ev->kid[k], "symbol");
+                const char *kind = jstr(jkid(ev, k), "kind"), *module = jstr(jkid(ev, k), "module"), *symbol = jstr(jkid(ev, k), "symbol");
 
                 snprintf(text, sizeof(text), "%s %s %s", kind ? kind : "?", module ? module : "?", symbol ? symbol : "?");
                 sb_printf(b, "%s", k ? ", " : "");
@@ -1829,10 +1829,10 @@ static void put_lv2_measure(sb_t *b, const jnode_t *m, long rate, unsigned quant
         free(t.s);
     }
     sb_printf(b, "}, \"features\": {\"required\": [");
-    for (k = 0; req && req->type == J_ARR && k < req->n; k++)
+    for (k = 0; req && cJSON_IsArray(req) && k < jcount(req); k++)
     {
         sb_printf(b, "%s", k ? ", " : "");
-        sb_str(b, req->kid[k]->str ? req->kid[k]->str : "");
+        sb_str(b, jkid(req, k)->valuestring ? jkid(req, k)->valuestring : "");
     }
     sb_printf(b, "]}}");
 }
@@ -1840,16 +1840,16 @@ static void put_lv2_measure(sb_t *b, const jnode_t *m, long rate, unsigned quant
 /* the cost at each count of notes the child held (`voiceCurve` of its rate: {held, nsPerSampleMedian, nsPerSampleP95}),
  * in the point's own shape; an entry that is not a whole count of at least one with its two figures is left out, and
  * none left means no curve */
-static void put_voice_curve(sb_t *b, const jnode_t *curve, double percentile)
+static void put_voice_curve(sb_t *b, const cJSON *curve, double percentile)
 {
     size_t taken = 0;
     double held, median, p95;
 
-    if (!curve || curve->type != J_ARR)
+    if (!curve || !cJSON_IsArray(curve))
         return;
-    for (size_t i = 0; i < curve->n; i++)
+    for (size_t i = 0; i < jcount(curve); i++)
     {
-        const jnode_t *e = curve->kid[i];
+        const cJSON *e = jkid(curve, i);
 
         if (!jnum(e, "held", &held) || held < 1 || held != (double)(long)held || !jnum(e, "nsPerSampleMedian", &median) ||
             !jnum(e, "nsPerSampleP95", &p95) || median < 0 || p95 < 0)
@@ -1864,9 +1864,9 @@ static void put_voice_curve(sb_t *b, const jnode_t *curve, double percentile)
 /* the cost arm's figures at one rate, as that rate's point carries them: nanoseconds per sample, and for an instrument
  * the notes it held and, when the child timed several counts, the cost at each (voiceCurve, plugin-qualify#203); a rate
  * the arm did not time (an unmeasuredReason in place of the figures) gets no cost, never a neighbour's */
-static void put_cost(sb_t *b, const jnode_t *cost, const char *rate)
+static void put_cost(sb_t *b, const cJSON *cost, const char *rate)
 {
-    const jnode_t *at = jget(jget(cost, "perRate"), rate), *voices = jget(at, "voices");
+    const cJSON *at = jget(jget(cost, "perRate"), rate), *voices = jget(at, "voices");
     double median, p95, min, max, blocks, warmup, percentile, held, capacity;
 
     if (!jnum(at, "nsPerSampleMedian", &median) || !jnum(at, "nsPerSampleP95", &p95) ||
@@ -1890,10 +1890,10 @@ static void put_cost(sb_t *b, const jnode_t *cost, const char *rate)
 
 /* the footprint the child took at one rate, as that rate's point carries it: what the resident set grew by, in KB, at each
  * step of one instance's life; a figure it could not take stays out, and a reason says why when none could be */
-static void put_memory(sb_t *b, const jnode_t *cost, const char *rate)
+static void put_memory(sb_t *b, const cJSON *cost, const char *rate)
 {
     static const char *const FIGURES[] = { "afterInstantiateKb", "afterActivateKb", "atRestKb", "notesHeldKb", "secondInstanceKb" };
-    const jnode_t *mem = jget(jget(jget(cost, "perRate"), rate), "memory");
+    const cJSON *mem = jget(jget(jget(cost, "perRate"), rate), "memory");
     const char *basis = jstr(mem, "basis"), *reason = jstr(mem, "unmeasuredReason"), *detail = jstr(mem, "unmeasuredDetail");
     const char *sep = "";
     size_t i;
@@ -2141,12 +2141,12 @@ int main(int argc, char **argv)
     long t0;
     run_t r;
     sb_t doc = { 0 };
-    jnode_t *line = NULL;
+    cJSON *line = NULL;
     const char *run_outcome = OUT_OK;
     /* an LV2 plugin, lv2:<uri>: the runner runs lv2_measure's passes, the pin then the measurement */
     const char *lv2_uri = NULL;
-    jnode_t *pin_line = NULL, *measure_line = NULL;
-    const jnode_t *lv2_library = NULL;
+    cJSON *pin_line = NULL, *measure_line = NULL;
+    const cJSON *lv2_library = NULL;
     long lv2_rate = 0;
     int child_set = 0, list_only = 0;
     int complete = 1, fd;
@@ -2391,7 +2391,7 @@ int main(int argc, char **argv)
     /* the document */
     {
         const char *plugin_id = line ? jstr(line, "id") : NULL;
-        const jnode_t *clap = jget(line, "clap"), *integ = jget(line, "integrity"), *rt = jget(line, "rtSafety"),
+        const cJSON *clap = jget(line, "clap"), *integ = jget(line, "integrity"), *rt = jget(line, "rtSafety"),
                       *notes = jget(line, "noteSweep"), *latency = jget(clap, "latency"), *ext = jget(line, "hostExtensions"),
                       *cost = jget(line, "cost");
         const char *layout_sha = NULL, *unmeasured = NULL;
@@ -2400,7 +2400,7 @@ int main(int argc, char **argv)
 
         if (integ)
         {
-            const jnode_t *layout = jget(integ, "layout");
+            const cJSON *layout = jget(integ, "layout");
 
             layout_sha = jstr(layout, "sha256");
             unmeasured = jstr(integ, "unmeasuredReason");
@@ -2416,16 +2416,16 @@ int main(int argc, char **argv)
             else if (unmeasured && !strcmp(unmeasured, "not-installed"))
                 s->outcome = OUT_NOT_FOUND;
             if (latency)
-                for (k = 0; k < latency->n; k++)
+                for (k = 0; k < jcount(latency); k++)
                 {
                     double decl = 0, meas = 0;
                     step_t *l = add_step("latency", OUT_OK, 0);
 
-                    l->rate = atol(latency->key[k]);
+                    l->rate = atol(jkey(latency, k));
                     l->quantum = o.quantum;
                     set_detail(l, "read from the child's line");
-                    jnum(latency->kid[k], "declaredFrames", &decl);
-                    jnum(latency->kid[k], "measuredFrames", &meas);
+                    jnum(jkid(latency, k), "declaredFrames", &decl);
+                    jnum(jkid(latency, k), "measuredFrames", &meas);
                 }
             if (rt && jbool(rt, "interposer", 0))
             {
@@ -2490,7 +2490,7 @@ int main(int argc, char **argv)
         sb_printf(&doc, "\n  },\n  \"plugin\": {\"format\": \"%s\", \"id\": ", lv2_uri ? "lv2" : "clap");
         if (lv2_uri)
         {
-            const jnode_t *integ_lv2 = jget(pin_line, "integrity"), *files = jget(integ_lv2, "files");
+            const cJSON *integ_lv2 = jget(pin_line, "integrity"), *files = jget(integ_lv2, "files");
 
             sb_str(&doc, lv2_uri);
             if (jstr(pin_line, "version"))
@@ -2504,12 +2504,12 @@ int main(int argc, char **argv)
             sb_printf(&doc, ", \"sha256\": ");
             sb_str(&doc, jstr(lv2_library, "sha256"));
             sb_printf(&doc, ", \"files\": [");
-            for (k = 0; files && k < files->n; k++)
+            for (k = 0; files && k < jcount(files); k++)
             {
                 sb_printf(&doc, "%s{\"path\": ", k ? ", " : "");
-                sb_str(&doc, jstr(files->kid[k], "path") ? jstr(files->kid[k], "path") : "");
+                sb_str(&doc, jstr(jkid(files, k), "path") ? jstr(jkid(files, k), "path") : "");
                 sb_printf(&doc, ", \"sha256\": ");
-                sb_str(&doc, jstr(files->kid[k], "sha256") ? jstr(files->kid[k], "sha256") : "");
+                sb_str(&doc, jstr(jkid(files, k), "sha256") ? jstr(jkid(files, k), "sha256") : "");
                 sb_printf(&doc, "}");
             }
             sb_printf(&doc, "]");
@@ -2536,13 +2536,13 @@ int main(int argc, char **argv)
         sb_printf(&doc, "}");
         put_machine(&doc, &pinned, pin_option);
         sb_printf(&doc, ",\n  \"offer\": {\"id\": \"%s\"", o.offer ? "custom" : "default");
-        if (ext && ext->type == J_ARR)
+        if (ext && cJSON_IsArray(ext))
         {
             sb_printf(&doc, ", \"clapExtensions\": [");
-            for (k = 0; k < ext->n; k++)
+            for (k = 0; k < jcount(ext); k++)
             {
                 sb_printf(&doc, "%s", k ? ", " : "");
-                sb_str(&doc, ext->kid[k]->str ? ext->kid[k]->str : "");
+                sb_str(&doc, jkid(ext, k)->valuestring ? jkid(ext, k)->valuestring : "");
             }
             sb_printf(&doc, "]");
         }
@@ -2577,31 +2577,31 @@ int main(int argc, char **argv)
         }
         sb_printf(&doc, "\n  ]");
         /* the grid: one point per rate the child reported a latency for, with the cost the child timed at that rate */
-        if (latency && latency->n)
+        if (latency && jcount(latency))
         {
             sb_printf(&doc, ",\n  \"grid\": [");
-            for (k = 0; k < latency->n && k < MAX_POINTS; k++)
+            for (k = 0; k < jcount(latency) && k < MAX_POINTS; k++)
             {
                 double decl = 0, meas = 0;
                 int from_note;
 
-                jnum(latency->kid[k], "declaredFrames", &decl);
-                jnum(latency->kid[k], "measuredFrames", &meas);
+                jnum(jkid(latency, k), "declaredFrames", &decl);
+                jnum(jkid(latency, k), "measuredFrames", &meas);
                 /* an instrument has no input for the impulse: its onset is measured from a note, which may not sound */
-                from_note = jstr(latency->kid[k], "from") && !strcmp(jstr(latency->kid[k], "from"), "note");
+                from_note = jstr(jkid(latency, k), "from") && !strcmp(jstr(jkid(latency, k), "from"), "note");
                 sb_printf(&doc, "%s\n    {\"rate\": %ld, \"quantum\": %u, \"outcome\": \"%s\", \"latency\": {\"declaredFrames\": %.0f, "
                                 "\"measuredFrames\": %.0f, \"method\": \"%s\"",
-                          k ? "," : "", atol(latency->key[k]), o.quantum, OUT_OK, decl, meas,
+                          k ? "," : "", atol(jkey(latency, k)), o.quantum, OUT_OK, decl, meas,
                           from_note ? OMX_MEASUREMENT_LATENCY_METHODS_NOTE_ONSET : OMX_MEASUREMENT_LATENCY_METHODS_IMPULSE_ONSET);
                 if (from_note)
-                    sb_printf(&doc, ", \"heard\": %s", jbool(latency->kid[k], "heard", 1) ? "true" : "false");
+                    sb_printf(&doc, ", \"heard\": %s", jbool(jkid(latency, k), "heard", 1) ? "true" : "false");
                 sb_printf(&doc, "}");
-                put_cost(&doc, cost, latency->key[k]);
-                put_memory(&doc, cost, latency->key[k]);
+                put_cost(&doc, cost, jkey(latency, k));
+                put_memory(&doc, cost, jkey(latency, k));
                 if (firstpoint && rt)
                 {
                     double v = 0;
-                    const jnode_t *ev = jget(rt, "events");
+                    const cJSON *ev = jget(rt, "events");
 
                     sb_printf(&doc, ", \"rtSafety\": {\"interposer\": %s", jbool(rt, "interposer", 0) ? "true" : "false");
                     if (jbool(rt, "interposer", 0))
@@ -2620,15 +2620,15 @@ int main(int argc, char **argv)
                             sb_printf(&doc, ", \"threadViolations\": %.0f", v);
                         if (jnum(clap, "processErrors", &v))
                             sb_printf(&doc, ", \"processErrors\": %.0f", v);
-                        if (ev && ev->type == J_ARR)
+                        if (ev && cJSON_IsArray(ev))
                         {
                             size_t e;
 
                             sb_printf(&doc, ", \"events\": [");
-                            for (e = 0; e < ev->n; e++)
+                            for (e = 0; e < jcount(ev); e++)
                             {
                                 sb_printf(&doc, "%s", e ? ", " : "");
-                                sb_str(&doc, ev->kid[e]->str ? ev->kid[e]->str : "");
+                                sb_str(&doc, jkid(ev, e)->valuestring ? jkid(ev, e)->valuestring : "");
                             }
                             sb_printf(&doc, "]");
                         }

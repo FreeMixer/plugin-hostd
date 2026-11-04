@@ -13,6 +13,7 @@ BuildRequires: gcc
 BuildRequires: make
 BuildRequires: diffutils
 BuildRequires: python3
+BuildRequires: cjson-devel
 # the protocol library and the declared protocol: <plugin-hostd/protocol.h> and the headers it includes, the protocol's
 # JSON and mod-host's. 0.2.0 is the first that holds them (they were this tree's before); a floor only
 BuildRequires: plugin-hostd-protocol-devel >= 0.2.0
