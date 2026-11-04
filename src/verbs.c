@@ -163,6 +163,9 @@ static char *handle(char *line, char **tok, int ntok)
         return sup_resp(ERR_INVALID_OPERATION);
     if (verb[0] == '@')
         return strdup(MESSAGE_COMMAND_NOT_FOUND);
+    /* the values of several parameters of an instance: the worker that holds it answers them */
+    if (!strcmp(verb, OMX_VERB_PARAM_GET_MANY))
+        return ntok > 2 ? sup_call(atoi(tok[1]), line) : sup_resp(ERR_INVALID_OPERATION);
 
     if (!strcmp(verb, PHD_VERB_ADD))
     {

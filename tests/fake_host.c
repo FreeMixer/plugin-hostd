@@ -578,6 +578,24 @@ static void receive(msg_t *msg)
         else
             answer(fd, "resp -103");
     }
+    else if (!strcmp(verb, OMX_VERB_PARAM_GET_MANY) && ntok > 2)
+    {
+        char out[2048] = "resp 0";
+
+        /* every value, as param_get answers each, or the first refusal alone */
+        for (k = 2; k < ntok; k++)
+        {
+            const char *value = get_param(&g_inst[n], tok[k]);
+
+            if (!value)
+                break;
+            snprintf(out + strlen(out), sizeof(out) - strlen(out), " %s", value);
+        }
+        if (k < ntok)
+            answer(fd, "resp -103");
+        else
+            answer(fd, "%s", out);
+    }
     else if (verb_is(verb, EFFECT_BYPASS) && ntok == 3)
     {
         set_param(&g_inst[n], ":bypass", tok[2]);
