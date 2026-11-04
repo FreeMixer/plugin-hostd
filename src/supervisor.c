@@ -79,9 +79,9 @@ static int g_npools;
 static worker_env_t g_env[FORMATS_MAX];
 static chain_t *g_chain[MAX_INSTANCE];
 static int g_nchains;
-/* the audio cores in order, while placement spread found any (docs/placement.md): a new worker is pinned to one */
-static int g_cores[CPU_SETSIZE];
-static int g_ncores;
+/* the audio cores as a cpu list, while placement spread found any (docs/placement.md): every new worker is pinned to
+ * the whole list, never to one core of it, so the kernel may keep a chain of workers linked in series on a warm core */
+static char g_audio_cpus[sizeof(((worker_env_t *)0)->cpus)];
 
 /* what plan last answered for a chain: its segments, and the chain of each segment of two or more that runs */
 typedef struct PLAN_T {
@@ -467,7 +467,6 @@ static worker_t *worker_alloc(int fmt, const char *place)
     w->fd = -1;
     w->fb_fd = -1;
     w->state = W_BACKOFF;
-    w->core = -1;
     snprintf(w->place, sizeof(w->place), "%s", place);
     w->pool = strncmp(place, PHD_PLACE_POOL_PREFIX, strlen(PHD_PLACE_POOL_PREFIX)) == 0;
     return w;
@@ -718,62 +717,6 @@ static int host_settings_replay(worker_t *w)
 
 /* ---------------------------------------------------------------- core placement (docs/placement.md) */
 
-/* the cost of a plugin as the planner reads it, its qualification record's at group_rate and group_quantum: a fraction
- * of one core, below 0 for none */
-static double place_cost(const char *uri)
-{
-    if (g_conf.group_rate <= 0 || g_conf.group_quantum <= 0)
-        return -1;
-    return qualcost_read(g_conf.qualification_dir, record_id(uri), g_conf.group_rate, g_conf.group_quantum);
-}
-
-/* what a worker costs, the sum of its members' costs, and in *known whether every member has one */
-static double worker_cost(const worker_t *w, int *known)
-{
-    double sum = 0, c;
-    int m;
-
-    *known = 1;
-    for (m = 0; m < w->ninst; m++)
-    {
-        c = place_cost(w->inst[m]->uri);
-        if (c < 0)
-            *known = 0;
-        else
-            sum += c;
-    }
-    return sum;
-}
-
-/* the audio core of a new worker: the least loaded by the workers already placed (src/placement.c) */
-static int place_core(const worker_t *w)
-{
-    static placement_load_t load[CPU_SETSIZE];
-    int n, k, known;
-
-    for (k = 0; k < g_ncores; k++)
-    {
-        load[k].core = g_cores[k];
-        load[k].workers = load[k].unknown = 0;
-        load[k].cost = 0;
-    }
-    for (n = 0; n < g_nworkers; n++)
-    {
-        const worker_t *v = g_workers[n];
-
-        if (v == w || v->core < 0)
-            continue;
-        for (k = 0; k < g_ncores && g_cores[k] != v->core; k++)
-            ;
-        if (k == g_ncores)
-            continue;
-        load[k].workers++;
-        load[k].cost += worker_cost(v, &known);
-        load[k].unknown += !known;
-    }
-    return g_cores[placement_pick(load, g_ncores)];
-}
-
 /* every thread of the daemon on the set; the processes it forks from now on inherit it */
 static void pin_self(const cpu_set_t *set)
 {
@@ -795,9 +738,8 @@ int sup_placement_init(void)
 {
     cpu_set_t allowed, audio, reserved;
     char a[512], r[512];
-    int c;
 
-    g_ncores = 0;
+    g_audio_cpus[0] = '\0';
     if (!conf_spread(&g_conf))
         return 0;
     if (sched_getaffinity(0, sizeof(allowed), &allowed) != 0)
@@ -811,12 +753,15 @@ int sup_placement_init(void)
         fprintf(stderr, "audio_cores '%s' is not a cpu list inside the cpus the daemon may run on, %s\n", g_conf.audio_cores, a);
         return -1;
     }
-    for (c = 0; c < CPU_SETSIZE; c++)
-        if (CPU_ISSET(c, &audio))
-            g_cores[g_ncores++] = c;
-    placement_list_text(&audio, a, sizeof(a));
     placement_list_text(&reserved, r, sizeof(r));
-    if (!g_ncores)
+    if (placement_list_text(&audio, g_audio_cpus, sizeof(g_audio_cpus)) >= sizeof(g_audio_cpus))
+    {
+        fprintf(stderr, "placement spread: the audio cores are a cpu list longer than %zu; name fewer in audio_cores\n",
+                sizeof(g_audio_cpus) - 1);
+        return -1;
+    }
+    snprintf(a, sizeof(a), "%s", g_audio_cpus);
+    if (!g_audio_cpus[0])
         fprintf(stderr, "placement spread: the daemon may run on one cpu, %s, and no audio core is left: nothing is pinned\n", r);
     else if (!CPU_COUNT(&reserved))
         fprintf(stderr, "placement spread: workers on the audio cores %s; no cpu is left for the daemon, which is not pinned\n", a);
@@ -845,16 +790,12 @@ static int worker_start(worker_t *w, const char *uri)
     w->thread_pool = g_conf.require_pins && format_at(w->fmt)->thread_pool && !w->pool && !w->chain && uri &&
                      pins_pool_cores(uri);
     env.thread_pool = w->thread_pool;
-    /* the policy pins a worker whose format worker_env gave no cpus: to the core it has, which a respawn keeps, or to the
-     * least-loaded one; the child is pinned before it runs the worker, so every thread it makes is there too */
-    if (g_ncores && !env.cpus[0])
-    {
-        if (w->core < 0)
-            w->core = place_core(w);
-        snprintf(env.cpus, sizeof(env.cpus), "%d", w->core);
-    }
-    else
-        w->core = -1;
+    /* the policy pins a worker whose format worker_env gave no cpus to all the audio cores, never to one of them: a
+     * chain of workers linked in series wakes each next one in turn, and a worker pinned to a core of its own is woken
+     * on a cold core at every hop (docs/placement.md, the measurement). The child is pinned before it runs the worker,
+     * so every thread it makes is on the audio cores too, and a CLAP thread pool sizes itself from all of them. */
+    if (g_audio_cpus[0] && !env.cpus[0])
+        snprintf(env.cpus, sizeof(env.cpus), "%s", g_audio_cpus);
     for (attempt = 0;; attempt++)
     {
         rc = proc_spawn(&g_conf, bin_of(w->fmt), format_at(w->fmt)->world_env, world ? world : search_of(w->fmt),
@@ -2825,10 +2766,8 @@ char *sup_worker_list(void)
         worker_t *w = sorted[n];
 
         put(&buf, &used, &cap, " w%d:%d:%s:%s:", w->k, (int)w->pid, format_at(w->fmt)->name, g_state_states[w->state]);
-        if (w->core >= 0)
-            put(&buf, &used, &cap, "%d:", w->core);
-        else
-            put(&buf, &used, &cap, PHD_WORD_NONE ":");
+        /* <core>: no worker is pinned to one core of its own (docs/placement.md), so the field is always none */
+        put(&buf, &used, &cap, PHD_WORD_NONE ":");
         put(&buf, &used, &cap, "%s:%s:", w->thread_pool ? PHD_WORKER_POOL_ON : PHD_WORKER_POOL_QUALIFIED, w->place);
         if (!w->ninst)
             put(&buf, &used, &cap, PHD_WORD_NONE);
@@ -3070,11 +3009,8 @@ char *sup_worker_env(const char *format, const char *cpus, const char *nice)
     {
         if (strcmp(cpus, PHD_WORD_NONE))
         {
-            snprintf(g_env[f].cpus, sizeof(g_env[f].cpus), "%s", cpus);
             /* the format's workers run on these cpus now: the policy no longer places them */
-            for (n = 0; n < g_nworkers; n++)
-                if (g_workers[n]->fmt == f)
-                    g_workers[n]->core = -1;
+            snprintf(g_env[f].cpus, sizeof(g_env[f].cpus), "%s", cpus);
         }
         if (strcmp(nice, PHD_WORD_NONE))
             g_env[f].nice = atoi(nice);
@@ -3901,8 +3837,8 @@ static plan_t *plan_run(int id, const int *ids, int n, int *code)
     return p;
 }
 
-/* the cores word of plan and plan_get: the segments with each member replaced by the core of the worker that runs it now,
- * - for one the placement did not pin; malloc'd */
+/* the cores word of plan and plan_get: the segments with each member replaced by the core of the worker that runs it,
+ * which is none for every member, since no worker is pinned to one core of its own (docs/placement.md); malloc'd */
 static char *plan_cores(const char *segments)
 {
     size_t used = 0, cap = 64;
@@ -3916,13 +3852,8 @@ static char *plan_cores(const char *segments)
     {
         if (*p >= '0' && *p <= '9')
         {
-            long id = strtol(p, &end, 10);
-            const instance_t *i = id < MAX_INSTANCE ? g_inst[id] : NULL;
-
-            if (i && i->w && i->w->core >= 0)
-                put(&buf, &used, &cap, "%d", i->w->core);
-            else
-                put(&buf, &used, &cap, PHD_WORD_NONE);
+            strtol(p, &end, 10);
+            put(&buf, &used, &cap, PHD_WORD_NONE);
             p = end;
         }
         else

@@ -23,9 +23,6 @@
 
 #include "placement.h"
 
-/* two costs this close are equal: they are sums of a few fractions read from text */
-#define COST_EPSILON 1e-9
-
 /* a whole number of one or more digits at *p, below CPU_SETSIZE; the end in *p; -1 for none */
 static int number(const char **p)
 {
@@ -122,33 +119,4 @@ int placement_cores(const cpu_set_t *allowed, const char *audio_cores, cpu_set_t
     }
     CPU_XOR(reserved, allowed, audio);
     return 0;
-}
-
-/* whether a is less loaded than b: the first measure, then the other */
-static int lighter(const placement_load_t *a, const placement_load_t *b, int by_cost)
-{
-    if (by_cost)
-    {
-        if (a->cost < b->cost - COST_EPSILON || a->cost > b->cost + COST_EPSILON)
-            return a->cost < b->cost;
-        return a->workers < b->workers;
-    }
-    if (a->workers != b->workers)
-        return a->workers < b->workers;
-    return a->cost < b->cost - COST_EPSILON;
-}
-
-int placement_pick(const placement_load_t *loads, int n)
-{
-    int k, best = 0, by_cost = 1;
-
-    if (n < 1)
-        return -1;
-    for (k = 0; k < n; k++)
-        if (loads[k].unknown)
-            by_cost = 0;
-    for (k = 1; k < n; k++)
-        if (lighter(&loads[k], &loads[best], by_cost))
-            best = k;
-    return best;
 }

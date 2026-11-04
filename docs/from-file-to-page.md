@@ -61,13 +61,13 @@ Surge XT's figures are on [the instruments page](zynthian/instruments.md).
 
 From the records the sync writes one line per plugin saying what plugin-hostd may host and how ([Pins in the
 README](../README.md#pins)). The daemon loads the pins as its only source of permission. The planner reads them to group
-workers and to place them on cores ([placement](placement.md)). For an instrument the line says hosted, and if the
+workers, which run on the audio cores ([placement](placement.md)). For an instrument the line says hosted, and if the
 record said isolated, in a worker of its own; an instrument is never put into a chain's shared worker, so a fault or a
 late buffer in a voice cannot reach the effects after it.
 
 That is also what the cores need. Surge XT 1.4.0 ignores CLAP's thread-pool extension, so one instrument is one audio
-thread. Several instruments use several cores when each is in its own worker and the workers are spread over the audio
-cores, the daemon kept off them; the measurement with two and three instruments is in
+thread. Several instruments use several cores when each is in its own worker on the audio cores, which the kernel spreads
+them over, the daemon kept off them; the measurement with two and three instruments is in
 [placement on the Pi 5](evidence/placement-pi5-2026-10-29/README.md).
 
 4. Layout

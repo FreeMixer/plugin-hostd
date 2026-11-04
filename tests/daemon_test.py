@@ -946,32 +946,27 @@ def cores_of(d, insts):
 
 
 @test
-def four_workers_on_a_four_core_mask_land_on_three_audio_cores_and_the_daemon_on_the_lowest():
+def four_workers_on_a_four_core_mask_each_run_on_all_three_audio_cores_and_the_daemon_on_the_lowest():
     """placement spread, the default: the lowest cpu of the daemon's mask is the reserved core, the daemon and every
-    thread of it are pinned there, and each new worker goes to the audio core that holds the fewest (no cost is known):
-    cores 1, 2, 3, then 1 again"""
+    thread of it are pinned there, and every worker is pinned to all the audio cores, never to one core of its own: a
+    chain of workers linked in series hops core to core, and each hop onto a core of its own is a cold wakeup
+    (docs/placement.md, 1100 xruns in 48-worker chains at 96 kHz/64 against 3 for jalv)"""
     cpus = four_cpus()
+    audio = set(cpus[1:])
     d = daemon(cpus=cpus)
     try:
         for n in range(4):
             d.expect("add fake:%d %d" % (n, n), "resp %d" % n)
         got = cores_of(d, range(4))
-        want = [cpus[1], cpus[2], cpus[3], cpus[1]]
-        check([c for c, _ in got] == want, "worker_list reports the cores %s, wanted %s" % (got, want))
-        check([m for _, m in got] == [{c} for c in want], "each worker process is pinned to its core alone: %s" % got)
-        check(len({c for c, _ in got}) == 3 and cpus[0] not in {c for c, _ in got}, "three distinct audio cores, none the daemon's")
+        check(got == [(None, audio)] * 4, "each worker on all the audio cores %s, no core of its own: %s" % (sorted(audio), got))
         pid = d.proc.pid
         check(all(allowed(pid, t) == {cpus[0]} for t in threads(pid)), "every thread of the daemon is on cpu %d: %s" %
               (cpus[0], [(t, allowed(pid, t)) for t in threads(pid)]))
-        # a worker that is respawned keeps its core, though another core is emptier by then
-        d.expect("remove 2", "resp 0")
+        # a worker that is respawned is on the audio cores again
         _, w = d.holder(0)
         os.kill(w["pid"], signal.SIGKILL)
         wait_for(lambda: d.holder(0)[1]["pid"] != w["pid"] and d.holder(0)[1]["state"] == "up", "worker of 0 respawned")
-        check(cores_of(d, [0]) == [(cpus[1], {cpus[1]})], "the respawned worker is on its core again: %s" % cores_of(d, [0]))
-        # a new worker takes the emptied core
-        d.expect("add fake:4 4", "resp 4")
-        check(cores_of(d, [4]) == [(cpus[3], {cpus[3]})], "the core 2 left: %s" % cores_of(d, [4]))
+        check(cores_of(d, [0]) == [(None, audio)], "the respawned worker is on the audio cores again: %s" % cores_of(d, [0]))
     finally:
         d.close()
 
@@ -983,7 +978,7 @@ def audio_cores_names_the_cores_and_a_core_outside_the_mask_refuses_the_start():
     try:
         for n in range(3):
             d.expect("add fake:%d %d" % (n, n), "resp %d" % n)
-        check([c for c, _ in cores_of(d, range(3))] == [cpus[2], cpus[3], cpus[2]], "two audio cores: %s" % d.workers())
+        check(cores_of(d, range(3)) == [(None, {cpus[2], cpus[3]})] * 3, "each worker on the two audio cores: %s" % d.workers())
         pid = d.proc.pid
         check(all(allowed(pid, t) == {cpus[0], cpus[1]} for t in threads(pid)), "the daemon on the other two: %s" %
               [allowed(pid, t) for t in threads(pid)])
@@ -1000,10 +995,11 @@ def audio_cores_names_the_cores_and_a_core_outside_the_mask_refuses_the_start():
 
 
 @test
-def the_least_loaded_core_is_the_one_whose_workers_cost_the_least_when_every_cost_is_known():
-    """qualification records at group_rate and group_quantum: a worker of 60 % of a core on the first audio core and two
-    of 10 % make the next go beside a 10 % one, not to the first core as the count would; then the other 10 % one"""
+def a_known_cost_pins_no_worker_to_a_core_of_its_own():
+    """qualification records at group_rate and group_quantum, one of 60 % of a core and four of 10 %: the costs place no
+    worker on a core of its own, every worker is on all the audio cores, the ones with no record as well"""
     cpus = four_cpus()
+    audio = set(cpus[1:])
     p = Plugins()
     d = p.daemon(conf={"require_pins": 0}, cpus=cpus)
     try:
@@ -1012,14 +1008,9 @@ def the_least_loaded_core_is_the_one_whose_workers_cost_the_least_when_every_cos
             record_for(d, "org.openmixer.fault.%d" % n, ns)
         for n in range(1, 6):
             d.expect("add %s %d" % (clap_n(p, n), n), "resp %d" % n)
-        got = [c for c, _ in cores_of(d, range(1, 6))]
-        check(got == [cpus[1], cpus[2], cpus[3], cpus[2], cpus[3]], "by cost: %s" % got)
-        # a worker without a record is placed by the costs of the ones already placed, which are all known
         d.expect("add fake:x 6", "resp 6")
-        check(cores_of(d, [6])[0][0] == cpus[2], "the cheapest core, the lowest of a tie: %s" % d.workers())
-        # with one placed worker of unknown cost the count decides: the first core holds one worker, the others three and two
-        d.expect("add fake:y 7", "resp 7")
-        check(cores_of(d, [7])[0][0] == cpus[1], "an unknown cost falls back to the count: %s" % d.workers())
+        got = cores_of(d, range(1, 7))
+        check(got == [(None, audio)] * 6, "every worker on all the audio cores: %s" % got)
     finally:
         d.close()
         p.close()
@@ -1038,14 +1029,15 @@ def an_isolated_plugin_gets_a_worker_of_its_own_placed_by_the_same_rule_and_a_se
         d.expect(pin_n(p, 3, "isolated"), "resp 0")
         for n in (1, 2, 3):
             d.expect("add %s %d" % (clap_n(p, n), n), "resp %d" % n)
-        check([c for c, _ in cores_of(d, (1, 2, 3))] == cpus[1:4], "three own workers on three cores: %s" % d.workers())
+        check(cores_of(d, (1, 2, 3)) == [(None, set(cpus[1:4]))] * 3, "three own workers on the audio cores: %s" % d.workers())
         cores = expect_plan(d, "plan 1 1 2 3", "resp 0 1,2;3")
         seg = plan_of(d, 1)[0]
         _, w3 = d.wait_up(3)
         check(seg["inst"] == [1, 2] and w3["place"] == "own", "one worker for the segment, one for the isolated: %s" % d.workers())
-        # 3 kept its worker on the third audio core; the segment's new worker takes the first, which the two it gathered left
-        check(seg["core"] == cpus[1] and w3["core"] == cpus[3] and allowed(seg["pid"]) == {cpus[1]}, "cores: %s" % d.workers())
-        check(cores == "%d,%d;%d" % (cpus[1], cpus[1], cpus[3]), "plan names the core of each member: %s" % cores)
+        # the segment's new worker is on the audio cores as every other, and no member has a core of its own
+        check(seg["core"] is None and w3["core"] is None and allowed(seg["pid"]) == set(cpus[1:4]) and
+              allowed(w3["pid"]) == set(cpus[1:4]), "cores: %s" % d.workers())
+        check(cores == "-,-;-", "plan names no core for any member: %s" % cores)
         r = d.send("plan_get 1")
         check(r.split()[-1] == cores and "3:verdict-isolated" in r, "plan_get ends in the same cores: %s" % r)
     finally:
@@ -1080,7 +1072,7 @@ def a_format_given_cpus_by_worker_env_is_not_moved_by_the_policy():
     d = daemon(cpus=cpus)
     try:
         d.expect("add fake:a 0", "resp 0")
-        check(cores_of(d, [0]) == [(cpus[1], {cpus[1]})], "placed: %s" % d.workers())
+        check(cores_of(d, [0]) == [(None, set(cpus[1:4]))], "placed on the audio cores: %s" % d.workers())
         d.expect("worker_env lv2 %d,%d -" % (cpus[2], cpus[3]), "resp 0")
         wait_for(lambda: cores_of(d, [0]) == [(None, {cpus[2], cpus[3]})], "the running worker on worker_env's cpus, no core")
         d.expect("add fake:b 1", "resp 1")
