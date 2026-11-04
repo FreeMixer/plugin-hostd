@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Where the declared protocol is read from. It is plugin-hostd-protocol's (0.2.0 or later), never this tree's: the
+# Where the declared protocol is read from. It is plugin-hostd-protocol's (0.3.0 or later, before 0.4), never this tree's: the
 # headers through pkg-config's Cflags of plugin-hostd-protocol, the JSON documents through its variables, and the
 # daemon's verbs (verbs.json) from its package of omx-contract's contract directory. Without an installed
 # plugin-hostd-protocol, a checkout of it at PROTOCOL_DIR (default ../plugin-hostd-protocol) stands in, as the Makefile
