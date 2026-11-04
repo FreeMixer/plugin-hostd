@@ -8,7 +8,7 @@ thread-pool extension, so one instrument is one audio thread. Several instrument
 runs in a worker of its own and those workers are spread over the cores, with the daemon, the UI and the system kept
 off them.
 
-The setting `placement` does that (plugin-hostd#226).
+The setting `placement` does that.
 
 The policy
 ----------
@@ -30,7 +30,7 @@ The policy
 - **A worker keeps its core** when it is respawned. A worker that is made anew (a chain formed, a group split by a
   death, a quarantined member moved out) is placed again.
 - **Chains and isolated plugins.** A chain, whether declared by `chain` or a segment of a `plan`, is one worker, so it
-  takes one core. A plugin the planner leaves alone, an `isolated` verdict among them (plugin-hostd#231), gets a worker
+  takes one core. A plugin the planner leaves alone, an `isolated` verdict among them, gets a worker
   of its own, placed by the same rule. Zynthian still sees one chain.
 - **`worker_env`.** A format whose workers were given a cpu list by `worker_env` keeps that list: the policy does not
   move those workers, and they report no core.
@@ -60,7 +60,7 @@ What reports the core
 The CLAP thread pool
 --------------------
 
-omx-clap-host's pool of helper threads (`--thread-pool=qualified|off|on`, omx-clap-core#395) sizes itself from the
+omx-clap-host's pool of helper threads (`--thread-pool=qualified|off|on`) sizes itself from the
 worker's affinity mask: N cores, N - 1 helpers. The pool is the plugin's qualification's to give, never a global switch,
 and it travels in the plugin's pin as the word `pool=cores` (or `pool=off`) after the verdict:
 
@@ -76,7 +76,6 @@ option, the host's `qualified`, which grants the pool to no plugin. The pool's w
 Measured
 --------
 
-On a Pi 5 (docs/evidence/placement-pi5-2026-10-29/): two and three LV2 instruments (Obxd, Monique) in
-workers of their own, 60 s each. Under `spread` the workers sat on cores 1-3 and the daemon on 0, and core 0 fell from
-7-9 % busy to under 2 %; the sum over the cores was 2-3 points lower. Neither mode had an xrun at that load, so no xrun
+On a Pi 5, with two and three LV2 instruments in workers of their own, `spread` put the workers on cores 1-3 and the
+daemon on 0, and core 0 fell from 7-9 % busy to under 2 %. Neither mode had an xrun at that load, so no xrun
 gain is shown yet: the instruments use a fraction of one core. A run that fills the audio cores is still owed.

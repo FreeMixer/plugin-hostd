@@ -60,7 +60,7 @@ The seed corpus
 `fuzz/corpus/<harness>/` is written by `fuzz/gen_corpus.py` (`make fuzz-corpus`) and committed. The command seeds are
 every verb of plugin-hostd-protocol's `plugin-hostd.json` and `mod-host.json` with sample arguments, each with its optional
 words, with one word too many, refused by the supervisor and split by tabs, the placements of `add`, and the `send`
-lines of `README.md` and `docs/own-host.md`. The reply seeds cut worker feedback at every byte and before every NUL,
+lines of `docs/guide.md` and `docs/own-host.md`. The reply seeds cut worker feedback at every byte and before every NUL,
 hold, end and abandon gestures, put lines at and past the line limit, and write a line and then remove its worker or
 an instance with no read between the two. Nothing is fetched; `make fuzz-corpus-check`
 fails when the committed corpus is not what the generator writes.

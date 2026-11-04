@@ -9,6 +9,7 @@ Build-Depends: debhelper-compat (= 13),
                omx-clap-host-tests (>= 0.25.0~) <!nocheck>,
                omx-contract (>= 3.4.0~) <!nocheck>,
                plugin-hostd-protocol-contract (>= 0.2.0~) <!nocheck>,
+               libssl-dev,
                pkgconf,
                python3
 Standards-Version: 4.6.2
@@ -20,18 +21,22 @@ Architecture: any
 Depends: libplugin-hostd-protocol0 (>= 0.2.0~), plugin-hostd-contract (= ${source:Version}), ${shlibs:Depends},
          ${misc:Depends}
 Recommends: omx-clap-host (>= 0.26.2)
+# mod-host runs an LV2 plugin only when lv2_worker or lv2_worker_set names it, and it is the reference host H3 of the
+# benchmark (bench/run.sh), measured when it is installed. Nothing else uses it, so it is only suggested; a machine that
+# runs a published benchmark installs mod-host (and jalv) itself.
 Suggests: mod-host
 Description: run LV2 and CLAP plugins so that one crash cannot stop the show
  plugin-hostd keeps your effects and instruments running when one of them
  misbehaves. It gives a controller one mod-host socket and starts each plugin,
- or each named group of plugins, in a worker process of its own: mod-host for
- LV2, omx-clap-host for CLAP. If a plugin crashes, only its worker goes down
- and the daemon brings it back. Audio never passes through the daemon, so it
- adds no latency: every worker is a JACK client.
+ or each named group of plugins, in a worker process of its own: omx-clap-host
+ for CLAP and, through its LV2 adapter, for LV2. If a plugin crashes, only its
+ worker goes down and the daemon brings it back. Audio never passes through the
+ daemon, so it adds no latency: every worker is a JACK client.
  .
- A format whose worker is not installed refuses its adds; the other format
- is unaffected. mod-host is not packaged by Debian: install it from source
- for LV2 plugins.
+ A format whose worker is not installed refuses its adds; the other formats
+ are unaffected. mod-host runs LV2 plugins only when you ask for it.
+ .
+ Its documentation is on openmixer.org.
 
 Package: plugin-hostd-tests
 Architecture: any
@@ -43,17 +48,21 @@ Description: stand-in plugin worker to test a program that drives plugin-hostd
  audio. Run it with -L to print the layout it reports. It is installed in
  /usr/libexec/plugin-hostd/tests, away from the directories programs run
  from.
+ .
+ Its documentation is on openmixer.org.
 
 Package: plugin-hostd-dev
 Section: libdevel
 Architecture: all
-Depends: plugin-hostd-contract (= ${source:Version}), libplugin-hostd-protocol-dev (>= 0.2.0~), ${misc:Depends}
+Depends: plugin-hostd-contract (= ${source:Version}), libplugin-hostd-protocol-dev (>= 0.2.0~), libssl-dev, ${misc:Depends}
 Description: C headers to drive plugin-hostd from your own controller
  The pin header, the words of the grouping planner and the running history,
  and the schemas of the probe output and of a preset file. The protocol a
  controller speaks (the verbs, error codes, feedback events and settings) is
  declared in libplugin-hostd-protocol-dev, which this package depends on:
  pkg-config plugin-hostd gives the flags for both.
+ .
+ Its documentation is on openmixer.org.
 
 Package: plugin-hostd-contract
 Architecture: all
@@ -68,3 +77,5 @@ Description: plugin-hostd's format tables, read at run time
  reasons a plan gives for a plugin it leaves alone (grouping.json), under
  /usr/share/omx-contract/contract.d/3/plugin-hostd. A program that reads
  them at run time depends on this package, never on the development one.
+ .
+ Its documentation is on openmixer.org.

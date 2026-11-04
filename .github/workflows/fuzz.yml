@@ -46,7 +46,7 @@ jobs:
             exit 0
           fi
           printf '%s\n' "$changed"
-          if grep -qE '^(fuzz/|src/|include/|protocol/|data/|Makefile$|README\.md$|docs/own-host\.md$|packaging/plugin-hostd\.spec$|\.github/workflows/fuzz\.yml$)' <<<"$changed"; then
+          if grep -qE '^(fuzz/|src/|include/|protocol/|data/|Makefile$|docs/guide\.md$|docs/own-host\.md$|packaging/plugin-hostd\.spec$|\.github/workflows/fuzz\.yml$)' <<<"$changed"; then
             echo "fuzz=true" >> "$GITHUB_OUTPUT"
           else
             echo "fuzz=false" >> "$GITHUB_OUTPUT"
@@ -64,7 +64,7 @@ jobs:
     steps:
       - name: Install clang, libFuzzer and llvm-cov
         run: |
-          dnf install -y --setopt=install_weak_deps=False git dnf5-plugins clang compiler-rt llvm make gawk diffutils \
+          dnf install -y --setopt=install_weak_deps=False git dnf5-plugins clang compiler-rt llvm make gawk diffutils openssl-devel \
             python3 pkgconf-pkg-config
 
       - uses: actions/checkout@v4

@@ -64,7 +64,7 @@ A scan scope or field the format table has no row for is refused, and the add of
 panel. A new scope or field of omx-clap-scan therefore needs its row in `data/formats/clap.json` first, with the rule
 that says whether the descriptor carries it or drops it; a daemon is not to learn a scope by ignoring what it does not
 know. Whether a refusal that costs one plugin its whole panel should rise to a single, higher-altitude refusal is a
-design question of its own, FreeMixer/plugin-hostd#155; until it is decided the tables stay strict.
+design question of its own; until it is decided the tables stay strict.
 
 ## Why a verb of its own
 
@@ -95,7 +95,7 @@ A native renderer combines what the daemon serves; none of the three replaces an
 | the pages of 8 a hardware surface steps through | `remote_pages <instance>`, `remote_page_get <instance> <page>` | the running instance |
 
 1. After `add <uri> <instance>`, ask `panel_get <uri>` until it is no `-530`. Only a `null` panel, and an LV2 plugin
-   until its bundle is read for a panel (FreeMixer/plugin-hostd#149), mean the plugin states no layout: draw the
+   until its bundle is read for a panel, mean the plugin states no layout: draw the
    controls in parameter order, as a host did before. Every other code is a failure to show, not a plugin without a
    layout: `-531` is a panel stage that failed and `-528` a descriptor directory that could not be written, and the
    plugin may well have a layout. Name the failure to the user, and draw in parameter order only as the fallback.
@@ -112,6 +112,6 @@ A native renderer combines what the daemon serves; none of the three replaces an
    pages through those, the panel's sections and widgets dressing each slot.
 5. A refused table is drawn as the plugin having none of it, and named to the user: its count is in the refusal.
 
-What the panel cannot give yet: an enum's labels and the remote pages in the scan itself (FreeMixer/omx-clap-core#318);
+What the panel cannot give yet: an enum's labels and the remote pages in the scan itself;
 until then a choice's labels come from the worker (`param_info` and the plugin's value texts) and the pages from
 `remote_page_get`, both on a running instance.

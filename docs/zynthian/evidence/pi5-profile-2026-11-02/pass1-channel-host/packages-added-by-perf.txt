@@ -1,3 +1,0 @@
-libopencsd1
-libtraceevent1
-linux-perf
