@@ -19,7 +19,7 @@ Package: plugin-hostd
 Architecture: any
 Depends: libplugin-hostd-protocol0 (>= 0.2.0~), plugin-hostd-contract (= ${source:Version}), ${shlibs:Depends},
          ${misc:Depends}
-Recommends: omx-clap-host (>= 0.26.2)
+Recommends: omx-clap-host (>= 0.28.0)
 Suggests: mod-host
 Description: run LV2 and CLAP plugins so that one crash cannot stop the show
  plugin-hostd keeps your effects and instruments running when one of them
