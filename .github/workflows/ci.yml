@@ -283,7 +283,7 @@ jobs:
           mkdir -p dep-rpms
           dnf download -y --setopt=retries=10 --arch ${{ matrix.arch }} --destdir dep-rpms plugin-hostd-protocol mod-host-protocol
           # the daemon's verbs, which plugin-hostd-contract requires: plugin-hostd-protocol's package of the contract directory
-          dnf download -y --setopt=retries=10 --destdir dep-rpms 'plugin-hostd-protocol-contract >= 0.2.0'
+          dnf download -y --setopt=retries=10 --destdir dep-rpms 'plugin-hostd-protocol-contract >= 0.3.0'
 
       - uses: FreeMixer/.github/.github/actions/build-rpm@v1
 
@@ -299,7 +299,7 @@ jobs:
             diff -u expected.txt files.txt
             rpm -qp --requires "$rpm" | tee requires.txt
             grep -q 'libplugin-hostd-protocol.so.0' requires.txt
-            grep -qx 'plugin-hostd-protocol(.*) >= 0.2.0' requires.txt
+            grep -qx 'plugin-hostd-protocol(.*) >= 0.3.0' requires.txt
             grep -qx "plugin-hostd-contract = $(rpm -qp --qf '%{VERSION}-%{RELEASE}' "$rpm")" requires.txt
             rpm -qp --recommends "$rpm" | tee recommends.txt
             grep -q '^omx-clap-host' recommends.txt
@@ -320,7 +320,7 @@ jobs:
             diff -u expected.txt files.txt
             rpm -qp --requires "$rpm" | tee requires.txt
             grep -qx "plugin-hostd-contract = $(rpm -qp --qf '%{VERSION}-%{RELEASE}' "$rpm")" requires.txt
-            grep -qx 'plugin-hostd-protocol-devel >= 0.2.0' requires.txt
+            grep -qx 'plugin-hostd-protocol-devel >= 0.3.0' requires.txt
           done
           # the contract package: the contract directory's files, which readers read at run time, noarch
           for rpm in rpms/plugin-hostd-contract-[0-9]*.noarch.rpm; do
@@ -533,8 +533,8 @@ jobs:
           grep -qx /usr/libexec/plugin-hostd/tests/lib/plugin_hostd_client.py tests.txt
           dpkg -s libplugin-hostd-protocol0 | grep '^Status: install ok installed'
           dpkg-deb -f debs/plugin-hostd_*.deb Depends | tee depends.txt
-          # dpkg-shlibdeps writes the library's own floor, (>= 0.2.0), over debian/control's (>= 0.2.0~)
-          grep -qE 'libplugin-hostd-protocol0 \(>= 0\.2\.0~?\)' depends.txt
+          # dpkg-shlibdeps writes the library's own floor, (>= 0.3.0), over debian/control's (>= 0.3.0~)
+          grep -qE 'libplugin-hostd-protocol0 \(>= 0\.3\.0~?\)' depends.txt
           # mod-host is only suggested: never a Depends or a Recommends of the deb
           test "$(dpkg-deb -f debs/plugin-hostd_*.deb Suggests)" = mod-host
           if dpkg-deb -f debs/plugin-hostd_*.deb Depends Recommends | grep -qw mod-host; then echo "plugin-hostd needs or recommends mod-host"; exit 1; fi
@@ -645,7 +645,7 @@ jobs:
           set -euo pipefail
           # the scripts read the plugin search lists from plugin-hostd-protocol's header (tools/search-paths.py)
           dnf install -y --setopt=install_weak_deps=False --setopt=retries=10 plugin-hostd 'omx-clap-host >= 0.21.0' \
-            omx-clap-host-tests omx-plugins-clap omx-plugins-lv2 'plugin-hostd-protocol-devel >= 0.2.0' pkgconf-pkg-config
+            omx-clap-host-tests omx-plugins-clap omx-plugins-lv2 'plugin-hostd-protocol-devel >= 0.3.0' pkgconf-pkg-config
           rpm -q plugin-hostd omx-clap-host omx-clap-host-tests omx-plugins-clap omx-plugins-lv2
           # the channel's daemon names its verbs in plugin-hostd-protocol's JSON from 0.16.0, in its own before
           for json in /usr/share/plugin-hostd-protocol/plugin-hostd.json /usr/share/plugin-hostd/protocol.json; do

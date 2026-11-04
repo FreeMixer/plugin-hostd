@@ -1,3 +1,29 @@
+plugin-hostd (0.18.0) unstable; urgency=medium
+
+  * The daemon answers hello and a tagged line itself and never relays them
+    to a worker: hello gets -902, so a client stays in mod-host mode, and a
+    line that starts with @ gets "not found" (#386).
+  * param_get_many and param_set_many go to the worker that holds the
+    instance and to no other; param_set_many is replayed after a respawn as
+    param_set is (#386).
+  * mod-host is suggested, not recommended: omx-clap-host runs LV2 plugins
+    through its adapter. A worker program that is not installed is said once
+    at start, and an add asked of it answers -502 (no-backend) (#391).
+  * JSON is read with the system cJSON; the tree's own reader is gone (#393).
+  * A pin's SHA-256 is libcrypto's.
+  * The probe: an LV2 instrument whose note did not sound keeps the latency
+    it declares on its port, as {"declaredFrames": N, "method":
+    "declared-port"}, instead of reading "latency unknown". This shipped in
+    0.17.0 and its notes missed it (#390).
+  * bench: a JACK that stops answering fails its row, not the run (#396).
+  * Requires plugin-hostd-protocol 0.3.0 or later, whose declaration holds
+    the bulk verbs and hello; the packages recommend omx-clap-host 0.29.0.
+  * The guide is generated from plugin-hostd-protocol 0.3.0 (#395); the
+    Zynthian use case and the design notes move to openmixer.org. The
+    packages install their licence and a short README and no other markdown.
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Wed, 04 Nov 2026 18:00:00 +0100
+
 plugin-hostd (0.17.0) unstable; urgency=medium
 
   * An LV2 worker's world holds the plugin's preset bundles: every bundle on
