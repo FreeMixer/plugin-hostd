@@ -600,6 +600,12 @@ check-no-pins:
 check-contract-floor:
 	python3 tests/contract_floor.py
 
+# the plugin-hostd-protocol floor is one number, at or above the first protocol release that declares what the sources
+# use (tests/protocol_floor.py)
+test: check-protocol-floor
+check-protocol-floor:
+	python3 tests/protocol_floor.py
+
 # a workflow step the runner may be unable to run fails where it cannot run it (#107)
 # the org.openmixer.preset file (docs/presets.md) holds to protocol/preset.schema.json, and a broken one does not
 check-preset-schema:
