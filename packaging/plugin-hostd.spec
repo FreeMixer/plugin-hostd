@@ -16,14 +16,14 @@ BuildRequires: python3
 BuildRequires: pkgconfig(libcrypto)
 BuildRequires: cjson-devel
 # the protocol library and the declared protocol: <plugin-hostd/protocol.h> and the headers it includes, the protocol's
-# JSON and mod-host's. 0.3.0 is the first that declares hello and the bulk verbs the sources use; a floor only
+# JSON and mod-host's. 0.3.0 is the first that declares hello and the bulk verbs the sources use; a floor and the next minor
 BuildRequires: (plugin-hostd-protocol-devel >= 0.3.0 with plugin-hostd-protocol-devel < 0.4)
 # the probe runner's default rates, the protocol's parameter scales and the probe output's shared words are read from
 # omx-contract's C headers, and the format tables are items of its schema 3 (3.4.0 the first that renders a reply
 # code's resp, which plugin_hostd_vocabulary.h is checked against); a floor only
 BuildRequires: omx-contract-devel >= 3.4.0
 # the protocol library, ports on 127.0.0.1 unless told otherwise (socket_set_bind_address()); the daemon is built
-# against the declared protocol of 0.3.0; a floor only
+# against the declared protocol of 0.3.0; a floor and the next minor
 Requires: (plugin-hostd-protocol%{?_isa} >= 0.3.0 with plugin-hostd-protocol%{?_isa} < 0.4)
 # omx-clap-core is a build dependency of the check stage only: the CLAP worker and the fixtures the real-worker
 # tests drive. A build with `--without check` needs nothing of omx-clap-core, so plugin-hostd and omx-clap-core
@@ -173,8 +173,16 @@ make test-daemon check-generated check-rendered
 
 %changelog
 * Wed Nov 04 2026 Pau Aliagas <linuxnow@gmail.com> - 0.18.0-1
-- The daemon answers hello (-902) and a tagged line (not found) itself and never
-  relays them to a worker (#386)
+- The daemon answers hello itself, for each controller connection, and grants
+  what the controller asks of tags, errors and seq as plugin-hostd-protocol 0.3.0
+  defines them: a request tag comes back on its answer, a refusal that is a number
+  alone is followed by its error word, every feedback line starts with #<n>. A
+  controller that never sends hello is answered as before. No worker is sent hello
+  or a tagged line (#386)
+- A worker is pinned to all the audio cores, not to one of them (#394)
+- bench: the DSP load is read from the server and a window's xruns from both
+  sources (#400); the private JACK server's priority is asked and read back, and
+  --alsa hw:X runs it on a card instead of the dummy driver (#407)
 - param_get_many and param_set_many go to the worker that holds the instance;
   param_set_many is replayed after a respawn (#386)
 - mod-host is suggested, not recommended; a worker program that is not installed
@@ -183,7 +191,8 @@ make test-daemon check-generated check-rendered
 - The probe: an LV2 instrument whose note did not sound keeps its declared
   latency; shipped in 0.17.0, missing from its notes (#390)
 - bench: a JACK that stops answering fails its row, not the run (#396)
-- Requires plugin-hostd-protocol 0.3.0 or later; recommends omx-clap-host 0.29.0
+- Requires plugin-hostd-protocol 0.3.0 or later and before 0.4; recommends omx-clap-host
+  0.29.0 or later and before 0.30; every dependency on our libraries has a floor and a ceiling
 - The guide is generated from plugin-hostd-protocol 0.3.0 (#395); the packages
   install their licence and a short README and no other markdown
 
