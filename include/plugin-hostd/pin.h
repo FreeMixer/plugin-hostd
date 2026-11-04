@@ -40,127 +40,69 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <openssl/evp.h>
+
 #define PHD_PIN_LAYOUT_SCHEME "omx-layout/1"
 #define PHD_PIN_LAYOUT_CLAP   "clap"
 #define PHD_PIN_LAYOUT_LV2    "lv2"
 #define PHD_SHA256_HEX_LEN    64
 
-/* ---------------------------------------------------------------- SHA-256 (FIPS 180-4) */
+/* ---------------------------------------------------------------- SHA-256 (OpenSSL's libcrypto) */
 
+/* one digest under way: libcrypto's context, and whether every step so far succeeded */
 typedef struct PHD_SHA256_T {
-    uint32_t h[8];
-    uint64_t bytes;
-    unsigned char block[64];
-    size_t used;
+    EVP_MD_CTX *ctx;
+    int ok;
 } phd_sha256_t;
-
-static const uint32_t phd_sha256_k[64] = {
-    0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
-    0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
-    0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
-    0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
-    0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
-    0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
-    0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
-    0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
-};
-
-#define PHD_ROTR32(x, n) (((x) >> (n)) | ((x) << (32 - (n))))
-
-static inline void phd_sha256_block(phd_sha256_t *c, const unsigned char *p)
-{
-    uint32_t w[64], a, b, d, e, f, g, h, cc, t1, t2;
-    int n;
-
-    for (n = 0; n < 16; n++)
-        w[n] = (uint32_t)p[n * 4] << 24 | (uint32_t)p[n * 4 + 1] << 16 | (uint32_t)p[n * 4 + 2] << 8 | p[n * 4 + 3];
-    for (n = 16; n < 64; n++)
-    {
-        uint32_t s0 = PHD_ROTR32(w[n - 15], 7) ^ PHD_ROTR32(w[n - 15], 18) ^ (w[n - 15] >> 3);
-        uint32_t s1 = PHD_ROTR32(w[n - 2], 17) ^ PHD_ROTR32(w[n - 2], 19) ^ (w[n - 2] >> 10);
-
-        w[n] = w[n - 16] + s0 + w[n - 7] + s1;
-    }
-    a = c->h[0]; b = c->h[1]; cc = c->h[2]; d = c->h[3];
-    e = c->h[4]; f = c->h[5]; g = c->h[6]; h = c->h[7];
-    for (n = 0; n < 64; n++)
-    {
-        t1 = h + (PHD_ROTR32(e, 6) ^ PHD_ROTR32(e, 11) ^ PHD_ROTR32(e, 25)) + ((e & f) ^ (~e & g)) + phd_sha256_k[n] + w[n];
-        t2 = (PHD_ROTR32(a, 2) ^ PHD_ROTR32(a, 13) ^ PHD_ROTR32(a, 22)) + ((a & b) ^ (a & cc) ^ (b & cc));
-        h = g; g = f; f = e; e = d + t1;
-        d = cc; cc = b; b = a; a = t1 + t2;
-    }
-    c->h[0] += a; c->h[1] += b; c->h[2] += cc; c->h[3] += d;
-    c->h[4] += e; c->h[5] += f; c->h[6] += g; c->h[7] += h;
-}
 
 static inline void phd_sha256_init(phd_sha256_t *c)
 {
-    static const uint32_t h0[8] = {
-        0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
-    };
-
-    memcpy(c->h, h0, sizeof(h0));
-    c->bytes = 0;
-    c->used = 0;
-    // only a filled block is ever hashed, but gcc -O3 cannot see that through the inlined update and calls the bytes
-    // past `used` uninitialised (-Wmaybe-uninitialized): zeroed, a consumer building with -Werror builds
-    memset(c->block, 0, sizeof(c->block));
+    c->ctx = EVP_MD_CTX_new();
+    c->ok = c->ctx && EVP_DigestInit_ex(c->ctx, EVP_sha256(), NULL) == 1;
 }
 
 static inline void phd_sha256_update(phd_sha256_t *c, const void *data, size_t size)
 {
-    const unsigned char *p = (const unsigned char *)data;
-
-    c->bytes += size;
-    while (size)
-    {
-        size_t take = 64 - c->used < size ? 64 - c->used : size;
-
-        memcpy(c->block + c->used, p, take);
-        c->used += take;
-        p += take;
-        size -= take;
-        if (c->used == 64)
-        {
-            phd_sha256_block(c, c->block);
-            c->used = 0;
-        }
-    }
+    c->ok = c->ok && EVP_DigestUpdate(c->ctx, data, size) == 1;
 }
 
-/* the digest as 64 lowercase hex digits and a NUL */
-static inline void phd_sha256_final(phd_sha256_t *c, char hex[PHD_SHA256_HEX_LEN + 1])
+/* a digest given up before its end: its context freed */
+static inline void phd_sha256_abandon(phd_sha256_t *c)
+{
+    EVP_MD_CTX_free(c->ctx);
+    c->ctx = NULL;
+    c->ok = 0;
+}
+
+/* the digest as 64 lowercase hex digits and a NUL: 0, or -1 (and an empty string) when libcrypto failed */
+static inline int phd_sha256_final(phd_sha256_t *c, char hex[PHD_SHA256_HEX_LEN + 1])
 {
     static const char digits[] = "0123456789abcdef";
-    uint64_t bits = c->bytes * 8;
-    unsigned char pad = 0x80, len[8];
-    int n;
+    unsigned char md[EVP_MAX_MD_SIZE];
+    unsigned int got = 0, n;
 
-    phd_sha256_update(c, &pad, 1);
-    pad = 0;
-    while (c->used != 56)
-        phd_sha256_update(c, &pad, 1);
-    for (n = 0; n < 8; n++)
-        len[n] = (unsigned char)(bits >> (56 - 8 * n));
-    phd_sha256_update(c, len, 8);
+    c->ok = c->ok && EVP_DigestFinal_ex(c->ctx, md, &got) == 1 && got == 32;
+    EVP_MD_CTX_free(c->ctx);
+    c->ctx = NULL;
+    hex[0] = '\0';
+    if (!c->ok)
+        return -1;
     for (n = 0; n < 32; n++)
     {
-        unsigned char byte = (unsigned char)(c->h[n / 4] >> (24 - 8 * (n % 4)));
-
-        hex[n * 2] = digits[byte >> 4];
-        hex[n * 2 + 1] = digits[byte & 15];
+        hex[n * 2] = digits[md[n] >> 4];
+        hex[n * 2 + 1] = digits[md[n] & 15];
     }
     hex[PHD_SHA256_HEX_LEN] = '\0';
+    return 0;
 }
 
-static inline void phd_sha256_hex(const void *data, size_t size, char hex[PHD_SHA256_HEX_LEN + 1])
+static inline int phd_sha256_hex(const void *data, size_t size, char hex[PHD_SHA256_HEX_LEN + 1])
 {
     phd_sha256_t c;
 
     phd_sha256_init(&c);
     phd_sha256_update(&c, data, size);
-    phd_sha256_final(&c, hex);
+    return phd_sha256_final(&c, hex);
 }
 
 /* the SHA-256 of everything an open descriptor holds, read from its start; 0, or -1 when it cannot be read */
@@ -176,11 +118,13 @@ static inline int phd_pin_fd_digest(int fd, char hex[PHD_SHA256_HEX_LEN + 1])
     while ((got = read(fd, buffer, sizeof(buffer))) != 0)
     {
         if (got < 0)
+        {
+            phd_sha256_abandon(&c);
             return -1;
+        }
         phd_sha256_update(&c, buffer, (size_t)got);
     }
-    phd_sha256_final(&c, hex);
-    return 0;
+    return phd_sha256_final(&c, hex);
 }
 
 /* whether s is a digest as a pin writes it: 64 lowercase hex digits */
@@ -419,7 +363,7 @@ static inline void phd_layout_hash_sink(void *ctx, const char *data, size_t size
     phd_sha256_update((phd_sha256_t *)ctx, data, size);
 }
 
-/* the fingerprint of a CLAP layout, 64 hex digits; 0, or -1 when memory runs out */
+/* the fingerprint of a CLAP layout, 64 hex digits; 0, or -1 when memory runs out or libcrypto fails */
 static inline int phd_layout_clap_digest(const phd_layout_clap_param_t *params, size_t count,
                                          char hex[PHD_SHA256_HEX_LEN + 1])
 {
@@ -427,12 +371,14 @@ static inline int phd_layout_clap_digest(const phd_layout_clap_param_t *params, 
 
     phd_sha256_init(&c);
     if (phd_layout_clap_write(params, count, phd_layout_hash_sink, &c) != 0)
+    {
+        phd_sha256_abandon(&c);
         return -1;
-    phd_sha256_final(&c, hex);
-    return 0;
+    }
+    return phd_sha256_final(&c, hex);
 }
 
-/* the fingerprint of an LV2 layout, 64 hex digits; 0, or -1 when memory runs out */
+/* the fingerprint of an LV2 layout, 64 hex digits; 0, or -1 when memory runs out or libcrypto fails */
 static inline int phd_layout_lv2_digest(const phd_layout_lv2_port_t *ports, size_t count,
                                         char hex[PHD_SHA256_HEX_LEN + 1])
 {
@@ -440,9 +386,11 @@ static inline int phd_layout_lv2_digest(const phd_layout_lv2_port_t *ports, size
 
     phd_sha256_init(&c);
     if (phd_layout_lv2_write(ports, count, phd_layout_hash_sink, &c) != 0)
+    {
+        phd_sha256_abandon(&c);
         return -1;
-    phd_sha256_final(&c, hex);
-    return 0;
+    }
+    return phd_sha256_final(&c, hex);
 }
 
 #endif
