@@ -1827,6 +1827,13 @@ void sup_init(const conf_t *conf)
         snprintf(g_policy[f], sizeof(g_policy[f]), PHD_PLACE_OWN);
         proc_env_clear(&g_env[f]);
     }
+    /* a worker program that is not installed is said once, at the start: its row answers its adds no-backend, and the
+     * daemon and every other row run as they would with it (mod-host above all, which only an lv2_worker that names it
+     * or a benchmark asks for) */
+    for (f = 0; f < formats_count(); f++)
+        if (!proc_have_binary(bin_of(f)))
+            fprintf(stderr, "plugin-hostd: %s is not installed: the %s row answers its adds %d (%s)\n", bin_of(f),
+                    format_at(f)->name, OMX_REPLY_PLUGIN_HOSTD_NO_BACKEND_RESP, OMX_REPLY_PLUGIN_HOSTD_NO_BACKEND);
 }
 
 const char *sup_root(void)
