@@ -25,6 +25,7 @@
 
 #include <host-errors.h>
 #include <mod-host.h>
+#include <protocol.h>
 #include <socket.h>
 
 #include "descriptors.h"
@@ -153,6 +154,18 @@ static char *handle(char *line, char **tok, int ntok)
 {
     const char *verb = tok[0];
     char *reply_text;
+
+    /* hello and request tags are the protocol library's (plugin-hostd-protocol, doc/protocol.md, Sessions). The daemon
+     * grants no extension: it refuses hello, which no profile requires of it, and answers a line that starts with "@"
+     * as mod-host answers a word that is no verb. Neither reaches a worker, which would answer for itself, and its own
+     * session with the daemon would be granted what the controller's is not. */
+    if (!strcmp(verb, OMX_VERB_HELLO))
+        return sup_resp(ERR_INVALID_OPERATION);
+    if (verb[0] == '@')
+        return strdup(MESSAGE_COMMAND_NOT_FOUND);
+    /* the bulk verbs: several parameters of one instance, which the worker that holds it answers alone */
+    if (!strcmp(verb, OMX_VERB_PARAM_GET_MANY) || !strcmp(verb, OMX_VERB_PARAM_SET_MANY))
+        return ntok > 2 ? sup_call(atoi(tok[1]), line) : sup_resp(ERR_INVALID_OPERATION);
 
     if (!strcmp(verb, PHD_VERB_ADD))
     {

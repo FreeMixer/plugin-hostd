@@ -48,6 +48,103 @@ def a_word_past_the_grammar_of_a_daemon_verb_is_refused():
         d.close()
 
 
+def worker_answers(lines):
+    """what a fake worker, built on the protocol library, answers each line on its own socket, no daemon between"""
+    import socket
+    port, _ = harness.port_pair()
+    w = subprocess.Popen([FAKE, "-n", "-p", str(port)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        c = None
+        end = time.monotonic() + 10
+        while c is None:
+            try:
+                c = socket.create_connection(("127.0.0.1", port), timeout=5)
+            except OSError:
+                if time.monotonic() > end:
+                    raise Fail("the fake worker never listened on %d" % port)
+                time.sleep(0.05)
+        out = []
+        for line in lines:
+            c.sendall(line.encode() + b"\0")
+            buf = b""
+            while not buf.endswith(b"\0"):
+                got = c.recv(4096)
+                if not got:
+                    raise Fail("the fake worker closed on " + line)
+                buf += got
+            out.append(buf[:-1].decode())
+        c.close()
+        return out
+    finally:
+        w.kill()
+        w.wait()
+
+
+@test
+def hello_and_a_tagged_line_are_answered_by_the_daemon_and_never_reach_a_worker():
+    # the control: a worker built on the protocol library answers hello and reads a tag once granted
+    got = worker_answers(["hello 1 tags", "@t1 quit_not_a_verb"])
+    check(got == ["resp 0 1 tags", "@t1 not found"], "the fake worker answers hello as the library does: %r" % got)
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(env={"FAKE_LOG": log})
+    try:
+        d.expect("add fake:a 0", "resp 0")
+        # the daemon grants nothing: hello is refused, and a line that starts with "@" names no verb
+        d.expect("hello 1 tags errors", "resp -902")
+        d.expect("hello 1", "resp -902")
+        d.expect("@t1 param_get 0 gain", "not found")
+        d.expect("@t1", "not found")
+        d.expect("param_set 0 gain 0.2500", "resp 0")
+        d.expect("param_get 0 gain", "resp 0 0.2500")
+        # param_get_many is a verb like any other: the worker that holds the instance answers it
+        d.expect("bypass 0 1", "resp 0")
+        d.expect("param_get_many 0 gain :bypass", "resp 0 0.2500 1")
+        d.expect("param_get_many 0 gain nope", "resp -103")
+        d.expect("param_get_many 7 gain", "resp -3")
+        d.expect("param_get_many", "resp -902")
+        with open(log) as f:
+            sent = [l.split(" ", 1)[1] for l in f.read().splitlines()]
+        check("param_get 0 gain" in sent and "param_get_many 0 gain :bypass" in sent,
+              "the log holds what the worker was sent: %r" % sent)
+        check(not [l for l in sent if l.startswith("hello") or l.startswith("@")],
+              "no worker is sent hello or a tagged line: %r" % sent)
+    finally:
+        d.close()
+
+
+@test
+def the_bulk_verbs_reach_only_the_worker_that_holds_the_instance_and_a_set_is_replayed():
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(env={"FAKE_LOG": log})
+    try:
+        d.expect("add fake:a 0", "resp 0")
+        d.expect("add fake:b 1", "resp 1")
+        ka, wa = d.holder(0)
+        kb, wb = d.holder(1)
+        check(wa["pid"] != wb["pid"], "two workers, one instance each")
+        d.expect("param_set_many 1 gain 0.5000 tone 0.2500", "resp 0")
+        d.expect("param_get_many 1 gain tone", "resp 0 0.5000 0.2500")
+        # all or nothing: a refused middle pair sets nothing
+        d.expect("param_set_many 1 gain 0.9000 nope 1 tone 0.1000", "resp -103 2")
+        d.expect("param_get_many 1 gain tone", "resp 0 0.5000 0.2500")
+        d.expect("param_set_many 7 gain 0.5000", "resp -3")
+        d.expect("param_set_many", "resp -902")
+        with open(log) as f:
+            sent = [l.split(" ", 1) for l in f.read().splitlines()]
+        bulk = [(int(pid), l) for pid, l in sent if l.startswith("param_get_many") or l.startswith("param_set_many")]
+        # the line for instance 7, which no worker holds, is the daemon's to refuse
+        check(len(bulk) == 4, "the worker is sent each bulk line once: %r" % bulk)
+        check(all(pid == wb["pid"] for pid, _ in bulk),
+              "only the worker that holds instance 1 (%d) is sent the bulk lines: %r" % (wb["pid"], bulk))
+        # what param_set_many set is replayed into the new process when the worker dies
+        mark = d.mark()
+        os.kill(wb["pid"], signal.SIGKILL)
+        d.wait_event("instance_restored 1 ", since=mark)
+        d.expect("param_get_many 1 gain tone", "resp 0 0.5000 0.2500")
+    finally:
+        d.close()
+
+
 @test
 def the_whitespace_that_ends_a_command_is_not_part_of_its_last_word():
     log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
