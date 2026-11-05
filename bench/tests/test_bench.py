@@ -5,6 +5,7 @@ import copy
 import importlib.util
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -856,7 +857,7 @@ class JackPriority(unittest.TestCase):
 
     def test_the_runner_starts_its_server_on_the_card_it_was_given_and_on_the_dummy_driver_otherwise(self):
         for alsa, driver in ((None, ["-d", "dummy"]), ("hw:1", ["-d", "alsa", "-d", "hw:1"])):
-            fake = types.SimpleNamespace(args=types.SimpleNamespace(jack_priority=70, alsa=alsa), server="bench9")
+            fake = types.SimpleNamespace(args=types.SimpleNamespace(jack_priority=70, alsa=alsa, periods=None), server="bench9")
             argv = bench.Runner.jack_argv(fake, 96000, 128)
             self.assertEqual(argv, ["jackd", "-P", "70", "-n", "bench9"] + driver + ["-r", "96000", "-p", "128"])
 
@@ -882,10 +883,49 @@ class JackPriority(unittest.TestCase):
         why = bench.priority_refusal(bench.rt_threads(root), 70)
         self.assertRegex(why, r"jackd \(pid 707\) runs at real-time priority 80, above the bench's 70")
 
-    def test_irq_threads_at_or_above_the_bench_refuse_the_run(self):
-        root = self.proc([(99, 99, "irq/161-mmc0", 1, 50)])
-        self.assertRegex(bench.priority_refusal(bench.rt_threads(root), 50), r"irq/161-mmc0 .* 50")
-        self.assertIsNone(bench.priority_refusal(bench.rt_threads(root), 70))
+    def test_irq_threads_at_or_above_the_bench_do_not_refuse_the_run_they_are_warned_of(self):
+        root = self.proc([(99, 99, "irq/161-mmc0", 1, 50), (98, 98, "irq/40-vc4", 1, 50)])
+        threads = bench.rt_threads(root)
+        self.assertIsNone(bench.priority_refusal(threads, 10))
+        warned = bench.priority_warnings(threads, 10)
+        self.assertEqual(len(warned), 2)
+        self.assertTrue(any(re.search(r"irq/161-mmc0 .* 50, at or above the bench's 10", w) for w in warned))
+        self.assertEqual(bench.priority_warnings(threads, 70), [])
+
+    def test_a_foreign_jackd_above_the_bench_still_refuses_at_a_low_priority(self):
+        root = self.proc([(707, 708, "jackd", 1, 70), (99, 99, "irq/161-mmc0", 1, 50)])
+        self.assertRegex(bench.priority_refusal(bench.rt_threads(root), 10), r"jackd \(pid 707\)")
+
+    def test_periods_are_the_alsa_drivers_n_and_the_dummy_driver_has_none(self):
+        argv = bench.jackd_argv("b1", 48000, 256, 70, alsa="hw:2", periods=3)
+        self.assertEqual(argv[5:], ["-d", "alsa", "-d", "hw:2", "-n", "3", "-r", "48000", "-p", "256"])
+        self.assertNotIn("-n", bench.jackd_argv("b1", 48000, 256, 70, alsa="hw:2")[5:])
+        with self.assertRaises(ValueError):
+            bench.jackd_argv("b1", 48000, 256, 70, periods=3)
+        fake = types.SimpleNamespace(args=types.SimpleNamespace(jack_priority=70, alsa="hw:2", periods=3), server="b9")
+        self.assertEqual(bench.Runner.jack_argv(fake, 48000, 256)[5:9], ["-d", "alsa", "-d", "hw:2"])
+        self.assertEqual(bench.Runner.jack_argv(fake, 48000, 256)[9:11], ["-n", "3"])
+
+    def test_the_document_records_the_driver_the_priority_the_periods_and_what_was_warned(self):
+        def jack(**kw):
+            args = types.SimpleNamespace(jack_priority=10, alsa=None, periods=None, priority_warnings=[])
+            args.__dict__.update(kw)
+            return bench.Runner.jack_doc(types.SimpleNamespace(args=args))
+        self.assertEqual(jack(), {"driver": "dummy", "priority": 10})
+        self.assertEqual(jack(alsa="hw:2", periods=3), {"driver": "alsa", "priority": 10, "device": "hw:2", "periods": 3})
+        self.assertEqual(jack(alsa="hw:2")["periods"], 2)
+        self.assertEqual(jack(priority_warnings=["x"])["warnings"], ["x"])
+        doc = example()
+        doc["jack"] = jack(alsa="hw:2", periods=3, priority_warnings=["the IRQ thread irq/1-x (pid 1) runs at 50"])
+        self.assertEqual(validate(doc)[0], 0, validate(doc)[1])
+        doc["jack"]["periods"] = 1
+        self.assertNotEqual(validate(doc)[0], 0)
+
+    def test_the_command_line_refuses_periods_with_the_dummy_driver(self):
+        r = subprocess.run([sys.executable, os.path.join(BENCH, "lib", "bench.py"), "--out", "/nonexistent", "--class", "ci",
+                            "--periods", "3"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("--periods needs --alsa", r.stdout)
 
     def test_a_machine_with_nothing_above_runs(self):
         root = self.proc([(707, 708, "jackd", 1, 60), (5, 5, "migration/0", 1, 99)])

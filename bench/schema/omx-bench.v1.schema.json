@@ -35,6 +35,18 @@
         "jack": { "type": ["string", "null"] }
       }
     },
+    "jack": {
+      "type": "object",
+      "required": ["driver", "priority"],
+      "additionalProperties": false,
+      "properties": {
+        "driver": { "enum": ["dummy", "alsa"] },
+        "device": { "type": "string", "minLength": 1 },
+        "priority": { "type": "integer", "minimum": 1 },
+        "periods": { "type": "integer", "minimum": 2 },
+        "warnings": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    },
     "scenarios": {
       "type": "array",
       "minItems": 1,
