@@ -8,6 +8,7 @@
   "properties": {
     "schema": { "const": "omx-bench/1" },
     "id": { "type": "string", "pattern": "^(rpi5|desk|ci)-[0-9]{8}-[0-9]+$" },
+    "stress_guard": { "type": "string", "minLength": 1 },
     "machine": {
       "type": "object",
       "required": ["class", "model", "cpu", "cores", "ram_mb", "os", "kernel", "governor"],
@@ -74,6 +75,20 @@
           "processes": { "type": "integer", "minimum": 0 },
           "rss_mb_total": { "type": "number", "minimum": 0 },
           "pss_mb_total": { "type": "number", "minimum": 0 },
+          "process_set": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["name", "pid", "rss_mb", "pss_mb"],
+              "additionalProperties": false,
+              "properties": {
+                "name": { "type": "string", "minLength": 1 },
+                "pid": { "type": "integer", "minimum": 1 },
+                "rss_mb": { "type": "number", "minimum": 0 },
+                "pss_mb": { "type": ["number", "null"], "minimum": 0 }
+              }
+            }
+          },
           "cpu_pct": { "type": "number", "minimum": 0 },
           "ctx_switches": { "type": "integer", "minimum": 0 },
           "ctx_involuntary": { "type": "integer", "minimum": 0 },
