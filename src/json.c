@@ -122,283 +122,141 @@ void sb_str(sb_t *b, const char *s)
     sb_put(b, "\"", 1);
 }
 
-/* ---------------------------------------------------------------- a small JSON reader for the child's line */
-
-static jnode_t *jparse_value(const char **p, int depth);
-
-static void jskip(const char **p)
-{
-    while (**p == ' ' || **p == '\t' || **p == '\n' || **p == '\r')
-        (*p)++;
-}
-
-static char *jparse_string(const char **p)
-{
-    sb_t b = { .keep_going = 1 };
-
-    (*p)++;
-    while (**p && **p != '"')
-    {
-        if (**p == '\\' && (*p)[1])
-        {
-            char c = (*p)[1];
-
-            (*p) += 2;
-            if (c == 'n')
-                sb_put(&b, "\n", 1);
-            else if (c == 't')
-                sb_put(&b, "\t", 1);
-            else if (c == 'u')
-            {
-                unsigned v = 0;
-                int k;
-
-                for (k = 0; k < 4 && isxdigit((unsigned char)**p); k++, (*p)++)
-                    v = v * 16 + (unsigned)(isdigit((unsigned char)**p) ? **p - '0' : (tolower((unsigned char)**p) - 'a' + 10));
-                if (v < 0x80)
-                    sb_put(&b, (const char *)&(char){ (char)v }, 1);
-                else
-                    sb_put(&b, "?", 1);
-            }
-            else
-                sb_put(&b, &c, 1);
-        }
-        else
-        {
-            sb_put(&b, *p, 1);
-            (*p)++;
-        }
-    }
-    if (**p != '"')
-    {
-        free(b.s);
-        return NULL;
-    }
-    (*p)++;
-    if (b.failed)
-        return NULL;
-    return b.s ? b.s : strdup("");
-}
-
-/* an array of a node holds `n` elements from here on, or stays as it was and the answer is 0 */
-#define jgrow(array, n, size) jgrow_((void **)(array), (n), (size))
-static int jgrow_(void **array, size_t n, size_t size)
-{
-    void *grown = realloc(*array, n * size);
-
-    if (grown == NULL)
-        return 0;
-    *array = grown;
-    return 1;
-}
-
-static jnode_t *jnew(jtype_t t)
-{
-    jnode_t *n = calloc(1, sizeof(*n));
-
-    if (n)
-        n->type = t;
-    return n;
-}
-
-void jfree(jnode_t *n)
-{
-    size_t i;
-
-    if (n == NULL)
-        return;
-    for (i = 0; i < n->n; i++)
-    {
-        jfree(n->kid[i]);
-        if (n->key)
-            free(n->key[i]);
-    }
-    free(n->kid);
-    free(n->key);
-    free(n->str);
-    free(n);
-}
-
-static jnode_t *jparse_bare(const char **p, int depth);
-
-static jnode_t *jparse_value(const char **p, int depth)
-{
-    const char *at;
-    jnode_t *n;
-
-    if (depth > 32)
-        return NULL;
-    jskip(p);
-    at = *p;
-    if ((n = jparse_bare(p, depth)) != NULL)
-    {
-        n->at = at;
-        n->len = (size_t)(*p - at);
-    }
-    return n;
-}
-
-static jnode_t *jparse_bare(const char **p, int depth)
-{
-    jnode_t *n;
-
-    if (**p == '{')
-    {
-        n = jnew(J_OBJ);
-        if (n == NULL)
-            return NULL;
-        (*p)++;
-        jskip(p);
-        if (**p == '}')
-        {
-            (*p)++;
-            return n;
-        }
-        for (;;)
-        {
-            char *key;
-            jnode_t *v;
-
-            jskip(p);
-            if (**p != '"' || (key = jparse_string(p)) == NULL)
-                return NULL;
-            jskip(p);
-            if (*(*p)++ != ':' || (v = jparse_value(p, depth + 1)) == NULL)
-                return NULL;
-            if (!jgrow(&n->kid, n->n + 1, sizeof(*n->kid)) || !jgrow(&n->key, n->n + 1, sizeof(*n->key)))
-                return NULL;
-            n->key[n->n] = key;
-            n->kid[n->n++] = v;
-            jskip(p);
-            if (**p == ',')
-            {
-                (*p)++;
-                continue;
-            }
-            if (**p == '}')
-            {
-                (*p)++;
-                return n;
-            }
-            return NULL;
-        }
-    }
-    if (**p == '[')
-    {
-        n = jnew(J_ARR);
-        if (n == NULL)
-            return NULL;
-        (*p)++;
-        jskip(p);
-        if (**p == ']')
-        {
-            (*p)++;
-            return n;
-        }
-        for (;;)
-        {
-            jnode_t *v = jparse_value(p, depth + 1);
-
-            if (v == NULL)
-                return NULL;
-            if (!jgrow(&n->kid, n->n + 1, sizeof(*n->kid)))
-                return NULL;
-            n->kid[n->n++] = v;
-            jskip(p);
-            if (**p == ',')
-            {
-                (*p)++;
-                continue;
-            }
-            if (**p == ']')
-            {
-                (*p)++;
-                return n;
-            }
-            return NULL;
-        }
-    }
-    if (**p == '"')
-    {
-        n = jnew(J_STR);
-        if (n == NULL)
-            return NULL;
-        n->str = jparse_string(p);
-        return n->str ? n : NULL;
-    }
-    if (!strncmp(*p, "true", 4) || !strncmp(*p, "false", 5))
-    {
-        n = jnew(J_BOOL);
-        if (n == NULL)
-            return NULL;
-        n->boolean = **p == 't';
-        *p += n->boolean ? 4 : 5;
-        return n;
-    }
-    if (!strncmp(*p, "null", 4))
-    {
-        *p += 4;
-        return jnew(J_NULL);
-    }
-    {
-        char *end;
-        double v = strtod(*p, &end);
-
-        if (end == *p)
-            return NULL;
-        n = jnew(J_NUM);
-        if (n == NULL)
-            return NULL;
-        n->num = v;
-        *p = end;
-        return n;
-    }
-}
+/* ---------------------------------------------------------------- reading: cJSON */
 
 /* the whole text is one value */
-jnode_t *jparse(const char *text)
+cJSON *jparse(const char *text)
 {
-    const char *p = text;
-    jnode_t *n = jparse_value(&p, 0);
-
-    if (n == NULL)
-        return NULL;
-    jskip(&p);
-    return *p == '\0' ? n : NULL;
+    return cJSON_ParseWithOpts(text, NULL, 1);
 }
 
-jnode_t *jget(const jnode_t *o, const char *key)
+cJSON *jget(const cJSON *o, const char *key)
 {
-    size_t i;
-
-    if (o == NULL || o->type != J_OBJ)
-        return NULL;
-    for (i = 0; i < o->n; i++)
-        if (!strcmp(o->key[i], key))
-            return o->kid[i];
-    return NULL;
+    return cJSON_IsObject(o) ? cJSON_GetObjectItemCaseSensitive(o, key) : NULL;
 }
 
-const char *jstr(const jnode_t *o, const char *key)
+const char *jstr(const cJSON *o, const char *key)
 {
-    jnode_t *v = jget(o, key);
+    cJSON *v = jget(o, key);
 
-    return v && v->type == J_STR ? v->str : NULL;
+    return cJSON_IsString(v) ? v->valuestring : NULL;
 }
 
-int jnum(const jnode_t *o, const char *key, double *out)
+int jnum(const cJSON *o, const char *key, double *out)
 {
-    jnode_t *v = jget(o, key);
+    cJSON *v = jget(o, key);
 
-    if (v == NULL || v->type != J_NUM)
+    if (!cJSON_IsNumber(v))
         return 0;
-    *out = v->num;
+    *out = v->valuedouble;
     return 1;
 }
 
-int jbool(const jnode_t *o, const char *key, int def)
+int jbool(const cJSON *o, const char *key, int def)
 {
-    jnode_t *v = jget(o, key);
+    cJSON *v = jget(o, key);
 
-    return v && v->type == J_BOOL ? v->boolean : def;
+    return cJSON_IsBool(v) ? cJSON_IsTrue(v) : def;
+}
+
+size_t jcount(const cJSON *o)
+{
+    return cJSON_IsArray(o) || cJSON_IsObject(o) ? (size_t)cJSON_GetArraySize(o) : 0;
+}
+
+cJSON *jkid(const cJSON *o, size_t k)
+{
+    return cJSON_IsArray(o) || cJSON_IsObject(o) ? cJSON_GetArrayItem(o, (int)k) : NULL;
+}
+
+const char *jkey(const cJSON *o, size_t k)
+{
+    cJSON *v = jkid(o, k);
+
+    return v ? v->string : NULL;
+}
+
+/* ---------------------------------------------------------------- the bytes of a value, as written */
+
+static const char *raw_skip_space(const char *p)
+{
+    while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r')
+        p++;
+    return p;
+}
+
+/* past the string that starts at p (a quote) */
+static const char *raw_string_end(const char *p)
+{
+    for (p++; *p && *p != '"'; p++)
+        if (*p == '\\' && p[1])
+            p++;
+    return *p ? p + 1 : p;
+}
+
+/* past the value that starts at p; the text is valid JSON, cJSON has read it */
+static const char *raw_value_end(const char *p)
+{
+    int depth = 0;
+
+    p = raw_skip_space(p);
+    if (*p == '"')
+        return raw_string_end(p);
+    if (*p != '{' && *p != '[')
+    {
+        while (*p && !strchr(" \t\n\r,]}", *p))
+            p++;
+        return p;
+    }
+    for (; *p; p++)
+    {
+        if (*p == '"')
+            p = raw_string_end(p) - 1;
+        else if (*p == '{' || *p == '[')
+            depth++;
+        else if ((*p == '}' || *p == ']') && --depth == 0)
+            return p + 1;
+    }
+    return p;
+}
+
+const char *jraw(const char *text, const jstep_t *path, size_t steps, size_t *len)
+{
+    const char *p = raw_skip_space(text);
+    size_t s;
+
+    for (s = 0; s < steps; s++)
+    {
+        size_t at = 0;
+        char open = path[s].key ? '{' : '[';
+
+        if (*p != open)
+            return NULL;
+        p = raw_skip_space(p + 1);
+        for (;;)
+        {
+            int match;
+
+            if (*p == '\0' || *p == '}' || *p == ']')
+                return NULL;
+            if (path[s].key)
+            {
+                const char *end = raw_string_end(p);
+
+                match = (size_t)(end - p) == strlen(path[s].key) + 2 && !strncmp(p + 1, path[s].key, strlen(path[s].key));
+                p = raw_skip_space(end);
+                p = raw_skip_space(p + 1); /* the colon */
+            }
+            else
+                match = at++ == path[s].index;
+            if (match)
+                break;
+            p = raw_skip_space(raw_value_end(p));
+            if (*p == ',')
+                p = raw_skip_space(p + 1);
+        }
+    }
+    p = raw_skip_space(p);
+    *len = (size_t)(raw_value_end(p) - p);
+    return p;
 }
