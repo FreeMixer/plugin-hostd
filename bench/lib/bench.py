@@ -11,6 +11,7 @@ import re
 import shutil
 import signal
 import socket
+import shlex
 import statistics
 import subprocess
 import sys
@@ -235,6 +236,30 @@ def samples(pids):
     return out
 
 
+def process_name(pid):
+    """the process's comm, or `?` once it is gone"""
+    try:
+        with open("/proc/%d/comm" % pid) as f:
+            return f.read().strip() or "?"
+    except OSError:
+        return "?"
+
+
+def process_set(pids, sampled=None):
+    """[{name, pid, rss_mb, pss_mb}] of each process, from `sampled` (pid -> proc_sample) or sampled now: what each
+    worker of a grouped run and each process of an individual one holds, beside the totals the row sums. Sorted by
+    name then pid so two runs of the same shape read the same way"""
+    sampled = sampled if sampled is not None else samples(pids)
+    out = []
+    for pid in pids:
+        if pid not in sampled:
+            continue
+        m = sampled[pid]
+        out.append({"name": process_name(pid), "pid": pid, "rss_mb": round(m["rss"] / 1024, 1),
+                    "pss_mb": None if m["pss"] is None else round(m["pss"] / 1024, 1)})
+    return sorted(out, key=lambda e: (e["name"], e["pid"]))
+
+
 # ---------------------------------------------------------------- repeats
 
 MEASURED = ("dsp_load_avg", "dsp_load_max", "rss_mb", "add_ms", "recover_ms", "processes", "rss_mb_total",
@@ -269,6 +294,12 @@ def aggregate(runs, wanted=None):
         if key != "samples":
             spread[key] = [min(vals), max(vals)]
     row["spread"] = spread
+    # the per-process set is one run's, the one whose memory total the row carries (the first of them)
+    if "process_set" in row and "rss_mb_total" in row:
+        for r in runs:
+            if r.get("rss_mb_total") == row["rss_mb_total"] and "process_set" in r:
+                row["process_set"] = r["process_set"]
+                break
     notes = list(dict.fromkeys(r["note"] for r in runs if r["note"]))
     row["note"] = "; ".join(notes)
     return row
@@ -293,11 +324,18 @@ def stress_profile(cores):
     return "busy%d+mem%d" % (len(cores), STRESS_MEM_MB)
 
 
-def stress_argvs(cores, mem_mb=STRESS_MEM_MB):
-    """[(process name, argv)] of the load: a busy loop pinned to each core, and the memory touch"""
-    out = [("stress-busy-%d" % c, [sys.executable, "-I", "-c", BUSY_CODE, str(c)]) for c in cores]
-    out.append(("stress-mem", [sys.executable, "-I", "-c", MEM_CODE, str(mem_mb)]))
+def stress_argvs(cores, mem_mb=STRESS_MEM_MB, guard=()):
+    """[(process name, argv)] of the load: a busy loop pinned to each core, and the memory touch. `guard` is a command
+    prefix every load process runs under (`--stress-guard`): a guard that refuses runs none of them, and the row says so"""
+    out = [("stress-busy-%d" % c, list(guard) + [sys.executable, "-I", "-c", BUSY_CODE, str(c)]) for c in cores]
+    out.append(("stress-mem", list(guard) + [sys.executable, "-I", "-c", MEM_CODE, str(mem_mb)]))
     return out
+
+
+def stress_ended(procs):
+    """the names of the load processes that are no longer running: a guard that refused, or a loop that died. A row
+    measured beside them would say `stress` and carry none"""
+    return [p.name for p in procs if p.poll() is not None]
 
 
 # ---------------------------------------------------------------- JACK
@@ -1248,10 +1286,15 @@ class Runner:
                 mode = mode or ("individual" if hkey == "H4" else "shared-process")
             if mode:
                 r["mode"] = mode
+            loads_started = []
             if stress:
-                for name, argv in stress_argvs(cores):
-                    sources.append(self.procs.spawn(argv, name))
+                for name, argv in stress_argvs(cores, guard=self.args.stress_guard):
+                    loads_started.append(self.procs.spawn(argv, name))
+                sources.extend(loads_started)
             time.sleep(2.0 if stress else 1.0)
+            ended = stress_ended(loads_started)
+            if ended:
+                raise Failed("the stress load ended before the window: %s" % ", ".join(ended))
 
             pids = host.pids()
             before = samples(pids)
@@ -1284,6 +1327,7 @@ class Runner:
             r["rss_mb_total"] = round(rss, 1)
             if all(after[p]["pss"] is not None for p in common):
                 r["pss_mb_total"] = round(sum(after[p]["pss"] for p in common) / 1024, 1)
+            r["process_set"] = process_set(common, after)
             ticks = sum(after[p]["ticks"] - before[p]["ticks"] for p in common)
             r["cpu_pct"] = round(100.0 * ticks / CLK_TCK / span, 2)
             vol = sum(after[p]["vol"] - before[p]["vol"] for p in common)
@@ -1481,6 +1525,7 @@ class Runner:
     def run(self):
         self.governor_on()
         doc = {"schema": "omx-bench/1", "id": self.doc_id(), "machine": machine(self.args.cls),
+               **({"stress_guard": shlex.join(self.args.stress_guard)} if self.args.stress_guard else {}),
                "software": software(self.cat.files()), "jack": self.jack_doc(), "scenarios": []}
         rows = self.plan()
         for rate in self.args.rates:
@@ -1524,6 +1569,10 @@ def main():
     ap.add_argument("--frames", type=csv_ints, default=[128, 256])
     ap.add_argument("--scenarios", type=lambda t: [x for x in t.split(",") if x], default=None)
     ap.add_argument("--hosts", type=lambda t: [x for x in t.split(",") if x], default=list(HOSTS))
+    ap.add_argument("--stress-guard", type=shlex.split, default=[], metavar="CMD",
+                    help="run every stress process under this command prefix, for example a load guard "
+                         "(`load-guard.sh bench --`) that refuses synthetic load on a machine that runs a live "
+                         "console; a refused load fails the row instead of measuring beside nothing")
     ap.add_argument("--stress", choices=["none", "on", "both"], default="both",
                     help="the scenarios that declare a stress run without it, with it, or both")
     ap.add_argument("--repeats", type=int, default=3, help="runs of each row; the document holds the median and the "

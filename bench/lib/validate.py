@@ -127,6 +127,9 @@ def cross_rules(doc, errors):
             errors.append((["scenarios", n], "rule:stress-reports-xruns", "ran under stress and reports no xruns"))
         if "rss_mb_total" in s and "processes" not in s:
             errors.append((["scenarios", n], "rule:totals-name-processes", "has totals and no processes count"))
+        if "process_set" in s and len(s["process_set"]) != s.get("processes"):
+            errors.append((["scenarios", n], "rule:process-set-counts-processes",
+                           "process_set has %d entries and processes says %s" % (len(s["process_set"]), s.get("processes"))))
     m = re.match(r"^([a-z0-9]+)-", str(doc.get("id", "")))
     cls = doc.get("machine", {}).get("class") if isinstance(doc.get("machine"), dict) else None
     if m and cls and m.group(1) != cls:

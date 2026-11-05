@@ -318,6 +318,29 @@ class Stress(unittest.TestCase):
             p.kill()
             p.wait()
 
+    def test_a_guard_prefixes_every_load_process_and_none_without_one(self):
+        guard = ["/opt/guard.sh", "bench", "--"]
+        plain = bench.stress_argvs([0, 3])
+        guarded = bench.stress_argvs([0, 3], guard=guard)
+        self.assertEqual(len(guarded), len(plain))
+        for (name, argv), (gname, gargv) in zip(plain, guarded):
+            self.assertEqual(name, gname)
+            self.assertEqual(gargv[:3], guard)
+            self.assertEqual(gargv[3:], argv)
+        self.assertEqual(bench.stress_argvs([0, 3], guard=()), plain)
+
+    def test_a_load_process_that_ended_is_named_and_a_running_one_is_not(self):
+        class P:
+            def __init__(self, name, rc):
+                self.name, self.rc = name, rc
+
+            def poll(self):
+                return self.rc
+
+        self.assertEqual(bench.stress_ended([P("stress-busy-0", None), P("stress-mem", 1), P("stress-busy-1", 0)]),
+                         ["stress-mem", "stress-busy-1"])
+        self.assertEqual(bench.stress_ended([]), [])
+
     def test_the_memory_touch_holds_its_size(self):
         _, argv = bench.stress_argvs([0], mem_mb=64)[-1]
         p = subprocess.Popen(argv)
@@ -356,6 +379,68 @@ def run_row(**kw):
     row.update(kw)
     return row
 
+
+
+class ProcessSet(unittest.TestCase):
+    """the per-process memory beside the totals: this process is a real one, so its set is read from /proc"""
+
+    def test_this_process_is_named_with_its_memory(self):
+        me = os.getpid()
+        entries = bench.process_set([me])
+        self.assertEqual(len(entries), 1)
+        e = entries[0]
+        with open("/proc/%d/comm" % me) as f:
+            self.assertEqual(e["name"], f.read().strip())
+        self.assertEqual(e["pid"], me)
+        self.assertGreater(e["rss_mb"], 0)
+        self.assertTrue(e["pss_mb"] is None or 0 < e["pss_mb"] <= e["rss_mb"] + 0.1)
+        self.assertEqual(sorted(e), ["name", "pid", "pss_mb", "rss_mb"])
+
+    def test_a_process_that_is_gone_is_left_out_and_the_set_is_sorted(self):
+        me = os.getpid()
+        gone = 2 ** 22 - 1  # above pid_max on every default kernel
+        sampled = {me: bench.proc_sample(me), 1: {"ticks": 0, "rss": 2048, "pss": None, "vol": 0, "invol": 0}}
+        entries = bench.process_set([me, gone, 1], sampled)
+        self.assertEqual([e["pid"] for e in entries if e["pid"] == gone], [])
+        self.assertEqual(entries, sorted(entries, key=lambda e: (e["name"], e["pid"])))
+        one = [e for e in entries if e["pid"] == 1][0]
+        self.assertEqual((one["rss_mb"], one["pss_mb"]), (2.0, None))
+
+    def test_a_row_with_the_set_is_valid_and_a_set_that_does_not_count_the_processes_is_red(self):
+        doc = example()
+        row = first_ok(doc)
+        row["processes"] = 2
+        row["rss_mb_total"] = row["rss_mb"]
+        row["process_set"] = [{"name": "plugin-hostd", "pid": 10, "rss_mb": 3.5, "pss_mb": 2.0},
+                              {"name": "omx-clap-host", "pid": 11, "rss_mb": 20.0, "pss_mb": None}]
+        code, out = validate(doc)
+        self.assertEqual(code, 0, out)
+        row["process_set"].pop()
+        code, out = validate(doc)
+        self.assertEqual(code, 1)
+        self.assertIn("rule:process-set-counts-processes", out)
+        row["process_set"].append({"name": "omx-clap-host", "pid": 11, "rss_mb": -1, "pss_mb": None})
+        code, out = validate(doc)
+        self.assertEqual(code, 1, out)
+        doc["stress_guard"] = "/opt/guard.sh bench --"
+        row["process_set"][-1]["rss_mb"] = 20.0
+        code, out = validate(doc)
+        self.assertEqual(code, 0, out)
+        doc["stress_guard"] = ""
+        self.assertEqual(validate(doc)[0], 1)
+
+    def test_the_aggregate_carries_the_set_of_the_run_whose_total_it_holds(self):
+        base = first_ok(example())
+        runs = []
+        for n, total in enumerate((30.0, 10.0, 20.0)):
+            r = dict(base)
+            r["processes"] = 1
+            r["rss_mb_total"] = total
+            r["process_set"] = [{"name": "w", "pid": 100 + n, "rss_mb": total, "pss_mb": None}]
+            runs.append(r)
+        row = bench.aggregate(runs)
+        self.assertEqual(row["rss_mb_total"], 20.0)
+        self.assertEqual(row["process_set"][0]["pid"], 102)
 
 class Repeats(unittest.TestCase):
     def test_the_median_and_the_spread_of_three_runs(self):
