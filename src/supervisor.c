@@ -35,7 +35,7 @@
 
 #include <host-errors.h>
 #include <mod-host.h>
-#include <plugin-hostd/pin.h>
+#include <plugin-db/pin.h>
 #include <utils.h>
 
 /* mod-host's pseudo port of the host's own bypass, which param_info names no parameter */

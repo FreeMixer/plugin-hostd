@@ -6,7 +6,6 @@ PROG = plugin-hostd
 VERSION = $(shell sed -n "s/^Version: *//p" packaging/plugin-hostd.spec)
 FAKE = tests/fake-host
 FORMAT_TEST = tests/format-test
-PIN_TEST = tests/pin-test
 HISTORY_TEST = tests/history-test
 PROC_TEST = tests/proc-test
 CONF_TEST = tests/conf-test
@@ -50,7 +49,7 @@ MODHOST_JSON = $(PROTOCOL_DIR)/protocol/mod-host.json
 endif
 
 # The declared protocol is plugin-hostd-protocol's (0.3.0 or later, before 0.4), never this tree's: <plugin-hostd/protocol.h> and
-# the headers it includes are found through PROTOCOL_CFLAGS, after this tree's -Iinclude (which holds pin.h and the
+# the headers it includes are found through PROTOCOL_CFLAGS, after this tree's -Iinclude (which holds the
 # vocabulary of data/, and in a scratch tree of tests/sabotage.py a changed copy of the protocol headers); the JSON of
 # protocol.h (PROTOCOL_JSON) and mod-host's (MODHOST_JSON) are its files. make check-no-protocol-copy fails when a copy
 # of any of them is back in this tree.
@@ -81,10 +80,10 @@ else
    LDFLAGS += -s
 endif
 
-# pin.h's SHA-256 (the pins, the layout digests): OpenSSL's libcrypto
-CRYPTO_CFLAGS := $(shell $(PKG_CONFIG) --cflags libcrypto)
-CRYPTO_LIBS := $(shell $(PKG_CONFIG) --libs libcrypto)
-INCS = -Iinclude $(PROTOCOL_CFLAGS) $(CRYPTO_CFLAGS)
+# <plugin-db/pin.h>: the pins, the layout digests, and what its SHA-256 links (plugin-db.pc requires libcrypto)
+PIN_CFLAGS := $(shell $(PKG_CONFIG) --cflags plugin-db)
+PIN_LIBS := $(shell $(PKG_CONFIG) --libs plugin-db)
+INCS = -Iinclude $(PROTOCOL_CFLAGS) $(PIN_CFLAGS)
 
 LDFLAGS += -Wl,--no-undefined
 
@@ -108,15 +107,15 @@ $(REPLY_WORDS): $(dir $(PROTOCOL_JSON))plugin-hostd-protocol.json tools/reply-wo
 all: $(PROG) $(PROBE) $(PROBE_LOCK)
 
 $(PROG): $(OBJ) $(PROTOCOL_LIB)
-	$(CC) $(OBJ) $(PROTOCOL_LIBS) $(LDFLAGS) -pthread $(CRYPTO_LIBS) $(CJSON_LIBS) -lm -o $@
+	$(CC) $(OBJ) $(PROTOCOL_LIBS) $(LDFLAGS) -pthread $(PIN_LIBS) $(CJSON_LIBS) -lm -o $@
 
 # the probe runner: it loads no plugin and links nothing of the daemon or of the protocol library
 # describe reads the installed table of a format by default (docs/formats.md)
 PROBE_SRC = src/probe.c src/probe_cgroup.c src/json.c src/describe.c src/transforms.c src/machine.c
-$(PROBE): $(PROBE_SRC) src/probe_cgroup.h src/json.h src/describe.h src/transforms.h src/machine.h src/probe_lock.h $(PROTOCOL_HEADERS) $(RENDERED) include/plugin-hostd/pin.h
-	$(CC) -Iinclude $(PROTOCOL_CFLAGS) -Isrc $(CONTRACT_CFLAGS) $(CFLAGS) -D_GNU_SOURCE -DPROBE_VERSION='"$(VERSION)"' \
+$(PROBE): $(PROBE_SRC) src/probe_cgroup.h src/json.h src/describe.h src/transforms.h src/machine.h src/probe_lock.h $(PROTOCOL_HEADERS) $(RENDERED)
+	$(CC) -Iinclude $(PROTOCOL_CFLAGS) $(PIN_CFLAGS) -Isrc $(CONTRACT_CFLAGS) $(CFLAGS) -D_GNU_SOURCE -DPROBE_VERSION='"$(VERSION)"' \
 	  -DPROBE_CONTRACTDIR='"$(CONTRACTDIR)"' -DPROBE_CONTRACT_MAJOR='"$(CONTRACT_SCHEMA_MAJOR)"' \
-	  -DPROBE_LOCK_PRELOAD='"$(LIBEXECDIR)/plugin-hostd/probe-lock.so"' -o $@ $(PROBE_SRC) -lm $(CRYPTO_LIBS) $(CJSON_LIBS)
+	  -DPROBE_LOCK_PRELOAD='"$(LIBEXECDIR)/plugin-hostd/probe-lock.so"' -o $@ $(PROBE_SRC) -lm $(PIN_LIBS) $(CJSON_LIBS)
 
 # the probe's lock preload (src/probe_lock.c): preloaded into the measured child only, it locks the child's memory before
 # its main; installed where the runner looks for it by default, $(LIBEXECDIR)/plugin-hostd/probe-lock.so
@@ -129,7 +128,7 @@ $(PROTOCOL_LIB):
 endif
 
 # the declared protocol is compiled into every object
-$(OBJ): $(PROTOCOL_HEADERS) $(RENDERED) $(REPLY_WORDS) include/plugin-hostd/pin.h
+$(OBJ): $(PROTOCOL_HEADERS) $(RENDERED) $(REPLY_WORDS)
 
 # the host class of the history is the probe's machine class: the contract's band words; the JSON string literals of the
 # daemon and the probe are spelled by omx-contract's one writer, <omxcontract/omx_json_write.h> (check-no-json-escape-loop)
@@ -168,7 +167,6 @@ install_protocol:
 	install -d $(DESTDIR)$(DATADIR)/plugin-hostd/pins.d
 	install -d $(DESTDIR)$(INCLUDEDIR)/plugin-hostd
 	install -m 644 $(RENDERED) $(DESTDIR)$(INCLUDEDIR)/plugin-hostd/
-	install -m 644 include/plugin-hostd/pin.h $(DESTDIR)$(INCLUDEDIR)/plugin-hostd/pin.h
 	install -d $(DESTDIR)$(DATADIR)/pkgconfig
 	sed -e 's,@PREFIX@,$(PREFIX),g' -e 's,@VERSION@,$(VERSION),g' protocol/plugin-hostd.pc.in > $(DESTDIR)$(DATADIR)/pkgconfig/plugin-hostd.pc
 	chmod 644 $(DESTDIR)$(DATADIR)/pkgconfig/plugin-hostd.pc
@@ -269,7 +267,7 @@ FUZZ_BUILD     := build/fuzz
 FUZZ_HARNESSES := command reply
 FUZZ_SAN       := -fsanitize=address,undefined -fno-sanitize-recover=all
 FUZZ_CFLAGS    := -O1 -g -std=c11 -D_GNU_SOURCE -Wall -Wextra -Werror -fno-omit-frame-pointer
-FUZZ_INCS      := -Iinclude -Isrc -Ifuzz $(PROTOCOL_CFLAGS)
+FUZZ_INCS      := -Iinclude -Isrc -Ifuzz $(PROTOCOL_CFLAGS) $(PIN_CFLAGS)
 # what each harness is built from beside its own file: the command harness links the parser and the recorder, the
 # reply harness includes src/relay.c itself
 FUZZ_SRC_command := src/verbs.c src/session.c src/pin_words.c fuzz/recorder.c
@@ -278,7 +276,7 @@ FUZZ_DEPS        := src/pin_words.c fuzz/fuzz.h fuzz/syntax.h fuzz/recorder.h sr
 
 $(FUZZ_BUILD)/fuzz_%: fuzz/fuzz_%.c $(FUZZ_DEPS) $(FUZZ_SRC_command)
 	@mkdir -p $(dir $@)
-	$(FUZZ_CC) $(FUZZ_CFLAGS) $(FUZZ_SAN) -fsanitize=fuzzer $(FUZZ_INCS) $< $(FUZZ_SRC_$*) -pthread -o $@ $(CRYPTO_LIBS)
+	$(FUZZ_CC) $(FUZZ_CFLAGS) $(FUZZ_SAN) -fsanitize=fuzzer $(FUZZ_INCS) $< $(FUZZ_SRC_$*) -pthread -o $@ $(PIN_LIBS)
 
 fuzz: $(FUZZ_HARNESSES:%=$(FUZZ_BUILD)/fuzz_%)
 
@@ -302,7 +300,7 @@ LLVM_PROFDATA  ?= llvm-profdata
 
 $(FUZZ_COV_BUILD)/fuzz_%: fuzz/fuzz_%.c $(FUZZ_DEPS) $(FUZZ_SRC_command)
 	@mkdir -p $(dir $@)
-	$(FUZZ_CC) $(FUZZ_COV_FLAGS) -fsanitize=fuzzer $(FUZZ_INCS) $< $(FUZZ_SRC_$*) -pthread -o $@ $(CRYPTO_LIBS)
+	$(FUZZ_CC) $(FUZZ_COV_FLAGS) -fsanitize=fuzzer $(FUZZ_INCS) $< $(FUZZ_SRC_$*) -pthread -o $@ $(PIN_LIBS)
 
 fuzz-coverage: $(FUZZ_HARNESSES:%=$(FUZZ_COV_BUILD)/fuzz_%)
 	@set -e; for h in $(FUZZ_HARNESSES); do \
@@ -328,12 +326,12 @@ fuzz-corpus-check:
 
 # clean rule
 clean:
-	@rm -f src/*.o $(REPLY_WORDS) $(PROG) $(PROBE) $(PROBE_LOCK) tests/probe-child tests/lv2-probe-child tests/rt_interpose.so tests/sched-refuse.so tests/plugin-hostd-plan-refused tests/plan-refused.out $(FAKE) $(PIN_TEST) $(HISTORY_TEST) $(PROC_TEST) $(CONF_TEST) $(PLANNER_TEST) $(QUALCOST_TEST) $(RELAY_TEST) tests/relay-test-relay.o $(FORMAT_TEST) tests/plugin-hostd-alloc-fail $(GESTURE_ALLOC_TEST) $(LV2_ALLOC_TEST) tests/lv2-alloc-lv2.o $(VERBS_ALLOC_TEST) $(TRANSFORMS_TEST) $(GEN) tests/stress.clap tests/jack_levels tests/host_scenarios $(LV2_FIXTURE) $(PLACEMENT_TEST)
+	@rm -f src/*.o $(REPLY_WORDS) $(PROG) $(PROBE) $(PROBE_LOCK) tests/probe-child tests/lv2-probe-child tests/rt_interpose.so tests/sched-refuse.so tests/plugin-hostd-plan-refused tests/plan-refused.out $(FAKE) $(HISTORY_TEST) $(PROC_TEST) $(CONF_TEST) $(PLANNER_TEST) $(QUALCOST_TEST) $(RELAY_TEST) tests/relay-test-relay.o $(FORMAT_TEST) tests/plugin-hostd-alloc-fail $(GESTURE_ALLOC_TEST) $(LV2_ALLOC_TEST) tests/lv2-alloc-lv2.o $(VERBS_ALLOC_TEST) $(TRANSFORMS_TEST) $(GEN) tests/stress.clap tests/jack_levels tests/host_scenarios $(LV2_FIXTURE) $(PLACEMENT_TEST)
 	@rm -rf build tests/alloc-fail-objs tests/plan-refused-objs
 
 # the daemon against workers that are not plugin hosts at all (tests/fake-host speaks the same protocol and can be
 # made to die on cue): placement, forwarding, ledger, replay, attribution, the storm bound; no jack, no plugin
-# SHA-256 is libcrypto's (pin.h, EVP_Digest): no tracked C source or header carries one of its own, found by the first
+# SHA-256 is libcrypto's (plugin-db's pin.h, EVP_Digest): no tracked C source or header carries one of its own, found by the first
 # of FIPS 180-4's round constants; the sabotage arm runs the same search over a planted copy, which must find it
 SHA256_K0 = 0x428a2f98
 .PHONY: test-no-sha256-copy
@@ -344,7 +342,7 @@ test-no-sha256-copy:
 	  echo "FAIL the sabotage arm: a planted SHA-256 is not found"; exit 1; fi
 	@echo "ok   SHA-256 is libcrypto's, and a planted copy is found"
 
-test: test-no-sha256-copy test-protocol-lib test-plan-refused test-sabotage-pool test-pin test-history test-proc test-conf test-own-host-probe-teardown test-planner test-placement test-transforms test-format-coverage test-describe test-relay test-alloc test-alloc-sweep test-format test-ready-connect test-ready-connect-sabotage test-bind test-bind-sabotage test-daemon test-verbs-declared check-rendered check-generated check-no-protocol-copy check-no-json-escape-loop test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-socket check-preset-schema test-install-schemas check-contract-floor check-clap-core-floor check-readme-facts test-pin-files
+test: test-no-sha256-copy test-protocol-lib test-plan-refused test-sabotage-pool test-history test-proc test-conf test-own-host-probe-teardown test-planner test-placement test-transforms test-format-coverage test-describe test-relay test-alloc test-alloc-sweep test-format test-ready-connect test-ready-connect-sabotage test-bind test-bind-sabotage test-daemon test-verbs-declared check-rendered check-generated check-no-protocol-copy check-no-json-escape-loop test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-socket check-preset-schema test-install-schemas check-contract-floor check-clap-core-floor check-plugin-db-floor check-readme-facts test-pin-files
 	PROTOCOL_DIR=$(PROTOCOL_DIR) PROTOCOL_PAGE=$(PROTOCOL_PAGE) python3 tests/verbs_contract.py
 
 # the protocol clients plugin-hostd-tests ships (tests/lib/), against a peer that frames by NUL, and their sabotage
@@ -364,7 +362,7 @@ test-ready-connect: $(PROG) $(FAKE)
 # the same test against a daemon whose ready line goes out before its sockets exist: it must fail (issue 238)
 .PHONY: test-ready-connect test-ready-connect-sabotage
 test-ready-connect-sabotage: $(PROG) $(FAKE)
-	python3 tests/ready_connect_sabotage.py ./$(PROG) $(FAKE) "$(CC)" "$(CFLAGS) $(INCS)" "$(OBJ)" "$(PROTOCOL_LIBS) $(CRYPTO_LIBS) $(CJSON_LIBS) $(LDFLAGS)"
+	python3 tests/ready_connect_sabotage.py ./$(PROG) $(FAKE) "$(CC)" "$(CFLAGS) $(INCS)" "$(OBJ)" "$(PROTOCOL_LIBS) $(PIN_LIBS) $(CJSON_LIBS) $(LDFLAGS)"
 
 # who reaches the ports: 127.0.0.1 by default, other addresses only when asked (tests/bind_test.py), and the same test
 # against a daemon built with each guard taken out, which must fail
@@ -372,7 +370,7 @@ test-ready-connect-sabotage: $(PROG) $(FAKE)
 test-bind: $(PROG) $(FAKE)
 	PLUGIN_HOSTD=./$(PROG) FAKE_HOST=./$(FAKE) python3 tests/bind_test.py
 test-bind-sabotage: $(PROG) $(FAKE)
-	python3 tests/bind_sabotage.py ./$(PROG) $(FAKE) "$(CC)" "$(CFLAGS) $(INCS)" "$(OBJ)" "$(PROTOCOL_LIBS) $(CRYPTO_LIBS) $(CJSON_LIBS) $(LDFLAGS)"
+	python3 tests/bind_sabotage.py ./$(PROG) $(FAKE) "$(CC)" "$(CFLAGS) $(INCS)" "$(OBJ)" "$(PROTOCOL_LIBS) $(PIN_LIBS) $(CJSON_LIBS) $(LDFLAGS)"
 
 # the same without the verb table, which is read from the protocol page (PROTOCOL_PAGE)
 test-daemon: $(PROG) $(FAKE)
@@ -390,7 +388,7 @@ test-panel-wire: $(PROG) $(PROBE) $(FAKE)
 	PLUGIN_HOSTD=./$(PROG) PROBE=./$(PROBE) FAKE_HOST=./$(FAKE) python3 tests/panel_wire.py
 
 $(FAKE): tests/fake_host.c src/verbs.h $(PROTOCOL_LIB)
-	$(CC) $(INCS) $(CFLAGS) -Werror -o $@ $< $(PROTOCOL_LIBS) $(CRYPTO_LIBS) -lm
+	$(CC) $(INCS) $(CFLAGS) -Werror -o $@ $< $(PROTOCOL_LIBS) $(PIN_LIBS) -lm
 
 # the command socket's framing, by omx-clap-core's socket_conformance.py. Which copy runs, in this order: the one
 # SOCKET_CONFORMANCE names; ../omx-clap-core/tests/socket_conformance.py when an omx-clap-core checkout sits beside
@@ -408,14 +406,8 @@ test-format: $(FORMAT_TEST) $(FAKE)
 FORMAT_OBJ = $(filter-out src/main.o src/verbs.o,$(OBJ))
 
 $(FORMAT_TEST): tests/format_test.c $(FORMAT_OBJ) $(PROTOCOL_LIB)
-	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -o $@ tests/format_test.c $(FORMAT_OBJ) $(PROTOCOL_LIBS) -pthread $(CRYPTO_LIBS) $(CJSON_LIBS) -lm
+	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -o $@ tests/format_test.c $(FORMAT_OBJ) $(PROTOCOL_LIBS) -pthread $(PIN_LIBS) $(CJSON_LIBS) -lm
 
-# include/plugin-hostd/pin.h against answers it did not compute
-test-pin: $(PIN_TEST)
-	./$(PIN_TEST)
-
-$(PIN_TEST): tests/pin_test.c include/plugin-hostd/pin.h
-	$(CC) -Iinclude $(PROTOCOL_CFLAGS) $(CFLAGS) -Werror -o $@ tests/pin_test.c $(CRYPTO_LIBS)
 
 # the running history (src/history.c, the grouping-planner design note): its line grammar, its file, what its
 # counts and its summary come to, against records written out by hand; and the host class it is kept under (src/machine.c)
@@ -423,7 +415,7 @@ test-history: $(HISTORY_TEST)
 	./$(HISTORY_TEST)
 
 $(HISTORY_TEST): tests/history_test.c src/history.c src/history.h src/fsutil.c src/fsutil.h src/machine.c src/machine.h $(PROTOCOL_HEADERS) $(RENDERED)
-	$(CC) -Iinclude $(PROTOCOL_CFLAGS) -Isrc $(CONTRACT_CFLAGS) $(CFLAGS) -Werror -o $@ tests/history_test.c src/history.c src/fsutil.c src/machine.c $(CRYPTO_LIBS) -lm
+	$(CC) -Iinclude $(PROTOCOL_CFLAGS) $(PIN_CFLAGS) -Isrc $(CONTRACT_CFLAGS) $(CFLAGS) -Werror -o $@ tests/history_test.c src/history.c src/fsutil.c src/machine.c $(PIN_LIBS) -lm
 
 # tests/own_host_lv2_probe.py closes its JACK client on every exit path: run against a fake libjack whose realtime thread
 # keeps firing the callback, a probe that skips the close dies with SIGSEGV at interpreter teardown
@@ -436,7 +428,7 @@ test-proc: $(PROC_TEST)
 	./$(PROC_TEST)
 
 $(PROC_TEST): tests/proc_test.c src/proc.c src/proc.h src/conf.h $(PROTOCOL_HEADERS) $(RENDERED)
-	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -o $@ tests/proc_test.c src/proc.c -pthread $(CRYPTO_LIBS) -lm
+	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -o $@ tests/proc_test.c src/proc.c -pthread $(PIN_LIBS) -lm
 
 # the search settings (src/conf.c, plugin-hostd-protocol's plugin-hostd/search_paths.h): the default lists, $LV2_PATH, lv2_extra, $CLAP_PATH
 test-conf: $(CONF_TEST)
@@ -444,7 +436,7 @@ test-conf: $(CONF_TEST)
 	python3 tests/search_paths_once.py
 
 $(CONF_TEST): tests/conf_test.c src/conf.c src/conf.h $(PROTOCOL_HEADERS) $(RENDERED)
-	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -o $@ tests/conf_test.c src/conf.c $(CRYPTO_LIBS)
+	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -o $@ tests/conf_test.c src/conf.c $(PIN_LIBS)
 
 # the grouping planner (src/planner.c, the grouping-planner design note), on its own: each reason it gives, the order its
 # rules decide in, the text of a plan, and that the same members give the same bytes
@@ -453,10 +445,10 @@ test-planner: $(PLANNER_TEST) $(QUALCOST_TEST)
 	./$(QUALCOST_TEST)
 
 $(QUALCOST_TEST): tests/qualcost_test.c src/qualcost.c src/qualcost.h src/json.c src/json.h
-	$(CC) -Isrc $(CONTRACT_CFLAGS) $(CFLAGS) -Werror -o $@ tests/qualcost_test.c src/qualcost.c src/json.c $(CRYPTO_LIBS) $(CJSON_LIBS) -lm
+	$(CC) -Isrc $(CONTRACT_CFLAGS) $(CFLAGS) -Werror -o $@ tests/qualcost_test.c src/qualcost.c src/json.c $(PIN_LIBS) $(CJSON_LIBS) -lm
 
 $(PLANNER_TEST): tests/planner_test.c src/planner.c src/planner.h $(PROTOCOL_HEADERS) $(RENDERED)
-	$(CC) -Iinclude $(PROTOCOL_CFLAGS) -Isrc $(CFLAGS) -Werror -o $@ tests/planner_test.c src/planner.c $(CRYPTO_LIBS)
+	$(CC) -Iinclude $(PROTOCOL_CFLAGS) $(PIN_CFLAGS) -Isrc $(CFLAGS) -Werror -o $@ tests/planner_test.c src/planner.c $(PIN_LIBS)
 
 # the core placement (src/placement.c, docs/placement.md), on its own: the cpu lists and the audio and reserved cores of
 # a mask
@@ -464,7 +456,7 @@ test-placement: $(PLACEMENT_TEST)
 	./$(PLACEMENT_TEST)
 
 $(PLACEMENT_TEST): tests/placement_test.c src/placement.c src/placement.h
-	$(CC) -Isrc $(CFLAGS) -Werror -o $@ tests/placement_test.c src/placement.c $(CRYPTO_LIBS)
+	$(CC) -Isrc $(CFLAGS) -Werror -o $@ tests/placement_test.c src/placement.c $(PIN_LIBS)
 
 # the transforms the format tables name (src/transforms.c, docs/formats.md): every one and its inverse over its vectors,
 # and a lookup that is not one to one refused
@@ -472,7 +464,7 @@ test-transforms: $(TRANSFORMS_TEST)
 	./$(TRANSFORMS_TEST)
 
 $(TRANSFORMS_TEST): tests/transforms_test.c src/transforms.c src/transforms.h
-	$(CC) -Isrc $(CONTRACT_CFLAGS) $(CFLAGS) -Werror -o $@ tests/transforms_test.c src/transforms.c $(CRYPTO_LIBS) -lm
+	$(CC) -Isrc $(CONTRACT_CFLAGS) $(CFLAGS) -Werror -o $@ tests/transforms_test.c src/transforms.c $(PIN_LIBS) -lm
 
 # src/relay.c when memory runs out: built here with its realloc calls renamed, so the test picks the one that fails
 test-relay: $(RELAY_TEST)
@@ -480,7 +472,7 @@ test-relay: $(RELAY_TEST)
 
 $(RELAY_TEST): tests/relay_test.c src/relay.c src/relay.h $(PROTOCOL_HEADERS) $(RENDERED)
 	$(CC) -Iinclude $(PROTOCOL_CFLAGS) $(CFLAGS) -Werror -Drealloc=relay_test_realloc -c -o tests/relay-test-relay.o src/relay.c
-	$(CC) -Isrc $(CFLAGS) -Werror -o $@ tests/relay_test.c tests/relay-test-relay.o -pthread $(CRYPTO_LIBS)
+	$(CC) -Isrc $(CFLAGS) -Werror -o $@ tests/relay_test.c tests/relay-test-relay.o -pthread $(PIN_LIBS)
 # the whole daemon when memory runs out: built with every allocation of its own sources going through tests/alloc_fail.c,
 # and the scenario of tests/alloc_sweep.py run with each allocation refused in turn
 ALLOC_SWEEP_DAEMON = tests/plugin-hostd-alloc-fail
@@ -488,7 +480,7 @@ $(ALLOC_SWEEP_DAEMON): $(SRC) tests/alloc_fail.c tests/alloc_fail.h $(wildcard s
 	mkdir -p tests/alloc-fail-objs
 	for f in $(SRC); do $(CC) $(CFLAGS) $(INCS) $(CONTRACT_CFLAGS) -include tests/alloc_fail.h -c -o tests/alloc-fail-objs/$$(basename $$f .c).o $$f || exit 1; done
 	$(CC) $(CFLAGS) -c -o tests/alloc-fail-objs/alloc_fail.o tests/alloc_fail.c
-	$(CC) tests/alloc-fail-objs/*.o $(PROTOCOL_LIBS) $(LDFLAGS) -pthread $(CRYPTO_LIBS) $(CJSON_LIBS) -lm -o $@
+	$(CC) tests/alloc-fail-objs/*.o $(PROTOCOL_LIBS) $(LDFLAGS) -pthread $(PIN_LIBS) $(CJSON_LIBS) -lm -o $@
 
 # a refused plan over a longer one: the daemon's joint world cannot be built, and a pointer array ends against a guard page
 PLAN_REFUSED_DAEMON = tests/plugin-hostd-plan-refused
@@ -497,7 +489,7 @@ $(PLAN_REFUSED_DAEMON): $(SRC) tests/world_refuse.c tests/guard_calloc.c tests/g
 	for f in $(SRC); do $(CC) $(CFLAGS) $(INCS) $(CONTRACT_CFLAGS) -include tests/guard_calloc.h -c -o tests/plan-refused-objs/$$(basename $$f .c).o $$f || exit 1; done
 	$(CC) $(CFLAGS) -c -o tests/plan-refused-objs/guard_calloc.o tests/guard_calloc.c
 	$(CC) $(CFLAGS) -c -o tests/plan-refused-objs/world_refuse.o tests/world_refuse.c
-	$(CC) tests/plan-refused-objs/*.o $(PROTOCOL_LIBS) $(LDFLAGS) -pthread $(CRYPTO_LIBS) $(CJSON_LIBS) -lm -ldl -o $@
+	$(CC) tests/plan-refused-objs/*.o $(PROTOCOL_LIBS) $(LDFLAGS) -pthread $(PIN_LIBS) $(CJSON_LIBS) -lm -ldl -o $@
 
 .PHONY: test-plan-refused
 test-plan-refused: $(PLAN_REFUSED_DAEMON) $(FAKE)
@@ -508,7 +500,7 @@ test-plan-refused: $(PLAN_REFUSED_DAEMON) $(FAKE)
 .PHONY: test-alloc-sweep
 test-alloc-sweep: $(ALLOC_SWEEP_DAEMON) $(FAKE)
 	ALLOC_SWEEP_DAEMON=./$(ALLOC_SWEEP_DAEMON) FAKE_HOST=./$(FAKE) python3 tests/alloc_sweep.py
-	FAKE_HOST=./$(FAKE) python3 tests/alloc_sweep_sabotage.py "$(CC)" "$(CFLAGS) $(INCS) $(CONTRACT_CFLAGS)" "$(PROTOCOL_LIBS) $(CRYPTO_LIBS) $(CJSON_LIBS) $(LDFLAGS)" tests/alloc-fail-objs
+	FAKE_HOST=./$(FAKE) python3 tests/alloc_sweep_sabotage.py "$(CC)" "$(CFLAGS) $(INCS) $(CONTRACT_CFLAGS)" "$(PROTOCOL_LIBS) $(PIN_LIBS) $(CJSON_LIBS) $(LDFLAGS)" tests/alloc-fail-objs
 
 # the relay's gesture table, lv2.c's refusal and pick tables, and the verbs' copies and answer when memory runs out:
 # each is built with its allocation calls renamed, so the test picks the one that fails
@@ -518,15 +510,15 @@ test-alloc: $(GESTURE_ALLOC_TEST) $(LV2_ALLOC_TEST) $(VERBS_ALLOC_TEST)
 	./$(VERBS_ALLOC_TEST)
 
 $(GESTURE_ALLOC_TEST): tests/gesture_alloc_test.c src/relay.c src/relay.h $(PROTOCOL_HEADERS) $(RENDERED)
-	$(CC) -Iinclude $(PROTOCOL_CFLAGS) -Isrc $(CFLAGS) -Werror -Drealloc=alloc_test_realloc -o $@ tests/gesture_alloc_test.c -pthread $(CRYPTO_LIBS)
+	$(CC) -Iinclude $(PROTOCOL_CFLAGS) $(PIN_CFLAGS) -Isrc $(CFLAGS) -Werror -Drealloc=alloc_test_realloc -o $@ tests/gesture_alloc_test.c -pthread $(PIN_LIBS)
 
 $(LV2_ALLOC_TEST): tests/lv2_alloc_test.c src/lv2.c src/formats.h
 	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -Drealloc=alloc_test_realloc -c -o tests/lv2-alloc-lv2.o src/lv2.c
-	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -o $@ tests/lv2_alloc_test.c tests/lv2-alloc-lv2.o $(CRYPTO_LIBS)
+	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -o $@ tests/lv2_alloc_test.c tests/lv2-alloc-lv2.o $(PIN_LIBS)
 
 $(VERBS_ALLOC_TEST): tests/verbs_alloc_test.c src/verbs.c src/verbs.h $(FORMAT_OBJ) $(PROTOCOL_LIB)
 	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -Dstrndup=alloc_test_strndup -Dstrdup=alloc_test_strdup \
-	  -Dfree=alloc_test_free -o $@ tests/verbs_alloc_test.c $(FORMAT_OBJ) $(PROTOCOL_LIBS) -pthread -lm $(CRYPTO_LIBS) $(CJSON_LIBS)
+	  -Dfree=alloc_test_free -o $@ tests/verbs_alloc_test.c $(FORMAT_OBJ) $(PROTOCOL_LIBS) -pthread -lm $(PIN_LIBS) $(CJSON_LIBS)
 
 tests/stress.clap: tests/stress_plugin.c
 	$(CC) $(CLAP_CFLAGS) $(CFLAGS) -Werror -shared -o $@ $<
@@ -574,10 +566,10 @@ $(LV2_FIXTURE): tests/lv2_fixture.c
 
 # the protocol's scenario corpus, the runner every host is tested with
 tests/host_scenarios: $(PROTOCOL_RUNNER) $(PROTOCOL_LIB)
-	$(CC) $(INCS) $(CFLAGS) -Werror -o $@ $< $(PROTOCOL_LIBS) -lpthread $(CRYPTO_LIBS)
+	$(CC) $(INCS) $(CFLAGS) -Werror -o $@ $< $(PROTOCOL_LIBS) -lpthread $(PIN_LIBS)
 
 tests/jack_levels: tests/jack_levels.c
-	$(CC) $(shell $(PKG_CONFIG) --cflags jack) $(CFLAGS) -Werror -o $@ $< $(shell $(PKG_CONFIG) --libs jack) $(CRYPTO_LIBS) -lm
+	$(CC) $(shell $(PKG_CONFIG) --cflags jack) $(CFLAGS) -Werror -o $@ $< $(shell $(PKG_CONFIG) --libs jack) $(PIN_LIBS) -lm
 
 # what <plugin-hostd/protocol.h> (plugin-hostd-protocol's) declares, written out in this tree's pages: docs/guide.md and the
 # man page between their markers, and the probe output's schema. The JSON of the protocol and mod-host's are
@@ -586,7 +578,7 @@ GEN = tools/protocol-gen
 GENERATED = docs/guide.md doc/plugin-hostd.1 protocol/probe-output.schema.json
 
 $(GEN): tools/protocol-gen.c $(PROTOCOL_HEADERS) $(RENDERED)
-	$(CC) -Wall -Wextra -Werror -std=gnu99 -Iinclude $(PROTOCOL_CFLAGS) $(CONTRACT_CFLAGS) -o $@ tools/protocol-gen.c $(CRYPTO_LIBS)
+	$(CC) -Wall -Wextra -Werror -std=gnu99 -Iinclude $(PROTOCOL_CFLAGS) $(CONTRACT_CFLAGS) -o $@ tools/protocol-gen.c $(PIN_LIBS)
 
 gen: $(GEN)
 	$(GEN) probe-schema protocol/probe-output.schema.in > protocol/probe-output.schema.json.new && mv protocol/probe-output.schema.json.new protocol/probe-output.schema.json
@@ -622,6 +614,9 @@ check-no-pins:
 # debian/control: the first whose schema takes every row key of the tables (#165)
 check-clap-core-floor:
 	python3 tests/clap_core_floor.py
+
+check-plugin-db-floor:
+	python3 tests/plugin_db_floor.py
 
 check-contract-floor:
 	python3 tests/contract_floor.py
@@ -661,8 +656,8 @@ test-probe: $(PROBE) $(PROBE_LOCK) tests/probe-child tests/stress.clap tests/lv2
 	python3 tests/probe_test.py
 
 # lv2_measure's arguments and lines, with no lilv and no interposer: the LV2 tests of the runner load the fixture with it
-tests/lv2-probe-child: tests/lv2_probe_child.c include/plugin-hostd/pin.h
-	$(CC) -Iinclude $(PROTOCOL_CFLAGS) $(shell $(PKG_CONFIG) --cflags lv2) $(CFLAGS) -Wall -Wextra -Werror -o $@ $< -ldl $(CRYPTO_LIBS)
+tests/lv2-probe-child: tests/lv2_probe_child.c
+	$(CC) -Iinclude $(PROTOCOL_CFLAGS) $(PIN_CFLAGS) $(shell $(PKG_CONFIG) --cflags lv2) $(CFLAGS) -Wall -Wextra -Werror -o $@ $< -ldl $(PIN_LIBS)
 
 tests/rt_interpose.so: tests/rt_interpose_stub.c
 	$(CC) $(CFLAGS) -Werror -shared -o $@ $<
@@ -672,7 +667,7 @@ tests/sched-refuse.so: tests/sched_refuse.c
 	$(CC) $(CFLAGS) -Werror -shared -o $@ $<
 
 tests/probe-child: tests/probe_child.c
-	$(CC) $(CLAP_CFLAGS) $(CFLAGS) -Wall -Wextra -Werror -o $@ $< -ldl $(CRYPTO_LIBS)
+	$(CC) $(CLAP_CFLAGS) $(CFLAGS) -Wall -Wextra -Werror -o $@ $< -ldl $(PIN_LIBS)
 
 # describe over the recorded field dumps (tests/fixtures/fields/, docs/formats.md#the-field-dump): each gives its recorded
 # descriptor, which validates; each refusal names what it refuses; a stand-in child gives the same descriptor

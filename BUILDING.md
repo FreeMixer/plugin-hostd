@@ -84,8 +84,7 @@ Tests
 runs the daemon against `tests/fake-host`, a worker that speaks the same
 protocol and dies, hangs or refuses on cue: placement, forwarding, the
 ledger, replay to the byte, attribution, quarantine, the storm bound,
-`worker_env`, pins, and the verb table against mod-host's README; `tests/pin_test.c` holds
-`include/plugin-hostd/pin.h` to the FIPS 180-2 examples and to layout bytes hashed elsewhere. No jack, no plugin.
+`worker_env`, pins, and the verb table against mod-host's README. No jack, no plugin.
 
 The verbs are read from their declarations, never spelled: mod-host's from the
 command formats of `mod-host.h`, the daemon's own from plugin-hostd-protocol's

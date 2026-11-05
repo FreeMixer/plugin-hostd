@@ -118,7 +118,7 @@
 
 #include <host-errors.h>
 #include <mod-host.h>
-#include <plugin-hostd/pin.h>
+#include <plugin-db/pin.h>
 #include <plugin-hostd/protocol.h>
 #include <protocol.h>
 #include <socket.h>
