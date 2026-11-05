@@ -1,0 +1,15 @@
+Breaks the check of fuzz/fuzz_command.c:235 (a line that starts with "@" reaches no worker).
+Caught by the seed input "tagged-command" of fuzz_command.
+
+diff --git a/src/verbs.c b/src/verbs.c
+--- a/src/verbs.c
++++ b/src/verbs.c
+@@ -161,7 +161,7 @@ static char *handle(char *line, char **tok, int ntok)
+      * session with the daemon would be granted what the controller's is not. */
+     if (!strcmp(verb, OMX_VERB_HELLO))
+         return sup_resp(ERR_INVALID_OPERATION);
+-    if (verb[0] == '@')
++    if (verb[0] == '\1')
+         return strdup(MESSAGE_COMMAND_NOT_FOUND);
+     /* the bulk verbs: several parameters of one instance, which the worker that holds it answers alone */
+     if (!strcmp(verb, OMX_VERB_PARAM_GET_MANY) || !strcmp(verb, OMX_VERB_PARAM_SET_MANY))

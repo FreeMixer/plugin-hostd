@@ -127,6 +127,14 @@ def command_corpus(out):
     seeds["quit-refused-then-quit"] = message("quit now") + message("quit")
     # a command the daemon acts on whose line is not its words joined by one space, with no supervisor call
     seeds["quit-leading-space"] = message("  quit")
+    # a first word that starts with "@", in a session not granted tags: a tag and a command, a tag alone, "@" alone,
+    # and one that is no tag; each is answered `not found` (the protocol page, Request tags)
+    seeds["tagged-command"] = message("@a7 param_get 0 gain")
+    seeds["tagged-nothing-after"] = message("@a7")
+    seeds["tagged-at-alone"] = message("@ quit")
+    seeds["tagged-no-tag"] = message("@!x remove -1")
+    # the input fuzz_command found first: flags and a length of "@", then a word of 31 "@" that a NUL ends
+    seeds["tagged-found-by-fuzzing"] = b"@" * 34 + b"\0\x0b\0c\x19\0hain\x04\0 1 0 x"
     # the send lines of the guide and of the own-host page, each alone and as one session
     for doc, tag in ((os.path.join("docs", "guide.md"), "readme"), (os.path.join("docs", "own-host.md"), "own-host")):
         sends = re.findall(r'^\s*send "([^"]*)"', open(os.path.join(ROOT, doc)).read(), re.M)
