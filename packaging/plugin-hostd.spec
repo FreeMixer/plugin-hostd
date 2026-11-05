@@ -188,7 +188,10 @@ make test-daemon check-generated check-rendered
   param_set_many is replayed after a respawn (#386)
 - mod-host is suggested, not recommended; a worker program that is not installed
   is said at start and its adds answer -502 (#391)
-- JSON is read with the system cJSON (#393); a pin's SHA-256 is libcrypto's
+- JSON is read with the system cJSON (#393), and its string literals are omx-contract's
+  one writer: the build requires omx-contract 3.9.0 or later and before 4
+- The pin header is plugin-db's (<plugin-db/pin.h>, 0.1.0 or later and before 0.2):
+  plugin-hostd-devel requires plugin-db-devel and ships no pin.h of its own
 - The probe: an LV2 instrument whose note did not sound keeps its declared
   latency; shipped in 0.17.0, missing from its notes (#390)
 - bench: a JACK that stops answering fails its row, not the run (#396)
