@@ -31,6 +31,7 @@ publish installs `mod-host` and `jalv` explicitly; without them H3 and H4 read `
 | `--window S` | seconds of measurement per row, 10 by default |
 | `--repeats N` | runs of each row, 3 by default; the document holds the median and the spread. 1 is a quick look; a document that is to say anything needs 3 or more |
 | `--stress none\|on\|both` | scenarios that declare stress run without it, with it, or both (the default) |
+| `--stress-guard CMD` | run every stress process under this command prefix, for example a load guard (`load-guard.sh bench --`) that refuses synthetic load on a machine that runs a live console. A load that ends before the window (a guard that refused) fails the row, so no row says `stress` beside nothing; the document records the guard under `stress_guard` |
 | `--pianoteq-dir DIR` | the directory of Pianoteq's LV2 bundle; the `pianoteq` scenario runs only with it |
 | `--qualify` | also time `plugin-qualify --all --isolate` at the first rate and frame count |
 | `--keep-governor` | leave the CPU governor alone |
@@ -119,6 +120,7 @@ Reading the numbers
 | `rss_mb`, `rss_mb_total` | resident memory summed over the host's processes at the end of the window |
 | `pss_mb_total` | proportional memory (`Pss` of `smaps_rollup`) summed the same way: shared libraries counted once across the processes |
 | `processes` | the host's processes: itself and every descendant, the workers of plugin-hostd included |
+| `process_set` | those processes one by one at the end of the window: `name` (its comm), `pid`, `rss_mb` and `pss_mb` (null where `smaps_rollup` is not readable), sorted by name then pid. Under plugin-hostd it is what each worker holds: one entry per plugin in `individual`, one per chain in `chain`. Over repeats it is the set of the run whose `rss_mb_total` the row carries; `validate.sh` holds its length to `processes` |
 | `cpu_pct` | utime plus stime of those processes over the window, in percent of one core |
 | `ctx_switches`, `ctx_involuntary` | context switches of all their threads over the window, and how many of them were involuntary |
 | `ctx_jackd`, `ctx_jackd_involuntary` | the same for the private JACK server over the same window, since a graph of more clients costs the server switches too |
