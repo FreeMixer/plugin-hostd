@@ -211,6 +211,14 @@ SABOTAGE = [
     ("a pin's path may hold a separator of pin_set's words", "src/pins.c",
      "if (!*path || *path == '/' || strpbrk(path, PHD_PIN_PATH_EXCLUDED))", "if (!*path || *path == '/')",
      "what_cannot_be_pinned_is_refused_and_never_pinned_in_part"),
+    ("a command is cut at its spaces again", "src/verbs.c", "    ntok = words_read(copy, tok, MAX_TOKENS);\n",
+     "    {\n        char *sv = NULL, *t;\n\n        ntok = 0;\n        for (t = strtok_r(copy, \" \\t\", &sv); t && ntok < MAX_TOKENS; t = strtok_r(NULL, \" \\t\", &sv))\n            tok[ntok++] = t;\n    }\n",
+     "a_plugin_in_a_folder_with_a_space_is_one_quoted_word_in_add_pin_set_and_the_pin_file"),
+    ("the store writes a uri with a space unquoted", "src/pins.c", "    words_write(p->uri, uri, sizeof(uri));\n",
+     "    snprintf(uri, sizeof(uri), \"%s\", p->uri);\n", "a_plugin_in_a_folder_with_a_space_is_one_quoted_word_in_add_pin_set_and_the_pin_file"),
+    ("a pin line is cut at its spaces again", "src/pins.c", "    ntok = words_read(line, tok, 8);\n",
+     "    {\n        char *sv = NULL, *t;\n\n        ntok = 0;\n        for (t = strtok_r(line, \" \\t\\r\\n\", &sv); t && ntok < 8; t = strtok_r(NULL, \" \\t\\r\\n\", &sv))\n            tok[ntok++] = t;\n    }\n",
+     "a_plugin_in_a_folder_with_a_space_is_one_quoted_word_in_add_pin_set_and_the_pin_file"),
     ("hello reaches the workers", "src/verbs.c", "    if (!strcmp(verb, OMX_VERB_HELLO))\n", "    if (0)\n", "hello_opens_a_session_the_daemon_grants_and_no_worker_hears"),
     ("a tagged line reaches the workers", "src/verbs.c", "    if (verb[0] == '@')\n", "    if (0)\n", "hello_opens_a_session_the_daemon_grants_and_no_worker_hears"),
     ("a refusal goes out without its error word", "src/session.c", "        text = with_word(text);\n", "        (void)with_word;\n", "hello_opens_a_session_the_daemon_grants_and_no_worker_hears"),
@@ -441,7 +449,7 @@ SABOTAGE = [
     ("a message there is no memory to split is split anyway", "src/verbs.c", "    if (!copy)\n", "    if (0)\n",
      "alloc_test", "alloc"),
     ("a message there is no memory to split leaks its line", "src/verbs.c",
-     "        reply(msg->sender_id, NULL);\n        free(line);\n", "        reply(msg->sender_id, NULL);\n", "alloc_test", "alloc"),
+     "        reply(msg->sender_id, NULL, NULL, 0);\n        free(line);\n", "        reply(msg->sender_id, NULL, NULL, 0);\n", "alloc_test", "alloc"),
     ("an answer there is no memory for is sent anyway", "src/verbs.c", "    if (!text)\n", "    if (0)\n", "alloc_test", "alloc"),
     ("the host's pin overrides a pins.d refusal", "src/pins.c", "    pin_t *p = pkg_refusal(uri);\n\n    if (!p)\n",
      "    pin_t *p = NULL;\n\n    if (!p)\n", "a_pins_d_refusal_wins_over_any_other_pins_d_pin_and_over_the_host"),
@@ -982,8 +990,8 @@ SABOTAGE = [
      '    if (grouped)\n    {\n        r->windows_grouped++;',
      '    if (!grouped)\n    {\n        r->windows_grouped++;',
      'windows_fold_alone_and_in_a_group_into_their_own_fields', "history"),
-    ('a space in a uri makes a record', 'src/history.c',
-     ' || strpbrk(uri, " \\t\\r\\n")',
+    ('a line end or a quote in a uri makes a record', 'src/history.c',
+     ' || strpbrk(uri, "\\r\\n\\"")',
      '',
      'a_key_that_is_not_a_plugin_binary_makes_no_record', "history"),
     ('a digest that is not one makes a record', 'src/history.c',
@@ -1884,6 +1892,9 @@ def arm(entry, tree):
         shutil.copytree(os.path.join(ROOT, "include"), os.path.join(tree, "include"))
         shutil.copy(os.path.join(ROOT, "Makefile"), tree)
         build(tree)
+    # every tree with a daemon source builds src/reply_words.h from the protocol's JSON with the generator
+    if os.path.isdir(os.path.join(tree, "src")) and os.path.exists(os.path.join(tree, "Makefile")):
+        reply_words_generator(tree)
     if protocol_overlay(tree, path):
         # the tree is built again against the copy of the declared protocol, as it will be against the broken copy
         rebuild(tree, jack)
