@@ -1,13 +1,13 @@
-Breaks the check of fuzz/fuzz_command.c:235 (a line that starts with "@" reaches no worker).
+Breaks the check of fuzz/fuzz_command.c:265 (a line that starts with "@" reaches no worker).
 Caught by the seed input "tagged-command" of fuzz_command.
 
 diff --git a/src/verbs.c b/src/verbs.c
 --- a/src/verbs.c
 +++ b/src/verbs.c
-@@ -161,7 +161,7 @@ static char *handle(char *line, char **tok, int ntok)
-      * session with the daemon would be granted what the controller's is not. */
+@@ -165,7 +165,7 @@ static char *handle(char *line, char **tok, int ntok)
+      * as mod-host answers a word that is no verb. */
      if (!strcmp(verb, OMX_VERB_HELLO))
-         return sup_resp(ERR_INVALID_OPERATION);
+         return ntok < 2 ? strdup(MESSAGE_FEW_ARGUMENTS) : session_hello(tok, ntok);
 -    if (verb[0] == '@')
 +    if (verb[0] == '\1')
          return strdup(MESSAGE_COMMAND_NOT_FOUND);

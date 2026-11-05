@@ -1,0 +1,15 @@
+Breaks the check of fuzz/fuzz_command.c:245 (a hello reaches no worker).
+Caught by the seed input "hello-tags" of fuzz_command.
+
+diff --git a/src/verbs.c b/src/verbs.c
+--- a/src/verbs.c
++++ b/src/verbs.c
+@@ -163,7 +163,7 @@ static char *handle(char *line, char **tok, int ntok)
+      * answers hello itself and grants tags, errors and seq to its controller, and never relays one to a worker, which
+      * is spoken to in mod-host mode. A line that starts with "@" and is no tag of a session granted tags names no verb,
+      * as mod-host answers a word that is no verb. */
+-    if (!strcmp(verb, OMX_VERB_HELLO))
++    if (!strcmp(verb, "hello_"))
+         return ntok < 2 ? strdup(MESSAGE_FEW_ARGUMENTS) : session_hello(tok, ntok);
+     if (verb[0] == '@')
+         return strdup(MESSAGE_COMMAND_NOT_FOUND);
