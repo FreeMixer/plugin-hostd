@@ -16,7 +16,7 @@ ROOT = sys.argv[1] if len(sys.argv) > 1 else os.path.dirname(os.path.dirname(os.
 # a floor and a ceiling: (name >= floor with name < ceiling) in the spec, (>= floor~), (<< ceiling~) in debian/control
 SPEC_LINE = re.compile(r"^(?:Build)?Requires:\s*\(\s*(plugin-hostd-protocol(?:-devel|-contract|%\{\?_isa\})?)\s*>=\s*(\S+)\s+with\s+\1\s*<\s*(\S+?)\s*\)\s*$", re.M)
 SPEC_BARE = re.compile(r"^(?:Build)?Requires:\s*plugin-hostd-protocol\S*\s*[<>]?=?\s*\S+\s*$", re.M)
-CONTROL_ITEM = re.compile(r"((?:lib)?plugin-hostd-protocol(?:0|-dev|-contract))\s*\(>=\s*([^)\s]+?)~?\)(?:\s*,\s*\1\s*\(<<\s*([^)\s]+?)~?\))?")
+CONTROL_ITEM = re.compile(r"((?:lib)?plugin-hostd-protocol(?:0|-dev|-contract))\s*\(>=\s*([^)\s]+?)~?\)(?:\s*<!nocheck>)?(?:\s*,\s*\1\s*\(<<\s*([^)\s]+?)~?\))?")
 PC_LINE = re.compile(r"^Requires:.*\bplugin-hostd-protocol >= (\S+?),\s*plugin-hostd-protocol < (\S+?)(?:,|\s*$)", re.M)
 # a package name with a typed version, in a workflow; the floor is read there, never typed
 WORKFLOW_TYPED = re.compile(r"plugin-hostd-protocol\S*\s*(?:\(>=|>=)\s*\d|libplugin-hostd-protocol\S*\s*\\?\(>=\s*\d")
@@ -92,7 +92,7 @@ SPEC_OK = "".join("%s: (plugin-hostd-protocol%s >= 0.3.0 with plugin-hostd-proto
                   (("BuildRequires", "-devel"), ("BuildRequires", "-contract"), ("Requires", "%{?_isa}"),
                    ("Requires", "-devel"), ("Requires", "-contract")))
 CTL_OK = ("Build-Depends: libplugin-hostd-protocol-dev (>= 0.3.0~), libplugin-hostd-protocol-dev (<< 0.4~),\n"
-          " plugin-hostd-protocol-contract (>= 0.3.0~), plugin-hostd-protocol-contract (<< 0.4~) <!nocheck>\n"
+          " plugin-hostd-protocol-contract (>= 0.3.0~) <!nocheck>, plugin-hostd-protocol-contract (<< 0.4~) <!nocheck>\n"
           "Depends: libplugin-hostd-protocol0 (>= 0.3.0~), libplugin-hostd-protocol0 (<< 0.4~)\n"
           "Depends: libplugin-hostd-protocol-dev (>= 0.3.0~), libplugin-hostd-protocol-dev (<< 0.4~)\n"
           "Depends: plugin-hostd-protocol-contract (>= 0.3.0~), plugin-hostd-protocol-contract (<< 0.4~)\n")
