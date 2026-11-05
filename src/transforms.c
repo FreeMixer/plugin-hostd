@@ -9,8 +9,9 @@
 
 #include "transforms.h"
 
+#include <omxcontract/omx_json_write.h>
+
 #include <math.h>
-#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -34,21 +35,6 @@ static void put(out_t *o, const char *data, size_t n)
     memcpy(o->s + o->len, data, n);
     o->len += n;
     o->s[o->len] = '\0';
-}
-
-static void putf(out_t *o, const char *fmt, ...)
-{
-    char tmp[64];
-    va_list ap;
-    int n;
-
-    va_start(ap, fmt);
-    n = vsnprintf(tmp, sizeof(tmp), fmt, ap);
-    va_end(ap);
-    if (n < 0 || (size_t)n >= sizeof(tmp))
-        o->full = 1;
-    else
-        put(o, tmp, (size_t)n);
 }
 
 static int done(out_t *o)
@@ -108,25 +94,15 @@ static void put_number(out_t *o, double v)
     put(o, tmp, strlen(tmp));
 }
 
+/* a JSON string literal of the n bytes at s, each spelled by omx-contract's one JSON writer */
 static void put_quoted(out_t *o, const char *s, size_t n)
 {
+    char esc[OMX_JSON_ESCAPE_MAX];
     size_t i;
 
     put(o, "\"", 1);
     for (i = 0; i < n; i++)
-    {
-        unsigned char c = (unsigned char)s[i];
-
-        if (c == '"' || c == '\\')
-        {
-            put(o, "\\", 1);
-            put(o, s + i, 1);
-        }
-        else if (c < 0x20)
-            putf(o, "\\u%04x", c);
-        else
-            put(o, s + i, 1);
-    }
+        put(o, esc, omx_json_escape_byte((unsigned char)s[i], esc));
     put(o, "\"", 1);
 }
 

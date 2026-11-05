@@ -19,9 +19,10 @@ BuildRequires: cjson-devel
 # JSON and mod-host's. 0.3.0 is the first that declares hello and the bulk verbs the sources use; a floor and the next minor
 BuildRequires: (plugin-hostd-protocol-devel >= 0.3.0 with plugin-hostd-protocol-devel < 0.4)
 # the probe runner's default rates, the protocol's parameter scales and the probe output's shared words are read from
-# omx-contract's C headers, and the format tables are items of its schema 3 (3.4.0 the first that renders a reply
-# code's resp, which plugin_hostd_vocabulary.h is checked against); a floor only
-BuildRequires: omx-contract-devel >= 3.4.0
+# omx-contract's C headers, its JSON string literals are spelled by omx-contract's one writer
+# (<omxcontract/omx_json_write.h>), and the format tables are items of its schema (3.9.0 the first with the writer, the
+# schema_major of its pkg-config file and the %%{omx_contract_dir} macro this spec names its files by); a floor only
+BuildRequires: (omx-contract-devel >= 3.9.0 with omx-contract-devel < 4)
 # the protocol library, ports on 127.0.0.1 unless told otherwise (socket_set_bind_address()); the daemon is built
 # against the declared protocol of 0.3.0; a floor and the next minor
 Requires: (plugin-hostd-protocol%{?_isa} >= 0.3.0 with plugin-hostd-protocol%{?_isa} < 0.4)
@@ -33,7 +34,7 @@ Requires: (plugin-hostd-protocol%{?_isa} >= 0.3.0 with plugin-hostd-protocol%{?_
 %if %{with check}
 BuildRequires: (omx-clap-host-tests >= 0.25.0 with omx-clap-host-tests < 0.30)
 # the reader that holds the committed render of data/ (make check-rendered)
-BuildRequires: omx-contract >= 3.4.0
+BuildRequires: (omx-contract >= 3.4.0 with omx-contract < 4)
 # the daemon's verbs (plugin-hostd-protocol's package of the contract directory) and the shared verbs and the
 # reply.host.* codes they refer to (make test-verbs-declared)
 BuildRequires: (plugin-hostd-protocol-contract >= 0.3.0 with plugin-hostd-protocol-contract < 0.4)
@@ -87,7 +88,7 @@ Requires: (omx-clap-core-contract >= 0.26.2 with omx-clap-core-contract < 0.30)
 # the tables live in omx-contract's contract directory and are read against its schema: 3.2.0 is the first whose
 # source field takes an index (omx_clap_panel_display.meter_ids[0]), so an older one never sits beside a table it
 # refuses; a floor only
-Requires: omx-contract >= 3.2.0
+Requires: (omx-contract >= 3.2.0 with omx-contract < 4)
 
 %description contract
 plugin-hostd's package of omx-contract's contract directory: the format tables
@@ -95,7 +96,7 @@ a scan maps a CLAP or LV2 plugin through (formats/clap.json, formats/lv2.json),
 the keys of the
 running history (history.json) and the reasons a plan gives for a plugin it
 leaves alone (grouping.json), under
-share/omx-contract/contract.d/3/plugin-hostd. A program that reads them at run
+%{omx_contract_dir}/plugin-hostd. A program that reads them at run
 time requires this package, never the development one.
 Its documentation is on openmixer.org.
 
@@ -169,7 +170,7 @@ make test-daemon check-generated check-rendered
 %files contract
 %license COPYING
 %doc README.md
-%{_datadir}/omx-contract/contract.d/3/plugin-hostd/
+%{omx_contract_dir}/plugin-hostd/
 
 %changelog
 * Wed Nov 04 2026 Pau Aliagas <linuxnow@gmail.com> - 0.18.0-1

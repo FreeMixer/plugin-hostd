@@ -19,9 +19,12 @@ JSON is read with the system cJSON, from `pkg-config libcjson` (`cjson-devel`,
 `libcjson-dev`).
 
 The probe runner and the page generator also read omx-contract's C headers,
-`<omxcontract/omx_contract_limits.h>` and `<omxcontract/omx_vocabulary.h>`, from
-`pkg-config omx-contract` (`omx-contract-devel`, `libomx-contract-dev`, 3.4.0 or
-later; `CONTRACT_CFLAGS=-I<dir>` for one that is not installed). The runner's
+`<omxcontract/omx_contract_limits.h>` and `<omxcontract/omx_vocabulary.h>`, and the
+daemon and the runner spell their JSON string literals through its one writer,
+`<omxcontract/omx_json_write.h>`, from `pkg-config omx-contract` (`omx-contract-devel`,
+`libomx-contract-dev`, 3.9.0 or later; `CONTRACT_CFLAGS=-I<dir>` for one that is not
+installed). The schema major the contract directory is read under is the pkg-config
+file's `schema_major`, never typed in this tree. The runner's
 default rates are the contract's `ORACLE_FLOOR_RATES`, and the generator refuses
 to build or run when the protocol's parameter scales are not the contract's
 `PARAM_SCALES`. The probe output schema takes the words it shares with the
