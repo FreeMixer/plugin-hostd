@@ -290,7 +290,7 @@ __attribute__((noinline)) static void check_reply(const struct words *w)
      * input: add-default */
     if (g_rec.reply[g_rec.reply_size - 1] != '\0' || memchr(g_rec.reply, '\0', g_rec.reply_size - 1))
         abort();
-    if (w->n > 0 && !strcmp(w->w[0], "hello"))
+    if (w->n > 0 && !strcmp(w->w[0], OMX_VERB_HELLO))
     {
         check_reply_hello(w);
         return;
