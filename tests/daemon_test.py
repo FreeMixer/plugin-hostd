@@ -1961,9 +1961,9 @@ def fake_layout(default=None):
 class Plugins:
     """a CLAP file and an LV2 bundle on disk, and the log of every command a fake worker received"""
 
-    def __init__(self):
+    def __init__(self, folder="clap"):
         self.dir = tempfile.mkdtemp(prefix="plugin-hostd-pins.")
-        self.clap = os.path.join(self.dir, "clap", "omx-fault.clap")
+        self.clap = os.path.join(self.dir, folder, "omx-fault.clap")
         os.makedirs(os.path.dirname(self.clap))
         write(self.clap, b"clean pad build")
         self.clap_uri = "clap:%s#org.openmixer.fault" % self.clap
@@ -5619,6 +5619,69 @@ if os.environ.get("PLUGIN_HOSTD_WORLD_REFUSE"):
             d.close()
             p.close()
             programs.close()
+
+
+@test
+def a_plugin_in_a_folder_with_a_space_is_one_quoted_word_in_add_pin_set_and_the_pin_file():
+    """the protocol's word is a bare word or a quoted one (a path may hold spaces): add, pin_set and the pin lines read
+    "clap:/p/My Plugins/x.clap#id" as one word, the quotes are no part of the uri, and what the daemon writes (the worker's
+    add, the store) is that word quoted again"""
+    p = Plugins(folder="My Plugins")
+    quoted = '"%s"' % p.clap_uri
+    try:
+        d = p.daemon(conf={"pin_mode": "strict"})
+        try:
+            # pin_set takes the quoted uri as one word; before, it was cut at the space and answered -902
+            d.expect(p.clap_pin().replace(p.clap_uri, quoted, 1), "resp 0")
+            d.expect("add %s 0" % quoted, "resp 0")
+            sent = p.verbs("add")
+            check(sent == ["add %s 0" % quoted], "the worker is given the uri as one quoted word: %r" % sent)
+            # the same without the space is a quoted word too, and its quotes are not part of the uri
+            d.expect("pin_clear %s" % quoted, "resp 0")
+            d.expect("add %s 1" % quoted, resp("PIN_ABSENT"))
+        finally:
+            d.close()
+        # first-use learns the pin, writes it to the store with the uri quoted, and a strict daemon reads it back
+        d = p.daemon(conf={"pin_mode": "first-use"})
+        try:
+            d.expect("add %s 2" % quoted, "resp 2")
+        finally:
+            d.close()
+        with open(p.store) as f:
+            lines = [l for l in f.read().splitlines() if l.strip()]
+        check(len(lines) == 1 and lines[0].startswith("pin_set %s " % quoted),
+              "the store holds the uri as one quoted word: %s" % lines)
+        d = p.daemon(conf={"pin_mode": "strict"})
+        try:
+            d.expect("add %s 3" % quoted, "resp 3")
+        finally:
+            d.close()
+        # a pin file line, with and without the verb, reads the same
+        pins = os.path.join(p.dir, "pins.txt")
+        rewrite_pins(pins, ['%s omx-fault.clap=%s %s' % (quoted, sha(p.clap), fake_layout())])
+        os.unlink(p.store)
+        d = p.daemon(conf={"pin_mode": "strict", "pin_file": pins})
+        try:
+            d.expect("add %s 4" % quoted, "resp 4")
+        finally:
+            d.close()
+    finally:
+        p.close()
+
+
+@test
+def a_quoted_uri_without_a_space_is_the_uri_and_not_a_name_with_quotes():
+    p = Plugins()
+    try:
+        d = p.daemon(conf={"pin_mode": "strict"})
+        try:
+            d.expect(p.clap_pin().replace(p.clap_uri, '"%s"' % p.clap_uri, 1), "resp 0")
+            d.expect('add "%s" 0' % p.clap_uri, "resp 0")
+            d.expect("add %s 1" % p.clap_uri, "resp 1")
+        finally:
+            d.close()
+    finally:
+        p.close()
 
 
 sys.exit(run_tests(TESTS))

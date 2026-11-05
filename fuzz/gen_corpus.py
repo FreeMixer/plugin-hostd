@@ -133,6 +133,13 @@ def command_corpus(out):
     seeds["tagged-nothing-after"] = message("@a7")
     seeds["tagged-at-alone"] = message("@ quit")
     seeds["tagged-no-tag"] = message("@!x remove -1")
+    # a plugin name in quotes: with a space in its path, without one, an unterminated quote, a word with a quote inside
+    seeds["quoted-add-space"] = message('add "clap:/p/My Plugins/x.clap#id" 0')
+    seeds["quoted-add-plain"] = message('add "urn:fuzz:plugin" 0 own')
+    seeds["quoted-pin-set"] = message('pin_set "clap:/p/My Plugins/x.clap#id" "lib dir/x.so"=%s omx-layout/1:%s' % ("0" * 64, "0" * 64))
+    seeds["quoted-unterminated"] = message('add "urn:fuzz:plugin 0')
+    seeds["quoted-then-text"] = message('add "urn:fuzz:plugin"x 0')
+    seeds["quoted-tab"] = message('add\t"urn:fuzz:a\tb"\t0')
     # hello: the extensions asked for, none, a bad version, no version, and a session opened and then a tagged line
     seeds["hello-tags"] = message("hello 1 tags errors seq")
     seeds["hello-bare"] = message("hello 1")

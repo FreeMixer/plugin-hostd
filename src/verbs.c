@@ -34,6 +34,7 @@
 #include "session.h"
 #include "supervisor.h"
 #include "verbs.h"
+#include "words.h"
 
 #define MAX_TOKENS PHD_LINE_WORDS_MAX
 
@@ -295,7 +296,7 @@ static char *handle(char *line, char **tok, int ntok)
 
 void verbs_receive(msg_t *msg)
 {
-    char *line = strndup(msg->data, msg->data_size), *tok[MAX_TOKENS], *save = NULL, *t, *copy, *end;
+    char *line = strndup(msg->data, msg->data_size), *tok[MAX_TOKENS], *copy, *end;
     const char *tag = NULL, *command;
     size_t tag_len = 0;
     int ntok = 0;
@@ -324,8 +325,15 @@ void verbs_receive(msg_t *msg)
         free(line);
         return;
     }
-    for (t = strtok_r(copy, " \t", &save); t && ntok < MAX_TOKENS; t = strtok_r(NULL, " \t", &save))
-        tok[ntok++] = t;
+    /* the words as the protocol reads them: a word in quotes may hold spaces, and the quotes are not its value */
+    ntok = words_read(copy, tok, MAX_TOKENS);
+    if (ntok < 0)
+    {
+        reply(msg->sender_id, NULL, NULL, 0);
+        free(copy);
+        free(line);
+        return;
+    }
     if (ntok == 0 && tag)
         reply(msg->sender_id, strdup(MESSAGE_COMMAND_NOT_FOUND), tag, tag_len);
     else if (ntok == 0)

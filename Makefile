@@ -89,7 +89,7 @@ LDFLAGS += -Wl,--no-undefined
 
 # source and object files
 SRC = src/main.c src/conf.c src/proc.c src/supervisor.c src/verbs.c src/pins.c src/pin_words.c src/relay.c src/formats.c src/lv2.c \
-      src/descriptors.c src/describe.c src/transforms.c src/json.c src/fsutil.c src/machine.c src/history.c src/planner.c src/qualcost.c src/placement.c src/session.c
+      src/descriptors.c src/describe.c src/transforms.c src/json.c src/fsutil.c src/machine.c src/history.c src/planner.c src/qualcost.c src/placement.c src/session.c src/words.c
 OBJ = $(SRC:.c=.o)
 
 # the C names of the words of this tree's tables (data/grouping.json, data/history.json), rendered by omx-contract
@@ -270,13 +270,13 @@ FUZZ_CFLAGS    := -O1 -g -std=c11 -D_GNU_SOURCE -Wall -Wextra -Werror -fno-omit-
 FUZZ_INCS      := -Iinclude -Isrc -Ifuzz $(PROTOCOL_CFLAGS) $(PIN_CFLAGS)
 # what each harness is built from beside its own file: the command harness links the parser and the recorder, the
 # reply harness includes src/relay.c itself
-FUZZ_SRC_command := src/verbs.c src/session.c src/pin_words.c fuzz/recorder.c
+FUZZ_SRC_command := src/verbs.c src/session.c src/words.c src/pin_words.c fuzz/recorder.c
 FUZZ_SRC_reply   :=
 FUZZ_DEPS        := src/pin_words.c fuzz/fuzz.h fuzz/syntax.h fuzz/recorder.h src/relay.c src/verbs.h src/session.h $(REPLY_WORDS) $(PROTOCOL_HEADERS) $(RENDERED)
 
 $(FUZZ_BUILD)/fuzz_%: fuzz/fuzz_%.c $(FUZZ_DEPS) $(FUZZ_SRC_command)
 	@mkdir -p $(dir $@)
-	$(FUZZ_CC) $(FUZZ_CFLAGS) $(FUZZ_SAN) -fsanitize=fuzzer $(FUZZ_INCS) $< $(FUZZ_SRC_$*) -pthread -o $@ $(PIN_LIBS)
+	$(FUZZ_CC) $(FUZZ_CFLAGS) $(FUZZ_SAN) -fsanitize=fuzzer $(FUZZ_INCS) $< $(FUZZ_SRC_$*) -pthread -o $@ $(PIN_LIBS) $(PROTOCOL_LIBS)
 
 fuzz: $(FUZZ_HARNESSES:%=$(FUZZ_BUILD)/fuzz_%)
 
@@ -289,7 +289,7 @@ fuzz-sabotage:
 # every check's comment names a one-line change and the seed on which that check aborts, or why it is not a property;
 # each change is applied alone to the plain harness (fuzz/records.sh)
 fuzz-records:
-	FUZZ_BUILD=$(FUZZ_BUILD) FUZZ_CC=$(FUZZ_CC) PROTOCOL_CFLAGS="$(PROTOCOL_CFLAGS)" PIN_CFLAGS="$(PIN_CFLAGS)" fuzz/records.sh
+	FUZZ_BUILD=$(FUZZ_BUILD) FUZZ_CC=$(FUZZ_CC) PROTOCOL_CFLAGS="$(PROTOCOL_CFLAGS)" PROTOCOL_LIBS="$(PROTOCOL_LIBS)" PIN_CFLAGS="$(PIN_CFLAGS)" fuzz/records.sh
 
 # the coverage witness: the same harnesses without sanitizers, instrumented for llvm-cov, each run once over its seed
 # corpus (-runs=0 executes the corpus and nothing else); the llvm-cov and llvm-profdata of FUZZ_CC's own LLVM
@@ -300,7 +300,7 @@ LLVM_PROFDATA  ?= llvm-profdata
 
 $(FUZZ_COV_BUILD)/fuzz_%: fuzz/fuzz_%.c $(FUZZ_DEPS) $(FUZZ_SRC_command)
 	@mkdir -p $(dir $@)
-	$(FUZZ_CC) $(FUZZ_COV_FLAGS) -fsanitize=fuzzer $(FUZZ_INCS) $< $(FUZZ_SRC_$*) -pthread -o $@ $(PIN_LIBS)
+	$(FUZZ_CC) $(FUZZ_COV_FLAGS) -fsanitize=fuzzer $(FUZZ_INCS) $< $(FUZZ_SRC_$*) -pthread -o $@ $(PIN_LIBS) $(PROTOCOL_LIBS)
 
 fuzz-coverage: $(FUZZ_HARNESSES:%=$(FUZZ_COV_BUILD)/fuzz_%)
 	@set -e; for h in $(FUZZ_HARNESSES); do \
@@ -414,8 +414,8 @@ $(FORMAT_TEST): tests/format_test.c $(FORMAT_OBJ) $(PROTOCOL_LIB)
 test-history: $(HISTORY_TEST)
 	./$(HISTORY_TEST)
 
-$(HISTORY_TEST): tests/history_test.c src/history.c src/history.h src/fsutil.c src/fsutil.h src/machine.c src/machine.h $(PROTOCOL_HEADERS) $(RENDERED)
-	$(CC) -Iinclude $(PROTOCOL_CFLAGS) $(PIN_CFLAGS) -Isrc $(CONTRACT_CFLAGS) $(CFLAGS) -Werror -o $@ tests/history_test.c src/history.c src/fsutil.c src/machine.c $(PIN_LIBS) -lm
+$(HISTORY_TEST): tests/history_test.c src/history.c src/words.c src/words.h src/history.h src/fsutil.c src/fsutil.h src/machine.c src/machine.h $(PROTOCOL_HEADERS) $(RENDERED)
+	$(CC) -Iinclude $(PROTOCOL_CFLAGS) $(PIN_CFLAGS) -Isrc $(CONTRACT_CFLAGS) $(CFLAGS) -Werror -o $@ tests/history_test.c src/history.c src/words.c src/fsutil.c src/machine.c $(PROTOCOL_LIBS) $(PIN_LIBS) -lm
 
 # tests/own_host_lv2_probe.py closes its JACK client on every exit path: run against a fake libjack whose realtime thread
 # keeps firing the callback, a probe that skips the close dies with SIGSEGV at interpreter teardown

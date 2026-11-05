@@ -201,6 +201,28 @@ static void test_round_trip(void)
     group("a_record_round_trips_through_its_file_value_for_value");
 }
 
+/* a uri with a space is one quoted word of the line, and is read back as the uri */
+static void test_a_uri_with_a_space_is_written_quoted_and_read_back(void)
+{
+    const char *spaced = "clap:/p/My Plugins/x.clap#org.test";
+    char *text;
+    const history_rec_t *r;
+
+    fresh();
+    start();
+    history_crash(spaced, DIGEST, 0, 1180);
+    history_finish();
+    text = file_text();
+    check(strstr(text, "history \"clap:/p/My Plugins/x.clap#org.test\" " DIGEST " " CLASS " ") != NULL,
+          "the uri is written as one quoted word");
+    start();
+    r = history_find(spaced, DIGEST);
+    check(r != NULL && r->crashes_solo == 1, "the record is found by the uri with its space after a restart");
+    history_finish();
+    free(text);
+    group("a_uri_with_a_space_is_one_quoted_word_in_a_history_line");
+}
+
 static void test_windows(void)
 {
     const history_rec_t *r;
@@ -237,12 +259,13 @@ static void test_no_record_for_what_is_not_a_plugin(void)
     fresh();
     start();
     history_window("", DIGEST, 0, 1, 1, 0, 1);
-    history_window("clap:/with space#x", DIGEST, 0, 1, 1, 0, 1);
+    history_window("clap:/with\nline#x", DIGEST, 0, 1, 1, 0, 1);
+    history_window("clap:/with\"quote#x", DIGEST, 0, 1, 1, 0, 1);
     history_window(URI, "nothex", 0, 1, 1, 0, 1);
     history_window(URI, "BA7816BF8F01CFEA414140DE5DAE2223B00361A396177A9CB410FF61F20015AD", 0, 1, 1, 0, 1);
     history_crash(NULL, DIGEST, 0, 1);
     history_finish();
-    check_str(file_text(), "", "nothing is written for a uri that is empty or holds a space, or a digest that is not 64 lowercase hex");
+    check_str(file_text(), "", "nothing is written for a uri that is empty or holds a line end or a quote (a space is written quoted), or a digest that is not 64 lowercase hex");
     group("a_key_that_is_not_a_plugin_binary_makes_no_record");
 }
 
@@ -700,6 +723,7 @@ int main(void)
     snprintf(file, sizeof(file), "%s/history", dir);
     test_the_keys_are_the_contracts_words();
     test_round_trip();
+    test_a_uri_with_a_space_is_written_quoted_and_read_back();
     test_windows();
     test_no_record_for_what_is_not_a_plugin();
     test_summary();

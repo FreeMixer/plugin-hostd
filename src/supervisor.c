@@ -48,6 +48,7 @@
 #include "relay.h"
 #include "supervisor.h"
 #include "verbs.h"
+#include "words.h"
 
 #define ATTRIBUTED  (-2)    /* on_death: the culprit is already dealt with, only schedule */
 #define POOL_NAMES  32
@@ -2397,13 +2398,17 @@ static int ledger_set_many(instance_t *i, char **tok, int ntok)
 /* the ledger takes the verb of one forwarded line, if it is one it keeps; 0, or -1 when memory runs out */
 static int ledger_verb(instance_t *i, const char *line)
 {
-    char *save = NULL, *t, *copy = strdup(line), *tok[PHD_LINE_WORDS_MAX];
-    int ntok = 0, rc = 0;
+    char *copy = strdup(line), *tok[PHD_LINE_WORDS_MAX];
+    int ntok, rc = 0;
 
     if (!copy)
         return -1;
-    for (t = strtok_r(copy, " \t", &save); t && ntok < PHD_LINE_WORDS_MAX; t = strtok_r(NULL, " \t", &save))
-        tok[ntok++] = t;
+    ntok = words_read(copy, tok, PHD_LINE_WORDS_MAX);
+    if (ntok < 0)
+    {
+        free(copy);
+        return -1;
+    }
     if (ntok && !strcmp(tok[0], OMX_VERB_PARAM_SET_MANY))
         rc = ledger_set_many(i, tok, ntok);
     else if (ntok)

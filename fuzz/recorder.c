@@ -24,6 +24,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <utils.h>
+
 #include <host-errors.h>
 #include <mod-host.h>
 #include <socket.h>
@@ -103,21 +105,46 @@ static char *xstrdup(const char *s)
 
 char *rec_canonical(const char *text, size_t len)
 {
-    char *out = xmalloc(len + 1);
-    size_t i = 0, o = 0;
+    /* the words as the protocol library reads them, after the daemon's own step (a tab, a carriage return or a line end
+     * outside quotes is a space), joined by one space; a word with a blank in it, or none at all, in quotes */
+    char *copy = xmalloc(len + 1), *p, **list, *out;
+    size_t o = 0, cap = 3 * len + 4;
+    int quote = 0, k;
 
-    while (i < len)
+    memcpy(copy, text, len);
+    copy[len] = '\0';
+    for (p = copy; *p; p++)
     {
-        while (i < len && (text[i] == ' ' || text[i] == '\t'))
-            i++;
-        if (i == len)
-            break;
-        if (o)
-            out[o++] = ' ';
-        while (i < len && text[i] != ' ' && text[i] != '\t')
-            out[o++] = text[i++];
+        if (*p == '\\' && p[1] == '"')
+            p++;
+        else if (*p == '"')
+            quote = !quote;
+        else if (!quote && (*p == '\t' || *p == '\r' || *p == '\n'))
+            *p = ' ';
     }
-    out[o] = '\0';
+    out = xmalloc(cap);
+    out[0] = '\0';
+    p = copy + strspn(copy, " ");
+    if (*p && (list = strarr_split(p)) != NULL)
+    {
+        for (k = 0; list[k]; k++)
+        {
+            size_t l = strlen(list[k]);
+            int quoted = !l || strpbrk(list[k], " \t\r\n") != NULL;
+
+            if (k)
+                out[o++] = ' ';
+            if (quoted)
+                out[o++] = '"';
+            memcpy(out + o, list[k], l);
+            o += l;
+            if (quoted)
+                out[o++] = '"';
+        }
+        out[o] = '\0';
+        free(list);
+    }
+    free(copy);
     return out;
 }
 
@@ -388,9 +415,9 @@ char *sup_instance_verb(const char *line, int ledger)
 
     arg_line(c, line);
     arg_i(c, ledger);
-    /* the verb is the first word of the line, past any space before it */
-    line += strspn(line, " \t");
-    return answer(c, rec_shape_of(line, strcspn(line, " \t")), 1);
+    /* the verb is the first word of the line, past any blank before it */
+    line += strspn(line, " \t\r\n");
+    return answer(c, rec_shape_of(line, strcspn(line, " \t\r\n")), 1);
 }
 
 char *sup_worker_list(void)

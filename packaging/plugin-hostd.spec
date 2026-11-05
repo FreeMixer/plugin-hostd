@@ -180,6 +180,9 @@ make test-daemon check-generated check-rendered
   alone is followed by its error word, every feedback line starts with #<n>. A
   controller that never sends hello is answered as before. No worker is sent hello
   or a tagged line (#386)
+- A word in quotes is one word, as the protocol's grammar has it: add, pin_set and every other command, the pin
+  files and the history read "clap:/p/My Plugins/x.clap#id" as one uri without its quotes, and the store and the
+  history write a uri with a blank in it quoted. Before, such a path was cut at its space
 - A worker is pinned to all the audio cores, not to one of them (#394)
 - bench: the DSP load is read from the server and a window's xruns from both
   sources (#400); the private JACK server's priority is asked and read back, and

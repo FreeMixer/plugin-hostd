@@ -39,6 +39,7 @@
 #include "formats.h"
 #include "fsutil.h"
 #include "pins.h"
+#include "words.h"
 
 #define SCHEME_MAX   32
 #define STORE_NAME   "plugin-hostd/pins"
@@ -287,9 +288,12 @@ static const char *store_path(const char *configured)
 
 static void line_write(FILE *file, const pin_t *p)
 {
+    char uri[LINE_MAX_PIN];
     int n;
 
-    fprintf(file, "%s %s ", OMX_VERB_PIN_SET, p->uri);
+    /* a uri with a blank in it is one word only in quotes */
+    words_write(p->uri, uri, sizeof(uri));
+    fprintf(file, "%s %s ", OMX_VERB_PIN_SET, uri);
     for (n = 0; n < p->nfiles; n++)
         fprintf(file, "%s%s" PHD_PIN_DIGEST_SEPARATOR "%s", n ? PHD_PIN_FILE_SEPARATOR : "", p->path[n], p->digest[n]);
     fprintf(file, " %s", p->layout);
@@ -339,13 +343,14 @@ static void held_add(const char *line)
 /* the uri a held line names: its first word, or the second after the verb */
 static int held_names(const char *line, const char *uri)
 {
-    char copy[LINE_MAX_PIN], *save = NULL, *t;
+    char copy[LINE_MAX_PIN], *tok[2];
+    int ntok;
 
     snprintf(copy, sizeof(copy), "%s", line);
-    t = strtok_r(copy, " \t", &save);
-    if (t && !strcmp(t, OMX_VERB_PIN_SET))
-        t = strtok_r(NULL, " \t", &save);
-    return t && !strcmp(bare(t), uri);
+    ntok = words_read(copy, tok, 2);
+    if (ntok > 1 && !strcmp(tok[0], OMX_VERB_PIN_SET))
+        return !strcmp(bare(tok[1]), uri);
+    return ntok > 0 && !strcmp(bare(tok[0]), uri);
 }
 
 static int uri_held(const char *uri)
@@ -424,13 +429,14 @@ typedef enum { LAYER_STORE, LAYER_FILE, LAYER_PKG } layer_t;
 /* one line: the words of pin_set, the verb in front or not; a blank or comment line is SUCCESS and records nothing */
 static int line_read(char *line, layer_t layer, const char *path, int lineno)
 {
-    char *tok[8], *save = NULL, *t;
+    char *tok[8];
     const char *verdict, *pool;
     int ntok = 0, first = 0, rc;
     pin_t pin;
 
-    for (t = strtok_r(line, " \t\r\n", &save); t && ntok < 8; t = strtok_r(NULL, " \t\r\n", &save))
-        tok[ntok++] = t;
+    ntok = words_read(line, tok, 8);
+    if (ntok < 0)
+        return ERR_MEMORY_ALLOCATION;
     if (ntok == 0 || tok[0][0] == '#')
         return SUCCESS;
     if (!strcmp(tok[0], OMX_VERB_PIN_SET))
