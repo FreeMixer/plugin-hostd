@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 """A Zynthian chain of omx-plugins members, declared over the chain verb and played by the real omx-clap-host: the
 values each member leaves on the audio, in the declared order, read back, after a removal and after a crash.
 

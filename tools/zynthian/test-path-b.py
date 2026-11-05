@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 """Path B of the Zynthian spike (FreeMixer/plugin-hostd#124): zynthian_engine_plugind against Zynthian's own engine
 classes, with plugin-hostd and JACK running.
 

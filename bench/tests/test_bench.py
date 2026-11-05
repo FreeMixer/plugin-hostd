@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 """Unit tests of the harness: run with `python3 -I bench/tests/test_bench.py`. They need no JACK server and no host:
 the schema and validator rules, and (below) the pieces of the runner that decide a number."""
 

@@ -1,4 +1,6 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 # The plugind chain of the Zynthian engine, offline: the spike engine (spike-engine.sh) applied to zynthian-ui at its
 # pinned commit, and tools/zynthian/test-chain.py run against plugin-hostd and tests/fake-host (no JACK, no plugin).
 #

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 """Drive a running mod-ui (Zynthian's fork) the way its browser page does: build two pedalboards, save them, load them
 back, move parameters, bypass, load presets, take snapshots and run the transport.
 

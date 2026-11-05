@@ -1,4 +1,6 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 # Path A of the Zynthian spike (FreeMixer/plugin-hostd#124): mod-ui with plugin-hostd as its daemon, against mod-host.
 #
 #   tools/zynthian/path-a.sh <out-dir>

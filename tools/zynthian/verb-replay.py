@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 """Replay the commands of a verb-proxy.py log against a daemon, with every LV2 add turned into a CLAP add.
 
 Answers "which of the verbs mod-ui sent would a CLAP worker (omx-clap-host) answer": the commands are sent as mod-ui

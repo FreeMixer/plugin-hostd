@@ -1,4 +1,6 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 # Boot the ZynthianOS image (tools/zynthian/image-build.sh's output) in a container and record what a container can
 # prove. The artefact is never modified: the root file system is mounted read-only and used through an overlayfs
 # whose upper layer is scratch, the boot partition read-only.

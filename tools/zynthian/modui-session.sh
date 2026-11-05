@@ -1,4 +1,6 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 # One mod-ui session against one daemon, every message between them logged.
 #
 #   tools/zynthian/modui-session.sh <mod-host|plugin-hostd> <out-dir>

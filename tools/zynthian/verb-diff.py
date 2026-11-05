@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 """Compare two verb logs of verb-proxy.py: the same mod-ui session against a reference daemon and against another.
 
 Pairs each command with its reply, aligns the two command sequences (difflib, on the command text) and prints, per

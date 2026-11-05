@@ -1,4 +1,6 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 # validate.sh <file>...: check omx-bench/1 documents against bench/schema/omx-bench.v1.schema.json and the rules the
 # schema cannot say. Exit 1 names the file, the scenario row and the rule of the first problem of each file.
 set -euo pipefail

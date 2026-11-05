@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 """Send mod-host protocol messages, one per argument, to 127.0.0.1:$MH_PORT (5555); print each reply.
 
 The feedback port ($MH_PORT + 1) is opened first and drained, as a controller does: mod-host holds the first command

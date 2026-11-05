@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 """Writes the Zynthian acceptance report (report.md and report.html) from measurement files.
 
 Every number in the report is read from a file named below; the prose only holds

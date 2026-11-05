@@ -1,4 +1,6 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 # table.sh <file>...: the chains-vs-processes and grouping-vs-processes rows of omx-bench/1 documents as markdown:
 # the figures with their spread, the ratios of one process per plugin to one chain, the xruns summed per mode.
 set -euo pipefail

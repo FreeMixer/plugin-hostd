@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 """Markdown tables from omx-bench/1 documents: one row per scenario row of the families that compare ways of running
 the same plugins (cvp and grp scenarios), the ratios of one process per plugin to one chain, and the xruns summed
 over the rows of each mode. A figure with a spread shows its median and [min, max]; a row that did not run is shown,

@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 """The benchmark runner behind bench/run.sh: four plugin hosts, one private JACK server per rate and frame count,
 one omx-bench/1 document per run. bench/README.md says what each scenario measures."""
 

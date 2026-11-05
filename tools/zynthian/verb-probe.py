@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 """Send each of the 33 verbs mod-ui sends once, well formed, to a daemon holding one plugin; print the replies.
 
 Covers the verbs a two-pedalboard session does not reach (MIDI learn and maps, Control Chain, CV, HMI, patch, monitor

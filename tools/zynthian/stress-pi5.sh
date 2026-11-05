@@ -1,4 +1,6 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 # The Pi 5 stress run of a Zynthian with plugin-hostd: chains of 4 plugins at 1, 2, 4, 8 and 16 chains, hosted grouped
 # (one plugin-hostd worker per chain), alone (one worker per plugin) and by jalv (one process per plugin), each level
 # held and measured on the device by stress-pi5.py.

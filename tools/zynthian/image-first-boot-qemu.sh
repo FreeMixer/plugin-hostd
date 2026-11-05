@@ -1,4 +1,6 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 # Boot the ZynthianOS image (tools/zynthian/image-build.sh's output) under full emulation, a Raspberry Pi stand-in
 # on the build host: qemu-system-aarch64, machine virt, TCG (no aarch64 KVM on an x86_64 host). The artefact is
 # never written: the VM runs on a qcow2 overlay whose backing file is the decompressed raw image.

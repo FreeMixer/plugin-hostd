@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 """The plugind chain of the Zynthian engine against plugin-hostd: one Zynthian chain as one chain line, read back.
 
     test-chain.py --zui <zynthian-ui checkout with the spike engine applied: spike-engine.sh>

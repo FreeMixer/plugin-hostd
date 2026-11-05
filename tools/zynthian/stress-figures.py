@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 """The figures and the table of a Pi 5 stress run (tools/zynthian/stress-pi5.sh), from its summary.json alone.
 
     stress-figures.py <figure dir> <run dir> [<run dir> ...]

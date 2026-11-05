@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 """The Pi 5 stress run, on the device: chains of 4 plugins at rising counts, hosted three ways.
 
     stress-pi5.py --out <dir> [--port 5590] [--hold 60] [--levels 1,2,4,8,16] [--modes grouped,alone,jalv]

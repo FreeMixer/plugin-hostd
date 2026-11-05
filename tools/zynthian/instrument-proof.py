@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 """An instrument played through plugin-hostd (or jalv), and what it gives back: level, pitch, brightness, CPU per core.
 
     instrument-proof.py --out <dir> --host hostd --uri '<clap:...#id | lv2 uri>' [--port 5591] [--only a,b]

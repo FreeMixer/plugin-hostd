@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 """Unit tests of the Zynthian benchmark matrix: run with `python3 -I tools/zynthian/test_matrix.py`. They run no bench."""
 
 import csv

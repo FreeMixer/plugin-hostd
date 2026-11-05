@@ -1,4 +1,6 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 # Copy what a booted VM left in its overlay (the logs and the qualification state that the serial console does not
 # carry) to an evidence directory: the overlay is flattened to a raw file, its root partition mounted read-write (the
 # overlay is the VM's own copy; the image is its read-only backing file), the files copied, everything released.

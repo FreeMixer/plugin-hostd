@@ -1,4 +1,6 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 # send.sh <port> <line> [<line> ...]: send each line to a mod-host protocol port on 127.0.0.1, NUL-terminated,
 # and print its one reply on a line of its own. The runner holds one connection per host, as a controller does;
 # this is the same framing for a person or a script.

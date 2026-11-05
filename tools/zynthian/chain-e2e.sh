@@ -1,4 +1,6 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 # The plugind chain end to end: the spike engine (spike-engine.sh) applied to zynthian-ui at its pinned commit, and
 # tools/zynthian/test-chain.py's scenarios (no sabotage: chain.sh holds those) run against plugin-hostd with
 # omx-clap-host as its worker, an LV2 member on the adapter row and CLAP members, in a PipeWire of its own. With

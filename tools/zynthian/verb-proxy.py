@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 """Log every message between a mod-host client (mod-ui) and a mod-host-protocol daemon.
 
 Listens on the command and feedback ports the client expects and forwards each connection to the daemon on other

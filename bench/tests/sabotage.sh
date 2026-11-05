@@ -1,4 +1,6 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 # Break each guard of the harness on purpose and watch it go red, then run it whole and watch it stay green:
 #   validator: a shipped example passes; a document with one field broken fails, naming file, scenario and rule
 #   teardown:  a copy of the runner whose host stop leaves the host, and one whose last stop leaves the JACK server,

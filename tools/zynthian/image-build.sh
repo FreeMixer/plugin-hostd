@@ -1,4 +1,6 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 # Build a ZynthianOS SD image that carries OpenMixer: upstream's released image, updated offline the way a Pi is
 # updated, on an x86_64 build host.
 #

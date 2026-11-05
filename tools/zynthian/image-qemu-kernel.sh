@@ -1,4 +1,6 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 # A generic arm64 kernel and a minimal initramfs that boot the ZynthianOS image on qemu's virt machine, for
 # image-first-boot-qemu.sh (KERNEL=<dir>). The image's own Raspberry Pi kernel has no virtio block driver, so it
 # cannot find a root disk on virt.

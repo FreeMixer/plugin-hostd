@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 """Check omx-bench/1 documents: the JSON Schema of bench/schema, read here with the keywords it uses, and the rules
 across rows the schema cannot say. One line per problem: file, scenario row, rule, what is wrong. Exit 1 on any."""
 
