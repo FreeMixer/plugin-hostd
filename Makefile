@@ -256,9 +256,9 @@ FUZZ_CFLAGS    := -O1 -g -std=c11 -D_GNU_SOURCE -Wall -Wextra -Werror -fno-omit-
 FUZZ_INCS      := -Iinclude -Isrc -Ifuzz $(PROTOCOL_CFLAGS)
 # what each harness is built from beside its own file: the command harness links the parser and the recorder, the
 # reply harness includes src/relay.c itself
-FUZZ_SRC_command := src/verbs.c src/pin_words.c fuzz/recorder.c
+FUZZ_SRC_command := src/verbs.c src/session.c src/pin_words.c fuzz/recorder.c
 FUZZ_SRC_reply   :=
-FUZZ_DEPS        := src/pin_words.c fuzz/fuzz.h fuzz/syntax.h fuzz/recorder.h src/relay.c src/verbs.h $(PROTOCOL_HEADERS) $(RENDERED)
+FUZZ_DEPS        := src/pin_words.c fuzz/fuzz.h fuzz/syntax.h fuzz/recorder.h src/relay.c src/verbs.h src/session.h $(REPLY_WORDS) $(PROTOCOL_HEADERS) $(RENDERED)
 
 $(FUZZ_BUILD)/fuzz_%: fuzz/fuzz_%.c $(FUZZ_DEPS) $(FUZZ_SRC_command)
 	@mkdir -p $(dir $@)
@@ -468,7 +468,7 @@ $(RELAY_TEST): tests/relay_test.c src/relay.c src/relay.h $(PROTOCOL_HEADERS) $(
 # the whole daemon when memory runs out: built with every allocation of its own sources going through tests/alloc_fail.c,
 # and the scenario of tests/alloc_sweep.py run with each allocation refused in turn
 ALLOC_SWEEP_DAEMON = tests/plugin-hostd-alloc-fail
-$(ALLOC_SWEEP_DAEMON): $(SRC) tests/alloc_fail.c tests/alloc_fail.h $(wildcard src/*.h) $(PROTOCOL_HEADERS) $(RENDERED) $(PROTOCOL_LIB)
+$(ALLOC_SWEEP_DAEMON): $(SRC) tests/alloc_fail.c tests/alloc_fail.h $(wildcard src/*.h) $(PROTOCOL_HEADERS) $(RENDERED) $(REPLY_WORDS) $(PROTOCOL_LIB)
 	mkdir -p tests/alloc-fail-objs
 	for f in $(SRC); do $(CC) $(CFLAGS) $(INCS) $(CONTRACT_CFLAGS) -include tests/alloc_fail.h -c -o tests/alloc-fail-objs/$$(basename $$f .c).o $$f || exit 1; done
 	$(CC) $(CFLAGS) -c -o tests/alloc-fail-objs/alloc_fail.o tests/alloc_fail.c
@@ -476,7 +476,7 @@ $(ALLOC_SWEEP_DAEMON): $(SRC) tests/alloc_fail.c tests/alloc_fail.h $(wildcard s
 
 # a refused plan over a longer one: the daemon's joint world cannot be built, and a pointer array ends against a guard page
 PLAN_REFUSED_DAEMON = tests/plugin-hostd-plan-refused
-$(PLAN_REFUSED_DAEMON): $(SRC) tests/world_refuse.c tests/guard_calloc.c tests/guard_calloc.h $(wildcard src/*.h) $(PROTOCOL_HEADERS) $(RENDERED) $(PROTOCOL_LIB)
+$(PLAN_REFUSED_DAEMON): $(SRC) tests/world_refuse.c tests/guard_calloc.c tests/guard_calloc.h $(wildcard src/*.h) $(PROTOCOL_HEADERS) $(RENDERED) $(REPLY_WORDS) $(PROTOCOL_LIB)
 	mkdir -p tests/plan-refused-objs
 	for f in $(SRC); do $(CC) $(CFLAGS) $(INCS) $(CONTRACT_CFLAGS) -include tests/guard_calloc.h -c -o tests/plan-refused-objs/$$(basename $$f .c).o $$f || exit 1; done
 	$(CC) $(CFLAGS) -c -o tests/plan-refused-objs/guard_calloc.o tests/guard_calloc.c
