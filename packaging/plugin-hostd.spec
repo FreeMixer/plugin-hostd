@@ -186,7 +186,8 @@ make test-daemon check-generated check-rendered
 - A worker is pinned to all the audio cores, not to one of them (#394)
 - bench: the DSP load is read from the server and a window's xruns from both
   sources (#400); the private JACK server's priority is asked and read back, and
-  --alsa hw:X runs it on a card instead of the dummy driver (#407)
+  --alsa hw:X runs it on a card instead of the dummy driver, --periods N sets that
+  driver's periods, and the document records both (#407)
 - param_get_many and param_set_many go to the worker that holds the instance;
   param_set_many is replayed after a respawn (#386)
 - mod-host is suggested, not recommended; a worker program that is not installed
