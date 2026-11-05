@@ -25,6 +25,20 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # A commit message is published like a file: the commits of a pull request carry no attribution line and name no
+  # private repository, machine or path.
+  commit-messages:
+    name: commit messages
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: FreeMixer/.github/.github/actions/commit-message-check@main
+
   # The packages and their smoke tests are built from the whole tree but fuzz/, bench/, the top-level pages and the licence:
   # a pull request that changes only those skips them (the jobs below that need this one). main and tags run them always.
   changes:
