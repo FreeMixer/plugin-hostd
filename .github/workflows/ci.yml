@@ -315,7 +315,7 @@ jobs:
             grep -qE "^\(plugin-hostd-protocol\(.*\) >= $(tools/protocol-floor.sh) with plugin-hostd-protocol\(.*\) < $(tools/protocol-ceiling.sh)\)$" requires.txt
             grep -qx "plugin-hostd-contract = $(rpm -qp --qf '%{VERSION}-%{RELEASE}' "$rpm")" requires.txt
             rpm -qp --recommends "$rpm" | tee recommends.txt
-            grep -q '^omx-clap-host' recommends.txt
+            grep -q '^(\?omx-clap-host' recommends.txt
             # mod-host runs LV2 only when lv2_worker names it, and is the benchmark's H3: suggested, never recommended
             if grep -q mod-host recommends.txt requires.txt; then echo "plugin-hostd needs or recommends mod-host"; exit 1; fi
             rpm -qp --suggests "$rpm" | tee suggests.txt
@@ -523,7 +523,7 @@ jobs:
         run: |
           set -euo pipefail
           apt-get update -qq
-          apt-get install -y --no-install-recommends ./debs/plugin-hostd_*.deb ./debs/plugin-hostd-contract_*.deb ./debs/plugin-hostd-dev_*.deb ./debs/plugin-hostd-tests_*.deb ./dep-debs/libplugin-hostd-protocol0_*.deb ./dep-debs/libplugin-hostd-protocol-dev_*.deb ./dep-debs/plugin-hostd-protocol-contract_*.deb ./dep-debs/omx-clap-core-contract_*.deb ./dep-debs/omx-contract-data_*.deb ./dep-debs/omx-contract_*.deb python3
+          apt-get install -y --no-install-recommends ./debs/plugin-hostd_*.deb ./debs/plugin-hostd-contract_*.deb ./debs/plugin-hostd-dev_*.deb ./debs/plugin-hostd-tests_*.deb ./dep-debs/libplugin-hostd-protocol0_*.deb ./dep-debs/libplugin-hostd-protocol-dev_*.deb ./dep-debs/plugin-hostd-protocol-contract_*.deb ./dep-debs/plugin-db-dev_*.deb ./dep-debs/omx-clap-core-contract_*.deb ./dep-debs/omx-contract-data_*.deb ./dep-debs/omx-contract_*.deb python3
           dpkg -L plugin-hostd-dev | tee dev.txt
           grep -qx /usr/include/plugin-hostd/plugin_hostd_vocabulary.h dev.txt
           ! grep -q /usr/include/plugin-hostd/pin.h dev.txt
