@@ -36,12 +36,16 @@
  *     answered (the supervisor's text, or "resp <code>" of the code the pins returned), the reply is that answer,
  *     unchanged; when none did, it is one the daemon makes itself, a refusal or "resp 0" for quit. A refusal is
  *     "resp <code>" of a declared code, and anything else has the reply shape its verb declares (PHD_VERBS,
- *     PHD_INSTANCE_VERBS) or mod-host's "resp 0". A first word that starts with "@" is none of these: the daemon grants
- *     no session `tags`, so the protocol (doc/protocol.md, Request tags) has it answered `not found` as mod-host
- *     answers a word that is no verb, and no worker sees it.
+ *     PHD_INSTANCE_VERBS) or mod-host's "resp 0". A first word that starts with "@" is none of these: in a session
+ *     not granted `tags`, which every message is read in (the harness ends a session at the end of the hello that
+ *     opened it), the protocol (doc/protocol.md, Request tags) has it answered `not found` as mod-host answers a word
+ *     that is no verb, and no worker sees it. hello is the daemon's own: its answer is "few arguments" with no
+ *     version, -902 for a version that is not a whole number of 1 or more, else the version 1 and the extensions
+ *     asked for that the daemon grants, in the declared order, and no worker sees it.
  *     Mutant: fuzz/sabotage/command-reply.patch, the reply sent without its NUL.
  *     Mutant: fuzz/sabotage/command-reply-answer.patch, a pin_set the pins refused replied "resp 0".
  *     Mutant: fuzz/sabotage/command-reply-tagged.patch, a line that starts with "@" passed on to the workers.
+ *     Mutant: fuzz/sabotage/command-reply-hello.patch, a hello passed on to the workers.
  *   - arity: a verb the daemon parses itself (PHD_VERBS, the rows tools/protocol-gen.c writes into
  *     the protocol's JSON, and mod-host's remove, connect, disconnect and quit) is acted on, by its own call
  *     or by a broadcast to every worker, only with an argument count its declared syntax allows; a word past
@@ -82,6 +86,7 @@
 
 #include <plugin-hostd/protocol.h>
 
+#include "session.h"
 #include "supervisor.h"
 #include "verbs.h"
 
@@ -207,11 +212,11 @@ __attribute__((noinline)) static void check_reply_answer(const struct words *w)
     if (g_rec.answer)
     {
         /* a call answered: the reply is its answer, as it answered it
-         * mutant: src/verbs.c:149 `text, strlen(text) + 1` -> `text + 1, strlen(text)`
+         * mutant: src/verbs.c:153 `text, strlen(text) + 1` -> `text + 1, strlen(text)`
          * input: add-default
-         * mutant: src/verbs.c:87 `return rc;` -> `return SUCCESS;`
+         * mutant: src/verbs.c:88 `return rc;` -> `return SUCCESS;`
          * input: plugin-hostd-pin_set-refused
-         * mutant: src/verbs.c:289 `return reply_text;` -> `return sup_resp(SUCCESS);`
+         * mutant: src/verbs.c:293 `return reply_text;` -> `return sup_resp(SUCCESS);`
          * input: mod-host-set_bpm-refused */
         if (strcmp(g_rec.reply, g_rec.answer))
             abort();
@@ -219,25 +224,50 @@ __attribute__((noinline)) static void check_reply_answer(const struct words *w)
     }
     /* no call answered: the reply is one the daemon makes itself, a refusal or the reply of quit, which check_reply
      * holds to "resp <code>" of a declared code and to "resp 0"
-     * mutant: src/verbs.c:176 `return sup_resp(ERR_INVALID_OPERATION);` -> `return sup_resp(SUCCESS);`
+     * mutant: src/verbs.c:180 `return sup_resp(ERR_INVALID_OPERATION);` -> `return sup_resp(SUCCESS);`
      * input: add-too-few */
     if (sup_reply_code(g_rec.reply) >= 0 && !(w->n == 1 && verb_is(w->w[0], QUIT)))
         abort();
 }
 
+/* the reply property for hello: the daemon's own answer, and no worker sees it. The session it opens ends here, so
+ * that every message after it is read as mod-host reads it (the tests of tests/daemon_test.py hold the granted ones) */
+__attribute__((noinline)) static void check_reply_hello(const struct words *w)
+{
+    static const char *const answers[] = { "resp 0 1", "resp 0 1 tags", "resp 0 1 errors", "resp 0 1 seq",
+                                           "resp 0 1 tags errors", "resp 0 1 tags seq", "resp 0 1 errors seq",
+                                           "resp 0 1 tags errors seq", "resp -902", MESSAGE_FEW_ARGUMENTS };
+    size_t i;
+
+    /* it reaches no worker, which would answer for itself and grant its own session what this one was not
+     * mutant: src/verbs.c:166 `strcmp(verb, OMX_VERB_HELLO)` -> `strcmp(verb, "hello_")`
+     * input: hello-tags */
+    if (g_rec.ncalls > 0)
+        abort();
+    for (i = 0; i < sizeof(answers) / sizeof(answers[0]); i++)
+        if (!strcmp(g_rec.reply, answers[i]))
+            break;
+    /* it is answered by one of the shapes above, and a hello with no version by the parse refusal
+     * mutant: src/verbs.c:167 `ntok < 2 ? strdup(MESSAGE_FEW_ARGUMENTS)` -> `ntok < 2 ? sup_resp(SUCCESS)`
+     * input: hello-no-version */
+    if (i == sizeof(answers) / sizeof(answers[0]) || (w->n < 2) != !strcmp(g_rec.reply, MESSAGE_FEW_ARGUMENTS))
+        abort();
+    session_reset();
+}
+
 /* the reply property for a first word that starts with "@": the protocol's answer to it in a session not granted
- * `tags`, which every session of this daemon is (doc/protocol.md, Request tags) */
+ * `tags`, which every message is read in (doc/protocol.md, Request tags) */
 __attribute__((noinline)) static void check_reply_tagged(void)
 {
     /* it reaches no worker, which would answer for itself and grant its own session what this one was not
-     * mutant: src/verbs.c:164 `verb[0] == '@'` -> `verb[0] == '\1'`
+     * mutant: src/verbs.c:168 `verb[0] == '@'` -> `verb[0] == '\1'`
      * input: tagged-command */
     if (g_rec.ncalls > 0)
         abort();
     /* it is answered `not found`, a parse refusal, and nothing else
-     * mutant: src/verbs.c:165 `strdup(MESSAGE_COMMAND_NOT_FOUND)` -> `sup_resp(ERR_INVALID_OPERATION)`
+     * mutant: src/verbs.c:169 `strdup(MESSAGE_COMMAND_NOT_FOUND)` -> `sup_resp(ERR_INVALID_OPERATION)`
      * input: tagged-command
-     * mutant: src/verbs.c:165 `strdup(MESSAGE_COMMAND_NOT_FOUND)` -> `strdup("resp 0")`
+     * mutant: src/verbs.c:169 `strdup(MESSAGE_COMMAND_NOT_FOUND)` -> `strdup("resp 0")`
      * input: tagged-nothing-after */
     if (strcmp(g_rec.reply, MESSAGE_COMMAND_NOT_FOUND))
         abort();
@@ -251,15 +281,20 @@ __attribute__((noinline)) static void check_reply(const struct words *w)
     int code;
 
     /* one reply, and nothing sent empty
-     * mutant: src/verbs.c:319 `reply(msg->sender_id, handle(line, tok, ntok));` -> `free(handle(line, tok, ntok));`
+     * mutant: src/verbs.c:335 `reply(msg->sender_id, handle((char *)command, tok, ntok), tag, tag_len);` -> `free(handle((char *)command, tok, ntok));`
      * input: add-default */
     if (g_rec.nreplies != 1 || g_rec.reply_size == 0)
         abort();
     /* the reply is a string that ends where the message the socket sends ends
-     * mutant: src/verbs.c:149 `strlen(text) + 1` -> `strlen(text)`
+     * mutant: src/verbs.c:153 `strlen(text) + 1` -> `strlen(text)`
      * input: add-default */
     if (g_rec.reply[g_rec.reply_size - 1] != '\0' || memchr(g_rec.reply, '\0', g_rec.reply_size - 1))
         abort();
+    if (w->n > 0 && !strcmp(w->w[0], "hello"))
+    {
+        check_reply_hello(w);
+        return;
+    }
     if (w->n > 0 && w->w[0][0] == '@')
     {
         check_reply_tagged();
@@ -271,7 +306,7 @@ __attribute__((noinline)) static void check_reply(const struct words *w)
     {
         snprintf(refusal, sizeof(refusal), "resp %d", code);
         /* a refusal is "resp <code>" of a declared code
-         * mutant: src/verbs.c:80 `return ERR_INVALID_OPERATION;` -> `return -7777;`
+         * mutant: src/verbs.c:81 `return ERR_INVALID_OPERATION;` -> `return -7777;`
          * input: pin-set-layout-unknown */
         if (!rec_code_declared(code) || strcmp(g_rec.reply, refusal))
             abort();
@@ -279,7 +314,7 @@ __attribute__((noinline)) static void check_reply(const struct words *w)
     }
     shape = w->n ? rec_shape_of(w->w[0], strlen(w->w[0])) : REC_MOD_HOST_SHAPE;
     /* anything else has the shape its verb declares, or mod-host's
-     * mutant: src/verbs.c:275 `sup_resp(SUCCESS)` -> `sup_resp(1)`
+     * mutant: src/verbs.c:279 `sup_resp(SUCCESS)` -> `sup_resp(1)`
      * input: mod-host-quit */
     if (!syntax_reply_matches(shape, g_rec.reply) && !syntax_reply_matches(REC_MOD_HOST_SHAPE, g_rec.reply))
         abort();
@@ -313,9 +348,9 @@ __attribute__((noinline)) static void check_arity(const struct words *w)
         else
             syntax_arity(g_parsed[n].syntax, &min, &max);
         /* acted on, by its own call or by a broadcast, with an argument count the declaration allows
-         * mutant: src/verbs.c:216 `ntok == 3` -> `ntok >= 3`
+         * mutant: src/verbs.c:220 `ntok == 3` -> `ntok >= 3`
          * input: plugin-hostd-pool_config-extra
-         * mutant: src/verbs.c:193 `verb_is(verb, EFFECT_REMOVE)` -> `verb_is(verb, EFFECT_REMOVE) && ntok == 2`
+         * mutant: src/verbs.c:197 `verb_is(verb, EFFECT_REMOVE)` -> `verb_is(verb, EFFECT_REMOVE) && ntok == 2`
          * input: mod-host-remove-extra */
         if (read - 1 < min || read - 1 > max)
             abort();
@@ -381,7 +416,7 @@ __attribute__((noinline)) static void check_words_add(const struct rec_call *cal
     const char *client = read > next ? w[next] : "-";
 
     /* the placement and the client, each where the message has it
-     * mutant: src/verbs.c:183 `placement, client` -> `client, placement`
+     * mutant: src/verbs.c:187 `placement, client` -> `client, placement`
      * input: add-pool-p-fuzz_client */
     if (call->nargs != 4 || strcmp(call->args[2], placement) || strcmp(call->args[3], client))
         abort();
@@ -400,7 +435,7 @@ __attribute__((noinline)) static void check_words_chain(const struct rec_call *c
         o += (size_t)snprintf(list + o, sizeof(list) - o, k > 2 ? " %d" : "%d", atoi(w[k]));
     snprintf(count, sizeof(count), "%d", read - 2);
     /* every member, in the order of the message, and their count
-     * mutant: src/verbs.c:112 `ntok - 2` -> `ntok - 3`
+     * mutant: src/verbs.c:113 `ntok - 2` -> `ntok - 3`
      * input: plugin-hostd-chain */
     if (call->nargs != 3 || strcmp(call->args[1], count) || strcmp(call->args[2], list))
         abort();
@@ -470,7 +505,7 @@ __attribute__((noinline)) static void check_words(const struct words *w)
             }
             item += strcspn(item, " ");
             /* the argument is the word the declaration puts there, as the controller wrote it
-             * mutant: src/verbs.c:183 `atoi(tok[2])` -> `atoi(tok[1])`
+             * mutant: src/verbs.c:187 `atoi(tok[2])` -> `atoi(tok[1])`
              * input: add-instance-past-the-table */
             if (want && (call->args[a] == NULL || strcmp(call->args[a], want)))
                 abort();
@@ -491,7 +526,7 @@ __attribute__((noinline)) static void check_refusal(uint64_t before)
     if (g_rec.reply == NULL || sup_reply_code(g_rec.reply) >= 0)
         return;
     /* nothing changed: no accepted call, no follow-up, no quit
-     * mutant: src/verbs.c:185 `reply_text && sup_reply_code(reply_text) >= 0` -> `reply_text`
+     * mutant: src/verbs.c:189 `reply_text && sup_reply_code(reply_text) >= 0` -> `reply_text`
      * input: add-instance-past-the-table */
     if (g_rec.state != before || g_quitting)
         abort();
@@ -526,17 +561,17 @@ __attribute__((noinline)) static void check_round_trip(const struct words *w, ui
     free(line);
 
     /* the same calls with the same arguments
-     * mutant: src/verbs.c:313 `strtok_r(copy, " \t", &save)` -> `strtok_r(copy, " ", &save)`
+     * mutant: src/verbs.c:327 `strtok_r(copy, " \t", &save)` -> `strtok_r(copy, " ", &save)`
      * input: mod-host-add-tabs */
     if (!rec_calls_equal(first, nfirst, g_rec.calls, g_rec.ncalls))
         abort();
     /* the same reply
-     * mutant: src/verbs.c:272 `ntok != 1` -> `ntok != 1 || line[0] != ' '`
+     * mutant: src/verbs.c:276 `ntok != 1` -> `ntok != 1 || line[0] != ' '`
      * input: quit-leading-space */
     if (g_rec.reply == NULL || strcmp(g_rec.reply, reply_first))
         abort();
     /* the same state, the same host settings, and quitting the same
-     * mutant: src/verbs.c:274 `g_quitting = 1;` -> `g_quitting = line[0] == ' ';`
+     * mutant: src/verbs.c:278 `g_quitting = 1;` -> `g_quitting = line[0] == ' ';`
      * input: quit-leading-space */
     if (g_quitting != quit_first || g_rec.state != state_first || g_rec.host_settings != host_first)
         abort();
@@ -553,6 +588,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
         return 0;
     in = fuzz_in(data, size);
     rec_clear();
+    session_reset();
     g_rec.state = 0;
     g_rec.host_settings = 0;
     for (m = 0; m < MESSAGES_MAX && in.n; m++)

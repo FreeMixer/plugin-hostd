@@ -133,6 +133,12 @@ def command_corpus(out):
     seeds["tagged-nothing-after"] = message("@a7")
     seeds["tagged-at-alone"] = message("@ quit")
     seeds["tagged-no-tag"] = message("@!x remove -1")
+    # hello: the extensions asked for, none, a bad version, no version, and a session opened and then a tagged line
+    seeds["hello-tags"] = message("hello 1 tags errors seq")
+    seeds["hello-bare"] = message("hello 1")
+    seeds["hello-bad-version"] = message("hello 0 tags")
+    seeds["hello-no-version"] = message("hello")
+    seeds["hello-then-tagged"] = message("hello 1 tags errors") + message("@a7 param_get 0 gain") + message("param_get 9 gain")
     # the input fuzz_command found first: flags and a length of "@", then a word of 31 "@" that a NUL ends
     seeds["tagged-found-by-fuzzing"] = b"@" * 34 + b"\0\x0b\0c\x19\0hain\x04\0 1 0 x"
     # the send lines of the guide and of the own-host page, each alone and as one session
