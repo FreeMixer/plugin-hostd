@@ -22,7 +22,8 @@ def problems(spec, control):
             bad.append("packaging/plugin-hostd.spec: %s: %d with a floor and a ceiling, %d name it; there must be %d" % (pkg, len(rich), len(named), n_spec))
         bad += ["packaging/plugin-hostd.spec: %s >= %s and < %s, they are %s and %s" % (pkg, f, c, floor, CEILING)
                 for f, c in rich if (f, c) != (floor, CEILING)]
-        pairs = re.findall(r"\b%s\s*\(>=\s*([^)\s~]+)~?\),\s*%s\s*\(<<\s*([^)\s~]+)~?\)" % (q, q), control)
+        # the build dependencies of the check stage carry <!nocheck> on both entries
+        pairs = re.findall(r"\b%s\s*\(>=\s*([^)\s~]+)~?\)(?: <!nocheck>)?,\s*%s\s*\(<<\s*([^)\s~]+)~?\)" % (q, q), control)
         named = len(re.findall(r"\b%s\s*\(>=" % q, control))
         if len(pairs) != n_ctl or named != n_ctl:
             bad.append("debian/control: %s: %d with a floor and a ceiling, %d have a floor; there must be %d" % (pkg, len(pairs), named, n_ctl))
