@@ -36,12 +36,13 @@ publish installs `mod-host` and `jalv` explicitly; without them H3 and H4 read `
 | `--keep-governor` | leave the CPU governor alone |
 | `--logs DIR` | keep every program's output there |
 | `--jack-priority N` | the real-time priority asked of the private JACK server, 70 by default; after it starts, the priority its threads actually run at is read from `/proc`, and a difference is logged as a warning |
+| `--periods N` | the periods of the alsa driver's buffer (`jackd -d alsa -n N`; 2 when not given, which is what every run had before), for a setting such as Zynthian's 48000/256 with 3 periods; the dummy driver has none, so it is refused without `--alsa`. The document's `jack` object records the driver, the priority asked and, for alsa, the device and the periods |
 | `--alsa hw:X` | run the private JACK server on that ALSA device, paced by the card (`jackd -d alsa -d hw:X`), instead of the dummy driver; the rates and frame counts must be ones the card takes, or JACK does not start and the run says so |
 
 By default the run sets the CPU governor to `performance` and puts the old one back at the end, which needs root or
 `sudo`. Every rate and frame count gets a private JACK server, `jackd -P 70 -n bench<pid> -d dummy -r <rate> -p <frames>` (the dummy driver has no clock but the CPU's; `--alsa` replaces it), and
 every program of the run talks to that server only, so a JACK server already running on the machine is never touched.
-The run refuses to start while another JACK server runs above the asked priority or an IRQ thread at or above it (on Zynthian, stop `zynthian` and `jack2` first). That is all it checks: kernel threads above the priority, and a user with no real-time permission (where JACK starts anyway, at the normal scheduler, and the run logs a warning), are not prevented.
+The run refuses to start while another JACK server runs above the asked priority, whose graph would preempt the rows (on Zynthian, stop `zynthian` and `jack2` first). An IRQ thread read at or above the asked priority does not refuse it: a `--jack-priority` below the IRQ threads (JACK's own default of 10, for an A/B against it) runs, logs a warning and records it in the document's `jack.warnings`. That is all it checks: kernel threads above the priority, and a user with no real-time permission (where JACK starts anyway, at the normal scheduler, and the run logs a warning), are not prevented.
 Each row starts its host fresh on a port of its own and stops it after. The run ends by checking that no process it
 started is left, whatever happened, and exits 3 if one was.
 
