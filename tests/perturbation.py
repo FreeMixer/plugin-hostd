@@ -95,7 +95,9 @@ def behave_modhost(exe, fake, include, gone):
 
 
 def grep(pattern, *paths):
-    p = subprocess.run(["grep", "-rnE", pattern] + list(paths), capture_output=True, text=True)
+    # src/reply_words.h is written at build time from plugin-hostd-protocol's JSON (the error words of the extension
+    # errors): the protocol's, not a copy this tree owns
+    p = subprocess.run(["grep", "-rnE", "--exclude=reply_words.h", pattern] + list(paths), capture_output=True, text=True)
     return p.stdout.splitlines()
 
 
@@ -146,10 +148,10 @@ def perturb_modhost():
         tree = os.path.join(work, "t")
         headers = os.path.join(work, "mod-host")
         os.mkdir(tree)
-        for name in ("include", "src", "tests", "Makefile"):
+        for name in ("include", "src", "tests", "tools", "Makefile"):
             src = os.path.join(ROOT, name)
             if os.path.isdir(src):
-                shutil.copytree(src, os.path.join(tree, name), ignore=shutil.ignore_patterns("*.o", "fake-host"))
+                shutil.copytree(src, os.path.join(tree, name), ignore=shutil.ignore_patterns("*.o", "fake-host", "reply_words.h"))
             else:
                 shutil.copy(src, os.path.join(tree, name))
         shutil.copytree(include, headers)
@@ -196,7 +198,7 @@ def main():
         for name in ("data", "include", "src", "tools", "protocol", "doc", "packaging", "tests", "docs", "Makefile"):
             src = os.path.join(ROOT, name)
             (shutil.copytree if os.path.isdir(src) else shutil.copy)(src, os.path.join(tree, name),
-                                                                       **({"ignore": shutil.ignore_patterns("*.o")} if os.path.isdir(src) else {}))
+                                                                       **({"ignore": shutil.ignore_patterns("*.o", "reply_words.h")} if os.path.isdir(src) else {}))
         # the declaration, plugin-hostd-protocol's: a copy of its headers and of its verbs.json in the scratch tree
         declared.overlay(tree)
         header = os.path.join(tree, "include", "plugin-hostd", "protocol.h")
