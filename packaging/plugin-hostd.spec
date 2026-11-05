@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.17.0
+Version: 0.18.0
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -13,52 +13,63 @@ BuildRequires: gcc
 BuildRequires: make
 BuildRequires: diffutils
 BuildRequires: python3
+# <plugin-db/pin.h>, and through it libcrypto; a floor and the next minor
+BuildRequires: (pkgconfig(plugin-db) >= 0.1.0 with pkgconfig(plugin-db) < 0.2)
 BuildRequires: cjson-devel
 # the protocol library and the declared protocol: <plugin-hostd/protocol.h> and the headers it includes, the protocol's
-# JSON and mod-host's. 0.2.0 is the first that holds them (they were this tree's before); a floor only
-BuildRequires: plugin-hostd-protocol-devel >= 0.2.0
+# JSON and mod-host's. 0.3.0 is the first that declares hello and the bulk verbs the sources use; a floor and the next minor
+BuildRequires: (plugin-hostd-protocol-devel >= 0.3.0 with plugin-hostd-protocol-devel < 0.4)
 # the probe runner's default rates, the protocol's parameter scales and the probe output's shared words are read from
-# omx-contract's C headers, and the format tables are items of its schema 3 (3.4.0 the first that renders a reply
-# code's resp, which plugin_hostd_vocabulary.h is checked against); a floor only
-BuildRequires: omx-contract-devel >= 3.4.0
+# omx-contract's C headers, its JSON string literals are spelled by omx-contract's one writer
+# (<omxcontract/omx_json_write.h>), and the format tables are items of its schema (3.9.0 the first with the writer, the
+# schema_major of its pkg-config file and the %%{omx_contract_dir} macro this spec names its files by); a floor only
+BuildRequires: (omx-contract-devel >= 3.9.0 with omx-contract-devel < 4)
 # the protocol library, ports on 127.0.0.1 unless told otherwise (socket_set_bind_address()); the daemon is built
-# against the declared protocol of 0.2.0; a floor only
-Requires: plugin-hostd-protocol%{?_isa} >= 0.2.0
+# against the declared protocol of 0.3.0; a floor and the next minor
+Requires: (plugin-hostd-protocol%{?_isa} >= 0.3.0 with plugin-hostd-protocol%{?_isa} < 0.4)
 # omx-clap-core is a build dependency of the check stage only: the CLAP worker and the fixtures the real-worker
 # tests drive. A build with `--without check` needs nothing of omx-clap-core, so plugin-hostd and omx-clap-core
 # do not build-depend on each other. A floor only: the lowest release with what the tests need (omx-clap-core 0.21,
 # the first whose omx-clap-host runs a chain's members in one client in the declared order, and whose tests package
 # ships fault-14.clap and jack_identity; 0.25 for param_info answered from clap.params when a plugin has no contract)
 %if %{with check}
-BuildRequires: omx-clap-host-tests >= 0.25.0
+BuildRequires: (omx-clap-host-tests >= 0.25.0 with omx-clap-host-tests < 0.30)
 # the reader that holds the committed render of data/ (make check-rendered)
-BuildRequires: omx-contract >= 3.4.0
+BuildRequires: (omx-contract >= 3.4.0 with omx-contract < 4)
 # the daemon's verbs (plugin-hostd-protocol's package of the contract directory) and the shared verbs and the
 # reply.host.* codes they refer to (make test-verbs-declared)
-BuildRequires: plugin-hostd-protocol-contract >= 0.2.0
-BuildRequires: omx-clap-core-contract >= 0.26.2
+BuildRequires: (plugin-hostd-protocol-contract >= 0.3.0 with plugin-hostd-protocol-contract < 0.4)
+BuildRequires: (omx-clap-core-contract >= 0.26.2 with omx-clap-core-contract < 0.30)
 %endif
 # the format tables, which readers read at run time
 Requires: %{name}-contract = %{version}-%{release}
 
-# the workers: a format whose worker is not installed refuses its adds (-503), the other format is unaffected
-Recommends: mod-host
-Recommends: omx-clap-host >= 0.28.0
+# the workers: a format whose worker is not installed refuses its adds (-502, no-backend), the other formats are
+# unaffected. omx-clap-host runs CLAP plugins and, through its LV2 adapter, LV2 plugins.
+Recommends: (omx-clap-host >= 0.29.0 with omx-clap-host < 0.30)
+# mod-host runs an LV2 plugin only when lv2_worker or lv2_worker_set names it, and it is the reference host H3 of the
+# benchmark (bench/run.sh), measured when it is installed. Nothing else uses it, so it is only suggested; a machine that
+# runs a published benchmark installs mod-host (and jalv) itself.
+Suggests: mod-host
 
 %description
 plugin-hostd keeps your effects and instruments running when one of them
 misbehaves. It gives a controller one mod-host socket and starts each plugin, or
-each named group of plugins, in a worker process of its own: mod-host for LV2,
-omx-clap-host for CLAP. If a plugin crashes, only its worker goes down and the
-daemon brings it back. Audio never passes through the daemon, so it adds no
+each named group of plugins, in a worker process of its own: omx-clap-host for
+CLAP and, through its LV2 adapter, for LV2. mod-host runs LV2 plugins only when
+you ask for it. If a plugin crashes, only its worker goes down and the daemon
+brings it back. Audio never passes through the daemon, so it adds no
 latency: every worker is a JACK client.
+Its documentation is on openmixer.org.
 
 %package devel
 Summary: Talk to plugin-hostd from your own controller without retyping its protocol
 BuildArch: noarch
 Requires: %{name}-contract = %{version}-%{release}
 # the declared protocol, <plugin-hostd/protocol.h>, which plugin-hostd.pc requires; a floor only
-Requires: plugin-hostd-protocol-devel >= 0.2.0
+Requires: (plugin-hostd-protocol-devel >= 0.3.0 with plugin-hostd-protocol-devel < 0.4)
+# <plugin-db/pin.h>, which plugin-hostd.pc requires; a floor and the next minor
+Requires: (plugin-db-devel >= 0.1.0 with plugin-db-devel < 0.2)
 
 %description devel
 The pin header, the words of the grouping planner and the running history,
@@ -66,18 +77,19 @@ and the schemas of the probe output and of a preset file. The protocol a
 controller speaks (the verbs, error codes, feedback events and settings) is
 declared in plugin-hostd-protocol-devel, which this package requires:
 pkg-config plugin-hostd gives the flags for both.
+Its documentation is on openmixer.org.
 
 %package contract
 Summary: plugin-hostd's format tables, for programs that read them at run time
 BuildArch: noarch
 # the daemon's verbs are plugin-hostd-protocol's package of the contract directory since 0.2.0 (they were this
 # package's before): a reader of this package reads that one too; a floor only
-Requires: plugin-hostd-protocol-contract >= 0.2.0
-Requires: omx-clap-core-contract >= 0.26.2
+Requires: (plugin-hostd-protocol-contract >= 0.3.0 with plugin-hostd-protocol-contract < 0.4)
+Requires: (omx-clap-core-contract >= 0.26.2 with omx-clap-core-contract < 0.30)
 # the tables live in omx-contract's contract directory and are read against its schema: 3.2.0 is the first whose
 # source field takes an index (omx_clap_panel_display.meter_ids[0]), so an older one never sits beside a table it
 # refuses; a floor only
-Requires: omx-contract >= 3.2.0
+Requires: (omx-contract >= 3.2.0 with omx-contract < 4)
 
 %description contract
 plugin-hostd's package of omx-contract's contract directory: the format tables
@@ -85,8 +97,9 @@ a scan maps a CLAP or LV2 plugin through (formats/clap.json, formats/lv2.json),
 the keys of the
 running history (history.json) and the reasons a plan gives for a plugin it
 leaves alone (grouping.json), under
-share/omx-contract/contract.d/3/plugin-hostd. A program that reads them at run
+%{omx_contract_dir}/plugin-hostd. A program that reads them at run
 time requires this package, never the development one.
+Its documentation is on openmixer.org.
 
 %package tests
 Summary: A stand-in plugin worker to test a program that drives plugin-hostd
@@ -99,6 +112,7 @@ tested against a real daemon without a plugin, a JACK server or any audio.
 Run it with -L to print the layout it reports. It is installed in
 %{_libexecdir}/plugin-hostd/tests, away from the directories programs run
 from.
+Its documentation is on openmixer.org.
 
 %prep
 %autosetup
@@ -140,23 +154,56 @@ make test-daemon check-generated check-rendered
 
 %files tests
 %license COPYING
+%doc README.md
 %{_libexecdir}/plugin-hostd/tests/fake-host
 %{_libexecdir}/plugin-hostd/tests/lib/protocol.sh
 %{_libexecdir}/plugin-hostd/tests/lib/plugin_hostd_client.py
 
 %files devel
 %license COPYING
+%doc README.md
 %{_includedir}/plugin-hostd/plugin_hostd_vocabulary.h
-%{_includedir}/plugin-hostd/pin.h
 %{_datadir}/pkgconfig/plugin-hostd.pc
 %{_datadir}/plugin-hostd/probe-output.schema.json
 %{_datadir}/plugin-hostd/preset.schema.json
 
 %files contract
 %license COPYING
-%{_datadir}/omx-contract/contract.d/3/plugin-hostd/
+%doc README.md
+%{omx_contract_dir}/plugin-hostd/
 
 %changelog
+* Wed Nov 04 2026 Pau Aliagas <linuxnow@gmail.com> - 0.18.0-1
+- The daemon answers hello itself, for each controller connection, and grants
+  what the controller asks of tags, errors and seq as plugin-hostd-protocol 0.3.0
+  defines them: a request tag comes back on its answer, a refusal that is a number
+  alone is followed by its error word, every feedback line starts with #<n>. A
+  controller that never sends hello is answered as before. No worker is sent hello
+  or a tagged line (#386)
+- A word in quotes is one word, as the protocol's grammar has it: add, pin_set and every other command, the pin
+  files and the history read "clap:/p/My Plugins/x.clap#id" as one uri without its quotes, and the store and the
+  history write a uri with a blank in it quoted. Before, such a path was cut at its space
+- A worker is pinned to all the audio cores, not to one of them (#394)
+- bench: the DSP load is read from the server and a window's xruns from both
+  sources (#400); the private JACK server's priority is asked and read back, and
+  --alsa hw:X runs it on a card instead of the dummy driver, --periods N sets that
+  driver's periods, and the document records both (#407)
+- param_get_many and param_set_many go to the worker that holds the instance;
+  param_set_many is replayed after a respawn (#386)
+- mod-host is suggested, not recommended; a worker program that is not installed
+  is said at start and its adds answer -502 (#391)
+- JSON is read with the system cJSON (#393), and its string literals are omx-contract's
+  one writer: the build requires omx-contract 3.9.0 or later and before 4
+- The pin header is plugin-db's (<plugin-db/pin.h>, 0.1.0 or later and before 0.2):
+  plugin-hostd-devel requires plugin-db-devel and ships no pin.h of its own
+- The probe: an LV2 instrument whose note did not sound keeps its declared
+  latency; shipped in 0.17.0, missing from its notes (#390)
+- bench: a JACK that stops answering fails its row, not the run (#396)
+- Requires plugin-hostd-protocol 0.3.0 or later and before 0.4; recommends omx-clap-host
+  0.29.0 or later and before 0.30; every dependency on our libraries has a floor and a ceiling
+- The guide is generated from plugin-hostd-protocol 0.3.0 (#395); the packages
+  install their licence and a short README and no other markdown
+
 * Wed Nov 04 2026 Pau Aliagas <linuxnow@gmail.com> - 0.17.0-1
 - An LV2 worker's world holds the plugin's preset bundles: every bundle on lv2_path
   whose manifest names the plugin and holds no binary (the user's presets, the ones

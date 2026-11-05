@@ -2,7 +2,7 @@
 # Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 #
 # The spike's plugind engine, sourced by chain.sh, chain-e2e.sh and path-b.sh. The Zynthian engine that ships is the
-# plugin-hostd engine of FreeMixer/zynthian-ui (branch vangelis, docs/zynthian/README.md); these tools drive the
+# plugin-hostd engine of FreeMixer/zynthian-ui (branch vangelis); these tools drive the
 # daemon's chain verb through the spike's engine, zynthian_engine_plugind and zynthian_plugind_chain, which that
 # fork does not carry. The spike's patch is read from the commit of this repository it was last changed at, never
 # kept beside the tools: SPIKE_ENGINE_PATCH names a local copy instead.

@@ -16,7 +16,7 @@
 # is applied to a copy of the installed headers in the build directory, which the harness is built against before the
 # installed ones; the copy is the installed one again after each record.
 #
-# Usage: FUZZ_BUILD=build/fuzz FUZZ_CC=clang PROTOCOL_CFLAGS=... records.sh
+# Usage: FUZZ_BUILD=build/fuzz FUZZ_CC=clang PROTOCOL_CFLAGS=... PIN_CFLAGS=... PROTOCOL_LIBS=... records.sh
 set -u
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 cd "$ROOT"
@@ -64,12 +64,12 @@ EOF
 
 build() {   # build <harness> <output>
     case $1 in
-    command) extra="src/verbs.c src/pin_words.c fuzz/recorder.c" ;;
+    command) extra="src/verbs.c src/session.c src/words.c src/pin_words.c fuzz/recorder.c" ;;
     *) extra= ;;
     esac
     # shellcheck disable=SC2086
     "$CC" -O0 -g -std=c11 -D_GNU_SOURCE -fsanitize=fuzzer -include "$B/abort-at.h" -Iinclude -I"$OVERLAY/include" -Isrc -Ifuzz \
-        ${PROTOCOL_CFLAGS:-} "fuzz/fuzz_$1.c" $extra -pthread -o "$2"
+        ${PROTOCOL_CFLAGS:-} ${PIN_CFLAGS:-} "fuzz/fuzz_$1.c" $extra -pthread -o "$2" ${PROTOCOL_LIBS:-}
 }
 
 # runs <binary> <seed>: the exit status, and the abort() it reports in $B/last.log

@@ -46,7 +46,7 @@ jobs:
             exit 0
           fi
           printf '%s\n' "$changed"
-          if grep -qE '^(fuzz/|src/|include/|protocol/|data/|Makefile$|README\.md$|docs/own-host\.md$|packaging/plugin-hostd\.spec$|\.github/workflows/fuzz\.yml$)' <<<"$changed"; then
+          if grep -qE '^(fuzz/|src/|include/|protocol/|data/|Makefile$|docs/guide\.md$|docs/own-host\.md$|packaging/plugin-hostd\.spec$|\.github/workflows/fuzz\.yml$)' <<<"$changed"; then
             echo "fuzz=true" >> "$GITHUB_OUTPUT"
           else
             echo "fuzz=false" >> "$GITHUB_OUTPUT"
@@ -64,7 +64,7 @@ jobs:
     steps:
       - name: Install clang, libFuzzer and llvm-cov
         run: |
-          dnf install -y --setopt=install_weak_deps=False git dnf5-plugins clang compiler-rt llvm make gawk diffutils \
+          dnf install -y --setopt=install_weak_deps=False git dnf5-plugins clang compiler-rt llvm make gawk diffutils openssl-devel \
             python3 pkgconf-pkg-config
 
       - uses: actions/checkout@v4
@@ -80,9 +80,7 @@ jobs:
       - name: Install the protocol headers from the OpenMixer channel
         run: |
           set -euo pipefail
-          floor=$(sed -n 's/^BuildRequires:[[:space:]]*plugin-hostd-protocol-devel[[:space:]]*>=[[:space:]]*\([^[:space:]]*\).*/\1/p' packaging/plugin-hostd.spec | head -n 1)
-          test -n "$floor"
-          dnf install -y --setopt=retries=10 "plugin-hostd-protocol-devel >= $floor"
+          dnf install -y --setopt=retries=10 "plugin-hostd-protocol-devel >= $(tools/protocol-floor.sh)" plugin-db-devel
 
       # fuzz-sabotage applies each mutant with git and restores it with git checkout
       - name: Let git work in the checkout

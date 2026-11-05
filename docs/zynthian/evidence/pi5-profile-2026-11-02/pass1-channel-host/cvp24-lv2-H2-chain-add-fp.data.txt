@@ -1,3 +1,0 @@
-row cvp24-lv2 H2 chain-add, call graph fp, 48000 Hz / 256 frames, 30 s
-processes: 1116783 omx-clap-host [/root/omx-final-20261102/symbols/xs-0.26.4/usr/lib/aarch64-linux-gnu/libomx-clap-core.so.0.26.4]
-argv: perf record -g -F 999 -p 1116783 -o /root/omx-final-20261102/s7-profile/cvp24-lv2-H2-chain-add-fp.data -- sleep 30

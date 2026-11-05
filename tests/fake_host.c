@@ -118,8 +118,9 @@
 
 #include <host-errors.h>
 #include <mod-host.h>
-#include <plugin-hostd/pin.h>
+#include <plugin-db/pin.h>
 #include <plugin-hostd/protocol.h>
+#include <protocol.h>
 #include <socket.h>
 #include <utils.h>
 
@@ -312,6 +313,12 @@ static void receive(msg_t *msg)
         goto out;
     }
     verb = tok[0];
+    /* hello and a tagged line are answered by the protocol library, as a worker built on it answers them */
+    if (verb_is(verb, OMX_VERB_HELLO) || verb[0] == '@')
+    {
+        protocol_parse(msg);
+        goto out;
+    }
     n = ntok > 1 ? atoi(tok[1]) : -1;
 
     if (verb_is(verb, OMX_VERB_PIN_EXPECT) && getenv("FAKE_NO_PIN_EXPECT"))
@@ -571,6 +578,46 @@ static void receive(msg_t *msg)
         else
             answer(fd, "resp -103");
     }
+    else if (!strcmp(verb, OMX_VERB_PARAM_GET_MANY) && ntok > 2)
+    {
+        char out[2048] = "resp 0";
+
+        /* every value, as param_get answers each, or the first refusal alone */
+        for (k = 2; k < ntok; k++)
+        {
+            const char *value = get_param(&g_inst[n], tok[k]);
+
+            if (!value)
+                break;
+            snprintf(out + strlen(out), sizeof(out) - strlen(out), " %s", value);
+        }
+        if (k < ntok)
+            answer(fd, "resp -103");
+        else
+            answer(fd, "%s", out);
+    }
+    else if (!strcmp(verb, OMX_VERB_PARAM_SET_MANY) && ntok > 2)
+    {
+        /* all or nothing, as a worker built on the library sets them: every pair checked first (a symbol starting
+         * with "nope" is one the plugin does not have), then every value set */
+        char *end;
+
+        for (k = 2; k < ntok; k += 2)
+        {
+            if (!strncmp(tok[k], "nope", 4))
+                break;
+            if (k + 1 >= ntok || (strtod(tok[k + 1], &end), *end != '\0'))
+                break;
+        }
+        if (k < ntok)
+            answer(fd, "resp %d %d", !strncmp(tok[k], "nope", 4) ? -103 : -902, (k - 2) / 2 + 1);
+        else
+        {
+            for (k = 2; k + 1 < ntok; k += 2)
+                set_param(&g_inst[n], tok[k], tok[k + 1]);
+            answer(fd, "resp 0");
+        }
+    }
     else if (verb_is(verb, EFFECT_BYPASS) && ntok == 3)
     {
         set_param(&g_inst[n], ":bypass", tok[2]);
@@ -799,6 +846,7 @@ int main(int argc, char **argv)
     if (socket_start(port, fb_port, 4096) < 0)
         return EXIT_FAILURE;
     socket_set_receive_cb(receive);
+    protocol_add_hello();
     socket_set_idle_cb(idle);
     socket_set_idle_interval(20);
     memset(&sig, 0, sizeof(sig));

@@ -75,7 +75,7 @@ jobs:
     steps:
       - name: Install the build tools
         run: |
-          dnf install -y --setopt=install_weak_deps=False git dnf5-plugins gcc make python3 pkgconf-pkg-config clap-devel lv2-devel cjson-devel \
+          dnf install -y --setopt=install_weak_deps=False git dnf5-plugins gcc make python3 pkgconf-pkg-config openssl-devel cjson-devel clap-devel lv2-devel \
             pipewire-jack-audio-connection-kit-devel pipewire pipewire-utils iproute util-linux procps-ng diffutils python3-jsonschema
 
       - uses: actions/checkout@v4
@@ -168,7 +168,7 @@ jobs:
     steps:
       - name: Install the build tools
         run: |
-          dnf install -y --setopt=install_weak_deps=False git dnf5-plugins gcc make python3 pkgconf-pkg-config clap-devel lv2-devel cjson-devel \
+          dnf install -y --setopt=install_weak_deps=False git dnf5-plugins gcc make python3 pkgconf-pkg-config openssl-devel cjson-devel clap-devel lv2-devel \
             iproute util-linux procps-ng diffutils python3-jsonschema
 
       - uses: actions/checkout@v4
@@ -213,7 +213,7 @@ jobs:
       - name: Install the build tools
         run: |
           apt-get update -qq
-          apt-get install -y --no-install-recommends ca-certificates curl git gcc make python3 pkg-config libcjson-dev cmake \
+          apt-get install -y --no-install-recommends ca-certificates curl git gcc make python3 pkg-config libssl-dev libcjson-dev cmake \
             dpkg-dev debhelper build-essential lintian jackd2 libjack-jackd2-dev jack-example-tools \
             iproute2 util-linux procps
 
@@ -275,7 +275,7 @@ jobs:
       options: --cap-add SYS_ADMIN --security-opt seccomp=unconfined --security-opt apparmor=unconfined --security-opt systempaths=unconfined
     steps:
       - name: Install the build tools
-        run: dnf install -y --setopt=install_weak_deps=False git rpm-build dnf5-plugins gcc make cjson-devel tar gzip python3 pipewire-jack-audio-connection-kit-devel
+        run: dnf install -y --setopt=install_weak_deps=False git rpm-build dnf5-plugins gcc make openssl-devel cjson-devel tar gzip python3 pipewire-jack-audio-connection-kit-devel
 
       - uses: actions/checkout@v4
         with:
@@ -288,15 +288,15 @@ jobs:
       # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until FreeMixer/.github moves v1 past it
       - uses: FreeMixer/.github/.github/actions/wave-deps@main
 
-      # the packages the clean root installs beside plugin-hostd's: the protocol library, and mod-host, which the
-      # daemon recommends, from the channel
-      - name: Fetch the protocol library and mod-host from the channel
+      # the packages the clean root installs beside plugin-hostd's: the protocol library and mod-host's protocol library,
+      # from the channel. mod-host itself is only suggested, so the clean root runs the daemon without it
+      - name: Fetch the protocol library from the channel
         run: |
           set -euo pipefail
           mkdir -p dep-rpms
-          dnf download -y --setopt=retries=10 --arch ${{ matrix.arch }} --destdir dep-rpms plugin-hostd-protocol mod-host mod-host-protocol
+          dnf download -y --setopt=retries=10 --arch ${{ matrix.arch }} --destdir dep-rpms plugin-hostd-protocol mod-host-protocol
           # the daemon's verbs, which plugin-hostd-contract requires: plugin-hostd-protocol's package of the contract directory
-          dnf download -y --setopt=retries=10 --destdir dep-rpms 'plugin-hostd-protocol-contract >= 0.2.0'
+          dnf download -y --setopt=retries=10 --destdir dep-rpms "plugin-hostd-protocol-contract >= $(tools/protocol-floor.sh)" plugin-db-devel
 
       - uses: FreeMixer/.github/.github/actions/build-rpm@v1
 
@@ -312,25 +312,29 @@ jobs:
             diff -u expected.txt files.txt
             rpm -qp --requires "$rpm" | tee requires.txt
             grep -q 'libplugin-hostd-protocol.so.0' requires.txt
-            grep -qx 'plugin-hostd-protocol(.*) >= 0.2.0' requires.txt
+            grep -qE "^\(plugin-hostd-protocol\(.*\) >= $(tools/protocol-floor.sh) with plugin-hostd-protocol\(.*\) < $(tools/protocol-ceiling.sh)\)$" requires.txt
             grep -qx "plugin-hostd-contract = $(rpm -qp --qf '%{VERSION}-%{RELEASE}' "$rpm")" requires.txt
             rpm -qp --recommends "$rpm" | tee recommends.txt
-            grep -q '^mod-host' recommends.txt
-            grep -q '^omx-clap-host' recommends.txt
+            grep -q '^(\?omx-clap-host' recommends.txt
+            # mod-host runs LV2 only when lv2_worker names it, and is the benchmark's H3: suggested, never recommended
+            if grep -q mod-host recommends.txt requires.txt; then echo "plugin-hostd needs or recommends mod-host"; exit 1; fi
+            rpm -qp --suggests "$rpm" | tee suggests.txt
+            grep -qx mod-host suggests.txt
           done
-          # the development package: the pin header and the vocabulary of data/, its pkg-config file, the schemas of the probe
+          # the development package: the vocabulary of data/, its pkg-config file, the schemas of the probe
           # output and of a preset file; the protocol's headers and JSON are plugin-hostd-protocol's and never here
           for rpm in rpms/plugin-hostd-devel-[0-9]*.noarch.rpm; do
             rpm -qlp "$rpm"
             rpm -qp --qf '[%{FILEMODES:perms} %{FILENAMES}\n]' "$rpm" | grep -v '^d' | cut -d' ' -f2 | sort > files.txt
-            printf '%s\n' /usr/include/plugin-hostd/pin.h /usr/share/pkgconfig/plugin-hostd.pc \
+            printf '%s\n' /usr/share/pkgconfig/plugin-hostd.pc \
               /usr/include/plugin-hostd/plugin_hostd_vocabulary.h \
               /usr/share/plugin-hostd/probe-output.schema.json /usr/share/plugin-hostd/preset.schema.json \
-              /usr/share/licenses/plugin-hostd-devel/COPYING | sort > expected.txt
+              /usr/share/doc/plugin-hostd-devel/README.md /usr/share/licenses/plugin-hostd-devel/COPYING | sort > expected.txt
             diff -u expected.txt files.txt
             rpm -qp --requires "$rpm" | tee requires.txt
             grep -qx "plugin-hostd-contract = $(rpm -qp --qf '%{VERSION}-%{RELEASE}' "$rpm")" requires.txt
-            grep -qx 'plugin-hostd-protocol-devel >= 0.2.0' requires.txt
+            grep -qx "(plugin-hostd-protocol-devel >= $(tools/protocol-floor.sh) with plugin-hostd-protocol-devel < $(tools/protocol-ceiling.sh))" requires.txt
+            grep -qx '(plugin-db-devel >= 0.1.0 with plugin-db-devel < 0.2)' requires.txt
           done
           # the contract package: the contract directory's files, which readers read at run time, noarch
           for rpm in rpms/plugin-hostd-contract-[0-9]*.noarch.rpm; do
@@ -341,7 +345,7 @@ jobs:
               /usr/share/omx-contract/contract.d/3/plugin-hostd/formats/lv2.json \
               /usr/share/omx-contract/contract.d/3/plugin-hostd/history.json \
               /usr/share/omx-contract/contract.d/3/plugin-hostd/grouping.json \
-              /usr/share/licenses/plugin-hostd-contract/COPYING | sort > expected.txt
+              /usr/share/doc/plugin-hostd-contract/README.md /usr/share/licenses/plugin-hostd-contract/COPYING | sort > expected.txt
             diff -u expected.txt files.txt
           done
           ls rpms/plugin-hostd-contract-[0-9]*.noarch.rpm
@@ -350,7 +354,7 @@ jobs:
             rpm -qlp "$rpm"
             rpm -qp --qf '[%{FILEMODES:perms} %{FILENAMES}\n]' "$rpm" | grep -v -e '^d' -e '/\.build-id/' | cut -d' ' -f2 | sort > files.txt
             printf '%s\n' /usr/libexec/plugin-hostd/tests/fake-host /usr/libexec/plugin-hostd/tests/lib/protocol.sh /usr/libexec/plugin-hostd/tests/lib/plugin_hostd_client.py \
-              /usr/share/licenses/plugin-hostd-tests/COPYING | sort > expected.txt
+              /usr/share/doc/plugin-hostd-tests/README.md /usr/share/licenses/plugin-hostd-tests/COPYING | sort > expected.txt
             diff -u expected.txt files.txt
             # tied to the same build: the requirement names the exact version-release and the isa of this very package
             case "${{ matrix.arch }}" in x86_64) isa=x86-64 ;; aarch64) isa=aarch-64 ;; *) echo "no isa for ${{ matrix.arch }}"; exit 1 ;; esac
@@ -369,7 +373,7 @@ jobs:
           rpms: |
             dep-rpms/plugin-hostd-protocol-[0-9]*.rpm
             dep-rpms/plugin-hostd-protocol-contract-[0-9]*.noarch.rpm
-            dep-rpms/mod-host-[0-9]*.rpm
+            dep-rpms/plugin-db-devel-[0-9]*.noarch.rpm
             dep-rpms/mod-host-protocol-[0-9]*.rpm
             rpms/plugin-hostd-[0-9]*.${{ matrix.arch }}.rpm
             rpms/plugin-hostd-contract-[0-9]*.noarch.rpm
@@ -380,6 +384,9 @@ jobs:
         run: |
           set -euo pipefail
           version=$(rpm --root /tmp/clean-root -q --qf '%{VERSION}' plugin-hostd)
+          # the clean root has no mod-host: the daemon and its tests below run without it
+          if rpm --root /tmp/clean-root -q mod-host; then echo "the clean root holds mod-host"; exit 1; fi
+          ! chroot /tmp/clean-root sh -c 'command -v mod-host'
           chroot /tmp/clean-root plugin-hostd -V | tee v.txt
           grep -q "version: $version\$" v.txt
           chroot /tmp/clean-root ldd /usr/bin/plugin-hostd | tee ldd.txt
@@ -463,7 +470,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dep-debs
-          (cd dep-debs && apt-get download libplugin-hostd-protocol0 libplugin-hostd-protocol-dev plugin-hostd-protocol-contract \
+          (cd dep-debs && apt-get download libplugin-hostd-protocol0 libplugin-hostd-protocol-dev plugin-hostd-protocol-contract plugin-db-dev \
             omx-clap-core-contract omx-contract-data omx-contract)
 
       # what the smoke test runs the installed package against, built here for the architecture
@@ -483,6 +490,7 @@ jobs:
             dep-debs/libplugin-hostd-protocol0_*.deb
             dep-debs/libplugin-hostd-protocol-dev_*.deb
             dep-debs/plugin-hostd-protocol-contract_*.deb
+            dep-debs/plugin-db-dev_*.deb
             dep-debs/omx-clap-core-contract_*.deb
             dep-debs/omx-contract-data_*.deb
             dep-debs/omx-contract_*.deb
@@ -515,10 +523,10 @@ jobs:
         run: |
           set -euo pipefail
           apt-get update -qq
-          apt-get install -y --no-install-recommends ./debs/plugin-hostd_*.deb ./debs/plugin-hostd-contract_*.deb ./debs/plugin-hostd-dev_*.deb ./debs/plugin-hostd-tests_*.deb ./dep-debs/libplugin-hostd-protocol0_*.deb ./dep-debs/libplugin-hostd-protocol-dev_*.deb ./dep-debs/plugin-hostd-protocol-contract_*.deb ./dep-debs/omx-clap-core-contract_*.deb ./dep-debs/omx-contract-data_*.deb ./dep-debs/omx-contract_*.deb python3
+          apt-get install -y --no-install-recommends ./debs/plugin-hostd_*.deb ./debs/plugin-hostd-contract_*.deb ./debs/plugin-hostd-dev_*.deb ./debs/plugin-hostd-tests_*.deb ./dep-debs/libplugin-hostd-protocol0_*.deb ./dep-debs/libplugin-hostd-protocol-dev_*.deb ./dep-debs/plugin-hostd-protocol-contract_*.deb ./dep-debs/plugin-db-dev_*.deb ./dep-debs/omx-clap-core-contract_*.deb ./dep-debs/omx-contract-data_*.deb ./dep-debs/omx-contract_*.deb python3
           dpkg -L plugin-hostd-dev | tee dev.txt
           grep -qx /usr/include/plugin-hostd/plugin_hostd_vocabulary.h dev.txt
-          grep -qx /usr/include/plugin-hostd/pin.h dev.txt
+          ! grep -q /usr/include/plugin-hostd/pin.h dev.txt
           # the protocol's headers are plugin-hostd-protocol's: no copy here
           ! grep -q '/usr/include/plugin-hostd/\(protocol\|search_paths\|plugin_hostd_host_verbs\|omx_clap_core_\)' dev.txt
           grep -qx /usr/share/pkgconfig/plugin-hostd.pc dev.txt
@@ -544,8 +552,17 @@ jobs:
           grep -qx /usr/libexec/plugin-hostd/tests/lib/plugin_hostd_client.py tests.txt
           dpkg -s libplugin-hostd-protocol0 | grep '^Status: install ok installed'
           dpkg-deb -f debs/plugin-hostd_*.deb Depends | tee depends.txt
-          # dpkg-shlibdeps writes the library's own floor, (>= 0.2.0), over debian/control's (>= 0.2.0~)
-          grep -qE 'libplugin-hostd-protocol0 \(>= 0\.2\.0~?\)' depends.txt
+          # dpkg-shlibdeps writes the version of the library it built against over debian/control's floor, so the Depends
+          # holds that version, at or above the floor. This job has no checkout: the floor is the one debian/control gave
+          # plugin-hostd-dev, whose Depends dpkg-shlibdeps does not touch (tests/protocol_floor.py holds it to the spec's)
+          floor=$(dpkg-deb -f debs/plugin-hostd-dev_*.deb Depends | sed -n 's/.*libplugin-hostd-protocol-dev (>= \([^)~]*\)~\{0,1\}).*/\1/p')
+          test -n "$floor"
+          built=$(sed -n 's/.*libplugin-hostd-protocol0 (>= \([^)]*\)).*/\1/p' depends.txt)
+          test -n "$built"
+          dpkg --compare-versions "$built" ge "$floor~"
+          # mod-host is only suggested: never a Depends or a Recommends of the deb
+          test "$(dpkg-deb -f debs/plugin-hostd_*.deb Suggests)" = mod-host
+          if dpkg-deb -f debs/plugin-hostd_*.deb Depends Recommends | grep -qw mod-host; then echo "plugin-hostd needs or recommends mod-host"; exit 1; fi
 
       - name: The installed fake worker prints its layout
         run: |
@@ -615,7 +632,7 @@ jobs:
           test "$(dpkg --print-architecture)" = "${{ matrix.arch }}"
 
   # The spike's Zynthian engine (tools/zynthian/spike-engine.sh reads its patch from the commit it was last changed at;
-  # the engine that ships is FreeMixer/zynthian-ui's, docs/zynthian/README.md), applied to zynthian-ui at its pin,
+  # the engine that ships is FreeMixer/zynthian-ui's), applied to zynthian-ui at its pin,
   # declares a chain of three omx-plugins members (omx-strip and omx-limiter CLAP, omx-delay LV2 on the adapter row)
   # over the chain verb, and the real omx-clap-host runs it in a PipeWire of its own: each member's gain and delay
   # measured on the chain's output in the declared order, chain_get's read-back, a removal that forms the chain again
@@ -653,7 +670,7 @@ jobs:
           set -euo pipefail
           # the scripts read the plugin search lists from plugin-hostd-protocol's header (tools/search-paths.py)
           dnf install -y --setopt=install_weak_deps=False --setopt=retries=10 plugin-hostd 'omx-clap-host >= 0.21.0' \
-            omx-clap-host-tests omx-plugins-clap omx-plugins-lv2 'plugin-hostd-protocol-devel >= 0.2.0' pkgconf-pkg-config
+            omx-clap-host-tests omx-plugins-clap omx-plugins-lv2 plugin-hostd-protocol-devel pkgconf-pkg-config
           rpm -q plugin-hostd omx-clap-host omx-clap-host-tests omx-plugins-clap omx-plugins-lv2
           # the channel's daemon names its verbs in plugin-hostd-protocol's JSON from 0.16.0, in its own before
           for json in /usr/share/plugin-hostd-protocol/plugin-hostd.json /usr/share/plugin-hostd/protocol.json; do

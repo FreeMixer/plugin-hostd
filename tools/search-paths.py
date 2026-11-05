@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Print the plugin search lists, one directory per line, from plugin-hostd/search_paths.h: the one place they are
-written (#212), a header of plugin-hostd-protocol (0.2.0 or later). It is read where the compiler finds it: this tree's
+written (#212), a header of plugin-hostd-protocol (0.3.0 or later, before 0.4). It is read where the compiler finds it: this tree's
 include/ when a scratch copy is there, else pkg-config's plugin-hostd-protocol, else a checkout of it at PROTOCOL_DIR
 (default ../plugin-hostd-protocol). Usage: search-paths.py lv2|clap [--existing] [--env]
 
@@ -29,7 +29,7 @@ def header_path():
         path = os.path.join(d, "plugin-hostd", "search_paths.h")
         if os.path.exists(path):
             return path
-    sys.exit("search-paths.py: no plugin-hostd/search_paths.h: install plugin-hostd-protocol-devel 0.2.0 or later")
+    sys.exit("search-paths.py: no plugin-hostd/search_paths.h: install plugin-hostd-protocol-devel 0.3.0 or later, before 0.4")
 
 
 HEADER = header_path()

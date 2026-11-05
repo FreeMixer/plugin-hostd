@@ -4,7 +4,7 @@ Building plugin-hostd
     make [PROTOCOL_DIR=<plugin-hostd-protocol checkout>]
 
 The protocol is `libplugin-hostd-protocol.so.0`, the plugin-hostd protocol as a
-library of its own (FreeMixer/plugin-hostd-protocol, 0.2.0 or later), with the
+library of its own (FreeMixer/plugin-hostd-protocol, 0.3.0 or later, before 0.4), with the
 declared protocol beside it (`<plugin-hostd/protocol.h>` and the headers it
 includes, the protocol's JSON and mod-host's, the verb table), from
 `pkg-config plugin-hostd-protocol` when it is installed (its `make install`, or
@@ -19,9 +19,12 @@ JSON is read with the system cJSON, from `pkg-config libcjson` (`cjson-devel`,
 `libcjson-dev`).
 
 The probe runner and the page generator also read omx-contract's C headers,
-`<omxcontract/omx_contract_limits.h>` and `<omxcontract/omx_vocabulary.h>`, from
-`pkg-config omx-contract` (`omx-contract-devel`, `libomx-contract-dev`, 3.4.0 or
-later; `CONTRACT_CFLAGS=-I<dir>` for one that is not installed). The runner's
+`<omxcontract/omx_contract_limits.h>` and `<omxcontract/omx_vocabulary.h>`, and the
+daemon and the runner spell their JSON string literals through its one writer,
+`<omxcontract/omx_json_write.h>`, from `pkg-config omx-contract` (`omx-contract-devel`,
+`libomx-contract-dev`, 3.9.0 or later; `CONTRACT_CFLAGS=-I<dir>` for one that is not
+installed). The schema major the contract directory is read under is the pkg-config
+file's `schema_major`, never typed in this tree. The runner's
 default rates are the contract's `ORACLE_FLOOR_RATES`, and the generator refuses
 to build or run when the protocol's parameter scales are not the contract's
 `PARAM_SCALES`. The probe output schema takes the words it shares with the
@@ -50,7 +53,7 @@ check-no-pins` fails if a build dependency on omx-clap-core appears outside the 
 Regenerating the protocol tables
 --------------------------------
 
-The tables in README.md marked `BEGIN GENERATED protocol:...`, the key list of the man page and the probe output's
+The tables in docs/guide.md marked `BEGIN GENERATED protocol:...`, the key list of the man page and the probe output's
 schema are generated from `<plugin-hostd/protocol.h>`, plugin-hostd-protocol's: `make gen` rewrites them and `make
 check-generated` fails on any drift. The protocol's JSON, mod-host's, the verb table and the protocol page are
 plugin-hostd-protocol's, generated and checked there; `make check-no-protocol-copy` fails when a copy of any of them,
@@ -81,8 +84,7 @@ Tests
 runs the daemon against `tests/fake-host`, a worker that speaks the same
 protocol and dies, hangs or refuses on cue: placement, forwarding, the
 ledger, replay to the byte, attribution, quarantine, the storm bound,
-`worker_env`, pins, and the verb table against mod-host's README; `tests/pin_test.c` holds
-`include/plugin-hostd/pin.h` to the FIPS 180-2 examples and to layout bytes hashed elsewhere. No jack, no plugin.
+`worker_env`, pins, and the verb table against mod-host's README. No jack, no plugin.
 
 The verbs are read from their declarations, never spelled: mod-host's from the
 command formats of `mod-host.h`, the daemon's own from plugin-hostd-protocol's
@@ -143,56 +145,6 @@ requires the named test to go red. The arms run side by side, `SABOTAGE_JOBS` at
 the process may use, at most 8), each in a directory of its own with its own range of test ports, and print in the
 order of the table; `SABOTAGE_JOBS=1` runs them one after the other. `SABOTAGE_KIND=<kind>` and `SABOTAGE_ONLY=<words>`
 run some of them.
-
-The documentation site
-----------------------
-
-`docs/` is published on GitHub Pages as the plugin-hostd technical manual, by `.github/workflows/pages.yml`, rendered
-by `tools/site/build.mjs` (Node 20 or later; markdown-it and yaml at the versions `tools/site/package-lock.json` pins).
-To build it locally:
-
-    (cd tools/site && npm ci && npm test)
-    node tools/site/build.mjs            # writes build/site/; open build/site/index.html
-
-`docs/site.yml` is the shape: the sections in navigation order, their entries, and the captures of the landing page
-(`docs/index.md`). A new page is one file under `docs/` and one entry there; an entry for a page that is not written
-yet carries `pending: true` and is shown as coming, without a link, and the build says when the flag can go. Every
-published page must be an entry or be linked from one. A figure or capture under `docs/` is copied when a page
-references it, and only then; the Evidence section lists every file under an `evidence/` directory with the pages
-that cite it. The design notes under `docs/` are never published. A reference to a file that does not exist, an image
-outside `docs/`, or anything in the design notes fails the build with the page and the target named. A link to a
-repository file outside `docs/` goes to that file on GitHub.
-
-How the daemon keeps and replays state
-======================================
-
-Per instance, in memory: the `add` line, then the state-changing verbs as
-sent, as text (`param_set`, `patch_set`, `preset_load`, `bypass`,
-`param_monitor`, `monitor_output`, the `midi_`, `cc_` and `cv_` maps), a repeat of the same
-setting replacing the earlier one, a `preset_load` dropping the parameter
-writes before it; and the `connect`s that name the instance's jack client.
-After a `preset_load` or `patch_set`, and after a quiet interval, it asks the
-worker for `state_save <dir>` into one checkpoint directory of its own and,
-for an instance whose state file is there, drops the verbs the state now
-holds.
-
-The tempo, the metre and the transport (`set_bpm`, `set_bpb`, `transport`, `transport_sync`) are the daemon's, not an
-instance's: the latest line of each is kept, and every worker is handed them before anything else, when it is first
-started and when it is respawned. Notes (`note_on` and the rest) are never kept.
-
-A worker that dies is respawned after a backoff, and each instance is put
-back: `add`, one `state_load` of the checkpoint directory, the verb tail,
-the connections (a connect the new client cannot make yet, because the peer's port has not reached it, is asked again by
-the idle tick for `connect_retry_ms`). What a plugin held in RAM and exposed through no verb (a
-reverb tail) is lost.
-
-Who is blamed: a death with a command on the wire names that command's
-instance. A death in a callback of a pool cannot be named from outside, so
-the pool is split, each member into a worker of its own, and the one that
-dies again is named (`instance_quarantined`) and stays own. In a worker of
-one instance the death is that instance's. `storm_deaths` deaths inside `storm_window_ms` end
-respawning for that placement only (`supervisor_gave_up`); its neighbours are
-not touched.
 
 The last verb is a suspect
 --------------------------

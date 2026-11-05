@@ -215,7 +215,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--self-test", action="store_true")
     ap.add_argument("--contract-dir", default=os.environ.get("CONTRACTDIR") or pkg_var("contractdir"))
-    ap.add_argument("--major", default=os.environ.get("CONTRACT_SCHEMA_MAJOR", "3"))
+    # the schema major is omx-contract's (schema_major of its pkg-config file, 3.9.0 or later), never typed here
+    ap.add_argument("--major", default=os.environ.get("CONTRACT_SCHEMA_MAJOR") or pkg_var("schema_major"))
     ap.add_argument("--schema", default=os.environ.get("OMX_CONTRACT_SCHEMA")
                     or os.path.join(pkg_var("datadir"), "omx-contract.schema.json"))
     ap.add_argument("--transforms", default=os.path.join(ROOT, "src", "transforms.h"))
@@ -223,6 +224,8 @@ def main():
     opts = ap.parse_args()
     if any(f not in MAPS for f in opts.formats):
         ap.error("a format is clap or lv2")
+    if not opts.major:
+        sys.exit("format_coverage.py: pkg-config names no schema_major of omx-contract: install omx-contract-devel 3.9.0 or later, or pass --major")
     if not opts.contract_dir:
         sys.exit("format_coverage: no contract directory: install omx-contract-devel or pass --contract-dir")
     opts.schema = Schema(opts.schema)

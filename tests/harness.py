@@ -100,8 +100,8 @@ class Daemon:
             # the tests of placement, replay and attribution add plugins no one pinned; the pin tests turn it back on,
             # and a None leaves a setting out of the file, so the daemon's own default holds
             "require_pins": 0,
-            # the daemon's own default is auto (the adapter first); the tests of the mod-host row name that row, and the
-            # tests of the default pass None to leave the setting out of the file
+            # the daemon's own default is plugin-hostd-protocol's (the adapter's row); the tests of the mod-host row name
+            # that row, and the tests of the default pass None to leave the setting out of the file
             "lv2_worker": "mod-host",
             # no package's pins: the system's pins_dir is not the test's
             "pins_dir": "",
@@ -147,6 +147,18 @@ class Daemon:
         self.fb = socket.create_connection(("127.0.0.1", self.fb_port), timeout=10) if feedback else None
         if self.fb:
             self.fb.settimeout(None)   # silence on the feedback port is not an error
+            threading.Thread(target=self._read_feedback, daemon=True).start()
+
+    def reconnect(self):
+        """the controller goes and another connects: new command and feedback connections, nothing granted"""
+        self.sock.close()
+        if self.fb:
+            self.fb.close()
+        self.sock = socket.create_connection(("127.0.0.1", self.cmd_port), timeout=10)
+        self.client = plugin_hostd_client.Client(self.sock)
+        if self.fb:
+            self.fb = socket.create_connection(("127.0.0.1", self.fb_port), timeout=10)
+            self.fb.settimeout(None)
             threading.Thread(target=self._read_feedback, daemon=True).start()
 
     def log(self):

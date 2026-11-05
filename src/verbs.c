@@ -25,13 +25,16 @@
 
 #include <host-errors.h>
 #include <mod-host.h>
+#include <protocol.h>
 #include <socket.h>
 
 #include "descriptors.h"
 #include "formats.h"
 #include "pins.h"
+#include "session.h"
 #include "supervisor.h"
 #include "verbs.h"
+#include "words.h"
 
 #define MAX_TOKENS PHD_LINE_WORDS_MAX
 
@@ -134,9 +137,12 @@ static char *estimate_words(char **tok, int ntok)
     return sup_estimate(rate, quantum, (const char *const *)tok + 3, ntok - 3);
 }
 
-static void reply(int fd, char *text)
+static void reply(int fd, char *text, const char *tag, size_t tag_len)
 {
     char refusal[32];
+
+    /* the session's words on the answer: the error word of a refusal, the request's tag */
+    text = session_answer(text, tag, tag_len);
 
     /* an answer there was no memory for: mod-host's refusal, written on the stack */
     if (!text)
@@ -153,6 +159,18 @@ static char *handle(char *line, char **tok, int ntok)
 {
     const char *verb = tok[0];
     char *reply_text;
+
+    /* hello and request tags are the session's (session.c; plugin-hostd-protocol, doc/protocol.md, Sessions): the daemon
+     * answers hello itself and grants tags, errors and seq to its controller, and never relays one to a worker, which
+     * is spoken to in mod-host mode. A line that starts with "@" and is no tag of a session granted tags names no verb,
+     * as mod-host answers a word that is no verb. */
+    if (!strcmp(verb, OMX_VERB_HELLO))
+        return ntok < 2 ? strdup(MESSAGE_FEW_ARGUMENTS) : session_hello(tok, ntok);
+    if (verb[0] == '@')
+        return strdup(MESSAGE_COMMAND_NOT_FOUND);
+    /* the bulk verbs: several parameters of one instance, which the worker that holds it answers alone */
+    if (!strcmp(verb, OMX_VERB_PARAM_GET_MANY) || !strcmp(verb, OMX_VERB_PARAM_SET_MANY))
+        return ntok > 2 ? sup_call(atoi(tok[1]), line) : sup_resp(ERR_INVALID_OPERATION);
 
     if (!strcmp(verb, PHD_VERB_ADD))
     {
@@ -278,32 +296,51 @@ static char *handle(char *line, char **tok, int ntok)
 
 void verbs_receive(msg_t *msg)
 {
-    char *line = strndup(msg->data, msg->data_size), *tok[MAX_TOKENS], *save = NULL, *t, *copy, *end;
+    char *line = strndup(msg->data, msg->data_size), *tok[MAX_TOKENS], *copy, *end;
+    const char *tag = NULL, *command;
+    size_t tag_len = 0;
     int ntok = 0;
 
     /* a message there is no memory to copy is refused, and not read */
     if (!line)
     {
-        reply(msg->sender_id, NULL);
+        reply(msg->sender_id, NULL, NULL, 0);
         return;
     }
     end = line + strlen(line);
     while (end > line && (end[-1] == '\n' || end[-1] == '\r' || end[-1] == ' ' || end[-1] == '\t'))
         *--end = '\0';
-    copy = strdup(line);
+    /* a session granted tags: a first word "@<tag>" is the request's tag and the command follows it */
+    tag_len = session_tag_len(line);
+    command = line;
+    if (tag_len)
+    {
+        tag = line;
+        command = line + tag_len + (line[tag_len] == ' ');
+    }
+    copy = strdup(command);
     if (!copy)
     {
-        reply(msg->sender_id, NULL);
+        reply(msg->sender_id, NULL, NULL, 0);
         free(line);
         return;
     }
-    for (t = strtok_r(copy, " \t", &save); t && ntok < MAX_TOKENS; t = strtok_r(NULL, " \t", &save))
-        tok[ntok++] = t;
-    if (ntok == 0)
-        reply(msg->sender_id, sup_resp(ERR_INVALID_OPERATION));
+    /* the words as the protocol reads them: a word in quotes may hold spaces, and the quotes are not its value */
+    ntok = words_read(copy, tok, MAX_TOKENS);
+    if (ntok < 0)
+    {
+        reply(msg->sender_id, NULL, NULL, 0);
+        free(copy);
+        free(line);
+        return;
+    }
+    if (ntok == 0 && tag)
+        reply(msg->sender_id, strdup(MESSAGE_COMMAND_NOT_FOUND), tag, tag_len);
+    else if (ntok == 0)
+        reply(msg->sender_id, sup_resp(ERR_INVALID_OPERATION), NULL, 0);
     else
     {
-        reply(msg->sender_id, handle(line, tok, ntok));
+        reply(msg->sender_id, handle((char *)command, tok, ntok), tag, tag_len);
         if (ntok > 1 && (verb_is(tok[0], EFFECT_PRESET_LOAD) || verb_is(tok[0], EFFECT_PATCH_SET)))
             sup_after_reply(atoi(tok[1]), tok[0]);
     }

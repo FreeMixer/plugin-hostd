@@ -36,11 +36,12 @@
 #include "machine.h"
 #include "pins.h"
 #include "relay.h"
+#include "session.h"
 #include "supervisor.h"
 #include "verbs.h"
 
 #ifndef VERSION
-#define VERSION "0.17.0"
+#define VERSION "0.18.0"
 #endif
 
 #define SOCKET_DEFAULT_PORT     PHD_DEFAULT_COMMAND_PORT
@@ -240,6 +241,7 @@ int main(int argc, char **argv)
     if (socket_set_bind_address(g_conf.bind_address) != 0 ||
         socket_start(socket_port, 0, SOCKET_MSG_BUFFER_SIZE) < 0 || relay_start(feedback_port, g_conf.bind_address) < 0)
         return EXIT_FAILURE;
+    relay_set_prefix(session_feedback_prefix);
     socket_set_receive_cb(receive);
     socket_set_idle_cb(idle_cb);
     socket_set_idle_interval(g_conf.idle_ms);
@@ -260,6 +262,8 @@ int main(int argc, char **argv)
     {
         socket_run(0);
         relay_controller_gone();
+        /* the next controller starts with nothing granted */
+        session_reset();
     }
 
     socket_finish();

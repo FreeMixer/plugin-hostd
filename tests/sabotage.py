@@ -13,8 +13,7 @@ FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "
 # (what is broken, file, text, replacement, the test that must go red[, "jack"]); a "jack" test runs in tests/jack_e2e.sh
 # over the real workers and is skipped when OMX_CLAP_HOST is not set; "meters" is a jack test that also needs
 # omx-clap-host's FAKE_COMPRESSOR_CLAP and JACK_METER_SOURCE and is skipped without them; "info" one that needs its FAKE_CLAP; "lv2" is a jack test that also needs mod-host and
-# an LV2 bundle (MOD_HOST, LV2_DIR, LV2_URI, LV2_BUNDLE, LV2_PARAM) and is skipped without them; "pin" breaks
-# include/plugin-hostd/pin.h and runs tests/pin_test.c; "readme" breaks README.md or BUILDING.md and runs
+# an LV2 bundle (MOD_HOST, LV2_DIR, LV2_URI, LV2_BUNDLE, LV2_PARAM) and is skipped without them; "readme" breaks README.md or BUILDING.md and runs
 # tests/readme_build.py, with no daemon to build; "probeschema" breaks protocol/probe-output.schema.json and runs
 # tests/probe_schema.py; "relay" breaks src/relay.c and runs tests/relay_test.c; "history" breaks src/history.c or src/fsutil.c and runs tests/history_test.c; "proc" breaks src/proc.c and runs tests/proc_test.c; "conf" breaks src/conf.c, src/main.c, the search lists or a reader of them and runs tests/conf_test.c and tests/search_paths_once.py; "alloc" breaks src/relay.c, src/lv2.c or src/verbs.c and runs make test-alloc; "contract" breaks the probe runner or the generator and runs tests/contract_derived.py; "consumer" breaks the header and compiles tests/consumer.c against it; "probe" breaks src/probe.c and runs tests/probe_test.py; "nopins" breaks the packaging or a workflow and runs tests/no_pins.py; "ciguards" breaks a workflow and runs tests/ci_guards.py;
 # "vocabulary" breaks the probe schema, its template or a copy of omx-contract's omx-vocabulary.schema.json and runs
@@ -212,6 +211,32 @@ SABOTAGE = [
     ("a pin's path may hold a separator of pin_set's words", "src/pins.c",
      "if (!*path || *path == '/' || strpbrk(path, PHD_PIN_PATH_EXCLUDED))", "if (!*path || *path == '/')",
      "what_cannot_be_pinned_is_refused_and_never_pinned_in_part"),
+    ("a command is cut at its spaces again", "src/verbs.c", "    ntok = words_read(copy, tok, MAX_TOKENS);\n",
+     "    {\n        char *sv = NULL, *t;\n\n        ntok = 0;\n        for (t = strtok_r(copy, \" \\t\", &sv); t && ntok < MAX_TOKENS; t = strtok_r(NULL, \" \\t\", &sv))\n            tok[ntok++] = t;\n    }\n",
+     "a_plugin_in_a_folder_with_a_space_is_one_quoted_word_in_add_pin_set_and_the_pin_file"),
+    ("the store writes a uri with a space unquoted", "src/pins.c", "    words_write(p->uri, uri, sizeof(uri));\n",
+     "    snprintf(uri, sizeof(uri), \"%s\", p->uri);\n", "a_plugin_in_a_folder_with_a_space_is_one_quoted_word_in_add_pin_set_and_the_pin_file"),
+    ("a pin line is cut at its spaces again", "src/pins.c", "    ntok = words_read(line, tok, 8);\n",
+     "    {\n        char *sv = NULL, *t;\n\n        ntok = 0;\n        for (t = strtok_r(line, \" \\t\\r\\n\", &sv); t && ntok < 8; t = strtok_r(NULL, \" \\t\\r\\n\", &sv))\n            tok[ntok++] = t;\n    }\n",
+     "a_plugin_in_a_folder_with_a_space_is_one_quoted_word_in_add_pin_set_and_the_pin_file"),
+    ("hello reaches the workers", "src/verbs.c", "    if (!strcmp(verb, OMX_VERB_HELLO))\n", "    if (0)\n", "hello_opens_a_session_the_daemon_grants_and_no_worker_hears"),
+    ("a tagged line reaches the workers", "src/verbs.c", "    if (verb[0] == '@')\n", "    if (0)\n", "hello_opens_a_session_the_daemon_grants_and_no_worker_hears"),
+    ("a refusal goes out without its error word", "src/session.c", "        text = with_word(text);\n", "        (void)with_word;\n", "hello_opens_a_session_the_daemon_grants_and_no_worker_hears"),
+    ("an answer goes out without its tag", "src/session.c", "    if (!tag)\n        return text;\n", "    return text;\n", "hello_opens_a_session_the_daemon_grants_and_no_worker_hears"),
+    ("a hello that grants seq does not start the numbers again", "src/session.c",
+     "    __atomic_store_n(&g_seq, 0, __ATOMIC_SEQ_CST);\n    pos = snprintf", "    pos = snprintf",
+     "seq_numbers_every_feedback_line_of_the_session_from_one"),
+    ("a feedback line goes out without its number", "src/session.c", "    n = __atomic_add_fetch(&g_seq, 1, __ATOMIC_SEQ_CST);\n",
+     "    n = 0;\n", "seq_numbers_every_feedback_line_of_the_session_from_one"),
+    ("a new controller inherits the last one's session", "src/main.c", "        session_reset();\n", "",
+     "a_new_controller_starts_with_nothing_granted"),
+    ("the bulk verbs reach every worker", "src/verbs.c",
+     "        return ntok > 2 ? sup_call(atoi(tok[1]), line) : sup_resp(ERR_INVALID_OPERATION);\n",
+     "        return ntok > 2 ? sup_broadcast(line) : sup_resp(ERR_INVALID_OPERATION);\n",
+     "the_bulk_verbs_reach_only_the_worker_that_holds_the_instance_and_a_set_is_replayed"),
+    ("param_set_many is not replayed", "src/supervisor.c",
+     "    if (ntok && !strcmp(tok[0], OMX_VERB_PARAM_SET_MANY))\n", "    if (0)\n",
+     "the_bulk_verbs_reach_only_the_worker_that_holds_the_instance_and_a_set_is_replayed"),
     ("a pin_set line may be longer than line_max", "src/verbs.c", "|| strlen(line) > PHD_LINE_MAX ||", "|| 0 ||",
      "what_cannot_be_pinned_is_refused_and_never_pinned_in_part"),
     ("a manifest's base is taken for none", "src/lv2.c",
@@ -350,6 +375,9 @@ SABOTAGE = [
      "    if (format_at(fmt)->adapter && !proc_have_binary(bin_of(fmt)) && lv2_worker_is_auto(&g_conf, fwd))",
      "    if (0 && format_at(fmt)->adapter && !proc_have_binary(bin_of(fmt)) && lv2_worker_is_auto(&g_conf, fwd))",
      "under_auto_a_plugin_the_adapter_refuses_runs_on_mod_host_and_the_adapter_is_not_asked_again"),
+    ("a worker program that is not installed is not said at the start", "src/supervisor.c",
+     "        if (!proc_have_binary(bin_of(f)))\n            fprintf(stderr,", "        if (0)\n            fprintf(stderr,",
+     "without_mod_host_installed_the_daemon_runs_and_says_mod_host_is_not_installed"),
     ("lv2_worker takes any word", "src/conf.c", "ok |= !strcmp(conf->lv2_worker, name);", "ok |= 1;",
      "lv2_worker_must_be_one_of_the_declared_values"),
     ("a routed row that claims uris by a prefix is registered", "src/formats.c",
@@ -380,13 +408,6 @@ SABOTAGE = [
      "clap_track_info_and_remote_pages_reach_the_plugin_through_the_daemon", "info"),
     ("meters behind the daemon never reach the controller", "src/supervisor.c", "    if (relay_add(w->fb_fd) != 0)\n", "    if (0)\n",
      "clap_meters_reach_the_controller_through_the_daemon_and_survive_a_kill", "meters"),
-    ("a SHA-256 round constant is wrong", "include/plugin-hostd/pin.h", "0x428a2f98, 0x71374491", "0x428a2f98, 0x71374490",
-     "pin.h", "pin"),
-    ("a tab in a name is not escaped", "include/plugin-hostd/pin.h", "*s == '\\t' ? \"\\\\t\" : ", "", "pin.h", "pin"),
-    ("an LV2 port's properties are not sorted", "include/plugin-hostd/pin.h",
-     "            qsort(props, p->nproperties, sizeof(*props), phd_layout_bytewise);\n", "", "pin.h", "pin"),
-    ("a number declared by no port is written as its bits", "include/plugin-hostd/pin.h",
-     "    if (!declared)\n", "    if (0)\n", "pin.h", "pin"),
     ("a plugin the adapter refused goes where the policy says", "src/supervisor.c",
      "&& lv2_refused_under_auto(&g_conf, fmt, fwd))", "&& 0)",
      "under_auto_a_refused_plugin_that_kills_mod_host_on_add_costs_only_its_own_worker"),
@@ -428,7 +449,7 @@ SABOTAGE = [
     ("a message there is no memory to split is split anyway", "src/verbs.c", "    if (!copy)\n", "    if (0)\n",
      "alloc_test", "alloc"),
     ("a message there is no memory to split leaks its line", "src/verbs.c",
-     "        reply(msg->sender_id, NULL);\n        free(line);\n", "        reply(msg->sender_id, NULL);\n", "alloc_test", "alloc"),
+     "        reply(msg->sender_id, NULL, NULL, 0);\n        free(line);\n", "        reply(msg->sender_id, NULL, NULL, 0);\n", "alloc_test", "alloc"),
     ("an answer there is no memory for is sent anyway", "src/verbs.c", "    if (!text)\n", "    if (0)\n", "alloc_test", "alloc"),
     ("the host's pin overrides a pins.d refusal", "src/pins.c", "    pin_t *p = pkg_refusal(uri);\n\n    if (!p)\n",
      "    pin_t *p = NULL;\n\n    if (!p)\n", "a_pins_d_refusal_wins_over_any_other_pins_d_pin_and_over_the_host"),
@@ -456,32 +477,32 @@ SABOTAGE = [
     ("BUILDING.md lost its build command", "BUILDING.md", "    make [PROTOCOL_DIR=<plugin-hostd-protocol checkout>]\n", "",
      "README.md runs no build tool", "readme"),
     ("the spec lost the floor of omx-clap-host-tests", "packaging/plugin-hostd.spec",
-     "BuildRequires: omx-clap-host-tests >= 0.25.0\n", "", "no pin anywhere", "nopins"),
+     "BuildRequires: (omx-clap-host-tests >= 0.25.0 with omx-clap-host-tests < 0.30)\n", "", "no pin anywhere", "nopins"),
     ("debian/control lost the floor of omx-clap-host-tests", "debian/control",
-     "               omx-clap-host-tests (>= 0.25.0~) <!nocheck>,\n", "", "no pin anywhere", "nopins"),
+     "               omx-clap-host-tests (>= 0.25.0~) <!nocheck>, omx-clap-host-tests (<< 0.30~) <!nocheck>,\n", "", "no pin anywhere", "nopins"),
     ("the spec caps omx-clap-host-tests with a ceiling again", "packaging/plugin-hostd.spec",
-     "BuildRequires: omx-clap-host-tests >= 0.25.0\n", "BuildRequires: omx-clap-host-tests >= 0.25.0\nBuildRequires: omx-clap-host-tests < 0.8\n",
+     "BuildRequires: (omx-clap-host-tests >= 0.25.0 with omx-clap-host-tests < 0.30)\n", "BuildRequires: (omx-clap-host-tests >= 0.25.0 with omx-clap-host-tests < 0.8)\n",
      "no pin anywhere", "nopins"),
     ("debian/control caps omx-clap-host-tests with a ceiling again", "debian/control",
-     "               omx-clap-host-tests (>= 0.25.0~) <!nocheck>,\n", "               omx-clap-host-tests (>= 0.25.0~) <!nocheck>,\n               omx-clap-host-tests (<< 0.8~),\n",
+     "               omx-clap-host-tests (>= 0.25.0~) <!nocheck>, omx-clap-host-tests (<< 0.30~) <!nocheck>,\n", "               omx-clap-host-tests (>= 0.25.0~) <!nocheck>,\n               omx-clap-host-tests (<< 0.8~) <!nocheck>,\n",
      "no pin anywhere", "nopins"),
     ("the spec caps omx-clap-host-tests with a '<=' ceiling", "packaging/plugin-hostd.spec",
-     "BuildRequires: omx-clap-host-tests >= 0.25.0\n", "BuildRequires: omx-clap-host-tests >= 0.25.0\nBuildRequires: omx-clap-host-tests <= 0.9\n",
+     "BuildRequires: (omx-clap-host-tests >= 0.25.0 with omx-clap-host-tests < 0.30)\n", "BuildRequires: (omx-clap-host-tests >= 0.25.0 with omx-clap-host-tests < 0.30)\nBuildRequires: omx-clap-host-tests <= 0.9\n",
      "no pin anywhere", "nopins"),
     ("the spec caps omx-clap-host-tests with an exact '=' ceiling", "packaging/plugin-hostd.spec",
-     "BuildRequires: omx-clap-host-tests >= 0.25.0\n", "BuildRequires: omx-clap-host-tests >= 0.25.0\nBuildRequires: omx-clap-host-tests = 0.9.0\n",
+     "BuildRequires: (omx-clap-host-tests >= 0.25.0 with omx-clap-host-tests < 0.30)\n", "BuildRequires: (omx-clap-host-tests >= 0.25.0 with omx-clap-host-tests < 0.30)\nBuildRequires: omx-clap-host-tests = 0.9.0\n",
      "no pin anywhere", "nopins"),
     ("the spec caps omx-clap-host-tests with a '<' ceiling", "packaging/plugin-hostd.spec",
-     "BuildRequires: omx-clap-host-tests >= 0.25.0\n", "BuildRequires: omx-clap-host-tests >= 0.25.0\nBuildRequires: omx-clap-host-tests < 0.10\n",
+     "BuildRequires: (omx-clap-host-tests >= 0.25.0 with omx-clap-host-tests < 0.30)\n", "BuildRequires: (omx-clap-host-tests >= 0.25.0 with omx-clap-host-tests < 0.30)\nBuildRequires: omx-clap-host-tests < 0.10\n",
      "no pin anywhere", "nopins"),
     ("debian/control caps omx-clap-host-tests with a '<=' ceiling", "debian/control",
-     "               omx-clap-host-tests (>= 0.25.0~) <!nocheck>,\n", "               omx-clap-host-tests (>= 0.25.0~) <!nocheck>,\n               omx-clap-host-tests (<= 0.9) <!nocheck>,\n",
+     "               omx-clap-host-tests (>= 0.25.0~) <!nocheck>, omx-clap-host-tests (<< 0.30~) <!nocheck>,\n", "               omx-clap-host-tests (>= 0.25.0~) <!nocheck>, omx-clap-host-tests (<< 0.30~) <!nocheck>,\n               omx-clap-host-tests (<= 0.9) <!nocheck>,\n",
      "no pin anywhere", "nopins"),
     ("debian/control caps omx-clap-host-tests with an exact '=' ceiling", "debian/control",
-     "               omx-clap-host-tests (>= 0.25.0~) <!nocheck>,\n", "               omx-clap-host-tests (>= 0.25.0~) <!nocheck>,\n               omx-clap-host-tests (= 0.9.0) <!nocheck>,\n",
+     "               omx-clap-host-tests (>= 0.25.0~) <!nocheck>, omx-clap-host-tests (<< 0.30~) <!nocheck>,\n", "               omx-clap-host-tests (>= 0.25.0~) <!nocheck>, omx-clap-host-tests (<< 0.30~) <!nocheck>,\n               omx-clap-host-tests (= 0.9.0) <!nocheck>,\n",
      "no pin anywhere", "nopins"),
     ("debian/control caps omx-clap-host-tests with a '<' ceiling", "debian/control",
-     "               omx-clap-host-tests (>= 0.25.0~) <!nocheck>,\n", "               omx-clap-host-tests (>= 0.25.0~) <!nocheck>,\n               omx-clap-host-tests (< 0.10) <!nocheck>,\n",
+     "               omx-clap-host-tests (>= 0.25.0~) <!nocheck>, omx-clap-host-tests (<< 0.30~) <!nocheck>,\n", "               omx-clap-host-tests (>= 0.25.0~) <!nocheck>, omx-clap-host-tests (<< 0.30~) <!nocheck>,\n               omx-clap-host-tests (< 0.10) <!nocheck>,\n",
      "no pin anywhere", "nopins"),
     ("a workflow pins omx-clap-core by a ref variable again", ".github/workflows/ci.yml",
      "permissions:\n  contents: read\n", "permissions:\n  contents: read\n\nenv:\n  OMX_CLAP_HOST_REF: v0.4.0\n",
@@ -969,8 +990,8 @@ SABOTAGE = [
      '    if (grouped)\n    {\n        r->windows_grouped++;',
      '    if (!grouped)\n    {\n        r->windows_grouped++;',
      'windows_fold_alone_and_in_a_group_into_their_own_fields', "history"),
-    ('a space in a uri makes a record', 'src/history.c',
-     ' || strpbrk(uri, " \\t\\r\\n")',
+    ('a line end or a quote in a uri makes a record', 'src/history.c',
+     ' || strpbrk(uri, "\\r\\n\\"")',
      '',
      'a_key_that_is_not_a_plugin_binary_makes_no_record', "history"),
     ('a digest that is not one makes a record', 'src/history.c',
@@ -1547,7 +1568,14 @@ def rebuild(tree, jack):
                        stdout=subprocess.DEVNULL)
 
 
+def reply_words_generator(tree):
+    """src/reply_words.h is written at build time (Makefile): the scratch tree holds the generator that writes it"""
+    os.makedirs(os.path.join(tree, "tools"), exist_ok=True)
+    shutil.copy(os.path.join(ROOT, "tools", "reply-words.py"), os.path.join(tree, "tools"))
+
+
 def build(tree):
+    reply_words_generator(tree)
     subprocess.run(["make", "-s", "PROTOCOL_DIR=" + PROTOCOL_DIR, "plugin-hostd"], cwd=tree, check=True,
                    stdout=subprocess.DEVNULL)
 
@@ -1558,12 +1586,10 @@ def build_probe(tree):
                    stdout=subprocess.DEVNULL)
 
 
-def run_pin_test(tree):
-    exe = os.path.join(tree, "pin-test")
-    subprocess.run(["cc", "-I" + os.path.join(tree, "include"), "-I" + declared.include_dir(), "-std=gnu99", "-o", exe,
-                    os.path.join(ROOT, "tests", "pin_test.c")], check=True)
-    p = subprocess.run([exe], capture_output=True, text=True, timeout=60)
-    return p.returncode, p.stdout
+def pin_flags(which):
+    """what <plugin-db/pin.h> asks of a program that includes it: plugin-db.pc's --cflags or --libs"""
+    return subprocess.run([os.environ.get("PKG_CONFIG", "pkg-config"), which, "plugin-db"], capture_output=True,
+                          text=True, check=True).stdout.split()
 
 
 def run_format_test(tree):
@@ -1599,7 +1625,7 @@ def run_consumer_test(tree):
     """tests/consumer.c against the tree's header, as a consumer compiles it; "ok   consumer" when it passes"""
     exe = os.path.join(tree, "consumer")
     subprocess.run(["cc", "-I" + os.path.join(tree, "include"), "-I" + declared.include_dir(), "-std=c99", "-Wall",
-                    "-Wextra", "-o", exe, os.path.join(ROOT, "tests", "consumer.c")], check=True)
+                    "-Wextra", "-o", exe, os.path.join(ROOT, "tests", "consumer.c")] + pin_flags("--cflags") + pin_flags("--libs"), check=True)
     p = subprocess.run([exe], capture_output=True, text=True, timeout=60)
     return p.returncode, p.stdout + ("ok   consumer\n" if p.returncode == 0 else "")
 
@@ -1704,8 +1730,6 @@ def run_test(tree, name, jack=False):
         return run_conf_test(tree)
     if jack == "contract":
         return run_contract_test(tree)
-    if jack == "pin":
-        return run_pin_test(tree)
     if jack == "readme":
         p = subprocess.run([sys.executable, os.path.join(ROOT, "tests", "readme_build.py"), tree], capture_output=True,
                            text=True, timeout=60)
@@ -1791,14 +1815,16 @@ def arm(entry, tree):
     shutil.rmtree(tree, ignore_errors=True)
     if jack == "readme":
         os.makedirs(tree)
-        for f in ("README.md", "BUILDING.md"):
-            shutil.copy(os.path.join(ROOT, f), tree)
+        os.makedirs(os.path.join(tree, "docs"))
+        for f in ("README.md", "BUILDING.md", os.path.join("docs", "guide.md")):
+            shutil.copy(os.path.join(ROOT, f), os.path.join(tree, f))
     elif jack == "conf":
         # the daemon's sources and the readers of the lists, to the files the checks of tests/search_paths_once.py open
         for d in ("src", "include", "tools", "protocol", "bench"):
             shutil.copytree(os.path.join(ROOT, d), os.path.join(tree, d), ignore=shutil.ignore_patterns("*.o", "*.pyc", "__pycache__"))
         shutil.copy(os.path.join(ROOT, "Makefile"), tree)
-        shutil.copy(os.path.join(ROOT, "README.md"), tree)
+        os.makedirs(os.path.join(tree, "docs"))
+        shutil.copy(os.path.join(ROOT, "docs", "guide.md"), os.path.join(tree, "docs"))
     elif jack in ("history", "proc"):
         for d in ("src", "include"):
             shutil.copytree(os.path.join(ROOT, d), os.path.join(tree, d), ignore=shutil.ignore_patterns("*.o"))
@@ -1866,6 +1892,9 @@ def arm(entry, tree):
         shutil.copytree(os.path.join(ROOT, "include"), os.path.join(tree, "include"))
         shutil.copy(os.path.join(ROOT, "Makefile"), tree)
         build(tree)
+    # every tree with a daemon source builds src/reply_words.h from the protocol's JSON with the generator
+    if os.path.isdir(os.path.join(tree, "src")) and os.path.exists(os.path.join(tree, "Makefile")):
+        reply_words_generator(tree)
     if protocol_overlay(tree, path):
         # the tree is built again against the copy of the declared protocol, as it will be against the broken copy
         rebuild(tree, jack)

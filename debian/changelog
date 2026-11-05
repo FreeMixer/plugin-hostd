@@ -1,3 +1,49 @@
+plugin-hostd (0.18.0) unstable; urgency=medium
+
+  * The daemon answers hello itself, for each controller connection, and
+    grants what the controller asks of tags, errors and seq as
+    plugin-hostd-protocol 0.3.0 defines them: a request tag comes back on its
+    answer, a refusal that is a number alone is followed by its error word,
+    every feedback line starts with #<n>. A controller that never sends hello
+    is answered as before. No worker is sent hello or a tagged line (#386).
+  * A word in quotes is one word, as the protocol's grammar has it: add,
+    pin_set and every other command, the pin files and the history read
+    "clap:/p/My Plugins/x.clap#id" as one uri without its quotes, and the
+    store and the history write a uri with a blank in it quoted. Before,
+    such a path was cut at its space.
+  * A worker is pinned to all the audio cores, not to one of them (#394).
+  * bench: the DSP load is read from the server and a window's xruns from both
+    sources (#400); the private JACK server's priority is asked and read
+    back, and --alsa hw:X runs it on a card instead of the dummy driver,
+    --periods N sets that driver's periods, and the document records both
+    (#407).
+  * param_get_many and param_set_many go to the worker that holds the
+    instance and to no other; param_set_many is replayed after a respawn as
+    param_set is (#386).
+  * mod-host is suggested, not recommended: omx-clap-host runs LV2 plugins
+    through its adapter. A worker program that is not installed is said once
+    at start, and an add asked of it answers -502 (no-backend) (#391).
+  * JSON is read with the system cJSON; the tree's own reader is gone (#393).
+    Its string literals are omx-contract's one writer: the build needs
+    libomx-contract-dev 3.9.0 or later and before 4.
+  * The pin header is plugin-db's (<plugin-db/pin.h>, 0.1.0 or later and
+    before 0.2): plugin-hostd-dev depends on plugin-db-dev and ships no pin.h
+    of its own.
+  * The probe: an LV2 instrument whose note did not sound keeps the latency
+    it declares on its port, as {"declaredFrames": N, "method":
+    "declared-port"}, instead of reading "latency unknown". This shipped in
+    0.17.0 and its notes missed it (#390).
+  * bench: a JACK that stops answering fails its row, not the run (#396).
+  * Requires plugin-hostd-protocol 0.3.0 or later and before 0.4, whose
+    declaration holds the bulk verbs and hello; the packages recommend
+    omx-clap-host 0.29.0 or later and before 0.30. Every dependency on our
+    libraries has a floor and a ceiling.
+  * The guide is generated from plugin-hostd-protocol 0.3.0 (#395); the
+    Zynthian use case and the design notes move to openmixer.org. The
+    packages install their licence and a short README and no other markdown.
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Wed, 04 Nov 2026 18:00:00 +0100
+
 plugin-hostd (0.17.0) unstable; urgency=medium
 
   * An LV2 worker's world holds the plugin's preset bundles: every bundle on

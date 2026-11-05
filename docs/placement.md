@@ -7,7 +7,7 @@ them. A plugin's own threads do not help: Surge XT 1.4.0 and the other plugins m
 thread-pool extension, so one instrument is one audio thread. Several instruments use several cores only when each
 runs in a worker of its own on cores the daemon, the UI and the system are kept off.
 
-The setting `placement` does that (plugin-hostd#226).
+The setting `placement` does that.
 
 The policy
 ----------
@@ -26,7 +26,7 @@ The policy
   linked in series stay where the last one woke them. A respawned worker, and one made anew (a chain formed, a group
   split by a death, a quarantined member moved out), gets the same mask.
 - **Chains and isolated plugins.** A chain, whether declared by `chain` or a segment of a `plan`, is one worker. A
-  plugin the planner leaves alone, an `isolated` verdict among them (plugin-hostd#231), gets a worker of its own, on the
+  plugin the planner leaves alone, an `isolated` verdict among them, gets a worker of its own, on the
   audio cores as every other. Zynthian still sees one chain.
 - **`worker_env`.** A format whose workers were given a cpu list by `worker_env` keeps that list: the policy does not
   move those workers, and they report no core.

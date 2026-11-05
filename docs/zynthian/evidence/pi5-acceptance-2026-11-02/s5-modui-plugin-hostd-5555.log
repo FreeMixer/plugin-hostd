@@ -1,3 +1,0 @@
-plugin-hostd: no history file: neither history_file, $XDG_STATE_HOME nor $HOME is set; no history is kept
-placement spread: workers on the audio cores 1-3, the daemon on 0
-plugin-hostd ready!

@@ -48,6 +48,176 @@ def a_word_past_the_grammar_of_a_daemon_verb_is_refused():
         d.close()
 
 
+def worker_answers(lines):
+    """what a fake worker, built on the protocol library, answers each line on its own socket, no daemon between"""
+    import socket
+    port, _ = harness.port_pair()
+    w = subprocess.Popen([FAKE, "-n", "-p", str(port)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        c = None
+        end = time.monotonic() + 10
+        while c is None:
+            try:
+                c = socket.create_connection(("127.0.0.1", port), timeout=5)
+            except OSError:
+                if time.monotonic() > end:
+                    raise Fail("the fake worker never listened on %d" % port)
+                time.sleep(0.05)
+        out = []
+        for line in lines:
+            c.sendall(line.encode() + b"\0")
+            buf = b""
+            while not buf.endswith(b"\0"):
+                got = c.recv(4096)
+                if not got:
+                    raise Fail("the fake worker closed on " + line)
+                buf += got
+            out.append(buf[:-1].decode())
+        c.close()
+        return out
+    finally:
+        w.kill()
+        w.wait()
+
+
+@test
+def hello_opens_a_session_the_daemon_grants_and_no_worker_hears():
+    # the control: a worker built on the protocol library answers hello and reads a tag once granted
+    got = worker_answers(["hello 1 tags", "@t1 quit_not_a_verb"])
+    check(got == ["resp 0 1 tags", "@t1 not found"], "the fake worker answers hello as the library does: %r" % got)
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(env={"FAKE_LOG": log})
+    try:
+        d.expect("add fake:a 0", "resp 0")
+        # no hello: mod-host mode, a line that starts with "@" names no verb, and a refusal is a number alone
+        d.expect("@t1 param_get 0 gain", "not found")
+        d.expect("param_get 7 gain", "resp -3")
+        # hello grants what is asked for, once each and in the declared order; what is unknown is no error
+        d.expect("hello 1 seq errors tags nonsense", "resp 0 1 tags errors seq")
+        d.expect("hello 1 errors", "resp 0 1 errors")
+        d.expect("hello 1", "resp 0 1")
+        d.expect("hello 0 tags", "resp -902")
+        d.expect("hello x", "resp -902")
+        d.expect("hello", "few arguments")
+        # a refused hello changes nothing: errors was dropped by "hello 1", and stays dropped
+        d.expect("param_get 7 gain", "resp -3")
+        # tags: the answer carries the tag; a tag alone is answered not found; "@" alone is a verb that is no verb
+        d.expect("hello 1 tags", "resp 0 1 tags")
+        d.expect("@t1 param_set 0 gain 0.2500", "@t1 resp 0")
+        d.expect("@t1 param_get 0 gain", "@t1 resp 0 0.2500")
+        d.expect("@t2 param_get 7 gain", "@t2 resp -3")
+        d.expect("@t3 worker_list w1", "@t3 resp -902")
+        d.expect("@t4 nonsense_verb", "@t4 resp -902")
+        d.expect("@t5", "@t5 not found")
+        d.expect("@", "not found")
+        d.expect("@a/b param_get 0 gain", "not found")
+        d.expect("param_get 0 gain", "resp 0 0.2500")
+        d.expect("@h1 hello 1 tags errors", "@h1 resp 0 1 tags errors")
+        # errors: a refusal alone is followed by its word; a success and a reply with a value after its number are not
+        d.expect("param_get 7 gain", "resp -3 reply.host.instance-non-exists")
+        d.expect("@e1 param_get 7 gain", "@e1 resp -3 reply.host.instance-non-exists")
+        d.expect("param_get 0 gain", "resp 0 0.2500")
+        d.expect("param_get_many 7 gain", "resp -3 reply.host.instance-non-exists")
+        d.expect("param_get_many 0 gain nope", "resp -103 reply.host.param-symbol-invalid")
+        d.expect("param_get_many 0 gain", "resp 0 0.2500")
+        d.expect("worker_list w1", "resp -902 reply.host.invalid-operation")
+        d.expect("hello 1", "resp 0 1")
+        # param_get_many and param_set_many are verbs like any other and need no hello
+        d.expect("bypass 0 1", "resp 0")
+        d.expect("param_get_many 0 gain :bypass", "resp 0 0.2500 1")
+        d.expect("param_get_many 0 gain nope", "resp -103")
+        d.expect("param_get_many", "resp -902")
+        with open(log) as f:
+            sent = [l.split(" ", 1)[1] for l in f.read().splitlines()]
+        check("param_get 0 gain" in sent and "param_get_many 0 gain :bypass" in sent,
+              "the log holds what the worker was sent: %r" % sent)
+        check(not [l for l in sent if l.startswith("hello") or l.startswith("@")],
+              "no worker is sent hello or a tagged line: %r" % sent)
+    finally:
+        d.close()
+
+
+def kill_and_collect(d, inst):
+    """kill the worker that holds `inst` and answer the feedback lines the daemon wrote about it"""
+    key, w = d.holder(inst)
+    mark = d.mark()
+    os.kill(w["pid"], signal.SIGKILL)
+    wait_for(lambda: d.holder(inst)[1]["pid"] != w["pid"], "instance %d respawned" % inst)
+    wait_for(lambda: any("instance_restored" in e for e in d.events[mark:]), "instance %d restored" % inst)
+    time.sleep(0.3)
+    return list(d.events[mark:])
+
+
+@test
+def seq_numbers_every_feedback_line_of_the_session_from_one():
+    d = daemon()
+    try:
+        d.expect("add fake:a 0", "resp 0")
+        bare = kill_and_collect(d, 0)
+        check(bare and not [e for e in bare if e.startswith("#")], "no hello: the lines carry no number: %s" % bare)
+        d.expect("hello 1 seq", "resp 0 1 seq")
+        got = kill_and_collect(d, 0)
+        nums = [int(e.split(" ", 1)[0][1:]) for e in got if re.match(r"#[1-9][0-9]* ", e)]
+        check(len(nums) == len(got) and len(got) >= 2, "every line of the session is numbered: %s" % got)
+        check(nums == list(range(1, len(nums) + 1)), "from 1, one more for each line: %s" % got)
+        check(any(e.split(" ", 1)[1].startswith("instance_restored 0 ") for e in got), "the line follows its number: %s" % got)
+        # a hello that grants seq again starts again at 1; one that does not drops the numbers
+        d.expect("hello 1 seq", "resp 0 1 seq")
+        again = kill_and_collect(d, 0)
+        check(again and again[0].startswith("#1 "), "a new hello starts at 1: %s" % again)
+        d.expect("hello 1 tags", "resp 0 1 tags")
+        dropped = kill_and_collect(d, 0)
+        check(dropped and not [e for e in dropped if e.startswith("#")], "seq dropped, no number: %s" % dropped)
+    finally:
+        d.close()
+
+
+@test
+def a_new_controller_starts_with_nothing_granted():
+    d = daemon()
+    try:
+        d.expect("hello 1 tags errors", "resp 0 1 tags errors")
+        d.expect("@a param_get 7 gain", "@a resp -3 reply.host.instance-non-exists")
+        d.reconnect()
+        d.expect("@a param_get 7 gain", "not found")
+        d.expect("param_get 7 gain", "resp -3")
+    finally:
+        d.close()
+
+
+@test
+def the_bulk_verbs_reach_only_the_worker_that_holds_the_instance_and_a_set_is_replayed():
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(env={"FAKE_LOG": log})
+    try:
+        d.expect("add fake:a 0", "resp 0")
+        d.expect("add fake:b 1", "resp 1")
+        ka, wa = d.holder(0)
+        kb, wb = d.holder(1)
+        check(wa["pid"] != wb["pid"], "two workers, one instance each")
+        d.expect("param_set_many 1 gain 0.5000 tone 0.2500", "resp 0")
+        d.expect("param_get_many 1 gain tone", "resp 0 0.5000 0.2500")
+        # all or nothing: a refused middle pair sets nothing
+        d.expect("param_set_many 1 gain 0.9000 nope 1 tone 0.1000", "resp -103 2")
+        d.expect("param_get_many 1 gain tone", "resp 0 0.5000 0.2500")
+        d.expect("param_set_many 7 gain 0.5000", "resp -3")
+        d.expect("param_set_many", "resp -902")
+        with open(log) as f:
+            sent = [l.split(" ", 1) for l in f.read().splitlines()]
+        bulk = [(int(pid), l) for pid, l in sent if l.startswith("param_get_many") or l.startswith("param_set_many")]
+        # the line for instance 7, which no worker holds, is the daemon's to refuse
+        check(len(bulk) == 4, "the worker is sent each bulk line once: %r" % bulk)
+        check(all(pid == wb["pid"] for pid, _ in bulk),
+              "only the worker that holds instance 1 (%d) is sent the bulk lines: %r" % (wb["pid"], bulk))
+        # what param_set_many set is replayed into the new process when the worker dies
+        mark = d.mark()
+        os.kill(wb["pid"], signal.SIGKILL)
+        d.wait_event("instance_restored 1 ", since=mark)
+        d.expect("param_get_many 1 gain tone", "resp 0 0.5000 0.2500")
+    finally:
+        d.close()
+
+
 @test
 def the_whitespace_that_ends_a_command_is_not_part_of_its_last_word():
     log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
@@ -1791,9 +1961,9 @@ def fake_layout(default=None):
 class Plugins:
     """a CLAP file and an LV2 bundle on disk, and the log of every command a fake worker received"""
 
-    def __init__(self):
+    def __init__(self, folder="clap"):
         self.dir = tempfile.mkdtemp(prefix="plugin-hostd-pins.")
-        self.clap = os.path.join(self.dir, "clap", "omx-fault.clap")
+        self.clap = os.path.join(self.dir, folder, "omx-fault.clap")
         os.makedirs(os.path.dirname(self.clap))
         write(self.clap, b"clean pad build")
         self.clap_uri = "clap:%s#org.openmixer.fault" % self.clap
@@ -2765,14 +2935,20 @@ def lv2_worker_mod_host_runs_an_lv2_plugin_on_the_lv2_row():
         programs.close()
 
 
+def declared_lv2_worker():
+    """the daemon's own lv2_worker, as plugin-hostd-protocol declares it: no default is spelled in a test"""
+    return [c for c in harness.DECLARED["config"] if c["key"] == "lv2_worker"][0]["default"]
+
+
 @test
-def lv2_worker_defaults_to_auto_the_adapter_row_first():
+def lv2_worker_default_sends_a_found_plugin_to_the_adapter_row():
     # None leaves lv2_worker out of the settings file: the daemon's own default holds
+    check(declared_lv2_worker() in ("omx-clap-host", "auto"), "the default is omx-clap-host, or auto: %s" % declared_lv2_worker())
     d, programs, log = lv2_run(lv2_worker=None)
     try:
         d.expect("add lv2:urn:test:a 0", "resp 0")
         _, w = d.holder(0)
-        check(w["fmt"] == "lv2-clap", "the default sends an LV2 plugin to the adapter row first: %s" % w)
+        check(w["fmt"] == "lv2-clap", "the default sends an LV2 plugin to the adapter row: %s" % w)
         check(programs.of(w["pid"])[0] == "omx-clap-host", "omx-clap-host runs it, not %s" % programs.of(w["pid"])[0])
         check(adds_of(log, w["pid"]) == ["add lv2:urn:test:a 0"], "the adapter's worker is given the lv2: uri: %s" % adds_of(log, w["pid"]))
     finally:
@@ -2781,17 +2957,52 @@ def lv2_worker_defaults_to_auto_the_adapter_row_first():
 
 
 @test
-def lv2_worker_default_without_the_adapter_worker_installed_is_the_lv2_row():
-    # auto with no clap_host program on the system: the add is the lv2 row's, mod-host runs it, nothing is refused
+def lv2_worker_default_without_the_adapter_worker_installed():
+    # with no clap_host program on the system: the default omx-clap-host has no backend and never starts mod-host (mod-host
+    # only when asked); under auto the add is the lv2 row's, and mod-host runs it
     d, programs, log = lv2_run(lv2_worker=None, clap_host=os.path.join(tempfile.gettempdir(), "no-such-omx-clap-host"))
     try:
-        d.expect("add lv2:urn:test:a 0", "resp 0")
-        _, w = d.holder(0)
-        check(w["fmt"] == "lv2", "no adapter worker installed: the lv2 row: %s" % w)
-        check(programs.of(w["pid"])[0] == "mod-host", "mod-host runs it, not %s" % programs.of(w["pid"])[0])
+        if declared_lv2_worker() == "omx-clap-host":
+            d.expect("add lv2:urn:test:a 0", resp("NO_BACKEND"))
+            check(d.workers() == {}, "no worker starts, mod-host least of all: %s" % d.workers())
+        else:
+            d.expect("add lv2:urn:test:a 0", "resp 0")
+            _, w = d.holder(0)
+            check(w["fmt"] == "lv2", "no adapter worker installed: the lv2 row: %s" % w)
+            check(programs.of(w["pid"])[0] == "mod-host", "mod-host runs it, not %s" % programs.of(w["pid"])[0])
     finally:
         d.close()
         programs.close()
+
+
+@test
+def without_mod_host_installed_the_daemon_runs_and_says_mod_host_is_not_installed():
+    """mod-host is only suggested: a system without it runs every LV2 plugin on omx-clap-host's adapter and every CLAP
+    plugin, says once that mod-host is not installed, and answers an add asked of mod-host no-backend, never a crash"""
+    programs = Programs()
+    log = os.path.join(programs.dir, "commands.log")
+    # mod_host by its name, on a PATH that holds no mod-host, whatever the machine has installed
+    empty = tempfile.mkdtemp(prefix="plugin-hostd-no-mod-host.")
+    d = Daemon(EXE, FAKE, conf=programs.conf(mod_host="mod-host", lv2_worker="omx-clap-host"), env={"FAKE_LOG": log, "PATH": empty})
+    try:
+        said = [l for l in d.log().splitlines() if "mod-host is not installed" in l]
+        check(len(said) == 1 and "the lv2 row answers its adds %d" % harness.CODE["NO_BACKEND"] in said[0],
+              "the daemon says once that mod-host is not installed: %r" % d.log())
+        check("omx-clap-host is not installed" not in d.log(), "and nothing of the program that is: %r" % d.log())
+        d.expect("add lv2:urn:test:a 0", "resp 0")
+        _, w = d.holder(0)
+        check(w["fmt"] == "lv2-clap" and programs.of(w["pid"])[0] == "omx-clap-host", "omx-clap-host runs the LV2 plugin: %s" % w)
+        d.expect("add clap:fake#c 1", "resp 1")
+        # asked of mod-host, by the setting of one plugin: no backend, and the daemon and its instances carry on
+        d.expect("lv2_worker_set urn:test:b mod-host", "resp 0")
+        d.expect("add lv2:urn:test:b 2", resp("NO_BACKEND"))
+        check(alive(d.proc.pid), "the daemon is up")
+        check(sorted(i for v in d.workers().values() for i in v["inst"]) == [0, 1], "the instances it holds are untouched: %s" % d.workers())
+        d.expect("param_set 0 gain 0.5000", "resp 0")
+    finally:
+        d.close()
+        programs.close()
+        shutil.rmtree(empty, ignore_errors=True)
 
 
 @test
@@ -5408,6 +5619,69 @@ if os.environ.get("PLUGIN_HOSTD_WORLD_REFUSE"):
             d.close()
             p.close()
             programs.close()
+
+
+@test
+def a_plugin_in_a_folder_with_a_space_is_one_quoted_word_in_add_pin_set_and_the_pin_file():
+    """the protocol's word is a bare word or a quoted one (a path may hold spaces): add, pin_set and the pin lines read
+    "clap:/p/My Plugins/x.clap#id" as one word, the quotes are no part of the uri, and what the daemon writes (the worker's
+    add, the store) is that word quoted again"""
+    p = Plugins(folder="My Plugins")
+    quoted = '"%s"' % p.clap_uri
+    try:
+        d = p.daemon(conf={"pin_mode": "strict"})
+        try:
+            # pin_set takes the quoted uri as one word; before, it was cut at the space and answered -902
+            d.expect(p.clap_pin().replace(p.clap_uri, quoted, 1), "resp 0")
+            d.expect("add %s 0" % quoted, "resp 0")
+            sent = p.verbs("add")
+            check(sent == ["add %s 0" % quoted], "the worker is given the uri as one quoted word: %r" % sent)
+            # the same without the space is a quoted word too, and its quotes are not part of the uri
+            d.expect("pin_clear %s" % quoted, "resp 0")
+            d.expect("add %s 1" % quoted, resp("PIN_ABSENT"))
+        finally:
+            d.close()
+        # first-use learns the pin, writes it to the store with the uri quoted, and a strict daemon reads it back
+        d = p.daemon(conf={"pin_mode": "first-use"})
+        try:
+            d.expect("add %s 2" % quoted, "resp 2")
+        finally:
+            d.close()
+        with open(p.store) as f:
+            lines = [l for l in f.read().splitlines() if l.strip()]
+        check(len(lines) == 1 and lines[0].startswith("pin_set %s " % quoted),
+              "the store holds the uri as one quoted word: %s" % lines)
+        d = p.daemon(conf={"pin_mode": "strict"})
+        try:
+            d.expect("add %s 3" % quoted, "resp 3")
+        finally:
+            d.close()
+        # a pin file line, with and without the verb, reads the same
+        pins = os.path.join(p.dir, "pins.txt")
+        rewrite_pins(pins, ['%s omx-fault.clap=%s %s' % (quoted, sha(p.clap), fake_layout())])
+        os.unlink(p.store)
+        d = p.daemon(conf={"pin_mode": "strict", "pin_file": pins})
+        try:
+            d.expect("add %s 4" % quoted, "resp 4")
+        finally:
+            d.close()
+    finally:
+        p.close()
+
+
+@test
+def a_quoted_uri_without_a_space_is_the_uri_and_not_a_name_with_quotes():
+    p = Plugins()
+    try:
+        d = p.daemon(conf={"pin_mode": "strict"})
+        try:
+            d.expect(p.clap_pin().replace(p.clap_uri, '"%s"' % p.clap_uri, 1), "resp 0")
+            d.expect('add "%s" 0' % p.clap_uri, "resp 0")
+            d.expect("add %s 1" % p.clap_uri, "resp 1")
+        finally:
+            d.close()
+    finally:
+        p.close()
 
 
 sys.exit(run_tests(TESTS))

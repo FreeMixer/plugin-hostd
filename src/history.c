@@ -34,6 +34,7 @@
 
 #include "fsutil.h"
 #include "history.h"
+#include "words.h"
 
 #define HISTORY_LINE_MAX 8192
 #define VERSION_PREFIX   "# plugin-hostd history/"
@@ -140,14 +141,14 @@ static int number_ok(const char *text, kind_t kind, void *out)
  * not know. `line` is cut up. */
 static int rec_parse(char *line, history_rec_t *r)
 {
-    char *tok[4 + NKEYS], *save = NULL, *t;
+    char *tok[4 + NKEYS + 1];
     unsigned seen = 0;
-    int ntok = 0, n;
+    int ntok, n;
 
     memset(r, 0, sizeof(*r));
-    for (t = strtok_r(line, " \t\r\n", &save); t && ntok < (int)(sizeof(tok) / sizeof(tok[0])); t = strtok_r(NULL, " \t\r\n", &save))
-        tok[ntok++] = t;
-    if (t || ntok < 4 || strcmp(tok[0], PHD_HISTORY_RECORD) || !phd_pin_hex_valid(tok[2]))
+    /* one word more than a line can hold: a line with more is not a history line */
+    ntok = words_read(line, tok, (int)(sizeof(tok) / sizeof(tok[0])));
+    if (ntok > (int)(4 + NKEYS) || ntok < 4 || strcmp(tok[0], PHD_HISTORY_RECORD) || !phd_pin_hex_valid(tok[2]))
         return -1;
     for (n = 4; n < ntok; n++)
     {
@@ -204,7 +205,11 @@ char *history_line(const history_rec_t *r)
 
     if (!mem)
         return NULL;
-    fprintf(mem, "%s %s %s %s", PHD_HISTORY_RECORD, r->uri, r->digest, r->klass);
+    char uri[HISTORY_LINE_MAX];
+
+    /* a uri with a blank in it is one word only in quotes */
+    words_write(r->uri, uri, sizeof(uri));
+    fprintf(mem, "%s %s %s %s", PHD_HISTORY_RECORD, uri, r->digest, r->klass);
     keys_write(mem, r, ' ');
     fputc('\n', mem);
     fclose(mem);
@@ -241,7 +246,7 @@ static history_rec_t *rec_get(const char *uri, const char *digest)
     history_rec_t *r;
     entry_t *e;
 
-    if (!g_started || g_blocked || !uri || !*uri || !phd_pin_hex_valid(digest) || strpbrk(uri, " \t\r\n"))
+    if (!g_started || g_blocked || !uri || !*uri || !phd_pin_hex_valid(digest) || strpbrk(uri, "\r\n\""))
         return NULL;
     if ((r = rec_at(uri, digest, g_class)))
         return r;
@@ -625,14 +630,10 @@ char *history_summary(const char *uri, const char *digest, long long now)
 /* the uri a held line names: its second word, after history */
 static int raw_names(const char *raw, const char *uri)
 {
-    char copy[HISTORY_LINE_MAX], *save = NULL, *t;
+    char copy[HISTORY_LINE_MAX], *tok[2];
 
     snprintf(copy, sizeof(copy), "%s", raw);
-    t = strtok_r(copy, " \t", &save);
-    if (!t || strcmp(t, PHD_HISTORY_RECORD))
-        return 0;
-    t = strtok_r(NULL, " \t", &save);
-    return t && !strcmp(t, uri);
+    return words_read(copy, tok, 2) == 2 && !strcmp(tok[0], PHD_HISTORY_RECORD) && !strcmp(tok[1], uri);
 }
 
 int history_clear(const char *uri)

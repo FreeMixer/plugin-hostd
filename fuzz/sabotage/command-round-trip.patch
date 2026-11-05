@@ -1,14 +1,15 @@
-Breaks the check of fuzz/fuzz_command.c:495 (a command's words joined by one space make the same calls).
+Breaks the check of fuzz/fuzz_command.c:590 (a command's words joined by one space make the same calls).
 Caught by the seed input "mod-host-add-tabs" of fuzz_command.
 
-diff --git a/src/verbs.c b/src/verbs.c
-index aebc6c6..a715349 100644
---- a/src/verbs.c
-+++ b/src/verbs.c
-@@ -251,5 +251,5 @@ void verbs_receive(msg_t *msg)
-         return;
+diff --git a/src/words.c b/src/words.c
+--- a/src/words.c
++++ b/src/words.c
+@@ -39,7 +39,7 @@ int words_read(char *line, char **tok, int max)
+             p++;
+         else if (*p == '"')
+             quote = !quote;
+-        else if (!quote && (*p == '\t' || *p == '\r' || *p == '\n'))
++        else if (!quote && (*p == '\r' || *p == '\n'))
+             *p = ' ';
      }
--    for (t = strtok_r(copy, " \t", &save); t && ntok < MAX_TOKENS; t = strtok_r(NULL, " \t", &save))
-+    for (t = strtok_r(copy, " ", &save); t && ntok < MAX_TOKENS; t = strtok_r(NULL, " \t", &save))
-         tok[ntok++] = t;
-     if (ntok == 0)
+     if (!*line)

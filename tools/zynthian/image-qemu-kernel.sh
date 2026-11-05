@@ -1,7 +1,7 @@
 #!/bin/bash
 # A generic arm64 kernel and a minimal initramfs that boot the ZynthianOS image on qemu's virt machine, for
 # image-first-boot-qemu.sh (KERNEL=<dir>). The image's own Raspberry Pi kernel has no virtio block driver, so it
-# cannot find a root disk on virt (the serial log of that attempt is in docs/zynthian/evidence/image/).
+# cannot find a root disk on virt.
 #
 #   tools/zynthian/image-qemu-kernel.sh <empty dir>
 #

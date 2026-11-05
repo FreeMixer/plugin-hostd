@@ -5,7 +5,7 @@
 # The seed corpus of the two fuzz harnesses (make fuzz-corpus), written from what is declared: plugin-hostd-protocol's
 # JSON of the protocol and of mod-host's (PROTOCOL_JSON and MODHOST_JSON, which the Makefile takes from pkg-config, or
 # tests/declared.py's lookup) for the command harness, every verb with sample arguments, and
-# the send lines of README.md and docs/own-host.md; and, for the reply harness, worker feedback cut every way the
+# the send lines of docs/guide.md and docs/own-host.md; and, for the reply harness, worker feedback cut every way the
 # reader has a branch for. Nothing is fetched and nothing is random: the same tree writes the same files.
 #
 # Usage: gen_corpus.py <dir>   (writes <dir>/command/ and <dir>/reply/)
@@ -127,8 +127,29 @@ def command_corpus(out):
     seeds["quit-refused-then-quit"] = message("quit now") + message("quit")
     # a command the daemon acts on whose line is not its words joined by one space, with no supervisor call
     seeds["quit-leading-space"] = message("  quit")
-    # the send lines of the README and of the own-host page, each alone and as one session
-    for doc, tag in (("README.md", "readme"), (os.path.join("docs", "own-host.md"), "own-host")):
+    # a first word that starts with "@", in a session not granted tags: a tag and a command, a tag alone, "@" alone,
+    # and one that is no tag; each is answered `not found` (the protocol page, Request tags)
+    seeds["tagged-command"] = message("@a7 param_get 0 gain")
+    seeds["tagged-nothing-after"] = message("@a7")
+    seeds["tagged-at-alone"] = message("@ quit")
+    seeds["tagged-no-tag"] = message("@!x remove -1")
+    # a plugin name in quotes: with a space in its path, without one, an unterminated quote, a word with a quote inside
+    seeds["quoted-add-space"] = message('add "clap:/p/My Plugins/x.clap#id" 0')
+    seeds["quoted-add-plain"] = message('add "urn:fuzz:plugin" 0 own')
+    seeds["quoted-pin-set"] = message('pin_set "clap:/p/My Plugins/x.clap#id" "lib dir/x.so"=%s omx-layout/1:%s' % ("0" * 64, "0" * 64))
+    seeds["quoted-unterminated"] = message('add "urn:fuzz:plugin 0')
+    seeds["quoted-then-text"] = message('add "urn:fuzz:plugin"x 0')
+    seeds["quoted-tab"] = message('add\t"urn:fuzz:a\tb"\t0')
+    # hello: the extensions asked for, none, a bad version, no version, and a session opened and then a tagged line
+    seeds["hello-tags"] = message("hello 1 tags errors seq")
+    seeds["hello-bare"] = message("hello 1")
+    seeds["hello-bad-version"] = message("hello 0 tags")
+    seeds["hello-no-version"] = message("hello")
+    seeds["hello-then-tagged"] = message("hello 1 tags errors") + message("@a7 param_get 0 gain") + message("param_get 9 gain")
+    # the input fuzz_command found first: flags and a length of "@", then a word of 31 "@" that a NUL ends
+    seeds["tagged-found-by-fuzzing"] = b"@" * 34 + b"\0\x0b\0c\x19\0hain\x04\0 1 0 x"
+    # the send lines of the guide and of the own-host page, each alone and as one session
+    for doc, tag in ((os.path.join("docs", "guide.md"), "readme"), (os.path.join("docs", "own-host.md"), "own-host")):
         sends = re.findall(r'^\s*send "([^"]*)"', open(os.path.join(ROOT, doc)).read(), re.M)
         for n, line in enumerate(sends):
             seeds["%s-%d" % (tag, n + 1)] = message(line)
