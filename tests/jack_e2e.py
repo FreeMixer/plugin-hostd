@@ -305,6 +305,16 @@ def omx_uri(name, ident):
     return "clap:%s/%s.clap#org.openmixer.%s" % (OMX_CLAP_DIR, name, ident)
 
 
+OMX_DECLARATIONS = os.environ.get("OMX_PLUGINS_DECLARATIONS", "/usr/share/omx-contract/contract.d/3/omx-plugins/plugins")
+
+
+def clap_ids(name):
+    """a CLAP parameter is reached by its id: each control's symbol to it, from the plugin's installed declaration"""
+    import json
+    with open(os.path.join(OMX_DECLARATIONS, name + ".json")) as f:
+        return {c["symbol"]: str(c["id"]) for c in json.load(f)["controls"] if "id" in c}
+
+
 def curve_oracle(kind, family, points, terms, values):
     """omx_curve_points over the values param_get_many read, the band type resolved as the worker resolves it"""
     words = []
@@ -342,32 +352,33 @@ if CURVE_REPLY and all(os.path.exists(os.path.join(OMX_CLAP_DIR, n + ".clap")) f
         param_get values, bit for bit as written; a 32-band binding in three lines answers as one; the binding comes back
         with the worker after a SIGKILL; each refusal by its code"""
         d = daemon()
+        comp_id, eq8_id, eq32_id = clap_ids("omx-comp"), clap_ids("omx-eq8"), clap_ids("omx-eq32")
         try:
             d.expect("add %s 0" % omx_uri("omx-comp", "comp"), "resp 0")
             d.expect("add %s 1" % omx_uri("omx-eq8", "eq8"), "resp 1")
             d.expect("add %s 2" % omx_uri("omx-eq32", "eq32"), "resp 2")
-            comp = [("threshold", "thresholdDb", "db", ""), ("ratio", "ratio", "ratio", ""), ("knee", "kneeDb", "db", ""),
-                    ("makeup", "makeupDb", "db", "")]
+            comp = [("threshold", comp_id["thresholdDb"], "db", ""), ("ratio", comp_id["ratio"], "ratio", ""),
+                    ("knee", comp_id["kneeDb"], "db", ""), ("makeup", comp_id["makeupDb"], "db", "")]
             for sym, v in (("thresholdDb", -24.5), ("ratio", 4.0), ("kneeDb", 6.0), ("makeupDb", 2.25)):
-                d.expect("param_set 0 %s %s" % (sym, v), "resp 0")
+                d.expect("param_set 0 %s %s" % (comp_id[sym], v), "resp 0")
             d.expect(bind_line(0, 0, "transfer_curve", "dynamics", comp), "resp 0")
             eq8 = []
             for b in range(1, 9):
-                eq8 += [("band_type.%d" % (b - 1), "b%d_type" % b, "", EQ8_SHAPES), ("band_freq.%d" % (b - 1), "b%d_freq" % b, "hz", ""),
-                        ("band_gain.%d" % (b - 1), "b%d_gain" % b, "db", ""), ("band_q.%d" % (b - 1), "b%d_q" % b, "", ""),
-                        ("band_on.%d" % (b - 1), "b%d_on" % b, "", "")]
+                eq8 += [("band_type.%d" % (b - 1), eq8_id["b%d_type" % b], "", EQ8_SHAPES), ("band_freq.%d" % (b - 1), eq8_id["b%d_freq" % b], "hz", ""),
+                        ("band_gain.%d" % (b - 1), eq8_id["b%d_gain" % b], "db", ""), ("band_q.%d" % (b - 1), eq8_id["b%d_q" % b], "", ""),
+                        ("band_on.%d" % (b - 1), eq8_id["b%d_on" % b], "", "")]
             for b, (ty, g, q) in enumerate([(1, 4.5, 0.75), (0, -6.0, 2.0), (0, 3.0, 1.5), (3, 0.0, 8.0), (0, 1.25, 1.0),
                                             (0, -2.5, 4.0), (0, 0.5, 0.5), (2, -3.0, 0.75)], 1):
                 for sym, v in (("b%d_type" % b, ty), ("b%d_gain" % b, g), ("b%d_q" % b, q), ("b%d_on" % b, 1)):
-                    d.expect("param_set 1 %s %s" % (sym, v), "resp 0")
+                    d.expect("param_set 1 %s %s" % (eq8_id[sym], v), "resp 0")
             d.expect(bind_line(1, 0, "eq_response", "eq", eq8), "resp 0")
             eq32 = []
             for b in range(1, 33):
-                eq32 += [("band_type.%d" % (b - 1), "b%d_type" % b, "", EQ8_SHAPES), ("band_freq.%d" % (b - 1), "b%d_freq" % b, "hz", ""),
-                         ("band_gain.%d" % (b - 1), "b%d_gain" % b, "db", ""), ("band_q.%d" % (b - 1), "b%d_q" % b, "", ""),
-                         ("band_on.%d" % (b - 1), "b%d_on" % b, "", "")]
-                d.expect("param_set 2 b%d_gain %s" % (b, ((b * 5) % 25 - 12) / 2), "resp 0")
-                d.expect("param_set 2 b%d_on 1" % b, "resp 0")
+                eq32 += [("band_type.%d" % (b - 1), eq32_id["b%d_type" % b], "", EQ8_SHAPES), ("band_freq.%d" % (b - 1), eq32_id["b%d_freq" % b], "hz", ""),
+                         ("band_gain.%d" % (b - 1), eq32_id["b%d_gain" % b], "db", ""), ("band_q.%d" % (b - 1), eq32_id["b%d_q" % b], "", ""),
+                         ("band_on.%d" % (b - 1), eq32_id["b%d_on" % b], "", "")]
+                d.expect("param_set 2 %s %s" % (eq32_id["b%d_gain" % b], ((b * 5) % 25 - 12) / 2), "resp 0")
+                d.expect("param_set 2 %s 1" % eq32_id["b%d_on" % b], "resp 0")
             for k in range(3):
                 d.expect(bind_line(2, 0, "eq_response", "eq", eq32[k * 54:(k + 1) * 54]), "resp 0")
             cases = [(0, "transfer_curve", "dynamics", 41, comp), (1, "eq_response", "eq", 128, eq8),
@@ -380,7 +391,7 @@ if CURVE_REPLY and all(os.path.exists(os.path.join(OMX_CLAP_DIR, n + ".clap")) f
                     check(got == want and got.startswith("resp 0 "),
                           "%s: curve_points %d is omx_curve_points over its values: %.120r vs %.120r" % (why, inst, got, want))
             held("as bound")
-            d.expect("param_set 0 ratio 2.0", "resp 0")
+            d.expect("param_set 0 %s 2.0" % comp_id["ratio"], "resp 0")
             held("a ratio changed on the instance")
             d.expect("curve_points 2 0 %d" % (256 - 3 * 32 + 1), "resp -539")
             _, w = d.holder(2)
@@ -391,8 +402,8 @@ if CURVE_REPLY and all(os.path.exists(os.path.join(OMX_CLAP_DIR, n + ".clap")) f
             d.expect("curve_points 0 7 41", "resp -537")
             d.expect("curve_points 0 0 1", "resp -539")
             d.expect("curve_points 9 0 41", "resp -3")
-            d.expect("curve_bind 0 1 transfer_curve reverb threshold=thresholdDb:db", "resp -536")
-            d.expect("curve_bind 0 1 transfer_curve dynamics threshold=thresholdDb:hz", "resp -538")
+            d.expect("curve_bind 0 1 transfer_curve reverb threshold=%s:db" % comp_id["thresholdDb"], "resp -536")
+            d.expect("curve_bind 0 1 transfer_curve dynamics threshold=%s:hz" % comp_id["thresholdDb"], "resp -538")
             d.expect("curve_bind 0 1 transfer_curve dynamics threshold=nope:db", "resp -103")
             d.expect("curve_bind 0 1 transfer_curve dynamics threshold", "resp -902")
         finally:
