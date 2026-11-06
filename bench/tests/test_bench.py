@@ -636,6 +636,10 @@ class ProbeHardTimeout(unittest.TestCase):
         bench.Runner.jack_stop(fake)
         self.assertIsNone(fake.probe)
 
+    def test_the_probe_is_not_a_process_left_behind_by_a_row(self):
+        fake = types.SimpleNamespace(probe=self.probe(self.READY + "time.sleep(60)"), jackd=None)
+        bench.Runner.assert_only_jack(fake, "after a row")
+
     def test_a_process_that_dies_fails_the_row(self):
         probe = self.probe(self.READY)
         with self.assertRaises(bench.JackUnanswered) as e:

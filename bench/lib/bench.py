@@ -1583,6 +1583,8 @@ class Runner:
 
     def assert_only_jack(self, when):
         jack = {self.jackd.pid} if self.jackd and self.jackd.poll() is None else set()
+        if self.probe and self.probe.proc:
+            jack.add(self.probe.proc.pid)
         stray = [(p, c) for p, c in marked() if p not in jack]
         if stray:
             stop_strays(stray)
