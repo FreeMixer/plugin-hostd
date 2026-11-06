@@ -115,6 +115,10 @@ break_unit jack-restart lib/bench.py '        if isinstance(e, JackUnanswered):
 break_unit jack-nostart lib/bench.py '                    except JackUnanswered as e:
                         self.jack_stop()' '                    except ZeroDivisionError as e:
                         self.jack_stop()' JackUnanswered.test_a_jack_that_does_not_start_again_fails_each_row_and_the_run_still_ends
+break_unit probe-timeout lib/bench.py '                self._lost("timed out after %g s" % PROBE_TIMEOUT_S)' '                return None' ProbeHardTimeout.test_a_call_that_hangs_fails_the_row_within_the_timeout_and_the_process_is_gone
+break_unit probe-close lib/bench.py '            self.procs.stop(proc)' '            pass' ProbeHardTimeout.test_close_returns_from_a_wedged_server_and_kills_the_process
+break_unit probe-stray lib/bench.py '            jack.add(self.probe.proc.pid)' '            pass' ProbeHardTimeout.test_the_probe_is_not_a_process_left_behind_by_a_row
+break_unit probe-gone lib/bench.py '            raise Failed("the JACK server went away")' '            pass' ProbeHardTimeout.test_a_server_that_went_away_is_an_error_not_an_old_reading
 break_unit plan-one lib/bench.py 'if len(segments) < 2:' 'if False:' Grouping.test_a_plan_of_one_segment_fails_the_row
 break_unit plan-reply lib/bench.py 'words[:2] != ["resp", "0"]' 'False' Grouping.test_a_refused_plan_is_failed_with_the_daemons_words
 break_unit pool-alone lib/bench.py 'and seg[0] not in alone]' 'and True]' Grouping.test_the_pool_takes_the_shareable_members_the_plan_left_alone

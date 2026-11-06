@@ -8,6 +8,7 @@ import glob
 import json
 import os
 import re
+import select
 import shutil
 import signal
 import socket
@@ -449,6 +450,10 @@ def stress_ended(procs):
 
 # how long a JACK tool (jack_lsp, jack_connect, jack_disconnect) may take before the server counts as not answering
 JACK_TOOL_TIMEOUT_S = 10
+# how long the probe's process may take over one call. A libjack call has no timeout of its own and blocks for as long as
+# the server does not answer, so it runs in a process that can be killed. Long, because a machine under the stress load
+# schedules that process late and a late answer is still a good one
+PROBE_TIMEOUT_S = 30
 
 
 def run(argv, env, timeout=None):
@@ -527,6 +532,7 @@ class JackProbe:
                 raise SystemExit("bench: libjack is needed to count xruns (package jackd2)")
         self.lib = lib
         self.total = 0
+        self.server_gone = False
         self._bind()
         status = ctypes.c_int(0)
         self.client = lib.jack_client_open(name.encode(), self.NO_START | self.SERVER_NAME, ctypes.byref(status),
@@ -536,6 +542,8 @@ class JackProbe:
         self._callback = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_void_p)(self._on_xrun)
         if lib.jack_set_xrun_callback(self.client, self._callback, None) != 0:
             raise SystemExit("bench: cannot set the xrun callback on server %s" % server)
+        self._shutdown = ctypes.CFUNCTYPE(None, ctypes.c_void_p)(self._on_shutdown)
+        lib.jack_on_shutdown(self.client, self._shutdown, None)
         if lib.jack_activate(self.client) != 0:
             raise SystemExit("bench: cannot activate the xrun probe on server %s" % server)
 
@@ -545,6 +553,7 @@ class JackProbe:
         for name, res, args in (
                 ("jack_client_open", vp, [ctypes.c_char_p, ci, ctypes.POINTER(ci), ctypes.c_char_p]),
                 ("jack_set_xrun_callback", ci, [vp, vp, vp]),
+                ("jack_on_shutdown", None, [vp, vp, vp]),
                 ("jack_activate", ci, [vp]),
                 ("jack_deactivate", ci, [vp]),
                 ("jack_client_close", ci, [vp]),
@@ -562,8 +571,16 @@ class JackProbe:
         self.total += 1
         return 0
 
+    def _on_shutdown(self, _arg):
+        self.server_gone = True
+
+    def _alive(self):
+        if self.server_gone:
+            raise Failed("the JACK server went away")
+
     def count(self):
         """xruns since the probe opened"""
+        self._alive()
         return self.total
 
     def cpu_load(self):
@@ -571,11 +588,13 @@ class JackProbe:
         tool prints, with no process of its own to schedule and no pipe to lose"""
         if not self.client:
             raise Failed("the probe has no JACK client to read the DSP load from")
+        self._alive()
         return float(self.lib.jack_cpu_load(self.client))
 
     def latency_frames(self, port):
         """the capture latency JACK reports at an input port, in frames, the longest of its range: the delay from
         the sources to the port as the clients on the path declared it; None when the port is not there"""
+        self._alive()
         p = self.lib.jack_port_by_name(self.client, port.encode())
         if not p:
             return None
@@ -589,6 +608,121 @@ class JackProbe:
             self.lib.jack_deactivate(self.client)
             self.lib.jack_client_close(self.client)
             self.client = None
+
+
+def probe_serve(probe, requests, reply):
+    """the probe's side of ProbeProcess: one JSON request per line, one JSON answer per line, until close"""
+    ops = {"count": probe.count, "cpu_load": probe.cpu_load, "latency_frames": probe.latency_frames}
+    for line in requests:
+        req = json.loads(line)
+        if req["op"] == "close":
+            probe.close()
+            reply.write(json.dumps({"ok": None}) + "\n")
+            reply.flush()
+            return
+        try:
+            answer = {"ok": ops[req["op"]](*req.get("args", []))}
+        except Failed as e:
+            answer = {"error": str(e)}
+        reply.write(json.dumps(answer) + "\n")
+        reply.flush()
+
+
+def probe_child(server):
+    """the process ProbeProcess starts. What libjack prints goes to stderr, so it never lands among the answers, and the
+    process does not outlive the runner even while it is stuck inside a libjack call"""
+    reply = os.fdopen(os.dup(1), "w")
+    os.dup2(2, 1)
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+    ctypes.CDLL(None).prctl(1, int(signal.SIGKILL))  # PR_SET_PDEATHSIG
+    try:
+        probe = JackProbe(server)
+    except SystemExit as e:
+        reply.write(json.dumps({"error": str(e)}) + "\n")
+        reply.flush()
+        return
+    reply.write(json.dumps({"ok": True}) + "\n")
+    reply.flush()
+    probe_serve(probe, sys.stdin, reply)
+
+
+class ProbeProcess:
+    """the JackProbe of a run, in a process of its own: a server that stops answering holds a libjack call forever, and
+    here that costs one row, not the run. A call past PROBE_TIMEOUT_S kills the process and raises JackUnanswered, so the
+    row fails with that reason and the server is started again. close always returns. `argv` replaces the probe's
+    program in the unit tests"""
+
+    def __init__(self, server, procs, argv=None):
+        self.procs = procs
+        self.buf = b""
+        self.proc = subprocess.Popen(argv or [sys.executable, "-I", os.path.abspath(__file__), "--probe-child", server],
+                                     stdin=subprocess.PIPE, stdout=subprocess.PIPE, env=procs.env,
+                                     start_new_session=True)
+        self.proc.name = "omx-bench-probe"
+        procs.live.append(self.proc)
+        self._answer()
+
+    def _kill(self):
+        if self.proc:
+            proc, self.proc = self.proc, None
+            for pipe in (proc.stdin, proc.stdout):
+                try:
+                    pipe.close()
+                except OSError:
+                    pass
+            self.procs.stop(proc)
+
+    def _lost(self, why):
+        self._kill()
+        raise JackUnanswered("JACK did not answer: the xrun probe %s" % why)
+
+    def _answer(self):
+        fd = self.proc.stdout.fileno()
+        end = time.monotonic() + PROBE_TIMEOUT_S
+        while b"\n" not in self.buf:
+            left = end - time.monotonic()
+            if left <= 0:
+                self._lost("timed out after %g s" % PROBE_TIMEOUT_S)
+            if select.select([fd], [], [], left)[0]:
+                chunk = os.read(fd, 4096)
+                if not chunk:
+                    self._lost("exited")
+                self.buf += chunk
+        line, self.buf = self.buf.split(b"\n", 1)
+        answer = json.loads(line)
+        if "error" in answer:
+            if "libjack is needed" in answer["error"]:
+                self._kill()
+                raise SystemExit(answer["error"])
+            self._lost("said: " + answer["error"])
+        return answer["ok"]
+
+    def _ask(self, op, *args):
+        if not self.proc:
+            raise JackUnanswered("JACK did not answer: the xrun probe is gone")
+        try:
+            self.proc.stdin.write((json.dumps({"op": op, "args": list(args)}) + "\n").encode())
+            self.proc.stdin.flush()
+        except OSError:
+            self._lost("exited")
+        return self._answer()
+
+    def count(self):
+        return self._ask("count")
+
+    def cpu_load(self):
+        return self._ask("cpu_load")
+
+    def latency_frames(self, port):
+        return self._ask("latency_frames", port)
+
+    def close(self):
+        if self.proc:
+            try:
+                self._ask("close")
+            except JackUnanswered:
+                pass
+            self._kill()
 
 
 def log_size(logdir, name):
@@ -1227,7 +1361,7 @@ class Runner:
         note = server_priority_note(rt_threads(), self.jackd.pid, self.args.jack_priority)
         if note:
             log("WARNING " + note)
-        self.probe = JackProbe(self.server)
+        self.probe = ProbeProcess(self.server, self.procs)
         self.jack_log = os.path.join(self.logdir, "jackd-%d-%d.log" % (rate, frames))
         self.jack_log_end = jack_log_xruns(self.jack_log, 0)[1]
 
@@ -1599,6 +1733,8 @@ class Runner:
 
     def assert_only_jack(self, when):
         jack = {self.jackd.pid} if self.jackd and self.jackd.poll() is None else set()
+        if self.probe and self.probe.proc:
+            jack.add(self.probe.proc.pid)
         stray = [(p, c) for p, c in marked() if p not in jack]
         if stray:
             stop_strays(stray)
@@ -1743,6 +1879,8 @@ def csv_ints(text):
 
 
 def main():
+    if sys.argv[1:2] == ["--probe-child"]:
+        return probe_child(sys.argv[2])
     ap = argparse.ArgumentParser(prog="bench/run.sh", description="compare four plugin hosts; write omx-bench/1")
     ap.add_argument("--class", dest="cls", required=True, choices=["rpi5", "desk", "ci"])
     ap.add_argument("--out", required=True, help="directory of the documents")
