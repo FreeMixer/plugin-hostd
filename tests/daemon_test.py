@@ -2716,6 +2716,7 @@ def an_empty_or_missing_pins_dir_holds_no_pins():
         d = p.daemon(conf={"pin_mode": "first-use"})
         try:
             d.expect("add %s 0" % p.clap_uri, "resp 0")
+            writes_landed(d)
             check(len(store_lines(p)) == 1, "first-use learns as before: %s" % store_lines(p))
         finally:
             d.close()
@@ -2725,6 +2726,12 @@ def an_empty_or_missing_pins_dir_holds_no_pins():
 
 def own_worker_of(d, inst):
     return d.holder(inst)[1]["place"] == "own"
+
+
+def writes_landed(d):
+    """descriptor_get answers only once no write of the daemon waits (docs/durable-writes.md): after it, the daemon's
+    files hold what was handed over before it. An add's learned pin is written after its reply"""
+    d.send("descriptor_get clap:/nonexistent.clap#writes.landed")
 
 
 def store_lines(p):
@@ -2747,6 +2754,7 @@ def first_use_pins_an_unpinned_plugin_and_runs_it_isolated():
         got = [c.split()[0] for _, c in p.received()]
         check("pin_expect" not in got[:got.index("add")], "the first add sends no layout to expect: %s" % got)
         check(len(p.verbs("pin_layout")) == 1, "the layout was asked of the CLAP worker once: %s" % p.received())
+        writes_landed(d)
         lines = store_lines(p)
         check(sorted(l[1] for l in lines) == sorted([p.clap_uri, LV2_URI]), "both pins are in the store: %s" % lines)
         clap = [l for l in lines if l[1] == p.clap_uri][0]
@@ -2829,6 +2837,7 @@ def a_corrupt_store_line_is_kept_announced_and_its_plugin_is_not_learned_again()
         check(p.verbs("pin_layout") == [] and "its line in the pin store is corrupt" in d.log(),
               "the plugin of the corrupt line is refused, and says why: %s" % d.log())
         d.expect("add %s 1" % LV2_URI, "resp 1")   # another plugin is learned; that save keeps the corrupt line
+        writes_landed(d)
         with open(p.store) as f:
             text = f.read()
         check(text.splitlines()[0] == bad.strip(), "the corrupt line survives the save verbatim: %r" % text)
@@ -2859,6 +2868,7 @@ def an_overlong_store_line_is_one_held_line_and_its_tail_is_not_a_pin():
     d = p.daemon(conf={"pin_mode": "first-use"})
     try:
         d.expect("add %s 1" % LV2_URI, "resp 1")
+        writes_landed(d)
         with open(p.store) as f:
             lines = f.read().split("\n")
         check(lines[0] == long_line and len([l for l in lines if l]) == 2,
@@ -2894,6 +2904,7 @@ def a_missing_store_is_a_first_run_and_says_nothing():
     try:
         d.expect("add %s 0" % p.clap_uri, "resp 0")
         check("not a pin" not in d.log() and "can't" not in d.log() and "NOT" not in d.log(), "a first run is quiet: %s" % d.log())
+        writes_landed(d)
         check([l[1] for l in store_lines(p)] == [p.clap_uri], "the pin is saved: %s" % store_lines(p))
     finally:
         d.close()
@@ -2908,6 +2919,8 @@ def a_store_that_cannot_be_written_is_announced_and_a_store_that_cannot_be_read_
     d = p.daemon(conf={"pin_mode": "first-use", "pin_store": os.path.join(blocker, "pins")})
     try:
         d.expect("add %s 0" % p.clap_uri, "resp 0")
+        # the store is written by the writer, after the reply: its failure is said when the write ends
+        writes_landed(d)
         check("can't write the pin store" in d.log() and "NOT persisted" in d.log(),
               "a failed save says the pin is not persisted: %s" % d.log())
     finally:
@@ -5668,6 +5681,126 @@ def a_quoted_uri_without_a_space_is_the_uri_and_not_a_name_with_quotes():
             d.close()
     finally:
         p.close()
+
+
+
+# ---------------------------------------------------------------- the writer: the loop never waits on the disk
+
+SLOW_FSYNC = os.path.abspath(os.environ.get("SLOW_FSYNC", os.path.join(os.path.dirname(FAKE), "slow-fsync.so")))
+
+
+def slow_disk(p, ms):
+    """the env of a daemon whose every fsync takes ms milliseconds (tests/slow_fsync.c), and the file that says when one
+    is in flight. A shim that is not built is a failure, never a skip"""
+    if not os.path.exists(SLOW_FSYNC):
+        raise Fail("the slow-fsync shim %s is not built: make tests/slow-fsync.so" % SLOW_FSYNC)
+    mark = os.path.join(p.dir, "fsync.mark")
+    return mark, {"LD_PRELOAD": SLOW_FSYNC, "FSYNC_DELAY_MS": str(ms), "FSYNC_MARK": mark}
+
+
+def in_flight(mark):
+    """an fsync has begun and not ended"""
+    if not os.path.exists(mark):
+        return False
+    with open(mark) as f:
+        words = f.read().split()
+    return words.count("begin") > words.count("end")
+
+
+def third_clap(p):
+    path = os.path.join(os.path.dirname(p.clap), "omx-third.clap")
+    write(path, b"a third clean build")
+    return path, "clap:%s#org.openmixer.third" % path
+
+
+@test
+def a_save_on_a_slow_disk_leaves_every_command_answered_at_once():
+    """the history is written by the writer: while its fsync takes seconds, worker_list still answers within a second"""
+    p = Plugins()
+    mark, env = slow_disk(p, 4000)
+    d = p.daemon(conf=history_conf(p), env=env)
+    try:
+        pin_in_process(p, d)
+        d.expect("add %s 0 own" % p.clap_uri, "resp 0")
+        wait_for(lambda: in_flight(mark) or None, "a history save in flight", timeout=20.0)
+        t0 = time.monotonic()
+        workers = d.workers()
+        took = time.monotonic() - t0
+        busy = in_flight(mark)
+        check(took < 1.0, "worker_list answered in %.2f s while a save waited on the disk" % took)
+        check(busy, "the save was still in flight when it answered")
+        check(len(workers) == 1, "and it answered the workers: %s" % workers)
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def a_verb_that_promises_its_file_answers_once_the_file_is_on_disk():
+    """history_clear says the file holds the change: its reply waits for the writer, and the file is rewritten by then"""
+    p = Plugins()
+    path = os.path.join(p.dir, "history")
+    mark, env = slow_disk(p, 1500)
+    d = p.daemon(conf=history_conf(p), env=env)
+    try:
+        pin_in_process(p, d)
+        d.expect("add %s 0 own" % p.clap_uri, "resp 0")
+        wait_for(lambda: len(history_lines(path)) == 1 or None, "a saved record", timeout=30.0)
+        # no more windows: the record the clear removes is the last one
+        d.expect("remove 0", "resp 0")
+        wait_for(lambda: not in_flight(mark) or None, "the saves to land", timeout=30.0)
+        t0 = time.monotonic()
+        d.expect("history_clear all", "resp 0")
+        took = time.monotonic() - t0
+        check(history_lines(path) == [], "the reply came with the file already rewritten: %s" % history_lines(path))
+        check(took >= 1.0, "the reply waited for the write (%.2f s)" % took)
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def a_reload_after_a_learned_pin_reads_the_store_that_holds_it():
+    """pin_reload reads the store back: it waits for the store's write the add handed over, so it never reads the
+    older store and the learned pin is not lost"""
+    p = Plugins()
+    other, other_uri = other_clap(p)
+    mark, env = slow_disk(p, 2000)
+    d = p.daemon(conf={"pin_mode": "first-use"}, env=env)
+    try:
+        d.expect("add %s 0" % p.clap_uri, "resp 0")
+        check(in_flight(mark), "positive control: the store's write is in flight when the reload comes")
+        d.expect("pin_reload", "resp 0")
+        # the next learned pin's write holds what the reload left in memory
+        d.expect("add %s 1" % other_uri, "resp 1")
+        d.expect("quit", "resp 0")
+        wait_for(lambda: d.proc.poll() is not None, "the daemon to exit", timeout=30.0)
+    finally:
+        d.close()
+    uris = [l[1] for l in store_lines(p) if len(l) > 1]
+    check(p.clap_uri in uris and other_uri in uris, "the store holds both learned pins: %s" % store_lines(p))
+    p.close()
+
+
+@test
+def quit_with_three_writes_waiting_leaves_all_three_on_disk():
+    """quit drains the writer: three learned pins whose writes wait on a slow disk are all in the store after the exit"""
+    p = Plugins()
+    other, other_uri = other_clap(p)
+    third, third_uri = third_clap(p)
+    mark, env = slow_disk(p, 1000)
+    d = p.daemon(conf={"pin_mode": "first-use"}, env=env)
+    try:
+        for n, uri in enumerate((p.clap_uri, other_uri, third_uri)):
+            d.expect("add %s %d" % (uri, n), "resp %d" % n)
+        check(in_flight(mark), "positive control: writes wait when the quit comes")
+        d.expect("quit", "resp 0")
+        wait_for(lambda: d.proc.poll() is not None, "the daemon to exit", timeout=30.0)
+    finally:
+        d.close()
+    uris = [l[1] for l in store_lines(p) if len(l) > 1]
+    check(all(u in uris for u in (p.clap_uri, other_uri, third_uri)), "all three learned pins: %s" % store_lines(p))
+    p.close()
 
 
 sys.exit(run_tests(TESTS))

@@ -21,11 +21,21 @@
 #ifndef FSUTIL_H
 #define FSUTIL_H
 
+#include <stddef.h>
+
 /* the parent directories of `path`, each made mode 0700 when missing; `path` is written through and restored. 0, or -1
  * with errno set */
 int fs_mkdir_parents(char *path);
 
 /* fsync the directory that holds `path`, so a rename into it survives a power cut */
 void fs_sync_dir(const char *path);
+
+/* `len` bytes as the whole of `path`: a temporary file of its own beside it (mkstemp, mode 0600), written, fsynced and
+ * renamed over it, then the directory fsynced. 0, or the errno of the step that failed, with no temporary file left */
+int fs_write_atomic(const char *path, const char *bytes, size_t len);
+
+/* the file `tmp` as `final`: fsynced, then renamed into place and the directory fsynced. When `final` is there already it
+ * is kept and `tmp` removed. 0, or the errno of the step that failed */
+int fs_into_place(const char *tmp, const char *final);
 
 #endif

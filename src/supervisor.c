@@ -47,6 +47,7 @@
 #include "qualcost.h"
 #include "relay.h"
 #include "supervisor.h"
+#include "writer.h"
 #include "verbs.h"
 #include "words.h"
 
@@ -2942,7 +2943,8 @@ char *sup_pin_reload(void)
 
 void sup_pins_poll(void)
 {
-    if (g_conf.require_pins && pins_changed())
+    /* a reload reads the store back: not while a write of it waits, or it would read the older one; the next tick looks */
+    if (g_conf.require_pins && !writer_busy() && pins_changed())
         free(sup_pin_reload());
 }
 

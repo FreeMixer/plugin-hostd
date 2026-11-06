@@ -33,6 +33,7 @@
 #include <plugin-hostd/protocol.h>
 
 #include "fsutil.h"
+#include "writer.h"
 #include "history.h"
 #include "words.h"
 
@@ -396,59 +397,56 @@ static void file_read(void)
     fclose(file);
 }
 
-/* the history to the file: a temporary file of its own beside it (mkstemp, mode 0600), written, fsynced and renamed over
- * it, then the directory fsynced. A failure is announced and leaves the history in memory */
-static int file_write(void)
+/* a write of the history that failed: it is still in memory and the next save writes it again */
+static void written(void *arg, int err)
 {
-    char tmp[PATH_MAX + 16];
-    FILE *file;
-    int n, fd = -1, ok;
+    (void)arg;
+    if (err)
+        g_dirty = 1;
+}
 
-    if (!*g_path)
-        return -1;
-    snprintf(tmp, sizeof(tmp), "%s.XXXXXX", g_path);
-    if (fs_mkdir_parents(tmp) != 0 || (fd = mkstemp(tmp)) < 0 || !(file = fdopen(fd, "w")))
-    {
-        int err = errno;
+/* the history to the file, through the writer: the bytes of now, handed over, so the command loop never waits on the
+ * disk. A periodic save gives way to a later one of the same file while it waits. A failure is announced and leaves the
+ * history in memory */
+static int file_write(int flags)
+{
+    char *bytes = NULL;
+    size_t len = 0;
+    FILE *mem;
+    int n;
 
-        if (fd >= 0)
-        {
-            close(fd);
-            unlink(tmp);
-        }
-        fprintf(stderr, "plugin-hostd: can't write the history %s: %s; it is kept in memory and written again at the next "
-                        "save\n", g_path, strerror(err));
+    if (!*g_path || !(mem = open_memstream(&bytes, &len)))
         return -1;
-    }
-    fprintf(file, "%s\n", PHD_HISTORY_HEADER);
+    fprintf(mem, "%s\n", PHD_HISTORY_HEADER);
     for (n = 0; n < g_n; n++)
     {
         char *line = g_entry[n].raw ? NULL : history_line(&g_entry[n].rec);
 
         if (g_entry[n].raw)
-            fprintf(file, "%s\n", g_entry[n].raw);
+            fprintf(mem, "%s\n", g_entry[n].raw);
         else if (line)
-            fputs(line, file);
+            fputs(line, mem);
         free(line);
     }
-    ok = fflush(file) == 0 && !ferror(file) && fsync(fileno(file)) == 0;
-    ok = fclose(file) == 0 && ok;
-    if (!ok || rename(tmp, g_path) != 0)
+    if (fclose(mem) != 0)
     {
-        fprintf(stderr, "plugin-hostd: can't write the history %s: %s; it is kept in memory and written again at the next "
-                        "save\n", g_path, strerror(errno));
-        unlink(tmp);
+        free(bytes);
         return -1;
     }
-    fs_sync_dir(g_path);
+    /* clean from the bytes of now: a write that fails sets it dirty again (written), whenever it ends */
+    g_dirty = 0;
+    if (writer_put(g_path, bytes, len, flags, written, NULL, "the history %s: %s; it is kept in memory and written again at the next save") != 0)
+    {
+        g_dirty = 1;
+        return -1;
+    }
     return 0;
 }
 
 static void save(long long now)
 {
     g_saved_at = now;
-    if (file_write() == 0)
-        g_dirty = 0;
+    file_write(WRITER_COALESCE);
 }
 
 int history_init(const char *file, const char *klass, int save_s)
@@ -485,7 +483,7 @@ void history_finish(void)
     int n;
 
     if (g_started && !g_blocked && g_dirty)
-        file_write();
+        file_write(0);
     for (n = 0; n < g_n; n++)
         entry_free(&g_entry[n]);
     free(g_entry);
@@ -655,8 +653,7 @@ int history_clear(const char *uri)
     {
         g_n = keep;
         g_dirty = 1;
-        if (file_write() == 0)
-            g_dirty = 0;
+        file_write(0);
     }
     return 0;
 }

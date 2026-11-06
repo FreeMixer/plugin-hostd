@@ -35,4 +35,5 @@ fuzz/findings/
 tests/planner-test
 tests/qualcost-test
 tests/sched-refuse.so
+tests/slow-fsync.so
 src/reply_words.h

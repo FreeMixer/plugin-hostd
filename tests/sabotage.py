@@ -43,6 +43,19 @@ def protocol_overlay(tree, path):
 
 
 SABOTAGE = [
+    # the writer (docs/durable-writes.md): the loop never waits on the disk
+    ('the writer thread is not started: every write is done on the loop again', 'src/main.c',
+     '    if (writer_start() != 0)\n        return EXIT_FAILURE;\n', '',
+     'a_save_on_a_slow_disk_leaves_every_command_answered_at_once'),
+    ('a verb that promises its file answers before the write lands', 'src/verbs.c',
+     '        writer_verb_begin(promises_writes(tok[0]));\n', '        writer_verb_begin(0);\n',
+     'a_verb_that_promises_its_file_answers_once_the_file_is_on_disk'),
+    ('a read of the daemon\'s own files does not wait for the write handed over before it', 'src/verbs.c',
+     '        if (reads_files(verb) && writer_busy())\n', '        if (0)\n',
+     'a_reload_after_a_learned_pin_reads_the_store_that_holds_it'),
+    ('quit does not drain the writer: the writes still queued are dropped', 'src/writer.c',
+     '    while (g_outstanding > 0)\n        pthread_cond_wait(&g_idle, &g_lock);\n', '',
+     'quit_with_three_writes_waiting_leaves_all_three_on_disk'),
     # core placement (docs/placement.md)
     ('a new worker is not pinned to the audio cores', 'src/supervisor.c',
      '        snprintf(env.cpus, sizeof(env.cpus), "%s", g_audio_cpus);\n', '        ;\n',

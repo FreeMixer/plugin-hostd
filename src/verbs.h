@@ -45,4 +45,13 @@ void verbs_receive(msg_t *msg);
 /* set by QUIT: the main loop stops */
 extern volatile int g_quitting;
 
+/* the answers that wait, sent as far as they can go: a reply whose writes landed, then the commands queued behind it */
+void verbs_flush(void);
+
+/* whether an answer waits */
+int verbs_waiting(void);
+
+/* the controller is gone: what waited for it is forgotten */
+void verbs_drop(void);
+
 #endif

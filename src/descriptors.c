@@ -22,6 +22,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -41,6 +42,7 @@
 #include "pins.h"
 #include "proc.h"
 #include "supervisor.h"
+#include "writer.h"
 
 /* one scan, by the files it describes, in two stages: the descriptor (describe), then, once it is in place, the panel
  * filed under its name (panel). Running while pid > 0; code is the descriptor's SUCCESS or the code it ended with,
@@ -56,6 +58,7 @@ typedef struct SCAN_T {
     char log[PATH_MAX];
     pid_t pid;
     int panel;
+    int placing;    /* its file is with the writer: the stage ends when that lands */
     int code, panel_code;
 } scan_t;
 
@@ -346,7 +349,7 @@ void descriptors_add(const char *uri)
             return;
     }
     s = scan_of(format, id, hash);
-    if (s && s->pid > 0)
+    if (s && (s->pid > 0 || s->placing))
         return;
     /* no memory for its words is no scan this time; the next add of the plugin asks again */
     new_uri = strdup(uri);
@@ -389,7 +392,7 @@ void descriptors_add(const char *uri)
     scan_start(s, described);
 }
 
-/* the scan's stdout as a document of its stage, or NULL: read back, fsync'd */
+/* the scan's stdout as a document of its stage, or NULL: read back; the writer fsyncs it as it puts it in place */
 static cJSON *scan_output(scan_t *s)
 {
     sb_t text = { .keep_going = 1 };
@@ -403,8 +406,6 @@ static cJSON *scan_output(scan_t *s)
 
         while ((n = read(fd, buf, sizeof(buf))) > 0)
             sb_put(&text, buf, (size_t)n);
-        if (fsync(fd) != 0)
-            text.len = 0;
         close(fd);
     }
     doc = text.len ? jparse(text.s) : NULL;
@@ -417,33 +418,44 @@ static cJSON *scan_output(scan_t *s)
     return doc;
 }
 
-/* the scan's file moved into place as final, written once; 0, or -1 with the scan failed */
-static int scan_file(scan_t *s, const char *final)
+/* the writer put a scan's file in place, or could not: the stage it was in ends here, on the loop. A descriptor in
+ * place starts the panel stage */
+static void placed(void *arg, int err)
 {
-    char dir[PATH_MAX], why[64], *slash;
-    int fd;
+    int n = (int)(intptr_t)arg;
+    scan_t *s;
 
-    if (access(final, F_OK) == 0)
-        unlink(s->tmp);
-    else if (rename(s->tmp, final) != 0)
+    if (n < 0 || n >= g_nscans)
+        return;
+    s = &g_scans[n];
+    s->placing = 0;
+    if (err)
     {
-        snprintf(why, sizeof(why), "%s", strerror(errno));
-        scan_failed(s, OMX_REPLY_PLUGIN_HOSTD_DIR_NOT_WRITABLE_RESP, why);
-        return -1;
-    }
-    else
-    {
-        snprintf(dir, sizeof(dir), "%s", final);
-        if ((slash = strrchr(dir, '/')) != NULL)
-            *slash = '\0';
-        if ((fd = open(dir, O_RDONLY | O_DIRECTORY | O_CLOEXEC)) >= 0)
-        {
-            fsync(fd);
-            close(fd);
-        }
+        scan_failed(s, OMX_REPLY_PLUGIN_HOSTD_DIR_NOT_WRITABLE_RESP, strerror(err));
+        return;
     }
     s->tmp[0] = '\0';
     unlink(s->log);
+    if (s->panel)
+        s->panel_code = SUCCESS;
+    else
+    {
+        s->code = SUCCESS;
+        scan_start(s, 1);
+    }
+}
+
+/* the scan's file to be moved into place as final, written once, by the writer: the command loop never waits on the
+ * disk, and the stage stays pending until it lands. 0, or -1 with the scan failed */
+static int scan_file(scan_t *s, const char *final)
+{
+    s->placing = 1;
+    if (writer_place(s->tmp, final, placed, (void *)(intptr_t)(s - g_scans), "%s: %s; the scan's file is not kept") != 0)
+    {
+        s->placing = 0;
+        scan_failed(s, OMX_REPLY_PLUGIN_HOSTD_DIR_NOT_WRITABLE_RESP, "too many writes wait");
+        return -1;
+    }
     return 0;
 }
 
@@ -475,8 +487,7 @@ static void scan_ended(scan_t *s, int status)
     {
         cJSON_Delete(doc);
         panel_path(s->name, final, sizeof(final));
-        if (scan_file(s, final) == 0)
-            s->panel_code = SUCCESS;
+        scan_file(s, final);
         return;
     }
     version = jstr(jget(doc, "plugin"), "version");
@@ -485,10 +496,7 @@ static void scan_ended(scan_t *s, int status)
     cJSON_Delete(doc);
     snprintf(s->name, sizeof(s->name), "%s@%s-%s.json", enc_id, enc_version, s->hash);
     snprintf(final, sizeof(final), "%s/%s", dir, s->name);
-    if (scan_file(s, final) != 0)
-        return;
-    s->code = SUCCESS;
-    scan_start(s, 1);
+    scan_file(s, final);
 }
 
 void descriptors_tick(void)

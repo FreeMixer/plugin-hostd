@@ -366,7 +366,7 @@ jobs:
 
       # the worker the smoke test runs the installed daemon against
       - name: Build the fake worker
-        run: make tests/fake-host
+        run: make tests/fake-host tests/slow-fsync.so
 
       - uses: FreeMixer/.github/.github/actions/install-clean@v1
         with:
@@ -477,7 +477,7 @@ jobs:
       - name: Build the smoke test fixtures
         run: |
           set -euo pipefail
-          make tests/fake-host
+          make tests/fake-host tests/slow-fsync.so
           mkdir -p smoke
           cp -r tests smoke/tests
           cp -r data smoke/data
