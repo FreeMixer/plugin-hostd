@@ -18,8 +18,11 @@ import subprocess
 import sys
 import tempfile
 import time
+import wave
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+import soundness  # noqa: E402
 BENCH = os.path.dirname(HERE)
 CLK_TCK = os.sysconf("SC_CLK_TCK")
 PAGE_KB = os.sysconf("SC_PAGE_SIZE") // 1024
@@ -261,6 +264,97 @@ def process_set(pids, sampled=None):
     return sorted(out, key=lambda e: (e["name"], e["pid"]))
 
 
+# ---------------------------------------------------------------- the machine state of a repeat
+
+
+def thread_cores(pids, proc="/proc"):
+    """the cores the threads of these processes last ran on, sorted"""
+    cores = set()
+    for pid in pids:
+        for stat in glob.glob("%s/%d/task/*/stat" % (proc, pid)):
+            try:
+                with open(stat) as f:
+                    cores.add(int(f.read().rsplit(")", 1)[1].split()[36]))
+            except (OSError, IndexError, ValueError):
+                pass
+    return sorted(cores)
+
+
+def usb_irq_core(proc="/proc"):
+    """the core that has taken the most USB host controller interrupts, or None when the machine has none"""
+    best = None
+    try:
+        with open(proc + "/interrupts") as f:
+            lines = f.read().splitlines()
+    except OSError:
+        return None
+    for line in lines[1:]:
+        if not re.search(r"xhci|usb|dwc", line, re.I):
+            continue
+        counts = []
+        for word in line.split(":", 1)[-1].split():
+            if not word.isdigit():
+                break
+            counts.append(int(word))
+        if counts and max(counts) > 0 and (best is None or max(counts) > best[0]):
+            best = (max(counts), counts.index(max(counts)))
+    return best[1] if best else None
+
+
+def throttled_now():
+    """vcgencmd get_throttled as the hex string, or None where the firmware does not say"""
+    if not shutil.which("vcgencmd"):
+        return None
+    r = subprocess.run(["vcgencmd", "get_throttled"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+    m = re.search(r"throttled=(0x[0-9a-fA-F]+)", r.stdout)
+    return m.group(1) if m else None
+
+
+def machine_state(host_pids=(), jackd_pid=None, sysfs="/sys", proc="/proc"):
+    """what the machine was doing at this moment: the frequency of each core (MHz), the temperature, the firmware's
+    throttle bits, the cores the host's threads and the JACK server's last ran on, and the core taking the USB
+    interrupt. Read before and after each window of each repeat, so a disturbance can be named from the document"""
+    freqs = []
+    for path in sorted(glob.glob(sysfs + "/devices/system/cpu/cpu[0-9]*/cpufreq/scaling_cur_freq")):
+        try:
+            freqs.append(round(int(read(path)) / 1000.0, 1))
+        except ValueError:
+            pass
+    temp = None
+    try:
+        temp = round(int(read(sysfs + "/class/thermal/thermal_zone0/temp")) / 1000.0, 1)
+    except ValueError:
+        pass
+    st = {"freq_mhz": freqs, "temp_c": temp, "throttled": throttled_now(),
+          "host_cores": thread_cores(host_pids, proc), "jackd_cores": thread_cores([jackd_pid] if jackd_pid else [], proc),
+          "usb_irq_core": usb_irq_core(proc)}
+    return st
+
+
+# ---------------------------------------------------------------- the output of a row
+
+
+def wav_level(path):
+    """{rms_db, peak_db, seconds} of a 16-bit wav; the levels are dB full scale, -200 for digital silence"""
+    import array
+    import math
+    with wave.open(path, "rb") as w:
+        if w.getsampwidth() != 2:
+            raise Failed("the capture is %d-bit, 16-bit was asked" % (8 * w.getsampwidth()))
+        data = array.array("h")
+        data.frombytes(w.readframes(w.getnframes()))
+        seconds = w.getnframes() / float(w.getframerate())
+    if not data:
+        raise Failed("the capture holds no sample")
+    peak = max(abs(x) for x in data) / 32768.0
+    rms = math.sqrt(sum(x * x for x in data) / len(data)) / 32768.0
+    db = lambda v: round(20 * math.log10(v), 1) if v > 0 else -200.0
+    return {"rms_db": db(rms), "peak_db": db(peak), "seconds": round(seconds, 2)}
+
+
+CAPTURE_S = 1
+
+
 # ---------------------------------------------------------------- repeats
 
 MEASURED = ("dsp_load_avg", "dsp_load_max", "rss_mb", "add_ms", "recover_ms", "processes", "rss_mb_total",
@@ -276,11 +370,23 @@ def aggregate(runs, wanted=None):
     for n, run in enumerate(runs, 1):
         if run["status"] != "ok":
             row = dict(run)
+            row.pop("state", None)
             if row["status"] == "failed" and (wanted or len(runs)) > 1:
                 row["note"] = "repeat %d of %d: %s" % (n, wanted or len(runs), row["note"])
             return row
     row = dict(runs[0])
+    row.pop("state", None)
     row["repeats"] = len(runs)
+    states = [r["state"] for r in runs if r.get("state")]
+    if states:
+        row["repeat_state"] = states
+    cycles = [r["cycles"] for r in runs if r.get("cycles")]
+    if cycles:
+        row["cycles"] = int(statistics.median_high(cycles))
+    levels = [r["output"] for r in runs if r.get("output")]
+    if levels:
+        row["output"] = {k: round(statistics.median(o[k] for o in levels), 1) for k in ("rms_db", "peak_db")}
+        row["output"]["seconds"] = levels[0]["seconds"]
     if len(runs) == 1:
         return row
     spread = {}
@@ -1331,6 +1437,7 @@ class Runner:
         sources = []
         try:
             keys = self.plugin_list(s)
+            last_out = None
             if hkey == "H4" and not keys:
                 raise Refused("jalv runs one plugin per process; it has no host without a plugin")
             if s.get("chain") and hkey == "H2":
@@ -1405,7 +1512,7 @@ class Runner:
             if clients:
                 graph = ports(self.env)
                 clients = [c for c in clients if c in graph]
-                wire(host, self.env, clients, instrument)
+                last_out = wire(host, self.env, clients, instrument)
             if hkey == "H2" and insts:
                 ws = host.workers()
                 if mode is None:
@@ -1431,6 +1538,7 @@ class Runner:
                 raise Failed("the stress load ended before the window: %s" % ", ".join(ended))
 
             pids = host.pids()
+            state_before = machine_state(pids, self.jackd.pid)
             before = samples(pids)
             jackd_before = samples([self.jackd.pid])
             t_start = time.monotonic()
@@ -1444,6 +1552,8 @@ class Runner:
             after = samples(pids)
             jackd_after = samples([self.jackd.pid])
             span = time.monotonic() - t_start
+            r["state"] = {"before": state_before, "after": machine_state(pids, self.jackd.pid)}
+            r["cycles"] = max(1, int(round(span * rate / frames)))
             if not host.pids() or any(not alive(p) for p in pids):
                 raise Failed("a host process exited during the window")
             if not loads:
@@ -1476,6 +1586,10 @@ class Runner:
             # the JACK clients the host put on the graph: every client there now that was not there before it started,
             # the source excepted
             r["jack_clients"] = len(set(ports(self.env)) - graph_before - {want})
+            if insts and clients and not s.get("kill"):
+                level = self.capture_output(last_out, notes)
+                if level:
+                    r["output"] = level
             r["status"] = "ok"
 
             if s.get("kill"):
@@ -1522,14 +1636,50 @@ class Runner:
                 self.learned[key] = f.read()
         return self.learned[key]
 
-    def measure(self, s, hkey, mode, rate, frames, stress):
-        """the row, run args.repeats times; a row that cannot run, or breaks, ends the repeats"""
-        runs = []
+    def capture_output(self, ports_out, notes):
+        """CAPTURE_S seconds of what the strip puts on the system playback ports (its last client's output, the port
+        wired there), as its level: a cell that makes no sound, or another sound than the same set run one process per
+        plugin, is not a cheaper cell. None, with a note, where jack_rec is not installed"""
+        if not shutil.which("jack_rec"):
+            notes.append("no output check: jack_rec is not installed (jack-example-tools)")
+            return None
+        if not ports_out:
+            return None
+        path = os.path.join(self.work, "out-%d.wav" % time.monotonic_ns())
+        said = run(["jack_rec", "-f", path, "-d", str(CAPTURE_S), "-b", "16", ports_out[0]], self.env,
+                   timeout=CAPTURE_S + 10)
+        if not os.path.exists(path):
+            raise Failed("the output capture left no file: " + said.strip()[:200])
+        try:
+            return wav_level(path)
+        finally:
+            os.unlink(path)
+
+    def measure_group(self, group):
+        """the rows of `group` (plans of one scenario at one rate), run args.repeats times with the hosts interleaved:
+        A B C A B C, not A A A B B B. The repeats of one row then see different moments of the machine, so a slow
+        minute is a spread of every row of the group and not the whole of one. A row that cannot run, or breaks,
+        leaves the turns; a JACK that does not answer is started again before the next row"""
+        runs = [[] for _ in group]
         for _ in range(self.args.repeats):
-            runs.append(self.row(s, hkey, mode, rate, frames, stress))
-            if runs[-1]["status"] != "ok":
-                break
-        return aggregate(runs, self.args.repeats)
+            for i, (s, h, mode, stress) in enumerate(group):
+                if runs[i] and runs[i][-1]["status"] != "ok":
+                    continue
+                r = None
+                if self.jack_dirty:
+                    try:
+                        self.jack_start(self.cell_rate, self.cell_frames)
+                        self.jack_dirty = False
+                    except JackUnanswered as e:
+                        self.jack_stop()
+                        r = self.row_failed_by(e, self.blank_row(s, h, mode, self.cell_rate, self.cell_frames, stress))
+                if r is None:
+                    try:
+                        r = self.row(s, h, mode, self.cell_rate, self.cell_frames, stress)
+                    except JackUnanswered as e:
+                        r = self.row_failed_by(e, self.blank_row(s, h, mode, self.cell_rate, self.cell_frames, stress))
+                runs[i].append(r)
+        return [aggregate(rs, self.args.repeats) for rs in runs]
 
     def chain_formed(self, host, insts):
         want = ",".join(map(str, insts))
@@ -1617,26 +1767,37 @@ class Runner:
         and the next one tries again. One wedged server never ends the run"""
         out = []
         self.jack_dirty = True
-        for s, h, mode, stress in rows:
-            r = None
-            if self.jack_dirty:
-                try:
-                    self.jack_start(rate, frames)
-                    self.jack_dirty = False
-                except JackUnanswered as e:
-                    self.jack_stop()
-                    r = self.row_failed_by(e, self.blank_row(s, h, mode, rate, frames, stress))
-            if r is None:
-                try:
-                    r = self.measure(s, h, mode, rate, frames, stress)
-                except JackUnanswered as e:
-                    r = self.row_failed_by(e, self.blank_row(s, h, mode, rate, frames, stress))
-            log("%-8s %s %-14s %6d/%-4d %-11s dsp %s%% rss %s MB add %s ms xruns %s %s%s" % (
-                r["id"], h, r.get("mode", "-"), rate, frames, r["status"], r["dsp_load_avg"], r["rss_mb"],
-                r["add_ms"], r.get("xruns"), "" if r["stress"] == "none" else r["stress"] + " ", r["note"]))
-            out.append(r)
+        self.cell_rate, self.cell_frames = rate, frames
+        groups = []
+        for plan in rows:
+            if groups and (groups[-1][0][0]["id"], groups[-1][0][3]) == (plan[0]["id"], plan[3]):
+                groups[-1].append(plan)
+            else:
+                groups.append([plan])
+        for group in groups:
+            results = self.measure_group(group)
+            for plan, r in zip(group, results):
+                if r["status"] == "ok" and soundness.check_row(r):
+                    r = self.rerun_alone(plan, r)
+                log("%-8s %s %-14s %6d/%-4d %-11s dsp %s%% rss %s MB add %s ms xruns %s %s%s" % (
+                    r["id"], plan[1], r.get("mode", "-"), rate, frames, r["status"], r["dsp_load_avg"], r["rss_mb"],
+                    r["add_ms"], r.get("xruns"), "" if r["stress"] == "none" else r["stress"] + " ", r["note"]))
+                out.append(r)
         self.jack_stop()
         return out
+
+    def rerun_alone(self, plan, first, reasons=None):
+        """a cell the gate doubts is measured again with nothing else between its repeats; the second figure replaces
+        the first, and the row says it was rerun and what it read the first time. Whether the second is any better is
+        the gate's to say when the document is written"""
+        log("gate: %s %s %d/%d breaks the gate (%s); rerun alone" % (
+            first["id"], first["host"], first["rate"], first["frames"],
+            "; ".join(reasons or soundness.check_row(first))))
+        second = self.measure_group([plan])[0]
+        if second["status"] != "ok":
+            return first
+        second["gate"] = {"verdict": "pass", "reasons": [], "rerun": True, "first_dsp_load_avg": first["dsp_load_avg"]}
+        return second
 
     def doc_id(self):
         day = datetime.date.today().strftime("%Y%m%d")
@@ -1667,6 +1828,7 @@ class Runner:
         for rate in self.args.rates:
             for frames in self.args.frames:
                 doc["scenarios"].extend(self.run_cell(rate, frames, rows))
+        self.settle_gate(doc, rows)
         if self.args.qualify:
             doc["qualification"] = self.qualify(self.args.rates, self.args.frames)
         path = os.path.join(self.args.out, doc["id"] + ".json")
@@ -1675,6 +1837,25 @@ class Runner:
             f.write("\n")
         os.rename(path + ".tmp", path)
         return path
+
+    def settle_gate(self, doc, rows):
+        """the soundness gate over the whole document: each cell that disagrees with its neighbours (a stress pair, a
+        smaller-frames neighbour, the output of the same set) is measured again alone, once, and the document is marked:
+        gate.verdict pass, or unstable with its reasons. An unstable figure is shown as such and feeds no ratio"""
+        bad = soundness.check([doc])
+        for (_, n) in sorted(bad):
+            r = doc["scenarios"][n]
+            plan = [p for p in rows if p[0]["id"] == r["id"] and p[1] == r["host"]
+                    and (p[3] and True or False) == (r.get("stress", "none") != "none") and p[2] in (None, r.get("mode"))]
+            if not plan or (r.get("gate") or {}).get("rerun"):
+                continue
+            self.cell_rate, self.cell_frames = r["rate"], r["frames"]
+            self.jack_dirty = True
+            doc["scenarios"][n] = self.rerun_alone(plan[0], r, bad[(0, n)])
+        self.jack_stop()
+        unstable = soundness.annotate(doc)
+        if unstable:
+            log("gate: %d cell(s) are published as unstable" % unstable)
 
     def teardown(self):
         """always: every process stopped, the governor put back, then nothing of this run may be left"""

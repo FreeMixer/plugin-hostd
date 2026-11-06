@@ -99,6 +99,62 @@
           "jack_clients": { "type": "integer", "minimum": 0 },
           "stress": { "type": "string", "pattern": "^(none|busy[0-9]+\\+mem[0-9]+)$" },
           "repeats": { "type": "integer", "minimum": 1 },
+          "cycles": { "type": "integer", "minimum": 1 },
+          "output": {
+            "type": "object",
+            "required": ["rms_db", "peak_db"],
+            "additionalProperties": false,
+            "properties": {
+              "rms_db": { "type": "number" },
+              "peak_db": { "type": "number" },
+              "seconds": { "type": "number", "minimum": 0 }
+            }
+          },
+          "repeat_state": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "before": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "freq_mhz": { "type": "array", "items": { "type": "number", "minimum": 0 } },
+                      "temp_c": { "type": ["number", "null"] },
+                      "throttled": { "type": ["string", "null"], "pattern": "^0x[0-9a-fA-F]+$" },
+                      "host_cores": { "type": "array", "items": { "type": "integer", "minimum": 0 } },
+                      "jackd_cores": { "type": "array", "items": { "type": "integer", "minimum": 0 } },
+                      "usb_irq_core": { "type": ["integer", "null"], "minimum": 0 }
+                    }
+                  },
+                "after": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "freq_mhz": { "type": "array", "items": { "type": "number", "minimum": 0 } },
+                      "temp_c": { "type": ["number", "null"] },
+                      "throttled": { "type": ["string", "null"], "pattern": "^0x[0-9a-fA-F]+$" },
+                      "host_cores": { "type": "array", "items": { "type": "integer", "minimum": 0 } },
+                      "jackd_cores": { "type": "array", "items": { "type": "integer", "minimum": 0 } },
+                      "usb_irq_core": { "type": ["integer", "null"], "minimum": 0 }
+                    }
+                  }
+              }
+            }
+          },
+          "gate": {
+            "type": "object",
+            "required": ["verdict", "reasons"],
+            "additionalProperties": false,
+            "properties": {
+              "verdict": { "enum": ["pass", "unstable"] },
+              "reasons": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+              "notes": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+              "rerun": { "type": "boolean" },
+              "first_dsp_load_avg": { "type": "number", "minimum": 0 }
+            }
+          },
           "spread": {
             "type": "object",
             "additionalProperties": {

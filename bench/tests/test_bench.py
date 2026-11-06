@@ -502,18 +502,20 @@ class Repeats(unittest.TestCase):
         import types
         calls = []
         answers = [run_row(), run_row(status="failed", note="broke")]
-        fake = types.SimpleNamespace(args=types.SimpleNamespace(repeats=3))
+        fake = types.SimpleNamespace(args=types.SimpleNamespace(repeats=3), jack_dirty=False, cell_rate=48000,
+                                     cell_frames=256)
         fake.row = lambda *a: calls.append(a) or answers[len(calls) - 1]
-        row = bench.Runner.measure(fake, {}, "H2", "chain", 48000, 256, False)
+        row = bench.Runner.measure_group(fake, [({}, "H2", "chain", False)])[0]
         self.assertEqual(len(calls), 2)
         self.assertEqual(row["status"], "failed")
 
     def test_the_runner_runs_the_row_as_many_times_as_asked(self):
         import types
         calls = []
-        fake = types.SimpleNamespace(args=types.SimpleNamespace(repeats=3))
+        fake = types.SimpleNamespace(args=types.SimpleNamespace(repeats=3), jack_dirty=False, cell_rate=48000,
+                                     cell_frames=256)
         fake.row = lambda *a: calls.append(a) or run_row(xruns=len(calls))
-        row = bench.Runner.measure(fake, {}, "H2", "chain", 48000, 256, False)
+        row = bench.Runner.measure_group(fake, [({}, "H2", "chain", False)])[0]
         self.assertEqual(len(calls), 3)
         self.assertEqual(row["xruns"], 2)
         self.assertEqual(row["spread"]["xruns"], [1, 3])
@@ -559,7 +561,7 @@ class JackUnanswered(unittest.TestCase):
 
         fake.jack_start = jack_start
         fake.row = row
-        fake.measure = lambda *a: bench.Runner.measure(fake, *a)
+        fake.measure_group = lambda g: bench.Runner.measure_group(fake, g)
         fake.blank_row = lambda *a: bench.Runner.blank_row(fake, *a)
         fake.row_failed_by = lambda e, r: bench.Runner.row_failed_by(fake, e, r)
         plan = [({"id": i, "title": i}, "H2", "individual", False) for i in ("first", "wedged", "after")]
@@ -579,6 +581,7 @@ class JackUnanswered(unittest.TestCase):
 
         fake.jack_start = jack_start
         fake.row = lambda *a: self.fail("no row runs without a JACK server")
+        fake.measure_group = lambda g: bench.Runner.measure_group(fake, g)
         fake.blank_row = lambda *a: bench.Runner.blank_row(fake, *a)
         fake.row_failed_by = lambda e, r: bench.Runner.row_failed_by(fake, e, r)
         plan = [({"id": i, "title": i}, "H2", "individual", False) for i in ("a", "b")]
@@ -1113,6 +1116,410 @@ class JackPriority(unittest.TestCase):
     def test_the_bench_s_own_server_is_not_a_reason_to_refuse(self):
         root = self.proc([(707, 708, "jackd", 1, 80)])
         self.assertIsNone(bench.priority_refusal(bench.rt_threads(root), 70, own={707}))
+
+
+soundness = load("bench_soundness", os.path.join(BENCH, "lib", "soundness.py"))
+DATA = os.path.join(BENCH, "tests", "data")
+
+
+def pi(name):
+    with open(os.path.join(DATA, "pi-1105-cvp16-%s.json" % name)) as f:
+        return json.load(f)
+
+
+def pi_docs():
+    """the 11-05 Pi 5 cvp16 H2 rows at 48 kHz: 2 and 3 periods, 128 and 256 frames, and the 3-period stress run"""
+    return [pi(n) for n in ("p2-f128", "p2-f256", "p3-f128", "p3-f256", "p3-f256-busy")]
+
+
+def flagged(docs):
+    bad = soundness.check(docs)
+    return {(docs[d]["scenarios"][n]["mode"], docs[d]["scenarios"][n]["frames"], docs[d]["jack"]["periods"],
+             docs[d]["scenarios"][n].get("stress", "none")): why for (d, n), why in bad.items()}
+
+
+def cell_doc(rows, periods=None):
+    doc = example()
+    doc["scenarios"] = rows
+    doc["jack"] = {"driver": "alsa", "priority": 70, "periods": periods} if periods else {"driver": "dummy", "priority": 70}
+    return doc
+
+
+def crow(avg, **kw):
+    kw.setdefault("dsp_load_max", avg + 1)
+    return run_row(dsp_load_avg=avg, **kw)
+
+
+class Soundness(unittest.TestCase):
+    def test_the_pi_chain_cell_at_7_87_is_flagged_by_its_twins(self):
+        bad = flagged(pi_docs())
+        why = bad[("chain", 256, 3, "none")]
+        self.assertTrue(any(w.startswith("twin:") and "6.55" in w for w in why), why)
+        self.assertTrue(any(w.startswith("stress:") and "6.68" in w for w in why), why)
+        self.assertTrue(any(w.startswith("scaling:") and "6.98" in w for w in why), why)
+
+    def test_the_pi_individual_cell_at_12_52_is_flagged_and_its_twin_is_not_blamed_for_it(self):
+        bad = flagged(pi_docs())
+        why = bad[("individual", 256, 2, "none")]
+        self.assertTrue(any(w.startswith("scaling:") and "11.31" in w for w in why), why)
+        self.assertTrue(any(w.startswith("spread:") for w in why), why)
+
+    def test_the_cells_that_agree_are_not_flagged(self):
+        bad = flagged(pi_docs())
+        for ok in (("chain", 256, 2, "none"), ("chain", 256, 3, "busy4+mem256"), ("chain", 128, 2, "none"),
+                   ("chain", 128, 3, "none"), ("chain-add", 256, 2, "none"), ("chain-add", 128, 2, "none")):
+            self.assertNotIn(ok, bad)
+
+    def test_the_quiet_cell_alone_in_its_document_is_not_flagged(self):
+        self.assertEqual(soundness.check([pi("p2-f256")]).keys() & {(0, 1)}, set())
+
+    def test_a_wide_spread_is_flagged_and_a_narrow_one_is_not(self):
+        wide = crow(8.0, repeats=3, spread={"dsp_load_avg": [6.5, 8.1]})
+        narrow = crow(8.0, mode="chain-add", repeats=3, spread={"dsp_load_avg": [7.8, 8.2]})
+        bad = soundness.check([cell_doc([wide, narrow])])
+        self.assertEqual(list(bad), [(0, 0)])
+        self.assertTrue(bad[(0, 0)][0].startswith("spread:"))
+
+    def test_a_spread_inside_the_noise_floor_is_not_flagged(self):
+        quiet = crow(0.5, repeats=3, spread={"dsp_load_avg": [0.4, 0.6]})
+        self.assertEqual(soundness.check([cell_doc([quiet])]), {})
+
+    def test_twins_at_two_period_counts_that_disagree_flag_the_higher(self):
+        docs = [cell_doc([crow(6.5)], 2), cell_doc([crow(7.9)], 3)]
+        self.assertEqual(list(soundness.check(docs)), [(1, 0)])
+
+    def test_three_twins_flag_the_one_away_from_the_median(self):
+        docs = [cell_doc([crow(6.5)], 2), cell_doc([crow(6.6)], 3), cell_doc([crow(5.0)], 4)]
+        self.assertEqual(list(soundness.check(docs)), [(2, 0)])
+
+    def test_twins_that_agree_are_not_flagged(self):
+        docs = [cell_doc([crow(6.5)], 2), cell_doc([crow(6.8)], 3)]
+        self.assertEqual(soundness.check(docs), {})
+
+    def test_a_cell_above_its_stressed_twin_is_flagged(self):
+        doc = cell_doc([crow(7.9), crow(6.7, stress="busy4+mem256")], 3)
+        bad = soundness.check([doc])
+        self.assertEqual(list(bad), [(0, 0)])
+        self.assertTrue(bad[(0, 0)][0].startswith("stress:"))
+
+    def test_a_stressed_cell_above_its_quiet_twin_is_the_expected_direction(self):
+        doc = cell_doc([crow(6.5), crow(9.0, stress="busy4+mem256")], 3)
+        self.assertEqual(soundness.check([doc]), {})
+
+    def test_more_frames_costing_more_is_flagged_and_fewer_is_not(self):
+        doc = cell_doc([crow(7.0, frames=128), crow(8.2, frames=256), crow(6.6, frames=512)], 3)
+        bad = soundness.check([doc])
+        self.assertEqual(list(bad), [(0, 1)])
+        self.assertTrue(bad[(0, 1)][0].startswith("scaling:"))
+
+    def test_a_throttled_repeat_is_flagged(self):
+        state = [{"after": {"throttled": "0x0", "freq_mhz": [2400.0]}}, {"after": {"throttled": "0x50005", "freq_mhz": [2400.0]}}]
+        bad = soundness.check([cell_doc([crow(6.5, repeat_state=state)])])
+        self.assertIn("state: throttled 0x50005 (after of repeat 2)", bad[(0, 0)])
+
+    def test_a_history_only_throttle_bit_is_not_a_disturbance_now(self):
+        state = [{"after": {"throttled": "0x50000", "freq_mhz": [2400.0]}}]
+        self.assertEqual(soundness.check([cell_doc([crow(6.5, repeat_state=state)])]), {})
+
+    def test_a_frequency_that_moved_between_repeats_is_flagged(self):
+        state = [{"before": {"freq_mhz": [2400.0, 2400.0]}}, {"before": {"freq_mhz": [1500.0, 2400.0]}}]
+        bad = soundness.check([cell_doc([crow(6.5, repeat_state=state)])])
+        self.assertTrue(bad[(0, 0)][0].startswith("state: CPU frequency 1500..2400"))
+
+    def test_a_silent_output_is_flagged(self):
+        row = crow(6.5, output={"rms_db": -200.0, "peak_db": -200.0})
+        self.assertEqual(soundness.check([cell_doc([row])])[(0, 0)], ["output: silent"])
+
+    def test_an_output_unlike_the_same_set_one_process_per_plugin_is_flagged(self):
+        ind = crow(9.0, mode="individual", output={"rms_db": -12.0, "peak_db": -9.0})
+        chain = crow(6.5, mode="chain", output={"rms_db": -17.5, "peak_db": -14.0})
+        same = crow(6.5, mode="chain-add", output={"rms_db": -12.3, "peak_db": -9.3})
+        bad = soundness.check([cell_doc([ind, chain, same])])
+        self.assertEqual(list(bad), [(0, 1)])
+        self.assertIn("output: -17.5 dB against -12.0 dB", bad[(0, 1)][0])
+
+    def test_the_other_builds_of_h3_and_h4_are_not_held_to_the_h2_level(self):
+        ind = crow(9.0, mode="individual", output={"rms_db": -12.0, "peak_db": -9.0})
+        other = crow(6.5, host="H3", mode="shared-process", output={"rms_db": -20.0, "peak_db": -9.0})
+        self.assertEqual(soundness.check([cell_doc([ind, other])]), {})
+
+    def test_annotate_marks_every_row_and_names_the_reasons(self):
+        doc = pi("p3-f256")
+        n = soundness.annotate(doc, [pi("p2-f256"), pi("p3-f256-busy"), pi("p3-f128")])
+        self.assertEqual(n, 3)
+        gates = {s["mode"]: s["gate"] for s in doc["scenarios"]}
+        self.assertEqual(gates["chain"]["verdict"], "unstable")
+        self.assertTrue(gates["chain"]["reasons"])
+        code, out = validate(doc)
+        self.assertEqual(code, 0, out)
+
+    def test_annotate_marks_a_sound_row_pass(self):
+        doc = cell_doc([crow(6.5)])
+        self.assertEqual(soundness.annotate(doc), 0)
+        self.assertEqual(doc["scenarios"][0]["gate"], {"verdict": "pass", "reasons": []})
+
+    def test_a_thread_on_the_usb_interrupt_core_is_a_note_not_a_verdict(self):
+        state = [{"after": {"usb_irq_core": 2, "host_cores": [2, 3]}}]
+        doc = cell_doc([crow(6.5, repeat_state=state)])
+        self.assertEqual(soundness.annotate(doc), 0)
+        self.assertIn("core 2", doc["scenarios"][0]["gate"]["notes"][0])
+
+
+class GateCommands(unittest.TestCase):
+    def run_cmd(self, tool, *docs):
+        with tempfile.TemporaryDirectory() as d:
+            names = []
+            for n, doc in enumerate(docs):
+                names.append(os.path.join(d, "doc%d.json" % n))
+                with open(names[-1], "w") as f:
+                    json.dump(doc, f)
+            r = subprocess.run([os.path.join(BENCH, tool)] + names, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                               text=True)
+            return r.returncode, r.stdout
+
+    def test_validate_refuses_the_disturbed_pi_cell_and_names_it(self):
+        code, out = self.run_cmd("validate.sh", pi("p2-f256"), pi("p3-f256"))
+        self.assertEqual(code, 1)
+        self.assertRegex(out, r"scenario cvp16 H2 48000/256 chain: rule:gate-disturbed-cell: .*twin: 7\.87 against its twin at 6\.55")
+
+    def test_validate_accepts_the_same_cell_once_it_is_marked_unstable(self):
+        docs = [pi("p2-f256"), pi("p3-f256")]
+        for doc in docs:
+            soundness.annotate(doc, [d for d in docs if d is not doc])
+        code, out = self.run_cmd("validate.sh", *docs)
+        self.assertEqual(code, 0, out)
+
+    def test_validate_refuses_a_pass_mark_on_a_disturbed_cell(self):
+        docs = [pi("p2-f256"), pi("p3-f256")]
+        for doc in docs:
+            for s in doc["scenarios"]:
+                s["gate"] = {"verdict": "pass", "reasons": []}
+        code, out = self.run_cmd("validate.sh", *docs)
+        self.assertEqual(code, 1)
+        self.assertIn("rule:gate-disturbed-cell", out)
+
+    def test_validate_wants_a_reason_with_an_unstable_mark(self):
+        doc = cell_doc([crow(6.5, gate={"verdict": "unstable", "reasons": []})])
+        code, out = validate(doc)
+        self.assertEqual(code, 1)
+        self.assertIn("rule:gate-unstable-names-why", out)
+
+    def test_gate_sh_exits_1_on_the_pi_cells_and_prints_the_rerun(self):
+        code, out = self.run_cmd("gate.sh", pi("p2-f256"), pi("p3-f256"))
+        self.assertEqual(code, 1)
+        self.assertIn("UNSTABLE cvp16 H2 chain 48000/256 dsp 7.87", out)
+        self.assertIn("bench/run.sh --out DIR --class rpi5 --rates 48000 --frames 256 --scenarios cvp16 --hosts H2 "
+                      "--stress none --alsa hw:Pro73107815 --periods 3", out)
+
+    def test_gate_sh_exits_0_on_cells_that_agree(self):
+        code, out = self.run_cmd("gate.sh", cell_doc([crow(6.5), crow(6.6, mode="chain-add")]))
+        self.assertEqual(code, 0, out)
+
+
+class Interleave(unittest.TestCase):
+    def fake(self, repeats):
+        order = []
+        fake = types.SimpleNamespace(args=types.SimpleNamespace(repeats=repeats), jack_dirty=False, cell_rate=48000,
+                                     cell_frames=256)
+        fake.row = lambda s, h, mode, rate, frames, stress: order.append(h) or run_row(host=h)
+        return fake, order
+
+    def test_the_hosts_take_turns_across_the_repeats(self):
+        fake, order = self.fake(3)
+        group = [({"id": "x"}, h, "m", False) for h in ("H1", "H2", "H3")]
+        rows = bench.Runner.measure_group(fake, group)
+        self.assertEqual(order, ["H1", "H2", "H3"] * 3)
+        self.assertEqual([r["host"] for r in rows], ["H1", "H2", "H3"])
+        self.assertTrue(all(r["repeats"] == 3 for r in rows))
+
+    def test_a_row_that_broke_leaves_the_turns_and_the_others_go_on(self):
+        order = []
+        fake = types.SimpleNamespace(args=types.SimpleNamespace(repeats=2), jack_dirty=False, cell_rate=48000,
+                                     cell_frames=256)
+        fake.row = lambda s, h, mode, rate, frames, stress: order.append(h) or (
+            run_row(host=h, status="failed", note="broke") if h == "H2" else run_row(host=h))
+        rows = bench.Runner.measure_group(fake, [({"id": "x"}, h, "m", False) for h in ("H1", "H2", "H3")])
+        self.assertEqual(order, ["H1", "H2", "H3", "H1", "H3"])
+        self.assertEqual([r["status"] for r in rows], ["ok", "failed", "ok"])
+
+
+def put(path, text):
+    with open(path, "w") as f:
+        f.write(text)
+
+
+class MachineState(unittest.TestCase):
+    def tree(self):
+        d = tempfile.mkdtemp()
+        self.addCleanup(lambda: subprocess.run(["rm", "-rf", d]))
+        for n, f in enumerate((2400000, 1500000)):
+            p = os.path.join(d, "sys/devices/system/cpu/cpu%d/cpufreq" % n)
+            os.makedirs(p)
+            put(os.path.join(p, "scaling_cur_freq"), "%d\n" % f)
+        os.makedirs(os.path.join(d, "sys/class/thermal/thermal_zone0"))
+        put(os.path.join(d, "sys/class/thermal/thermal_zone0/temp"), "61250\n")
+        os.makedirs(os.path.join(d, "proc/77/task/77"))
+        os.makedirs(os.path.join(d, "proc/77/task/78"))
+        for tid, core in ((77, 3), (78, 2)):
+            fields = ["S"] + ["0"] * 35 + [str(core)] + ["0"] * 10
+            put(os.path.join(d, "proc/77/task/%d/stat" % tid), "%d (omx host) %s\n" % (tid, " ".join(fields)))
+        put(os.path.join(d, "proc/interrupts"),
+            "           CPU0       CPU1       CPU2       CPU3\n"
+            " 30:         10          0       9000          5     GICv3  xhci-hcd:usb1\n"
+            " 31:       7000          1          0          0     GICv3  eth0\n")
+        return d
+
+    def test_the_state_reads_frequency_temperature_cores_and_the_usb_interrupt(self):
+        d = self.tree()
+        st = bench.machine_state([77], None, d + "/sys", d + "/proc")
+        self.assertEqual(st["freq_mhz"], [2400.0, 1500.0])
+        self.assertEqual(st["temp_c"], 61.2)
+        self.assertEqual(st["host_cores"], [2, 3])
+        self.assertEqual(st["usb_irq_core"], 2)
+
+    def test_a_machine_with_none_of_it_still_answers(self):
+        d = tempfile.mkdtemp()
+        self.addCleanup(lambda: subprocess.run(["rm", "-rf", d]))
+        st = bench.machine_state([], None, d, d)
+        self.assertEqual((st["freq_mhz"], st["temp_c"], st["host_cores"], st["usb_irq_core"]), ([], None, [], None))
+
+    def test_the_repeats_keep_their_states_and_cycles(self):
+        runs = [run_row(state={"before": {"freq_mhz": [2400.0]}}, cycles=1870),
+                run_row(state={"before": {"freq_mhz": [2400.0]}}, cycles=1875),
+                run_row(state={"before": {"freq_mhz": [2400.0]}}, cycles=1880)]
+        row = bench.aggregate(runs, 3)
+        self.assertEqual(len(row["repeat_state"]), 3)
+        self.assertEqual(row["cycles"], 1875)
+        self.assertNotIn("state", row)
+        doc = example()
+        doc["scenarios"] = [row]
+        code, out = validate(doc)
+        self.assertEqual(code, 0, out)
+
+    def test_a_wav_is_read_as_its_level(self):
+        import math
+        import struct
+        import wave
+        d = tempfile.mkdtemp()
+        self.addCleanup(lambda: subprocess.run(["rm", "-rf", d]))
+        for name, amp in (("sine", 16384), ("silent", 0)):
+            with wave.open(os.path.join(d, name + ".wav"), "wb") as w:
+                w.setnchannels(1)
+                w.setsampwidth(2)
+                w.setframerate(48000)
+                w.writeframes(b"".join(struct.pack("<h", int(amp * math.sin(2 * math.pi * 1000 * i / 48000)))
+                                       for i in range(48000)))
+        sine = bench.wav_level(os.path.join(d, "sine.wav"))
+        self.assertAlmostEqual(sine["peak_db"], -6.0, delta=0.1)
+        self.assertAlmostEqual(sine["rms_db"], -9.0, delta=0.1)
+        self.assertEqual(bench.wav_level(os.path.join(d, "silent.wav"))["rms_db"], -200.0)
+
+
+class SettleGate(unittest.TestCase):
+    def fake(self, again):
+        fake = types.SimpleNamespace(jack_dirty=False, cell_rate=0, cell_frames=0)
+        fake.jack_stop = lambda: None
+        fake.calls = []
+        fake.rerun_alone = lambda plan, first, reasons=None: fake.calls.append(first["mode"]) or again(first)
+        return fake
+
+    def doc(self):
+        return cell_doc([crow(7.9, mode="chain"), crow(6.7, mode="chain", stress="busy4+mem256")], 3)
+
+    def rows(self):
+        s = {"id": "cvp8", "title": "t"}
+        return [(s, "H2", "chain", False), (s, "H2", "chain", True)]
+
+    def test_a_cell_that_breaks_a_check_is_rerun_and_marked_pass_when_the_rerun_agrees(self):
+        doc = self.doc()
+        again = lambda first: dict(first, dsp_load_avg=6.6, gate={"rerun": True, "first_dsp_load_avg": first["dsp_load_avg"]})
+        fake = self.fake(again)
+        bench.Runner.settle_gate(fake, doc, self.rows())
+        self.assertEqual(fake.calls, ["chain"])
+        gate = doc["scenarios"][0]["gate"]
+        self.assertEqual((gate["verdict"], gate["rerun"], gate["first_dsp_load_avg"]), ("pass", True, 7.9))
+
+    def test_a_cell_that_still_breaks_after_the_rerun_is_published_as_unstable(self):
+        doc = self.doc()
+        fake = self.fake(lambda first: dict(first, gate={"rerun": True, "first_dsp_load_avg": first["dsp_load_avg"]}))
+        bench.Runner.settle_gate(fake, doc, self.rows())
+        gate = doc["scenarios"][0]["gate"]
+        self.assertEqual(gate["verdict"], "unstable")
+        self.assertTrue(gate["reasons"][0].startswith("stress:"))
+        self.assertEqual(doc["scenarios"][1]["gate"]["verdict"], "pass")
+
+    def test_a_cell_already_rerun_alone_is_not_rerun_again(self):
+        doc = self.doc()
+        doc["scenarios"][0]["gate"] = {"verdict": "pass", "reasons": [], "rerun": True, "first_dsp_load_avg": 9.0}
+        fake = self.fake(lambda first: self.fail("one rerun is all a cell gets"))
+        bench.Runner.settle_gate(fake, doc, self.rows())
+        gate = doc["scenarios"][0]["gate"]
+        self.assertEqual((gate["verdict"], gate["rerun"], gate["first_dsp_load_avg"]), ("unstable", True, 9.0))
+
+    def test_a_document_in_which_every_cell_agrees_reruns_nothing(self):
+        doc = cell_doc([crow(6.5)], 3)
+        fake = self.fake(lambda first: self.fail("nothing to rerun"))
+        bench.Runner.settle_gate(fake, doc, [({"id": "cvp8", "title": "t"}, "H2", "chain", False)])
+        self.assertEqual(doc["scenarios"][0]["gate"]["verdict"], "pass")
+
+
+class TableSoundness(unittest.TestCase):
+    def test_an_unstable_cell_is_shown_as_such_and_makes_no_ratio(self):
+        docs = [pi("p2-f256"), pi("p3-f256")]
+        text = table.render(docs[1], [docs[0]])
+        self.assertIn("7.87 [7.47-8.16] / 8.36 [8.35-8.52] UNSTABLE", text)
+        self.assertNotIn("| cvp16 | 48000/256 | 16 | 17 vs 2", text)
+
+    def test_a_cell_that_agrees_keeps_its_ratio(self):
+        doc = family_doc()
+        self.assertEqual(len(table.ratios(doc, table.unstable_rows([doc]))), 3)
+
+    def test_the_table_carries_the_switches_of_a_cycle(self):
+        lines = table.table(family_doc())
+        self.assertIn("ctx/cycle", lines[0])
+        row = [x for x in lines if "| chain | 2 | 118.0" in x][0]
+        self.assertIn("| ~1.5 |", row)  # 2800 switches over the 1875 cycles of a 10 s window at 48000/256
+
+    def test_a_document_that_says_its_cycles_is_not_estimated(self):
+        r = run_row(cycles=1000, ctx_switches=16000)
+        self.assertEqual(table.cycle_figure(r, "ctx_switches"), "16.0")
+
+    def test_the_format_pairs_put_clap_beside_lv2_on_one_host(self):
+        doc = cell_doc([crow(7.0, id="cvc16", plugins=["a"] * 16), crow(7.7, id="cvl16", plugins=["a"] * 16),
+                        crow(9.0, id="cvc16", host="H1", mode="shared-process", plugins=["a"] * 16),
+                        crow(5.0, id="cvl16", host="H3", mode="shared-process", plugins=["a"] * 16)], 3)
+        lines = table.format_pairs([doc])
+        self.assertEqual(len(lines), 3)
+        self.assertIn("| 16 | H2 | chain | 48000/256 | 3 | none | 7.00 | 7.70 | 1.10x |", lines[2])
+
+    def test_the_rate_ratio_is_made_from_cells_that_passed(self):
+        lo = cell_doc([crow(6.5), crow(7.9, mode="chain-add")], 3)
+        hi = cell_doc([crow(13.0, rate=96000), crow(15.8, mode="chain-add", rate=96000)], 3)
+        bad = table.unstable_rows([lo, hi])
+        for r in lo["scenarios"] + hi["scenarios"]:
+            r["id"] = "cvp16"
+        lo["scenarios"][1]["gate"] = {"verdict": "unstable", "reasons": ["twin: x"]}
+        lines = table.rate_ratios([lo, hi], table.unstable_rows([lo, hi]))
+        self.assertEqual(len(lines), 3)
+        self.assertIn("2.00x", lines[2])
+
+
+class FormatScenarios(unittest.TestCase):
+    def test_every_clap_chain_scenario_has_its_lv2_twin_on_h1_and_h2(self):
+        with open(os.path.join(BENCH, "scenarios.json")) as f:
+            tbl = json.load(f)
+        ids = {s["id"]: s for s in tbl["scenarios"]}
+        for sid, sc in ids.items():
+            if not re.match(r"^cvc[0-9]+$", sid):
+                continue
+            twin = ids.get("cvl" + sid[3:])
+            self.assertIsNotNone(twin, "%s has no cvl%s" % (sid, sid[3:]))
+            self.assertEqual(twin["count"], sc["count"])
+            self.assertEqual(twin["plugins"], sc["plugins"])
+            self.assertEqual(twin["format"], "lv2")
+            self.assertEqual(twin["family"], sc["family"])
+        hosts = {(m["host"], m["mode"]) for m in tbl["modes"]["chains-vs-processes"]}
+        self.assertTrue({("H1", "shared-process"), ("H2", "chain"), ("H2", "individual")} <= hosts)
 
 
 if __name__ == "__main__":
