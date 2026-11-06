@@ -5803,4 +5803,43 @@ def quit_with_three_writes_waiting_leaves_all_three_on_disk():
     p.close()
 
 
+
+@test
+def while_a_promised_write_waits_the_daemon_still_supervises_and_reports_at_once():
+    """the daemon serves one controller at a time (the protocol library's socket loop), so a promised write holds only
+    that controller's later replies: the rest of the daemon goes on. A worker killed while history_clear waits on a slow
+    disk is said dead on the feedback port and respawned within a second, and the reply comes after, in its turn"""
+    p = Plugins()
+    path = os.path.join(p.dir, "history")
+    mark, env = slow_disk(p, 4000)
+    write(path, ("# plugin-hostd history/1\nhistory %s %s %s windows_solo=7\n" % (p.clap_uri, sha(p.clap), HISTORY_CLASS)).encode())
+    d = daemon(conf=history_conf(p, history_save_s=3600), env=env)
+    try:
+        d.expect("add fake:a 0", "resp 0")
+        key, w = d.holder(0)
+        since = d.mark()
+        d.sock.sendall(b"history_clear all\0")
+        wait_for(lambda: in_flight(mark) or None, "the clear's write in flight", timeout=10.0)
+        t0 = time.monotonic()
+        os.kill(w["pid"], signal.SIGKILL)
+        d.wait_event("worker_died %s " % key, since=since, timeout=5.0)
+        d.wait_event("instance_restored 0 ", since=since, timeout=5.0)
+        took = time.monotonic() - t0
+        busy = in_flight(mark)
+        check(took < 1.0, "the death was said and the worker respawned in %.2f s while the write waited" % took)
+        check(busy, "the write was still in flight then")
+        d.sock.settimeout(30)
+        buf = b""
+        while b"\0" not in buf:
+            chunk = d.sock.recv(4096)
+            if not chunk:
+                break
+            buf += chunk
+        check(buf.split(b"\0")[0] == b"resp 0", "history_clear answered once its write landed: %r" % buf)
+        check(history_lines(path) == [], "and the record is gone: %s" % history_lines(path))
+    finally:
+        d.close()
+        p.close()
+
+
 sys.exit(run_tests(TESTS))
