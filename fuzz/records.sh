@@ -64,7 +64,7 @@ EOF
 
 build() {   # build <harness> <output>
     case $1 in
-    command) extra="src/verbs.c src/session.c src/words.c src/pin_words.c fuzz/recorder.c" ;;
+    command) extra="src/verbs.c src/session.c src/words.c src/pin_words.c src/writer.c src/fsutil.c fuzz/recorder.c" ;;
     *) extra= ;;
     esac
     # shellcheck disable=SC2086
