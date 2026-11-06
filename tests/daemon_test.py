@@ -4910,7 +4910,9 @@ def a_clap_file_whose_name_holds_a_space_is_added_pinned_stored_and_described_by
         d.close()
     with open(store) as f:
         saved = f.read()
-    check(saved.startswith("pin_set %s Surge%%20XT.clap=%s " % (uri, sha(path))), "the store holds the pin: %r" % saved)
+    # the key is the path decoded, one quoted word, whichever spelling the add used
+    check(saved.startswith('pin_set "clap:%s#%s" Surge%%20XT.clap=%s ' % (path, CLAP_ID, sha(path))),
+          "the store holds the pin: %r" % saved)
     d = s.daemon(conf=conf, env=env)
     try:
         d.expect("add %s 4" % uri, "resp 4")
@@ -4957,6 +4959,34 @@ def a_clap_file_whose_name_holds_a_space_is_added_bare_quoted_or_encoded_and_pin
         d.expect("add %s 2" % raw, "resp 2")
         d.expect('add "%s" 3' % raw, "resp 3")
         d.expect('pin_set "%s" Surge%%ZZXT.clap=%s %s' % (raw, sha(path), fake_layout()), "resp -902")
+    finally:
+        d.close()
+        s.close()
+
+
+@test
+def a_pin_and_an_add_that_spell_a_clap_path_differently_are_one_pin():
+    """the key of a pin is a clap: uri's path decoded: a pin written with the space as it is admits an add written
+    %20-encoded, and a pin written encoded admits the add written as it is; pin_clear in either spelling clears it"""
+    s = Scan()
+    path = os.path.join(os.path.dirname(s.clap), "Surge XT.clap")
+    os.rename(s.clap, path)
+    s.clap = path
+    raw = "clap:%s#%s" % (path, CLAP_ID)
+    encoded = "clap:%s#%s" % (path.replace(" ", "%20"), CLAP_ID)
+    files = "Surge%%20XT.clap=%s %s" % (sha(path), fake_layout())
+    conf = {"require_pins": 1, "pin_mode": "strict", "pin_store": os.path.join(s.dir, "pins")}
+    d = s.daemon(conf=conf, env={"FAKE_LOG": os.path.join(s.dir, "commands.log")})
+    try:
+        d.expect('pin_set "%s" %s' % (raw, files), "resp 0")
+        d.expect("add %s 0" % encoded, "resp 0")
+        d.expect("pin_clear %s" % encoded, "resp 0")
+        d.expect('add "%s" 1' % raw, resp("PIN_ABSENT"))
+        d.expect("pin_set %s %s" % (encoded, files), "resp 0")
+        d.expect('add "%s" 2' % raw, "resp 2")
+        d.expect("add %s 3" % raw, "resp 3")
+        d.expect('pin_clear "%s"' % raw, "resp 0")
+        d.expect("add %s 4" % encoded, resp("PIN_ABSENT"))
     finally:
         d.close()
         s.close()

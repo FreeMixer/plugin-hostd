@@ -71,14 +71,34 @@ static char g_store[PATH_MAX];
 static pin_t *g_pkg;
 static int g_npkg;
 
-/* the uri as the worker is given it: the key of a pin, whichever way a controller wrote it */
-static const char *bare(const char *uri)
+/* The key of a pin, whichever way a controller wrote the uri: the uri as the worker is given it, and a clap: uri by its
+ * path decoded (the key rule of plugin-hostd-protocol's doc/protocol.md, Pins), so "clap:/c/Surge XT.clap#id", quoted, and
+ * clap:/c/Surge%20XT.clap#id are one pin. A path that does not decode is its key as written; it is refused where its
+ * file is opened. Written into key (size bytes), or the uri itself when it needs no change. */
+#define PIN_KEY_MAX (PATH_MAX + 512)
+static const char *key_of(const char *uri, char *key, size_t size)
 {
-    const char *worker_uri;
+    const char *worker_uri, *path, *hash;
+    char encoded[PIN_KEY_MAX], decoded[PIN_KEY_MAX];
+    size_t len;
 
     format_of_uri(uri, &worker_uri);
-    return worker_uri;
+    if (strncmp(worker_uri, PHD_CLAP_URI_PREFIX, strlen(PHD_CLAP_URI_PREFIX)))
+        return worker_uri;
+    path = worker_uri + strlen(PHD_CLAP_URI_PREFIX);
+    hash = strrchr(path, '#');
+    len = hash ? (size_t)(hash - path) : strlen(path);
+    if (len >= sizeof(encoded) || !memchr(path, PHD_PIN_PATH_ESCAPE[0], len))
+        return worker_uri;
+    memcpy(encoded, path, len);
+    encoded[len] = '\0';
+    if (phd_pin_path_decode(encoded, decoded, sizeof(decoded)) != 0 ||
+        snprintf(key, size, PHD_CLAP_URI_PREFIX "%s%s", decoded, hash ? hash : "") >= (int)size)
+        return worker_uri;
+    return key;
 }
+/* the key of a uri in a buffer of the enclosing block's own: two keys in one expression never share one */
+#define bare(uri) key_of((uri), (char[PIN_KEY_MAX]){0}, PIN_KEY_MAX)
 
 static void pin_free(pin_t *p)
 {
