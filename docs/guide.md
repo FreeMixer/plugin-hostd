@@ -8,7 +8,7 @@ Raspberry Pi, and cannot let one bad plugin stop the show.
 
 - A crash stays small: only the plugin's worker is lost, and it is respawned with the links the daemon made itself.
 - Nothing to change in your controller: it speaks mod-host's socket protocol, same ports, same replies.
-- LV2 through omx-clap-host's adapter, with mod-host for the plugins the adapter refuses, and CLAP through omx-clap-host, side by side.
+- LV2 through omx-clap-host's adapter and CLAP through omx-clap-host, side by side. A plugin the host cannot run is refused with a code that says why, never handed to another host.
 - Audio never passes through the daemon; every worker is a JACK client, as in mod-host.
 - A plugin that keeps crashing is singled out and given up on without touching its neighbours.
 
@@ -34,7 +34,7 @@ Debian bookworm and trixie and Raspberry Pi OS (amd64 and arm64):
     curl -fsSLO https://www.openmixer.org/deb/openmixer-release.deb && sudo apt install ./openmixer-release.deb
     sudo apt update && sudo apt install plugin-hostd omx-clap-host
 
-The LV2 worker is mod-host, which Debian does not package; without it CLAP plugins still work.
+omx-clap-host runs CLAP and LV2 plugins. mod-host, which Debian does not package, runs LV2 plugins only when you choose it.
 
 Status
 ------
@@ -682,9 +682,17 @@ their names, in the same line format. A package drops its own file there, so its
 in one transaction and removed together; plugin-hostd owns the directory and another package may co-own it. The
 daemon never writes it. A pin from this layer is trusted as it is, in both pin modes. The rules:
 
-- A pins.d pin with `verdict=refused` always holds. The pin store, a `pin_file` and `pin_set` never override it:
-  `pin_set` and `pin_accept` of its uri answer `-516` (`PIN_REFUSED`), and a line of the store or of the `pin_file`
-  for it is kept but has no effect, which stderr says at start.
+- A pins.d pin with `verdict=refused` holds until the user chooses otherwise. The pin store, a `pin_file` and
+  `pin_set` never override it: `pin_set` of its uri answers `-516` (`PIN_REFUSED`), and a line of the store or of the
+  `pin_file` for it is kept but has no effect, which stderr says at start.
+- A failed qualification is our advice, not a wall: the user decides. Under `pin_mode first-use`, `pin_accept <uri>` of
+  a plugin whose pins.d pin carries `verdict=refused` records the user's choice, kept beside the pin store in
+  `<pin_store>.accepted`, one uri per line, and takes the plugin's files as they are now as its pin, in the store with no
+  verdict: the user's choice, not a pass. The plugin then runs alone in a worker of its own, as any plugin not qualified
+  for a shared one does, and an explicit `pool:<name>` answers `-501`. The choice holds across a restart, covers the
+  files it was made for (files that change answer `-509` until `pin_accept` again), and `pin_clear` of the uri (or
+  `all`) takes it back. Under `pin_mode strict` it counts for nothing: strict admits what passed qualification and
+  nothing else, and `pin_accept` answers `-902` there.
 - Any other pins.d pin is under the host's layer. A pin of the same uri in the store, the `pin_file` or from
   `pin_set` holds over it, and `pin_accept` of a plugin whose files differ from its package pin records the new files
   in the store, which then hold. `pin_clear` forgets the host's pin only: the package pin holds again.
@@ -813,11 +821,13 @@ Who runs an LV2 plugin
 ----------------------
 
 `lv2_worker` chooses the program that runs LV2 plugins: `omx-clap-host` (the default: the `clap_host` program, through its
-LV2 adapter, a plugin it cannot run refused with a code), `auto` (the adapter first, mod-host for a plugin the adapter
-refuses, and for every add while omx-clap-host is not installed) or `mod-host` (the `mod_host` program). mod-host runs a
+LV2 adapter, a plugin it cannot run refused with a code) or `mod-host` (the `mod_host` program). It is the user's choice,
+and the daemon never makes it for them: a plugin the chosen program refuses is answered with its code and is never
+handed to the other. What our host cannot run is a defect to fix, not a reason to run something else. mod-host runs a
 plugin only when one of these names it, and the packages only suggest it: without it the daemon says once at its start that
-it is not installed, and an add that asks for it answers `-502` (`NO_BACKEND`). `lv2_worker_set <uri> <mod-host|omx-clap-host|auto|->` overrides it for one plugin from then on, and `-` takes
-the override back. The two programs are two rows of the table, `lv2` and `lv2-clap`, so `policy_set`, `worker_env` and
+it is not installed, and an add that asks for it answers `-502` (`NO_BACKEND`). `lv2_worker_set <uri> <mod-host|omx-clap-host|->` overrides it for one plugin from then on, and `-` takes
+the override back. The word `auto`, which ran a refused plugin on mod-host, is gone: the daemon does not start with it
+and `lv2_worker_set` answers it `-902`. The two programs are two rows of the table, `lv2` and `lv2-clap`, so `policy_set`, `worker_env` and
 `worker_list` name them like any format. The adapter row differs from the mod-host row in these ways, each held by a test:
 
 | capability | `lv2` (mod-host) | `lv2-clap` (omx-clap-host) |
@@ -830,21 +840,16 @@ the override back. The two programs are two rows of the table, `lv2` and `lv2-cl
 
 An adapter handles a subset of LV2. When it refuses a plugin, the worker answers the add `resp -102 <hosting code>`
 (for instance `hosting.features.midi-in-fed-empty`, `hosting.features.missing`, `hosting.topology.wider-than-strip` or
-`hosting.no-realisation`). The add under `omx-clap-host` then answers `-512` (`LV2_ADAPTER_REFUSED`) and the
-`lv2_adapter_refused` event carries that code, read from the reply to that add and never from the worker's log, which a
-pool worker shares with other plugins (`-` when the reply named none). Under `auto` the add is made again on the `lv2`
-row, the plugin stays there, the event is sent once, and the controller never sees `-512`. The daemon remembers the refusal until
-the adapter has a reason to take the plugin again: `lv2_worker_set` of that uri (to any word, `-` included) forgets it, and
-so does a change of pins (`pin_set`, `pin_accept`, `pin_clear`) for every plugin; the next add under `auto` asks the
-adapter once more.
+`hosting.no-realisation`). The add then answers `-512` (`LV2_ADAPTER_REFUSED`) and the `lv2_adapter_refused` event
+carries that code, read from the reply to that add and never from the worker's log, which a pool worker shares with
+other plugins (`-` when the reply named none). Nothing is remembered: every add of the plugin asks the adapter again and
+answers its own code, so a fixed adapter takes the plugin at once. No other host is given it.
 
-A plugin the adapter refused under `auto` runs on the `lv2` row in a worker of its own, whatever the policy says, unless
-its add names a placement. The adapter never ran it, so nothing says it is safe in a shared worker. Some plugins abort
-in instantiate: drumkv1, samplv1 and synthv1 do, through Qt, when no display is set. Such a plugin takes down only
-its own worker. The add answers `-102`, and an `instance_verb_dropped` event names the add with its uri.
+Some plugins abort in instantiate: drumkv1, samplv1 and synthv1 do on mod-host, through Qt, when no display is set.
+Such a plugin takes down only its own worker. The add answers `-102`, and an `instance_verb_dropped` event names the add
+with its uri.
 
-A plugin that no bundle of the worker's world holds is not a refusal: the worker answers `resp -101` with no code. Under
-`omx-clap-host` the add answers that `-101`, with no event. Under `auto` the same add is made on the `lv2` row, so mod-host
-looks for the plugin; nothing is remembered, and the adapter is asked again on the next add. Under `auto` an
-`omx-clap-host` that is not installed is not an error either: the add goes to the `lv2` row.
+A plugin that no bundle of the worker's world holds is not a refusal: the worker answers `resp -101` with no code, and
+the add answers that `-101`, with no event. An `omx-clap-host` that is not installed answers every LV2 add `-502`
+(`NO_BACKEND`); mod-host is never started in its place.
 

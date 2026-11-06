@@ -1,4 +1,4 @@
-.TH PLUGIN\-HOSTD 1 "November 2026" "plugin-hostd 0.18.0" "User Commands"
+.TH PLUGIN\-HOSTD 1 "November 2026" "plugin-hostd 0.19.0" "User Commands"
 .SH NAME
 plugin\-hostd \- supervisor of plugin host processes behind one mod\-host protocol socket
 .SH SYNOPSIS
@@ -171,15 +171,20 @@ file of
 (by default
 .IR /usr/share/plugin\-hostd/pins.d )
 is read at start, in name order, in the same line format.
-A pin there with verdict=refused always holds: neither the pin store, the
+A pin there with verdict=refused holds until the user chooses otherwise: neither the pin store, the
 .B pin_file
 nor
 .B pin_set
 overrides it, and
 .B pin_set
-and
+of its uri answers \-516.
+Under pin_mode first\-use,
 .B pin_accept
-of its uri answer \-516.
+of such a plugin records the user's choice (in the file
+.IR <pin_store>.accepted )
+and its files as its pin with no verdict, so it runs alone in a worker of its own;
+.B pin_clear
+takes the choice back, and under pin_mode strict it counts for nothing.
 Any other package pin is under the host's: a pin of the same uri in the store, the
 .B pin_file
 or from

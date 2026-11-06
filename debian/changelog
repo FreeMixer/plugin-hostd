@@ -1,3 +1,18 @@
+plugin-hostd (0.19.0) unstable; urgency=medium
+
+  * A plugin the LV2 adapter refuses is never handed to another host: every
+    add answers -512 and the lv2_adapter_refused event says why.
+    lv2_worker auto, which ran such a plugin on mod-host, is gone: the daemon
+    does not start with it and lv2_worker_set answers it -902. mod-host runs
+    LV2 plugins only when the user names it (lv2_worker mod-host).
+  * A plugin whose pins.d pin carries verdict=refused can be loaded when the
+    user chooses it: under pin_mode first-use, pin_accept records the choice
+    (kept in <pin_store>.accepted) and the files as its pin with no verdict,
+    and the plugin runs alone in a worker of its own. pin_clear takes the
+    choice back; under strict it counts for nothing.
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Fri, 06 Nov 2026 01:00:00 +0100
+
 plugin-hostd (0.18.0) unstable; urgency=medium
 
   * The daemon answers hello itself, for each controller connection, and

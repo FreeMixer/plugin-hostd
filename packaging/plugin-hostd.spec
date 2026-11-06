@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.18.0
+Version: 0.19.0
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -173,6 +173,16 @@ make test-daemon check-generated check-rendered
 %{omx_contract_dir}/plugin-hostd/
 
 %changelog
+* Fri Nov 06 2026 Pau Aliagas <linuxnow@gmail.com> - 0.19.0-1
+- A plugin the LV2 adapter refuses is never handed to another host: every add answers -512
+  and the lv2_adapter_refused event says why. lv2_worker auto, which ran such a plugin on
+  mod-host, is gone: the daemon does not start with it and lv2_worker_set answers it -902.
+  mod-host runs LV2 plugins only when the user names it (lv2_worker mod-host)
+- A plugin whose pins.d pin carries verdict=refused can be loaded when the user chooses
+  it: under pin_mode first-use, pin_accept records the choice (kept in
+  <pin_store>.accepted) and the files as its pin with no verdict, and the plugin runs alone
+  in a worker of its own. pin_clear takes the choice back; under strict it counts for
+  nothing
 * Wed Nov 04 2026 Pau Aliagas <linuxnow@gmail.com> - 0.18.0-1
 - The daemon answers hello itself, for each controller connection, and grants
   what the controller asks of tags, errors and seq as plugin-hostd-protocol 0.3.0

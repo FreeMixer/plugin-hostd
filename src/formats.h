@@ -104,20 +104,11 @@ char *lv2_param_info(int id, const char *symbol);
 char *lv2_remote_pages(int id);
 char *lv2_remote_page_get(int id, int page);
 
-/* which LV2 row runs a uri: the lv2_worker_set override of the uri, else the lv2_worker setting; auto is the adapter's row
- * until the adapter has refused the uri. NULL names the lv2 row itself. */
+/* which LV2 row runs a uri: the lv2_worker_set override of the uri, else the lv2_worker setting. NULL names the lv2 row
+ * itself. A plugin the row's worker refuses stays refused: it is never moved to the other row. */
 const char *lv2_route(const conf_t *conf, const char *uri);
 /* lv2_worker_set: the worker of one uri, or PHD_WORD_NONE to take the override back; -1 for a word that is no worker, or when there is no memory to record it */
 int lv2_worker_pick(const char *uri, const char *worker);
-/* the adapter refused the uri: auto runs it by the lv2 row from now on */
-void lv2_adapter_refused(const char *uri);
-
-/* what the adapter refused is asked of it again: for `uri`, or for every plugin when it is NULL */
-void lv2_refusals_forget(const char *uri);
-/* whether the lv2_worker in force for the uri is auto */
-int lv2_worker_is_auto(const conf_t *conf, const char *uri);
-/* whether `format` is the lv2 row running the uri because the adapter refused it under auto */
-int lv2_refused_under_auto(const conf_t *conf, int format, const char *uri);
 /* the hosting.* code an adapter's refusal carries after the error code on its reply line, "-" for none, in buf */
 void lv2_refusal_reason(const char *reply, char *buf, size_t size);
 

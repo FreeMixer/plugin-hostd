@@ -22,6 +22,8 @@
 #define CONF_H
 
 #include <limits.h>
+#include <stdio.h>
+#include <string.h>
 
 #include <plugin-hostd/protocol.h>
 
@@ -53,5 +55,30 @@ int conf_pins_first_use(const conf_t *conf);
 int conf_spread(const conf_t *conf);
 /* whether grouping is on */
 int conf_grouping_on(const conf_t *conf);
+
+/* The programs a user can name to run LV2 plugins (lv2_worker, lv2_worker_set): mod-host or omx-clap-host. A plugin one
+ * of them refuses is reported with its code and never handed to the other: the user chooses the program, the daemon
+ * does not. There is no third word that picks one for the user. */
+static const char *const conf_lv2_workers[] = { PHD_LV2_WORKER_MOD_HOST, PHD_LV2_WORKER_CLAP_HOST };
+
+/* whether `word` names one of them */
+static inline int conf_lv2_worker_valid(const char *word)
+{
+    size_t n;
+
+    for (n = 0; n < sizeof(conf_lv2_workers) / sizeof(*conf_lv2_workers); n++)
+        if (!strcmp(word, conf_lv2_workers[n]))
+            return 1;
+    return 0;
+}
+
+/* those words, each after a blank, on `out` */
+static inline void conf_lv2_workers_print(FILE *out)
+{
+    size_t n;
+
+    for (n = 0; n < sizeof(conf_lv2_workers) / sizeof(*conf_lv2_workers); n++)
+        fprintf(out, " %s", conf_lv2_workers[n]);
+}
 
 #endif

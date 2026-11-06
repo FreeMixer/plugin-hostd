@@ -41,7 +41,7 @@
 #include "verbs.h"
 
 #ifndef VERSION
-#define VERSION "0.18.0"
+#define VERSION "0.19.0"
 #endif
 
 #define SOCKET_DEFAULT_PORT     PHD_DEFAULT_COMMAND_PORT
@@ -227,6 +227,7 @@ int main(int argc, char **argv)
     /* the directories of what an add gathers are made, or the daemon does not start: never a silent fallback */
     if (descriptors_init(&g_conf) != 0)
         return EXIT_FAILURE;
+    pins_accepting(conf_pins_first_use(&g_conf));
     if (g_conf.require_pins && pins_init(g_conf.pin_store, g_conf.pin_file, g_conf.pins_dir) != 0)
         return EXIT_FAILURE;
 
