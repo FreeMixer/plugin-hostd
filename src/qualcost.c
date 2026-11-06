@@ -12,6 +12,8 @@
 #include <string.h>
 #include <sys/stat.h>
 
+#include <plugin-hostd/protocol.h>
+
 #include "json.h"
 #include "qualcost.h"
 
@@ -19,11 +21,6 @@
 
 unsigned long qualcost_dir_scans, qualcost_record_parses;
 #define RECORD_MAX    (4u << 20)
-
-static int hexval(int c)
-{
-    return c >= '0' && c <= '9' ? c - '0' : c >= 'a' && c <= 'f' ? c - 'a' + 10 : c >= 'A' && c <= 'F' ? c - 'A' + 10 : -1;
-}
 
 /* the id as plugin-qualify spells it in a file name: each character outside [A-Za-z0-9._-] is an underscore */
 static void safe(const char *id, char *out, size_t size)
@@ -36,25 +33,13 @@ static void safe(const char *id, char *out, size_t size)
     out[n] = '\0';
 }
 
-/* the id with each %XX escape of an IRI replaced by its byte: LV2 URIs reach the daemon percent-encoded as often as not,
- * and a record may name the plugin in either spelling. An escape that is not two hex digits is kept as it stands. */
+/* the id with each %XX escape of an IRI replaced by its byte, by the protocol's phd_pin_path_decode: LV2 URIs reach the
+ * daemon percent-encoded as often as not, and a record may name the plugin in either spelling. An id the codec refuses
+ * (a stray %) is its own spelling. */
 static void decode(const char *id, char *out, size_t size)
 {
-    size_t n = 0;
-
-    while (*id && n + 1 < size)
-    {
-        int hi, lo;
-
-        if (id[0] == '%' && (hi = hexval(id[1])) >= 0 && (lo = hexval(id[2])) >= 0 && (hi || lo))
-        {
-            out[n++] = (char)(hi << 4 | lo);
-            id += 3;
-        }
-        else
-            out[n++] = *id++;
-    }
-    out[n] = '\0';
+    if (phd_pin_path_decode(id, out, size) != 0)
+        snprintf(out, size, "%s", id);
 }
 
 /* whether two ids are one plugin's, in either spelling */

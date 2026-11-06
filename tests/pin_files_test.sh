@@ -85,6 +85,21 @@ file libSurge%20XT.so" ]; check $? "a percent-encoded name is listed as the mani
 "$daemon" -c "$work/conf" --pin-files urn:plugin-hostd:test:stray >/dev/null 2>"$work/err"; rc=$?
 [ $rc -eq 1 ] && grep -q 'is not a percent-encoded name' "$work/err"; check $? "a stray percent in a name exits 1 with its reason ($rc: $(cat "$work/err"))"
 
+# a bundle directory with a space, its binary named by the bundle's own file:// IRI, which writes the space %20: the
+# IRI is decoded once before it is matched against the bundle, and the binary is a name in it
+sbundle="$work/lv2/my amp.lv2"
+mkdir -p "$sbundle"
+: > "$sbundle/amp.so"
+cat > "$sbundle/manifest.ttl" <<TTL
+@prefix lv2: <http://lv2plug.in/ns/lv2core#> .
+<urn:plugin-hostd:test:spaced-bundle> a lv2:Plugin ; lv2:binary <file://$(printf %s "$sbundle" | sed 's/ /%20/g')/amp.so> .
+TTL
+out=$("$daemon" -c "$work/conf" --pin-files urn:plugin-hostd:test:spaced-bundle 2>"$work/err"); rc=$?
+[ $rc -eq 0 ] && [ "$out" = "root $sbundle
+file manifest.ttl
+file amp.so" ]; check $? "a bundle directory with a space: its own file:// IRI names a file of the bundle (rc $rc: $(cat "$work/err"))"
+[ "$rc" -eq 0 ] || echo "$out" | sed 's/^/     /'
+
 out=$("$daemon" -c "$work/conf" --pin-files "clap:/usr/lib/clap/some plugin.clap#org.example.x"); rc=$?
 [ $rc -eq 0 ] && [ "$out" = "root /usr/lib/clap
 file some%20plugin.clap" ]; check $? "a CLAP plugin: its .clap file beside its directory, one percent-encoded word"

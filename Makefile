@@ -444,8 +444,8 @@ test-planner: $(PLANNER_TEST) $(QUALCOST_TEST)
 	./$(PLANNER_TEST)
 	./$(QUALCOST_TEST)
 
-$(QUALCOST_TEST): tests/qualcost_test.c src/qualcost.c src/qualcost.h src/json.c src/json.h
-	$(CC) -Isrc $(CONTRACT_CFLAGS) $(CFLAGS) -Werror -o $@ tests/qualcost_test.c src/qualcost.c src/json.c $(PIN_LIBS) $(CJSON_LIBS) -lm
+$(QUALCOST_TEST): tests/qualcost_test.c src/qualcost.c src/qualcost.h src/json.c src/json.h $(PROTOCOL_HEADERS) $(RENDERED)
+	$(CC) -Isrc $(PROTOCOL_CFLAGS) $(CONTRACT_CFLAGS) $(CFLAGS) -Werror -o $@ tests/qualcost_test.c src/qualcost.c src/json.c $(PIN_LIBS) $(CJSON_LIBS) -lm
 
 $(PLANNER_TEST): tests/planner_test.c src/planner.c src/planner.h $(PROTOCOL_HEADERS) $(RENDERED)
 	$(CC) -Iinclude $(PROTOCOL_CFLAGS) $(PIN_CFLAGS) -Isrc $(CFLAGS) -Werror -o $@ tests/planner_test.c src/planner.c $(PIN_LIBS)

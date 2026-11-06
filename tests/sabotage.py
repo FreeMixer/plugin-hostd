@@ -1430,6 +1430,13 @@ SABOTAGE = [
      '    if (g_conf.history_regroup_s <= 0)\n        return;\n    for (n = 0; g_nplans',
      '    for (n = 0; g_nplans',
      'history_regroup_s_zero_leaves_a_split_group_apart_until_the_controller_plans_it_again'),
+    ("a bundle's own file:// IRI is matched as written, not decoded", "src/lv2.c",
+     "phd_pin_path_decode(iri, decoded, sizeof(decoded)) == 0 &&",
+     "snprintf(decoded, sizeof(decoded), \"%s\", iri) >= 0 &&",
+     "a bundle directory with a space: its own file:// IRI names a file of the bundle", "pinfiles"),
+    ("a record's id is matched in its own spelling only", "src/qualcost.c",
+     "    if (phd_pin_path_decode(id, out, size) != 0)\n", "    if (1)\n",
+     "a_percent_encoded_iri_finds_the_record_of_its_decoded_spelling", "qualcost"),
     ('the rate is not read', 'src/qualcost.c',
      'r != rate ||',
      '(r != rate && 0) ||',
@@ -1733,6 +1740,10 @@ def run_test(tree, name, jack=False):
         return run_unit_test(tree, "tests/planner-test", "planner_test.c", name)
     if jack == "qualcost":
         return run_unit_test(tree, "tests/qualcost-test", "qualcost_test.c", name)
+    if jack == "pinfiles":
+        p = subprocess.run(["sh", os.path.join(ROOT, "tests", "pin_files_test.sh"), os.path.join(tree, "plugin-hostd")],
+                           capture_output=True, text=True, timeout=120)
+        return p.returncode, p.stdout + p.stderr
     if jack == "placement":
         return run_unit_test(tree, "tests/placement-test", "placement_test.c", name)
     if jack == "verbs":
