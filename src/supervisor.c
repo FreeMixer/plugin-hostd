@@ -2377,6 +2377,53 @@ static int ledger_set_many(instance_t *i, char **tok, int ntok)
     return rc;
 }
 
+/* curve_bind <instance> <display> clear | <kind> <family> <term> ...: the display's binding lines, kept in the order
+ * they were sent and replayed as they were sent, so the respawned worker binds what the controller bound. Each line is
+ * keyed by its display, kind and family: clear, or a line of another kind or family, drops the display's earlier lines
+ * (the worker starts its binding again on them), and a line the ledger already holds moves to the end, as it is sent
+ * again. What only the host keeps (KIND_HOST): a checkpoint keeps it. 0, or -1 with the ledger as it was when memory runs
+ * out. */
+static int ledger_curve_bind(instance_t *i, const char *line, char **tok, int ntok)
+{
+    char display[64], key[256], *prev;
+    size_t dlen;
+    int n, kept = 0, clear;
+
+    if (ntok < 4)
+        return 0;
+    clear = !strcmp(tok[3], "clear");
+    if (!clear && ntok < 6)
+        return 0;
+    dlen = (size_t)snprintf(display, sizeof(display), "%s %s ", OMX_VERB_CURVE_BIND, tok[2]);
+    if (!clear && snprintf(key, sizeof(key), "%s%s %s", display, tok[3], tok[4]) >= (int)sizeof(key))
+        return 0;
+    for (n = 0; n < i->ntail; n++)
+    {
+        const char *k = i->tail[n].key;
+        int mine = k && !strncmp(k, display, dlen);
+
+        if (mine && (clear || strcmp(k, key) != 0 || !strcmp(i->tail[n].line, line)))
+        {
+            free(i->tail[n].line);
+            free(i->tail[n].key);
+            continue;
+        }
+        i->tail[kept++] = i->tail[n];
+    }
+    i->ntail = kept;
+    if (clear)
+        return 0;
+    /* appended unkeyed, then keyed: a display's lines share their key, and tail_add would fold them into one */
+    if (tail_add(i, line, NULL, KIND_HOST, &prev) != 0)
+        return -1;
+    if (!(i->tail[i->ntail - 1].key = strdup(key)))
+    {
+        free(i->tail[--i->ntail].line);
+        return -1;
+    }
+    return 0;
+}
+
 /* the ledger takes the verb of one forwarded line, if it is one it keeps; 0, or -1 when memory runs out */
 static int ledger_verb(instance_t *i, const char *line)
 {
@@ -2393,6 +2440,8 @@ static int ledger_verb(instance_t *i, const char *line)
     }
     if (ntok && !strcmp(tok[0], OMX_VERB_PARAM_SET_MANY))
         rc = ledger_set_many(i, tok, ntok);
+    else if (ntok && !strcmp(tok[0], OMX_VERB_CURVE_BIND))
+        rc = ledger_curve_bind(i, line, tok, ntok);
     else if (ntok)
         rc = record(i, line, tok, ntok);
     free(copy);

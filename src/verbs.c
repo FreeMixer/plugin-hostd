@@ -166,6 +166,13 @@ static char *handle(char *line, char **tok, int ntok)
     /* the bulk verbs: several parameters of one instance, which the worker that holds it answers alone */
     if (!strcmp(verb, OMX_VERB_PARAM_GET_MANY) || !strcmp(verb, OMX_VERB_PARAM_SET_MANY))
         return ntok > 2 ? sup_call(atoi(tok[1]), line) : sup_resp(ERR_INVALID_OPERATION);
+    /* the curve verbs (plugin-hostd-protocol, doc/protocol.md, Curves): a display of an instance's panel bound to its
+     * parameters and drawn, which the worker that holds it answers; the ledger keeps the binding for a respawn */
+    if (!strcmp(verb, OMX_VERB_CURVE_BIND))
+        return ntok > 3 ? sup_call(atoi(tok[1]), line) : strdup(MESSAGE_FEW_ARGUMENTS);
+    if (!strcmp(verb, OMX_VERB_CURVE_POINTS))
+        return ntok == 4 ? sup_call(atoi(tok[1]), line)
+                         : strdup(ntok < 4 ? MESSAGE_FEW_ARGUMENTS : MESSAGE_MANY_ARGUMENTS);
 
     if (!strcmp(verb, PHD_VERB_ADD))
     {

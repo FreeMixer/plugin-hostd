@@ -68,6 +68,12 @@
  *                               (an LFO, a preset load); no other param_set writes any feedback
  *   preset_list <n>             "resp 2", and preset_get <n> <0|1> one preset each, -902 for any other index
  *   track_info <n> ...          "resp 0"; the fake keeps nothing of it (FAKE_LOG shows what it was sent)
+ *   curve_bind <n> <d> clear | <kind> <family> <term> ...   "resp 0": the display's terms by their role and index, a term
+ *                               of one replacing it, a line of another kind or family starting them again, clear and
+ *                               remove dropping them, as the protocol library keeps a binding; "resp -103" for a term
+ *                               whose symbol starts with "nope", before anything is kept
+ *   curve_points <n> <d> <p>    "resp 0 1 <d>,<terms>", the number of terms display d holds; "resp -537" when it holds
+ *                               none, so a test reads what the binding the worker holds is
  *   note_input <n>              "resp 0 midi_in" for an instance whose uri holds "synth", "resp 0 -" for any other
  *   note_on, note_off, all_notes_off <n> ...   "resp 0" for a synth, OMX_REPLY_HOST_NOTE_QUEUE_FULL_RESP for one whose uri holds
  *                               "synth_full", OMX_REPLY_HOST_NO_NOTE_INPUT_RESP for any other; the fake
@@ -147,6 +153,10 @@ static char g_expect[MAX_INST][PHD_SHA256_HEX_LEN + 64];
 static int g_chain_expect[MAX_INST];
 
 static inst_t g_inst[MAX_INST];
+/* each instance's curve bindings (curve_bind): per display its kind and family and the role.index of each term */
+#define CURVE_DISPLAYS 4
+#define CURVE_TERMS    256
+static struct { char kf[96]; char term[CURVE_TERMS][32]; int n; } g_curve[MAX_INST][CURVE_DISPLAYS];
 static struct { int inst; char sym[64]; long k; } g_out[MAX_OUTPUTS];
 static int g_nout;
 static char g_conns[MAX_CONNS][256];
@@ -281,13 +291,14 @@ static const char *adapter_refusal(const char *uri)
 
 static void receive(msg_t *msg)
 {
-    char *line = strndup(msg->data, msg->data_size), *copy = strdup(line), *tok[16], *t;
+    /* as many words as a line holds (PHD_LINE_WORDS_MAX): a curve_bind of a third of a 32-band EQ is 49 */
+    char *line = strndup(msg->data, msg->data_size), *copy = strdup(line), *tok[PHD_LINE_WORDS_MAX], *t;
     int ntok = 0, fd = msg->sender_id, n, k;
     const char *verb, *presets_learn = getenv("FAKE_PRESETS_LEARN");
 
     log_command(line);
     /* a quoted word is one word, as mod-host's tokenizer reads it */
-    for (t = copy; t && ntok < 16;)
+    for (t = copy; t && ntok < PHD_LINE_WORDS_MAX;)
     {
         t += strspn(t, " \t\n");
         if (!*t)
@@ -403,8 +414,57 @@ static void receive(msg_t *msg)
             answer(fd, "resp %d", id);
         }
     }
+    else if (!strcmp(verb, OMX_VERB_CURVE_BIND) && ntok > 3 && n >= 0 && n < MAX_INST && g_inst[n].exists &&
+             atoi(tok[2]) >= 0 && atoi(tok[2]) < CURVE_DISPLAYS)
+    {
+        int d = atoi(tok[2]), t, j;
+        char kf[96];
+
+        for (k = 5; k < ntok; k++)
+            if (strstr(tok[k], "=nope"))
+                break;
+        if (k < ntok)
+            answer(fd, "resp -103");
+        else if (!strcmp(tok[3], "clear"))
+        {
+            g_curve[n][d].n = 0;
+            answer(fd, "resp 0");
+        }
+        else if (ntok < 6)
+            answer(fd, "resp -902");
+        else
+        {
+            snprintf(kf, sizeof(kf), "%s %s", tok[3], tok[4]);
+            if (strcmp(kf, g_curve[n][d].kf) != 0)
+                g_curve[n][d].n = 0;
+            snprintf(g_curve[n][d].kf, sizeof(g_curve[n][d].kf), "%s", kf);
+            for (k = 5; k < ntok; k++)
+            {
+                char role[32];
+
+                snprintf(role, sizeof(role), "%.*s", (int)strcspn(tok[k], "="), tok[k]);
+                for (t = 0; t < g_curve[n][d].n && strcmp(g_curve[n][d].term[t], role); t++)
+                    ;
+                if (t == g_curve[n][d].n && t < CURVE_TERMS)
+                    j = g_curve[n][d].n++, snprintf(g_curve[n][d].term[j], sizeof(g_curve[n][d].term[j]), "%s", role);
+            }
+            answer(fd, "resp 0");
+        }
+    }
+    else if (!strcmp(verb, OMX_VERB_CURVE_POINTS) && ntok == 4 && n >= 0 && n < MAX_INST && g_inst[n].exists &&
+             atoi(tok[2]) >= 0 && atoi(tok[2]) < CURVE_DISPLAYS)
+    {
+        if (g_curve[n][atoi(tok[2])].n == 0)
+            answer(fd, "resp -537");
+        else
+            answer(fd, "resp 0 1 %d,%d", atoi(tok[2]), g_curve[n][atoi(tok[2])].n);
+    }
     else if (verb_is(verb, EFFECT_REMOVE) && ntok == 2)
     {
+        if (n == -1)
+            memset(g_curve, 0, sizeof(g_curve));
+        else if (n >= 0 && n < MAX_INST)
+            memset(g_curve[n], 0, sizeof(g_curve[n]));
         if (n == -1)
             memset(g_inst, 0, sizeof(g_inst));
         else if (n >= 0 && n < MAX_INST && g_inst[n].exists)
