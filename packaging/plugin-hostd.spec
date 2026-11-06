@@ -13,20 +13,21 @@ BuildRequires: gcc
 BuildRequires: make
 BuildRequires: diffutils
 BuildRequires: python3
-# <plugin-db/pin.h>, and through it libcrypto; a floor and the next minor
-BuildRequires: (pkgconfig(plugin-db) >= 0.1.0 with pkgconfig(plugin-db) < 0.2)
+# <plugin-db/pin.h>, and through it libcrypto; a floor, and a ceiling past 0.2.0, which it is built and tested against
+BuildRequires: (pkgconfig(plugin-db) >= 0.1.0 with pkgconfig(plugin-db) < 0.3)
 BuildRequires: cjson-devel
 # the protocol library and the declared protocol: <plugin-hostd/protocol.h> and the headers it includes, the protocol's
-# JSON and mod-host's. 0.3.0 is the first that declares hello and the bulk verbs the sources use; a floor and the next minor
-BuildRequires: (plugin-hostd-protocol-devel >= 0.3.0 with plugin-hostd-protocol-devel < 0.4)
+# JSON and mod-host's. 0.4.0 is the first without lv2_worker auto, whose words and texts the docs are generated from;
+# a floor and the next minor
+BuildRequires: (plugin-hostd-protocol-devel >= 0.4.0 with plugin-hostd-protocol-devel < 0.5)
 # the probe runner's default rates, the protocol's parameter scales and the probe output's shared words are read from
 # omx-contract's C headers, its JSON string literals are spelled by omx-contract's one writer
 # (<omxcontract/omx_json_write.h>), and the format tables are items of its schema (3.9.0 the first with the writer, the
 # schema_major of its pkg-config file and the %%{omx_contract_dir} macro this spec names its files by); a floor only
 BuildRequires: (omx-contract-devel >= 3.9.0 with omx-contract-devel < 4)
 # the protocol library, ports on 127.0.0.1 unless told otherwise (socket_set_bind_address()); the daemon is built
-# against the declared protocol of 0.3.0; a floor and the next minor
-Requires: (plugin-hostd-protocol%{?_isa} >= 0.3.0 with plugin-hostd-protocol%{?_isa} < 0.4)
+# against the declared protocol of 0.4.0; a floor and the next minor
+Requires: (plugin-hostd-protocol%{?_isa} >= 0.4.0 with plugin-hostd-protocol%{?_isa} < 0.5)
 # omx-clap-core is a build dependency of the check stage only: the CLAP worker and the fixtures the real-worker
 # tests drive. A build with `--without check` needs nothing of omx-clap-core, so plugin-hostd and omx-clap-core
 # do not build-depend on each other. A floor only: the lowest release with what the tests need (omx-clap-core 0.21,
@@ -38,7 +39,7 @@ BuildRequires: (omx-clap-host-tests >= 0.25.0 with omx-clap-host-tests < 0.30)
 BuildRequires: (omx-contract >= 3.4.0 with omx-contract < 4)
 # the daemon's verbs (plugin-hostd-protocol's package of the contract directory) and the shared verbs and the
 # reply.host.* codes they refer to (make test-verbs-declared)
-BuildRequires: (plugin-hostd-protocol-contract >= 0.3.0 with plugin-hostd-protocol-contract < 0.4)
+BuildRequires: (plugin-hostd-protocol-contract >= 0.4.0 with plugin-hostd-protocol-contract < 0.5)
 BuildRequires: (omx-clap-core-contract >= 0.26.2 with omx-clap-core-contract < 0.30)
 %endif
 # the format tables, which readers read at run time
@@ -67,9 +68,9 @@ Summary: Talk to plugin-hostd from your own controller without retyping its prot
 BuildArch: noarch
 Requires: %{name}-contract = %{version}-%{release}
 # the declared protocol, <plugin-hostd/protocol.h>, which plugin-hostd.pc requires; a floor only
-Requires: (plugin-hostd-protocol-devel >= 0.3.0 with plugin-hostd-protocol-devel < 0.4)
-# <plugin-db/pin.h>, which plugin-hostd.pc requires; a floor and the next minor
-Requires: (plugin-db-devel >= 0.1.0 with plugin-db-devel < 0.2)
+Requires: (plugin-hostd-protocol-devel >= 0.4.0 with plugin-hostd-protocol-devel < 0.5)
+# <plugin-db/pin.h>, which plugin-hostd.pc requires; a floor, and a ceiling past 0.2.0, which it is tested against
+Requires: (plugin-db-devel >= 0.1.0 with plugin-db-devel < 0.3)
 
 %description devel
 The pin header, the words of the grouping planner and the running history,
@@ -84,7 +85,7 @@ Summary: plugin-hostd's format tables, for programs that read them at run time
 BuildArch: noarch
 # the daemon's verbs are plugin-hostd-protocol's package of the contract directory since 0.2.0 (they were this
 # package's before): a reader of this package reads that one too; a floor only
-Requires: (plugin-hostd-protocol-contract >= 0.3.0 with plugin-hostd-protocol-contract < 0.4)
+Requires: (plugin-hostd-protocol-contract >= 0.4.0 with plugin-hostd-protocol-contract < 0.5)
 Requires: (omx-clap-core-contract >= 0.26.2 with omx-clap-core-contract < 0.30)
 # the tables live in omx-contract's contract directory and are read against its schema: 3.2.0 is the first whose
 # source field takes an index (omx_clap_panel_display.meter_ids[0]), so an older one never sits beside a table it
@@ -183,6 +184,8 @@ make test-daemon check-generated check-rendered
   (kept in <pin_store>.accepted) and the files as its pin with no verdict, and the
   plugin runs alone in a worker of its own. The choice outlives a pin_reload and a
   restart; pin_clear takes it back; under strict it counts for nothing
+- Requires plugin-hostd-protocol 0.4.0 or later and before 0.5, the first without
+  lv2_worker auto; plugin-db before 0.3, built and tested against 0.2.0
 * Wed Nov 04 2026 Pau Aliagas <linuxnow@gmail.com> - 0.18.0-1
 - The daemon answers hello itself, for each controller connection, and grants
   what the controller asks of tags, errors and seq as plugin-hostd-protocol 0.3.0
