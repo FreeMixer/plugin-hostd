@@ -209,7 +209,7 @@ SABOTAGE = [
      "            snprintf(place, sizeof(place), PHD_PLACE_OWN);\n        }\n        /* first-use", "        }\n        /* first-use",
      "a_pinned_lv2_plugin_gets_a_worker_of_its_own"),
     ("a pin's path may hold a separator of pin_set's words", "src/pins.c",
-     "if (!*path || *path == '/' || strpbrk(path, PHD_PIN_PATH_EXCLUDED))", "if (!*path || *path == '/')",
+     "if (!*path || *path == '/' || strpbrk(path, PHD_PIN_PATH_EXCLUDED) ||", "if (!*path || *path == '/' ||",
      "what_cannot_be_pinned_is_refused_and_never_pinned_in_part"),
     ("a command is cut at its spaces again", "src/verbs.c", "    ntok = words_read(copy, tok, MAX_TOKENS);\n",
      "    {\n        char *sv = NULL, *t;\n\n        ntok = 0;\n        for (t = strtok_r(copy, \" \\t\", &sv); t && ntok < MAX_TOKENS; t = strtok_r(NULL, \" \\t\", &sv))\n            tok[ntok++] = t;\n    }\n",
