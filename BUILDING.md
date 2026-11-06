@@ -4,7 +4,7 @@ Building plugin-hostd
     make [PROTOCOL_DIR=<plugin-hostd-protocol checkout>]
 
 The protocol is `libplugin-hostd-protocol.so.0`, the plugin-hostd protocol as a
-library of its own (FreeMixer/plugin-hostd-protocol, 0.3.0 or later, before 0.4), with the
+library of its own (FreeMixer/plugin-hostd-protocol, 0.4.0 or later, before 0.5), with the
 declared protocol beside it (`<plugin-hostd/protocol.h>` and the headers it
 includes, the protocol's JSON and mod-host's, the verb table), from
 `pkg-config plugin-hostd-protocol` when it is installed (its `make install`, or
@@ -126,9 +126,8 @@ mod-host (the one on `PATH` unless `MOD_HOST` names another). It builds `omx-cla
 the checkout against this tree's headers, and `tests/lv2_fixture.c` into `tests/plugin-hostd-fixture.lv2`. It checks
 that `lv2_worker omx-clap-host` runs an LV2 plugin through the adapter; that a plugin the adapter refuses answers
 `-512`, with the event naming the `hosting.*` code from the reply to that add, also in a pool worker whose log several
-plugins share; that `auto` runs a refused plugin on mod-host; and that a plugin no bundle holds for the adapter, which
-it answers `-101`, is not found under `omx-clap-host` and is looked for by mod-host under `auto`, with no event in
-either case. It also checks that a tempo set before a kill is handed to the respawned omx-clap-host, and that the note
+plugins share; that a refused plugin answers `-512` on every add and mod-host is never started for it; and that a
+plugin no bundle holds for the adapter, which it answers `-101`, is not found, with no event. It also checks that a tempo set before a kill is handed to the respawned omx-clap-host, and that the note
 verbs reach it and come back as it answered them, and are answered `-514` by the daemon for a plugin on mod-host. Where
 omx-clap-host does not take them yet (a tempo, FreeMixer/omx-clap-core#88; the notes, FreeMixer/omx-clap-core#122) the
 case prints `PENDING` with the issue and checks what the worker answers today. Without `OMX_CLAP_HOST_SRC` the target

@@ -96,6 +96,10 @@ int pin_refuse(const char *uri, const char *path, const char *why);
  * whitespace as %20 and decoded where the daemon opens or hashes the file */
 int pin_percent_decode(const char *in, char *out, size_t size);
 
+/* whether the user's choice (pin_accept of a plugin whose pins.d pin carries verdict=refused) counts: under pin_mode
+ * first-use only, set before pins_init */
+void pins_accepting(int on);
+
 void pins_finish(void);
 
 #endif

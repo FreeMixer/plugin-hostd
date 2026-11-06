@@ -1119,19 +1119,6 @@ typedef struct PICK_T {
 
 static pick_t *g_pick;
 static int g_npick;
-static char **g_refused;
-static int g_nrefused;
-
-static int worker_is(const char *word)
-{
-    int ok = 0;
-
-#define X(id, name, meaning) ok |= !strcmp(word, name);
-    PHD_LV2_WORKERS(X)
-#undef X
-    return ok;
-}
-
 static const char *picked(const char *uri)
 {
     int n;
@@ -1149,42 +1136,20 @@ static const char *worker_in_force(const conf_t *conf, const char *uri)
     return pick ? pick : conf->lv2_worker;
 }
 
-static int refused(const char *uri)
-{
-    int n;
-
-    for (n = 0; n < g_nrefused; n++)
-        if (!strcmp(g_refused[n], uri))
-            return 1;
-    return 0;
-}
-
 const char *lv2_route(const conf_t *conf, const char *uri)
 {
     const char *worker = worker_in_force(conf, uri);
 
     if (!strcmp(worker, PHD_LV2_WORKER_CLAP_HOST))
         return PHD_FORMAT_LV2_CLAP;
-    if (!strcmp(worker, PHD_LV2_WORKER_AUTO) && !refused(uri))
-        return PHD_FORMAT_LV2_CLAP;
     return NULL;
-}
-
-int lv2_worker_is_auto(const conf_t *conf, const char *uri)
-{
-    return !strcmp(worker_in_force(conf, uri), PHD_LV2_WORKER_AUTO);
-}
-
-int lv2_refused_under_auto(const conf_t *conf, int format, const char *uri)
-{
-    return format == format_by_name(PHD_FORMAT_LV2) && lv2_worker_is_auto(conf, uri) && refused(uri);
 }
 
 int lv2_worker_pick(const char *uri, const char *worker)
 {
     int n;
 
-    if (strcmp(worker, PHD_WORD_NONE) && (!worker_is(worker) || strlen(worker) >= CONF_SIZE_word))
+    if (strcmp(worker, PHD_WORD_NONE) && (!conf_lv2_worker_valid(worker) || strlen(worker) >= CONF_SIZE_word))
         return -1;
     for (n = 0; n < g_npick; n++)
         if (!strcmp(g_pick[n].uri, uri))
@@ -1215,38 +1180,6 @@ int lv2_worker_pick(const char *uri, const char *worker)
     }
     snprintf(g_pick[n].worker, sizeof(g_pick[n].worker), "%s", worker);
     return 0;
-}
-
-void lv2_adapter_refused(const char *uri)
-{
-    char **grown;
-    char *copy;
-
-    if (refused(uri))
-        return;
-    /* no memory for one more: the table keeps what it holds and this refusal is not remembered, so the adapter is asked again */
-    grown = realloc(g_refused, (g_nrefused + 1) * sizeof(*g_refused));
-    if (grown == NULL)
-        return;
-    g_refused = grown;
-    copy = strdup(uri);
-    if (copy != NULL)
-        g_refused[g_nrefused++] = copy;
-}
-
-/* the adapter may be asked again: about `uri`, or about every plugin when it is NULL */
-void lv2_refusals_forget(const char *uri)
-{
-    int n = 0;
-
-    while (n < g_nrefused)
-        if (!uri || !strcmp(g_refused[n], uri))
-        {
-            free(g_refused[n]);
-            g_refused[n] = g_refused[--g_nrefused];
-        }
-        else
-            n++;
 }
 
 /* the adapter answers its refusal "resp <code> <hosting code>": the word after the code, PHD_WORD_NONE when there is none */

@@ -20,8 +20,8 @@ Debian bookworm and trixie and Raspberry Pi OS (amd64 and arm64):
     curl -fsSLO https://www.openmixer.org/deb/openmixer-release.deb && sudo apt install ./openmixer-release.deb
     sudo apt update && sudo apt install plugin-hostd omx-clap-host
 
-The LV2 worker for the plugins omx-clap-host's adapter refuses is mod-host, which Debian does
-not package; without it CLAP plugins and the LV2 plugins the adapter takes still work.
+omx-clap-host runs both CLAP and LV2 plugins. A plugin it cannot run is refused with a code that says why, and is
+never handed to another host. mod-host runs LV2 plugins only when you choose it (`lv2_worker mod-host`).
 
 Start
 -----

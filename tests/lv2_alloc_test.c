@@ -142,18 +142,7 @@ int main(void)
     const char *u1 = "urn:test:one", *u2 = "urn:test:two";
     const char *clap = "omx-clap-host";
 
-    /* the refusal table */
-    lv2_adapter_refused(u1);
-    check(route(u1, "auto") == NULL, "positive control: a refusal is remembered with memory");
-    g_fail_after = 0;
-    lv2_adapter_refused(u2);
-    g_fail_after = -1;
-    check(route(u2, "auto") != NULL, "a refusal with no memory is not remembered (the adapter is asked again)");
-    check(route(u1, "auto") == NULL, "the refusal held before is still there");
-    lv2_adapter_refused(u2);
-    check(route(u2, "auto") == NULL, "with memory again the refusal is remembered");
-    lv2_refusals_forget(NULL);
-
+    check(lv2_worker_pick(u1, "auto") == -1, "auto is no worker: a pick of it is refused");
     /* the pick table: under mod-host a uri is on the lv2 row (no route) unless a pick sends it to the CLAP worker */
     check(lv2_worker_pick(u1, clap) == 0 && route(u1, "mod-host") != NULL, "positive control: a pick is kept with memory");
     g_fail_after = 0;

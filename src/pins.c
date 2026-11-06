@@ -106,12 +106,41 @@ static int refused(const pin_t *p)
     return !strcmp(p->verdict, PHD_PIN_VERDICT_REFUSED);
 }
 
-/* the package pin of the uri when it carries verdict=refused, which nothing overrides */
-static pin_t *pkg_refusal(const char *uri)
+/* The plugins the user chose to load although their pin carries verdict=refused, from a pins.d file or the pin_file
+ * (pin_accept under first-use). A failed qualification is our advice, not a wall: the user decides. The choice is kept
+ * beside the store, one uri per line, and counts only under first-use (g_accepting): strict admits what passed and
+ * nothing else. An accepted plugin is admitted with the files its pin holds and is never qualified for a shared
+ * worker, so it runs alone. */
+static char **g_accepted;
+static int g_naccepted;
+static int g_accepting;
+static char g_accepted_path[PATH_MAX + 16];
+
+static int accepted(const char *uri)
+{
+    int n;
+
+    if (!g_accepting)
+        return 0;
+    for (n = 0; n < g_naccepted; n++)
+        if (!strcmp(g_accepted[n], uri))
+            return 1;
+    return 0;
+}
+
+/* the package pin of the uri when it carries verdict=refused, whether or not the user accepted it */
+static pin_t *pkg_refused(const char *uri)
 {
     pin_t *p = find_in(g_pkg, g_npkg, uri);
 
     return p && refused(p) ? p : NULL;
+}
+
+/* the package pin of the uri when it carries verdict=refused and the user has not chosen to load it: nothing of the
+ * host's overrides it */
+static pin_t *pkg_refusal(const char *uri)
+{
+    return accepted(uri) ? NULL : pkg_refused(uri);
 }
 
 /* the pin that holds for a uri: a package refusal, else the host's pin, else the package's */
@@ -421,6 +450,122 @@ static void store_save(void)
     fs_sync_dir(g_store);
 }
 
+/* ---------------------------------------------------------------- the user's choices */
+
+static void accepted_free(void)
+{
+    while (g_naccepted)
+        free(g_accepted[--g_naccepted]);
+    free(g_accepted);
+    g_accepted = NULL;
+}
+
+static int accepted_add(const char *uri)
+{
+    char **grown, *copy;
+    int n;
+
+    for (n = 0; n < g_naccepted; n++)
+        if (!strcmp(g_accepted[n], uri))
+            return 0;
+    grown = realloc(g_accepted, (g_naccepted + 1) * sizeof(*g_accepted));
+    if (!grown)
+        return -1;
+    g_accepted = grown;
+    copy = strdup(uri);
+    if (!copy)
+        return -1;
+    g_accepted[g_naccepted++] = copy;
+    return 0;
+}
+
+/* forget the user's choice of `uri`, or of every plugin when it is PHD_WORD_ALL; 1 when one was forgotten */
+static int accepted_drop(const char *uri)
+{
+    int n = 0, dropped = 0;
+
+    while (n < g_naccepted)
+        if (!strcmp(uri, PHD_WORD_ALL) || !strcmp(g_accepted[n], uri))
+        {
+            free(g_accepted[n]);
+            g_accepted[n] = g_accepted[--g_naccepted];
+            dropped = 1;
+        }
+        else
+            n++;
+    return dropped;
+}
+
+/* the file of the user's choices, beside the store: none when the store has no path */
+static const char *accepted_file(void)
+{
+    if (!*g_store)
+        return NULL;
+    snprintf(g_accepted_path, sizeof(g_accepted_path), "%s.accepted", g_store);
+    return g_accepted_path;
+}
+
+static void accepted_read(void)
+{
+    const char *path = accepted_file();
+    char line[PHD_LINE_MAX + 2];
+    FILE *file;
+
+    if (!path || !(file = fopen(path, "r")))
+        return;
+    while (fgets(line, sizeof(line), file))
+    {
+        line[strcspn(line, "\r\n")] = '\0';
+        if (*line && *line != '#' && accepted_add(line) != 0)
+            fprintf(stderr, "plugin-hostd: %s: out of memory, the user's choice of %s is not read\n", path, line);
+    }
+    fclose(file);
+}
+
+/* written to a temporary file beside it and renamed over it, as the store is; a failure is said and costs the choice
+ * after a restart only */
+static void accepted_save(void)
+{
+    const char *path = accepted_file();
+    char tmp[PATH_MAX + 32];
+    FILE *file;
+    int n, fd, ok;
+
+    if (!path)
+        return;
+    snprintf(tmp, sizeof(tmp), "%s.XXXXXX", path);
+    fd = -1;
+    if (fs_mkdir_parents(tmp) != 0 || (fd = mkstemp(tmp)) < 0 || !(file = fdopen(fd, "w")))
+    {
+        if (fd >= 0)
+        {
+            close(fd);
+            unlink(tmp);
+        }
+        fprintf(stderr, "plugin-hostd: can't write %s: %s; the user's choices are NOT kept past a restart\n", path,
+                strerror(errno));
+        return;
+    }
+    fprintf(file, "# plugins the user chose to load although their qualification refused them (pin_accept)\n");
+    for (n = 0; n < g_naccepted; n++)
+        fprintf(file, "%s\n", g_accepted[n]);
+    ok = fflush(file) == 0 && !ferror(file) && fsync(fileno(file)) == 0;
+    ok = fclose(file) == 0 && ok;
+    if (!ok || rename(tmp, path) != 0)
+    {
+        fprintf(stderr, "plugin-hostd: can't write %s: %s; the user's choices are NOT kept past a restart\n", path,
+                strerror(errno));
+        unlink(tmp);
+        return;
+    }
+    fs_sync_dir(path);
+}
+
+void pins_accepting(int on)
+{
+    g_accepting = on;
+}
+
 /* where a file of pin lines goes, and what a line outside the grammar costs there */
 typedef enum { LAYER_STORE, LAYER_FILE, LAYER_PKG } layer_t;
 
@@ -626,8 +771,12 @@ static int load(void)
 
     if (*g_cfg_dir)
         pkg_read(g_cfg_dir);
+    accepted_free();
     if (*store_path(g_cfg_store))
+    {
         file_read(g_store, LAYER_STORE);
+        accepted_read();
+    }
     rc = *g_cfg_file ? file_read(g_cfg_file, LAYER_FILE) : 0;
     for (n = 0; n < g_npins; n++)
         if (pkg_refusal(g_pins[n].uri))
@@ -778,6 +927,8 @@ int pins_clear(const char *uri)
     pin_t *p;
     int learned = 0;
 
+    if (accepted_drop(strcmp(uri, PHD_WORD_ALL) ? bare(uri) : uri))
+        accepted_save();
     if (!strcmp(uri, PHD_WORD_ALL))
     {
         for (p = g_pins; p < g_pins + g_npins; p++)
@@ -804,6 +955,7 @@ void pins_finish(void)
 {
     own_free();
     pkg_free();
+    accepted_free();
 }
 
 /* ---------------------------------------------------------------- the check */
@@ -968,15 +1120,27 @@ int pins_learn(const format_t *format, const char *uri, const char *search)
 
 int pins_accept(const format_t *format, const char *uri, const char *search)
 {
-    if (!find(bare(uri)))
+    const pin_t *p = find(bare(uri));
+    int rc, chosen;
+
+    if (!p)
         return OMX_REPLY_HOST_PIN_ABSENT_RESP;
-    if (pkg_refusal(bare(uri)))
+    /* its qualification refused it: the user's choice, kept, and the files as they are now its pin with no verdict, so
+     * it runs in a worker of its own like any plugin not qualified for a shared one */
+    chosen = pkg_refused(bare(uri)) != NULL || refused(p);
+    if (chosen && (!g_accepting || accepted_add(bare(uri)) != 0))
+        return g_accepting ? ERR_MEMORY_ALLOCATION : OMX_REPLY_PLUGIN_HOSTD_PIN_REFUSED_RESP;
+    rc = record(format, uri, search);
+    if (chosen && rc != SUCCESS)
+        accepted_drop(bare(uri));
+    if (chosen)
     {
-        fprintf(stderr, "plugin-hostd: %s: its pins.d pin carries " PHD_PIN_VERDICT_KEY PHD_PIN_VERDICT_REFUSED
-                        ", which pin_accept does not override\n", uri);
-        return OMX_REPLY_PLUGIN_HOSTD_PIN_REFUSED_RESP;
+        accepted_save();
+        if (rc == SUCCESS)
+            fprintf(stderr, "plugin-hostd: %s: its pin carries " PHD_PIN_VERDICT_KEY PHD_PIN_VERDICT_REFUSED
+                            "; the user chose to load it, alone in a worker of its own\n", uri);
     }
-    return record(format, uri, search);
+    return rc;
 }
 
 int pins_set_layout(const char *uri, const char *layout)
@@ -1019,7 +1183,7 @@ int pins_check(const format_t *format, const char *uri, const char *search, cons
     for (n = 0; n < p->nfiles && rc == SUCCESS; n++)
         rc = hash_file(root, p->path[n], p->digest[n], uri);
     /* the verdict is about these very files: only once they are the pinned ones does a refused one refuse the add */
-    if (rc == SUCCESS && !strcmp(p->verdict, PHD_PIN_VERDICT_REFUSED))
+    if (rc == SUCCESS && !strcmp(p->verdict, PHD_PIN_VERDICT_REFUSED) && !accepted(bare(uri)))
     {
         fprintf(stderr, "plugin-hostd: %s: its pin carries " PHD_PIN_VERDICT_KEY PHD_PIN_VERDICT_REFUSED "\n", uri);
         rc = OMX_REPLY_PLUGIN_HOSTD_PIN_REFUSED_RESP;

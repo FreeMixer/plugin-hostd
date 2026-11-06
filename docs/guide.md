@@ -8,7 +8,7 @@ Raspberry Pi, and cannot let one bad plugin stop the show.
 
 - A crash stays small: only the plugin's worker is lost, and it is respawned with the links the daemon made itself.
 - Nothing to change in your controller: it speaks mod-host's socket protocol, same ports, same replies.
-- LV2 through omx-clap-host's adapter, with mod-host for the plugins the adapter refuses, and CLAP through omx-clap-host, side by side.
+- LV2 through omx-clap-host's adapter and CLAP through omx-clap-host, side by side. A plugin the host cannot run is refused with a code that says why, never handed to another host.
 - Audio never passes through the daemon; every worker is a JACK client, as in mod-host.
 - A plugin that keeps crashing is singled out and given up on without touching its neighbours.
 
@@ -34,7 +34,7 @@ Debian bookworm and trixie and Raspberry Pi OS (amd64 and arm64):
     curl -fsSLO https://www.openmixer.org/deb/openmixer-release.deb && sudo apt install ./openmixer-release.deb
     sudo apt update && sudo apt install plugin-hostd omx-clap-host
 
-The LV2 worker is mod-host, which Debian does not package; without it CLAP plugins still work.
+omx-clap-host runs CLAP and LV2 plugins. mod-host, which Debian does not package, runs LV2 plugins only when you choose it.
 
 Status
 ------
@@ -148,7 +148,7 @@ The settings live in a file, `-c`, `$PLUGIN_HOSTD_CONF` or
 |---|---|---|
 | `mod_host` | `mod-host` | worker for lv2 (a name on PATH or a path) |
 | `clap_host` | `omx-clap-host` | worker for clap |
-| `lv2_worker` | `omx-clap-host` | who runs an LV2 plugin: omx-clap-host (the clap_host program, through its LV2 adapter, a plugin it cannot run refused with a code), mod-host (the mod_host program, only when named here or by lv2_worker_set) or auto (the adapter first, mod-host for what it refuses, each such plugin in a worker of its own unless its add names a placement); lv2_worker_set overrides it for one plugin |
+| `lv2_worker` | `omx-clap-host` | who runs an LV2 plugin: omx-clap-host (the clap_host program, through its LV2 adapter, a plugin it cannot run refused with a code), mod-host (the mod_host program, only when named here or by lv2_worker_set); a plugin the one in force refuses is never handed to the other; lv2_worker_set overrides it for one plugin |
 | `lv2_path` | `$LV2_PATH`, else `/usr/lib/lv2:/usr/lib/x86_64-linux-gnu/lv2:/usr/lib/aarch64-linux-gnu/lv2:/usr/lib/arm-linux-gnueabihf/lv2:/usr/local/lib/lv2:/usr/local/lib/x86_64-linux-gnu/lv2:/usr/local/lib/aarch64-linux-gnu/lv2:/usr/local/lib/arm-linux-gnueabihf/lv2:/usr/lib64/lv2:/usr/local/lib64/lv2` | where bundles are searched |
 | `lv2_extra` | `` | the site's own bundle folders, searched after lv2_path: the one declaration of them, which plugin-qualify and omx-panel read too |
 | `clap_path` | `~/.clap:/usr/lib/clap` | where .clap files are searched by whoever searches (plugin-qualify, omx-panel); an add names its file, so the daemon loads none by search; $CLAP_PATH is searched before it |
@@ -160,7 +160,7 @@ The settings live in a file, `-c`, `$PLUGIN_HOSTD_CONF` or
 | `audio_cores` | `` | the cpus the placement spreads the workers over, a cpu list inside the daemon's own affinity ("1-3"); empty is that affinity less its lowest cpu; the reserved cores are the rest of it |
 | `pin_store` | `` | the file first-use pins are kept in; empty is $XDG_STATE_HOME/plugin-hostd/pins, else $HOME/.local/state/plugin-hostd/pins |
 | `pin_file` | `` | a file of pin lines loaded at start, as plugin-qualify --all --pins writes it; empty is none |
-| `pins_dir` | `/usr/share/plugin-hostd/pins.d` | the read-only pins of packages: every file in it whose name ends in .pins, read at start in name order, under the store, the pin_file and pin_set, except that a pin of verdict=refused there always holds; empty is none |
+| `pins_dir` | `/usr/share/plugin-hostd/pins.d` | the read-only pins of packages: every file in it whose name ends in .pins, read at start in name order, under the store, the pin_file and pin_set, except that a pin of verdict=refused there holds over them until the user's pin_accept; empty is none |
 | `descriptor_dir` | `$OMX_DESCRIPTOR_DIR`, else `` | the scanned descriptors, one file per plugin binary (<id>@<version>-<hash>.json, the hash the binary's SHA-256), written by the scan of an add and read by descriptor_get; empty is $XDG_STATE_HOME/omx/descriptors, else /var/lib/omx/descriptors run as root (a system service), else $HOME/.local/state/omx/descriptors; its variable is for tests only |
 | `qualification_dir` | `$OMX_QUALIFICATION_DIR`, else `` | plugin-qualify's qualification records (verdict, cost, version tested), kept apart from the descriptors; empty is $XDG_STATE_HOME/omx/qualification, else /var/lib/omx/qualification run as root (a system service), else $HOME/.local/state/omx/qualification; its variable is for tests only |
 | `probe` | `plugin-hostd-probe` | the scanner an add runs, as <probe> describe <target>, in a child of its own once per plugin binary; its stdout is the descriptor |
@@ -263,12 +263,12 @@ Verbs the daemon adds
 | `policy_set` | `<format \| *> own \| pool:<name>` | `resp 0` | the placement of an add that says default |
 | `pool_config` | `<name> <max_instances>` | `resp 0` | the instances a pool holds before a sibling opens |
 | `worker_env` | `<format \| *> <cpu-list\|-> <nice\|->` | `resp 0` | the cpu list and the nice value of the workers of a format, at spawn and on the ones running |
-| `pin_set` | `<uri> <path>=<sha256>[,<path>=<sha256>...] <scheme>:<sha256> [verdict=<verdict>] [pool=<pool>]` | `resp 0` | the pin of one plugin: the SHA-256 of every file the host loads for it, a path relative to the bundle (the directory of a single-file format's file), its layout fingerprint and, when they are known, the verdict of its qualification and whether its worker gets the CLAP thread pool; it replaces an earlier pin of the uri; -516 for a plugin whose pins_dir pin carries verdict=refused, which nothing overrides. The pin store, a pin_file and a pins_dir file hold the same line, with or without the verb |
+| `pin_set` | `<uri> <path>=<sha256>[,<path>=<sha256>...] <scheme>:<sha256> [verdict=<verdict>] [pool=<pool>]` | `resp 0` | the pin of one plugin: the SHA-256 of every file the host loads for it, a path relative to the bundle (the directory of a single-file format's file), its layout fingerprint and, when they are known, the verdict of its qualification and whether its worker gets the CLAP thread pool; it replaces an earlier pin of the uri; -516 for a plugin whose pins_dir pin carries verdict=refused, which only the user's pin_accept overrides. The pin store, a pin_file and a pins_dir file hold the same line, with or without the verb |
 | `pin_clear` | `<uri> \| all` | `resp 0` | forget the pin of one plugin, or of every one; a pins_dir pin is read-only and holds again |
 | `pin_reload` | none | `resp 0` | read the pin_file and the pins_dir files again and put the pins in at once, without a restart; the daemon also does this by itself when one of those files changes. Running instances keep running: one the new pins refuse is logged and its id in worker_list is followed by !. The pin_set pins of the controller are kept. -902 under pin_mode off or when the pin_file is gone or has a line outside the grammar, and the earlier pins hold |
 | `pin_changed` | `[<uri>] [files \| layout]` | `resp 0` | the notice the package sync sends to every daemon it knows after it rewrote the pin file: the same as pin_reload, with or without the pin_changed event's words after it; more words than those are -902 |
-| `lv2_worker_set` | `<uri> <mod-host \| omx-clap-host \| auto \| ->` | `resp 0` | the worker of one LV2 plugin, for its adds from now on: it overrides the lv2_worker setting, - takes the override back; -902 for a word that is none of these. Like policy_set it is the controller's, not in the ledger, gone with the daemon |
-| `pin_accept` | `<uri>` | `resp 0` | pin_mode first-use only: take the plugin's files as they are now as its pin, after a pin_changed event; the layout is learned again by the next add and the verdict is dropped; -508 when the plugin has no pin, -509 when its files cannot be collected, -516 when its pins_dir pin carries verdict=refused, -902 under pin_mode strict |
+| `lv2_worker_set` | `<uri> <mod-host \| omx-clap-host \| ->` | `resp 0` | the worker of one LV2 plugin, for its adds from now on: it overrides the lv2_worker setting, - takes the override back; -902 for a word that is none of these. Like policy_set it is the controller's, not in the ledger, gone with the daemon |
+| `pin_accept` | `<uri>` | `resp 0` | pin_mode first-use only: take the plugin's files as they are now as its pin, after a pin_changed event; the layout is learned again by the next add and the verdict is dropped. Of a plugin whose pin carries verdict=refused (pins_dir or pin_file) it is the user's choice to load it anyway: kept beside the pin store, it runs alone in a worker of its own, pin_clear takes the choice back; -508 when the plugin has no pin, -509 when its files cannot be collected, -902 under pin_mode strict |
 | `pin_layout` | `<instance>` | `resp 0 <scheme>:<sha256>` | sent by the daemon to a worker of a format that checks layouts, after it accepted the add of a plugin whose layout pin is still unknown: the layout the worker found after init, which the daemon records in the pin |
 | `pin_expect` | `<instance> <scheme>:<sha256>` | `resp 0` | sent by the daemon to a worker of a format that checks layouts, just before the instance's add: the layout pin that add checks after init and before activate; any other reply than resp 0 refuses the add with that code, and the add is never forwarded |
 | `chain` | `<chain> <instance> [<instance> ...]` | `resp 0` | the instances, in this order, are one chain, run in one worker of place chain:<chain>: each member's state is saved, it is removed from the worker it was in and replayed in the chain's. A chain already declared takes the new order, and a member left out of it goes back to a worker of its own; while its worker is up that worker is kept: a new member joins it (its add, the order, its state, its ledger, its connections) and no other member is restarted, unless the new member's format narrows the worker's world, which forms the chain again. Members of clap and lv2-clap form one chain. A worker that runs chains in one client (clap, lv2-clap) is sent this line, with the members it holds, after the adds of its replay; one that does not (mod-host) never is. A worker that refuses the line would not run the members as one: the chain is forgotten and each member runs in a worker of its own, the line answers -501, and the event chain_refused carries the worker's own code, also when the refusal comes later, on a respawn. Every instance verb still names one member by its own number. A member that crashes the worker is quarantined to a worker of its own and the chain goes on without it; quarantine_clear puts it back. -518 for an instance no add made, -519 for one named twice, -520 for one in another chain, -521 for members no one worker program runs together, -501 for a plugin that may not share a worker while require_pins is on (a CLAP plugin whose first-use pin is not in-process; an LV2 member whose bundle is not found, since a chain's worker sees a world narrowed to the union of its members' bundles), -902 for a chain or an instance that is not a number, or fewer than chain_members_min (1) instances |
@@ -463,11 +463,11 @@ Error codes the daemon adds to mod-host's:
 | `-509` | `OMX_REPLY_PLUGIN_HOSTD_PIN_BINARY_MISMATCH_RESP` | a pinned file is missing or its SHA-256 differs, or the plugin's manifest names a file the pin does not hold: add is refused and no worker sees it |
 | `-510` | `OMX_REPLY_HOST_PIN_LAYOUT_MISMATCH_RESP` | the worker found the parameter layout after init differs from the layout pin: the instance is destroyed before activate |
 | `-511` | `OMX_REPLY_HOST_NO_PARAM_CONTRACT_RESP` | the host holds no checked unit and scale for this parameter: fall back to qualification |
-| `-512` | `OMX_REPLY_PLUGIN_HOSTD_LV2_ADAPTER_REFUSED_RESP` | the lv2-clap worker's LV2 adapter cannot run this plugin (MIDI it does not feed, a required feature it lacks, a layout it does not take): the worker answered the add -102, the lv2_adapter_refused event carries the hosting.* code of that reply, and under lv2_worker auto the plugin is run by the lv2 row instead and this code is never answered; a plugin no bundle of the worker's world holds is no refusal: the worker's -101 is answered |
+| `-512` | `OMX_REPLY_PLUGIN_HOSTD_LV2_ADAPTER_REFUSED_RESP` | the lv2-clap worker's LV2 adapter cannot run this plugin (MIDI it does not feed, a required feature it lacks, a layout it does not take): the worker answered the add -102, the lv2_adapter_refused event carries the hosting.* code of that reply; the plugin is never handed to another host; a plugin no bundle of the worker's world holds is no refusal: the worker's -101 is answered |
 | `-513` | `OMX_REPLY_HOST_NO_NOTE_INPUT_RESP` | the instance's plugin takes no notes (an effect): its worker answers note_on, note_off and all_notes_off with this code |
 | `-514` | `OMX_REPLY_HOST_NOTES_BY_JACK_RESP` | the instance's worker takes no notes on its socket (mod-host): the daemon answers the note verbs and note_input with this code, and the plugin is played through its jack MIDI input with connect |
 | `-515` | `OMX_REPLY_PLUGIN_HOSTD_NO_PRESET_LIST_RESP` | the instance's worker cannot list the plugin's presets (mod-host): the daemon answers preset_list and preset_get with this code; preset_load still takes a preset the controller knows |
-| `-516` | `OMX_REPLY_PLUGIN_HOSTD_PIN_REFUSED_RESP` | the plugin's pin carries verdict=refused: its files are the ones that failed qualification, so add is refused and no worker sees it, and a replayed add is refused the same way; files that differ from the pin answer (-509) first. A pins_dir pin of that verdict is never overridden: pin_set and pin_accept of its plugin answer this code |
+| `-516` | `OMX_REPLY_PLUGIN_HOSTD_PIN_REFUSED_RESP` | the plugin's pin carries verdict=refused: its files are the ones that failed qualification, so add is refused and no worker sees it, and a replayed add is refused the same way; files that differ from the pin answer (-509) first. A pins_dir pin of that verdict is not overridden by the host's pins: pin_set of its plugin answers this code. Only the user's pin_accept under pin_mode first-use loads it, alone |
 | `-517` | `OMX_REPLY_HOST_NOTE_QUEUE_FULL_RESP` | the instance's worker has no room for this note_on, note_off or all_notes_off before its next block: the line was not taken and nothing of it is kept; the controller may send it again |
 | `-518` | `OMX_REPLY_PLUGIN_HOSTD_CHAIN_UNKNOWN_INSTANCE_RESP` | a member of chain is an instance no add made: the chain is not declared |
 | `-519` | `OMX_REPLY_PLUGIN_HOSTD_CHAIN_DUPLICATE_RESP` | an instance is named twice in one chain: the chain is not declared |
@@ -524,7 +524,7 @@ Events on the feedback port, one NUL-terminated line each:
 | `plan_reason` | `<chain> <instance>:<reason>,...` | a plan of the chain changed: the reasons plan_get answers now, after the segments, - for none |
 | `supervisor_gave_up` | `<worker> <deaths> <window_ms>` | the storm bound is spent; respawning ends |
 | `pin_changed` | `<uri> files \| layout` | an add or a replay of a plugin was refused because its files, or the layout the worker found, differ from its pin; the pin is as it was until pin_accept or pin_set |
-| `lv2_adapter_refused` | `<uri> <reason> auto \| omx-clap-host` | the LV2 adapter of the lv2-clap worker refused a plugin: <reason> is the hosting.* code after -102 on the worker's reply to that add (- when it named none); the last word is the lv2_worker in force, auto for a plugin the lv2 row runs from now on, omx-clap-host for an add answered (-512) |
+| `lv2_adapter_refused` | `<uri> <reason> omx-clap-host` | the LV2 adapter of the lv2-clap worker refused a plugin: <reason> is the hosting.* code after -102 on the worker's reply to that add (- when it named none); the last word is the lv2_worker in force, omx-clap-host, and the add is answered (-512) |
 | `remote_pages_changed` | `<instance>` | relayed from a worker: the plugin changed its remote pages; read them again |
 | `remote_page_suggest` | `<instance> <page_id>` | relayed from a worker: the plugin suggests the remote page of that id (a page_id of remote_page_get); a surface may follow it |
 | `param_gesture` | `<instance> <symbol> begin \| end` | relayed from a worker: the user took hold of a control of the plugin's own, or let it go; a controller writes no automation of that parameter in between. The values the plugin moves meanwhile, or at any time by itself, are mod-host's param_set feedback lines, relayed as written. A gesture whose worker died, or whose instance was removed, before its end is ended by the daemon, before the worker_died event |
@@ -664,7 +664,8 @@ asked of the worker after the add (`pin_layout`) and recorded too. A host that p
 The store, a `pin_file` and `pin_set` carry one line format, `pin_set <uri> <files> <layout> [verdict=<word>]` with the
 verb optional in a file. In `first-use` only a pin with `verdict=in-process`, which plugin-qualify writes, lets a plugin
 share a worker. A pin with `verdict=refused` names files that failed qualification. Their `add` answers `-516`
-(`PIN_REFUSED`), no worker sees it, and a replay is refused with the same code. A pin that changes to `refused` while
+(`PIN_REFUSED`), no worker sees it, and a replay is refused with the same code, until the user chooses to load the
+plugin anyway (`pin_accept`, below). A pin that changes to `refused` while
 the instance runs takes effect at its next replay. Files that differ from the pin answer `-509` first, because the
 verdict was given for the pinned files only.
 
@@ -682,9 +683,18 @@ their names, in the same line format. A package drops its own file there, so its
 in one transaction and removed together; plugin-hostd owns the directory and another package may co-own it. The
 daemon never writes it. A pin from this layer is trusted as it is, in both pin modes. The rules:
 
-- A pins.d pin with `verdict=refused` always holds. The pin store, a `pin_file` and `pin_set` never override it:
-  `pin_set` and `pin_accept` of its uri answer `-516` (`PIN_REFUSED`), and a line of the store or of the `pin_file`
-  for it is kept but has no effect, which stderr says at start.
+- A pins.d pin with `verdict=refused` holds until the user chooses otherwise. The pin store, a `pin_file` and
+  `pin_set` never override it: `pin_set` of its uri answers `-516` (`PIN_REFUSED`), and a line of the store or of the
+  `pin_file` for it is kept but has no effect, which stderr says at start.
+- A failed qualification is our advice, not a wall: the user decides. Under `pin_mode first-use`, `pin_accept <uri>` of
+  a plugin whose pin carries `verdict=refused`, from a pins.d file or the `pin_file`, records the user's choice, kept beside the pin store in
+  `<pin_store>.accepted`, one uri per line, and takes the plugin's files as they are now as its pin, in the store with no
+  verdict: the user's choice, not a pass. The plugin then runs alone in a worker of its own, as any plugin not qualified
+  for a shared one does, and an explicit `pool:<name>` answers `-501`. The choice holds across a restart and over a
+  `pin_file` that a qualification sync writes again with the refusal, covers the
+  files it was made for (files that change answer `-509` until `pin_accept` again), and `pin_clear` of the uri (or
+  `all`) takes it back. Under `pin_mode strict` it counts for nothing: strict admits what passed qualification and
+  nothing else, and `pin_accept` answers `-902` there.
 - Any other pins.d pin is under the host's layer. A pin of the same uri in the store, the `pin_file` or from
   `pin_set` holds over it, and `pin_accept` of a plugin whose files differ from its package pin records the new files
   in the store, which then hold. `pin_clear` forgets the host's pin only: the package pin holds again.
@@ -813,11 +823,13 @@ Who runs an LV2 plugin
 ----------------------
 
 `lv2_worker` chooses the program that runs LV2 plugins: `omx-clap-host` (the default: the `clap_host` program, through its
-LV2 adapter, a plugin it cannot run refused with a code), `auto` (the adapter first, mod-host for a plugin the adapter
-refuses, and for every add while omx-clap-host is not installed) or `mod-host` (the `mod_host` program). mod-host runs a
+LV2 adapter, a plugin it cannot run refused with a code) or `mod-host` (the `mod_host` program). It is the user's choice,
+and the daemon never makes it for them: a plugin the chosen program refuses is answered with its code and is never
+handed to the other. What our host cannot run is a defect to fix, not a reason to run something else. mod-host runs a
 plugin only when one of these names it, and the packages only suggest it: without it the daemon says once at its start that
-it is not installed, and an add that asks for it answers `-502` (`NO_BACKEND`). `lv2_worker_set <uri> <mod-host|omx-clap-host|auto|->` overrides it for one plugin from then on, and `-` takes
-the override back. The two programs are two rows of the table, `lv2` and `lv2-clap`, so `policy_set`, `worker_env` and
+it is not installed, and an add that asks for it answers `-502` (`NO_BACKEND`). `lv2_worker_set <uri> <mod-host|omx-clap-host|->` overrides it for one plugin from then on, and `-` takes
+the override back. The word `auto`, which ran a refused plugin on mod-host, is gone: the daemon does not start with it
+and `lv2_worker_set` answers it `-902`. The two programs are two rows of the table, `lv2` and `lv2-clap`, so `policy_set`, `worker_env` and
 `worker_list` name them like any format. The adapter row differs from the mod-host row in these ways, each held by a test:
 
 | capability | `lv2` (mod-host) | `lv2-clap` (omx-clap-host) |
@@ -830,21 +842,16 @@ the override back. The two programs are two rows of the table, `lv2` and `lv2-cl
 
 An adapter handles a subset of LV2. When it refuses a plugin, the worker answers the add `resp -102 <hosting code>`
 (for instance `hosting.features.midi-in-fed-empty`, `hosting.features.missing`, `hosting.topology.wider-than-strip` or
-`hosting.no-realisation`). The add under `omx-clap-host` then answers `-512` (`LV2_ADAPTER_REFUSED`) and the
-`lv2_adapter_refused` event carries that code, read from the reply to that add and never from the worker's log, which a
-pool worker shares with other plugins (`-` when the reply named none). Under `auto` the add is made again on the `lv2`
-row, the plugin stays there, the event is sent once, and the controller never sees `-512`. The daemon remembers the refusal until
-the adapter has a reason to take the plugin again: `lv2_worker_set` of that uri (to any word, `-` included) forgets it, and
-so does a change of pins (`pin_set`, `pin_accept`, `pin_clear`) for every plugin; the next add under `auto` asks the
-adapter once more.
+`hosting.no-realisation`). The add then answers `-512` (`LV2_ADAPTER_REFUSED`) and the `lv2_adapter_refused` event
+carries that code, read from the reply to that add and never from the worker's log, which a pool worker shares with
+other plugins (`-` when the reply named none). Nothing is remembered: every add of the plugin asks the adapter again and
+answers its own code, so a fixed adapter takes the plugin at once. No other host is given it.
 
-A plugin the adapter refused under `auto` runs on the `lv2` row in a worker of its own, whatever the policy says, unless
-its add names a placement. The adapter never ran it, so nothing says it is safe in a shared worker. Some plugins abort
-in instantiate: drumkv1, samplv1 and synthv1 do, through Qt, when no display is set. Such a plugin takes down only
-its own worker. The add answers `-102`, and an `instance_verb_dropped` event names the add with its uri.
+Some plugins abort in instantiate: drumkv1, samplv1 and synthv1 do on mod-host, through Qt, when no display is set.
+Such a plugin takes down only its own worker. The add answers `-102`, and an `instance_verb_dropped` event names the add
+with its uri.
 
-A plugin that no bundle of the worker's world holds is not a refusal: the worker answers `resp -101` with no code. Under
-`omx-clap-host` the add answers that `-101`, with no event. Under `auto` the same add is made on the `lv2` row, so mod-host
-looks for the plugin; nothing is remembered, and the adapter is asked again on the next add. Under `auto` an
-`omx-clap-host` that is not installed is not an error either: the add goes to the `lv2` row.
+A plugin that no bundle of the worker's world holds is not a refusal: the worker answers `resp -101` with no code, and
+the add answers that `-101`, with no event. An `omx-clap-host` that is not installed answers every LV2 add `-502`
+(`NO_BACKEND`); mod-host is never started in its place.
 

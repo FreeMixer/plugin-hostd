@@ -1909,17 +1909,13 @@ static int add_chain_id(const char *placement)
     return *end || v >= MAX_INSTANCE ? -2 : (int)v;
 }
 
-/* the adapter of a worker refused the add of `uri`, for the reason `why`: say so on the feedback port; under auto the plugin
- * goes to the lv2 row from now on and this add is made again there, otherwise the add answers OMX_REPLY_PLUGIN_HOSTD_LV2_ADAPTER_REFUSED_RESP */
-static char *adapter_refused(const char *uri, const char *why, int id, const char *placement, const char *client)
+/* the adapter of a worker refused the add of `uri`, for the reason `why`: say so on the feedback port, and the add answers
+ * OMX_REPLY_PLUGIN_HOSTD_LV2_ADAPTER_REFUSED_RESP. The plugin is never handed to another host: what our host cannot run is
+ * a defect to fix, and which program runs a plugin is the user's choice (lv2_worker, lv2_worker_set), never the daemon's */
+static char *adapter_refused(const char *uri, const char *why)
 {
-    int automatic = lv2_worker_is_auto(&g_conf, uri);
-
-    event(PHD_EVENT_LV2_ADAPTER_REFUSED_FMT, uri, why, automatic ? PHD_LV2_WORKER_AUTO : PHD_LV2_WORKER_CLAP_HOST);
-    if (!automatic)
-        return sup_resp(OMX_REPLY_PLUGIN_HOSTD_LV2_ADAPTER_REFUSED_RESP);
-    lv2_adapter_refused(uri);
-    return sup_add(uri, id, placement, client);
+    event(PHD_EVENT_LV2_ADAPTER_REFUSED_FMT, uri, why, PHD_LV2_WORKER_CLAP_HOST);
+    return sup_resp(OMX_REPLY_PLUGIN_HOSTD_LV2_ADAPTER_REFUSED_RESP);
 }
 
 /* the member an add put in a chain's worker joins the chain, at its end, and the worker is told the order. A worker that
@@ -2022,9 +2018,6 @@ static char *add(const char *uri, int id, const char *placement, const char *cli
 
     /* the format may hand the uri to another row: which worker runs an LV2 plugin is a setting, not the uri's */
     fmt = row >= 0 ? row : format_route(&g_conf, fmt, fwd);
-    /* auto without the adapter's worker installed is the lv2 row, for this add only */
-    if (format_at(fmt)->adapter && !proc_have_binary(bin_of(fmt)) && lv2_worker_is_auto(&g_conf, fwd))
-        fmt = format_by_name(PHD_FORMAT_LV2);
     format = format_at(fmt);
     if (id < 0 || id >= MAX_INSTANCE)
         return sup_resp(ERR_INSTANCE_INVALID);
@@ -2047,12 +2040,8 @@ static char *add(const char *uri, int id, const char *placement, const char *cli
         snprintf(place, sizeof(place), "%s", g_policy[fmt]);
     else
         snprintf(place, sizeof(place), "%s", placement);
-    /* a plugin the adapter refused under auto was never run by it: one that dies in instantiate (a Qt body with no
-     * display) must not take a shared worker with it, so unless the caller named a placement it gets one of its own */
-    if ((!placement || !strcmp(placement, PHD_PLACE_DEFAULT)) && lv2_refused_under_auto(&g_conf, fmt, fwd))
-        snprintf(place, sizeof(place), PHD_PLACE_OWN);
     m = meta_of(id);
-    if (chain_id >= 0 && (m->quarantined || lv2_refused_under_auto(&g_conf, fmt, fwd)))
+    if (chain_id >= 0 && m->quarantined)
         return sup_resp(OMX_REPLY_PLUGIN_HOSTD_PLACEMENT_INVALID_RESP);
     if (m->quarantined)
         snprintf(place, sizeof(place), PHD_PLACE_OWN);
@@ -2220,7 +2209,6 @@ static char *add(const char *uri, int id, const char *placement, const char *cli
         /* the adapter refuses a plugin with the instantiation error and the hosting.* code after it on the reply line; the
          * invalid uri is a plugin no bundle of its world holds, which is no refusal and carries no code */
         int refused = format->adapter && resp_code(reply) == ERR_HOST_INSTANTIATION;
-        int absent = format->adapter && resp_code(reply) == ERR_HOST_INVALID_URI;
         char why[128] = PHD_WORD_NONE;
 
         if (refused)
@@ -2231,13 +2219,7 @@ static char *add(const char *uri, int id, const char *placement, const char *cli
         if (refused)
         {
             free(reply);
-            return adapter_refused(fwd, why, id, placement, client);
-        }
-        /* under auto, a plugin the adapter does not find is looked for by mod-host, for this add only */
-        if (absent && lv2_worker_is_auto(&g_conf, fwd))
-        {
-            free(reply);
-            return add(fwd, id, placement, client, format_by_name(PHD_FORMAT_LV2));
+            return adapter_refused(fwd, why);
         }
         return reply;
     }
@@ -2918,16 +2900,11 @@ char *sup_quarantine_clear(const char *which)
 char *sup_pin_accept(const char *uri)
 {
     const char *fwd;
-    int rc;
     int fmt = format_of_uri(uri, &fwd);
 
     if (!g_conf.require_pins || !conf_pins_first_use(&g_conf))
         return sup_resp(ERR_INVALID_OPERATION);
-    rc = pins_accept(format_at(fmt), fwd, search_of(fmt));
-    /* the files of an accepted plugin may now be ones the adapter takes */
-    if (rc == SUCCESS)
-        lv2_refusals_forget(NULL);
-    return sup_resp(rc);
+    return sup_resp(pins_accept(format_at(fmt), fwd, search_of(fmt)));
 }
 
 /* the running instances against the pins just read: one the new pins refuse is not stopped, its worker holds it as it
@@ -2959,8 +2936,6 @@ char *sup_pin_reload(void)
     rc = pins_reload();
     if (rc != SUCCESS)
         return sup_resp(ERR_INVALID_OPERATION);
-    /* the files of a plugin changed: the adapter may now take one it refused */
-    lv2_refusals_forget(NULL);
     pins_recheck();
     return sup_resp(SUCCESS);
 }
@@ -2995,10 +2970,7 @@ char *sup_lv2_worker_set(const char *uri, const char *worker)
     const char *fwd;
 
     format_of_uri(uri, &fwd);
-    if (lv2_worker_pick(fwd, worker) != 0)
-        return sup_resp(ERR_INVALID_OPERATION);
-    lv2_refusals_forget(fwd);
-    return sup_resp(SUCCESS);
+    return sup_resp(lv2_worker_pick(fwd, worker) != 0 ? ERR_INVALID_OPERATION : SUCCESS);
 }
 
 char *sup_pool_config(const char *name, int max)
@@ -4038,8 +4010,6 @@ static int estimate_row(const char *uri, const char **fwd)
 
     if (fmt < 0 || (fmt = format_route(&g_conf, fmt, *fwd)) < 0)
         return -1;
-    if (format_at(fmt)->adapter && !proc_have_binary(bin_of(fmt)) && lv2_worker_is_auto(&g_conf, *fwd))
-        fmt = format_by_name(PHD_FORMAT_LV2);
     return fmt;
 }
 

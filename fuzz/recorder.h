@@ -19,7 +19,7 @@
  */
 
 /* The mod-host side of the daemon, replaced by a recorder for fuzz/fuzz_command.c: every function src/verbs.c calls
- * below it (the supervisor, the pins, the descriptors, the LV2 refusals and the socket's send) is defined here. Each
+ * below it (the supervisor, the pins, the descriptors and the socket's send) is defined here. Each
  * records the call it was handed, answers with the reply its verb declares, or with the refusal the input chose, and
  * folds what an accepted call changes into a digest of the daemon's state. No socket, no process, no JACK, no file. */
 
@@ -33,7 +33,7 @@ enum {
     REC_ADD, REC_CALL, REC_REMOVE, REC_REMOVE_ALL, REC_CONNECT, REC_BROADCAST, REC_HOST_SETTING, REC_INSTANCE_VERB,
     REC_WORKER_LIST, REC_INSTANCE_INFO, REC_RESET, REC_QUARANTINE_CLEAR, REC_POLICY_SET, REC_PIN_ACCEPT, REC_PIN_RELOAD,
     REC_POOL_CONFIG, REC_LV2_WORKER_SET, REC_WORKER_ENV, REC_CHAIN, REC_CHAIN_CLEAR, REC_CHAIN_GET, REC_PLAN, REC_PLAN_GET, REC_PLAN_CLEAR, REC_AFTER_REPLY, REC_PINS_SET,
-    REC_PINS_CLEAR, REC_DESCRIPTORS_ADD, REC_DESCRIPTORS_GET, REC_DESCRIPTORS_PANEL_GET, REC_LV2_REFUSALS_FORGET,
+    REC_PINS_CLEAR, REC_DESCRIPTORS_ADD, REC_DESCRIPTORS_GET, REC_DESCRIPTORS_PANEL_GET,
     REC_HISTORY_GET, REC_HISTORY_CLEAR, REC_ESTIMATE,
     REC_FN_COUNT
 };

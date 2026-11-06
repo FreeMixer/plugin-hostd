@@ -126,24 +126,19 @@ def a_plugin_the_adapter_refuses_answers_512_and_the_event_carries_the_code_of_i
 
 
 @test
-def under_auto_a_plugin_the_adapter_refuses_runs_on_mod_host():
-    r = Run(both(), lv2_worker="auto")
+def a_plugin_the_adapter_refuses_is_never_handed_to_mod_host():
+    """mod-host is installed: a refused plugin still answers its code on every add, says why, and mod-host is never
+    started for it"""
+    r = Run(both(), lv2_worker="omx-clap-host")
     try:
-        r.d.expect("add lv2:%s 0" % GAIN, "resp 0")
-        check(r.program(0) == "omx-clap-host", "auto asks the adapter first: %s" % r.d.workers())
-        mark = r.d.mark()
-        r.d.expect("add lv2:%s 1" % FIXED_BLOCK, "resp 1")
-        event = r.d.wait_event(REFUSED + " ", since=mark)
-        check(event == "%s %s %s auto" % (REFUSED, FIXED_BLOCK, MISSING), "the event: %r" % event)
-        check(r.d.holder(1)[1]["fmt"] == "lv2" and r.program(1) == "mod-host", "mod-host runs it: %s" % r.d.workers())
-        wait_for(lambda: client_ports(1), "effect_1's ports on the graph")
-        r.d.expect("param_set 1 gain 0.25", "resp 0")
-        r.d.expect("param_get 1 gain", "resp 0 0.2500")
-        before = r.started().count("omx-clap-host")
-        r.d.expect("add lv2:%s 2" % FIXED_BLOCK, "resp 2")
-        check(r.program(2) == "mod-host" and r.started().count("omx-clap-host") == before,
-              "the next add goes straight to mod-host: %s" % r.started())
-        check(len(r.refusals(mark)) == 1, "and the event was sent once: %s" % r.refusals(mark))
+        for i in range(2):
+            mark = r.d.mark()
+            r.d.expect("add lv2:%s %d" % (FIXED_BLOCK, i), resp("LV2_ADAPTER_REFUSED"))
+            event = r.d.wait_event(REFUSED + " ", since=mark)
+            check(event == "%s %s %s omx-clap-host" % (REFUSED, FIXED_BLOCK, MISSING), "the event: %r" % event)
+        check(r.started().count("omx-clap-host") == 2 and "mod-host" not in r.started(),
+              "the adapter is asked on every add, mod-host never: %s" % r.started())
+        check(r.d.workers() == {}, "nothing runs: %s" % r.d.workers())
     finally:
         r.close()
 
@@ -167,7 +162,7 @@ def based_world():
 
 
 @test
-def a_plugin_the_adapter_does_not_find_is_not_found_and_under_auto_mod_host_looks_for_it():
+def a_plugin_the_adapter_does_not_find_is_not_found():
     world = based_world()
     try:
         r = Run(world, lv2_worker="omx-clap-host")
@@ -176,19 +171,6 @@ def a_plugin_the_adapter_does_not_find_is_not_found_and_under_auto_mod_host_look
             r.d.expect("add lv2:%s 0" % BASED, "resp -101")
             r.d.expect("add lv2:urn:plugin-hostd:test:nowhere 1", "resp -101")
             check(r.d.workers() == {} and "mod-host" not in r.started(), "nothing runs, mod-host never started: %s" % r.started())
-            check(r.refusals(mark) == [], "no refusal is said: %s" % r.refusals(mark))
-        finally:
-            r.close()
-        r = Run(world, lv2_worker="auto")
-        try:
-            mark = r.d.mark()
-            r.d.expect("add lv2:%s 0" % BASED, "resp 0")
-            check(r.d.holder(0)[1]["fmt"] == "lv2" and r.program(0) == "mod-host", "mod-host found it: %s" % r.d.workers())
-            check(r.started() == ["omx-clap-host", "mod-host"], "the adapter was asked first: %s" % r.started())
-            r.d.expect("add lv2:%s 1" % BASED, "resp 1")
-            check(r.started().count("omx-clap-host") == 2, "and is asked again on the next add: %s" % r.started())
-            r.d.expect("add lv2:urn:plugin-hostd:test:nowhere 2", "resp -101")
-            check(r.started().count("mod-host") >= 2, "a plugin neither finds is mod-host's own -101: %s" % r.started())
             check(r.refusals(mark) == [], "no refusal is said: %s" % r.refusals(mark))
         finally:
             r.close()
