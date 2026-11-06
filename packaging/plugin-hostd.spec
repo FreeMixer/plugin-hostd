@@ -34,20 +34,20 @@ Requires: (plugin-hostd-protocol%{?_isa} >= 0.4.0 with plugin-hostd-protocol%{?_
 # the first whose omx-clap-host runs a chain's members in one client in the declared order, and whose tests package
 # ships fault-14.clap and jack_identity; 0.25 for param_info answered from clap.params when a plugin has no contract)
 %if %{with check}
-BuildRequires: (omx-clap-host-tests >= 0.25.0 with omx-clap-host-tests < 0.30)
+BuildRequires: (omx-clap-host-tests >= 0.25.0 with omx-clap-host-tests < 0.31)
 # the reader that holds the committed render of data/ (make check-rendered)
 BuildRequires: (omx-contract >= 3.4.0 with omx-contract < 4)
 # the daemon's verbs (plugin-hostd-protocol's package of the contract directory) and the shared verbs and the
 # reply.host.* codes they refer to (make test-verbs-declared)
 BuildRequires: (plugin-hostd-protocol-contract >= 0.4.0 with plugin-hostd-protocol-contract < 0.5)
-BuildRequires: (omx-clap-core-contract >= 0.26.2 with omx-clap-core-contract < 0.30)
+BuildRequires: (omx-clap-core-contract >= 0.26.2 with omx-clap-core-contract < 0.31)
 %endif
 # the format tables, which readers read at run time
 Requires: %{name}-contract = %{version}-%{release}
 
 # the workers: a format whose worker is not installed refuses its adds (-502, no-backend), the other formats are
 # unaffected. omx-clap-host runs CLAP plugins and, through its LV2 adapter, LV2 plugins.
-Recommends: (omx-clap-host >= 0.29.0 with omx-clap-host < 0.30)
+Recommends: (omx-clap-host >= 0.29.0 with omx-clap-host < 0.31)
 # mod-host runs an LV2 plugin only when lv2_worker or lv2_worker_set names it, and it is the reference host H3 of the
 # benchmark (bench/run.sh), measured when it is installed. Nothing else uses it, so it is only suggested; a machine that
 # runs a published benchmark installs mod-host (and jalv) itself.
@@ -86,7 +86,7 @@ BuildArch: noarch
 # the daemon's verbs are plugin-hostd-protocol's package of the contract directory since 0.2.0 (they were this
 # package's before): a reader of this package reads that one too; a floor only
 Requires: (plugin-hostd-protocol-contract >= 0.4.0 with plugin-hostd-protocol-contract < 0.5)
-Requires: (omx-clap-core-contract >= 0.26.2 with omx-clap-core-contract < 0.30)
+Requires: (omx-clap-core-contract >= 0.26.2 with omx-clap-core-contract < 0.31)
 # the tables live in omx-contract's contract directory and are read against its schema: 3.2.0 is the first whose
 # source field takes an index (omx_clap_panel_display.meter_ids[0]), so an older one never sits beside a table it
 # refuses; a floor only
@@ -185,7 +185,8 @@ make test-daemon check-generated check-rendered
   plugin runs alone in a worker of its own. The choice outlives a pin_reload and a
   restart; pin_clear takes it back; under strict it counts for nothing
 - Requires plugin-hostd-protocol 0.4.0 or later and before 0.5, the first without
-  lv2_worker auto; plugin-db before 0.3, built and tested against 0.2.0
+  lv2_worker auto; plugin-db before 0.3, built and tested against 0.2.0; omx-clap-core's
+  packages before 0.31, so 0.30 is taken
 * Wed Nov 04 2026 Pau Aliagas <linuxnow@gmail.com> - 0.18.0-1
 - The daemon answers hello itself, for each controller connection, and grants
   what the controller asks of tags, errors and seq as plugin-hostd-protocol 0.3.0
