@@ -394,7 +394,7 @@ int lv2_pin_collect(const char *uri, const char *search, char *root, size_t size
     {
         char decoded[PATH_MAX];
 
-        if (pin_percent_decode(names.name[n], decoded, sizeof(decoded)) != 0)
+        if (phd_pin_path_decode(names.name[n], decoded, sizeof(decoded)) != 0)
             rc = pin_refuse(uri, names.name[n], "is not a percent-encoded name");
         else if (!names_has(files, names.name[n]) && names_add(files, names.name[n]) != 0)
             rc = ERR_MEMORY_ALLOCATION;
@@ -416,7 +416,7 @@ int lv2_binary(const char *uri, const char *search, char *path, size_t size)
         return -1;
     if (read_manifest(bundle, &manifest, &manifest_size) == 0 &&
         !manifest_files(manifest, manifest_size, bundle, bare(uri), &names, 1) && names.n == 1 &&
-        pin_percent_decode(names.name[0], decoded, sizeof(decoded)) == 0)
+        phd_pin_path_decode(names.name[0], decoded, sizeof(decoded)) == 0)
     {
         snprintf(path, size, "%s/%s", bundle, decoded);
         rc = 0;

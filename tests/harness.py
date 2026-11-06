@@ -120,7 +120,12 @@ class Daemon:
                 if v is not None:
                     f.write("%s %s\n" % (k, v))
         e = dict(os.environ)
-        e.update(env or {})
+        # a name given None is not in the daemon's environment at all
+        for k, v in (env or {}).items():
+            if v is None:
+                e.pop(k, None)
+            else:
+                e[k] = v
         # the ports are free when port_pair picks them, not when the daemon binds: one that exits before it is ready
         # lost that race, and is started again on fresh ones
         extra = list(args or [])
