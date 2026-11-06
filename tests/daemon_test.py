@@ -5414,13 +5414,17 @@ def a_worker_that_dies_after_half_a_window_still_counts_it_and_before_half_does_
 def history_clear_deletes_one_plugin_or_all_of_it_and_the_file_follows_at_once():
     p = Plugins()
     other, other_uri = other_clap(p)
-    d = p.daemon(conf=history_conf(p, history_save_s=3600))
+    # history_clear answers once its file is on disk: a slow disk holds the answer past a window of a running plugin
+    _, env = slow_disk(p, 1500)
+    d = p.daemon(conf=history_conf(p, history_save_s=3600), env=env)
     path = os.path.join(p.dir, "history")
     try:
         for uri, clap in ((p.clap_uri, None), (other_uri, other)):
             pin_in_process(p, d, uri if clap else None, clap)
             d.expect("add %s %d own" % (uri, 0 if not clap else 1), "resp %d" % (0 if not clap else 1))
         wait_for(lambda: all(isinstance(history_of(d, u), dict) for u in (p.clap_uri, other_uri)), "both have a window")
+        # a plugin still running records its next window while the clear waits for the disk: the cleared one is removed first
+        d.expect("remove 0", "resp 0")
         d.expect("history_clear %s" % p.clap_uri, "resp 0")
         check(history_of(d, p.clap_uri) == "-", "the plugin has no history")
         check(isinstance(history_of(d, other_uri), dict), "and the other one is untouched")
@@ -5683,13 +5687,17 @@ def xruns_in_a_window_dropped_because_the_members_changed_are_nobodys():
 @test
 def an_lv2_plugins_record_is_under_the_first_file_its_pin_holds():
     p = Plugins()
-    d = p.daemon(conf=history_conf(p, lv2_worker="mod-host"))
+    # history_clear answers once its file is on disk: a slow disk holds the answer past a window of the running plugin
+    _, env = slow_disk(p, 1500)
+    d = p.daemon(conf=history_conf(p, lv2_worker="mod-host"), env=env)
     try:
         d.expect(p.lv2_pin(), "resp 0")
         d.expect("add lv2:%s 0 own" % LV2_URI, "resp 0")
         h = wait_for(lambda: (lambda r: r if isinstance(r, dict) else None)(history_of(d, "lv2:" + LV2_URI)), "a window")
         check(h["digest"] == sha(os.path.join(p.bundle, "manifest.ttl")), "the first file of the pin, manifest.ttl: %s" % h["digest"])
         check(history_of(d, LV2_URI)["digest"] == h["digest"], "with or without the lv2: prefix")
+        # a plugin still running records its next window while the clear waits for the disk: it is removed first
+        d.expect("remove 0", "resp 0")
         d.expect("history_clear lv2:%s" % LV2_URI, "resp 0")
         check(history_of(d, LV2_URI) == "-", "and cleared by either")
     finally:
