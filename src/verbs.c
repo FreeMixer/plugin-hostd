@@ -76,17 +76,12 @@ static int is_placement(const char *token)
 static int pin_set_words(const char *line, char **tok, int ntok)
 {
     const char *verdict = NULL, *pool = NULL;
-    int rc;
 
     if (ntok < 4 || ntok > 6 || strlen(line) > PHD_LINE_MAX || !strcmp(tok[3], PHD_PIN_LAYOUT_UNKNOWN))
         return ERR_INVALID_OPERATION;
     if (pins_words(tok + 4, ntok - 4, &verdict, &pool) != SUCCESS)
         return ERR_INVALID_OPERATION;
-    rc = pins_set(tok[1], tok[2], tok[3], verdict, pool);
-    /* the files of the plugin changed: the adapter may now take one it refused */
-    if (rc == SUCCESS)
-        lv2_refusals_forget(NULL);
-    return rc;
+    return pins_set(tok[1], tok[2], tok[3], verdict, pool);
 }
 
 /* a word that is a whole number and nothing else */
@@ -262,11 +257,7 @@ static char *handle(char *line, char **tok, int ntok)
         return ntok <= 3 ? sup_pin_reload() : sup_resp(ERR_INVALID_OPERATION);
     if (!strcmp(verb, OMX_VERB_PIN_CLEAR))
     {
-        int rc = ntok == 2 ? pins_clear(tok[1]) : ERR_INVALID_OPERATION;
-
-        if (rc == SUCCESS)
-            lv2_refusals_forget(NULL);
-        return sup_resp(rc);
+        return sup_resp(ntok == 2 ? pins_clear(tok[1]) : ERR_INVALID_OPERATION);
     }
     if (!strcmp(verb, OMX_VERB_HISTORY_GET))
         return ntok == 2 ? sup_history_get(tok[1]) : sup_resp(ERR_INVALID_OPERATION);

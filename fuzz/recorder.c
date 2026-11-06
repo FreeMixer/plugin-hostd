@@ -649,7 +649,7 @@ int pins_clear(const char *uri)
     return answer_code(SUCCESS);
 }
 
-/* ---------------------------------------------------------------- the descriptors and the LV2 refusals */
+/* ---------------------------------------------------------------- the descriptors */
 
 /* a scan of the plugin's files starts: a change whatever the add was answered */
 void descriptors_add(const char *uri)
@@ -674,15 +674,6 @@ char *descriptors_panel_get(const char *uri)
 
     arg_s(c, uri);
     return answer(c, daemon_shape(OMX_VERB_PANEL_GET), 0);
-}
-
-/* the adapter is asked again about what it refused: a change */
-void lv2_refusals_forget(const char *uri)
-{
-    struct rec_call *c = record(REC_LV2_REFUSALS_FORGET);
-
-    arg_s(c, uri ? uri : "*");
-    g_rec.state = mix_call(g_rec.state, c);
 }
 
 /* ---------------------------------------------------------------- the command socket (mod-host's socket.h) */

@@ -123,8 +123,8 @@ Checked in a clean Debian container against published packages. The first item a
 the worker and plugins (the page's CI); the others against 0.2.1 of the daemon and 0.8.0 of the worker and plugins, on
 trixie, and not re-checked since:
 
-- An LV2 plugin that the LV2 adapter of `omx-clap-host` refuses needs mod-host, which neither Debian nor the FreeMixer
-  channel packages. The add answers `-512`; `lv2_worker auto` runs such a plugin in mod-host when one is installed.
+- An LV2 plugin that the LV2 adapter of `omx-clap-host` refuses answers `-512`, and the `lv2_adapter_refused` event
+  says why. It is never handed to another host; it is a defect of the adapter to fix.
 - `param_info` answers `-511` (the worker holds no checked unit and scale) for every parameter of a CLAP instance with
   the released worker, 0.8.0; the daemon passes the answer through. A host reads ranges and defaults from
   `omx-clap-scan` (or `omx-clap-scan --json`) and not from the socket, until a worker answers `resp 0`.
