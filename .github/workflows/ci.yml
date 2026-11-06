@@ -414,8 +414,9 @@ jobs:
           # and the protocol clients it ships load
           chroot /tmp/clean-root bash -c '. /usr/libexec/plugin-hostd/tests/lib/protocol.sh && type protocol_send protocol_expect protocol_wait_ready send'
           chroot /tmp/clean-root python3 -c 'import sys; sys.path.insert(0, "/usr/libexec/plugin-hostd/tests/lib"); import plugin_hostd_client'
+          # the slow-disk shim is a fixture of the checkout, not of the package
           chroot /tmp/clean-root env PLUGIN_HOSTD=/usr/bin/plugin-hostd PROBE=/usr/bin/plugin-hostd-probe FAKE_HOST=/usr/libexec/plugin-hostd/tests/fake-host \
-            PLUGIN_HOSTD_PROTOCOL=/usr/share/plugin-hostd-protocol/plugin-hostd.json python3 /smoke/tests/daemon_test.py
+            SLOW_FSYNC=/smoke/tests/slow-fsync.so PLUGIN_HOSTD_PROTOCOL=/usr/share/plugin-hostd-protocol/plugin-hostd.json python3 /smoke/tests/daemon_test.py
 
       - uses: actions/upload-artifact@v4
         with:
