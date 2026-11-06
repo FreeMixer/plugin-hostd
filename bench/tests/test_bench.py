@@ -150,6 +150,9 @@ class FakeJack:
         self.opened = {"name": name, "options": options, "server": server}
         return 1
 
+    def jack_on_shutdown(self, client, callback, arg):
+        self.shutdown = callback
+
     def jack_set_xrun_callback(self, client, cb, arg):
         self.callback = cb
         return 0
@@ -582,6 +585,93 @@ class JackUnanswered(unittest.TestCase):
         out = bench.Runner.run_cell(fake, 96000, 64, plan)
         self.assertEqual([(r["id"], r["status"]) for r in out], [("a", "failed"), ("b", "failed")])
         self.assertIn("JACK did not start", out[0]["note"])
+
+
+class ProbeHardTimeout(unittest.TestCase):
+    """a server that stops answering holds a libjack call forever: the call runs in a process of its own, and past its
+    timeout that process is killed and the row fails, so one wedged server never holds the run"""
+
+    READY = 'import sys, time; print(\'{"ok": true}\', flush=True); '
+
+    def setUp(self):
+        keep = bench.PROBE_TIMEOUT_S
+        bench.PROBE_TIMEOUT_S = 0.5
+        self.addCleanup(setattr, bench, "PROBE_TIMEOUT_S", keep)
+        self.logs = tempfile.mkdtemp()
+        self.addCleanup(lambda: subprocess.run(["rm", "-rf", self.logs]))
+        self.procs = bench.Procs(self.logs, "bench1")
+        self.addCleanup(self.procs.stop_all)
+
+    def probe(self, body):
+        return bench.ProbeProcess("bench1", self.procs, argv=[sys.executable, "-I", "-c", body])
+
+    def test_a_call_that_hangs_fails_the_row_within_the_timeout_and_the_process_is_gone(self):
+        probe = self.probe(self.READY + "sys.stdin.readline(); time.sleep(60)")
+        proc = probe.proc
+        t0 = time.monotonic()
+        with self.assertRaises(bench.JackUnanswered) as e:
+            probe.cpu_load()
+        self.assertLess(time.monotonic() - t0, 10)
+        self.assertIn("JACK did not answer: the xrun probe timed out", str(e.exception))
+        self.assertIsNotNone(proc.poll(), "the stuck process is killed")
+        self.assertEqual(self.procs.live, [])
+
+    def test_a_start_that_hangs_fails_the_row(self):
+        t0 = time.monotonic()
+        with self.assertRaises(bench.JackUnanswered):
+            self.probe("import time; time.sleep(60)")
+        self.assertLess(time.monotonic() - t0, 10)
+
+    def test_close_returns_from_a_wedged_server_and_kills_the_process(self):
+        probe = self.probe(self.READY + "time.sleep(60)")
+        proc = probe.proc
+        t0 = time.monotonic()
+        probe.close()
+        self.assertLess(time.monotonic() - t0, 10)
+        self.assertIsNotNone(proc.poll())
+        self.assertEqual(self.procs.live, [])
+
+    def test_jack_stop_gets_past_a_wedged_probe_to_the_server(self):
+        fake = types.SimpleNamespace(probe=self.probe(self.READY + "time.sleep(60)"), jackd=None, procs=self.procs)
+        bench.Runner.jack_stop(fake)
+        self.assertIsNone(fake.probe)
+
+    def test_a_process_that_dies_fails_the_row(self):
+        probe = self.probe(self.READY)
+        with self.assertRaises(bench.JackUnanswered) as e:
+            probe.count()
+        self.assertIn("exited", str(e.exception))
+
+    def test_a_call_after_the_process_is_gone_fails_the_row_again(self):
+        probe = self.probe(self.READY)
+        with self.assertRaises(bench.JackUnanswered):
+            probe.count()
+        with self.assertRaises(bench.JackUnanswered):
+            probe.count()
+
+    def test_no_libjack_still_ends_the_run(self):
+        with self.assertRaises(SystemExit):
+            self.probe("""print('{"error": "bench: libjack is needed to count xruns"}', flush=True)""")
+
+    def test_the_process_answers_what_the_probe_reads(self):
+        import io
+        lib = FakeJack(ports={"system:playback_1": 512})
+        probe = bench.JackProbe("bench1", lib=lib)
+        lib.xrun(2)
+        out = io.StringIO()
+        asks = [{"op": "count"}, {"op": "latency_frames", "args": ["system:playback_1"]}, {"op": "close"}]
+        bench.probe_serve(probe, [json.dumps(a) for a in asks], out)
+        self.assertEqual([json.loads(x) for x in out.getvalue().splitlines()], [{"ok": 2}, {"ok": 512}, {"ok": None}])
+        self.assertEqual(lib.calls[-2:], ["deactivate", "close"])
+
+    def test_a_server_that_went_away_is_an_error_not_an_old_reading(self):
+        import io
+        lib = FakeJack()
+        probe = bench.JackProbe("bench1", lib=lib)
+        probe._on_shutdown(None)
+        out = io.StringIO()
+        bench.probe_serve(probe, [json.dumps({"op": "cpu_load"}), json.dumps({"op": "close"})], out)
+        self.assertEqual(json.loads(out.getvalue().splitlines()[0]), {"error": "the JACK server went away"})
 
 
 class FakeDaemon:

@@ -54,6 +54,9 @@ jobs:
       - name: Unit tests of the harness
         run: python3 -I bench/tests/test_bench.py
 
+      - name: The xrun probe against a JACK server that dies or stops answering
+        run: python3 -I bench/tests/test_probe_jack.py
+
       - name: Unit tests of the Zynthian benchmark matrix
         run: python3 -I tools/zynthian/test_matrix.py
 
