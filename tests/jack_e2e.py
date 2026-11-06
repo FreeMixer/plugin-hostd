@@ -293,6 +293,112 @@ def clap_file_whose_name_holds_a_space_is_opened_by_the_real_worker_from_its_enc
         d.close()
 
 
+# omx-plugins' CLAP bundles (omx-plugins-clap) and the oracle of curve_points' reply (tests/curve_reply.c)
+OMX_CLAP_DIR = os.environ.get("OMX_PLUGINS_CLAP_DIR", "/usr/lib/clap")
+CURVE_REPLY = os.environ.get("CURVE_REPLY")
+CURVE_RATE = os.environ.get("CURVE_RATE", "48000")
+EQ8_SHAPES = "bell|lowshelf|highshelf|notch|-|-"
+EQ_SHAPE_OF = EQ8_SHAPES.split("|")
+
+
+def omx_uri(name, ident):
+    return "clap:%s/%s.clap#org.openmixer.%s" % (OMX_CLAP_DIR, name, ident)
+
+
+def curve_oracle(kind, family, points, terms, values):
+    """omx_curve_points over the values param_get_many read, the band type resolved as the worker resolves it"""
+    words = []
+    for role, sym, unit, shapes in terms:
+        v = values[sym]
+        shape = ""
+        if shapes and role.startswith("band_type"):
+            k = int(round(float(v)))
+            shape = "@" + (shapes.split("|")[k] if 0 <= k < len(shapes.split("|")) else "-")
+        elif shapes:
+            shape = "@" + shapes
+        words.append("%s=%s%s%s" % (role, v, ":" + unit if unit else "", shape))
+    out = subprocess.run([CURVE_REPLY, kind, family, CURVE_RATE, str(points)] + words, capture_output=True, text=True,
+                         timeout=10)
+    check(out.returncode == 0, "curve_reply read the request: %s" % out.stderr)
+    return out.stdout.strip()
+
+
+def bind_line(inst, display, kind, family, terms):
+    return "curve_bind %d %d %s %s " % (inst, display, kind, family) + " ".join(
+        "%s=%s%s%s" % (role, sym, ":" + unit if unit else "", "@" + shapes if shapes else "") for role, sym, unit, shapes in terms)
+
+
+def values_of(d, inst, terms):
+    syms = [sym for _, sym, _, _ in terms]
+    r = d.send("param_get_many %d %s" % (inst, " ".join(syms)))
+    check(r.startswith("resp 0 "), "param_get_many of the bound symbols -> %r" % r)
+    return dict(zip(syms, r.split()[2:]))
+
+
+if CURVE_REPLY and all(os.path.exists(os.path.join(OMX_CLAP_DIR, n + ".clap")) for n in ("omx-comp", "omx-eq8", "omx-eq32")):
+    @test
+    def omx_eq_and_omx_comp_curves_are_omx_curve_points_over_their_values_and_survive_a_kill():
+        """curve_bind and curve_points on real instances through the daemon: the reply is omx_curve_points over the
+        param_get values, bit for bit as written; a 32-band binding in three lines answers as one; the binding comes back
+        with the worker after a SIGKILL; each refusal by its code"""
+        d = daemon()
+        try:
+            d.expect("add %s 0" % omx_uri("omx-comp", "comp"), "resp 0")
+            d.expect("add %s 1" % omx_uri("omx-eq8", "eq8"), "resp 1")
+            d.expect("add %s 2" % omx_uri("omx-eq32", "eq32"), "resp 2")
+            comp = [("threshold", "thresholdDb", "db", ""), ("ratio", "ratio", "ratio", ""), ("knee", "kneeDb", "db", ""),
+                    ("makeup", "makeupDb", "db", "")]
+            for sym, v in (("thresholdDb", -24.5), ("ratio", 4.0), ("kneeDb", 6.0), ("makeupDb", 2.25)):
+                d.expect("param_set 0 %s %s" % (sym, v), "resp 0")
+            d.expect(bind_line(0, 0, "transfer_curve", "dynamics", comp), "resp 0")
+            eq8 = []
+            for b in range(1, 9):
+                eq8 += [("band_type.%d" % (b - 1), "b%d_type" % b, "", EQ8_SHAPES), ("band_freq.%d" % (b - 1), "b%d_freq" % b, "hz", ""),
+                        ("band_gain.%d" % (b - 1), "b%d_gain" % b, "db", ""), ("band_q.%d" % (b - 1), "b%d_q" % b, "", ""),
+                        ("band_on.%d" % (b - 1), "b%d_on" % b, "", "")]
+            for b, (ty, g, q) in enumerate([(1, 4.5, 0.75), (0, -6.0, 2.0), (0, 3.0, 1.5), (3, 0.0, 8.0), (0, 1.25, 1.0),
+                                            (0, -2.5, 4.0), (0, 0.5, 0.5), (2, -3.0, 0.75)], 1):
+                for sym, v in (("b%d_type" % b, ty), ("b%d_gain" % b, g), ("b%d_q" % b, q), ("b%d_on" % b, 1)):
+                    d.expect("param_set 1 %s %s" % (sym, v), "resp 0")
+            d.expect(bind_line(1, 0, "eq_response", "eq", eq8), "resp 0")
+            eq32 = []
+            for b in range(1, 33):
+                eq32 += [("band_type.%d" % (b - 1), "b%d_type" % b, "", EQ8_SHAPES), ("band_freq.%d" % (b - 1), "b%d_freq" % b, "hz", ""),
+                         ("band_gain.%d" % (b - 1), "b%d_gain" % b, "db", ""), ("band_q.%d" % (b - 1), "b%d_q" % b, "", ""),
+                         ("band_on.%d" % (b - 1), "b%d_on" % b, "", "")]
+                d.expect("param_set 2 b%d_gain %s" % (b, ((b * 5) % 25 - 12) / 2), "resp 0")
+                d.expect("param_set 2 b%d_on 1" % b, "resp 0")
+            for k in range(3):
+                d.expect(bind_line(2, 0, "eq_response", "eq", eq32[k * 54:(k + 1) * 54]), "resp 0")
+            cases = [(0, "transfer_curve", "dynamics", 41, comp), (1, "eq_response", "eq", 128, eq8),
+                     (2, "eq_response", "eq", 256 - 3 * 32, eq32)]
+
+            def held(why):
+                for inst, kind, family, points, terms in cases:
+                    want = curve_oracle(kind, family, points, terms, values_of(d, inst, terms))
+                    got = d.send("curve_points %d 0 %d" % (inst, points))
+                    check(got == want and got.startswith("resp 0 "),
+                          "%s: curve_points %d is omx_curve_points over its values: %.120r vs %.120r" % (why, inst, got, want))
+            held("as bound")
+            d.expect("param_set 0 ratio 2.0", "resp 0")
+            held("a ratio changed on the instance")
+            d.expect("curve_points 2 0 %d" % (256 - 3 * 32 + 1), "resp -539")
+            _, w = d.holder(2)
+            mark = d.mark()
+            os.kill(w["pid"], signal.SIGKILL)
+            d.wait_event("instance_restored 2 ", since=mark)
+            held("after the kill")
+            d.expect("curve_points 0 7 41", "resp -537")
+            d.expect("curve_points 0 0 1", "resp -539")
+            d.expect("curve_points 9 0 41", "resp -3")
+            d.expect("curve_bind 0 1 transfer_curve reverb threshold=thresholdDb:db", "resp -536")
+            d.expect("curve_bind 0 1 transfer_curve dynamics threshold=thresholdDb:hz", "resp -538")
+            d.expect("curve_bind 0 1 transfer_curve dynamics threshold=nope:db", "resp -103")
+            d.expect("curve_bind 0 1 transfer_curve dynamics threshold", "resp -902")
+        finally:
+            d.close()
+
+
 def meter_source(d, *ports):
     """0.5 left and 0.25 right into the ports, -6.0206 and -12.0412 dBFS; it connects them itself"""
     src = subprocess.Popen([METER_SOURCE] + list(ports), stdout=subprocess.PIPE,

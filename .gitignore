@@ -9,6 +9,7 @@ tests/plan-refused.out
 tests/*.clap
 __pycache__/
 tests/jack_levels
+tests/curve_reply
 tests/host_scenarios
 tools/protocol-gen
 *.new
