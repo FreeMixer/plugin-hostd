@@ -1,0 +1,359 @@
+{
+ "schema": "omx-bench/1",
+ "id": "rpi5-20261105-1",
+ "machine": {
+  "class": "rpi5",
+  "model": "Raspberry Pi 5 Model B Rev 1.0",
+  "cpu": "Cortex-A76",
+  "cores": 4,
+  "ram_mb": 4049,
+  "os": "Debian 13",
+  "kernel": "6.18.50+rpt-rpi-2712",
+  "governor": "performance"
+ },
+ "software": {
+  "plugin-hostd": "0.18.0",
+  "omx-clap-host": "0.29.0",
+  "mod-host": "0.10.9-1",
+  "jalv": "1.6.9 (not packaged)",
+  "jack": "1.9.22~dfsg-4",
+  "omx-plugins-clap": "0.18.0",
+  "omx-plugins-lv2": "0.18.0",
+  "calf-plugins": "5:0.90.3-1kxstudio3"
+ },
+ "jack": {
+  "driver": "alsa",
+  "priority": 70,
+  "device": "hw:Pro73107815",
+  "periods": 3
+ },
+ "scenarios": [
+  {
+   "id": "cvp16",
+   "title": "chains vs processes, 16 plugins",
+   "host": "H2",
+   "rate": 48000,
+   "frames": 256,
+   "plugins": [
+    "omx-comp (CLAP)",
+    "Calf Compressor (LV2)",
+    "omx-delay (CLAP)",
+    "omx-drive (CLAP)",
+    "omx-comp (CLAP)",
+    "Calf Compressor (LV2)",
+    "omx-delay (CLAP)",
+    "omx-drive (CLAP)",
+    "omx-comp (CLAP)",
+    "Calf Compressor (LV2)",
+    "omx-delay (CLAP)",
+    "omx-drive (CLAP)",
+    "omx-comp (CLAP)",
+    "Calf Compressor (LV2)",
+    "omx-delay (CLAP)",
+    "omx-drive (CLAP)"
+   ],
+   "dsp_load_avg": 10.13,
+   "dsp_load_max": 14.41,
+   "samples": 10,
+   "rss_mb": 1859.7,
+   "add_ms": 1088.8,
+   "recover_ms": null,
+   "status": "ok",
+   "note": "xruns: the probe counted 85, jackd logged 6 event(s); xruns: the probe counted 30, jackd logged 2 event(s)",
+   "stress": "busy4+mem256",
+   "mode": "individual",
+   "xruns": 30,
+   "processes": 17,
+   "rss_mb_total": 1859.7,
+   "pss_mb_total": 167.5,
+   "cpu_pct": 10.71,
+   "ctx_switches": 42888,
+   "ctx_involuntary": 214,
+   "ctx_jackd": 2079,
+   "ctx_jackd_involuntary": 10,
+   "latency_frames": 288,
+   "jack_clients": 16,
+   "repeats": 3,
+   "spread": {
+    "dsp_load_avg": [
+     8.93,
+     10.16
+    ],
+    "dsp_load_max": [
+     8.95,
+     20.48
+    ],
+    "rss_mb": [
+     1859.0,
+     1860.4
+    ],
+    "add_ms": [
+     1077.8,
+     1136.8
+    ],
+    "processes": [
+     17,
+     17
+    ],
+    "rss_mb_total": [
+     1859.0,
+     1860.4
+    ],
+    "pss_mb_total": [
+     167.5,
+     167.5
+    ],
+    "cpu_pct": [
+     10.25,
+     11.25
+    ],
+    "ctx_switches": [
+     42525,
+     47020
+    ],
+    "ctx_involuntary": [
+     214,
+     216
+    ],
+    "ctx_jackd": [
+     2070,
+     5911
+    ],
+    "ctx_jackd_involuntary": [
+     1,
+     3823
+    ],
+    "xruns": [
+     0,
+     85
+    ],
+    "latency_frames": [
+     288,
+     288
+    ],
+    "jack_clients": [
+     16,
+     16
+    ]
+   }
+  },
+  {
+   "id": "cvp16",
+   "title": "chains vs processes, 16 plugins",
+   "host": "H2",
+   "rate": 48000,
+   "frames": 256,
+   "plugins": [
+    "omx-comp (CLAP)",
+    "Calf Compressor (LV2)",
+    "omx-delay (CLAP)",
+    "omx-drive (CLAP)",
+    "omx-comp (CLAP)",
+    "Calf Compressor (LV2)",
+    "omx-delay (CLAP)",
+    "omx-drive (CLAP)",
+    "omx-comp (CLAP)",
+    "Calf Compressor (LV2)",
+    "omx-delay (CLAP)",
+    "omx-drive (CLAP)",
+    "omx-comp (CLAP)",
+    "Calf Compressor (LV2)",
+    "omx-delay (CLAP)",
+    "omx-drive (CLAP)"
+   ],
+   "dsp_load_avg": 6.68,
+   "dsp_load_max": 6.69,
+   "samples": 10,
+   "rss_mb": 148.0,
+   "add_ms": 2741.0,
+   "recover_ms": null,
+   "status": "ok",
+   "note": "",
+   "stress": "busy4+mem256",
+   "mode": "chain",
+   "xruns": 0,
+   "processes": 2,
+   "rss_mb_total": 148.0,
+   "pss_mb_total": 61.0,
+   "cpu_pct": 6.73,
+   "ctx_switches": 3049,
+   "ctx_involuntary": 2,
+   "ctx_jackd": 2064,
+   "ctx_jackd_involuntary": 0,
+   "latency_frames": 288,
+   "jack_clients": 1,
+   "repeats": 3,
+   "spread": {
+    "dsp_load_avg": [
+     6.65,
+     6.82
+    ],
+    "dsp_load_max": [
+     6.66,
+     7.77
+    ],
+    "rss_mb": [
+     147.6,
+     148.0
+    ],
+    "add_ms": [
+     2709.1,
+     2746.2
+    ],
+    "processes": [
+     2,
+     2
+    ],
+    "rss_mb_total": [
+     147.6,
+     148.0
+    ],
+    "pss_mb_total": [
+     61.0,
+     61.0
+    ],
+    "cpu_pct": [
+     6.72,
+     6.73
+    ],
+    "ctx_switches": [
+     3049,
+     3056
+    ],
+    "ctx_involuntary": [
+     0,
+     2
+    ],
+    "ctx_jackd": [
+     2064,
+     2065
+    ],
+    "ctx_jackd_involuntary": [
+     0,
+     0
+    ],
+    "xruns": [
+     0,
+     0
+    ],
+    "latency_frames": [
+     288,
+     288
+    ],
+    "jack_clients": [
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": "cvp16",
+   "title": "chains vs processes, 16 plugins",
+   "host": "H2",
+   "rate": 48000,
+   "frames": 256,
+   "plugins": [
+    "omx-comp (CLAP)",
+    "Calf Compressor (LV2)",
+    "omx-delay (CLAP)",
+    "omx-drive (CLAP)",
+    "omx-comp (CLAP)",
+    "Calf Compressor (LV2)",
+    "omx-delay (CLAP)",
+    "omx-drive (CLAP)",
+    "omx-comp (CLAP)",
+    "Calf Compressor (LV2)",
+    "omx-delay (CLAP)",
+    "omx-drive (CLAP)",
+    "omx-comp (CLAP)",
+    "Calf Compressor (LV2)",
+    "omx-delay (CLAP)",
+    "omx-drive (CLAP)"
+   ],
+   "dsp_load_avg": 6.76,
+   "dsp_load_max": 7.26,
+   "samples": 10,
+   "rss_mb": 147.2,
+   "add_ms": 397.0,
+   "recover_ms": null,
+   "status": "ok",
+   "note": "",
+   "stress": "busy4+mem256",
+   "mode": "chain-add",
+   "xruns": 1,
+   "processes": 2,
+   "rss_mb_total": 147.2,
+   "pss_mb_total": 60.1,
+   "cpu_pct": 6.81,
+   "ctx_switches": 3059,
+   "ctx_involuntary": 3,
+   "ctx_jackd": 2067,
+   "ctx_jackd_involuntary": 0,
+   "latency_frames": 288,
+   "jack_clients": 1,
+   "repeats": 3,
+   "spread": {
+    "dsp_load_avg": [
+     6.58,
+     6.76
+    ],
+    "dsp_load_max": [
+     6.6,
+     7.88
+    ],
+    "rss_mb": [
+     146.8,
+     147.9
+    ],
+    "add_ms": [
+     396.2,
+     398.1
+    ],
+    "processes": [
+     2,
+     2
+    ],
+    "rss_mb_total": [
+     146.8,
+     147.9
+    ],
+    "pss_mb_total": [
+     60.0,
+     60.1
+    ],
+    "cpu_pct": [
+     6.72,
+     6.9
+    ],
+    "ctx_switches": [
+     3049,
+     3059
+    ],
+    "ctx_involuntary": [
+     2,
+     3
+    ],
+    "ctx_jackd": [
+     2064,
+     2070
+    ],
+    "ctx_jackd_involuntary": [
+     0,
+     0
+    ],
+    "xruns": [
+     0,
+     3
+    ],
+    "latency_frames": [
+     288,
+     288
+    ],
+    "jack_clients": [
+     1,
+     1
+    ]
+   }
+  }
+ ]
+}

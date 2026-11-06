@@ -70,7 +70,7 @@ for an instrument, wired through the plugins in series into the playback ports.
 | `kill1` | omx-comp, then `kill -9` of the process that holds it |
 | `cvp3`, `cvp8`, `cvp16`, `cvp24`, `cvp32`, `cvp48` | chains vs processes: N plugins cycling omx-comp, Calf Compressor, omx-delay, omx-drive |
 | `cvc3` to `cvc48` | the same with CLAP plugins only: omx-comp, omx-delay, omx-drive. Under plugin-hostd's chain they share one JACK client, which a chain with an LV2 member does not |
-| `cvl8`, `cvl16`, `cvl24` | the same with the LV2 builds on every host: plugin-hostd and omx-clap-host through its LV2 adapter, mod-host and jalv, like for like |
+| `cvl3` to `cvl48` | the same with the LV2 builds on every host: plugin-hostd and omx-clap-host through its LV2 adapter, mod-host and jalv, like for like. Every `cvcN` has its `cvlN`: on H1 and on H2 the pair is the same host, the same plugins and the same DSP code in two wrappers, the only clean read of the format. `table.sh` prints it as "CLAP against LV2"; across hosts (H1 CLAP against H3 LV2) the host and the format are mixed and the table does not compare them |
 | `cvp24-lv2` | `cvp24` with the LV2 builds on every host, plugin-hostd and omx-clap-host through the LV2 adapter |
 | `tp10` | chains vs processes: ten third-party LV2 effects in series, the set of `tools/zynthian/matrix/plugins.json` |
 | `grp8`, `grp16` | grouping vs processes: N CLAP plugins cycling omx-comp, omx-drive, omx-delay, omx-drive, omx-comp, where omx-drive is pinned `isolated` |
@@ -122,6 +122,7 @@ Reading the numbers
 | `processes` | the host's processes: itself and every descendant, the workers of plugin-hostd included |
 | `process_set` | those processes one by one at the end of the window: `name` (its comm), `pid`, `rss_mb` and `pss_mb` (null where `smaps_rollup` is not readable), sorted by name then pid. Under plugin-hostd it is what each worker holds: one entry per plugin in `individual`, one per chain in `chain`. Over repeats it is the set of the run whose `rss_mb_total` the row carries; `validate.sh` holds its length to `processes` |
 | `cpu_pct` | utime plus stime of those processes over the window, in percent of one core |
+| `cycles` | audio cycles in the window (window seconds x rate / frames). `table.sh` prints ctx, involuntary and jackd switches per cycle beside the DSP load, the figure that scales with the host's design and not with the frame count |
 | `ctx_switches`, `ctx_involuntary` | context switches of all their threads over the window, and how many of them were involuntary |
 | `ctx_jackd`, `ctx_jackd_involuntary` | the same for the private JACK server over the same window, since a graph of more clients costs the server switches too |
 | `add_ms` | from the first `add` to the last reply; for H2 `chain` and `chain-add` until the chain runs; for H4 until the last client is in the graph |
@@ -146,3 +147,27 @@ Tests
 against a stand-in `libjack`, the stress processes (pinned, resident) on the machine it runs on, the median and spread,
 the plan and pool steps against a stand-in daemon on a socket, the pin verdicts, and the tables. `bench/tests/sabotage.sh`
 breaks one line behind each of those guards in a copy and requires its test to go red; `--teardown` also runs the hosts.
+
+## The soundness gate
+
+A median of three back-to-back repeats hides a cell that was disturbed as a whole, and the repeats of one cell share
+the machine state, so the spread inside a cell understates the error between cells. The gate compares cells with each
+other (`lib/soundness.py`, thresholds at its top):
+
+| check | a cell is unstable when |
+|---|---|
+| spread | its repeats span more than 10 % of the median (and more than 0.3 points) |
+| twin | the same cell at another period count, or in another document, differs by more than 8 % (the work of a cycle does not depend on the periods) |
+| stress | the cell without stress reads higher than the same cell with it |
+| scaling | the cell reads higher than the same cell at fewer frames |
+| state | a repeat ran with the firmware's throttle bits set, or the CPU frequency moved more than 5 % across the repeats |
+| output | the strip made no sound, or its level differs by more than 1 dB from the same set run one process per plugin (H1 and H2) |
+
+`run.sh` interleaves the hosts across the repeats of a scenario (A B C A B C), records `repeat_state` (core
+frequencies, temperature, `vcgencmd get_throttled`, the cores the host's threads and JACK last ran on, the core that
+takes the USB interrupt) before and after each window, captures one second of the strip's output with `jack_rec`
+(`output`), reruns a cell that breaks a check alone once, and writes `gate` on every row: `pass`, or `unstable` with its
+reasons. `validate.sh` refuses a document with a cell that breaks a check and is not marked unstable; given several
+documents it checks them together, which is where the period-count twins are seen. `table.sh` shows an unstable figure
+as UNSTABLE and makes no ratio from it. `gate.sh <file>...` prints each failing cell with the `run.sh` arguments that
+measure it alone and exits 1.

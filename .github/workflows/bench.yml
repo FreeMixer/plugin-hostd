@@ -49,7 +49,7 @@ jobs:
           done
 
       - name: shellcheck
-        run: shellcheck bench/run.sh bench/validate.sh bench/table.sh bench/lib/send.sh bench/tests/sabotage.sh
+        run: shellcheck bench/run.sh bench/validate.sh bench/table.sh bench/gate.sh bench/lib/send.sh bench/tests/sabotage.sh
 
       - name: Unit tests of the harness
         run: python3 -I bench/tests/test_bench.py

@@ -105,16 +105,16 @@ break_unit rep-high lib/bench.py 'statistics.median_high(vals)' 'statistics.medi
 break_unit rep-mean lib/bench.py 'round(statistics.median(vals), 2)' 'round(statistics.mean(vals), 2)' Repeats.test_the_median_is_the_middle_run_not_the_mean
 break_unit rep-spread lib/bench.py 'spread[key] = [min(vals), max(vals)]' 'spread[key] = [min(vals), min(vals)]' Repeats.test_the_median_and_the_spread_of_three_runs
 break_unit rep-failed lib/bench.py 'if row["status"] == "failed" and (wanted or len(runs)) > 1:' 'if False:' Repeats.test_a_failed_repeat_fails_the_row_and_names_it
-break_unit rep-stop lib/bench.py 'if runs[-1]["status"] != "ok":' 'if False:' Repeats.test_the_runner_stops_repeating_at_the_first_row_that_is_not_ok
+break_unit rep-stop lib/bench.py 'if runs[i] and runs[i][-1]["status"] != "ok":' 'if False:' Repeats.test_the_runner_stops_repeating_at_the_first_row_that_is_not_ok
 break_unit rep-count lib/bench.py 'for _ in range(self.args.repeats):' 'for _ in range(1):' Repeats.test_the_runner_runs_the_row_as_many_times_as_asked
 break_unit jack-hang lib/bench.py '    except subprocess.TimeoutExpired:
         raise JackUnanswered' '    except OSError:
         raise JackUnanswered' JackUnanswered.test_a_jack_tool_that_hangs_is_a_failed_row_naming_it
 break_unit jack-restart lib/bench.py '        if isinstance(e, JackUnanswered):
             self.jack_dirty = True' '        pass' JackUnanswered.test_the_run_goes_on_and_jack_starts_again_after_a_row_it_did_not_answer
-break_unit jack-nostart lib/bench.py '                except JackUnanswered as e:
-                    self.jack_stop()' '                except ZeroDivisionError as e:
-                    self.jack_stop()' JackUnanswered.test_a_jack_that_does_not_start_again_fails_each_row_and_the_run_still_ends
+break_unit jack-nostart lib/bench.py '                    except JackUnanswered as e:
+                        self.jack_stop()' '                    except ZeroDivisionError as e:
+                        self.jack_stop()' JackUnanswered.test_a_jack_that_does_not_start_again_fails_each_row_and_the_run_still_ends
 break_unit plan-one lib/bench.py 'if len(segments) < 2:' 'if False:' Grouping.test_a_plan_of_one_segment_fails_the_row
 break_unit plan-reply lib/bench.py 'words[:2] != ["resp", "0"]' 'False' Grouping.test_a_refused_plan_is_failed_with_the_daemons_words
 break_unit pool-alone lib/bench.py 'and seg[0] not in alone]' 'and True]' Grouping.test_the_pool_takes_the_shareable_members_the_plan_left_alone
@@ -129,7 +129,70 @@ break_unit table-ratio lib/table.py 'ind[key] / grp[key]' 'grp[key] / ind[key]' 
 break_unit table-stress lib/table.py 'key = (label(r), r.get("stress", "none") != "none")' 'key = (label(r), False)' Table.test_xruns_are_summed_per_mode_with_and_without_stress
 break_unit table-spread lib/table.py 'if lo != hi:' 'if False:' Table.test_a_spread_shows_beside_its_median
 break_unit table-failed lib/table.py 'if r["status"] != "ok":' 'if False:' Table.test_a_failed_row_is_shown_with_its_reason
-break_unit table-family lib/table.py '(cvp|grp)[0-9]+$' '.*$' Table.test_a_scenario_that_is_not_a_family_is_left_out
+break_unit table-family lib/table.py '(cvp|cvc|cvl|grp)[0-9]+$' '.*$' Table.test_a_scenario_that_is_not_a_family_is_left_out
+# --- the soundness gate: each check, broken on purpose, turns the test that feeds it a disturbed sample red
+break_unit gate-spread lib/soundness.py 'if span and avg > 0 and span[1] - span[0] > max(SPREAD_REL * avg, FLOOR):' \
+    'if False:' Soundness.test_a_wide_spread_is_flagged_and_a_narrow_one_is_not
+break_unit gate-spread-floor lib/soundness.py 'span[1] - span[0] > max(SPREAD_REL * avg, FLOOR)' \
+    'span[1] - span[0] > SPREAD_REL * avg' Soundness.test_a_spread_inside_the_noise_floor_is_not_flagged
+break_unit gate-twin lib/soundness.py 'if over(b["dsp_load_avg"], a["dsp_load_avg"], CELL_REL):' \
+    'if False:' Soundness.test_twins_at_two_period_counts_that_disagree_flag_the_higher
+break_unit gate-twin-median lib/soundness.py 'if abs(v - med) > max(CELL_REL * med, FLOOR):' \
+    'if False:' Soundness.test_three_twins_flag_the_one_away_from_the_median
+break_unit gate-stress lib/soundness.py 'if over(r["dsp_load_avg"], low, CELL_REL):' \
+    'if False:' Soundness.test_a_cell_above_its_stressed_twin_is_flagged
+break_unit gate-scaling lib/soundness.py 'if fb > fa and over(b["dsp_load_avg"], a["dsp_load_avg"], CELL_REL):' \
+    'if False:' Soundness.test_more_frames_costing_more_is_flagged_and_fewer_is_not
+break_unit gate-throttle lib/soundness.py 'if bits & THROTTLE_NOW:' \
+    'if False:' Soundness.test_a_throttled_repeat_is_flagged
+break_unit gate-throttle-history lib/soundness.py 'THROTTLE_NOW = 0x7 ' \
+    'THROTTLE_NOW = 0xf0007 ' Soundness.test_a_history_only_throttle_bit_is_not_a_disturbance_now
+break_unit gate-freq lib/soundness.py 'if freqs and min(freqs) < (1 - FREQ_REL) * max(freqs):' \
+    'if False:' Soundness.test_a_frequency_that_moved_between_repeats_is_flagged
+break_unit gate-silent lib/soundness.py 'if not isinstance(db, (int, float)) or db < SILENT_DB:' \
+    'if False:' Soundness.test_a_silent_output_is_flagged
+break_unit gate-output lib/soundness.py 'and abs(db - want) > OUTPUT_DB:' \
+    'and False:' Soundness.test_an_output_unlike_the_same_set_one_process_per_plugin_is_flagged
+break_unit gate-output-hosts lib/soundness.py 'OUTPUT_HOSTS = ("H1", "H2")' \
+    'OUTPUT_HOSTS = ("H1", "H2", "H3", "H4")' Soundness.test_the_other_builds_of_h3_and_h4_are_not_held_to_the_h2_level
+break_unit gate-annotate lib/soundness.py 'gate = {"verdict": "unstable", "reasons": bad[(0, i)]}' \
+    'gate = {"verdict": "pass", "reasons": []}' Soundness.test_annotate_marks_every_row_and_names_the_reasons
+break_unit gate-validate lib/validate.py 'if gate.get("verdict") != "unstable":' \
+    'if False:' GateCommands.test_validate_refuses_the_disturbed_pi_cell_and_names_it
+break_unit gate-validate-pass lib/validate.py 'if gate.get("verdict") != "unstable":' \
+    'if not gate:' GateCommands.test_validate_refuses_a_pass_mark_on_a_disturbed_cell
+break_unit gate-validate-why lib/validate.py 'and not gate.get("reasons"):' \
+    'and False:' GateCommands.test_validate_wants_a_reason_with_an_unstable_mark
+break_unit gate-exit lib/gate.py 'sys.exit(1 if bad else 0)' \
+    'sys.exit(0)' GateCommands.test_gate_sh_exits_1_on_the_pi_cells_and_prints_the_rerun
+break_unit gate-rerun lib/bench.py 'if not plan or (r.get("gate") or {}).get("rerun"):' \
+    'if True:' SettleGate.test_a_cell_that_breaks_a_check_is_rerun_and_marked_pass_when_the_rerun_agrees
+break_unit gate-rerun-once lib/bench.py 'if not plan or (r.get("gate") or {}).get("rerun"):' \
+    'if not plan:' SettleGate.test_a_cell_already_rerun_alone_is_not_rerun_again
+break_unit gate-mark lib/bench.py 'unstable = soundness.annotate(doc)' \
+    'unstable = 0' SettleGate.test_a_cell_that_still_breaks_after_the_rerun_is_published_as_unstable
+break_unit interleave lib/bench.py '        for _ in range(self.args.repeats):
+            for i, (s, h, mode, stress) in enumerate(group):' \
+    '        for i, (s, h, mode, stress) in enumerate(group):
+            for _ in range(self.args.repeats):' Interleave.test_the_hosts_take_turns_across_the_repeats
+break_unit state-kept lib/bench.py 'row["repeat_state"] = states' \
+    'pass' MachineState.test_the_repeats_keep_their_states_and_cycles
+break_unit state-irq lib/bench.py 'counts.index(max(counts))' \
+    '0' MachineState.test_the_state_reads_frequency_temperature_cores_and_the_usb_interrupt
+break_unit state-cores lib/bench.py 'cores.add(int(f.read().rsplit(")", 1)[1].split()[36]))' \
+    'cores.add(0)' MachineState.test_the_state_reads_frequency_temperature_cores_and_the_usb_interrupt
+break_unit output-level lib/bench.py 'math.sqrt(sum(x * x for x in data) / len(data)) / 32768.0' \
+    'math.sqrt(sum(x * x for x in data) / len(data))' MachineState.test_a_wav_is_read_as_its_level
+break_unit table-unstable lib/table.py 'and id(r) not in bad}' \
+    '}' TableSoundness.test_an_unstable_cell_is_shown_as_such_and_makes_no_ratio
+break_unit table-cycles lib/table.py 'cycles = WINDOW_S * row["rate"] / row["frames"]' \
+    'cycles = 1' TableSoundness.test_the_table_carries_the_switches_of_a_cycle
+break_unit table-format lib/table.py 'l["dsp_load_avg"] / c["dsp_load_avg"] if c["dsp_load_avg"] else 0' \
+    'c["dsp_load_avg"] / l["dsp_load_avg"]' TableSoundness.test_the_format_pairs_put_clap_beside_lv2_on_one_host
+break_unit table-rate lib/table.py 'and id(r) not in bad and r.get("dsp_load_avg")' \
+    'and r.get("dsp_load_avg")' TableSoundness.test_the_rate_ratio_is_made_from_cells_that_passed
+break_unit scenario-cvl scenarios.json '"id": "cvl32", ' \
+    '"id": "cvx32", ' FormatScenarios.test_every_clap_chain_scenario_has_its_lv2_twin_on_h1_and_h2
 green "unit tests as they are" python3 -I "$here/tests/test_bench.py"
 
 # --- the teardown
