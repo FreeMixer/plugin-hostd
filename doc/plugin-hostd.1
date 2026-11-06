@@ -180,7 +180,9 @@ overrides it, and
 of its uri answers \-516.
 Under pin_mode first\-use,
 .B pin_accept
-of such a plugin records the user's choice (in the file
+of such a plugin, or of one the
+.B pin_file
+refuses, records the user's choice (in the file
 .IR <pin_store>.accepted )
 and its files as its pin with no verdict, so it runs alone in a worker of its own;
 .B pin_clear

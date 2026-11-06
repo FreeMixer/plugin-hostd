@@ -106,9 +106,11 @@ static int refused(const pin_t *p)
     return !strcmp(p->verdict, PHD_PIN_VERDICT_REFUSED);
 }
 
-/* The plugins the user chose to load although their package pin carries verdict=refused (pin_accept under first-use). A
- * failed qualification is our advice, not a wall: the user decides. The choice is kept beside the store, one uri per
- * line, and counts only under first-use (g_accepting): strict admits what passed and nothing else. */
+/* The plugins the user chose to load although their pin carries verdict=refused, from a pins.d file or the pin_file
+ * (pin_accept under first-use). A failed qualification is our advice, not a wall: the user decides. The choice is kept
+ * beside the store, one uri per line, and counts only under first-use (g_accepting): strict admits what passed and
+ * nothing else. An accepted plugin is admitted with the files its pin holds and is never qualified for a shared
+ * worker, so it runs alone. */
 static char **g_accepted;
 static int g_naccepted;
 static int g_accepting;
@@ -1118,13 +1120,14 @@ int pins_learn(const format_t *format, const char *uri, const char *search)
 
 int pins_accept(const format_t *format, const char *uri, const char *search)
 {
+    const pin_t *p = find(bare(uri));
     int rc, chosen;
 
-    if (!find(bare(uri)))
+    if (!p)
         return OMX_REPLY_HOST_PIN_ABSENT_RESP;
-    /* the package refused it: the user's choice, kept, and the files as they are now its pin with no verdict, so it
-     * runs in a worker of its own like any plugin not qualified for a shared one */
-    chosen = pkg_refused(bare(uri)) != NULL;
+    /* its qualification refused it: the user's choice, kept, and the files as they are now its pin with no verdict, so
+     * it runs in a worker of its own like any plugin not qualified for a shared one */
+    chosen = pkg_refused(bare(uri)) != NULL || refused(p);
     if (chosen && (!g_accepting || accepted_add(bare(uri)) != 0))
         return g_accepting ? ERR_MEMORY_ALLOCATION : OMX_REPLY_PLUGIN_HOSTD_PIN_REFUSED_RESP;
     rc = record(format, uri, search);
@@ -1134,7 +1137,7 @@ int pins_accept(const format_t *format, const char *uri, const char *search)
     {
         accepted_save();
         if (rc == SUCCESS)
-            fprintf(stderr, "plugin-hostd: %s: its pins.d pin carries " PHD_PIN_VERDICT_KEY PHD_PIN_VERDICT_REFUSED
+            fprintf(stderr, "plugin-hostd: %s: its pin carries " PHD_PIN_VERDICT_KEY PHD_PIN_VERDICT_REFUSED
                             "; the user chose to load it, alone in a worker of its own\n", uri);
     }
     return rc;
@@ -1180,7 +1183,7 @@ int pins_check(const format_t *format, const char *uri, const char *search, cons
     for (n = 0; n < p->nfiles && rc == SUCCESS; n++)
         rc = hash_file(root, p->path[n], p->digest[n], uri);
     /* the verdict is about these very files: only once they are the pinned ones does a refused one refuse the add */
-    if (rc == SUCCESS && !strcmp(p->verdict, PHD_PIN_VERDICT_REFUSED))
+    if (rc == SUCCESS && !strcmp(p->verdict, PHD_PIN_VERDICT_REFUSED) && !accepted(bare(uri)))
     {
         fprintf(stderr, "plugin-hostd: %s: its pin carries " PHD_PIN_VERDICT_KEY PHD_PIN_VERDICT_REFUSED "\n", uri);
         rc = OMX_REPLY_PLUGIN_HOSTD_PIN_REFUSED_RESP;

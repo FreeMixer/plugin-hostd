@@ -664,7 +664,8 @@ asked of the worker after the add (`pin_layout`) and recorded too. A host that p
 The store, a `pin_file` and `pin_set` carry one line format, `pin_set <uri> <files> <layout> [verdict=<word>]` with the
 verb optional in a file. In `first-use` only a pin with `verdict=in-process`, which plugin-qualify writes, lets a plugin
 share a worker. A pin with `verdict=refused` names files that failed qualification. Their `add` answers `-516`
-(`PIN_REFUSED`), no worker sees it, and a replay is refused with the same code. A pin that changes to `refused` while
+(`PIN_REFUSED`), no worker sees it, and a replay is refused with the same code, until the user chooses to load the
+plugin anyway (`pin_accept`, below). A pin that changes to `refused` while
 the instance runs takes effect at its next replay. Files that differ from the pin answer `-509` first, because the
 verdict was given for the pinned files only.
 
@@ -686,10 +687,11 @@ daemon never writes it. A pin from this layer is trusted as it is, in both pin m
   `pin_set` never override it: `pin_set` of its uri answers `-516` (`PIN_REFUSED`), and a line of the store or of the
   `pin_file` for it is kept but has no effect, which stderr says at start.
 - A failed qualification is our advice, not a wall: the user decides. Under `pin_mode first-use`, `pin_accept <uri>` of
-  a plugin whose pins.d pin carries `verdict=refused` records the user's choice, kept beside the pin store in
+  a plugin whose pin carries `verdict=refused`, from a pins.d file or the `pin_file`, records the user's choice, kept beside the pin store in
   `<pin_store>.accepted`, one uri per line, and takes the plugin's files as they are now as its pin, in the store with no
   verdict: the user's choice, not a pass. The plugin then runs alone in a worker of its own, as any plugin not qualified
-  for a shared one does, and an explicit `pool:<name>` answers `-501`. The choice holds across a restart, covers the
+  for a shared one does, and an explicit `pool:<name>` answers `-501`. The choice holds across a restart and over a
+  `pin_file` that a qualification sync writes again with the refusal, covers the
   files it was made for (files that change answer `-509` until `pin_accept` again), and `pin_clear` of the uri (or
   `all`) takes it back. Under `pin_mode strict` it counts for nothing: strict admits what passed qualification and
   nothing else, and `pin_accept` answers `-902` there.

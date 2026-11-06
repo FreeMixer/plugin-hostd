@@ -2599,6 +2599,44 @@ def a_user_can_load_a_plugin_its_package_refused_in_a_worker_of_its_own():
 
 
 @test
+def a_user_can_load_a_plugin_the_pin_file_refused_and_the_choice_outlives_a_reload():
+    """the qualification sync of a device writes its refusals in the pin_file and rewrites it: the user's pin_accept of
+    such a plugin holds over the refused line through pin_reload and a restart, the plugin runs alone, and pin_clear
+    takes the choice back"""
+    p = Plugins()
+    refused = resp("PIN_REFUSED")
+    try:
+        pins = os.path.join(p.dir, "qualified.pins")
+        write(pins, (pin_line(p, "refused") + "\n").encode())
+        conf = {"pin_mode": "first-use", "pin_file": pins}
+        d = p.daemon(conf=conf)
+        try:
+            d.expect("add %s 0" % p.clap_uri, refused)
+            d.expect("pin_accept %s" % p.clap_uri, "resp 0")
+            d.expect("add %s 0" % p.clap_uri, "resp 0")
+            check(d.holder(0)[1]["place"] == "own", "it runs alone: %s" % d.workers())
+            d.expect("remove 0", "resp 0")
+            # the sync writes the file again: the refused line is read again, the user's choice holds
+            write(pins, (pin_line(p, "refused") + "\n").encode())
+            d.expect("pin_reload", "resp 0")
+            d.expect("add %s 0" % p.clap_uri, "resp 0")
+            check(d.holder(0)[1]["place"] == "own", "after a reload it still runs alone: %s" % d.workers())
+        finally:
+            d.close()
+        d = p.daemon(conf=conf)
+        try:
+            d.expect("add %s 0" % p.clap_uri, "resp 0")
+            d.expect("remove 0", "resp 0")
+            d.expect("pin_clear %s" % p.clap_uri, "resp 0")
+            d.expect("pin_reload", "resp 0")
+            d.expect("add %s 0" % p.clap_uri, refused)
+        finally:
+            d.close()
+    finally:
+        p.close()
+
+
+@test
 def the_host_holds_over_a_pins_d_pin_that_is_not_a_refusal():
     """issue 42: a pins.d pin that is not a refusal is under the host's layer: pin_set holds over it, a change of the
     files is announced by pin_changed until pin_accept records the new files in the store, which then hold across a
