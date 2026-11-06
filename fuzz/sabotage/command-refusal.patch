@@ -2,13 +2,15 @@ Breaks the check of fuzz/fuzz_command.c:487 (a refused command leaves the daemon
 Caught by the seed input "add-instance-past-the-table" of fuzz_command.
 
 diff --git a/src/verbs.c b/src/verbs.c
-index 78daab7..066bcf8 100644
+index 44a3191..1e47e3d 100644
 --- a/src/verbs.c
 +++ b/src/verbs.c
-@@ -142,5 +142,5 @@ static char *handle(char *line, char **tok, int ntok)
-         reply_text = sup_add(tok[1], atoi(tok[2]), placement, client);
+@@ -188,7 +188,7 @@ static char *handle(char *line, char **tok, int ntok)
+             return sup_resp(ERR_INVALID_OPERATION);
+         reply_text = sup_add(uri, atoi(tok[at]), placement, client);
          /* the plugin is running: its files are scanned after the reply, never before it */
 -        if (reply_text && sup_reply_code(reply_text) >= 0)
 +        if (reply_text)
-             descriptors_add(tok[1]);
+             descriptors_add(uri);
          return reply_text;
+     }

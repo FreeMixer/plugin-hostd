@@ -4922,6 +4922,81 @@ def a_clap_file_whose_name_holds_a_space_is_added_pinned_stored_and_described_by
 
 
 @test
+def a_clap_file_whose_name_holds_a_space_is_added_bare_quoted_or_encoded_and_pinned_as_one_word():
+    """Surge XT on the Pi: /usr/local/lib/clap/Surge XT.clap written as it is. A bare add is split at the space by the
+    line's words; the uri goes on to the word that holds the '#' (plugin-hostd-protocol's phd_add_uri), so the add is
+    the plugin's and its placement and client name are read after it. First use pins the file as one percent-encoded
+    word whichever way the uri was written, and a pin_set whose file is encoded (plugin-qualify's) admits the add"""
+    s = Scan()
+    path = os.path.join(os.path.dirname(s.clap), "Surge XT.clap")
+    os.rename(s.clap, path)
+    s.clap = path
+    raw = "clap:%s#%s" % (path, CLAP_ID)
+    store = os.path.join(s.dir, "pins")
+    env = {"FAKE_LOG": os.path.join(s.dir, "commands.log")}
+    learn = {"require_pins": 1, "pin_mode": "first-use", "pin_store": store}
+    d = s.daemon(conf=learn, env=env)
+    try:
+        d.expect("add %s 0" % raw, "resp 0")
+        d.expect("add %s 1 own spaced" % raw, "resp 1")
+        adds = [c for c in sent_to(env["FAKE_LOG"]) if c.startswith("add ")]
+        check(adds[:1] == ['add "%s" 0' % raw], "the worker is given the whole path, one quoted word: %s" % adds)
+        check(len(adds) == 2 and adds[1].startswith('add "%s" 1' % raw) and adds[1].endswith("spaced"),
+              "the placement and the client name are read after the uri: %s" % adds)
+    finally:
+        d.close()
+    with open(store) as f:
+        saved = f.read()
+    check(saved.startswith('pin_set "%s" Surge%%20XT.clap=%s ' % (raw, sha(path))),
+          "the store holds the file as one encoded word: %r" % saved)
+    # the pin plugin-qualify writes: the uri quoted, the file encoded; a strict daemon admits the bare and the quoted add
+    strict = {"require_pins": 1, "pin_mode": "strict", "pin_store": os.path.join(s.dir, "strict-store")}
+    d = s.daemon(conf=strict, env=env)
+    try:
+        d.expect('pin_set "%s" Surge%%20XT.clap=%s %s' % (raw, sha(path), fake_layout()), "resp 0")
+        d.expect("add %s 2" % raw, "resp 2")
+        d.expect('add "%s" 3' % raw, "resp 3")
+        d.expect('pin_set "%s" Surge%%ZZXT.clap=%s %s' % (raw, sha(path), fake_layout()), "resp -902")
+    finally:
+        d.close()
+        s.close()
+
+
+def worker_environ(d):
+    """the environment of each worker the daemon runs, read from /proc"""
+    out = []
+    for w in d.send("worker_list").split()[2:]:
+        with open("/proc/%s/environ" % w.split(":")[1], "rb") as f:
+            out.append(dict(x.split(b"=", 1) for x in f.read().split(b"\0") if b"=" in x))
+    return out
+
+
+@test
+def a_worker_with_no_display_gives_qt_the_offscreen_platform_and_keeps_the_users():
+    """synthv1 and the other Qt-linked LV2 plugins make a QApplication as they are instantiated, and abort when Qt's
+    platform plugin cannot open a display (mod-host and jalv die so too). A daemon with neither DISPLAY nor
+    WAYLAND_DISPLAY starts its workers with QT_QPA_PLATFORM=offscreen (plugin-hostd-protocol's phd_headless_qt); a
+    platform the user set is kept, and a display is left to Qt"""
+    cases = [({"DISPLAY": None, "WAYLAND_DISPLAY": None, "QT_QPA_PLATFORM": None}, b"offscreen"),
+             ({"DISPLAY": None, "WAYLAND_DISPLAY": None, "QT_QPA_PLATFORM": "minimal"}, b"minimal"),
+             ({"DISPLAY": ":7", "WAYLAND_DISPLAY": None, "QT_QPA_PLATFORM": None}, None),
+             ({"DISPLAY": None, "WAYLAND_DISPLAY": "wayland-7", "QT_QPA_PLATFORM": None}, None)]
+    for n, (env, want) in enumerate(cases):
+        p = Plugins()
+        try:
+            d = p.daemon(conf={"pin_mode": "first-use"}, env=env)
+            try:
+                d.expect("add %s %d" % (p.clap_uri, n), "resp %d" % n)
+                envs = worker_environ(d)
+                check(envs and all(e.get(b"QT_QPA_PLATFORM") == want for e in envs),
+                      "%s: the worker's QT_QPA_PLATFORM is %s, wanted %s" % (env, [e.get(b"QT_QPA_PLATFORM") for e in envs], want))
+            finally:
+                d.close()
+        finally:
+            p.close()
+
+
+@test
 def an_add_writes_the_descriptor_by_id_version_and_hash_and_descriptor_get_answers_from_it():
     s = Scan()
     d = s.daemon()

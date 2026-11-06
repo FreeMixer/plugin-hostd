@@ -154,12 +154,15 @@ static pin_t *find(const char *uri)
     return p ? p : find_in(g_pkg, g_npkg, uri);
 }
 
-/* a path of a pin: relative to the bundle, never out of it, and none of the separators of pin_set's words */
+/* a path of a pin: relative to the bundle, never out of it, none of the separators of pin_set's words, and every
+ * escape whole (PHD_PIN_PATH_ESCAPE) */
 static int path_valid(const char *path)
 {
     const char *c = path;
+    char decoded[PATH_MAX];
 
-    if (!*path || *path == '/' || strpbrk(path, PHD_PIN_PATH_EXCLUDED))
+    if (!*path || *path == '/' || strpbrk(path, PHD_PIN_PATH_EXCLUDED) ||
+        phd_pin_path_decode(path, decoded, sizeof(decoded)) != 0)
         return 0;
     while (*c)
     {
@@ -944,36 +947,6 @@ int pin_refuse(const char *uri, const char *path, const char *why)
     return OMX_REPLY_PLUGIN_HOSTD_PIN_BINARY_MISMATCH_RESP;
 }
 
-int pin_percent_decode(const char *in, char *out, size_t size)
-{
-    size_t o = 0;
-
-    for (; *in; in++, o++)
-    {
-        int hi, lo;
-
-        if (o + 1 >= size)
-            return -1;
-        if (*in != '%')
-        {
-            out[o] = *in;
-            continue;
-        }
-        hi = isxdigit((unsigned char)in[1]) ? in[1] : -1;
-        lo = hi >= 0 && isxdigit((unsigned char)in[2]) ? in[2] : -1;
-        if (lo < 0)
-            return -1;
-        hi = hi <= '9' ? hi - '0' : (hi | 0x20) - 'a' + 10;
-        lo = lo <= '9' ? lo - '0' : (lo | 0x20) - 'a' + 10;
-        if (!(hi * 16 + lo))
-            return -1;
-        out[o] = (char)(hi * 16 + lo);
-        in += 2;
-    }
-    out[o] = '\0';
-    return 0;
-}
-
 /* root/path as a file name: a pin names its files percent-encoded, whatever its path holds of whitespace */
 static int full_path(const char *root, const char *path, char *full, size_t size)
 {
@@ -981,7 +954,7 @@ static int full_path(const char *root, const char *path, char *full, size_t size
     const char *c;
     int slashes = 0, decoded = 0;
 
-    if (pin_percent_decode(path, name, sizeof(name)) != 0)
+    if (phd_pin_path_decode(path, name, sizeof(name)) != 0)
         return -1;
     for (c = path; *c; c++)
         slashes += *c == '/';

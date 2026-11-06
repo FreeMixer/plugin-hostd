@@ -112,6 +112,8 @@ def command_corpus(out):
     seeds["chain-not-a-number"] = message("chain 1 0 x")
     seeds["chain-id-not-a-number"] = message("chain x 0")
     seeds["add-too-few"] = message("add urn:fuzz:plugin")
+    # a CLAP file whose name holds a space, written bare: the uri goes on to the word that holds its '#'
+    seeds["add-clap-path-with-a-space"] = message("add clap:/usr/lib/clap/Surge XT.clap#org.surge 0 own fuzz_client")
     seeds["pin-set-long"] = message("pin_set urn:fuzz:plugin lib/fuzz.so=%s %s:%s%s" %
                                     ("0" * 64, "omx-layout/1", "0" * 64, " " * 4100))
     seeds["pin-set-layout-unknown"] = message("pin_set urn:fuzz:plugin lib/fuzz.so=%s -" % ("0" * 64))

@@ -28,6 +28,7 @@
 
 #include <host-errors.h>
 #include <socket.h>
+#include <utils.h>
 
 #include "conf.h"
 #include "descriptors.h"
@@ -151,6 +152,9 @@ int main(int argc, char **argv)
     struct sigaction sig;
 
     conf_defaults(&g_conf);
+    /* the workers, the probe and the scanners run with no window: with no display, Qt is given one that needs none, so
+     * a Qt-linked plugin does not abort as it is instantiated; every process the daemon starts inherits it */
+    phd_headless_qt();
     while ((opt = getopt_long(argc, argv, "np:f:b:c:Vh", long_options, &opt_index)) != -1)
     {
         switch (opt)

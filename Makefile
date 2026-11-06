@@ -50,7 +50,7 @@ PROTOCOL_JSON = $(PROTOCOL_DIR)/protocol/plugin-hostd.json
 MODHOST_JSON = $(PROTOCOL_DIR)/protocol/mod-host.json
 endif
 
-# The declared protocol is plugin-hostd-protocol's (0.3.0 or later, before 0.4), never this tree's: <plugin-hostd/protocol.h> and
+# The declared protocol is plugin-hostd-protocol's (0.4.1 or later, before 0.5), never this tree's: <plugin-hostd/protocol.h> and
 # the headers it includes are found through PROTOCOL_CFLAGS, after this tree's -Iinclude (which holds the
 # vocabulary of data/, and in a scratch tree of tests/sabotage.py a changed copy of the protocol headers); the JSON of
 # protocol.h (PROTOCOL_JSON) and mod-host's (MODHOST_JSON) are its files. make check-no-protocol-copy fails when a copy

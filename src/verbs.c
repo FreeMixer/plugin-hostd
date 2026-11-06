@@ -18,6 +18,7 @@
  * Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
  */
 
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -170,10 +171,15 @@ static char *handle(char *line, char **tok, int ntok)
 
     if (!strcmp(verb, PHD_VERB_ADD))
     {
-        const char *placement = NULL, *client = NULL;
-        int next = 3;
+        const char *placement = NULL, *client = NULL, *uri;
+        char joined[PATH_MAX + 256];
+        unsigned at;
+        int next;
 
-        if (ntok < 3)
+        /* the uri whole: a bare clap: uri whose path holds a space is joined again (phd_add_uri) */
+        uri = phd_add_uri(tok, (unsigned)ntok, joined, sizeof(joined), &at);
+        next = (int)at + 1;
+        if (!uri || ntok < next)
             return sup_resp(ERR_INVALID_OPERATION);
         if (ntok > next && is_placement(tok[next]))
             placement = tok[next++];
@@ -181,10 +187,10 @@ static char *handle(char *line, char **tok, int ntok)
             client = tok[next++];
         if (ntok > next)
             return sup_resp(ERR_INVALID_OPERATION);
-        reply_text = sup_add(tok[1], atoi(tok[2]), placement, client);
+        reply_text = sup_add(uri, atoi(tok[at]), placement, client);
         /* the plugin is running: its files are scanned after the reply, never before it */
         if (reply_text && sup_reply_code(reply_text) >= 0)
-            descriptors_add(tok[1]);
+            descriptors_add(uri);
         return reply_text;
     }
     if (!strcmp(verb, OMX_VERB_DESCRIPTOR_GET))
