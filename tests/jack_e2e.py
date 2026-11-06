@@ -297,7 +297,7 @@ def clap_file_whose_name_holds_a_space_is_opened_by_the_real_worker_from_its_enc
 OMX_CLAP_DIR = os.environ.get("OMX_PLUGINS_CLAP_DIR", "/usr/lib/clap")
 CURVE_REPLY = os.environ.get("CURVE_REPLY")
 CURVE_RATE = os.environ.get("CURVE_RATE", "48000")
-EQ8_SHAPES = "bell|lowshelf|highshelf|notch|-|-"
+EQ8_SHAPES = "bell|lowshelf|highshelf|notch|allpass1|allpass2"
 EQ_SHAPE_OF = EQ8_SHAPES.split("|")
 
 
