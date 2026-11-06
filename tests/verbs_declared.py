@@ -216,7 +216,7 @@ LINES = {
     "policy_set": ("clap own", "clap", ("clap pool:",)),
     "pool_config": ("p 4", "p x", ()),
     "worker_env": ("clap - -", "clap", ()),
-    "lv2_worker_set": ("urn:example:other auto", "urn:example:other", ()),
+    "lv2_worker_set": ("urn:example:other mod-host", "urn:example:other", ()),
     "descriptor_get": ("{uri}", "{uri} x", ("clap:/nowhere.clap#x",)),
     "panel_get": ("{uri}", "", ("clap:/nowhere.clap#x",)),
     "preset_list": ("1", "", ("99", "3")),

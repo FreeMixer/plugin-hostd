@@ -2492,7 +2492,7 @@ def a_pin_file_rewritten_under_a_running_daemon_is_read_again_and_no_restart_is_
 def a_pins_d_refusal_wins_over_any_other_pins_d_pin_and_over_the_host():
     """issue 42, decisions of 2026-10-18: a pins.d pin of verdict=refused wins over another pins.d pin of its uri in
     either name order, and nothing of the host overrides it: not the store, not a pin_file, not pin_set, not
-    pin_accept, not pin_clear"""
+    pin_clear. Only the user's pin_accept does (a_user_can_load_a_plugin_its_package_refused)"""
     p = Plugins()
     refused = resp("PIN_REFUSED")
     try:
@@ -2515,12 +2515,10 @@ def a_pins_d_refusal_wins_over_any_other_pins_d_pin_and_over_the_host():
             check(r == refused, "the store and the pin_file do not override a pins.d refusal: %r" % r)
             r = d.send("pin_set %s" % pin_line(p, "isolated"))
             check(r == refused, "pin_set of a uri a pins.d pin refuses answers PIN_REFUSED: %r" % r)
-            r = d.send("pin_accept %s" % p.clap_uri)
-            check(r == refused, "pin_accept of it answers PIN_REFUSED: %r" % r)
             d.expect("pin_clear %s" % p.clap_uri, "resp 0")
             d.expect("pin_clear all", "resp 0")
             r = d.send("add %s 0" % p.clap_uri)
-            check(r == refused, "after pin_set, pin_accept and pin_clear the refusal still holds: %r" % r)
+            check(r == refused, "after pin_set and pin_clear the refusal still holds: %r" % r)
             check(d.workers() == {} and p.received() == [], "no worker saw it: %s %s" % (d.workers(), p.received()))
             # positive control: the other plugin of the same file runs
             d.expect("add %s 1" % other_uri, "resp 1")
@@ -2537,6 +2535,63 @@ def a_pins_d_refusal_wins_over_any_other_pins_d_pin_and_over_the_host():
             check("which the pin of the pin store does not override" in d.log(), "stderr names the store line")
             d.expect("add %s 1" % other_uri, "resp 1")
             check([l[1] for l in store_lines(p)] == [p.clap_uri], "the store line is kept: %s" % store_lines(p))
+        finally:
+            d.close()
+    finally:
+        p.close()
+
+
+@test
+def a_user_can_load_a_plugin_its_package_refused_in_a_worker_of_its_own():
+    """a refused qualification is our advice, not a wall: under first-use, pin_accept of a plugin whose pins.d pin
+    carries verdict=refused records the user's choice. The plugin then runs, alone in a worker of its own, its pin in
+    the store with no verdict (the user's choice, not a pass); the choice holds across a restart, pin_clear takes it
+    back, and under strict it counts for nothing"""
+    p = Plugins()
+    refused = resp("PIN_REFUSED")
+    first_use = {"pin_mode": "first-use"}
+    try:
+        other, other_uri = other_clap(p)
+        pins_d(p, {"10-a.pins": [pin_line(p, "refused"), pin_line(p, "refused", uri=other_uri, clap=other)]})
+        d = p.daemon(conf=first_use)
+        try:
+            d.expect("add %s 0" % p.clap_uri, refused)
+            check(d.workers() == {} and p.received() == [], "positive control: refused, no worker saw it")
+            d.expect("pin_accept %s" % p.clap_uri, "resp 0")
+            d.expect("add %s 0" % p.clap_uri, "resp 0")
+            w = d.holder(0)[1]
+            check(w["place"] == "own" and w["inst"] == [0], "it runs in a worker of its own: %s" % w)
+            d.expect("add %s 1 pool:fx" % p.clap_uri, resp("PLACEMENT_INVALID"))
+            line = [l for l in store_lines(p) if l[1] == p.clap_uri]
+            check(len(line) == 1 and not [x for x in line[0] if x.startswith("verdict=")],
+                  "the store holds the user's choice with no verdict: %s" % store_lines(p))
+            d.expect("add %s 2" % other_uri, refused)
+        finally:
+            d.close()
+        d = p.daemon(conf=first_use)
+        try:
+            d.expect("add %s 0" % p.clap_uri, "resp 0")
+            check(d.holder(0)[1]["place"] == "own", "after a restart it still runs alone: %s" % d.workers())
+        finally:
+            d.close()
+        # strict is "qualified only": the user's choice counts for nothing there
+        d = p.daemon()
+        try:
+            d.expect("add %s 0" % p.clap_uri, refused)
+            d.expect("pin_accept %s" % p.clap_uri, "resp -902")
+        finally:
+            d.close()
+        d = p.daemon(conf=first_use)
+        try:
+            d.expect("pin_clear %s" % p.clap_uri, "resp 0")
+            d.expect("add %s 0" % p.clap_uri, refused)
+            d.expect("pin_set %s" % pin_line(p, "isolated"), refused)
+        finally:
+            d.close()
+        d = p.daemon(conf=first_use)
+        try:
+            d.expect("add %s 0" % p.clap_uri, refused)
+            d.expect("pin_set %s" % pin_line(p, "isolated"), refused)
         finally:
             d.close()
     finally:
@@ -2943,7 +2998,7 @@ def declared_lv2_worker():
 @test
 def lv2_worker_default_sends_a_found_plugin_to_the_adapter_row():
     # None leaves lv2_worker out of the settings file: the daemon's own default holds
-    check(declared_lv2_worker() in ("omx-clap-host", "auto"), "the default is omx-clap-host, or auto: %s" % declared_lv2_worker())
+    check(declared_lv2_worker() == "omx-clap-host", "the default is omx-clap-host: %s" % declared_lv2_worker())
     d, programs, log = lv2_run(lv2_worker=None)
     try:
         d.expect("add lv2:urn:test:a 0", "resp 0")
@@ -2958,18 +3013,12 @@ def lv2_worker_default_sends_a_found_plugin_to_the_adapter_row():
 
 @test
 def lv2_worker_default_without_the_adapter_worker_installed():
-    # with no clap_host program on the system: the default omx-clap-host has no backend and never starts mod-host (mod-host
-    # only when asked); under auto the add is the lv2 row's, and mod-host runs it
+    # with no clap_host program on the system the add has no backend, and mod-host is never started in its place
     d, programs, log = lv2_run(lv2_worker=None, clap_host=os.path.join(tempfile.gettempdir(), "no-such-omx-clap-host"))
     try:
-        if declared_lv2_worker() == "omx-clap-host":
-            d.expect("add lv2:urn:test:a 0", resp("NO_BACKEND"))
-            check(d.workers() == {}, "no worker starts, mod-host least of all: %s" % d.workers())
-        else:
-            d.expect("add lv2:urn:test:a 0", "resp 0")
-            _, w = d.holder(0)
-            check(w["fmt"] == "lv2", "no adapter worker installed: the lv2 row: %s" % w)
-            check(programs.of(w["pid"])[0] == "mod-host", "mod-host runs it, not %s" % programs.of(w["pid"])[0])
+        d.expect("add lv2:urn:test:a 0", resp("NO_BACKEND"))
+        check(d.workers() == {}, "no worker starts, mod-host least of all: %s" % d.workers())
+        check(sent_to(log) == [], "no program was given the add: %s" % sent_to(log))
     finally:
         d.close()
         programs.close()
@@ -3103,71 +3152,66 @@ CODE_OF_REFUSAL = harness.CODE["LV2_ADAPTER_REFUSED"]
 
 
 @test
-def under_auto_a_plugin_the_adapter_refuses_runs_on_mod_host_and_the_adapter_is_not_asked_again():
-    d, programs, log = lv2_run(lv2_worker="auto")
+def lv2_worker_auto_is_not_a_worker():
+    """a plugin the LV2 adapter refuses is reported, never handed to another host: there is no auto to ask for it"""
+    programs = Programs()
     try:
-        d.expect("add lv2:urn:test:fine 0", "resp 0")
-        check(d.holder(0)[1]["fmt"] == "lv2-clap", "auto asks the adapter first: %s" % d.workers())
-        mark = d.mark()
-        d.expect("add lv2:urn:test:adapter_midi 1", "resp 1")
-        event = d.wait_event("lv2_adapter_refused ", since=mark)
-        check(event == "lv2_adapter_refused urn:test:adapter_midi hosting.features.midi-in-fed-empty auto", "the event: %r" % event)
-        _, w = d.holder(1)
-        check(w["fmt"] == "lv2" and programs.of(w["pid"])[0] == "mod-host", "the refused plugin runs on mod-host: %s" % w)
-        check(adds_of(log, w["pid"]) == ["add urn:test:adapter_midi 1"], "mod-host is given the bare uri")
-        mark = d.mark()
-        d.expect("add lv2:urn:test:adapter_midi 2", "resp 2")
-        check(d.holder(2)[1]["fmt"] == "lv2", "the second add goes straight to mod-host")
-        asked = [c for c in sent_to(log) if c.startswith("add lv2:urn:test:adapter_midi")]
-        check(len(asked) == 1, "the adapter was asked about the plugin once: %s" % asked)
-        check(not [e for e in d.events[mark:] if e.startswith("lv2_adapter_refused")], "and said why once")
+        conf = os.path.join(programs.dir, "auto.conf")
+        write(conf, b"lv2_worker auto\n")
+        p = subprocess.run([EXE, "-n", "-p", "0", "-c", conf], capture_output=True, text=True, timeout=10)
+        check(p.returncode != 0 and "lv2_worker 'auto' is not one of: mod-host omx-clap-host\n" in p.stderr,
+              "the daemon refuses to start on lv2_worker auto: %s %r" % (p.returncode, p.stderr))
     finally:
-        d.close()
         programs.close()
-    # the CLAP program is not installed: auto runs the plugin on mod-host, an explicit omx-clap-host has no backend
-    d, programs, log = lv2_run(lv2_worker="auto", clap_host="/nonexistent/omx-clap-host")
+    d, programs, log = lv2_run(lv2_worker="omx-clap-host")
     try:
-        d.expect("add lv2:urn:test:fine 0", "resp 0")
-        check(d.holder(0)[1]["fmt"] == "lv2", "auto without the adapter's program is mod-host: %s" % d.workers())
-        d.expect("lv2_worker_set urn:test:fine omx-clap-host", "resp 0")
-        d.expect("add lv2:urn:test:fine 1", resp("NO_BACKEND"))
+        d.expect("lv2_worker_set urn:test:adapter_midi auto", "resp -902")
+        d.expect("lv2_worker_set urn:test:adapter_midi omx-clap-host", "resp 0")
     finally:
         d.close()
         programs.close()
 
 
 @test
-def under_auto_a_refused_plugin_that_kills_mod_host_on_add_costs_only_its_own_worker():
-    """issue 66: drumkv1 and its kin abort in instantiate with no display. The adapter refuses them, mod-host runs them,
-    and the abort must not take the instances of a shared mod-host worker with it"""
-    d, programs, log = lv2_run(lv2_worker="auto")
+def a_plugin_the_adapter_refuses_is_refused_on_every_add_and_never_handed_to_another_host():
+    """mod-host is installed and is never chosen for the user: each add of a refused plugin asks the adapter, answers
+    its code and says why, and no other program is given it; a plugin the adapter does not find answers -101"""
+    d, programs, log = lv2_run(lv2_worker="omx-clap-host")
     try:
-        d.expect("policy_set lv2 pool:fx", "resp 0")
-        d.expect("lv2_worker_set urn:test:plain mod-host", "resp 0")
+        for i in range(2):
+            mark = d.mark()
+            d.expect("add lv2:urn:test:adapter_midi %d" % i, resp("LV2_ADAPTER_REFUSED"))
+            event = d.wait_event("lv2_adapter_refused ", since=mark)
+            check(event == "lv2_adapter_refused urn:test:adapter_midi hosting.features.midi-in-fed-empty omx-clap-host",
+                  "add %d says why: %r" % (i, event))
+        check(adapter_asked(log) == 2, "the adapter is asked on every add, nothing is remembered: %s" % sent_to(log))
+        d.expect("add lv2:urn:test:absent 2", "resp -101")
+        bare = [c for c in sent_to(log) if c.startswith("add urn:test:")]
+        check(bare == [], "no other host was given a plugin: %s" % bare)
+        check(d.workers() == {}, "no instance is left: %s" % d.workers())
+        d.expect("add lv2:urn:test:fine 3", "resp 3")
+        check(d.holder(3)[1]["fmt"] == "lv2-clap", "positive control: the adapter runs a plugin it takes: %s" % d.workers())
+    finally:
+        d.close()
+        programs.close()
+
+
+@test
+def an_add_that_kills_its_worker_answers_its_code_and_is_named_by_an_event():
+    """issue 66: drumkv1 and its kin abort in instantiate with no display. On mod-host, chosen by the user, such an add
+    answers -102, the event names the instance and the plugin it died adding, and the other instances keep running"""
+    d, programs, log = lv2_run(lv2_worker="mod-host")
+    try:
         d.expect("add lv2:urn:test:plain 0", "resp 0")
         k0, w0 = d.holder(0)
-        check(w0["fmt"] == "lv2" and w0["place"] == "pool:fx", "positive control: the policy puts mod-host's plugins in the pool: %s" % w0)
         mark = d.mark()
-        d.expect("add lv2:urn:test:adapter_midi_abort_on_mod_host 1", "resp -102")
+        d.expect("add lv2:urn:test:adapter_midi_abort_on_mod_host 1 own", "resp -102")
         dropped = d.wait_event("instance_verb_dropped 1 ", since=mark)
         check(dropped == "instance_verb_dropped 1 add urn:test:adapter_midi_abort_on_mod_host 1",
               "the event names the instance and the plugin it died adding: %r" % dropped)
-        died = d.wait_event("worker_died ", since=mark)
-        check(not died.startswith("worker_died %s " % k0), "the pool's worker did not die: %s" % died)
         k, w = d.holder(0)
         check(k == k0 and w["pid"] == w0["pid"] and w["state"] == "up", "instance 0 kept its process: %s" % d.workers())
-        check(not [e for e in d.events[mark:] if e.startswith(("instance_restored 0", "instance_quarantined"))],
-              "nothing was restored or quarantined: %s" % d.events[mark:])
         d.expect("instance_info 1", "resp -3")
-        # the adapter is not asked again, and the plugin is still not put in the pool
-        d.expect("add lv2:urn:test:adapter_midi_abort_on_mod_host 3", "resp -102")
-        k, w = d.holder(0)
-        check(w["pid"] == w0["pid"], "a second add of it spares the pool too: %s" % d.workers())
-        d.expect("add lv2:urn:test:adapter_midi 4", "resp 4")
-        check(d.holder(4)[1]["place"] == "own", "a refused plugin that runs is placed own: %s" % d.workers())
-        # an explicit placement is the caller's: it is kept
-        d.expect("add lv2:urn:test:adapter_midi 2 pool:fx", "resp 2")
-        check(d.holder(2)[0] == k0, "an explicit pool is honoured: %s" % d.workers())
     finally:
         d.close()
         programs.close()
@@ -3209,107 +3253,11 @@ def a_plugin_the_adapter_does_not_find_is_not_found_and_no_refusal():
     finally:
         d.close()
         programs.close()
-    # under auto, mod-host looks for it, for that add only: the adapter is asked again next time
-    d, programs, log = lv2_run(lv2_worker="auto")
-    try:
-        mark = d.mark()
-        d.expect("add lv2:urn:test:absent 0", "resp 0")
-        _, w = d.holder(0)
-        check(w["fmt"] == "lv2" and programs.of(w["pid"])[0] == "mod-host", "mod-host runs it: %s" % w)
-        check(adds_of(log, w["pid"]) == ["add urn:test:absent 0"], "mod-host is given the bare uri")
-        d.expect("add lv2:urn:test:absent 1", "resp 1")
-        check(d.holder(1)[1]["fmt"] == "lv2", "and runs it again: %s" % d.workers())
-        asked = [c for c in sent_to(log) if c.startswith("add lv2:urn:test:absent")]
-        check(len(asked) == 2, "the adapter is asked on every add, nothing is remembered: %s" % asked)
-        # a plugin neither finds is mod-host's own -101
-        d.expect("add lv2:urn:test:absent_refuse 2", "resp -101")
-        d.expect("add lv2:urn:test:adapter_midi 3", "resp 3")
-        d.wait_event("lv2_adapter_refused urn:test:adapter_midi ", since=mark)
-        said = [e for e in d.events[mark:] if e.startswith("lv2_adapter_refused")]
-        check(len(said) == 1, "no event for the plugins the adapter did not find: %s" % said)
-    finally:
-        d.close()
-        programs.close()
 
 
 def adapter_asked(log, uri="urn:test:adapter_midi"):
     """how many times the adapter was sent an add of the uri"""
     return len([c for c in sent_to(log) if c.startswith("add lv2:%s " % uri)])
-
-
-def refuse_once(d, log, uri="urn:test:adapter_midi"):
-    """under auto: the adapter refuses the uri once, mod-host runs it, and the adapter is not asked on the next add"""
-    d.expect("add lv2:%s 0" % uri, "resp 0")
-    check(d.holder(0)[1]["fmt"] == "lv2", "the refused plugin runs on mod-host: %s" % d.workers())
-    d.expect("add lv2:%s 1" % uri, "resp 1")
-    check(adapter_asked(log, uri) == 1, "the adapter is asked once: %s" % sent_to(log))
-    d.expect("remove -1", "resp 0")
-
-
-def asked_again(d, log, uri="urn:test:adapter_midi"):
-    before = adapter_asked(log, uri)
-    d.expect("add lv2:%s 2" % uri, "resp 2")
-    check(adapter_asked(log, uri) == before + 1, "the adapter is asked once more: %s" % sent_to(log))
-    d.expect("remove -1", "resp 0")
-
-
-@test
-def lv2_worker_set_makes_the_adapter_be_asked_again_about_that_plugin_only():
-    d, programs, log = lv2_run(lv2_worker="auto")
-    try:
-        refuse_once(d, log)
-        d.expect("add lv2:urn:test:adapter_wide 3", "resp 3")
-        d.expect("remove -1", "resp 0")
-        d.expect("lv2_worker_set urn:test:adapter_wide auto", "resp 0")
-        # the other plugin keeps its refusal
-        d.expect("add lv2:urn:test:adapter_midi 4", "resp 4")
-        check(adapter_asked(log) == 1, "the other plugin's refusal stands: %s" % sent_to(log))
-        d.expect("remove -1", "resp 0")
-        d.expect("lv2_worker_set lv2:urn:test:adapter_midi -", "resp 0")
-        asked_again(d, log)
-    finally:
-        d.close()
-        programs.close()
-
-
-@test
-def pin_set_and_pin_clear_make_the_adapter_be_asked_again():
-    d, programs, log = lv2_run(lv2_worker="auto")
-    try:
-        refuse_once(d, log)
-        d.expect("pin_set urn:test:adapter_midi pinned.so=%s %s" % ("0" * 64, fake_layout()), "resp 0")
-        asked_again(d, log)
-        # it refused again, and that is remembered again until the next change
-        d.expect("pin_clear urn:test:adapter_midi", "resp 0")
-        asked_again(d, log)
-    finally:
-        d.close()
-        programs.close()
-
-
-@test
-def pin_accept_makes_the_adapter_be_asked_again():
-    plugins = Plugins()
-    uri = "urn:test:adapter_midi"
-    bundle = os.path.join(plugins.lv2_dir, "adapter.lv2")
-    os.makedirs(bundle)
-    write(os.path.join(bundle, "manifest.ttl"), (MANIFEST % uri).encode())
-    write(os.path.join(bundle, "pinned.so"), b"lv2 binary")
-    write(os.path.join(bundle, "pinned.ttl"), b"lv2:port [ lv2:index 0 ; lv2:symbol \"gain\" ] .")
-    programs = Programs()
-    d = Daemon(EXE, FAKE, conf=programs.conf(lv2_worker="auto", require_pins=1, pin_mode="first-use", lv2_path=plugins.lv2_dir,
-                                              pin_store=plugins.store), env={"FAKE_LOG": plugins.log})
-    try:
-        refuse_once(d, plugins.log, uri)
-        write(os.path.join(bundle, "pinned.so"), b"lv2 binary, rebuilt")
-        d.expect("add lv2:%s 3" % uri, resp("PIN_BINARY_MISMATCH"))
-        check(adapter_asked(plugins.log, uri) == 1, "the changed plugin reached no worker: %s" % sent_to(plugins.log))
-        d.expect("pin_accept lv2:%s" % uri, "resp 0")
-        asked_again(d, plugins.log, uri)
-    finally:
-        d.close()
-        programs.close()
-        plugins.close()
 
 
 @test
@@ -3319,7 +3267,7 @@ def lv2_worker_must_be_one_of_the_declared_values():
         conf = os.path.join(programs.dir, "bad.conf")
         write(conf, b"lv2_worker nonsense\n")
         p = subprocess.run([EXE, "-n", "-p", "0", "-c", conf], capture_output=True, text=True, timeout=10)
-        check(p.returncode != 0 and "lv2_worker 'nonsense' is not one of: mod-host omx-clap-host auto" in p.stderr,
+        check(p.returncode != 0 and "lv2_worker 'nonsense' is not one of: mod-host omx-clap-host\n" in p.stderr,
               "the daemon refuses to start: %s %r" % (p.returncode, p.stderr))
     finally:
         programs.close()
