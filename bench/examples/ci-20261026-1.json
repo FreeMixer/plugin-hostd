@@ -1437,7 +1437,13 @@
       "pss_mb_total": 20.1,
       "cpu_pct": 1.59,
       "ctx_switches": 6994,
-      "ctx_involuntary": 2
+      "ctx_involuntary": 2,
+      "gate": {
+        "verdict": "unstable",
+        "reasons": [
+          "scaling: 2.90 at 256 frames, above 2.34 at 128"
+        ]
+      }
     },
     {
       "id": "chain3",
@@ -3829,7 +3835,13 @@
       "pss_mb_total": 6.3,
       "cpu_pct": 7.69,
       "ctx_switches": 68752,
-      "ctx_involuntary": 41
+      "ctx_involuntary": 41,
+      "gate": {
+        "verdict": "unstable",
+        "reasons": [
+          "scaling: 10.04 at 256 frames, above 6.92 at 128"
+        ]
+      }
     },
     {
       "id": "clap16",
@@ -3869,7 +3881,13 @@
       "pss_mb_total": 18.4,
       "cpu_pct": 10.69,
       "ctx_switches": 78093,
-      "ctx_involuntary": 429
+      "ctx_involuntary": 429,
+      "gate": {
+        "verdict": "unstable",
+        "reasons": [
+          "scaling: 10.87 at 256 frames, above 7.32 at 128"
+        ]
+      }
     },
     {
       "id": "clap16",
@@ -3942,7 +3960,13 @@
       "pss_mb_total": 34.6,
       "cpu_pct": 6.9,
       "ctx_switches": 68257,
-      "ctx_involuntary": 7
+      "ctx_involuntary": 7,
+      "gate": {
+        "verdict": "unstable",
+        "reasons": [
+          "scaling: 9.32 at 256 frames, above 6.88 at 128"
+        ]
+      }
     },
     {
       "id": "pianoteq",
@@ -4228,7 +4252,13 @@
       "pss_mb_total": 19.9,
       "cpu_pct": 2.03,
       "ctx_switches": 12787,
-      "ctx_involuntary": 0
+      "ctx_involuntary": 0,
+      "gate": {
+        "verdict": "unstable",
+        "reasons": [
+          "scaling: 7.14 at 256 frames, above 5.22 at 128"
+        ]
+      }
     },
     {
       "id": "cvp8",
@@ -4260,7 +4290,13 @@
       "pss_mb_total": 38.6,
       "cpu_pct": 6.81,
       "ctx_switches": 39073,
-      "ctx_involuntary": 9
+      "ctx_involuntary": 9,
+      "gate": {
+        "verdict": "unstable",
+        "reasons": [
+          "scaling: 11.08 at 256 frames, above 7.55 at 128"
+        ]
+      }
     },
     {
       "id": "cvp8",
@@ -4382,7 +4418,13 @@
       "pss_mb_total": 34.5,
       "cpu_pct": 5.75,
       "ctx_switches": 34096,
-      "ctx_involuntary": 0
+      "ctx_involuntary": 0,
+      "gate": {
+        "verdict": "unstable",
+        "reasons": [
+          "scaling: 9.16 at 256 frames, above 8.22 at 128"
+        ]
+      }
     },
     {
       "id": "cvp16",
@@ -4422,7 +4464,13 @@
       "pss_mb_total": 65.2,
       "cpu_pct": 14.66,
       "ctx_switches": 78263,
-      "ctx_involuntary": 583
+      "ctx_involuntary": 583,
+      "gate": {
+        "verdict": "unstable",
+        "reasons": [
+          "scaling: 12.17 at 256 frames, above 8.76 at 128"
+        ]
+      }
     },
     {
       "id": "cvp16",
@@ -4462,7 +4510,13 @@
       "pss_mb_total": 36.7,
       "cpu_pct": 8.49,
       "ctx_switches": 69187,
-      "ctx_involuntary": 3
+      "ctx_involuntary": 3,
+      "gate": {
+        "verdict": "unstable",
+        "reasons": [
+          "scaling: 14.67 at 256 frames, above 9.28 at 128"
+        ]
+      }
     },
     {
       "id": "cvp16",
@@ -4502,7 +4556,13 @@
       "pss_mb_total": 36.0,
       "cpu_pct": 8.4,
       "ctx_switches": 68725,
-      "ctx_involuntary": 0
+      "ctx_involuntary": 0,
+      "gate": {
+        "verdict": "unstable",
+        "reasons": [
+          "scaling: 13.65 at 256 frames, above 9.16 at 128"
+        ]
+      }
     },
     {
       "id": "cvp16",
@@ -4576,7 +4636,13 @@
       "pss_mb_total": 58.0,
       "cpu_pct": 8.93,
       "ctx_switches": 68187,
-      "ctx_involuntary": 4
+      "ctx_involuntary": 4,
+      "gate": {
+        "verdict": "unstable",
+        "reasons": [
+          "scaling: 16.76 at 256 frames, above 9.11 at 128"
+        ]
+      }
     }
   ],
   "qualification": {

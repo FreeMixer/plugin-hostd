@@ -2,8 +2,12 @@
 across rows the schema cannot say. One line per problem: file, scenario row, rule, what is wrong. Exit 1 on any."""
 
 import json
+import os
 import re
 import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import soundness  # noqa: E402
 
 
 def type_ok(value, name):
@@ -140,24 +144,53 @@ def cross_rules(doc, errors):
             errors.append((["qualification"], "rule:qualification-sum", "suitable + unsuitable is not plugins"))
 
 
+def gate_rules(docs, errors_by_doc):
+    """the soundness gate: a cell that breaks a check of bench/lib/soundness.py is published only as unstable. Several
+    documents are checked together, so twins at other period counts are seen"""
+    good = [(i, d) for i, d in enumerate(docs) if isinstance(d, dict) and isinstance(d.get("scenarios"), list)
+            and all(isinstance(s, dict) for s in d["scenarios"])]
+    bad = soundness.check([d for _, d in good])
+    for (k, n), reasons in sorted(bad.items()):
+        i, doc = good[k]
+        gate = doc["scenarios"][n].get("gate") or {}
+        if gate.get("verdict") != "unstable":
+            errors_by_doc[i].append((["scenarios", n], "rule:gate-disturbed-cell",
+                                     "breaks the soundness gate and is not marked unstable: " + "; ".join(reasons)))
+    for i, doc in good:
+        for n, s in enumerate(doc["scenarios"]):
+            gate = s.get("gate")
+            if isinstance(gate, dict) and gate.get("verdict") == "unstable" and not gate.get("reasons"):
+                errors_by_doc[i].append((["scenarios", n], "rule:gate-unstable-names-why", "is unstable and says no reason"))
+
+
 def main():
     schema = json.load(open(sys.argv[1]))
-    bad = 0
-    for name in sys.argv[2:]:
+    names = sys.argv[2:]
+    docs, errors = [], []
+    for name in names:
+        errs = []
         try:
             with open(name) as f:
                 doc = json.load(f)
         except (OSError, ValueError) as e:
-            print("%s: document: rule:json: %s" % (name, e))
-            bad += 1
-            continue
-        errors = []
-        check(doc, schema, [], errors)
-        if isinstance(doc, dict):
-            cross_rules(doc, errors)
-        for path, rule, msg in errors:
+            doc = None
+            errs.append(([], "rule:json", str(e)))
+        else:
+            check(doc, schema, [], errs)
+            if isinstance(doc, dict):
+                cross_rules(doc, errs)
+        docs.append(doc)
+        errors.append(errs)
+    if all(isinstance(d, dict) for d in docs):
+        gate_rules(docs, errors)
+    bad = 0
+    for name, doc, errs in zip(names, docs, errors):
+        for path, rule, msg in errs:
+            if rule == "rule:json":
+                print("%s: document: %s: %s" % (name, rule, msg))
+                continue
             print("%s: %s: %s: %s" % (name, row_name(doc, path), rule, msg))
-        if errors:
+        if errs:
             bad += 1
         else:
             print("%s: valid omx-bench/1, %d scenario rows" % (name, len(doc["scenarios"])))
