@@ -87,5 +87,5 @@ file libSurge%20XT.so" ]; check $? "a percent-encoded name is listed as the mani
 
 out=$("$daemon" -c "$work/conf" --pin-files "clap:/usr/lib/clap/some plugin.clap#org.example.x"); rc=$?
 [ $rc -eq 0 ] && [ "$out" = "root /usr/lib/clap
-file some plugin.clap" ]; check $? "a CLAP plugin: its .clap file beside its directory"
+file some%20plugin.clap" ]; check $? "a CLAP plugin: its .clap file beside its directory, one percent-encoded word"
 exit $failed

@@ -200,7 +200,7 @@ A bad line is skipped and named on stderr; a missing or empty directory holds no
 What cannot be pinned:
 .\" BEGIN GENERATED protocol:man-pin-limits
 .IP \(bu 2
-a path holding ',', '=' or whitespace cannot be pinned: they are the separators of pin_set's words, and pin_set refuses it as a token outside its grammar.
+a path is pinned percent\-encoded (%XX): ',', '=', whitespace, '%', a quote, a backslash and a control byte are escaped, so any file name is one word; a path holding one of them as it is, or a stray %, is refused by pin_set as a token outside its grammar.
 .IP \(bu 2
 a pin_set line is at most line_max, 4096 bytes, the protocol socket's buffer; a longer one is refused as outside the grammar.
 .IP \(bu 2

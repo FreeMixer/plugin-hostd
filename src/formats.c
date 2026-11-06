@@ -59,11 +59,19 @@ int clap_pin_collect(const char *uri, const char *search, char *root, size_t siz
     slash = strrchr(encoded, '/');
     if (!slash)
         return pin_refuse(uri, encoded, "is not a path");
-    /* the pin holds the file name as the uri writes it, one word; the directory is the one the host opens */
-    if (names_add(files, slash + 1) != 0)
-        return ERR_MEMORY_ALLOCATION;
+    /* the pin holds the file name as one word, percent-encoded (PHD_PIN_PATH_ESCAPE) whether the uri wrote it encoded or
+     * as it is ("Surge XT.clap" is Surge%20XT.clap); the directory is the one the host opens */
+    {
+        char name[PATH_MAX], word[PATH_MAX * 3];
+
+        if (phd_pin_path_decode(slash + 1, name, sizeof(name)) != 0 ||
+            phd_pin_path_encode(name, word, sizeof(word)) != 0)
+            return pin_refuse(uri, slash + 1, "is not a percent-encoded file name");
+        if (names_add(files, word) != 0)
+            return ERR_MEMORY_ALLOCATION;
+    }
     encoded[slash - encoded] = '\0';
-    if (pin_percent_decode(encoded, root, size) != 0)
+    if (phd_pin_path_decode(encoded, root, size) != 0)
         return pin_refuse(uri, encoded, "is not a percent-encoded path");
     return SUCCESS;
 }
@@ -78,7 +86,7 @@ int clap_binary(const char *uri, const char *search, char *path, size_t size)
     if (strncmp(uri, CLAP_PREFIX, strlen(CLAP_PREFIX)) || !len || file[0] != '/' || len >= sizeof(encoded))
         return -1;
     snprintf(encoded, sizeof(encoded), "%.*s", (int)len, file);
-    return pin_percent_decode(encoded, path, size) == 0 ? 0 : -1;
+    return phd_pin_path_decode(encoded, path, size) == 0 ? 0 : -1;
 }
 
 int clap_plain_target(const char *uri, char *out, size_t size)

@@ -707,7 +707,7 @@ daemon never writes it. A pin from this layer is trusted as it is, in both pin m
 What cannot be pinned:
 
 <!-- BEGIN GENERATED protocol:pin-limits -->
-- a path holding ',', '=' or whitespace cannot be pinned: they are the separators of pin_set's words, and pin_set refuses it as a token outside its grammar.
+- a path is pinned percent-encoded (%XX): ',', '=', whitespace, '%', a quote, a backslash and a control byte are escaped, so any file name is one word; a path holding one of them as it is, or a stray %, is refused by pin_set as a token outside its grammar.
 - a pin_set line is at most line_max, 4096 bytes, the protocol socket's buffer; a longer one is refused as outside the grammar.
 - a manifest that uses @base makes add answer OMX_REPLY_PLUGIN_HOSTD_PIN_BINARY_MISMATCH_RESP (-509): the daemon does not resolve it, so it cannot know the file the host would load. A file the manifest names by a percent-encoded IRI is pinned as written, one word, and opened decoded; a name with a stray % is refused the same way.
 <!-- END GENERATED protocol:pin-limits -->
