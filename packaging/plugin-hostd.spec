@@ -185,6 +185,9 @@ make test-daemon check-generated check-rendered
   the history test that timed out now and then on a slow build machine
 - Known: -902 for a write that failed and -901 for a full writer are codes of other meanings;
   plugin-hostd-protocol 0.5.0 names a code for each, and plugin-hostd 0.20.0 answers them
+- Known: on a loaded build machine a test worker now and then missed rpc_timeout_ms (5 s) and was
+  killed while the history was saved every second; it has not been reproduced elsewhere, and the
+  line below now says where such a worker was
 - A CLAP file whose name holds a space pins and loads, the uri written bare, quoted or
   percent-encoded: the pin holds the name as one percent-encoded word, and pin_set refuses a path
   with a stray escape. A pin's key is the path decoded, so two spellings of one path are one pin, in
