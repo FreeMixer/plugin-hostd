@@ -59,6 +59,14 @@ SABOTAGE = [
     ('quit does not drain the writer: the writes still queued are dropped', 'src/writer.c',
      '    while (g_outstanding > 0)\n        pthread_cond_wait(&g_idle, &g_lock);\n', '',
      'quit_with_three_writes_waiting_leaves_all_three_on_disk'),
+    # a worker killed at rpc_timeout_ms is said first, with where its threads and the daemon's were
+    ('a worker killed at rpc_timeout_ms goes unsaid', 'src/proc.c',
+     '            say_unanswered(pid, fd, msg, proc_now_ms() - start);\n',
+     '            if (0)\n                say_unanswered(pid, fd, msg, proc_now_ms() - start);\n',
+     'pool_in_flight_command_names_the_culprit_and_the_pool_stays_a_pool'),
+    ('a worker killed at rpc_timeout_ms is said without its threads', 'src/proc.c',
+     '    say_threads(worker, sizeof(worker), task);\n', '    worker[0] = \'\\0\';\n',
+     'pool_in_flight_command_names_the_culprit_and_the_pool_stays_a_pool'),
     # core placement (docs/placement.md)
     ('a new worker is not pinned to the audio cores', 'src/supervisor.c',
      '        snprintf(env.cpus, sizeof(env.cpus), "%s", g_audio_cpus);\n', '        ;\n',
