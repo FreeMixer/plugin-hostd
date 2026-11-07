@@ -16,7 +16,7 @@ plugin-hostd (0.19.1) unstable; urgency=medium
     and plugin-hostd 0.20.0 answers them.
   * Known: on a loaded build machine a test worker now and then missed
     rpc_timeout_ms (5 s) and was killed while the history was saved every
-    second; it has not been reproduced elsewhere, and the line above now
+    second; it has not been reproduced elsewhere, and the item below now
     says where such a worker was.
   * A CLAP file whose name holds a space pins and loads, the uri written
     bare, quoted or percent-encoded: the pin holds the name as one
