@@ -189,6 +189,9 @@ make test-daemon check-generated check-rendered
   percent-encoded: the pin holds the name as one percent-encoded word, and pin_set refuses a path
   with a stray escape. A pin's key is the path decoded, so two spellings of one path are one pin, in
   every lookup, in pin_set, pin_clear, pin_accept and the store
+- An LV2 bundle whose directory holds a space matches its own file:// IRI: the IRI is decoded once
+  before the match, so a binary named by its own IRI in "my amp.lv2" is no longer taken for a file
+  outside it
 - A worker with no display gives Qt offscreen: every process the daemon starts has
   QT_QPA_PLATFORM=offscreen when neither DISPLAY nor WAYLAND_DISPLAY is set and the user did not set
   it, so a Qt-linked plugin no longer aborts as it is instantiated
