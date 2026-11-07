@@ -61,6 +61,18 @@ def spread_reasons(row):
     return []
 
 
+def measured_freqs(s):
+    """the frequencies of the cores the host's and JACK's threads ran on at this reading: a core nothing ran on idles at
+    its lowest clock on a desk, and is no disturbance of the row. Every core when the reading names no core (a reading
+    without freq_cores, or with no thread found), as on a board whose cores share one clock"""
+    f = s.get("freq_mhz") or []
+    cores = s.get("freq_cores")
+    ran = set(s.get("host_cores") or []) | set(s.get("jackd_cores") or [])
+    if not cores or len(cores) != len(f) or not ran:
+        return list(f)
+    return [mhz for core, mhz in zip(cores, f) if core in ran] or list(f)
+
+
 def state_reasons(row):
     out = []
     freqs = []
@@ -75,9 +87,7 @@ def state_reasons(row):
                     continue
                 if bits & THROTTLE_NOW:
                     out.append("state: throttled %s (%s of repeat %d)" % (t, phase, n))
-            f = s.get("freq_mhz")
-            if f:
-                freqs.extend(f)
+            freqs.extend(measured_freqs(s))
     if freqs and min(freqs) < (1 - FREQ_REL) * max(freqs):
         out.append("state: CPU frequency %d..%d MHz across the repeats" % (min(freqs), max(freqs)))
     return list(dict.fromkeys(out))

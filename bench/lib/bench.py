@@ -314,10 +314,14 @@ def machine_state(host_pids=(), jackd_pid=None, sysfs="/sys", proc="/proc"):
     """what the machine was doing at this moment: the frequency of each core (MHz), the temperature, the firmware's
     throttle bits, the cores the host's threads and the JACK server's last ran on, and the core taking the USB
     interrupt. Read before and after each window of each repeat, so a disturbance can be named from the document"""
-    freqs = []
-    for path in sorted(glob.glob(sysfs + "/devices/system/cpu/cpu[0-9]*/cpufreq/scaling_cur_freq")):
+    # each core's frequency in the order of the cores' numbers (cpu2 before cpu10), and those numbers beside it, so the
+    # soundness gate can read the cores the threads ran on
+    freqs, freq_cores = [], []
+    paths = glob.glob(sysfs + "/devices/system/cpu/cpu[0-9]*/cpufreq/scaling_cur_freq")
+    for path in sorted(paths, key=lambda p: int(re.search(r"/cpu([0-9]+)/cpufreq/", p).group(1))):
         try:
             freqs.append(round(int(read(path)) / 1000.0, 1))
+            freq_cores.append(int(re.search(r"/cpu([0-9]+)/cpufreq/", path).group(1)))
         except ValueError:
             pass
     temp = None
@@ -325,7 +329,7 @@ def machine_state(host_pids=(), jackd_pid=None, sysfs="/sys", proc="/proc"):
         temp = round(int(read(sysfs + "/class/thermal/thermal_zone0/temp")) / 1000.0, 1)
     except ValueError:
         pass
-    st = {"freq_mhz": freqs, "temp_c": temp, "throttled": throttled_now(),
+    st = {"freq_mhz": freqs, "freq_cores": freq_cores, "temp_c": temp, "throttled": throttled_now(),
           "host_cores": thread_cores(host_pids, proc), "jackd_cores": thread_cores([jackd_pid] if jackd_pid else [], proc),
           "usb_irq_core": usb_irq_core(proc)}
     return st
