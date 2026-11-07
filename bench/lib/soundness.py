@@ -22,6 +22,7 @@ SPREAD_REL = 0.10   # (max - min) / median of one cell
 CELL_REL = 0.08     # distance of a cell from its twins, scaling and stress neighbours
 FLOOR = 0.30        # DSP-load points below which a difference is noise, not disturbance
 FREQ_REL = 0.05     # frequency range across the repeats of one cell
+HARDWARE_CLOCK_DRIVERS = ("intel_pstate", "amd-pstate", "amd-pstate-epp")  # drivers that hand the clock to the CPU
 OUTPUT_DB = 1.0     # level difference of the output against the same set run one process per plugin
 SILENT_DB = -90.0
 THROTTLE_NOW = 0x7  # vcgencmd get_throttled: under-voltage, frequency capped, throttled, right now
@@ -73,6 +74,30 @@ def measured_freqs(s):
     return [mhz for core, mhz in zip(cores, f) if core in ran] or list(f)
 
 
+def hardware_clock(s):
+    """a reading whose clock the hardware picks: intel_pstate or amd-pstate in active mode, under the performance
+    governor. There a core's frequency is the hardware's choice of the moment (an idle core 800 MHz, the next instant
+    5 GHz), recorded and not judged; heat that cuts the clock shows in the thermal throttle counts instead"""
+    return (s.get("cpufreq_driver") in HARDWARE_CLOCK_DRIVERS and s.get("pstate") == "active"
+            and s.get("governor") == "performance")
+
+
+def throttle_reasons(n, before, after):
+    """the cores the host's and JACK's threads ran on whose thermal throttle count rose during the window"""
+    out = []
+    cores = after.get("freq_cores") or before.get("freq_cores") or []
+    ran = set(before.get("host_cores") or []) | set(before.get("jackd_cores") or []) | \
+        set(after.get("host_cores") or []) | set(after.get("jackd_cores") or [])
+    for kind, what in (("throttle_core", "core %d"), ("throttle_package", "package of core %d")):
+        a, b = before.get(kind), after.get(kind)
+        if not isinstance(a, list) or not isinstance(b, list) or len(a) != len(cores) or len(b) != len(cores):
+            continue
+        for core, x, y in zip(cores, a, b):
+            if core in ran and isinstance(x, int) and isinstance(y, int) and y > x:
+                out.append("state: thermal throttle (%s, repeat %d)" % (what % core, n))
+    return out
+
+
 def state_reasons(row):
     out = []
     freqs = []
@@ -87,7 +112,9 @@ def state_reasons(row):
                     continue
                 if bits & THROTTLE_NOW:
                     out.append("state: throttled %s (%s of repeat %d)" % (t, phase, n))
-            freqs.extend(measured_freqs(s))
+            if not hardware_clock(s):
+                freqs.extend(measured_freqs(s))
+        out.extend(throttle_reasons(n, st.get("before") or {}, st.get("after") or {}))
     if freqs and min(freqs) < (1 - FREQ_REL) * max(freqs):
         out.append("state: CPU frequency %d..%d MHz across the repeats" % (min(freqs), max(freqs)))
     return list(dict.fromkeys(out))

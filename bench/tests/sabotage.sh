@@ -172,6 +172,33 @@ break_unit state-schema-cores schema/omx-bench.v1.schema.json \
     Schema.test_a_repeat_state_as_the_runner_reads_it_is_valid
 break_unit state-core-order lib/bench.py 'for path in sorted(paths, key=lambda p: int(re.search(r"/cpu([0-9]+)/cpufreq/", p).group(1))):' \
     'for path in sorted(paths):' Soundness.test_the_cores_of_the_frequencies_are_read_in_their_own_order
+# the clock the hardware picks is recorded, not judged; the thermal throttle counts judge it instead
+break_unit gate-hw-clock lib/soundness.py '            if not hardware_clock(s):' '            if True:' \
+    Soundness.test_a_clock_the_hardware_picks_is_recorded_and_not_judged
+break_unit gate-hw-clock-everywhere lib/soundness.py '    return (s.get("cpufreq_driver") in HARDWARE_CLOCK_DRIVERS and' \
+    '    return True or (s.get("cpufreq_driver") in HARDWARE_CLOCK_DRIVERS and' \
+    Soundness.test_a_shared_clock_that_moved_is_still_flagged_without_a_hardware_clock_driver
+break_unit gate-throttle-rise lib/soundness.py 'if core in ran and isinstance(x, int) and isinstance(y, int) and y > x:' \
+    'if False:' Soundness.test_a_thermal_throttle_during_a_window_on_a_measured_core_is_flagged
+break_unit gate-throttle-ran lib/soundness.py 'if core in ran and isinstance(x, int)' 'if True and isinstance(x, int)' \
+    Soundness.test_a_thermal_throttle_on_a_core_nothing_measured_ran_on_is_not_a_disturbance
+break_unit state-throttle-read lib/bench.py '            throttle[kind].append(int(v) if v is not None and v.isdigit() else None)' \
+    '            throttle[kind].append(None)' Soundness.test_the_clock_driver_and_the_thermal_throttle_counts_are_read_core_by_core
+break_unit state-schema-throttle schema/omx-bench.v1.schema.json \
+    '"before": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "freq_mhz": { "type": "array", "items": { "type": "number", "minimum": 0 } },
+                      "freq_cores": { "type": "array", "items": { "type": "integer", "minimum": 0 } },
+                      "cpufreq_driver": { "type": ["string", "null"] },' \
+    '"before": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "freq_mhz": { "type": "array", "items": { "type": "number", "minimum": 0 } },
+                      "freq_cores": { "type": "array", "items": { "type": "integer", "minimum": 0 } },' \
+    Schema.test_a_repeat_state_as_the_runner_reads_it_is_valid
 break_unit gate-silent lib/soundness.py 'if not isinstance(db, (int, float)) or db < SILENT_DB:' \
     'if False:' Soundness.test_a_silent_output_is_flagged
 break_unit gate-output lib/soundness.py 'and abs(db - want) > OUTPUT_DB:' \

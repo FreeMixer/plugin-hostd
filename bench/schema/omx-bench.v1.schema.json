@@ -122,6 +122,11 @@
                     "properties": {
                       "freq_mhz": { "type": "array", "items": { "type": "number", "minimum": 0 } },
                       "freq_cores": { "type": "array", "items": { "type": "integer", "minimum": 0 } },
+                      "cpufreq_driver": { "type": ["string", "null"] },
+                      "pstate": { "type": ["string", "null"] },
+                      "governor": { "type": ["string", "null"] },
+                      "throttle_core": { "type": ["array", "null"], "items": { "type": ["integer", "null"], "minimum": 0 } },
+                      "throttle_package": { "type": ["array", "null"], "items": { "type": ["integer", "null"], "minimum": 0 } },
                       "temp_c": { "type": ["number", "null"] },
                       "throttled": { "type": ["string", "null"], "pattern": "^0x[0-9a-fA-F]+$" },
                       "host_cores": { "type": "array", "items": { "type": "integer", "minimum": 0 } },
@@ -135,6 +140,11 @@
                     "properties": {
                       "freq_mhz": { "type": "array", "items": { "type": "number", "minimum": 0 } },
                       "freq_cores": { "type": "array", "items": { "type": "integer", "minimum": 0 } },
+                      "cpufreq_driver": { "type": ["string", "null"] },
+                      "pstate": { "type": ["string", "null"] },
+                      "governor": { "type": ["string", "null"] },
+                      "throttle_core": { "type": ["array", "null"], "items": { "type": ["integer", "null"], "minimum": 0 } },
+                      "throttle_package": { "type": ["array", "null"], "items": { "type": ["integer", "null"], "minimum": 0 } },
                       "temp_c": { "type": ["number", "null"] },
                       "throttled": { "type": ["string", "null"], "pattern": "^0x[0-9a-fA-F]+$" },
                       "host_cores": { "type": "array", "items": { "type": "integer", "minimum": 0 } },
