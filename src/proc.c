@@ -31,6 +31,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <linux/sockios.h>
+#include <sys/ioctl.h>
 #include <sys/prctl.h>
 #include <sys/resource.h>
 #include <sys/socket.h>
@@ -330,6 +332,82 @@ void proc_stop(pid_t pid)
     waitpid(pid, &status, 0);
 }
 
+/* one thread as the kernel sees it: its id, its state letter, what it waits in (wchan), and the top of its kernel stack
+ * when the daemon may read it (root, or ptrace rights) */
+static size_t say_thread(char *out, size_t size, const char *task, const char *tid)
+{
+    char path[PATH_MAX], stat[512], wchan[64] = "-", frame[96] = "", state = '?';
+    FILE *f;
+    char *close;
+
+    snprintf(path, sizeof(path), "%s/%s/stat", task, tid);
+    if ((f = fopen(path, "r")) != NULL)
+    {
+        if (fgets(stat, sizeof(stat), f) && (close = strrchr(stat, ')')) != NULL && close[1] == ' ')
+            state = close[2];
+        fclose(f);
+    }
+    snprintf(path, sizeof(path), "%s/%s/wchan", task, tid);
+    if ((f = fopen(path, "r")) != NULL)
+    {
+        if (!fgets(wchan, sizeof(wchan), f) || !*wchan || !strcmp(wchan, "0"))
+            snprintf(wchan, sizeof(wchan), "-");
+        fclose(f);
+    }
+    snprintf(path, sizeof(path), "%s/%s/stack", task, tid);
+    if ((f = fopen(path, "r")) != NULL)
+    {
+        char line[160], *sym;
+
+        if (fgets(line, sizeof(line), f) && (sym = strchr(line, ' ')) != NULL)
+        {
+            sym[strcspn(sym, "\n")] = '\0';
+            snprintf(frame, sizeof(frame), " (%s)", sym + 1);
+        }
+        fclose(f);
+    }
+    return (size_t)snprintf(out, size, " %s %c %s%s,", tid, state, wchan, frame);
+}
+
+/* the threads of a task directory, each as say_thread has it, into out */
+static void say_threads(char *out, size_t size, const char *task)
+{
+    DIR *dir = opendir(task);
+    struct dirent *e;
+    size_t used = 0;
+
+    out[0] = '\0';
+    if (!dir)
+        return;
+    while ((e = readdir(dir)) && used + 1 < size)
+        if (e->d_name[0] >= '0' && e->d_name[0] <= '9')
+        {
+            size_t n = say_thread(out + used, size - used, task, e->d_name);
+
+            used = n < size - used ? used + n : size - 1;
+        }
+    closedir(dir);
+    if (used && out[used - 1] == ',')
+        out[used - 1] = '\0';
+}
+
+/* a worker that did not answer in rpc_timeout_ms is said before it is killed: the command, how long it waited, how much
+ * of the command it had not read, where each of its threads was, and the daemon's own threads, so a slow machine and a
+ * worker stuck behind something each say which */
+static void say_unanswered(pid_t pid, int fd, const char *msg, int64_t waited)
+{
+    char task[64], worker[1024], daemon[512];
+    int unread = -1;
+
+    snprintf(task, sizeof(task), "/proc/%d/task", (int)pid);
+    say_threads(worker, sizeof(worker), task);
+    say_threads(daemon, sizeof(daemon), "/proc/self/task");
+    if (ioctl(fd, SIOCOUTQ, &unread) != 0)
+        unread = -1;
+    fprintf(stderr, "plugin-hostd: worker %d did not answer '%.80s' in %lld ms, %d bytes of it unread; killed. its threads:%s; "
+                    "the daemon's:%s\n", (int)pid, msg, (long long)waited, unread, worker, daemon);
+}
+
 int proc_rpc(const conf_t *conf, pid_t pid, int fd, const char *msg, char **reply)
 {
     size_t len = strlen(msg) + 1, used = 0, cap = 256;
@@ -356,6 +434,7 @@ int proc_rpc(const conf_t *conf, pid_t pid, int fd, const char *msg, char **repl
         if (left <= 0 || poll(&pfd, 1, left) <= 0)
         {
             free(buffer);
+            say_unanswered(pid, fd, msg, proc_now_ms() - start);
             kill(pid, SIGKILL);
             return RPC_DIED;
         }

@@ -200,6 +200,9 @@ make test-daemon check-generated check-rendered
   refuses it
 - The panel test checks omx-delay's sections in order, so a later omx-delay with more sections
   passes
+- A worker killed for not answering in rpc_timeout_ms is said first: the command, how long it waited,
+  how much of it the worker had not read, and each thread of the worker and of the daemon with its
+  state, wait channel and top kernel frame, so a slow machine and a stuck worker tell apart
 - Requires plugin-hostd-protocol 0.4.4 or later and before 0.5: a second daemon on a busy port is
   refused instead of silently sharing it
 * Fri Nov 06 2026 Pau Aliagas <linuxnow@gmail.com> - 0.19.0-1

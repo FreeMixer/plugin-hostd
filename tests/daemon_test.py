@@ -808,6 +808,12 @@ def pool_in_flight_command_names_the_culprit_and_the_pool_stays_a_pool():
         check(r == resp("VERB_DROPPED"), "the controller is told its command was dropped: " + r)
         d.wait_event("instance_verb_dropped 21 param_set 21 hang 1", since=mark)
         d.wait_event("instance_quarantined 21 ", since=mark)
+        # the worker it killed is said before it goes: the command, how long it waited, where each of its threads was,
+        # and the daemon's own threads
+        said = [l for l in d.log().splitlines() if "did not answer 'param_set 21 hang 1'" in l]
+        check(len(said) == 1 and re.search(r" in [0-9]+ ms\b", said[0]) and re.search(r"its threads: [0-9]+ [A-Z] ", said[0])
+              and re.search(r"the daemon's: [0-9]+ [A-Z] ", said[0]),
+              "the kill says what the worker did not answer and where its threads and the daemon's were: %r" % said)
         for i in (20, 22, 23):
             k, w = d.wait_up(i)
             check(w["place"] == "pool:p" and set(w["inst"]) == {20, 22, 23}, "survivors stay pooled: %s" % w)
