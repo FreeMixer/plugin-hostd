@@ -47,6 +47,10 @@ The run refuses to start while another JACK server runs above the asked priority
 Each row starts its host fresh on a port of its own and stops it after. The run ends by checking that no process it
 started is left, whatever happened, and exits 3 if one was.
 
+A server that stops answering costs one row. The xrun probe, the run's own JACK client, lives in a process of its own
+with a 30 s limit on each call: past it the process is killed, the row fails with `JACK did not answer`, and the server
+is started again for the next row.
+
 `bench/validate.sh <file>...` checks documents against the schema; a problem prints the file, the row and the rule,
 and the exit is 1. `bench/lib/send.sh <port> <line>...` sends protocol lines to a host by hand.
 `bench/table.sh <file>...` writes the chains and grouping rows as markdown: the figures with their spread, the ratios of

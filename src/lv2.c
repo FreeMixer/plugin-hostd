@@ -248,14 +248,21 @@ static void directive(scan_t *s, token_t *t)
     }
 }
 
-/* the object of lv2:binary or rdfs:seeAlso as a path in the bundle, or the IRI as written when it is not one */
+/* the object of lv2:binary or rdfs:seeAlso as a path in the bundle, or the IRI as written when it is not one. A file://
+ * IRI writes the bundle's directory percent-encoded ("my amp.lv2" is my%20amp.lv2): it is decoded once with the
+ * protocol's phd_pin_path_decode before it is matched, and the name in the bundle is written back as one pin word */
 static void bundle_path(const scan_t *s, const char *bundle, const char *iri, char *out, size_t size)
 {
-    char file[PATH_MAX + 8];
+    char file[PATH_MAX + 8], decoded[PATH_MAX * 3];
 
     snprintf(file, sizeof(file), "file://%s/", bundle);
-    if (!strncmp(iri, file, strlen(file)))
-        iri += strlen(file);
+    if (!strncmp(iri, "file://", 7) && phd_pin_path_decode(iri, decoded, sizeof(decoded)) == 0 &&
+        !strncmp(decoded, file, strlen(file)))
+    {
+        if (phd_pin_path_encode(decoded + strlen(file), out, size) != 0)
+            snprintf(out, size, "%s", iri);
+        return;
+    }
     else if (strchr(iri, ':') || s->based)
     {
         snprintf(out, size, "%s", iri);
