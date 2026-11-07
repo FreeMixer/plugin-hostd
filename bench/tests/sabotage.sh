@@ -157,6 +157,19 @@ break_unit gate-freq-idle lib/soundness.py '            freqs.extend(measured_fr
     '            freqs.extend(s.get("freq_mhz") or [])' Soundness.test_idle_cores_slower_than_the_measured_ones_are_no_disturbance
 break_unit gate-freq-ran lib/soundness.py 'if core in ran]' 'if True]' \
     Soundness.test_a_measured_core_that_slowed_between_repeats_is_flagged
+break_unit state-schema-cores schema/omx-bench.v1.schema.json \
+    '"before": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "freq_mhz": { "type": "array", "items": { "type": "number", "minimum": 0 } },
+                      "freq_cores": { "type": "array", "items": { "type": "integer", "minimum": 0 } },' \
+    '"before": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "freq_mhz": { "type": "array", "items": { "type": "number", "minimum": 0 } },' \
+    Schema.test_a_repeat_state_as_the_runner_reads_it_is_valid
 break_unit state-core-order lib/bench.py 'for path in sorted(paths, key=lambda p: int(re.search(r"/cpu([0-9]+)/cpufreq/", p).group(1))):' \
     'for path in sorted(paths):' Soundness.test_the_cores_of_the_frequencies_are_read_in_their_own_order
 break_unit gate-silent lib/soundness.py 'if not isinstance(db, (int, float)) or db < SILENT_DB:' \

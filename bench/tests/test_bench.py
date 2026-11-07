@@ -58,6 +58,15 @@ class Schema(unittest.TestCase):
         code, out = validate(doc)
         self.assertEqual(code, 0, out)
 
+    def test_a_repeat_state_as_the_runner_reads_it_is_valid(self):
+        # what machine_state writes before and after each window, the core of each frequency included
+        doc = example()
+        st = {"freq_mhz": [800.0, 4800.0], "freq_cores": [0, 1], "temp_c": 41.0, "throttled": None,
+              "host_cores": [1], "jackd_cores": [1], "usb_irq_core": None}
+        first_ok(doc)["repeat_state"] = [{"before": dict(st), "after": dict(st)}]
+        code, out = validate(doc)
+        self.assertEqual(code, 0, out)
+
     def test_a_negative_xrun_count_is_red(self):
         doc = example()
         first_ok(doc)["xruns"] = -1
