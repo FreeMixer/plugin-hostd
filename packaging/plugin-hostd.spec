@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.19.0
+Version: 0.19.1
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -174,6 +174,31 @@ make test-daemon check-generated check-rendered
 %{omx_contract_dir}/plugin-hostd/
 
 %changelog
+* Sat Nov 07 2026 Pau Aliagas <linuxnow@gmail.com> - 0.19.1-1
+- The daemon writes its files on a thread of its own, so the command loop never waits on the disk: a
+  history save, a pin store or a descriptor on a slow disk left every command unanswered until the
+  write ended. The writer takes the bytes of the moment, in order; a periodic history save gives way
+  to a later one. history_clear, pin_clear and pin_accept answer once their file is on disk, or -902
+  when it could not be written; pin_reload, pin_changed, descriptor_get, panel_get and the pin poll
+  read the files after the writes handed over before them; quit ends with every write done. A write
+  the writer has no room for (64 waiting, or 64 MiB) refuses its command with -901. This also ends
+  the history test that timed out now and then on a slow build machine
+- Known: -902 for a write that failed and -901 for a full writer are codes of other meanings;
+  plugin-hostd-protocol 0.5.0 names a code for each, and plugin-hostd 0.20.0 answers them
+- A CLAP file whose name holds a space pins and loads, the uri written bare, quoted or
+  percent-encoded: the pin holds the name as one percent-encoded word, and pin_set refuses a path
+  with a stray escape. A pin's key is the path decoded, so two spellings of one path are one pin, in
+  every lookup, in pin_set, pin_clear, pin_accept and the store
+- A worker with no display gives Qt offscreen: every process the daemon starts has
+  QT_QPA_PLATFORM=offscreen when neither DISPLAY nor WAYLAND_DISPLAY is set and the user did not set
+  it, so a Qt-linked plugin no longer aborts as it is instantiated
+- The bench measures xruns in a process of its own with a hard timeout, so a JACK server that stops
+  answering ends the cell instead of the run; a soundness gate marks a disturbed cell unstable or
+  refuses it
+- The panel test checks omx-delay's sections in order, so a later omx-delay with more sections
+  passes
+- Requires plugin-hostd-protocol 0.4.4 or later and before 0.5: a second daemon on a busy port is
+  refused instead of silently sharing it
 * Fri Nov 06 2026 Pau Aliagas <linuxnow@gmail.com> - 0.19.0-1
 - A plugin the LV2 adapter refuses is never handed to another host: every add answers -512
   and the lv2_adapter_refused event says why. lv2_worker auto, which ran such a plugin on
