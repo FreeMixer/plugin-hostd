@@ -31,7 +31,7 @@ dead=
 # the functions each harness covers; static functions are matched by their bare name
 funcs() {
     case $1 in
-    command) echo src/verbs.c :: is_instance_verb is_placement pin_set_words number chain_words reply handle \
+    command) echo src/verbs.c :: is_instance_verb is_placement pin_set_words number chain_words reply handle run \
         verbs_receive ;;
     reply) echo src/relay.c :: send_line gesture_seen gesture_end gestures_end gestures_end_instance drain \
         relay_finish relay_event relay_add relay_instance_gone relay_remove ;;

@@ -36,6 +36,7 @@
 #include "supervisor.h"
 #include "verbs.h"
 #include "words.h"
+#include "writer.h"
 
 #define MAX_TOKENS PHD_LINE_WORDS_MAX
 
@@ -291,18 +292,133 @@ static char *handle(char *line, char **tok, int ntok)
     return reply_text;
 }
 
-void verbs_receive(msg_t *msg)
+/* ---------------------------------------------------------------- the controller's answers, in order */
+
+/* An answer that waits: the reply of a verb whose writes have not landed (group), or a command that came while one
+ * waited, run in its turn (line), or replies refused because too many waited (refusals). A controller reads its answers
+ * in the order it sent the commands, so nothing is answered past one that waits. */
+typedef struct out
 {
-    char *line = strndup(msg->data, msg->data_size), *tok[MAX_TOKENS], *copy, *end;
+    struct out *next;
+    int fd, group, refusals, reads;
+    char *text, *tag, *line;
+    size_t tag_len, size;
+} out_t;
+
+#define OUTBOX_MAX 256
+
+static out_t *g_out, *g_out_tail;
+static int g_nout;
+
+/* the verbs that read the daemon's own files back: they run once no write of the writer waits, so they never read a
+ * file older than one already handed over */
+static int reads_files(const char *verb)
+{
+    return !strcmp(verb, OMX_VERB_PIN_RELOAD) || !strcmp(verb, OMX_VERB_PIN_CHANGED) ||
+           !strcmp(verb, OMX_VERB_DESCRIPTOR_GET) || !strcmp(verb, OMX_VERB_PANEL_GET);
+}
+
+/* the verbs whose reply says their change is on disk: it goes when the write lands, and says so when it did not */
+static int promises_writes(const char *verb)
+{
+    return !strcmp(verb, OMX_VERB_HISTORY_CLEAR) || !strcmp(verb, OMX_VERB_PIN_SET) ||
+           !strcmp(verb, OMX_VERB_PIN_CLEAR) || !strcmp(verb, OMX_VERB_PIN_ACCEPT);
+}
+
+static void out_free(out_t *o)
+{
+    free(o->text);
+    free(o->tag);
+    free(o->line);
+    free(o);
+}
+
+static void out_push_front(out_t *o)
+{
+    o->next = g_out;
+    g_out = o;
+    if (!g_out_tail)
+        g_out_tail = o;
+    g_nout++;
+}
+
+static void out_push_back(out_t *o)
+{
+    o->next = NULL;
+    if (g_out_tail)
+        g_out_tail->next = o;
+    else
+        g_out = o;
+    g_out_tail = o;
+    g_nout++;
+}
+
+static out_t *out_pop(void)
+{
+    out_t *o = g_out;
+
+    if (o)
+    {
+        g_out = o->next;
+        if (!g_out)
+            g_out_tail = NULL;
+        g_nout--;
+    }
+    return o;
+}
+
+/* the line's command, past its tag: its first word, in verb[size] */
+static void first_word(const char *data, size_t size, char *verb, size_t vsize)
+{
+    char line[PHD_LINE_MAX + 1];
+    size_t n = size < sizeof(line) - 1 ? size : sizeof(line) - 1, t, w = 0;
+    const char *p;
+
+    memcpy(line, data, n);
+    line[n] = '\0';
+    t = session_tag_len(line);
+    p = line + t;
+    while (*p == ' ')
+        p++;
+    while (p[w] && p[w] != ' ' && p[w] != '\n' && p[w] != '\r' && p[w] != '\0' && w < vsize - 1)
+        w++;
+    memcpy(verb, p, w);
+    verb[w] = '\0';
+}
+
+static out_t *out_command(int fd, const char *data, size_t size)
+{
+    out_t *o = calloc(1, sizeof(*o));
+    char verb[64];
+
+    if (!o || !(o->line = malloc(size + 1)))
+    {
+        free(o);
+        return NULL;
+    }
+    memcpy(o->line, data, size);
+    o->line[size] = '\0';
+    o->size = size;
+    o->fd = fd;
+    first_word(data, size, verb, sizeof(verb));
+    o->reads = reads_files(verb);
+    return o;
+}
+
+/* one command, run now: answered at once, or the answer that waits for its writes */
+static out_t *run(int fd, const char *data, size_t size)
+{
+    char *line = strndup(data, size), *tok[MAX_TOKENS], *copy, *end, *text;
     const char *tag = NULL, *command;
     size_t tag_len = 0;
-    int ntok = 0;
+    int ntok = 0, group;
+    out_t *o = NULL;
 
     /* a message there is no memory to copy is refused, and not read */
     if (!line)
     {
-        reply(msg->sender_id, NULL, NULL, 0);
-        return;
+        reply(fd, NULL, NULL, 0);
+        return NULL;
     }
     end = line + strlen(line);
     while (end > line && (end[-1] == '\n' || end[-1] == '\r' || end[-1] == ' ' || end[-1] == '\t'))
@@ -318,29 +434,160 @@ void verbs_receive(msg_t *msg)
     copy = strdup(command);
     if (!copy)
     {
-        reply(msg->sender_id, NULL, NULL, 0);
+        reply(fd, NULL, NULL, 0);
         free(line);
-        return;
+        return NULL;
     }
     /* the words as the protocol reads them: a word in quotes may hold spaces, and the quotes are not its value */
     ntok = words_read(copy, tok, MAX_TOKENS);
     if (ntok < 0)
-    {
-        reply(msg->sender_id, NULL, NULL, 0);
-        free(copy);
-        free(line);
-        return;
-    }
-    if (ntok == 0 && tag)
-        reply(msg->sender_id, strdup(MESSAGE_COMMAND_NOT_FOUND), tag, tag_len);
+        reply(fd, NULL, NULL, 0);
+    else if (ntok == 0 && tag)
+        reply(fd, strdup(MESSAGE_COMMAND_NOT_FOUND), tag, tag_len);
     else if (ntok == 0)
-        reply(msg->sender_id, sup_resp(ERR_INVALID_OPERATION), NULL, 0);
+        reply(fd, sup_resp(ERR_INVALID_OPERATION), NULL, 0);
     else
     {
-        reply(msg->sender_id, handle((char *)command, tok, ntok), tag, tag_len);
-        if (ntok > 1 && (verb_is(tok[0], EFFECT_PRESET_LOAD) || verb_is(tok[0], EFFECT_PATCH_SET)))
-            sup_after_reply(atoi(tok[1]), tok[0]);
+        /* the writes of a verb that promises them are its group: its reply goes when they have landed */
+        writer_verb_begin(promises_writes(tok[0]));
+        text = handle((char *)command, tok, ntok);
+        group = writer_verb_end();
+        if (group < 0)
+        {
+            /* a write the writer had no room for: the verb is refused, and nothing waits for it */
+            free(text);
+            text = sup_resp(ERR_MEMORY_ALLOCATION);
+            group = 0;
+        }
+        if (group > 0 && text && (o = calloc(1, sizeof(*o))) != NULL &&
+            (!tag || (o->tag = strndup(tag, tag_len)) != NULL))
+        {
+            o->fd = fd;
+            o->group = group;
+            o->text = text;
+            o->tag_len = tag ? tag_len : 0;
+        }
+        else
+        {
+            if (o)
+            {
+                free(o);
+                o = NULL;
+            }
+            if (group > 0)
+            {
+                /* no memory to hold the answer back: it goes at once, and the group is nobody's */
+                writer_forget(group);
+            }
+            reply(fd, text, tag, tag_len);
+            if (ntok > 1 && (verb_is(tok[0], EFFECT_PRESET_LOAD) || verb_is(tok[0], EFFECT_PATCH_SET)))
+                sup_after_reply(atoi(tok[1]), tok[0]);
+        }
     }
     free(copy);
     free(line);
+    return o;
+}
+
+void verbs_flush(void)
+{
+    char refusal[32];
+    out_t *o;
+    int err;
+
+    while ((o = g_out) != NULL)
+    {
+        if (o->line)
+        {
+            out_t *answer;
+
+            if (o->reads && writer_busy())
+                return;
+            o = out_pop();
+            answer = run(o->fd, o->line, o->size);
+            out_free(o);
+            if (answer)
+                out_push_front(answer);
+            continue;
+        }
+        if (o->refusals)
+        {
+            o = out_pop();
+            snprintf(refusal, sizeof(refusal), "resp %d", ERR_MEMORY_ALLOCATION);
+            while (o->refusals-- > 0)
+                socket_send(o->fd, refusal, strlen(refusal) + 1);
+            out_free(o);
+            continue;
+        }
+        if (!writer_group(o->group, &err))
+            return;
+        o = out_pop();
+        /* a write that did not land: a verb that would have succeeded says so, with the code of a refused operation */
+        if (err && sup_reply_code(o->text) >= 0)
+        {
+            free(o->text);
+            o->text = sup_resp(ERR_INVALID_OPERATION);
+        }
+        reply(o->fd, o->text, o->tag, o->tag_len);
+        o->text = NULL;
+        out_free(o);
+    }
+}
+
+int verbs_waiting(void)
+{
+    return g_out != NULL;
+}
+
+void verbs_drop(void)
+{
+    out_t *o;
+
+    while ((o = out_pop()) != NULL)
+    {
+        if (o->group)
+            writer_forget(o->group);
+        out_free(o);
+    }
+}
+
+void verbs_receive(msg_t *msg)
+{
+    out_t *o;
+
+    /* an answer waits: this command runs in its turn, after it */
+    if (g_out)
+    {
+        if (g_nout >= OUTBOX_MAX || !(o = out_command(msg->sender_id, msg->data, (size_t)msg->data_size)))
+        {
+            /* too many wait: refused in its place, in order, counted on one entry so the queue stays bounded */
+            if (g_out_tail->refusals)
+                g_out_tail->refusals++;
+            else if ((o = calloc(1, sizeof(*o))) != NULL)
+            {
+                o->fd = msg->sender_id;
+                o->refusals = 1;
+                out_push_back(o);
+            }
+            return;
+        }
+        out_push_back(o);
+        verbs_flush();
+        return;
+    }
+    {
+        char verb[64];
+
+        first_word(msg->data, (size_t)msg->data_size, verb, sizeof(verb));
+        if (reads_files(verb) && writer_busy())
+        {
+            if ((o = out_command(msg->sender_id, msg->data, (size_t)msg->data_size)) != NULL)
+            {
+                out_push_back(o);
+                return;
+            }
+        }
+    }
+    if ((o = run(msg->sender_id, msg->data, (size_t)msg->data_size)) != NULL)
+        out_push_back(o);
 }

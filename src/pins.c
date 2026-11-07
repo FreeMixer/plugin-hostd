@@ -40,6 +40,7 @@
 #include "fsutil.h"
 #include "pins.h"
 #include "words.h"
+#include "writer.h"
 
 #define SCHEME_MAX   32
 #define STORE_NAME   "plugin-hostd/pins"
@@ -424,14 +425,15 @@ static void held_free(void)
     g_store_unreadable = 0;
 }
 
-/* the pins the daemon learned, to the store: a temporary file of its own beside it (mkstemp, so two daemons on one
- * store never share a name), written, fsynced and renamed over it, then the directory fsynced. A failure is announced
- * on stderr, with what it costs, and leaves the pins in memory */
+/* the pins the daemon learned, to the store, through the writer (writer.h): a temporary file of its own beside it
+ * (mkstemp, so two daemons on one store never share a name), written, fsynced and renamed over it, then the directory
+ * fsynced. A failure is announced on stderr, with what it costs, and leaves the pins in memory */
 static void store_save(void)
 {
-    char tmp[PATH_MAX + 16];
+    char *bytes = NULL;
+    size_t len = 0;
     FILE *file;
-    int n, fd, ok;
+    int n;
 
     if (!*g_store)
         return;
@@ -441,19 +443,11 @@ static void store_save(void)
                         "are NOT persisted until the operator repairs it\n", g_store);
         return;
     }
-    snprintf(tmp, sizeof(tmp), "%s.XXXXXX", g_store);
-    fd = -1;
-    if (fs_mkdir_parents(tmp) != 0 || (fd = mkstemp(tmp)) < 0 || !(file = fdopen(fd, "w")))
+    /* the bytes of now, handed to the writer: the command loop never waits on the disk */
+    if (!(file = open_memstream(&bytes, &len)))
     {
-        int err = errno;
-
-        if (fd >= 0)
-        {
-            close(fd);
-            unlink(tmp);
-        }
-        fprintf(stderr, "plugin-hostd: can't write the pin store %s: %s; the pins learned this run are NOT persisted and "
-                        "the next start learns them again\n", g_store, strerror(err));
+        fprintf(stderr, "plugin-hostd: can't write the pin store %s: out of memory; the pins learned this run are NOT "
+                        "persisted and the next start learns them again\n", g_store);
         return;
     }
     for (n = 0; n < g_nheld; n++)
@@ -461,16 +455,12 @@ static void store_save(void)
     for (n = 0; n < g_npins; n++)
         if (g_pins[n].learned)
             line_write(file, &g_pins[n]);
-    ok = fflush(file) == 0 && !ferror(file) && fsync(fileno(file)) == 0;
-    ok = fclose(file) == 0 && ok;
-    if (!ok || rename(tmp, g_store) != 0)
+    if (fclose(file) != 0)
     {
-        fprintf(stderr, "plugin-hostd: can't write the pin store %s: %s; the pins learned this run are NOT persisted and "
-                        "the next start learns them again\n", g_store, strerror(errno));
-        unlink(tmp);
+        free(bytes);
         return;
     }
-    fs_sync_dir(g_store);
+    writer_put(g_store, bytes, len, 0, NULL, NULL, "the pin store %s: %s; the pins learned this run are NOT persisted and the next start learns them again");
 }
 
 /* ---------------------------------------------------------------- the user's choices */
@@ -545,43 +535,31 @@ static void accepted_read(void)
     fclose(file);
 }
 
-/* written to a temporary file beside it and renamed over it, as the store is; a failure is said and costs the choice
- * after a restart only */
+/* through the writer, as the store is; a failure is said and costs the choice after a restart only */
 static void accepted_save(void)
 {
     const char *path = accepted_file();
-    char tmp[PATH_MAX + 32];
+    char *bytes = NULL;
+    size_t len = 0;
     FILE *file;
-    int n, fd, ok;
+    int n;
 
     if (!path)
         return;
-    snprintf(tmp, sizeof(tmp), "%s.XXXXXX", path);
-    fd = -1;
-    if (fs_mkdir_parents(tmp) != 0 || (fd = mkstemp(tmp)) < 0 || !(file = fdopen(fd, "w")))
+    if (!(file = open_memstream(&bytes, &len)))
     {
-        if (fd >= 0)
-        {
-            close(fd);
-            unlink(tmp);
-        }
-        fprintf(stderr, "plugin-hostd: can't write %s: %s; the user's choices are NOT kept past a restart\n", path,
-                strerror(errno));
+        fprintf(stderr, "plugin-hostd: can't write %s: out of memory; the user's choices are NOT kept past a restart\n", path);
         return;
     }
     fprintf(file, "# plugins the user chose to load although their qualification refused them (pin_accept)\n");
     for (n = 0; n < g_naccepted; n++)
         fprintf(file, "%s\n", g_accepted[n]);
-    ok = fflush(file) == 0 && !ferror(file) && fsync(fileno(file)) == 0;
-    ok = fclose(file) == 0 && ok;
-    if (!ok || rename(tmp, path) != 0)
+    if (fclose(file) != 0)
     {
-        fprintf(stderr, "plugin-hostd: can't write %s: %s; the user's choices are NOT kept past a restart\n", path,
-                strerror(errno));
-        unlink(tmp);
+        free(bytes);
         return;
     }
-    fs_sync_dir(path);
+    writer_put(path, bytes, len, 0, NULL, NULL, "%s: %s; the user's choices are NOT kept past a restart");
 }
 
 void pins_accepting(int on)

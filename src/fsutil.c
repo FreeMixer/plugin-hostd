@@ -22,6 +22,7 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -64,4 +65,64 @@ void fs_sync_dir(const char *path)
         fsync(fd);
         close(fd);
     }
+}
+
+int fs_write_atomic(const char *path, const char *bytes, size_t len)
+{
+    char tmp[PATH_MAX + 16];
+    size_t done = 0;
+    int fd, err = 0;
+
+    if (snprintf(tmp, sizeof(tmp), "%s.XXXXXX", path) >= (int)sizeof(tmp))
+        return ENAMETOOLONG;
+    if (fs_mkdir_parents(tmp) != 0 || (fd = mkstemp(tmp)) < 0)
+        return errno;
+    while (done < len)
+    {
+        ssize_t n = write(fd, bytes + done, len - done);
+
+        if (n < 0 && errno == EINTR)
+            continue;
+        if (n <= 0)
+        {
+            err = n < 0 ? errno : EIO;
+            break;
+        }
+        done += (size_t)n;
+    }
+    if (!err && fsync(fd) != 0)
+        err = errno;
+    if (close(fd) != 0 && !err)
+        err = errno;
+    if (!err && rename(tmp, path) != 0)
+        err = errno;
+    if (err)
+    {
+        unlink(tmp);
+        return err;
+    }
+    fs_sync_dir(path);
+    return 0;
+}
+
+int fs_into_place(const char *tmp, const char *final)
+{
+    int fd, err = 0;
+
+    if ((fd = open(tmp, O_RDONLY | O_CLOEXEC)) < 0)
+        return errno;
+    if (fsync(fd) != 0)
+        err = errno;
+    close(fd);
+    if (err)
+        return err;
+    if (access(final, F_OK) == 0)
+    {
+        unlink(tmp);
+        return 0;
+    }
+    if (rename(tmp, final) != 0)
+        return errno;
+    fs_sync_dir(final);
+    return 0;
 }
