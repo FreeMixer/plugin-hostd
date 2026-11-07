@@ -62,7 +62,9 @@ class Schema(unittest.TestCase):
         # what machine_state writes before and after each window, the core of each frequency included
         doc = example()
         st = {"freq_mhz": [800.0, 4800.0], "freq_cores": [0, 1], "temp_c": 41.0, "throttled": None,
-              "host_cores": [1], "jackd_cores": [1], "usb_irq_core": None}
+              "host_cores": [1], "jackd_cores": [1], "usb_irq_core": None,
+              "cpufreq_driver": "intel_pstate", "pstate": "active", "governor": "performance",
+              "throttle_core": [112434, 7], "throttle_package": [238271, 238271]}
         first_ok(doc)["repeat_state"] = [{"before": dict(st), "after": dict(st)}]
         code, out = validate(doc)
         self.assertEqual(code, 0, out)
@@ -1258,6 +1260,62 @@ class Soundness(unittest.TestCase):
             st = bench.machine_state(sysfs=d, proc=d)
         self.assertEqual(st["freq_cores"], [0, 1, 2, 10, 11])
         self.assertEqual(st["freq_mhz"], [800.0, 801.0, 802.0, 4800.0, 4801.0])
+
+    def test_the_clock_driver_and_the_thermal_throttle_counts_are_read_core_by_core(self):
+        with tempfile.TemporaryDirectory() as d:
+            for n, khz, core, pkg in ((0, 800000, 5, 40), (1, 4800000, 9, 40), (10, 4801000, 0, 41)):
+                base = "%s/devices/system/cpu/cpu%d" % (d, n)
+                os.makedirs(base + "/cpufreq")
+                os.makedirs(base + "/thermal_throttle")
+                for name, value in (("cpufreq/scaling_cur_freq", khz), ("cpufreq/scaling_driver", "intel_pstate"),
+                                    ("cpufreq/scaling_governor", "performance"),
+                                    ("thermal_throttle/core_throttle_count", core),
+                                    ("thermal_throttle/package_throttle_count", pkg)):
+                    with open("%s/%s" % (base, name), "w") as f:
+                        f.write("%s\n" % value)
+            os.makedirs(d + "/devices/system/cpu/intel_pstate")
+            with open(d + "/devices/system/cpu/intel_pstate/status", "w") as f:
+                f.write("active\n")
+            st = bench.machine_state(sysfs=d, proc=d)
+        self.assertEqual((st["cpufreq_driver"], st["pstate"], st["governor"]), ("intel_pstate", "active", "performance"))
+        self.assertEqual(st["throttle_core"], [5, 9, 0])
+        self.assertEqual(st["throttle_package"], [40, 40, 41])
+
+    def test_a_clock_the_hardware_picks_is_recorded_and_not_judged(self):
+        # intel_pstate active under the performance governor: the core of an idle host reads 800 MHz in one repeat
+        # and 5200 in the next, and that is the hardware's choice, not a disturbance
+        hw = {"cpufreq_driver": "intel_pstate", "pstate": "active", "governor": "performance",
+              "freq_cores": [0, 1], "host_cores": [0], "jackd_cores": [1],
+              "throttle_core": [3, 3], "throttle_package": [7, 7]}
+        state = [{"before": dict(hw, freq_mhz=[800.0, 5200.0]), "after": dict(hw, freq_mhz=[800.0, 5200.0])},
+                 {"before": dict(hw, freq_mhz=[5200.0, 5200.0]), "after": dict(hw, freq_mhz=[2200.0, 5200.0])}]
+        self.assertEqual(soundness.check([cell_doc([crow(6.5, repeat_state=state)])]), {})
+
+    def test_a_thermal_throttle_during_a_window_on_a_measured_core_is_flagged(self):
+        hw = {"cpufreq_driver": "intel_pstate", "pstate": "active", "governor": "performance",
+              "freq_mhz": [5200.0, 5200.0], "freq_cores": [0, 1], "host_cores": [0], "jackd_cores": [1]}
+        state = [{"before": dict(hw, throttle_core=[3, 3], throttle_package=[7, 7]),
+                  "after": dict(hw, throttle_core=[3, 4], throttle_package=[7, 7])}]
+        bad = soundness.check([cell_doc([crow(6.5, repeat_state=state)])])
+        self.assertIn("state: thermal throttle (core 1, repeat 1)", bad[(0, 0)])
+        pkg = [{"before": dict(hw, throttle_core=[3, 3], throttle_package=[7, 7]),
+                "after": dict(hw, throttle_core=[3, 3], throttle_package=[8, 8])}]
+        bad = soundness.check([cell_doc([crow(6.5, repeat_state=pkg)])])
+        self.assertIn("state: thermal throttle (package of core 0, repeat 1)", bad[(0, 0)])
+
+    def test_a_thermal_throttle_on_a_core_nothing_measured_ran_on_is_not_a_disturbance(self):
+        hw = {"cpufreq_driver": "intel_pstate", "pstate": "active", "governor": "performance",
+              "freq_mhz": [5200.0, 5200.0, 800.0], "freq_cores": [0, 1, 2], "host_cores": [0], "jackd_cores": [1]}
+        state = [{"before": dict(hw, throttle_core=[3, 3, 9], throttle_package=[7, 7, 7]),
+                  "after": dict(hw, throttle_core=[3, 3, 12], throttle_package=[7, 7, 7])}]
+        self.assertEqual(soundness.check([cell_doc([crow(6.5, repeat_state=state)])]), {})
+
+    def test_a_shared_clock_that_moved_is_still_flagged_without_a_hardware_clock_driver(self):
+        # a Pi: no cpufreq_driver the hardware runs, the cores share one clock
+        state = [{"before": {"freq_mhz": [2400.0] * 4, "freq_cores": [0, 1, 2, 3], "host_cores": [2], "jackd_cores": [3]}},
+                 {"before": {"freq_mhz": [1500.0] * 4, "freq_cores": [0, 1, 2, 3], "host_cores": [2], "jackd_cores": [3]}}]
+        bad = soundness.check([cell_doc([crow(6.5, repeat_state=state)])])
+        self.assertTrue(bad[(0, 0)][0].startswith("state: CPU frequency 1500..2400"), bad)
 
     def test_a_silent_output_is_flagged(self):
         row = crow(6.5, output={"rms_db": -200.0, "peak_db": -200.0})

@@ -329,7 +329,22 @@ def machine_state(host_pids=(), jackd_pid=None, sysfs="/sys", proc="/proc"):
         temp = round(int(read(sysfs + "/class/thermal/thermal_zone0/temp")) / 1000.0, 1)
     except ValueError:
         pass
+    # who sets the clock (a driver that hands it to the hardware makes a core's frequency its own choice from moment
+    # to moment), and each core's thermal throttle counts, the x86 kernel's account of the clock cut by heat; both in
+    # the order of freq_cores
+    cpu = sysfs + "/devices/system/cpu/"
+    driver = read(cpu + "cpu%d/cpufreq/scaling_driver" % freq_cores[0], None) if freq_cores else None
+    governor = read(cpu + "cpu%d/cpufreq/scaling_governor" % freq_cores[0], None) if freq_cores else None
+    pstate = read(cpu + "intel_pstate/status", None) or read(cpu + "amd_pstate/status", None)
+    throttle = {"core": [], "package": []}
+    for c in freq_cores:
+        for kind in ("core", "package"):
+            v = read(cpu + "cpu%d/thermal_throttle/%s_throttle_count" % (c, kind), None)
+            throttle[kind].append(int(v) if v is not None and v.isdigit() else None)
     st = {"freq_mhz": freqs, "freq_cores": freq_cores, "temp_c": temp, "throttled": throttled_now(),
+          "cpufreq_driver": driver, "pstate": pstate, "governor": governor,
+          "throttle_core": throttle["core"] if any(v is not None for v in throttle["core"]) else None,
+          "throttle_package": throttle["package"] if any(v is not None for v in throttle["package"]) else None,
           "host_cores": thread_cores(host_pids, proc), "jackd_cores": thread_cores([jackd_pid] if jackd_pid else [], proc),
           "usb_irq_core": usb_irq_core(proc)}
     return st
