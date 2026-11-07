@@ -164,7 +164,7 @@ other (`lib/soundness.py`, thresholds at its top):
 | twin | the same cell at another period count, or in another document, differs by more than 8 % (the work of a cycle does not depend on the periods) |
 | stress | the cell without stress reads higher than the same cell with it |
 | scaling | the cell reads higher than the same cell at fewer frames |
-| state | a repeat ran with the firmware's throttle bits set, or the CPU frequency moved more than 5 % across the repeats |
+| state | a repeat ran with the firmware's throttle bits set, or the frequency of the cores the host's and JACK's threads ran on moved more than 5 % across the repeats (a core nothing ran on, idle at its lowest clock, is no disturbance) |
 | output | the strip made no sound, or its level differs by more than 1 dB from the same set run one process per plugin (H1 and H2) |
 
 `run.sh` interleaves the hosts across the repeats of a scenario (A B C A B C), records `repeat_state` (core

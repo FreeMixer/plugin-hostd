@@ -58,6 +58,15 @@ class Schema(unittest.TestCase):
         code, out = validate(doc)
         self.assertEqual(code, 0, out)
 
+    def test_a_repeat_state_as_the_runner_reads_it_is_valid(self):
+        # what machine_state writes before and after each window, the core of each frequency included
+        doc = example()
+        st = {"freq_mhz": [800.0, 4800.0], "freq_cores": [0, 1], "temp_c": 41.0, "throttled": None,
+              "host_cores": [1], "jackd_cores": [1], "usb_irq_core": None}
+        first_ok(doc)["repeat_state"] = [{"before": dict(st), "after": dict(st)}]
+        code, out = validate(doc)
+        self.assertEqual(code, 0, out)
+
     def test_a_negative_xrun_count_is_red(self):
         doc = example()
         first_ok(doc)["xruns"] = -1
@@ -1225,6 +1234,30 @@ class Soundness(unittest.TestCase):
         state = [{"before": {"freq_mhz": [2400.0, 2400.0]}}, {"before": {"freq_mhz": [1500.0, 2400.0]}}]
         bad = soundness.check([cell_doc([crow(6.5, repeat_state=state)])])
         self.assertTrue(bad[(0, 0)][0].startswith("state: CPU frequency 1500..2400"))
+
+    def test_idle_cores_slower_than_the_measured_ones_are_no_disturbance(self):
+        # a desk: the cores nothing runs on idle at 800 MHz, the ones the host and JACK run on hold 4800 MHz
+        freqs = [800.0, 800.0, 4800.0, 4800.0, 800.0, 800.0]
+        st = {"freq_mhz": freqs, "freq_cores": [0, 1, 2, 3, 4, 5], "host_cores": [2], "jackd_cores": [3]}
+        state = [{"before": dict(st), "after": dict(st)} for _ in range(3)]
+        self.assertEqual(soundness.check([cell_doc([crow(6.5, repeat_state=state)])]), {})
+
+    def test_a_measured_core_that_slowed_between_repeats_is_flagged(self):
+        quick = {"freq_mhz": [800.0, 800.0, 4800.0, 4800.0], "freq_cores": [0, 1, 2, 3], "host_cores": [2], "jackd_cores": [3]}
+        slow = dict(quick, freq_mhz=[800.0, 800.0, 3000.0, 4800.0])
+        state = [{"before": quick, "after": quick}, {"before": slow, "after": slow}]
+        bad = soundness.check([cell_doc([crow(6.5, repeat_state=state)])])
+        self.assertTrue(bad[(0, 0)][0].startswith("state: CPU frequency 3000..4800"), bad)
+
+    def test_the_cores_of_the_frequencies_are_read_in_their_own_order(self):
+        with tempfile.TemporaryDirectory() as d:
+            for n, khz in ((0, 800000), (1, 801000), (2, 802000), (10, 4800000), (11, 4801000)):
+                os.makedirs("%s/devices/system/cpu/cpu%d/cpufreq" % (d, n))
+                with open("%s/devices/system/cpu/cpu%d/cpufreq/scaling_cur_freq" % (d, n), "w") as f:
+                    f.write("%d\n" % khz)
+            st = bench.machine_state(sysfs=d, proc=d)
+        self.assertEqual(st["freq_cores"], [0, 1, 2, 10, 11])
+        self.assertEqual(st["freq_mhz"], [800.0, 801.0, 802.0, 4800.0, 4801.0])
 
     def test_a_silent_output_is_flagged(self):
         row = crow(6.5, output={"rms_db": -200.0, "peak_db": -200.0})
