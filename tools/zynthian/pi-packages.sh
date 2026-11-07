@@ -10,14 +10,14 @@
 #
 # Prints one row per package: name, installed, candidate, and BEHIND when they differ.
 set -u
-PKGS=${PKGS:-"plugin-hostd plugin-hostd-contract libplugin-hostd-protocol0 omx-clap-host libomx-clap-core1 omx-panel plugin-qualify omx-plugins omx-plugins-lv2 omx-plugins-clap omx-contract-data omx-qualification-records openmixer-release"}
-printf '%-30s %-22s %-22s\n' package installed candidate
+PKGS=${PKGS:-"plugin-hostd plugin-hostd-contract libplugin-hostd-protocol0 omx-clap-host libomx-clap-core1 omx-panel plugin-qualify omx-plugins omx-plugins-lv2 omx-plugins-clap omx-contract-data plugin-db-qualification-rpi5-zynthian-vangelis openmixer-release"}
+printf '%-48s %-22s %-22s\n' package installed candidate
 for p in $PKGS; do
 	inst=$(dpkg-query -W -f '${Version}' "$p" 2>/dev/null)
 	cand=$(apt-cache policy "$p" 2>/dev/null | awk '/Candidate:/{print $2}')
 	flag=""
 	[ -n "$cand" ] && [ "$cand" != "(none)" ] && [ "$inst" != "$cand" ] && flag=BEHIND
-	printf '%-30s %-22s %-22s %s\n' "$p" "${inst:--}" "${cand:--}" "$flag"
+	printf '%-48s %-22s %-22s %s\n' "$p" "${inst:--}" "${cand:--}" "$flag"
 done
 echo
 echo "forks:"
